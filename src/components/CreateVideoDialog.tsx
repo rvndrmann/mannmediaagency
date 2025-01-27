@@ -9,6 +9,8 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -20,6 +22,17 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
   const [selectedLanguage, setSelectedLanguage] = React.useState("en-US");
   const [selectedDuration, setSelectedDuration] = React.useState("60");
   const [selectedVoice, setSelectedVoice] = React.useState("david");
+  const [topic, setTopic] = React.useState("");
+  const [script, setScript] = React.useState("");
+
+  const popularTopics = [
+    "What If You Could Time Travel to Ancient Egypt?",
+    "5 Hidden Gems in Paris",
+    "Morning Routine of a CEO",
+    "Life in a World Without Smartphones",
+    "How to Make the Perfect Avocado Toast",
+    "AI Assistant Falls in Love with User"
+  ];
 
   const handleNext = () => {
     setStep((prev) => prev + 1);
@@ -27,6 +40,16 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
 
   const handlePrevious = () => {
     setStep((prev) => prev - 1);
+  };
+
+  const handleTopicClick = (selectedTopic: string) => {
+    setTopic(selectedTopic);
+  };
+
+  const handleGenerateScript = () => {
+    // This would typically make an API call to generate the script
+    console.log("Generating script for topic:", topic);
+    setScript("Your script will appear here. You can edit it after generation.");
   };
 
   return (
@@ -187,6 +210,65 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
                 </Label>
               ))}
             </RadioGroup>
+          </div>
+        )}
+
+        {step === 3 && (
+          <div className="space-y-6">
+            <div>
+              <Label className="text-base font-semibold mb-2 block">
+                Type in Topic <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="Enter your video topic"
+                className="w-full"
+              />
+            </div>
+
+            <div>
+              <Label className="text-base font-semibold mb-2 block">
+                Popular Topics
+              </Label>
+              <div className="flex flex-wrap gap-2">
+                {popularTopics.map((popularTopic) => (
+                  <Button
+                    key={popularTopic}
+                    variant="outline"
+                    className={`text-sm ${
+                      topic === popularTopic ? "border-purple-500 bg-purple-50" : ""
+                    }`}
+                    onClick={() => handleTopicClick(popularTopic)}
+                  >
+                    {popularTopic}
+                  </Button>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <div className="flex justify-between items-center mb-2">
+                <Label className="text-base font-semibold">
+                  Script <span className="text-red-500">*</span>
+                </Label>
+                <span className="text-sm text-gray-500">
+                  {script.length} / 1500 characters
+                </span>
+              </div>
+              <Textarea
+                value={script}
+                onChange={(e) => setScript(e.target.value)}
+                placeholder="Your script will appear here. You can edit it after generation."
+                className="min-h-[200px]"
+              />
+              <Button
+                onClick={handleGenerateScript}
+                className="w-full mt-2 bg-purple-600 hover:bg-purple-700"
+              >
+                Generate Script
+              </Button>
+            </div>
           </div>
         )}
 

@@ -1,13 +1,17 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Check } from "lucide-react";
+import { Plus, Check, Menu } from "lucide-react";
+import { SidebarTrigger } from "@/components/ui/sidebar";
 
 export const Dashboard = () => {
   return (
-    <div className="flex-1 p-8">
+    <div className="flex-1 p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">Your Dashboard</h1>
-        <Button className="bg-orange-500 hover:bg-orange-600">
+        <div className="flex items-center gap-4">
+          <SidebarTrigger className="md:hidden" />
+          <h1 className="text-xl md:text-2xl font-bold">Your Dashboard</h1>
+        </div>
+        <Button className="bg-orange-500 hover:bg-orange-600 hidden sm:block">
           Upgrade now!
         </Button>
       </div>
@@ -19,14 +23,14 @@ export const Dashboard = () => {
         </span>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <Card className="border-dashed border-2 border-blue-300 p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors">
-          <Plus className="w-12 h-12 text-blue-500 mb-4" />
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+        <Card className="border-dashed border-2 border-blue-300 p-6 md:p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors">
+          <Plus className="w-8 h-8 md:w-12 md:h-12 text-blue-500 mb-4" />
           <h3 className="text-blue-500 font-medium">Create New Video</h3>
         </Card>
 
-        <Card className="p-8">
-          <h3 className="text-xl font-bold mb-4">Simple, yet crazy powerful.</h3>
+        <Card className="p-6 md:p-8">
+          <h3 className="text-lg md:text-xl font-bold mb-4">Simple, yet crazy powerful.</h3>
           <ul className="space-y-3">
             <li className="flex items-center gap-2">
               <Check className="text-green-500" />
@@ -59,7 +63,7 @@ export const Dashboard = () => {
               <span className="text-sm text-gray-500">#e6b6</span>
               <span className="text-green-500 font-medium">COMPLETED</span>
             </div>
-            <h3 className="font-medium mb-2">
+            <h3 className="font-medium mb-2 line-clamp-2">
               "Late Night Drives: Are You Ready for Ghostly Encounters?"
             </h3>
             <p className="text-sm text-gray-500 mb-4">
@@ -81,6 +85,13 @@ export const Dashboard = () => {
             </div>
           </div>
         </Card>
+      </div>
+
+      {/* Mobile upgrade button */}
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t sm:hidden">
+        <Button className="w-full bg-orange-500 hover:bg-orange-600">
+          Upgrade now!
+        </Button>
       </div>
     </div>
   );

@@ -2,8 +2,12 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Check, Menu } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
+import { CreateVideoDialog } from "@/components/CreateVideoDialog";
+import { useState } from "react";
 
 export const Dashboard = () => {
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
   return (
     <div className="flex-1 p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -24,7 +28,10 @@ export const Dashboard = () => {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <Card className="border-dashed border-2 border-blue-300 p-6 md:p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors">
+        <Card 
+          className="border-dashed border-2 border-blue-300 p-6 md:p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors"
+          onClick={() => setCreateDialogOpen(true)}
+        >
           <Plus className="w-8 h-8 md:w-12 md:h-12 text-blue-500 mb-4" />
           <h3 className="text-blue-500 font-medium">Create New Video</h3>
         </Card>
@@ -86,6 +93,11 @@ export const Dashboard = () => {
           </div>
         </Card>
       </div>
+
+      <CreateVideoDialog 
+        open={createDialogOpen} 
+        onOpenChange={setCreateDialogOpen} 
+      />
 
       {/* Mobile upgrade button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t sm:hidden">

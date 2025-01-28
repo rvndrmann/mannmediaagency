@@ -3,16 +3,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { Database } from "@/integrations/supabase/types";
 
 interface StoryTypeSelectProps {
   value: string;
   onChange: (value: string) => void;
 }
 
-interface StoryType {
-  id: number;
-  story_type: string | null;
-}
+type StoryType = Database['public']['Tables']['stories type']['Row'];
 
 export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
   const { data: storyTypes, isLoading } = useQuery({
@@ -20,7 +18,7 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     queryFn: async () => {
       console.log('Fetching story types...');
       const { data, error } = await supabase
-        .from('"stories type"')
+        .from('stories type')
         .select('id, story_type');
       
       if (error) {

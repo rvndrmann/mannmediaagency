@@ -39,39 +39,39 @@ export const CreateVideoDialog = ({
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[600px] bg-white p-8 rounded-3xl">
-        <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-2">
             <DialogClose asChild>
-              <Button variant="ghost" size="icon" className="p-0">
+              <Button variant="ghost" size="icon" className="p-0 hover:bg-transparent">
                 <X className="h-5 w-5" />
               </Button>
             </DialogClose>
-            <span className="text-lg">Back to Dashboard</span>
+            <span className="text-base text-gray-600">Back to Dashboard</span>
           </div>
-          <span className="text-purple-600">
+          <span className="text-[#9b87f5]">
             {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
           </span>
         </div>
 
-        <h2 className="text-4xl font-bold text-purple-600 mb-8">
+        <h2 className="text-4xl font-bold text-[#9b87f5] mb-8">
           Create Your Video
         </h2>
 
         <div className="space-y-6">
           <div className="space-y-2">
-            <Label className="text-2xl text-purple-600">
+            <Label className="text-2xl text-[#9b87f5]">
               Script or Idea <span className="text-red-500">*</span>
             </Label>
             <Input
               placeholder="Enter your script or idea"
               value={script}
               onChange={(e) => setScript(e.target.value)}
-              className="w-full p-4 border border-purple-100 rounded-2xl text-base"
+              className="w-full p-4 border border-gray-200 rounded-2xl text-base focus:ring-[#9b87f5] focus:border-[#9b87f5]"
             />
           </div>
 
           <div className="space-y-2">
-            <Label className="text-2xl text-purple-600">
+            <Label className="text-2xl text-[#9b87f5]">
               Story Type <span className="text-red-500">*</span>
             </Label>
             <StoryTypeSelect
@@ -81,7 +81,7 @@ export const CreateVideoDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-2xl text-purple-600">
+            <Label className="text-2xl text-[#9b87f5]">
               Background Music (MP3)
             </Label>
             <MusicInput
@@ -91,10 +91,11 @@ export const CreateVideoDialog = ({
           </div>
 
           <div className="flex items-center justify-between">
-            <Label className="text-2xl text-purple-600">Ready to Go</Label>
+            <Label className="text-2xl text-[#9b87f5]">Ready to Go</Label>
             <Switch
               checked={readyToGo}
               onCheckedChange={setReadyToGo}
+              className="data-[state=checked]:bg-[#9b87f5]"
             />
           </div>
         </div>
@@ -103,7 +104,7 @@ export const CreateVideoDialog = ({
           <DialogClose asChild>
             <Button
               variant="outline"
-              className="text-purple-600 border-purple-100 hover:bg-purple-50 rounded-full px-8"
+              className="text-[#9b87f5] border-[#9b87f5] hover:bg-[#9b87f5]/5 rounded-full px-8"
             >
               Cancel
             </Button>
@@ -111,7 +112,7 @@ export const CreateVideoDialog = ({
           <Button
             onClick={handleCreateVideo}
             disabled={isSubmitting || !readyToGo}
-            className="bg-purple-600 hover:bg-purple-700 text-white rounded-full px-8"
+            className="bg-[#9b87f5] hover:bg-[#9b87f5]/90 text-white rounded-full px-8"
           >
             Create Video
           </Button>

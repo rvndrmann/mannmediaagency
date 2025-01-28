@@ -1,11 +1,12 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Plus, Video, Film } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CreateVideoDialog } from "@/components/CreateVideoDialog";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { VideoCreationBar } from "@/components/VideoCreationBar";
 
 export const Dashboard = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
@@ -65,25 +66,13 @@ export const Dashboard = () => {
         </Button>
       </div>
 
-      <div className="text-gray-600 mb-8 flex items-center gap-2">
-        {availableStories} Stories Left ({userCredits?.credits_remaining || 0} credits)
-        <span className="text-gray-400 cursor-help" title="1 story requires 20 credits">
-          ⓘ
-        </span>
-      </div>
+      <VideoCreationBar 
+        availableStories={availableStories}
+        creditsRemaining={userCredits?.credits_remaining || 0}
+        onCreateClick={() => setCreateDialogOpen(true)}
+      />
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
-        <Card 
-          className="border-dashed border-2 border-blue-300 p-6 md:p-8 flex flex-col items-center justify-center text-center cursor-pointer hover:bg-gray-50 transition-colors"
-          onClick={() => setCreateDialogOpen(true)}
-        >
-          <Plus className="w-8 h-8 md:w-12 md:h-12 text-blue-500 mb-4" />
-          <h3 className="text-blue-500 font-medium">Create New Story</h3>
-          <p className="text-sm text-gray-500 mt-2">
-            {userCredits?.credits_remaining || 0} credits remaining
-          </p>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-8">
         {isLoadingStories ? (
           <Card className="p-6">
             <div className="animate-pulse flex flex-col gap-4">

@@ -1,7 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
@@ -37,18 +37,36 @@ export default function Auth() {
 
   const handleEmailSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!email || !password) {
+      toast({
+        variant: "destructive",
+        title: "Error signing up",
+        description: "Please enter both email and password",
+      });
+      return;
+    }
+
     try {
       setLoading(true);
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
+        options: {
+          emailRedirectTo: window.location.origin,
+        },
       });
 
       if (error) throw error;
-      toast({
-        title: "Success",
-        description: "Check your email for the confirmation link.",
-      });
+
+      if (data.user) {
+        toast({
+          title: "Success",
+          description: "Check your email for the confirmation link.",
+        });
+        // Clear the form
+        setEmail("");
+        setPassword("");
+      }
     } catch (error: any) {
       toast({
         variant: "destructive",

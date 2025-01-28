@@ -20,21 +20,21 @@ export const DialogFooter = ({
   onCreateVideo,
 }: DialogFooterProps) => {
   return (
-    <div className="flex justify-between mt-4 pt-2 border-t border-purple-100">
+    <div className="flex justify-between mt-8">
       <Button
         variant="outline"
         onClick={onPrevious}
         disabled={step === 1 || isSubmitting}
-        size="sm"
-        className="text-purple-700 border-purple-200 hover:bg-purple-50"
+        size="lg"
+        className="text-purple-600 border-purple-100 hover:bg-purple-50 rounded-full px-8"
       >
         Previous
       </Button>
       <Button
         onClick={step === 3 ? onCreateVideo : onNext}
         disabled={isSubmitting || (step === 3 && !hasEnoughCredits)}
-        className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm"
-        size="sm"
+        className="bg-purple-600 hover:bg-purple-700 text-white rounded-full px-8"
+        size="lg"
       >
         {isSubmitting
           ? "Creating..."

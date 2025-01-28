@@ -65,7 +65,7 @@ export const CreateVideoDialog = ({
   return (
     <TooltipProvider>
       <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[425px] bg-white p-6 rounded-lg">
+        <DialogContent className="sm:max-w-[600px] bg-white p-8 rounded-2xl">
           <DialogHeader 
             availableVideos={availableVideos} 
             creditsRemaining={userCredits?.credits_remaining || 0} 

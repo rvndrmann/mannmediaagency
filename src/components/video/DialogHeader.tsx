@@ -1,4 +1,5 @@
-import { DialogHeader as BaseDialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DialogHeader as BaseDialogHeader, DialogTitle, DialogClose } from "@/components/ui/dialog";
+import { X } from "lucide-react";
 
 interface DialogHeaderProps {
   availableVideos: number;
@@ -7,13 +8,19 @@ interface DialogHeaderProps {
 
 export const DialogHeader = ({ availableVideos, creditsRemaining }: DialogHeaderProps) => {
   return (
-    <BaseDialogHeader>
-      <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
+    <BaseDialogHeader className="relative">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center gap-2">
+          <X className="h-5 w-5" />
+          <span className="text-lg">Back to Dashboard</span>
+        </div>
+        <span className="text-purple-600">
+          {availableVideos} videos available ({creditsRemaining} credits)
+        </span>
+      </div>
+      <DialogTitle className="text-4xl font-bold text-purple-600">
         Create Your Video
       </DialogTitle>
-      <div className="text-sm text-purple-600">
-        {availableVideos} videos available ({creditsRemaining} credits)
-      </div>
     </BaseDialogHeader>
   );
 };

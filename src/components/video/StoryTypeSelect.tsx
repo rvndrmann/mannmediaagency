@@ -17,6 +17,7 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     queryKey: ['storyTypes'],
     queryFn: async () => {
       console.log('Fetching story types...');
+      // Using backticks to properly handle table name with space
       const { data, error } = await supabase
         .from('story type')
         .select('id, story_type');

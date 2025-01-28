@@ -40,11 +40,6 @@ export const IntegrationPanel = () => {
         <Button 
           variant="ghost" 
           className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-          onClick={(e) => {
-            console.log("Integration panel clicked");
-            // Prevent the click from bubbling up to parent elements
-            e.stopPropagation();
-          }}
         >
           <Youtube className="mr-2 h-4 w-4" />
           Integrations

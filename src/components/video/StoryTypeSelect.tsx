@@ -20,7 +20,7 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     queryFn: async () => {
       console.log('Fetching story types...');
       const { data, error } = await supabase
-        .from('stories type')
+        .from('"stories type"')
         .select('id, story_type');
       
       if (error) {

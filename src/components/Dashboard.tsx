@@ -24,6 +24,9 @@ export const Dashboard = () => {
     },
   });
 
+  // Calculate available videos (20 credits per video)
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+
   return (
     <div className="flex-1 p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -37,8 +40,8 @@ export const Dashboard = () => {
       </div>
 
       <div className="text-gray-600 mb-8 flex items-center gap-2">
-        {userCredits?.credits_remaining || 0} Videos Left
-        <span className="text-gray-400 cursor-help" title="Information about remaining videos">
+        {availableVideos} Videos Left ({userCredits?.credits_remaining || 0} credits)
+        <span className="text-gray-400 cursor-help" title="1 video requires 20 credits">
           ⓘ
         </span>
       </div>

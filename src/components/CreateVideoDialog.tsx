@@ -76,11 +76,12 @@ export const CreateVideoDialog = ({
 
   const handleCreateVideo = async () => {
     try {
-      if (!userCredits?.credits_remaining || userCredits.credits_remaining <= 0) {
+      // Check if user has enough credits (20 credits per video)
+      if (!userCredits?.credits_remaining || userCredits.credits_remaining < 20) {
         toast({
           variant: "destructive",
-          title: "No credits remaining",
-          description: "Please purchase more credits to create videos.",
+          title: "Insufficient credits",
+          description: "You need 20 credits to create a video. Please purchase more credits.",
         });
         return;
       }
@@ -104,13 +105,13 @@ export const CreateVideoDialog = ({
       }
 
       console.log("Video created successfully:", data);
-      await refetchCredits(); // Refresh credits after successful creation
+      await refetchCredits();
 
       toast({
         title: "Success",
         description: "Video created successfully!",
       });
-      onOpenChange(false); // Close dialog
+      onOpenChange(false);
 
       // Reset form
       setStep(1);
@@ -128,6 +129,9 @@ export const CreateVideoDialog = ({
     }
   };
 
+  // Calculate available videos
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
@@ -136,7 +140,7 @@ export const CreateVideoDialog = ({
             Create Your Video
           </DialogTitle>
           <div className="text-sm text-purple-600">
-            Credits remaining: {userCredits?.credits_remaining || 0}
+            {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
           </div>
         </DialogHeader>
 
@@ -181,14 +185,14 @@ export const CreateVideoDialog = ({
           </Button>
           <Button
             onClick={step === 3 ? handleCreateVideo : handleNext}
-            disabled={isSubmitting || (step === 3 && (!userCredits?.credits_remaining || userCredits.credits_remaining <= 0))}
+            disabled={isSubmitting || (step === 3 && (!userCredits?.credits_remaining || userCredits.credits_remaining < 20))}
             className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm"
             size="sm"
           >
             {isSubmitting
               ? "Creating..."
               : step === 3
-              ? `Create Video (${userCredits?.credits_remaining || 0} credits left)`
+              ? `Create Video (${availableVideos} videos left)`
               : "Next"}
           </Button>
         </div>

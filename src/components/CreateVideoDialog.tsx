@@ -47,40 +47,41 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
   };
 
   const handleGenerateScript = () => {
-    // This would typically make an API call to generate the script
     console.log("Generating script for topic:", topic);
     setScript("Your script will appear here. You can edit it after generation.");
   };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-xl max-h-[90vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
         <DialogHeader>
-          <DialogTitle className="text-xl font-bold">Create Your Video</DialogTitle>
+          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
+            Create Your Video
+          </DialogTitle>
         </DialogHeader>
 
         <div className="mb-4">
-          <div className="relative h-2 bg-gray-200 rounded-full mb-1">
+          <div className="relative h-1.5 bg-purple-100 rounded-full mb-2">
             <div
-              className="absolute h-full bg-green-500 rounded-full transition-all duration-300"
+              className="absolute h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-300 ease-out"
               style={{ width: `${(step / 3) * 100}%` }}
             />
           </div>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-purple-700 font-medium">
             Step {step}: {step === 1 ? "Language" : step === 2 ? "Voice" : "Script"} ({Math.round((step / 3) * 100)}%)
           </p>
         </div>
 
         {step === 1 && (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-fadeIn">
             <div>
-              <Label className="text-sm font-semibold mb-2 block">
-                Select Language <span className="text-red-500">*</span>
+              <Label className="text-sm font-semibold mb-2 block text-purple-900">
+                Select Language <span className="text-red-400">*</span>
               </Label>
               <select
                 value={selectedLanguage}
                 onChange={(e) => setSelectedLanguage(e.target.value)}
-                className="w-full p-2 border rounded-lg text-sm"
+                className="w-full p-2.5 border border-purple-100 rounded-lg text-sm bg-white/50 backdrop-blur-sm hover:border-purple-200 transition-colors focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
               >
                 <option value="en-US">English 🇺🇸</option>
                 <option value="es">Spanish 🇪🇸</option>
@@ -89,8 +90,8 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
             </div>
 
             <div>
-              <Label className="text-sm font-semibold mb-2 block">
-                Video Length <span className="text-red-500">*</span>
+              <Label className="text-sm font-semibold mb-2 block text-purple-900">
+                Video Length <span className="text-red-400">*</span>
               </Label>
               <RadioGroup
                 value={selectedDuration}
@@ -99,41 +100,41 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
               >
                 <Label
                   htmlFor="60"
-                  className={`relative flex cursor-pointer rounded-lg border p-3 ${
+                  className={`relative flex cursor-pointer rounded-lg border p-3 transition-all duration-200 ${
                     selectedDuration === "60"
-                      ? "border-purple-200 bg-purple-50"
-                      : "hover:bg-gray-50"
+                      ? "border-purple-200 bg-purple-50/50 shadow-sm"
+                      : "hover:bg-purple-50/30"
                   }`}
                 >
                   <RadioGroupItem value="60" id="60" className="sr-only" />
                   <div className="flex flex-col">
-                    <span className="text-sm font-medium text-gray-900">
+                    <span className="text-sm font-medium text-purple-900">
                       60 seconds
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-purple-600">
                       Standard (20 credits)
                     </span>
                   </div>
                 </Label>
                 <Label
                   htmlFor="90"
-                  className={`relative flex cursor-pointer rounded-lg border p-3 ${
+                  className={`relative flex cursor-pointer rounded-lg border p-3 transition-all duration-200 ${
                     selectedDuration === "90"
-                      ? "border-purple-200 bg-purple-50"
-                      : "hover:bg-gray-50"
+                      ? "border-purple-200 bg-purple-50/50 shadow-sm"
+                      : "hover:bg-purple-50/30"
                   }`}
                 >
                   <RadioGroupItem value="90" id="90" className="sr-only" />
                   <div className="flex flex-col">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-purple-900">
                         90 seconds
                       </span>
-                      <span className="text-xs text-yellow-600 font-medium">
+                      <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-medium">
                         Premium
                       </span>
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-purple-600">
                       Premium (25 credits)
                     </span>
                   </div>
@@ -144,9 +145,9 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
         )}
 
         {step === 2 && (
-          <div className="space-y-4">
-            <Label className="text-sm font-semibold mb-2 block">
-              Select Voice <span className="text-red-500">*</span>
+          <div className="space-y-4 animate-fadeIn">
+            <Label className="text-sm font-semibold mb-2 block text-purple-900">
+              Select Voice <span className="text-red-400">*</span>
             </Label>
             <RadioGroup
               value={selectedVoice}
@@ -180,10 +181,10 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
                 <Label
                   key={voice.id}
                   htmlFor={voice.id}
-                  className={`relative flex cursor-pointer rounded-lg border p-3 ${
+                  className={`relative flex cursor-pointer rounded-lg border p-3 transition-all duration-200 ${
                     selectedVoice === voice.id
-                      ? "border-purple-200 bg-purple-50"
-                      : "hover:bg-gray-50"
+                      ? "border-purple-200 bg-purple-50/50 shadow-sm"
+                      : "hover:bg-purple-50/30"
                   }`}
                 >
                   <RadioGroupItem
@@ -191,22 +192,22 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
                     id={voice.id}
                     className="sr-only"
                   />
-                  <div className="flex flex-col">
+                  <div className="flex flex-col flex-grow">
                     <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium text-gray-900">
+                      <span className="text-sm font-medium text-purple-900">
                         {voice.name}
                       </span>
                       {voice.premium && (
-                        <span className="text-xs text-yellow-600 font-medium">
+                        <span className="text-[10px] bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded font-medium">
                           Premium
                         </span>
                       )}
                     </div>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-purple-600">
                       {voice.description}
                     </span>
                   </div>
-                  <Info className="ml-auto h-4 w-4 text-gray-400" />
+                  <Info className="ml-auto h-4 w-4 text-purple-400 hover:text-purple-600 transition-colors" />
                 </Label>
               ))}
             </RadioGroup>
@@ -214,21 +215,21 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
         )}
 
         {step === 3 && (
-          <div className="space-y-4">
+          <div className="space-y-4 animate-fadeIn">
             <div>
-              <Label className="text-sm font-semibold mb-2 block">
-                Type in Topic <span className="text-red-500">*</span>
+              <Label className="text-sm font-semibold mb-2 block text-purple-900">
+                Type in Topic <span className="text-red-400">*</span>
               </Label>
               <Input
                 value={topic}
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="Enter your video topic"
-                className="w-full text-sm"
+                className="w-full text-sm bg-white/50 border-purple-100 focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
               />
             </div>
 
             <div>
-              <Label className="text-sm font-semibold mb-2 block">
+              <Label className="text-sm font-semibold mb-2 block text-purple-900">
                 Popular Topics
               </Label>
               <div className="flex flex-wrap gap-1.5">
@@ -237,8 +238,10 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
                     key={popularTopic}
                     variant="outline"
                     size="sm"
-                    className={`text-xs ${
-                      topic === popularTopic ? "border-purple-500 bg-purple-50" : ""
+                    className={`text-xs transition-all duration-200 ${
+                      topic === popularTopic
+                        ? "border-purple-300 bg-purple-50 text-purple-700"
+                        : "border-purple-100 hover:border-purple-200 hover:bg-purple-50/50"
                     }`}
                     onClick={() => handleTopicClick(popularTopic)}
                   >
@@ -250,10 +253,10 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
 
             <div>
               <div className="flex justify-between items-center mb-2">
-                <Label className="text-sm font-semibold">
-                  Script <span className="text-red-500">*</span>
+                <Label className="text-sm font-semibold text-purple-900">
+                  Script <span className="text-red-400">*</span>
                 </Label>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-purple-600">
                   {script.length} / 1500 characters
                 </span>
               </div>
@@ -261,11 +264,11 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
                 placeholder="Your script will appear here. You can edit it after generation."
-                className="min-h-[150px] text-sm"
+                className="min-h-[120px] text-sm bg-white/50 border-purple-100 focus:border-purple-300 focus:ring focus:ring-purple-200 focus:ring-opacity-50"
               />
               <Button
                 onClick={handleGenerateScript}
-                className="w-full mt-2 bg-purple-600 hover:bg-purple-700 text-sm py-2"
+                className="w-full mt-2 bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm text-sm py-2 transition-all duration-200"
               >
                 Generate Script
               </Button>
@@ -273,18 +276,19 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
           </div>
         )}
 
-        <div className="flex justify-between mt-4">
+        <div className="flex justify-between mt-4 pt-2 border-t border-purple-100">
           <Button
             variant="outline"
             onClick={handlePrevious}
             disabled={step === 1}
             size="sm"
+            className="text-purple-700 border-purple-200 hover:bg-purple-50"
           >
             Previous
           </Button>
           <Button
             onClick={step === 3 ? undefined : handleNext}
-            className="bg-purple-600 hover:bg-purple-700"
+            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm"
             size="sm"
           >
             {step === 3 ? "Create Video" : "Next"}

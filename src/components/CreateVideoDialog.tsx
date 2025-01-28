@@ -25,6 +25,15 @@ export const CreateVideoDialog = ({
   const { toast } = useToast();
 
   const handleCreateVideo = async () => {
+    if (!source || !storyType) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Please fill in all required fields",
+      });
+      return;
+    }
+
     try {
       setIsSubmitting(true);
       const { data: session } = await supabase.auth.getSession();
@@ -54,7 +63,7 @@ export const CreateVideoDialog = ({
 
       toast({
         title: "Success",
-        description: "Video created successfully!",
+        description: "Video creation started! We'll notify you when it's ready.",
       });
       
       onOpenChange(false);
@@ -72,28 +81,28 @@ export const CreateVideoDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
-        <div className="space-y-6">
-          <div>
-            <Label htmlFor="source">Source</Label>
+      <DialogContent className="sm:max-w-[425px]">
+        <div className="grid gap-4 py-4">
+          <div className="space-y-2">
+            <Label htmlFor="source">Source URL or Text <span className="text-red-500">*</span></Label>
             <Input
               id="source"
               value={source}
               onChange={(e) => setSource(e.target.value)}
-              placeholder="Enter source URL or text"
+              placeholder="Enter URL or paste text"
             />
           </div>
 
-          <div>
-            <Label htmlFor="storyType">Story Type</Label>
+          <div className="space-y-2">
+            <Label htmlFor="storyType">Story Type <span className="text-red-500">*</span></Label>
             <Select value={storyType} onValueChange={setStoryType}>
               <SelectTrigger>
-                <SelectValue placeholder="Select story type" />
+                <SelectValue placeholder="Select a story type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="1">Type 1</SelectItem>
-                <SelectItem value="2">Type 2</SelectItem>
-                <SelectItem value="3">Type 3</SelectItem>
+                <SelectItem value="1">Informative</SelectItem>
+                <SelectItem value="2">Entertainment</SelectItem>
+                <SelectItem value="3">Educational</SelectItem>
               </SelectContent>
             </Select>
           </div>
@@ -107,7 +116,7 @@ export const CreateVideoDialog = ({
             />
           </div>
 
-          <div>
+          <div className="space-y-2">
             <Label htmlFor="customMusic">Custom Music URL (Optional)</Label>
             <Input
               id="customMusic"
@@ -116,15 +125,15 @@ export const CreateVideoDialog = ({
               placeholder="Enter music URL"
             />
           </div>
-
-          <Button
-            onClick={handleCreateVideo}
-            disabled={isSubmitting || !source || !storyType}
-            className="w-full"
-          >
-            {isSubmitting ? "Creating..." : "Create Video"}
-          </Button>
         </div>
+
+        <Button
+          onClick={handleCreateVideo}
+          disabled={isSubmitting || !source || !storyType}
+          className="w-full"
+        >
+          {isSubmitting ? "Creating..." : "Create Video"}
+        </Button>
       </DialogContent>
     </Dialog>
   );

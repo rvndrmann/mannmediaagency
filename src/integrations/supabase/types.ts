@@ -57,6 +57,24 @@ export type Database = {
         }
         Relationships: []
       }
+      story_type: {
+        Row: {
+          created_at: string
+          id: number
+          stories: string[]
+        }
+        Insert: {
+          created_at?: string
+          id?: number
+          stories: string[]
+        }
+        Update: {
+          created_at?: string
+          id?: number
+          stories?: string[]
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string | null

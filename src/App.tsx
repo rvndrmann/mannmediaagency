@@ -9,6 +9,7 @@ import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CreateVideo from "./pages/CreateVideo";
 import Integrations from "./pages/Integrations";
+import Plans from "./pages/Plans";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -78,6 +79,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Integrations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/plans"
+              element={
+                <ProtectedRoute>
+                  <Plans />
                 </ProtectedRoute>
               }
             />

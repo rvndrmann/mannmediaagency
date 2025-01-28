@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, LayoutDashboard, Share2, LogOut, Film } from "lucide-react";
+import { Plus, LayoutDashboard, Share2, LogOut, Film, DollarSign, User } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
@@ -20,6 +20,15 @@ export const Sidebar = () => {
 
       if (error) throw error;
       return data;
+    },
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ["user"],
+    queryFn: async () => {
+      const { data: { user }, error } = await supabase.auth.getUser();
+      if (error) throw error;
+      return user;
     },
   });
 
@@ -43,14 +52,25 @@ export const Sidebar = () => {
         </div>
       </SidebarHeader>
       <SidebarContent>
-        <div className="space-y-2 px-4">
+        <div className="space-y-4 px-4">
+          {/* Profile Section */}
           <Card className="bg-gray-800 border-gray-700 p-4">
+            <div className="flex items-center gap-3 mb-3">
+              <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
+                <User className="h-5 w-5 text-gray-400" />
+              </div>
+              <div>
+                <div className="text-sm font-medium text-white">{user?.email}</div>
+                <div className="text-xs text-gray-400">Free Plan</div>
+              </div>
+            </div>
             <div className="text-sm text-gray-400">Available Stories</div>
             <div className="text-2xl font-bold text-white">{availableStories}</div>
             <div className="text-xs text-gray-400 mt-1">
               ({userCredits?.credits_remaining || 0} credits)
             </div>
           </Card>
+
           <nav className="space-y-1">
             <Button
               variant="ghost"
@@ -65,6 +85,13 @@ export const Sidebar = () => {
               onClick={handleCreateVideoClick}
             >
               <Film className="mr-2 h-4 w-4" /> Create Video
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+              onClick={() => navigate("/plans")}
+            >
+              <DollarSign className="mr-2 h-4 w-4" /> Plans & Billing
             </Button>
             <IntegrationPanel />
             <Button

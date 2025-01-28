@@ -1,16 +1,15 @@
-import React from "react";
+import React, { useState } from "react";
 import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
-import { useToast } from "@/components/ui/use-toast";
-import { supabase } from "@/integrations/supabase/client";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { VideoLanguageStep } from "./video/VideoLanguageStep";
-import { ProgressBar } from "./video/ProgressBar";
 import { useVideoCreation } from "@/hooks/useVideoCreation";
-import { DialogFooter } from "./video/DialogFooter";
-import { DialogHeader } from "./video/DialogHeader";
+import { StoryTypeSelect } from "./video/StoryTypeSelect";
+import { MusicInput } from "./video/MusicInput";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -22,70 +21,102 @@ export const CreateVideoDialog = ({
   onOpenChange,
 }: CreateVideoDialogProps) => {
   const navigate = useNavigate();
-  const { toast } = useToast();
   const {
-    step,
-    selectedLanguage,
-    setSelectedLanguage,
-    selectedDuration,
-    setSelectedDuration,
-    isSubmitting,
     userCredits,
     availableVideos,
-    hasEnoughCredits,
-    handleNext,
-    handlePrevious,
+    script,
+    setScript,
+    isSubmitting,
     handleCreateVideo,
   } = useVideoCreation(() => {
     onOpenChange(false);
     navigate("/");
   });
 
-  const handleCancel = () => {
-    navigate("/");
-  };
-
-  const renderStep = () => {
-    switch (step) {
-      case 1:
-        return (
-          <VideoLanguageStep
-            selectedLanguage={selectedLanguage}
-            setSelectedLanguage={setSelectedLanguage}
-            selectedDuration={selectedDuration}
-            setSelectedDuration={setSelectedDuration}
-          />
-        );
-      // Additional steps will be added here
-      default:
-        return null;
-    }
-  };
+  const [readyToGo, setReadyToGo] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
   return (
-    <TooltipProvider>
-      <Dialog open={open} onOpenChange={onOpenChange}>
-        <DialogContent className="sm:max-w-[600px] bg-white p-8 rounded-2xl">
-          <DialogHeader 
-            availableVideos={availableVideos} 
-            creditsRemaining={userCredits?.credits_remaining || 0} 
-          />
-          
-          <ProgressBar step={step} totalSteps={3} />
-          
-          {renderStep()}
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="sm:max-w-[600px] bg-white p-8 rounded-3xl">
+        <div className="flex items-center justify-between mb-2">
+          <div className="flex items-center gap-2">
+            <DialogClose asChild>
+              <Button variant="ghost" size="icon" className="p-0">
+                <X className="h-5 w-5" />
+              </Button>
+            </DialogClose>
+            <span className="text-lg">Back to Dashboard</span>
+          </div>
+          <span className="text-purple-600">
+            {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
+          </span>
+        </div>
 
-          <DialogFooter
-            step={step}
-            isSubmitting={isSubmitting}
-            availableVideos={availableVideos}
-            hasEnoughCredits={hasEnoughCredits}
-            onPrevious={handlePrevious}
-            onNext={handleNext}
-            onCreateVideo={handleCreateVideo}
-          />
-        </DialogContent>
-      </Dialog>
-    </TooltipProvider>
+        <h2 className="text-4xl font-bold text-purple-600 mb-8">
+          Create Your Video
+        </h2>
+
+        <div className="space-y-6">
+          <div className="space-y-2">
+            <Label className="text-2xl text-purple-600">
+              Script or Idea <span className="text-red-500">*</span>
+            </Label>
+            <Input
+              placeholder="Enter your script or idea"
+              value={script}
+              onChange={(e) => setScript(e.target.value)}
+              className="w-full p-4 border border-purple-100 rounded-2xl text-base"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-2xl text-purple-600">
+              Story Type <span className="text-red-500">*</span>
+            </Label>
+            <StoryTypeSelect
+              value=""
+              onChange={() => {}}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-2xl text-purple-600">
+              Background Music (MP3)
+            </Label>
+            <MusicInput
+              value={selectedFile}
+              onChange={setSelectedFile}
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label className="text-2xl text-purple-600">Ready to Go</Label>
+            <Switch
+              checked={readyToGo}
+              onCheckedChange={setReadyToGo}
+            />
+          </div>
+        </div>
+
+        <div className="flex justify-between mt-8">
+          <DialogClose asChild>
+            <Button
+              variant="outline"
+              className="text-purple-600 border-purple-100 hover:bg-purple-50 rounded-full px-8"
+            >
+              Cancel
+            </Button>
+          </DialogClose>
+          <Button
+            onClick={handleCreateVideo}
+            disabled={isSubmitting || !readyToGo}
+            className="bg-purple-600 hover:bg-purple-700 text-white rounded-full px-8"
+          >
+            Create Video
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

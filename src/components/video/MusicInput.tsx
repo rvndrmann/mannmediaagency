@@ -1,5 +1,4 @@
 import React from "react";
-import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 
 interface MusicInputProps {
@@ -18,20 +17,11 @@ export const MusicInput = ({ value, onChange }: MusicInputProps) => {
   };
 
   return (
-    <div className="space-y-2">
-      <Label htmlFor="backgroundMusic" className="text-lg text-purple-700">
-        Background Music (MP3)
-      </Label>
-      <Input
-        id="backgroundMusic"
-        type="file"
-        accept="audio/mpeg"
-        onChange={handleFileChange}
-        className="w-full p-2 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-      />
-      {value && (
-        <p className="text-sm text-purple-600">Selected: {value.name}</p>
-      )}
-    </div>
+    <Input
+      type="file"
+      accept="audio/mpeg"
+      onChange={handleFileChange}
+      className="w-full bg-white border border-purple-100 rounded-2xl p-4 text-base file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-600 hover:file:bg-purple-100"
+    />
   );
 };

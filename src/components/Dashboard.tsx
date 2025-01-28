@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Video, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -63,7 +63,7 @@ export const Dashboard = () => {
           </Card>
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
-            <Card key={story.id} className="overflow-hidden">
+            <Card key={story["stories id"]} className="overflow-hidden">
               <div className="aspect-video bg-gray-100 flex items-center justify-center">
                 {story.final_video_with_music ? (
                   <div className="flex flex-col items-center gap-2">

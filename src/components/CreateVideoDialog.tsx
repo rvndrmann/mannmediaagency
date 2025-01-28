@@ -40,15 +40,13 @@ export const CreateVideoDialog = ({
 
       const { data, error } = await supabase
         .from("stories")
-        .insert([
-          {
-            source,
-            story_type_id: storyType,
-            ready_to_go: readyToGo,
-            background_music: customMusic,
-            user_id: session.session.user.id
-          }
-        ])
+        .insert({
+          source,
+          story_type_id: parseInt(storyType),
+          ready_to_go: readyToGo,
+          background_music: customMusic,
+          user_id: session.session.user.id
+        })
         .select()
         .single();
 

@@ -4,9 +4,25 @@ import { Plus, Check, Menu } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CreateVideoDialog } from "@/components/CreateVideoDialog";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Dashboard = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
+
+  // Fetch user credits
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   return (
     <div className="flex-1 p-4 md:p-8">
@@ -21,8 +37,8 @@ export const Dashboard = () => {
       </div>
 
       <div className="text-gray-600 mb-8 flex items-center gap-2">
-        1 Free Videos Left this Week
-        <span className="text-gray-400 cursor-help" title="Information about free videos">
+        {userCredits?.credits_remaining || 0} Videos Left
+        <span className="text-gray-400 cursor-help" title="Information about remaining videos">
           ⓘ
         </span>
       </div>
@@ -34,6 +50,9 @@ export const Dashboard = () => {
         >
           <Plus className="w-8 h-8 md:w-12 md:h-12 text-blue-500 mb-4" />
           <h3 className="text-blue-500 font-medium">Create New Video</h3>
+          <p className="text-sm text-gray-500 mt-2">
+            {userCredits?.credits_remaining || 0} credits remaining
+          </p>
         </Card>
 
         <Card className="p-6 md:p-8">

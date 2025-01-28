@@ -12,6 +12,7 @@ import { VideoLanguageStep } from "./video/VideoLanguageStep";
 import { VideoVoiceStep } from "./video/VideoVoiceStep";
 import { VideoScriptStep } from "./video/VideoScriptStep";
 import { ProgressBar } from "./video/ProgressBar";
+import { useQuery } from "@tanstack/react-query";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -30,6 +31,26 @@ export const CreateVideoDialog = ({
   const [script, setScript] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
+
+  // Fetch user credits
+  const { data: userCredits, refetch: refetchCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      console.log("Fetching user credits...");
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching credits:", error);
+        throw error;
+      }
+
+      console.log("User credits data:", data);
+      return data;
+    },
+  });
 
   const popularTopics = [
     "What If You Could Time Travel to Ancient Egypt?",
@@ -55,6 +76,15 @@ export const CreateVideoDialog = ({
 
   const handleCreateVideo = async () => {
     try {
+      if (!userCredits?.credits_remaining || userCredits.credits_remaining <= 0) {
+        toast({
+          variant: "destructive",
+          title: "No credits remaining",
+          description: "Please purchase more credits to create videos.",
+        });
+        return;
+      }
+
       setIsSubmitting(true);
       console.log("Creating video with script:", script);
 
@@ -74,6 +104,8 @@ export const CreateVideoDialog = ({
       }
 
       console.log("Video created successfully:", data);
+      await refetchCredits(); // Refresh credits after successful creation
+
       toast({
         title: "Success",
         description: "Video created successfully!",
@@ -103,6 +135,9 @@ export const CreateVideoDialog = ({
           <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
             Create Your Video
           </DialogTitle>
+          <div className="text-sm text-purple-600">
+            Credits remaining: {userCredits?.credits_remaining || 0}
+          </div>
         </DialogHeader>
 
         <ProgressBar step={step} totalSteps={3} />
@@ -146,11 +181,15 @@ export const CreateVideoDialog = ({
           </Button>
           <Button
             onClick={step === 3 ? handleCreateVideo : handleNext}
-            disabled={isSubmitting}
+            disabled={isSubmitting || (step === 3 && (!userCredits?.credits_remaining || userCredits.credits_remaining <= 0))}
             className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm"
             size="sm"
           >
-            {isSubmitting ? "Creating..." : step === 3 ? "Create Video" : "Next"}
+            {isSubmitting
+              ? "Creating..."
+              : step === 3
+              ? `Create Video (${userCredits?.credits_remaining || 0} credits left)`
+              : "Next"}
           </Button>
         </div>
       </DialogContent>

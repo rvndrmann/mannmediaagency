@@ -2,14 +2,13 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Video, Film } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { CreateVideoDialog } from "@/components/CreateVideoDialog";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { VideoCreationBar } from "@/components/VideoCreationBar";
+import { useNavigate } from "react-router-dom";
 
 export const Dashboard = () => {
-  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Fetch user credits
   const { data: userCredits } = useQuery({
@@ -66,13 +65,40 @@ export const Dashboard = () => {
         </Button>
       </div>
 
-      <VideoCreationBar 
-        availableStories={availableStories}
-        creditsRemaining={userCredits?.credits_remaining || 0}
-        onCreateClick={() => setCreateDialogOpen(true)}
-      />
+      <Card className="p-4 bg-gradient-to-r from-purple-50 to-blue-50 border border-purple-100 mb-8">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-full bg-purple-100">
+              <Film className="w-5 h-5 text-purple-600" />
+            </div>
+            <div>
+              <h3 className="text-sm font-medium text-purple-900">Create New Video</h3>
+              <p className="text-xs text-purple-600">
+                {availableStories} stories available ({userCredits?.credits_remaining || 0} credits)
+              </p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <Button
+              onClick={() => navigate("/create-video")}
+              className="w-full sm:w-auto bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white"
+            >
+              <Plus className="w-4 h-4 mr-2" />
+              Create Video
+            </Button>
+            <Button
+              onClick={() => navigate("/integrations")}
+              variant="outline"
+              className="w-full sm:w-auto border-purple-200 text-purple-700 hover:bg-purple-50"
+            >
+              Share & Integrate
+            </Button>
+          </div>
+        </div>
+      </Card>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 mt-8">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
         {isLoadingStories ? (
           <Card className="p-6">
             <div className="animate-pulse flex flex-col gap-4">
@@ -105,16 +131,11 @@ export const Dashboard = () => {
         ) : (
           <Card className="col-span-2 p-8 text-center bg-gray-50">
             <div className="text-gray-500">
-              No stories created yet. Click the "Create New Story" button to get started!
+              No stories created yet. Click the "Create New Video" button to get started!
             </div>
           </Card>
         )}
       </div>
-
-      <CreateVideoDialog 
-        open={createDialogOpen} 
-        onOpenChange={setCreateDialogOpen} 
-      />
 
       {/* Mobile upgrade button */}
       <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t sm:hidden">

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Check, Menu } from "lucide-react";
+import { Plus } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { CreateVideoDialog } from "@/components/CreateVideoDialog";
 import { useState } from "react";
@@ -24,12 +24,12 @@ export const Dashboard = () => {
     },
   });
 
-  // Fetch user's videos
-  const { data: videos, isLoading: isLoadingVideos } = useQuery({
-    queryKey: ["userVideos"],
+  // Fetch user's stories
+  const { data: stories, isLoading: isLoadingStories } = useQuery({
+    queryKey: ["userStories"],
     queryFn: async () => {
       const { data, error } = await supabase
-        .from("videos")
+        .from("stories")
         .select("*")
         .order("created_at", { ascending: false });
 
@@ -38,8 +38,8 @@ export const Dashboard = () => {
     },
   });
 
-  // Calculate available videos (20 credits per video)
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  // Calculate available stories (20 credits per story)
+  const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
   // Format date function
   const formatDate = (dateString: string) => {
@@ -66,8 +66,8 @@ export const Dashboard = () => {
       </div>
 
       <div className="text-gray-600 mb-8 flex items-center gap-2">
-        {availableVideos} Videos Left ({userCredits?.credits_remaining || 0} credits)
-        <span className="text-gray-400 cursor-help" title="1 video requires 20 credits">
+        {availableStories} Stories Left ({userCredits?.credits_remaining || 0} credits)
+        <span className="text-gray-400 cursor-help" title="1 story requires 20 credits">
           ⓘ
         </span>
       </div>
@@ -78,13 +78,13 @@ export const Dashboard = () => {
           onClick={() => setCreateDialogOpen(true)}
         >
           <Plus className="w-8 h-8 md:w-12 md:h-12 text-blue-500 mb-4" />
-          <h3 className="text-blue-500 font-medium">Create New Video</h3>
+          <h3 className="text-blue-500 font-medium">Create New Story</h3>
           <p className="text-sm text-gray-500 mt-2">
             {userCredits?.credits_remaining || 0} credits remaining
           </p>
         </Card>
 
-        {isLoadingVideos ? (
+        {isLoadingStories ? (
           <Card className="p-6">
             <div className="animate-pulse flex flex-col gap-4">
               <div className="h-40 bg-gray-200 rounded"></div>
@@ -93,48 +93,22 @@ export const Dashboard = () => {
             </div>
           </Card>
         ) : (
-          videos?.map((video) => (
-            <Card key={video.id} className="overflow-hidden">
+          stories?.map((story) => (
+            <Card key={story["stories id"]} className="overflow-hidden">
               <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                {video.youtube_video_id ? (
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    src={`https://www.youtube.com/embed/${video.youtube_video_id}`}
-                    frameBorder="0"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                    allowFullScreen
-                  ></iframe>
-                ) : (
-                  <div className="text-gray-400">Processing video...</div>
-                )}
+                <div className="text-gray-400">Story #{story["stories id"]}</div>
               </div>
               <div className="p-4">
                 <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-500">#{video.id.slice(0, 4)}</span>
-                  <span className={`font-medium ${
-                    video.status === 'completed' ? 'text-green-500' : 
-                    video.status === 'failed' ? 'text-red-500' : 
-                    'text-yellow-500'
-                  }`}>
-                    {video.status.toUpperCase()}
-                  </span>
+                  <span className="text-sm text-gray-500">#{story["stories id"]}</span>
                 </div>
-                <h3 className="font-medium mb-2 line-clamp-2">
-                  {video.title}
-                </h3>
                 <p className="text-sm text-gray-500 mb-2">
-                  Created at: {formatDate(video.created_at)}
+                  Created at: {formatDate(story.created_at)}
                 </p>
-                {video.views_count !== null && (
-                  <p className="text-sm text-blue-500 mb-4">
-                    {video.views_count.toLocaleString()} views
+                {story.source && (
+                  <p className="text-sm text-gray-500 mb-4">
+                    Source: {story.source}
                   </p>
-                )}
-                {video.status === 'completed' && (
-                  <Button className="w-full bg-green-500 hover:bg-green-600 mb-4">
-                    Download Video
-                  </Button>
                 )}
               </div>
             </Card>

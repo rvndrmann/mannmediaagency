@@ -5,6 +5,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { IntegrationPanel } from "./IntegrationPanel";
 
 export const Sidebar = () => {
   const navigate = useNavigate();
@@ -50,6 +51,7 @@ export const Sidebar = () => {
             >
               <LayoutDashboard className="mr-2" /> Dashboard
             </Button>
+            <IntegrationPanel />
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"

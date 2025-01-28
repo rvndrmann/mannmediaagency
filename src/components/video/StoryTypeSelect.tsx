@@ -10,7 +10,7 @@ interface StoryTypeSelectProps {
   onChange: (value: string) => void;
 }
 
-type StoryType = Database['public']['Tables']['stories type']['Row'];
+type StoryType = Database['public']['Tables']['story type']['Row'];
 
 export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
   const { data: storyTypes, isLoading } = useQuery({
@@ -18,7 +18,7 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     queryFn: async () => {
       console.log('Fetching story types...');
       const { data, error } = await supabase
-        .from('stories type')
+        .from('story type')
         .select('id, story_type');
       
       if (error) {

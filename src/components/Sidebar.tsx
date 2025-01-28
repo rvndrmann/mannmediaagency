@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, LayoutDashboard, Trophy, Share2, LogOut } from "lucide-react";
+import { Plus, LayoutDashboard, Share2, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
@@ -44,12 +44,6 @@ export const Sidebar = () => {
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
             >
-              <Trophy className="mr-2" /> Viral Leaderboard
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-            >
               <Share2 className="mr-2" /> Integrations
             </Button>
           </nav>
@@ -77,18 +71,6 @@ export const Sidebar = () => {
 
         <SidebarFooter>
           <div className="px-4 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-green-500 hover:text-green-400 hover:bg-gray-800"
-            >
-              Affiliate & Make $$$
-            </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-            >
-              Changelog
-            </Button>
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"

@@ -1,12 +1,14 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, LayoutDashboard, Share2, LogOut } from "lucide-react";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Sidebar = () => {
+  const navigate = useNavigate();
+  
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -17,6 +19,11 @@ export const Sidebar = () => {
   });
 
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+
+  const handleDashboardClick = () => {
+    console.log("Navigating to dashboard...");
+    navigate("/");
+  };
 
   return (
     <SidebarComponent>
@@ -37,6 +44,7 @@ export const Sidebar = () => {
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+              onClick={handleDashboardClick}
             >
               <LayoutDashboard className="mr-2" /> Dashboard
             </Button>

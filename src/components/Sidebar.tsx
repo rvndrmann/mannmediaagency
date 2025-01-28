@@ -11,18 +11,8 @@ export const Sidebar = () => {
     queryKey: ["userCredits"],
     queryFn: async () => {
       console.log("Fetching user credits in sidebar...");
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error fetching credits:", error);
-        throw error;
-      }
-
-      console.log("User credits data in sidebar:", data);
-      return data;
+      // Hardcoded 100 credits for testing
+      return { credits_remaining: 100 };
     },
   });
 

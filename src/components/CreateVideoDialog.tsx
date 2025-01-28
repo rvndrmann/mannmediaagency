@@ -41,7 +41,12 @@ export const CreateVideoDialog = ({
 
     try {
       setIsSubmitting(true);
-      console.log("Starting video creation...");
+      console.log("Starting video creation with data:", {
+        source,
+        storyType,
+        readyToGo,
+        hasBackgroundMusic: !!backgroundMusic
+      });
       
       const { data: session } = await supabase.auth.getSession();
       
@@ -59,11 +64,13 @@ export const CreateVideoDialog = ({
         const fileExt = backgroundMusic.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
         
+        console.log("Uploading background music:", filePath);
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('background-music')
           .upload(filePath, backgroundMusic);
 
         if (uploadError) {
+          console.error("Error uploading music:", uploadError);
           throw uploadError;
         }
 
@@ -72,15 +79,8 @@ export const CreateVideoDialog = ({
           .getPublicUrl(filePath);
 
         musicUrl = publicUrl;
+        console.log("Music uploaded successfully:", musicUrl);
       }
-
-      console.log("Creating story with data:", {
-        source,
-        user_id: session.session.user.id,
-        ready_to_go: readyToGo,
-        background_music: musicUrl,
-        story_type_id: parseInt(storyType)
-      });
 
       const { data, error } = await supabase
         .from("stories")

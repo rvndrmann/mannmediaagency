@@ -17,7 +17,6 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     queryKey: ['storyTypes'],
     queryFn: async () => {
       console.log('Fetching story types...');
-      // Using backticks to properly handle table name with space
       const { data, error } = await supabase
         .from('story type')
         .select('id, story_type');
@@ -37,6 +36,11 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     ? Array(3).fill({ id: 0, story_type: 'Loading...' })
     : storyTypes;
 
+  const handleValueChange = (newValue: string) => {
+    console.log('Selected story type:', newValue);
+    onChange(newValue);
+  };
+
   return (
     <div className="space-y-2">
       <Label htmlFor="storyType" className="text-lg text-purple-700">
@@ -44,7 +48,7 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
       </Label>
       <Select 
         value={value} 
-        onValueChange={onChange}
+        onValueChange={handleValueChange}
         disabled={isLoading}
       >
         <SelectTrigger className="w-full border border-purple-100">

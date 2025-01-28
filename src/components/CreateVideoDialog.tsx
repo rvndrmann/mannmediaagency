@@ -1,18 +1,12 @@
 import React from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { VideoLanguageStep } from "./video/VideoLanguageStep";
 import { VideoVoiceStep } from "./video/VideoVoiceStep";
 import { VideoScriptStep } from "./video/VideoScriptStep";
 import { ProgressBar } from "./video/ProgressBar";
-import { useQuery } from "@tanstack/react-query";
+import { DialogHeader } from "./video/DialogHeader";
+import { DialogFooter } from "./video/DialogFooter";
+import { useVideoCreation } from "@/hooks/useVideoCreation";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -23,34 +17,27 @@ export const CreateVideoDialog = ({
   open,
   onOpenChange,
 }: CreateVideoDialogProps) => {
-  const [step, setStep] = React.useState(1);
-  const [selectedLanguage, setSelectedLanguage] = React.useState("en-US");
-  const [selectedDuration, setSelectedDuration] = React.useState("60");
-  const [selectedVoice, setSelectedVoice] = React.useState("david");
-  const [topic, setTopic] = React.useState("");
-  const [script, setScript] = React.useState("");
-  const [isSubmitting, setIsSubmitting] = React.useState(false);
-  const { toast } = useToast();
-
-  // Fetch user credits
-  const { data: userCredits, refetch: refetchCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      console.log("Fetching user credits...");
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) {
-        console.error("Error fetching credits:", error);
-        throw error;
-      }
-
-      console.log("User credits data:", data);
-      return data;
-    },
-  });
+  const {
+    step,
+    selectedLanguage,
+    setSelectedLanguage,
+    selectedDuration,
+    setSelectedDuration,
+    selectedVoice,
+    setSelectedVoice,
+    topic,
+    setTopic,
+    script,
+    setScript,
+    isSubmitting,
+    userCredits,
+    availableVideos,
+    hasEnoughCredits,
+    handleNext,
+    handlePrevious,
+    handleGenerateScript,
+    handleCreateVideo,
+  } = useVideoCreation(() => onOpenChange(false));
 
   const popularTopics = [
     "What If You Could Time Travel to Ancient Egypt?",
@@ -61,88 +48,13 @@ export const CreateVideoDialog = ({
     "AI Assistant Falls in Love with User",
   ];
 
-  const handleNext = () => {
-    setStep((prev) => prev + 1);
-  };
-
-  const handlePrevious = () => {
-    setStep((prev) => prev - 1);
-  };
-
-  const handleGenerateScript = () => {
-    console.log("Generating script for topic:", topic);
-    setScript("Your script will appear here. You can edit it after generation.");
-  };
-
-  const handleCreateVideo = async () => {
-    try {
-      // Check if user has enough credits (20 credits per video)
-      if (!userCredits?.credits_remaining || userCredits.credits_remaining < 20) {
-        toast({
-          variant: "destructive",
-          title: "Insufficient credits",
-          description: "You need 20 credits to create a video. Please purchase more credits.",
-        });
-        return;
-      }
-
-      setIsSubmitting(true);
-      console.log("Creating video with script:", script);
-
-      const { data, error } = await supabase
-        .from("stories")
-        .insert([{ source: script }])
-        .select();
-
-      if (error) {
-        console.error("Error creating video:", error);
-        toast({
-          variant: "destructive",
-          title: "Error",
-          description: "Failed to create video. Please try again.",
-        });
-        return;
-      }
-
-      console.log("Video created successfully:", data);
-      await refetchCredits();
-
-      toast({
-        title: "Success",
-        description: "Video created successfully!",
-      });
-      onOpenChange(false);
-
-      // Reset form
-      setStep(1);
-      setTopic("");
-      setScript("");
-    } catch (error) {
-      console.error("Error creating video:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: "An unexpected error occurred. Please try again.",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  // Calculate available videos
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
-            Create Your Video
-          </DialogTitle>
-          <div className="text-sm text-purple-600">
-            {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
-          </div>
-        </DialogHeader>
+        <DialogHeader 
+          availableVideos={availableVideos}
+          creditsRemaining={userCredits?.credits_remaining || 0}
+        />
 
         <ProgressBar step={step} totalSteps={3} />
 
@@ -173,29 +85,15 @@ export const CreateVideoDialog = ({
           />
         )}
 
-        <div className="flex justify-between mt-4 pt-2 border-t border-purple-100">
-          <Button
-            variant="outline"
-            onClick={handlePrevious}
-            disabled={step === 1 || isSubmitting}
-            size="sm"
-            className="text-purple-700 border-purple-200 hover:bg-purple-50"
-          >
-            Previous
-          </Button>
-          <Button
-            onClick={step === 3 ? handleCreateVideo : handleNext}
-            disabled={isSubmitting || (step === 3 && (!userCredits?.credits_remaining || userCredits.credits_remaining < 20))}
-            className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm"
-            size="sm"
-          >
-            {isSubmitting
-              ? "Creating..."
-              : step === 3
-              ? `Create Video (${availableVideos} videos left)`
-              : "Next"}
-          </Button>
-        </div>
+        <DialogFooter
+          step={step}
+          isSubmitting={isSubmitting}
+          availableVideos={availableVideos}
+          hasEnoughCredits={hasEnoughCredits}
+          onPrevious={handlePrevious}
+          onNext={handleNext}
+          onCreateVideo={handleCreateVideo}
+        />
       </DialogContent>
     </Dialog>
   );

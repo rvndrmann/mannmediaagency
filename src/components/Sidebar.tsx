@@ -1,10 +1,33 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, LayoutDashboard, Trophy, Share2, Settings, LogOut } from "lucide-react";
+import { Plus, LayoutDashboard, Trophy, Share2, LogOut } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Sidebar = () => {
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      console.log("Fetching user credits in sidebar...");
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) {
+        console.error("Error fetching credits:", error);
+        throw error;
+      }
+
+      console.log("User credits data in sidebar:", data);
+      return data;
+    },
+  });
+
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+
   return (
     <SidebarComponent>
       <SidebarContent>
@@ -45,14 +68,18 @@ export const Sidebar = () => {
             <div className="p-4">
               <h3 className="text-lg font-semibold mb-2 text-white">Your Credits:</h3>
               <div className="flex items-end gap-2 mb-2">
-                <span className="text-3xl font-bold text-white">0</span>
+                <span className="text-3xl font-bold text-white">{userCredits?.credits_remaining || 0}</span>
                 <span className="text-sm text-gray-400 mb-1">Available</span>
+              </div>
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-sm text-gray-400">Videos left:</span>
+                <span className="text-lg font-semibold text-white">{availableVideos}</span>
               </div>
               <Button className="w-full bg-blue-600 hover:bg-blue-700">
                 Add more
               </Button>
               <p className="text-sm text-gray-400 mt-2">
-                Use credits to go viral.
+                1 video = 20 credits
               </p>
             </div>
           </Card>

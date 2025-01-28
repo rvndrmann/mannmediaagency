@@ -1,54 +1,23 @@
+import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { useToast } from "@/hooks/use-toast";
-import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useToast } from "@/components/ui/use-toast";
 import { useNavigate } from "react-router-dom";
 
-export default function Auth() {
+const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  const handleEmailSignIn = async (e: React.FormEvent) => {
+  const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoading(true);
+    
     try {
-      setLoading(true);
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-      navigate("/");
-    } catch (error: any) {
-      toast({
-        variant: "destructive",
-        title: "Error signing in",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleEmailSignUp = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      toast({
-        variant: "destructive",
-        title: "Error signing up",
-        description: "Please enter both email and password",
-      });
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const { data, error } = await supabase.auth.signUp({
+      const { error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -58,19 +27,41 @@ export default function Auth() {
 
       if (error) throw error;
 
-      if (data.user) {
-        toast({
-          title: "Success",
-          description: "Check your email for the confirmation link.",
-        });
-        // Clear the form
-        setEmail("");
-        setPassword("");
-      }
+      toast({
+        title: "Success!",
+        description: "Check your email for the confirmation link.",
+      });
+      
+      setEmail("");
+      setPassword("");
     } catch (error: any) {
       toast({
         variant: "destructive",
-        title: "Error signing up",
+        title: "Error",
+        description: error.message,
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setLoading(true);
+    
+    try {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      navigate("/");
+    } catch (error: any) {
+      toast({
+        variant: "destructive",
+        title: "Error",
         description: error.message,
       });
     } finally {
@@ -79,21 +70,23 @@ export default function Auth() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50 py-12 px-4 sm:px-6 lg:px-8">
-      <div className="max-w-md w-full space-y-8">
-        <div>
-          <h2 className="mt-6 text-center text-3xl font-extrabold text-gray-900">
-            Welcome to AutoCreateAI
-          </h2>
-          <p className="mt-2 text-center text-sm text-gray-600">
-            Sign in or create an account to continue
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 p-4">
+      <div className="w-full max-w-md space-y-8">
+        <div className="text-center">
+          <h1 className="text-4xl font-bold tracking-tight text-gray-900">
+            AutoCreateAI
+          </h1>
+          <p className="mt-2 text-gray-600">
+            Sign in to your account or create a new one
           </p>
         </div>
 
-        <form className="mt-8 space-y-6" onSubmit={handleEmailSignIn}>
-          <div className="space-y-4">
+        <div className="mt-8 space-y-6 bg-white p-8 shadow rounded-lg">
+          <form className="space-y-4">
             <div>
-              <Label htmlFor="email">Email address</Label>
+              <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                Email address
+              </label>
               <Input
                 id="email"
                 type="email"
@@ -105,7 +98,9 @@ export default function Auth() {
             </div>
 
             <div>
-              <Label htmlFor="password">Password</Label>
+              <label htmlFor="password" className="block text-sm font-medium text-gray-700">
+                Password
+              </label>
               <Input
                 id="password"
                 type="password"
@@ -115,28 +110,32 @@ export default function Auth() {
                 className="mt-1"
               />
             </div>
-          </div>
 
-          <div className="flex gap-4">
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loading}
-            >
-              {loading ? "Loading..." : "Sign in"}
-            </Button>
-            <Button
-              type="button"
-              onClick={handleEmailSignUp}
-              variant="outline"
-              className="w-full"
-              disabled={loading}
-            >
-              Sign up
-            </Button>
-          </div>
-        </form>
+            <div className="space-y-3">
+              <Button
+                onClick={handleSignIn}
+                disabled={loading}
+                className="w-full"
+                type="button"
+              >
+                {loading ? "Loading..." : "Sign in"}
+              </Button>
+              
+              <Button
+                onClick={handleSignUp}
+                disabled={loading}
+                variant="outline"
+                className="w-full"
+                type="button"
+              >
+                {loading ? "Loading..." : "Sign up"}
+              </Button>
+            </div>
+          </form>
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default Auth;

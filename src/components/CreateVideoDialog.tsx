@@ -100,6 +100,27 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
     }
   };
 
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
+            Create Your Video
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="mb-4">
+          <div className="relative h-1.5 bg-purple-100 rounded-full mb-2">
+            <div
+              className="absolute h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${(step / 3) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-purple-700 font-medium">
+            Step {step}: {step === 1 ? "Language" : step === 2 ? "Voice" : "Script"} ({Math.round((step / 3) * 100)}%)
+          </p>
+        </div>
+
         {step === 1 && (
           <div className="space-y-4 animate-fadeIn">
             <div>
@@ -303,27 +324,6 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
             </div>
           </div>
         )}
-
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
-            Create Your Video
-          </DialogTitle>
-        </DialogHeader>
-
-        <div className="mb-4">
-          <div className="relative h-1.5 bg-purple-100 rounded-full mb-2">
-            <div
-              className="absolute h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${(step / 3) * 100}%` }}
-            />
-          </div>
-          <p className="text-xs text-purple-700 font-medium">
-            Step {step}: {step === 1 ? "Language" : step === 2 ? "Voice" : "Script"} ({Math.round((step / 3) * 100)}%)
-          </p>
-        </div>
 
         <div className="flex justify-between mt-4 pt-2 border-t border-purple-100">
           <Button

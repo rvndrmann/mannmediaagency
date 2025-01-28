@@ -9,6 +9,7 @@ import { MusicInput } from "./video/MusicInput";
 import { ReadyToGoToggle } from "./video/ReadyToGoToggle";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -124,48 +125,50 @@ export const CreateVideoDialog = ({
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px] bg-white p-6 rounded-lg">
-        <div className="flex justify-between items-center mb-6">
-          <h1 className="text-2xl font-bold text-purple-600">Create Your Video</h1>
-          <div className="flex items-center gap-4">
-            <div className="text-sm text-purple-600">0 videos available (5 credits)</div>
-            <DialogClose asChild>
-              <Button 
-                variant="ghost" 
-                className="h-6 w-6 p-0 hover:bg-purple-50"
-                onClick={handleCancel}
-              >
-                <X className="h-4 w-4" />
-              </Button>
-            </DialogClose>
+    <TooltipProvider>
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="sm:max-w-[425px] bg-white p-6 rounded-lg">
+          <div className="flex justify-between items-center mb-6">
+            <h1 className="text-2xl font-bold text-purple-600">Create Your Video</h1>
+            <div className="flex items-center gap-4">
+              <div className="text-sm text-purple-600">0 videos available (5 credits)</div>
+              <DialogClose asChild>
+                <Button 
+                  variant="ghost" 
+                  className="h-6 w-6 p-0 hover:bg-purple-50"
+                  onClick={handleCancel}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </DialogClose>
+            </div>
           </div>
-        </div>
 
-        <div className="space-y-6">
-          <SourceInput value={source} onChange={setSource} />
-          <StoryTypeSelect value={storyType} onChange={setStoryType} />
-          <MusicInput value={backgroundMusic} onChange={setBackgroundMusic} />
-          <ReadyToGoToggle checked={readyToGo} onCheckedChange={setReadyToGo} />
-        </div>
+          <div className="space-y-6">
+            <SourceInput value={source} onChange={setSource} />
+            <StoryTypeSelect value={storyType} onChange={setStoryType} />
+            <MusicInput value={backgroundMusic} onChange={setBackgroundMusic} />
+            <ReadyToGoToggle checked={readyToGo} onCheckedChange={setReadyToGo} />
+          </div>
 
-        <div className="flex justify-between mt-6 pt-4 border-t border-purple-100">
-          <Button
-            variant="outline"
-            onClick={handleCancel}
-            className="text-purple-600 border-purple-200 hover:bg-purple-50"
-          >
-            Cancel
-          </Button>
-          <Button
-            onClick={handleCreateVideo}
-            disabled={isSubmitting || !source || !storyType}
-            className="bg-purple-600 text-white hover:bg-purple-700"
-          >
-            {isSubmitting ? "Creating..." : "Create Video"}
-          </Button>
-        </div>
-      </DialogContent>
-    </Dialog>
+          <div className="flex justify-between mt-6 pt-4 border-t border-purple-100">
+            <Button
+              variant="outline"
+              onClick={handleCancel}
+              className="text-purple-600 border-purple-200 hover:bg-purple-50"
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleCreateVideo}
+              disabled={isSubmitting || !source || !storyType}
+              className="bg-purple-600 text-white hover:bg-purple-700"
+            >
+              {isSubmitting ? "Creating..." : "Create Video"}
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </TooltipProvider>
   );
 };

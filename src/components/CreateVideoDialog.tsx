@@ -2,10 +2,11 @@ import React from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { Switch } from "@/components/ui/switch";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -17,13 +18,14 @@ export const CreateVideoDialog = ({
   onOpenChange,
 }: CreateVideoDialogProps) => {
   const [source, setSource] = React.useState("");
-  const [selectedLanguage, setSelectedLanguage] = React.useState("en-US");
-  const [selectedDuration, setSelectedDuration] = React.useState("60");
+  const [readyToGo, setReadyToGo] = React.useState(false);
+  const [backgroundMusic, setBackgroundMusic] = React.useState("");
+  const [storyType, setStoryType] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
 
   const handleCreateVideo = async () => {
-    if (!source || !selectedLanguage || !selectedDuration) {
+    if (!source || !storyType) {
       toast({
         variant: "destructive",
         title: "Error",
@@ -50,7 +52,9 @@ export const CreateVideoDialog = ({
         .insert({
           source,
           user_id: session.session.user.id,
-          ready_to_go: true
+          ready_to_go: readyToGo,
+          background_music: backgroundMusic,
+          story_type_id: parseInt(storyType)
         })
         .select()
         .single();
@@ -98,58 +102,43 @@ export const CreateVideoDialog = ({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="language" className="text-lg text-purple-700">
-              Select Language <span className="text-red-500">*</span>
+            <Label htmlFor="storyType" className="text-lg text-purple-700">
+              Story Type <span className="text-red-500">*</span>
             </Label>
-            <Select value={selectedLanguage} onValueChange={setSelectedLanguage}>
+            <Select value={storyType} onValueChange={setStoryType}>
               <SelectTrigger className="w-full border border-purple-100">
-                <SelectValue placeholder="Select a language" />
+                <SelectValue placeholder="Select a story type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="en-US">English 🇺🇸</SelectItem>
-                <SelectItem value="es">Spanish 🇪🇸</SelectItem>
-                <SelectItem value="fr">French 🇫🇷</SelectItem>
+                <SelectItem value="1">Educational</SelectItem>
+                <SelectItem value="2">Entertainment</SelectItem>
+                <SelectItem value="3">Marketing</SelectItem>
               </SelectContent>
             </Select>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-lg text-purple-700">
-              Video Length <span className="text-red-500">*</span>
+            <Label htmlFor="backgroundMusic" className="text-lg text-purple-700">
+              Background Music
             </Label>
-            <div className="space-y-2">
-              <label className="block p-4 rounded-lg border border-purple-100 cursor-pointer hover:bg-purple-50 transition-colors">
-                <input
-                  type="radio"
-                  name="duration"
-                  value="60"
-                  checked={selectedDuration === "60"}
-                  onChange={(e) => setSelectedDuration(e.target.value)}
-                  className="hidden"
-                />
-                <div className="flex flex-col">
-                  <span className="font-medium">60 seconds</span>
-                  <span className="text-sm text-purple-600">Standard (20 credits)</span>
-                </div>
-              </label>
-              <label className="block p-4 rounded-lg border border-purple-100 cursor-pointer hover:bg-purple-50 transition-colors">
-                <input
-                  type="radio"
-                  name="duration"
-                  value="90"
-                  checked={selectedDuration === "90"}
-                  onChange={(e) => setSelectedDuration(e.target.value)}
-                  className="hidden"
-                />
-                <div className="flex flex-col">
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium">90 seconds</span>
-                    <span className="text-xs bg-yellow-100 text-yellow-700 px-1.5 py-0.5 rounded">Premium</span>
-                  </div>
-                  <span className="text-sm text-purple-600">Premium (25 credits)</span>
-                </div>
-              </label>
-            </div>
+            <Input
+              id="backgroundMusic"
+              value={backgroundMusic}
+              onChange={(e) => setBackgroundMusic(e.target.value)}
+              placeholder="Enter music URL or leave empty for default"
+              className="w-full p-2 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+            />
+          </div>
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="readyToGo" className="text-lg text-purple-700">
+              Ready to Go
+            </Label>
+            <Switch
+              id="readyToGo"
+              checked={readyToGo}
+              onCheckedChange={setReadyToGo}
+            />
           </div>
         </div>
 
@@ -159,14 +148,14 @@ export const CreateVideoDialog = ({
             onClick={() => onOpenChange(false)}
             className="text-purple-600 border-purple-200 hover:bg-purple-50"
           >
-            Previous
+            Cancel
           </Button>
           <Button
             onClick={handleCreateVideo}
-            disabled={isSubmitting || !source || !selectedLanguage || !selectedDuration}
+            disabled={isSubmitting || !source || !storyType}
             className="bg-purple-600 text-white hover:bg-purple-700"
           >
-            {isSubmitting ? "Creating..." : "Next"}
+            {isSubmitting ? "Creating..." : "Create Video"}
           </Button>
         </div>
       </DialogContent>

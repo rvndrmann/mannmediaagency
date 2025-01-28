@@ -51,39 +51,6 @@ export type Database = {
         }
         Relationships: []
       }
-      videos: {
-        Row: {
-          created_at: string
-          id: string
-          status: string | null
-          title: string
-          updated_at: string
-          user_id: string
-          views_count: number | null
-          youtube_video_id: string | null
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          status?: string | null
-          title: string
-          updated_at?: string
-          user_id: string
-          views_count?: number | null
-          youtube_video_id?: string | null
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          status?: string | null
-          title?: string
-          updated_at?: string
-          user_id?: string
-          views_count?: number | null
-          youtube_video_id?: string | null
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never

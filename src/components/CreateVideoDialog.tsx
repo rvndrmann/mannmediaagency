@@ -1,5 +1,5 @@
 import React from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/components/ui/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +7,8 @@ import { SourceInput } from "./video/SourceInput";
 import { StoryTypeSelect } from "./video/StoryTypeSelect";
 import { MusicInput } from "./video/MusicInput";
 import { ReadyToGoToggle } from "./video/ReadyToGoToggle";
+import { X } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -19,10 +21,11 @@ export const CreateVideoDialog = ({
 }: CreateVideoDialogProps) => {
   const [source, setSource] = React.useState("");
   const [readyToGo, setReadyToGo] = React.useState(false);
-  const [backgroundMusic, setBackgroundMusic] = React.useState("");
+  const [backgroundMusic, setBackgroundMusic] = React.useState<File | null>(null);
   const [storyType, setStoryType] = React.useState("");
   const [isSubmitting, setIsSubmitting] = React.useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   console.log("Dialog state:", { source, readyToGo, backgroundMusic, storyType });
 
@@ -51,11 +54,31 @@ export const CreateVideoDialog = ({
         return;
       }
 
+      let musicUrl = null;
+      if (backgroundMusic) {
+        const fileExt = backgroundMusic.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('background-music')
+          .upload(filePath, backgroundMusic);
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('background-music')
+          .getPublicUrl(filePath);
+
+        musicUrl = publicUrl;
+      }
+
       console.log("Creating story with data:", {
         source,
         user_id: session.session.user.id,
         ready_to_go: readyToGo,
-        background_music: backgroundMusic,
+        background_music: musicUrl,
         story_type_id: parseInt(storyType)
       });
 
@@ -65,7 +88,7 @@ export const CreateVideoDialog = ({
           source,
           user_id: session.session.user.id,
           ready_to_go: readyToGo,
-          background_music: backgroundMusic,
+          background_music: musicUrl,
           story_type_id: parseInt(storyType)
         })
         .select()
@@ -83,7 +106,7 @@ export const CreateVideoDialog = ({
         description: "Video creation started! We'll notify you when it's ready.",
       });
       
-      onOpenChange(false);
+      navigate("/");
     } catch (error) {
       console.error("Error creating video:", error);
       toast({
@@ -96,12 +119,27 @@ export const CreateVideoDialog = ({
     }
   };
 
+  const handleCancel = () => {
+    navigate("/");
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-[425px] bg-white p-6 rounded-lg">
         <div className="flex justify-between items-center mb-6">
           <h1 className="text-2xl font-bold text-purple-600">Create Your Video</h1>
-          <div className="text-sm text-purple-600">0 videos available (5 credits)</div>
+          <div className="flex items-center gap-4">
+            <div className="text-sm text-purple-600">0 videos available (5 credits)</div>
+            <DialogClose asChild>
+              <Button 
+                variant="ghost" 
+                className="h-6 w-6 p-0 hover:bg-purple-50"
+                onClick={handleCancel}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </DialogClose>
+          </div>
         </div>
 
         <div className="space-y-6">
@@ -114,7 +152,7 @@ export const CreateVideoDialog = ({
         <div className="flex justify-between mt-6 pt-4 border-t border-purple-100">
           <Button
             variant="outline"
-            onClick={() => onOpenChange(false)}
+            onClick={handleCancel}
             className="text-purple-600 border-purple-200 hover:bg-purple-50"
           >
             Cancel

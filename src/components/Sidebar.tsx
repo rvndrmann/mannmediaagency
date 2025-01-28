@@ -12,13 +12,17 @@ export const Sidebar = () => {
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
-      console.log("Fetching user credits in sidebar...");
-      // Hardcoded 100 credits for testing
-      return { credits_remaining: 100 };
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
     },
   });
 
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
   const handleDashboardClick = () => {
     console.log("Navigating to dashboard...");
@@ -27,20 +31,18 @@ export const Sidebar = () => {
 
   return (
     <SidebarComponent>
+      <SidebarHeader>
+        <div className="flex items-center gap-2 px-4 py-2">
+          <div className="text-xl font-bold text-white">Lovable</div>
+        </div>
+      </SidebarHeader>
       <SidebarContent>
-        <SidebarHeader>
-          <div className="flex items-center justify-between p-4">
-            <h1 className="text-xl font-semibold text-white">Studio Labs AI</h1>
-          </div>
-
-          <Button
-            className="bg-blue-600 hover:bg-blue-700 mb-6 w-full mx-4"
-            size="lg"
-          >
-            <Plus className="mr-2" /> New Video
-          </Button>
-
-          <nav className="space-y-2 px-4">
+        <div className="space-y-2 px-4">
+          <Card className="bg-gray-800 border-gray-700 p-4">
+            <div className="text-sm text-gray-400">Available Stories</div>
+            <div className="text-2xl font-bold text-white">{availableStories}</div>
+          </Card>
+          <nav className="space-y-1">
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
@@ -52,42 +54,24 @@ export const Sidebar = () => {
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
             >
-              <Share2 className="mr-2" /> Integrations
+              <Share2 className="mr-2" /> Share
             </Button>
           </nav>
-
-          <Card className="mt-8 mx-4 bg-gray-800/50 border-gray-700">
-            <div className="p-4">
-              <h3 className="text-lg font-semibold mb-2 text-white">Your Credits:</h3>
-              <div className="flex items-end gap-2 mb-2">
-                <span className="text-3xl font-bold text-white">{userCredits?.credits_remaining || 0}</span>
-                <span className="text-sm text-gray-400 mb-1">Available</span>
-              </div>
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-sm text-gray-400">Videos left:</span>
-                <span className="text-lg font-semibold text-white">{availableVideos}</span>
-              </div>
-              <Button className="w-full bg-blue-600 hover:bg-blue-700">
-                Add more
-              </Button>
-              <p className="text-sm text-gray-400 mt-2">
-                1 video = 20 credits
-              </p>
-            </div>
-          </Card>
-        </SidebarHeader>
-
-        <SidebarFooter>
-          <div className="px-4 space-y-2">
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-            >
-              <LogOut className="mr-2" /> Log out
-            </Button>
-          </div>
-        </SidebarFooter>
+        </div>
       </SidebarContent>
+      <SidebarFooter>
+        <div className="px-4">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+            onClick={async () => {
+              await supabase.auth.signOut();
+            }}
+          >
+            <LogOut className="mr-2" /> Sign out
+          </Button>
+        </div>
+      </SidebarFooter>
     </SidebarComponent>
   );
 };

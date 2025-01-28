@@ -24,8 +24,34 @@ export const Dashboard = () => {
     },
   });
 
+  // Fetch user's videos
+  const { data: videos, isLoading: isLoadingVideos } = useQuery({
+    queryKey: ["userVideos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   // Calculate available videos (20 credits per video)
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+
+  // Format date function
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleString('en-US', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true
+    });
+  };
 
   return (
     <div className="flex-1 p-4 md:p-8">
@@ -58,62 +84,62 @@ export const Dashboard = () => {
           </p>
         </Card>
 
-        <Card className="p-6 md:p-8">
-          <h3 className="text-lg md:text-xl font-bold mb-4">Simple, yet crazy powerful.</h3>
-          <ul className="space-y-3">
-            <li className="flex items-center gap-2">
-              <Check className="text-green-500" />
-              <span>No watermark</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="text-green-500" />
-              <span>Access premium voices</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="text-green-500" />
-              <span>High-quality images</span>
-            </li>
-            <li className="flex items-center gap-2">
-              <Check className="text-green-500" />
-              <span>Auto-posting features in 13 languages</span>
-            </li>
-          </ul>
-          <Button className="w-full mt-6 bg-black text-white hover:bg-gray-800">
-            Upgrade now!
-          </Button>
-        </Card>
-
-        <Card className="overflow-hidden">
-          <div className="aspect-video bg-gray-100">
-            {/* Video thumbnail would go here */}
-          </div>
-          <div className="p-4">
-            <div className="flex justify-between items-center mb-2">
-              <span className="text-sm text-gray-500">#e6b6</span>
-              <span className="text-green-500 font-medium">COMPLETED</span>
+        {isLoadingVideos ? (
+          <Card className="p-6">
+            <div className="animate-pulse flex flex-col gap-4">
+              <div className="h-40 bg-gray-200 rounded"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
+              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
             </div>
-            <h3 className="font-medium mb-2 line-clamp-2">
-              "Late Night Drives: Are You Ready for Ghostly Encounters?"
-            </h3>
-            <p className="text-sm text-gray-500 mb-4">
-              Created at: January 16, 2025 11:44AM
-            </p>
-            <Button className="w-full bg-green-500 hover:bg-green-600 mb-4">
-              Download Video
-            </Button>
-            <div className="bg-yellow-50 p-4 rounded-lg">
-              <p className="font-medium mb-2">✨ Upgrade to Premium for:</p>
-              <ul className="text-sm space-y-1">
-                <li className="text-green-600">• Better voices & scripts</li>
-                <li className="text-green-600">• No watermark</li>
-                <li className="text-green-600">• Higher quality videos</li>
-              </ul>
-              <Button variant="link" className="w-full text-blue-500 mt-2">
-                Upgrade Now →
-              </Button>
-            </div>
-          </div>
-        </Card>
+          </Card>
+        ) : (
+          videos?.map((video) => (
+            <Card key={video.id} className="overflow-hidden">
+              <div className="aspect-video bg-gray-100 flex items-center justify-center">
+                {video.youtube_video_id ? (
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    src={`https://www.youtube.com/embed/${video.youtube_video_id}`}
+                    frameBorder="0"
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                    allowFullScreen
+                  ></iframe>
+                ) : (
+                  <div className="text-gray-400">Processing video...</div>
+                )}
+              </div>
+              <div className="p-4">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="text-sm text-gray-500">#{video.id.slice(0, 4)}</span>
+                  <span className={`font-medium ${
+                    video.status === 'completed' ? 'text-green-500' : 
+                    video.status === 'failed' ? 'text-red-500' : 
+                    'text-yellow-500'
+                  }`}>
+                    {video.status.toUpperCase()}
+                  </span>
+                </div>
+                <h3 className="font-medium mb-2 line-clamp-2">
+                  {video.title}
+                </h3>
+                <p className="text-sm text-gray-500 mb-2">
+                  Created at: {formatDate(video.created_at)}
+                </p>
+                {video.views_count !== null && (
+                  <p className="text-sm text-blue-500 mb-4">
+                    {video.views_count.toLocaleString()} views
+                  </p>
+                )}
+                {video.status === 'completed' && (
+                  <Button className="w-full bg-green-500 hover:bg-green-600 mb-4">
+                    Download Video
+                  </Button>
+                )}
+              </div>
+            </Card>
+          ))
+        )}
       </div>
 
       <CreateVideoDialog 

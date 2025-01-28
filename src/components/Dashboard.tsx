@@ -92,8 +92,8 @@ export const Dashboard = () => {
               <div className="h-4 bg-gray-200 rounded w-3/4"></div>
             </div>
           </Card>
-        ) : (
-          stories?.map((story) => (
+        ) : stories && stories.length > 0 ? (
+          stories.map((story) => (
             <Card key={story["stories id"]} className="overflow-hidden">
               <div className="aspect-video bg-gray-100 flex items-center justify-center">
                 <div className="text-gray-400">Story #{story["stories id"]}</div>
@@ -113,6 +113,12 @@ export const Dashboard = () => {
               </div>
             </Card>
           ))
+        ) : (
+          <Card className="col-span-2 p-8 text-center bg-gray-50">
+            <div className="text-gray-500">
+              No stories created yet. Click the "Create New Story" button to get started!
+            </div>
+          </Card>
         )}
       </div>
 

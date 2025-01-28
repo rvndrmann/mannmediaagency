@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
 import { Info } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -24,6 +26,8 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
   const [selectedVoice, setSelectedVoice] = React.useState("david");
   const [topic, setTopic] = React.useState("");
   const [script, setScript] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { toast } = useToast();
 
   const popularTopics = [
     "What If You Could Time Travel to Ancient Egypt?",
@@ -51,26 +55,50 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
     setScript("Your script will appear here. You can edit it after generation.");
   };
 
-  return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
-        <DialogHeader>
-          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
-            Create Your Video
-          </DialogTitle>
-        </DialogHeader>
+  const handleCreateVideo = async () => {
+    try {
+      setIsSubmitting(true);
+      console.log("Creating video with script:", script);
+      
+      const { data, error } = await supabase
+        .from('stories')
+        .insert([
+          { source: script }
+        ])
+        .select();
 
-        <div className="mb-4">
-          <div className="relative h-1.5 bg-purple-100 rounded-full mb-2">
-            <div
-              className="absolute h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-300 ease-out"
-              style={{ width: `${(step / 3) * 100}%` }}
-            />
-          </div>
-          <p className="text-xs text-purple-700 font-medium">
-            Step {step}: {step === 1 ? "Language" : step === 2 ? "Voice" : "Script"} ({Math.round((step / 3) * 100)}%)
-          </p>
-        </div>
+      if (error) {
+        console.error("Error creating video:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Failed to create video. Please try again.",
+        });
+        return;
+      }
+
+      console.log("Video created successfully:", data);
+      toast({
+        title: "Success",
+        description: "Video created successfully!",
+      });
+      onOpenChange(false); // Close dialog
+      
+      // Reset form
+      setStep(1);
+      setTopic("");
+      setScript("");
+    } catch (error) {
+      console.error("Error creating video:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "An unexpected error occurred. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
         {step === 1 && (
           <div className="space-y-4 animate-fadeIn">
@@ -276,22 +304,44 @@ export const CreateVideoDialog = ({ open, onOpenChange }: CreateVideoDialogProps
           </div>
         )}
 
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
+        <DialogHeader>
+          <DialogTitle className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-purple-600 to-purple-900">
+            Create Your Video
+          </DialogTitle>
+        </DialogHeader>
+
+        <div className="mb-4">
+          <div className="relative h-1.5 bg-purple-100 rounded-full mb-2">
+            <div
+              className="absolute h-full bg-gradient-to-r from-purple-400 to-purple-600 rounded-full transition-all duration-300 ease-out"
+              style={{ width: `${(step / 3) * 100}%` }}
+            />
+          </div>
+          <p className="text-xs text-purple-700 font-medium">
+            Step {step}: {step === 1 ? "Language" : step === 2 ? "Voice" : "Script"} ({Math.round((step / 3) * 100)}%)
+          </p>
+        </div>
+
         <div className="flex justify-between mt-4 pt-2 border-t border-purple-100">
           <Button
             variant="outline"
             onClick={handlePrevious}
-            disabled={step === 1}
+            disabled={step === 1 || isSubmitting}
             size="sm"
             className="text-purple-700 border-purple-200 hover:bg-purple-50"
           >
             Previous
           </Button>
           <Button
-            onClick={step === 3 ? undefined : handleNext}
+            onClick={step === 3 ? handleCreateVideo : handleNext}
+            disabled={isSubmitting}
             className="bg-gradient-to-r from-purple-600 to-purple-700 hover:from-purple-700 hover:to-purple-800 text-white shadow-sm"
             size="sm"
           >
-            {step === 3 ? "Create Video" : "Next"}
+            {isSubmitting ? "Creating..." : step === 3 ? "Create Video" : "Next"}
           </Button>
         </div>
       </DialogContent>

@@ -31,6 +31,11 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
     }
   });
 
+  // Ensure we have at least 3 placeholder items if data is loading or empty
+  const displayItems = isLoading || !storyTypes?.length 
+    ? Array(3).fill({ id: 0, story_type: 'Loading...' })
+    : storyTypes;
+
   return (
     <div className="space-y-2">
       <Label htmlFor="storyType" className="text-lg text-purple-700">
@@ -44,11 +49,15 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
         <SelectTrigger className="w-full border border-purple-100">
           <SelectValue placeholder="Select a story type" />
         </SelectTrigger>
-        <SelectContent>
-          {storyTypes?.map((type) => (
+        <SelectContent 
+          className="bg-white border border-purple-100 min-h-[120px] max-h-[200px] overflow-y-auto"
+          position="popper"
+        >
+          {displayItems.map((type) => (
             <SelectItem 
               key={type.id} 
               value={type.id.toString()}
+              className="py-2 px-4 hover:bg-purple-50"
             >
               {type.story_type || `Story Type ${type.id}`}
             </SelectItem>

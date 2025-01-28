@@ -1,12 +1,12 @@
 import React from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { VideoLanguageStep } from "./video/VideoLanguageStep";
-import { VideoVoiceStep } from "./video/VideoVoiceStep";
-import { VideoScriptStep } from "./video/VideoScriptStep";
-import { ProgressBar } from "./video/ProgressBar";
-import { DialogHeader } from "./video/DialogHeader";
-import { DialogFooter } from "./video/DialogFooter";
-import { useVideoCreation } from "@/hooks/useVideoCreation";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/components/ui/use-toast";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CreateVideoDialogProps {
   open: boolean;
@@ -17,83 +17,116 @@ export const CreateVideoDialog = ({
   open,
   onOpenChange,
 }: CreateVideoDialogProps) => {
-  const {
-    step,
-    selectedLanguage,
-    setSelectedLanguage,
-    selectedDuration,
-    setSelectedDuration,
-    selectedVoice,
-    setSelectedVoice,
-    topic,
-    setTopic,
-    script,
-    setScript,
-    isSubmitting,
-    userCredits,
-    availableVideos,
-    hasEnoughCredits,
-    handleNext,
-    handlePrevious,
-    handleGenerateScript,
-    handleCreateVideo,
-  } = useVideoCreation(() => onOpenChange(false));
+  const [source, setSource] = React.useState("");
+  const [storyType, setStoryType] = React.useState("");
+  const [readyToGo, setReadyToGo] = React.useState(false);
+  const [customMusic, setCustomMusic] = React.useState("");
+  const [isSubmitting, setIsSubmitting] = React.useState(false);
+  const { toast } = useToast();
 
-  const popularTopics = [
-    "What If You Could Time Travel to Ancient Egypt?",
-    "5 Hidden Gems in Paris",
-    "Morning Routine of a CEO",
-    "Life in a World Without Smartphones",
-    "How to Make the Perfect Avocado Toast",
-    "AI Assistant Falls in Love with User",
-  ];
+  const handleCreateVideo = async () => {
+    try {
+      setIsSubmitting(true);
+      const { data: session } = await supabase.auth.getSession();
+      
+      if (!session.session?.user.id) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "You must be logged in to create a video",
+        });
+        return;
+      }
+
+      const { data, error } = await supabase
+        .from("stories")
+        .insert([
+          {
+            source,
+            story_type_id: storyType,
+            ready_to_go: readyToGo,
+            background_music: customMusic,
+            user_id: session.session.user.id
+          }
+        ])
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Video created successfully!",
+      });
+      
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error creating video:", error);
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to create video. Please try again.",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto bg-gradient-to-br from-white to-purple-50 backdrop-blur-xl border border-purple-100 shadow-xl">
-        <DialogHeader 
-          availableVideos={availableVideos}
-          creditsRemaining={userCredits?.credits_remaining || 0}
-        />
+      <DialogContent className="max-w-lg">
+        <div className="space-y-6">
+          <div>
+            <Label htmlFor="source">Source</Label>
+            <Input
+              id="source"
+              value={source}
+              onChange={(e) => setSource(e.target.value)}
+              placeholder="Enter source URL or text"
+            />
+          </div>
 
-        <ProgressBar step={step} totalSteps={3} />
+          <div>
+            <Label htmlFor="storyType">Story Type</Label>
+            <Select value={storyType} onValueChange={setStoryType}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select story type" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="1">Type 1</SelectItem>
+                <SelectItem value="2">Type 2</SelectItem>
+                <SelectItem value="3">Type 3</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-        {step === 1 && (
-          <VideoLanguageStep
-            selectedLanguage={selectedLanguage}
-            setSelectedLanguage={setSelectedLanguage}
-            selectedDuration={selectedDuration}
-            setSelectedDuration={setSelectedDuration}
-          />
-        )}
+          <div className="flex items-center justify-between">
+            <Label htmlFor="readyToGo">Ready to Go</Label>
+            <Switch
+              id="readyToGo"
+              checked={readyToGo}
+              onCheckedChange={setReadyToGo}
+            />
+          </div>
 
-        {step === 2 && (
-          <VideoVoiceStep
-            selectedVoice={selectedVoice}
-            setSelectedVoice={setSelectedVoice}
-          />
-        )}
+          <div>
+            <Label htmlFor="customMusic">Custom Music URL (Optional)</Label>
+            <Input
+              id="customMusic"
+              value={customMusic}
+              onChange={(e) => setCustomMusic(e.target.value)}
+              placeholder="Enter music URL"
+            />
+          </div>
 
-        {step === 3 && (
-          <VideoScriptStep
-            topic={topic}
-            setTopic={setTopic}
-            script={script}
-            setScript={setScript}
-            onGenerateScript={handleGenerateScript}
-            popularTopics={popularTopics}
-          />
-        )}
-
-        <DialogFooter
-          step={step}
-          isSubmitting={isSubmitting}
-          availableVideos={availableVideos}
-          hasEnoughCredits={hasEnoughCredits}
-          onPrevious={handlePrevious}
-          onNext={handleNext}
-          onCreateVideo={handleCreateVideo}
-        />
+          <Button
+            onClick={handleCreateVideo}
+            disabled={isSubmitting || !source || !storyType}
+            className="w-full"
+          >
+            {isSubmitting ? "Creating..." : "Create Video"}
+          </Button>
+        </div>
       </DialogContent>
     </Dialog>
   );

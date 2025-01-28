@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Video } from "lucide-react";
+import { Video, Plus } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -14,12 +14,19 @@ export const Dashboard = () => {
   const { data: stories, isLoading: isLoadingStories } = useQuery({
     queryKey: ["userStories"],
     queryFn: async () => {
+      console.log("Fetching user stories...");
+      const { data: session } = await supabase.auth.getSession();
       const { data, error } = await supabase
         .from("stories")
         .select("*")
+        .eq('user_id', session.session?.user.id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching stories:", error);
+        throw error;
+      }
+      console.log("Fetched stories:", data);
       return data;
     },
   });
@@ -41,11 +48,8 @@ export const Dashboard = () => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
-          <h1 className="text-xl md:text-2xl font-bold">Your Dashboard</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Your Videos</h1>
         </div>
-        <Button className="bg-orange-500 hover:bg-orange-600 hidden sm:block">
-          Upgrade now!
-        </Button>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
@@ -59,39 +63,52 @@ export const Dashboard = () => {
           </Card>
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
-            <Card key={story["stories id"]} className="overflow-hidden">
+            <Card key={story.id} className="overflow-hidden">
               <div className="aspect-video bg-gray-100 flex items-center justify-center">
-                <div className="text-gray-400">Story #{story["stories id"]}</div>
+                {story.final_video_with_music ? (
+                  <div className="flex flex-col items-center gap-2">
+                    <video 
+                      src={story.final_video_with_music} 
+                      controls 
+                      className="w-full h-full object-cover"
+                    />
+                    <Button variant="outline" className="mt-2">
+                      Download Video
+                    </Button>
+                  </div>
+                ) : (
+                  <div className="text-gray-400">Processing...</div>
+                )}
               </div>
               <div className="p-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-sm text-gray-500">#{story["stories id"]}</span>
-                </div>
                 <p className="text-sm text-gray-500 mb-2">
-                  Created at: {formatDate(story.created_at)}
+                  Created: {formatDate(story.created_at)}
                 </p>
-                {story.source && (
-                  <p className="text-sm text-gray-500 mb-4">
-                    Source: {story.source}
-                  </p>
-                )}
+                <p className="text-sm text-gray-500">
+                  Status: {story.ready_to_go ? "Ready" : "Processing"}
+                </p>
               </div>
             </Card>
           ))
         ) : (
-          <Card className="col-span-2 p-8 text-center bg-gray-50">
-            <div className="text-gray-500">
-              No stories created yet. Click the "Create Video" button in the sidebar to get started!
+          <Card className="col-span-full p-8 text-center bg-gray-50">
+            <div className="flex flex-col items-center gap-4">
+              <div className="p-3 rounded-full bg-purple-100">
+                <Plus className="w-6 h-6 text-purple-600" />
+              </div>
+              <div className="text-gray-500">
+                No videos created yet. Create your first video now!
+              </div>
+              <Button 
+                onClick={() => navigate("/create-video")}
+                className="bg-purple-600 hover:bg-purple-700"
+              >
+                <Plus className="w-4 h-4 mr-2" />
+                Create First Video
+              </Button>
             </div>
           </Card>
         )}
-      </div>
-
-      {/* Mobile upgrade button */}
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t sm:hidden">
-        <Button className="w-full bg-orange-500 hover:bg-orange-600">
-          Upgrade now!
-        </Button>
       </div>
     </div>
   );

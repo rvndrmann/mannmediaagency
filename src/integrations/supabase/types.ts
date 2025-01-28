@@ -48,6 +48,7 @@ export type Database = {
           source: string | null
           "stories id": number
           story_type_id: number | null
+          user_id: string | null
         }
         Insert: {
           background_music?: string | null
@@ -57,6 +58,7 @@ export type Database = {
           source?: string | null
           "stories id"?: number
           story_type_id?: number | null
+          user_id?: string | null
         }
         Update: {
           background_music?: string | null
@@ -66,6 +68,7 @@ export type Database = {
           source?: string | null
           "stories id"?: number
           story_type_id?: number | null
+          user_id?: string | null
         }
         Relationships: [
           {

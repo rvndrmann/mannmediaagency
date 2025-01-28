@@ -41,37 +41,85 @@ export type Database = {
       }
       stories: {
         Row: {
+          background_music: string | null
           created_at: string
+          final_video_with_music: string | null
+          ready_to_go: boolean | null
           source: string | null
           "stories id": number
+          story_type_id: number | null
         }
         Insert: {
+          background_music?: string | null
           created_at?: string
+          final_video_with_music?: string | null
+          ready_to_go?: boolean | null
           source?: string | null
           "stories id"?: number
+          story_type_id?: number | null
         }
         Update: {
+          background_music?: string | null
           created_at?: string
+          final_video_with_music?: string | null
+          ready_to_go?: boolean | null
           source?: string | null
           "stories id"?: number
+          story_type_id?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "stories_story_type_id_fkey"
+            columns: ["story_type_id"]
+            isOneToOne: false
+            referencedRelation: "stories type"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "story_type_id_fkey"
+            columns: ["story_type_id"]
+            isOneToOne: false
+            referencedRelation: "stories type"
+            referencedColumns: ["id"]
+          },
+        ]
       }
-      story_type: {
+      "stories type": {
         Row: {
           created_at: string
           id: number
-          stories: string[]
+          image_height: number | null
+          image_width: number | null
+          Output_height: number | null
+          Output_width: number | null
+          scenes_json_prompt: string | null
+          stories: string | null
+          story_prompt_text: string | null
+          story_type: string | null
         }
         Insert: {
           created_at?: string
           id?: number
-          stories: string[]
+          image_height?: number | null
+          image_width?: number | null
+          Output_height?: number | null
+          Output_width?: number | null
+          scenes_json_prompt?: string | null
+          stories?: string | null
+          story_prompt_text?: string | null
+          story_type?: string | null
         }
         Update: {
           created_at?: string
           id?: number
-          stories?: string[]
+          image_height?: number | null
+          image_width?: number | null
+          Output_height?: number | null
+          Output_width?: number | null
+          scenes_json_prompt?: string | null
+          stories?: string | null
+          story_prompt_text?: string | null
+          story_type?: string | null
         }
         Relationships: []
       }

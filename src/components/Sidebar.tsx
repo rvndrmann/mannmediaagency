@@ -49,14 +49,14 @@ export const Sidebar = () => {
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
               onClick={handleDashboardClick}
             >
-              <LayoutDashboard className="mr-2" /> Dashboard
+              <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
             </Button>
             <IntegrationPanel />
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
             >
-              <Share2 className="mr-2" /> Share
+              <Share2 className="mr-2 h-4 w-4" /> Share
             </Button>
           </nav>
         </div>
@@ -70,7 +70,7 @@ export const Sidebar = () => {
               await supabase.auth.signOut();
             }}
           >
-            <LogOut className="mr-2" /> Sign out
+            <LogOut className="mr-2 h-4 w-4" /> Sign out
           </Button>
         </div>
       </SidebarFooter>

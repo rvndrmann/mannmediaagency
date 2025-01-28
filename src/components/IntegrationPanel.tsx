@@ -3,6 +3,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 import { Youtube, Instagram } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
 export const IntegrationPanel = () => {
   const { data: integrations } = useQuery({
@@ -19,11 +20,13 @@ export const IntegrationPanel = () => {
 
   const handleYoutubeConnect = async () => {
     console.log("Connecting to Youtube...");
+    toast.info("YouTube integration coming soon!");
     // TODO: Implement OAuth flow
   };
 
   const handleInstagramConnect = async () => {
     console.log("Connecting to Instagram...");
+    toast.info("Instagram integration coming soon!");
     // TODO: Implement OAuth flow
   };
 
@@ -34,7 +37,15 @@ export const IntegrationPanel = () => {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button variant="outline" className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800">
+        <Button 
+          variant="ghost" 
+          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+          onClick={(e) => {
+            console.log("Integration panel clicked");
+            // Prevent the click from bubbling up to parent elements
+            e.stopPropagation();
+          }}
+        >
           <Youtube className="mr-2 h-4 w-4" />
           Integrations
         </Button>

@@ -10,6 +10,7 @@ export const useVideoCreation = (onSuccess: () => void) => {
   const [selectedVoice, setSelectedVoice] = useState("david");
   const [topic, setTopic] = useState("");
   const [script, setScript] = useState("");
+  const [storyType, setStoryType] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
 
@@ -17,9 +18,13 @@ export const useVideoCreation = (onSuccess: () => void) => {
     queryKey: ["userCredits"],
     queryFn: async () => {
       console.log("Fetching user credits...");
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No user found");
+
       const { data, error } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) {
@@ -57,9 +62,19 @@ export const useVideoCreation = (onSuccess: () => void) => {
       setIsSubmitting(true);
       console.log("Creating video with script:", script);
 
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("No user found");
+      }
+
       const { data, error } = await supabase
         .from("stories")
-        .insert([{ source: script }])
+        .insert([{ 
+          source: script,
+          user_id: user.id,
+          story_type_id: storyType ? parseInt(storyType) : null,
+          ready_to_go: true
+        }])
         .select();
 
       if (error) {
@@ -109,6 +124,8 @@ export const useVideoCreation = (onSuccess: () => void) => {
     setTopic,
     script,
     setScript,
+    storyType,
+    setStoryType,
     isSubmitting,
     userCredits,
     availableVideos,

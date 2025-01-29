@@ -3,7 +3,6 @@ import { Dialog, DialogContent, DialogClose } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
@@ -26,6 +25,8 @@ export const CreateVideoDialog = ({
     availableVideos,
     script,
     setScript,
+    storyType,
+    setStoryType,
     isSubmitting,
     handleCreateVideo,
   } = useVideoCreation(() => {
@@ -75,8 +76,8 @@ export const CreateVideoDialog = ({
               Story Type <span className="text-red-500">*</span>
             </Label>
             <StoryTypeSelect
-              value=""
-              onChange={() => {}}
+              value={storyType}
+              onChange={setStoryType}
             />
           </div>
 
@@ -111,10 +112,10 @@ export const CreateVideoDialog = ({
           </DialogClose>
           <Button
             onClick={handleCreateVideo}
-            disabled={isSubmitting || !readyToGo}
+            disabled={isSubmitting || !readyToGo || !script || !storyType}
             className="bg-[#9b87f5] hover:bg-[#9b87f5]/90 text-white rounded-full px-8"
           >
-            Create Video
+            {isSubmitting ? "Creating..." : "Create Video"}
           </Button>
         </div>
       </DialogContent>

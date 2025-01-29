@@ -12,13 +12,14 @@ interface StoryTypeSelectProps {
 type StoryType = Database['public']['Tables']['story type']['Row'];
 
 export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
-  const { data: storyTypes, isLoading } = useQuery({
+  const { data: storyTypes, isLoading, error } = useQuery({
     queryKey: ['storyTypes'],
     queryFn: async () => {
       console.log("Fetching story types...");
       const { data, error } = await supabase
         .from('story type')
-        .select('id, story_type');
+        .select('*')
+        .order('id', { ascending: true });
       
       if (error) {
         console.error("Error fetching story types:", error);
@@ -29,6 +30,17 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
       return data as StoryType[];
     }
   });
+
+  if (error) {
+    console.error("Error in StoryTypeSelect:", error);
+    return (
+      <Select disabled>
+        <SelectTrigger className="w-full bg-white border border-purple-100 rounded-2xl p-4 text-base">
+          <SelectValue placeholder="Error loading story types" />
+        </SelectTrigger>
+      </Select>
+    );
+  }
 
   if (isLoading) {
     return (

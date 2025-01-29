@@ -59,12 +59,32 @@ export const useVideoCreation = (onSuccess: () => void) => {
         return;
       }
 
+      if (!script || !storyType) {
+        toast({
+          variant: "destructive",
+          title: "Missing information",
+          description: "Please provide both a script and select a story type.",
+        });
+        return;
+      }
+
       setIsSubmitting(true);
-      console.log("Creating video with script:", script);
+      console.log("Creating video with script:", script, "and story type:", storyType);
 
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("No user found");
+      }
+
+      // Validate story type exists
+      const { data: storyTypeExists } = await supabase
+        .from('story type')
+        .select('id')
+        .eq('id', parseInt(storyType))
+        .single();
+
+      if (!storyTypeExists) {
+        throw new Error("Selected story type does not exist");
       }
 
       const { data, error } = await supabase
@@ -72,7 +92,7 @@ export const useVideoCreation = (onSuccess: () => void) => {
         .insert([{ 
           source: script,
           user_id: user.id,
-          story_type_id: storyType ? parseInt(storyType) : null,
+          story_type_id: parseInt(storyType),
           ready_to_go: true
         }])
         .select();
@@ -105,7 +125,7 @@ export const useVideoCreation = (onSuccess: () => void) => {
       toast({
         variant: "destructive",
         title: "Error",
-        description: "An unexpected error occurred. Please try again.",
+        description: error instanceof Error ? error.message : "An unexpected error occurred. Please try again.",
       });
     } finally {
       setIsSubmitting(false);

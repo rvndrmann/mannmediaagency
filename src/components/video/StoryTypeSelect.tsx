@@ -15,18 +15,40 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
   const { data: storyTypes, isLoading } = useQuery({
     queryKey: ['storyTypes'],
     queryFn: async () => {
+      console.log("Fetching story types...");
       const { data, error } = await supabase
         .from('story type')
         .select('id, story_type');
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching story types:", error);
+        throw error;
+      }
+      
+      console.log("Story types fetched:", data);
       return data as StoryType[];
     }
   });
 
-  const displayItems = isLoading || !storyTypes?.length 
-    ? Array(3).fill({ id: 0, story_type: 'Loading...' })
-    : storyTypes;
+  if (isLoading) {
+    return (
+      <Select disabled>
+        <SelectTrigger className="w-full bg-white border border-purple-100 rounded-2xl p-4 text-base">
+          <SelectValue placeholder="Loading story types..." />
+        </SelectTrigger>
+      </Select>
+    );
+  }
+
+  if (!storyTypes?.length) {
+    return (
+      <Select disabled>
+        <SelectTrigger className="w-full bg-white border border-purple-100 rounded-2xl p-4 text-base">
+          <SelectValue placeholder="No story types available" />
+        </SelectTrigger>
+      </Select>
+    );
+  }
 
   return (
     <Select value={value} onValueChange={onChange}>
@@ -34,7 +56,7 @@ export const StoryTypeSelect = ({ value, onChange }: StoryTypeSelectProps) => {
         <SelectValue placeholder="Select a story type" />
       </SelectTrigger>
       <SelectContent>
-        {displayItems.map((type) => (
+        {storyTypes.map((type) => (
           <SelectItem 
             key={type.id} 
             value={type.id.toString()}

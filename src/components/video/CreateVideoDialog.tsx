@@ -9,6 +9,7 @@ import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
+import { Progress } from "@/components/ui/progress";
 import {
   Select,
   SelectContent,
@@ -39,17 +40,17 @@ export const CreateVideoDialog = ({
   const [readyToGo, setReadyToGo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const [style, setStyle] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Fetch story types from Supabase with console logs for debugging
   const { data: storyTypes, isError } = useQuery({
     queryKey: ["storyTypes"],
     queryFn: async () => {
       console.log("Fetching story types...");
       const { data, error } = await supabase
-        .from("story_type")  // Changed from "story type" to "story_type"
+        .from("story_type")
         .select("id, story_type");
       
       if (error) {
@@ -62,10 +63,9 @@ export const CreateVideoDialog = ({
     },
   });
 
-  // Log when story types change
   console.log("Current story types:", storyTypes);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       if (!file.type.startsWith('audio/')) {
@@ -77,6 +77,46 @@ export const CreateVideoDialog = ({
         return;
       }
       setBackgroundMusic(file);
+      setUploadProgress(0);
+
+      // Start upload immediately when file is selected
+      try {
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+        
+        const { error: uploadError, data } = await supabase.storage
+          .from('background-music')
+          .upload(filePath, file, {
+            onUploadProgress: (progress) => {
+              const percent = (progress.loaded / progress.total) * 100;
+              setUploadProgress(percent);
+              console.log('Upload progress:', percent);
+            }
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('background-music')
+          .getPublicUrl(filePath);
+
+        toast({
+          title: "Success",
+          description: "Background music uploaded successfully",
+        });
+        
+        setUploadProgress(100);
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to upload background music",
+          variant: "destructive",
+        });
+        setUploadProgress(0);
+      }
     }
   };
 
@@ -117,7 +157,6 @@ export const CreateVideoDialog = ({
         backgroundMusicUrl = publicUrl;
       }
 
-      // Get the story type id from the selected style
       const selectedStoryType = storyTypes?.find(type => type.story_type === style);
       console.log("Selected style:", style);
       console.log("Selected story type:", selectedStoryType);
@@ -154,7 +193,6 @@ export const CreateVideoDialog = ({
     }
   };
 
-  // Log when style changes
   console.log("Current style value:", style);
 
   return (
@@ -215,7 +253,7 @@ export const CreateVideoDialog = ({
               <Label htmlFor="backgroundMusic" className="text-xl text-purple-600">
                 Background Music
               </Label>
-              <div className="flex items-center gap-4">
+              <div className="space-y-2">
                 <Input
                   id="backgroundMusic"
                   type="file"
@@ -223,10 +261,13 @@ export const CreateVideoDialog = ({
                   onChange={handleFileChange}
                   className="w-full p-2 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
                 />
-                {backgroundMusic && (
-                  <span className="text-sm text-green-600">
-                    {backgroundMusic.name}
-                  </span>
+                {uploadProgress > 0 && (
+                  <div className="space-y-1">
+                    <Progress value={uploadProgress} className="h-2" />
+                    <p className="text-sm text-purple-600">
+                      {uploadProgress === 100 ? 'Upload complete!' : `Uploading: ${Math.round(uploadProgress)}%`}
+                    </p>
+                  </div>
                 )}
               </div>
             </div>

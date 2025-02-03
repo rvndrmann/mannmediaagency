@@ -33,7 +33,7 @@ export const Sidebar = () => {
   const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
   return (
-    <SidebarComponent collapsible="none">
+    <SidebarComponent collapsible="none" className="w-64 h-screen bg-gray-900">
       <SidebarHeader />
       <SidebarContent>
         <div className="space-y-4 px-4">

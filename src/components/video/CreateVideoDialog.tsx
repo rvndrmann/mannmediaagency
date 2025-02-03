@@ -83,31 +83,45 @@ export const CreateVideoDialog = ({
       try {
         const fileExt = file.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
-        
-        const { error: uploadError, data } = await supabase.storage
-          .from('background-music')
-          .upload(filePath, file, {
-            onUploadProgress: (progress) => {
-              const percent = (progress.loaded / progress.total) * 100;
-              setUploadProgress(percent);
-              console.log('Upload progress:', percent);
-            }
+
+        // Create a ReadableStream from the file
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const arrayBuffer = event.target?.result as ArrayBuffer;
+          const blob = new Blob([arrayBuffer], { type: file.type });
+          
+          const { error: uploadError } = await supabase.storage
+            .from('background-music')
+            .upload(filePath, blob, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            throw uploadError;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('background-music')
+            .getPublicUrl(filePath);
+
+          toast({
+            title: "Success",
+            description: "Background music uploaded successfully",
           });
+          
+          setUploadProgress(100);
+        };
 
-        if (uploadError) {
-          throw uploadError;
-        }
+        reader.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = (event.loaded / event.total) * 100;
+            setUploadProgress(percent);
+            console.log('Upload progress:', percent);
+          }
+        };
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('background-music')
-          .getPublicUrl(filePath);
-
-        toast({
-          title: "Success",
-          description: "Background music uploaded successfully",
-        });
-        
-        setUploadProgress(100);
+        reader.readAsArrayBuffer(file);
       } catch (error) {
         console.error('Upload error:', error);
         toast({

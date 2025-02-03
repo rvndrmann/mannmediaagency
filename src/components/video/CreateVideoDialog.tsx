@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X, Upload } from "lucide-react";
+import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -89,6 +89,28 @@ export const CreateVideoDialog = ({
         backgroundMusicUrl = publicUrl;
       }
 
+      // Convert style string to story_type_id
+      let story_type_id: number | null = null;
+      switch (style) {
+        case "cinematic":
+          story_type_id = 1;
+          break;
+        case "documentary":
+          story_type_id = 2;
+          break;
+        case "animation":
+          story_type_id = 3;
+          break;
+        case "vlog":
+          story_type_id = 4;
+          break;
+        case "commercial":
+          story_type_id = 5;
+          break;
+        default:
+          story_type_id = null;
+      }
+
       const { error } = await supabase
         .from("stories")
         .insert([
@@ -97,7 +119,7 @@ export const CreateVideoDialog = ({
             ready_to_go: readyToGo,
             user_id: session.user.id,
             background_music: backgroundMusicUrl,
-            story_type: style,
+            story_type_id: story_type_id,
           },
         ]);
 

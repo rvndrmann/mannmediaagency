@@ -34,7 +34,7 @@ export const Sidebar = () => {
   const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
   return (
-    <SidebarComponent>
+    <SidebarComponent collapsible="none">
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
           <div className="text-xl font-bold text-white">Lovable</div>

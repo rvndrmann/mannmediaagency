@@ -43,18 +43,27 @@ export const CreateVideoDialog = ({
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  // Fetch story types from Supabase
-  const { data: storyTypes } = useQuery({
+  // Fetch story types from Supabase with console logs for debugging
+  const { data: storyTypes, isError } = useQuery({
     queryKey: ["storyTypes"],
     queryFn: async () => {
+      console.log("Fetching story types...");
       const { data, error } = await supabase
         .from("story type")
         .select("id, story_type");
       
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching story types:", error);
+        throw error;
+      }
+      
+      console.log("Fetched story types:", data);
       return data as StoryType[];
     },
   });
+
+  // Log when story types change
+  console.log("Current story types:", storyTypes);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -110,6 +119,8 @@ export const CreateVideoDialog = ({
 
       // Get the story type id from the selected style
       const selectedStoryType = storyTypes?.find(type => type.story_type === style);
+      console.log("Selected style:", style);
+      console.log("Selected story type:", selectedStoryType);
       const story_type_id = selectedStoryType?.id || null;
 
       const { error } = await supabase
@@ -142,6 +153,9 @@ export const CreateVideoDialog = ({
       setIsSubmitting(false);
     }
   };
+
+  // Log when style changes
+  console.log("Current style value:", style);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

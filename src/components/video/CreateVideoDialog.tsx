@@ -8,6 +8,7 @@ import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { useQuery } from "@tanstack/react-query";
 import {
   Select,
   SelectContent,
@@ -23,6 +24,11 @@ interface CreateVideoDialogProps {
   creditsRemaining: number;
 }
 
+interface StoryType {
+  id: number;
+  story_type: string | null;
+}
+
 export const CreateVideoDialog = ({
   isOpen,
   onClose,
@@ -36,6 +42,19 @@ export const CreateVideoDialog = ({
   const [style, setStyle] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  // Fetch story types from Supabase
+  const { data: storyTypes } = useQuery({
+    queryKey: ["storyTypes"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("story type")
+        .select("id, story_type");
+      
+      if (error) throw error;
+      return data as StoryType[];
+    },
+  });
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -89,27 +108,9 @@ export const CreateVideoDialog = ({
         backgroundMusicUrl = publicUrl;
       }
 
-      // Convert style string to story_type_id
-      let story_type_id: number | null = null;
-      switch (style) {
-        case "cinematic":
-          story_type_id = 1;
-          break;
-        case "documentary":
-          story_type_id = 2;
-          break;
-        case "animation":
-          story_type_id = 3;
-          break;
-        case "vlog":
-          story_type_id = 4;
-          break;
-        case "commercial":
-          story_type_id = 5;
-          break;
-        default:
-          story_type_id = null;
-      }
+      // Get the story type id from the selected style
+      const selectedStoryType = storyTypes?.find(type => type.story_type === style);
+      const story_type_id = selectedStoryType?.id || null;
 
       const { error } = await supabase
         .from("stories")
@@ -184,11 +185,14 @@ export const CreateVideoDialog = ({
                   <SelectValue placeholder="Select a style" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="cinematic">Cinematic</SelectItem>
-                  <SelectItem value="documentary">Documentary</SelectItem>
-                  <SelectItem value="animation">Animation</SelectItem>
-                  <SelectItem value="vlog">Vlog</SelectItem>
-                  <SelectItem value="commercial">Commercial</SelectItem>
+                  {storyTypes?.map((type) => (
+                    <SelectItem 
+                      key={type.id} 
+                      value={type.story_type || ""}
+                    >
+                      {type.story_type}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

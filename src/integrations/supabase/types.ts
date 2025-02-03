@@ -75,19 +75,19 @@ export type Database = {
             foreignKeyName: "stories_story_type_id_fkey"
             columns: ["story_type_id"]
             isOneToOne: false
-            referencedRelation: "story type"
+            referencedRelation: "story_type"
             referencedColumns: ["id"]
           },
           {
             foreignKeyName: "story_type_id_fkey"
             columns: ["story_type_id"]
             isOneToOne: false
-            referencedRelation: "story type"
+            referencedRelation: "story_type"
             referencedColumns: ["id"]
           },
         ]
       }
-      "story type": {
+      story_type: {
         Row: {
           created_at: string
           id: number

@@ -1,13 +1,15 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus } from "lucide-react";
+import { Plus, ArrowLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
+import { useNavigate } from "react-router-dom";
 
 const CreateVideo = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const navigate = useNavigate();
 
   // Fetch user credits
   const { data: userCredits } = useQuery({
@@ -28,7 +30,17 @@ const CreateVideo = () => {
   return (
     <div className="flex-1 p-8">
       <div className="max-w-4xl mx-auto">
-        <h1 className="text-3xl font-bold mb-8">Create New Video</h1>
+        <div className="flex items-center mb-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/")}
+            className="mr-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-3xl font-bold">Create New Video</h1>
+        </div>
         
         <Card className="p-6">
           <div className="text-center space-y-4">

@@ -1,6 +1,7 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
+import { ArrowLeft } from "lucide-react";
 
 const Plans = () => {
   const navigate = useNavigate();
@@ -59,12 +60,21 @@ const Plans = () => {
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex justify-between items-center mb-8">
+        <div className="flex items-center mb-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/")}
+            className="mr-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
           <h1 className="text-2xl font-bold">Choose Your Plan</h1>
-          <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1">
-            <Button variant="ghost" className="rounded-full">Monthly</Button>
-            <Button variant="default" className="rounded-full">Yearly</Button>
-          </div>
+        </div>
+        
+        <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1 mb-8">
+          <Button variant="ghost" className="rounded-full">Monthly</Button>
+          <Button variant="default" className="rounded-full">Yearly</Button>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

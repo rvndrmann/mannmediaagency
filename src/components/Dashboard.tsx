@@ -2,13 +2,14 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useState, useEffect } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
 
   // Fetch user's stories
   const { data: stories, isLoading: isLoadingStories } = useQuery({
@@ -31,6 +32,30 @@ export const Dashboard = () => {
     },
   });
 
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'stories'
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          // Invalidate and refetch stories when there's an update
+          queryClient.invalidateQueries({ queryKey: ["userStories"] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [queryClient]);
+
   // Format date function
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
@@ -41,6 +66,10 @@ export const Dashboard = () => {
       minute: '2-digit',
       hour12: true
     });
+  };
+
+  const handleDownload = (videoUrl: string) => {
+    window.open(videoUrl, '_blank');
   };
 
   return (
@@ -64,20 +93,26 @@ export const Dashboard = () => {
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
             <Card key={story["stories id"]} className="overflow-hidden">
-              <div className="aspect-video bg-gray-100 flex items-center justify-center">
+              <div className="aspect-video bg-gray-100">
                 {story.final_video_with_music ? (
-                  <div className="flex flex-col items-center gap-2">
+                  <div className="flex flex-col items-center gap-2 p-4">
                     <video 
                       src={story.final_video_with_music} 
                       controls 
-                      className="w-full h-full object-cover"
+                      className="w-full h-full object-cover rounded"
                     />
-                    <Button variant="outline" className="mt-2">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => handleDownload(story.final_video_with_music)}
+                      className="mt-2 w-full"
+                    >
                       Download Video
                     </Button>
                   </div>
                 ) : (
-                  <div className="text-gray-400">Processing...</div>
+                  <div className="h-full flex items-center justify-center">
+                    <div className="text-gray-400">Processing...</div>
+                  </div>
                 )}
               </div>
               <div className="p-4">

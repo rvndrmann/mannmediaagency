@@ -1,11 +1,13 @@
 import { useState } from "react";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/components/ui/use-toast";
 
 interface CreateVideoDialogProps {
   isOpen: boolean;
@@ -22,16 +24,54 @@ export const CreateVideoDialog = ({
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState("");
   const [readyToGo, setReadyToGo] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const handleSubmit = async () => {
-    // Handle form submission logic here
-    console.log("Submitting:", { source, readyToGo });
+    if (!source.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter a script or idea",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const { error } = await supabase
+        .from("stories")
+        .insert([
+          {
+            source: source.trim(),
+            ready_to_go: readyToGo,
+          },
+        ]);
+
+      if (error) throw error;
+
+      toast({
+        title: "Success",
+        description: "Your video has been created successfully",
+      });
+      onClose();
+    } catch (error) {
+      console.error("Error creating video:", error);
+      toast({
+        title: "Error",
+        description: "Failed to create video. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
+        <DialogTitle className="sr-only">Create Your Video</DialogTitle>
         <div className="relative">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center gap-2 cursor-pointer" onClick={onClose}>
@@ -76,15 +116,17 @@ export const CreateVideoDialog = ({
               <Button
                 variant="outline"
                 onClick={onClose}
+                disabled={isSubmitting}
                 className="px-8 border-purple-200 text-purple-600 hover:bg-purple-50"
               >
                 Cancel
               </Button>
               <Button
                 onClick={handleSubmit}
+                disabled={isSubmitting}
                 className="px-8 bg-purple-600 hover:bg-purple-700 text-white"
               >
-                Create Video
+                {isSubmitting ? "Creating..." : "Create Video"}
               </Button>
             </div>
           </div>

@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { LayoutDashboard, Share2, LogOut, DollarSign, User } from "lucide-react";
+import { LayoutDashboard, Share2, LogOut, DollarSign, User, Video } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
@@ -73,6 +73,13 @@ export const Sidebar = () => {
               onClick={handleDashboardClick}
             >
               <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
+            </Button>
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+              onClick={() => navigate("/create-video")}
+            >
+              <Video className="mr-2 h-4 w-4" /> Create Video
             </Button>
             <Button
               variant="ghost"

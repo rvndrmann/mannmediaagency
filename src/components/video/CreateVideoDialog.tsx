@@ -49,7 +49,7 @@ export const CreateVideoDialog = ({
     queryFn: async () => {
       console.log("Fetching story types...");
       const { data, error } = await supabase
-        .from("story type")
+        .from("story_type")  // Changed from "story type" to "story_type"
         .select("id, story_type");
       
       if (error) {

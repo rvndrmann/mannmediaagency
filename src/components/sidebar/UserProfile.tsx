@@ -19,10 +19,10 @@ export const UserProfile = ({ email, availableStories, creditsRemaining }: UserP
           <div className="text-xs text-gray-400">Free Plan</div>
         </div>
       </div>
-      <div className="text-sm text-gray-400">Available Stories</div>
-      <div className="text-2xl font-bold text-white">{availableStories}</div>
+      <div className="text-sm text-gray-400">Available Credits</div>
+      <div className="text-2xl font-bold text-white">{creditsRemaining}</div>
       <div className="text-xs text-gray-400 mt-1">
-        ({creditsRemaining} credits)
+        ({availableStories} stories available)
       </div>
     </Card>
   );

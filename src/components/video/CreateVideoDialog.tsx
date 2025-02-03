@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X } from "lucide-react";
+import { X, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -25,8 +25,24 @@ export const CreateVideoDialog = ({
   const [source, setSource] = useState("");
   const [readyToGo, setReadyToGo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        toast({
+          title: "Error",
+          description: "Please upload an audio file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setBackgroundMusic(file);
+    }
+  };
 
   const handleSubmit = async () => {
     if (!source.trim()) {
@@ -40,11 +56,29 @@ export const CreateVideoDialog = ({
 
     setIsSubmitting(true);
     try {
-      // Get the current user's session
       const { data: { session } } = await supabase.auth.getSession();
       
       if (!session) {
         throw new Error("No authenticated session");
+      }
+
+      let backgroundMusicUrl = null;
+      
+      if (backgroundMusic) {
+        const fileExt = backgroundMusic.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+        
+        const { error: uploadError, data } = await supabase.storage
+          .from('background-music')
+          .upload(filePath, backgroundMusic);
+
+        if (uploadError) throw uploadError;
+        
+        const { data: { publicUrl } } = supabase.storage
+          .from('background-music')
+          .getPublicUrl(filePath);
+          
+        backgroundMusicUrl = publicUrl;
       }
 
       const { error } = await supabase
@@ -53,7 +87,8 @@ export const CreateVideoDialog = ({
           {
             source: source.trim(),
             ready_to_go: readyToGo,
-            user_id: session.user.id, // Add the user_id from the session
+            user_id: session.user.id,
+            background_music: backgroundMusicUrl,
           },
         ]);
 
@@ -107,6 +142,26 @@ export const CreateVideoDialog = ({
                 placeholder="Enter your script or idea"
                 className="w-full p-4 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="backgroundMusic" className="text-xl text-purple-600">
+                Background Music
+              </Label>
+              <div className="flex items-center gap-4">
+                <Input
+                  id="backgroundMusic"
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleFileChange}
+                  className="w-full p-2 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                />
+                {backgroundMusic && (
+                  <span className="text-sm text-green-600">
+                    {backgroundMusic.name}
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="flex items-center justify-between">

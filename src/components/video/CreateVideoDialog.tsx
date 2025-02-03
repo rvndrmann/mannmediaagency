@@ -206,7 +206,7 @@ export const CreateVideoDialog = ({
               <span className="text-lg">Back to Dashboard</span>
             </div>
             <span className="text-purple-600">
-              {availableVideos} videos available ({creditsRemaining} credits)
+              {availableVideos} videos available ({creditsRemaining} credits - costs 10 credits per video)
             </span>
           </div>
           

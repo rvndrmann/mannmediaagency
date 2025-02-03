@@ -32,7 +32,8 @@ export const Sidebar = () => {
     },
   });
 
-  const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  // Update calculation to reflect 10 credits per video
+  const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 10);
 
   const handleDashboardClick = () => {
     console.log("Navigating to dashboard...");

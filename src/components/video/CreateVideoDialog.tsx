@@ -8,6 +8,13 @@ import { X, Upload } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CreateVideoDialogProps {
   isOpen: boolean;
@@ -26,6 +33,7 @@ export const CreateVideoDialog = ({
   const [readyToGo, setReadyToGo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
+  const [style, setStyle] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
 
@@ -89,6 +97,7 @@ export const CreateVideoDialog = ({
             ready_to_go: readyToGo,
             user_id: session.user.id,
             background_music: backgroundMusicUrl,
+            story_type: style,
           },
         ]);
 
@@ -142,6 +151,24 @@ export const CreateVideoDialog = ({
                 placeholder="Enter your script or idea"
                 className="w-full p-4 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
               />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="style" className="text-xl text-purple-600">
+                Style
+              </Label>
+              <Select value={style} onValueChange={setStyle}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a style" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="cinematic">Cinematic</SelectItem>
+                  <SelectItem value="documentary">Documentary</SelectItem>
+                  <SelectItem value="animation">Animation</SelectItem>
+                  <SelectItem value="vlog">Vlog</SelectItem>
+                  <SelectItem value="commercial">Commercial</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <div className="space-y-2">

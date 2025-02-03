@@ -8,6 +8,7 @@ import { supabase } from "@/integrations/supabase/client";
 import Index from "./pages/Index";
 import Auth from "./pages/Auth";
 import CreateVideo from "./pages/CreateVideo";
+import CreateStoryType from "./pages/CreateStoryType";
 import Integrations from "./pages/Integrations";
 import Plans from "./pages/Plans";
 
@@ -71,6 +72,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CreateVideo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/create-story-type"
+              element={
+                <ProtectedRoute>
+                  <CreateStoryType />
                 </ProtectedRoute>
               }
             />

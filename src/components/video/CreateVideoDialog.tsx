@@ -40,12 +40,20 @@ export const CreateVideoDialog = ({
 
     setIsSubmitting(true);
     try {
+      // Get the current user's session
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        throw new Error("No authenticated session");
+      }
+
       const { error } = await supabase
         .from("stories")
         .insert([
           {
             source: source.trim(),
             ready_to_go: readyToGo,
+            user_id: session.user.id, // Add the user_id from the session
           },
         ]);
 

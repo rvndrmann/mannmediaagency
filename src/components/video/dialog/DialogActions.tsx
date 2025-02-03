@@ -1,0 +1,29 @@
+import { Button } from "@/components/ui/button";
+
+interface DialogActionsProps {
+  onClose: () => void;
+  onSubmit: () => void;
+  isSubmitting: boolean;
+}
+
+export const DialogActions = ({ onClose, onSubmit, isSubmitting }: DialogActionsProps) => {
+  return (
+    <div className="flex justify-between pt-4">
+      <Button
+        variant="outline"
+        onClick={onClose}
+        disabled={isSubmitting}
+        className="px-8 border-purple-200 text-purple-600 hover:bg-purple-50"
+      >
+        Cancel
+      </Button>
+      <Button
+        onClick={onSubmit}
+        disabled={isSubmitting}
+        className="px-8 bg-purple-600 hover:bg-purple-700 text-white"
+      >
+        {isSubmitting ? "Creating..." : "Create Video"}
+      </Button>
+    </div>
+  );
+};

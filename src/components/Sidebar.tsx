@@ -6,9 +6,12 @@ import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFoot
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { IntegrationPanel } from "./IntegrationPanel";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useToast } from "@/components/ui/use-toast";
 
 export const Sidebar = () => {
   const navigate = useNavigate();
+  const { toast } = useToast();
   
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -32,8 +35,21 @@ export const Sidebar = () => {
     },
   });
 
-  // Update calculation to reflect 10 credits per video
   const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 10);
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
+
+  const handleCreateVideo = () => {
+    if (!hasEnoughCredits) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 10 credits to create a video. Please purchase more credits.",
+        variant: "destructive",
+      });
+      navigate("/plans");
+      return;
+    }
+    navigate("/create-video");
+  };
 
   const handleDashboardClick = () => {
     console.log("Navigating to dashboard...");
@@ -75,13 +91,29 @@ export const Sidebar = () => {
             >
               <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
             </Button>
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-              onClick={() => navigate("/create-video")}
-            >
-              <Video className="mr-2 h-4 w-4" /> Create Video
-            </Button>
+            
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
+                      !hasEnoughCredits ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    onClick={handleCreateVideo}
+                    disabled={!hasEnoughCredits}
+                  >
+                    <Video className="mr-2 h-4 w-4" /> Create Video
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!hasEnoughCredits && (
+                <TooltipContent>
+                  <p>You need at least 10 credits to create a video</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
+
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"

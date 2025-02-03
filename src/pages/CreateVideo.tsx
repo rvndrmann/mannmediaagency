@@ -1,12 +1,13 @@
+import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
-import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 
 const CreateVideo = () => {
-  const navigate = useNavigate();
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   // Fetch user credits
   const { data: userCredits } = useQuery({
@@ -39,7 +40,7 @@ const CreateVideo = () => {
               You have {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
             </p>
             <Button 
-              onClick={() => navigate("/create-video")}
+              onClick={() => setIsDialogOpen(true)}
               className="bg-purple-600 hover:bg-purple-700"
             >
               <Plus className="w-4 h-4 mr-2" />
@@ -47,6 +48,13 @@ const CreateVideo = () => {
             </Button>
           </div>
         </Card>
+
+        <CreateVideoDialog
+          isOpen={isDialogOpen}
+          onClose={() => setIsDialogOpen(false)}
+          availableVideos={availableVideos}
+          creditsRemaining={userCredits?.credits_remaining || 0}
+        />
       </div>
     </div>
   );

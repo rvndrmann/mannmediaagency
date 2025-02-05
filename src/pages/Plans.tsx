@@ -1,6 +1,4 @@
-
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
 import { Sidebar } from "@/components/Sidebar";
@@ -9,6 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useState } from "react";
+import { BillingToggle } from "@/components/billing/BillingToggle";
+import { PlanCard } from "@/components/billing/PlanCard";
 
 const Plans = () => {
   const navigate = useNavigate();
@@ -165,59 +165,18 @@ const Plans = () => {
                 <h1 className="text-2xl font-bold">Choose Your Plan</h1>
               </div>
               
-              <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1 mb-8">
-                <Button 
-                  variant={isYearly ? "ghost" : "default"} 
-                  className="rounded-full"
-                  onClick={() => setIsYearly(false)}
-                >
-                  Monthly
-                </Button>
-                <Button 
-                  variant={isYearly ? "default" : "ghost"} 
-                  className="rounded-full"
-                  onClick={() => setIsYearly(true)}
-                >
-                  Yearly
-                </Button>
-              </div>
+              <BillingToggle 
+                isYearly={isYearly} 
+                onToggle={setIsYearly} 
+              />
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                 {plans.map((plan) => (
-                  <Card key={plan.name} className="p-6">
-                    <div className="space-y-4">
-                      <div>
-                        <h3 className="text-xl font-bold">{plan.name}</h3>
-                        <p className="text-sm text-gray-500">{plan.credits}</p>
-                        <p className="text-sm text-gray-500">{plan.videos}</p>
-                      </div>
-                      
-                      <div>
-                        <div className="text-3xl font-bold">{plan.price}</div>
-                        <div className="text-sm text-gray-500">per month</div>
-                        <div className="text-sm text-gray-500">{plan.billing}</div>
-                      </div>
-
-                      <Button 
-                        className="w-full" 
-                        onClick={() => handleSubscribe(plan)}
-                      >
-                        Subscribe
-                      </Button>
-
-                      <div className="space-y-2">
-                        <p className="text-sm font-medium">This includes:</p>
-                        <ul className="space-y-2">
-                          {plan.features.map((feature) => (
-                            <li key={feature} className="text-sm text-gray-600 flex items-center gap-2">
-                              <span className="h-1.5 w-1.5 rounded-full bg-blue-500" />
-                              {feature}
-                            </li>
-                          ))}
-                        </ul>
-                      </div>
-                    </div>
-                  </Card>
+                  <PlanCard
+                    key={plan.name}
+                    plan={plan}
+                    onSubscribe={handleSubscribe}
+                  />
                 ))}
               </div>
             </div>

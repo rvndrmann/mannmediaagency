@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -10,6 +11,8 @@ import Auth from "./pages/Auth";
 import CreateVideo from "./pages/CreateVideo";
 import Integrations from "./pages/Integrations";
 import Plans from "./pages/Plans";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailure from "./pages/PaymentFailure";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -90,6 +93,8 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/payment-success" element={<PaymentSuccess />} />
+            <Route path="/payment-failure" element={<PaymentFailure />} />
             <Route path="/auth" element={<Auth />} />
           </Routes>
         </BrowserRouter>

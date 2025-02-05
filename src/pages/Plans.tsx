@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -95,7 +96,7 @@ const Plans = () => {
     try {
       const amount = isYearly ? plan.yearlyPrice : plan.monthlyPrice;
       
-      const response = await supabase.functions.invoke('payu-payment', {
+      const { data: paymentData, error } = await supabase.functions.invoke('payu-payment', {
         body: {
           plan: plan.name,
           email: user.email,
@@ -103,9 +104,7 @@ const Plans = () => {
         }
       });
 
-      if (response.error) throw response.error;
-
-      const { data: paymentData } = response;
+      if (error) throw error;
 
       // Create payment form and submit
       const form = document.createElement('form');
@@ -121,7 +120,7 @@ const Plans = () => {
       });
 
       // Create subscription record
-      await supabase.from('subscriptions').insert({
+      const { error: subscriptionError } = await supabase.from('subscriptions').insert({
         user_id: user.id,
         plan_name: plan.name,
         amount: amount,
@@ -131,6 +130,8 @@ const Plans = () => {
           new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString() : 
           new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString()
       });
+
+      if (subscriptionError) throw subscriptionError;
 
       document.body.appendChild(form);
       form.submit();

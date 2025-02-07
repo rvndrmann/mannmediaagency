@@ -1,84 +1,28 @@
 import { useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { useNavigate } from "react-router-dom";
 
 const Auth = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
-  const navigate = useNavigate();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    
-    try {
-      console.log("Attempting to sign up with email:", email);
-      const { error } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          emailRedirectTo: window.location.origin,
-        },
-      });
-
-      if (error) {
-        console.error("Sign up error:", error);
-        throw error;
-      }
-
-      console.log("Sign up successful");
-      toast({
-        title: "Success!",
-        description: "Check your email for the confirmation link.",
-      });
-      
-      setEmail("");
-      setPassword("");
-    } catch (error: any) {
-      console.error("Sign up error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Not implemented",
+      description: "Sign up functionality has been removed.",
+    });
   };
 
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
-    
-    try {
-      console.log("Attempting to sign in with email:", email);
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error("Sign in error:", error);
-        throw error;
-      }
-
-      console.log("Sign in successful");
-      navigate("/");
-    } catch (error: any) {
-      console.error("Sign in error:", error);
-      toast({
-        variant: "destructive",
-        title: "Error",
-        description: error.message,
-      });
-    } finally {
-      setLoading(false);
-    }
+    toast({
+      title: "Not implemented",
+      description: "Sign in functionality has been removed.",
+    });
   };
 
   return (

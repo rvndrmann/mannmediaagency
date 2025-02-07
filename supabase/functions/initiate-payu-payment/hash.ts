@@ -12,7 +12,7 @@ export async function generateHash(
   merchantSalt: string
 ): Promise<string> {
   // Log input parameters for debugging
-  console.log('Hash Generation - Input Parameters:', {
+  console.log('Hash Generation - Raw Input Parameters:', {
     merchantKey,
     txnId,
     amount,
@@ -25,9 +25,20 @@ export async function generateHash(
     merchantSalt: '[REDACTED]'
   });
 
-  // PayU requires a specific order of parameters for hash generation
-  // key|txnid|amount|productinfo|firstname|email|phone|surl|furl|||||||SALT
-  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|${phone}|${surl}|${furl}|||||||${merchantSalt}`;
+  // Ensure all parameters are properly encoded before hash generation
+  const encodedKey = encodeURIComponent(merchantKey);
+  const encodedTxnId = encodeURIComponent(txnId);
+  const encodedAmount = encodeURIComponent(amount);
+  const encodedProductInfo = encodeURIComponent(productInfo);
+  const encodedFirstname = encodeURIComponent(firstname);
+  const encodedEmail = encodeURIComponent(email);
+  const encodedPhone = encodeURIComponent(phone);
+  const encodedSurl = encodeURIComponent(surl);
+  const encodedFurl = encodeURIComponent(furl);
+
+  // PayU's hash string format: key|txnid|amount|productinfo|firstname|email|phone|surl|furl|||||||SALT
+  const hashString = `${encodedKey}|${encodedTxnId}|${encodedAmount}|${encodedProductInfo}|${encodedFirstname}|${encodedEmail}|${encodedPhone}|${encodedSurl}|${encodedFurl}|||||||${merchantSalt}`;
+  
   console.log('Hash Generation - Hash String (before SHA-512):', hashString);
   
   const encoder = new TextEncoder();

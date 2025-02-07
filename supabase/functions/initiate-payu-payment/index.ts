@@ -14,9 +14,15 @@ serve(async (req) => {
 
   try {
     console.log('Payment Initiation - Start');
+    
+    // Get and validate origin
     const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || '';
+    if (!origin) {
+      throw new Error('Origin header is required');
+    }
     console.log('Request origin:', origin);
 
+    // Parse and validate request body
     const { userId, planName = 'BASIC', amount = 899 } = await req.json() as PaymentRequest
     console.log('Payment Request Parameters:', { userId, planName, amount });
     
@@ -27,12 +33,6 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
-
-    // Initialize database and create subscription
-    const db = new DatabaseService()
-    const subscription = await db.createSubscription({ userId, planName, amount })
-    const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`
-    await db.createPaymentTransaction(userId, txnId, amount, subscription.id)
 
     // Verify PayU credentials
     console.log('Verifying PayU credentials...');
@@ -59,6 +59,12 @@ serve(async (req) => {
       );
     }
 
+    // Initialize database and create subscription
+    const db = new DatabaseService()
+    const subscription = await db.createSubscription({ userId, planName, amount })
+    const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`
+    await db.createPaymentTransaction(userId, txnId, amount, subscription.id)
+
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId)
     const amountString = amount.toFixed(2)
@@ -79,7 +85,7 @@ serve(async (req) => {
       phone
     });
 
-    // Generate hash with all required parameters
+    // Generate hash
     const hash = await generateHash(
       merchantKey,
       txnId,
@@ -109,7 +115,7 @@ serve(async (req) => {
     })
 
     console.log('Payment Initiation - Complete');
-    console.log('Redirect URL generated:', redirectUrl);
+    console.log('Final Redirect URL:', redirectUrl);
 
     return new Response(
       JSON.stringify({ redirectUrl }),

@@ -11,11 +11,11 @@ const Plans = () => {
     {
       name: "BASIC",
       credits: "30 Credits",
-      videos: "2 videos per month",
+      videos: "3 videos per month",
       price: "₹899",
       billing: "One-time payment",
       features: [
-        "Create 2 videos per month",
+        "Create 3 videos (10 credits each)",
         "Background Music",
         "No Watermark",
         "HD Video Resolution"

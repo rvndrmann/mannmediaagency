@@ -10,7 +10,6 @@ const corsHeaders = {
 const PAYU_TEST_URL = "https://test.payu.in/_payment";
 
 serve(async (req) => {
-  // This is critical for CORS to work
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       headers: {
@@ -21,6 +20,10 @@ serve(async (req) => {
   }
 
   try {
+    // Get the origin from the request headers, fallback to a default if not present
+    const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || '';
+    console.log('Request origin:', origin);
+
     const { userId, planName = 'BASIC', amount = 899 } = await req.json()
     
     if (!userId) {
@@ -117,9 +120,18 @@ serve(async (req) => {
     }
 
     const email = user.email || ''
+    
+    // Construct success and failure URLs using the origin
+    const successUrl = `${origin}/payment/success`
+    const failureUrl = `${origin}/payment/failure`
+    console.log('Success URL:', successUrl);
+    console.log('Failure URL:', failureUrl);
+
     const hash = await generateHash(merchantKey!, txnId, amountString, productInfo, email, merchantSalt!)
 
-    const redirectUrl = `${PAYU_TEST_URL}?key=${merchantKey}&txnid=${txnId}&amount=${amountString}&productinfo=${encodeURIComponent(productInfo)}&firstname=User&email=${encodeURIComponent(email)}&surl=https://your-domain.com/payment/success&furl=https://your-domain.com/payment/failure&hash=${hash}`
+    const redirectUrl = `${PAYU_TEST_URL}?key=${merchantKey}&txnid=${txnId}&amount=${amountString}&productinfo=${encodeURIComponent(productInfo)}&firstname=User&email=${encodeURIComponent(email)}&surl=${encodeURIComponent(successUrl)}&furl=${encodeURIComponent(failureUrl)}&hash=${hash}`
+
+    console.log('Generated redirect URL:', redirectUrl);
 
     return new Response(
       JSON.stringify({ redirectUrl }),

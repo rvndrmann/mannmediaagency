@@ -20,7 +20,7 @@ export async function generateHash(
   });
 
   // PayU's hash string format: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|udf1|udf2|udf3|udf4|udf5||||||${merchantSalt}`;
+  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
   
   console.log('Hash Generation - Hash String (before SHA-512):', hashString);
   
@@ -30,10 +30,10 @@ export async function generateHash(
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   
-  // Create hash object with v1 and v2 (both same value as per PayU docs)
+  // Following PayU's example, v1 and v2 hashes are different
   const hashObject = {
     v1: hashHex,
-    v2: hashHex
+    v2: hashHex // For now keeping them same as we don't have clear documentation on how v2 should differ
   };
   
   console.log('Hash Generation - Final Hash Object:', hashObject);

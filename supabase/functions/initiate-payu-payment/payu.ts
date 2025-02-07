@@ -37,23 +37,22 @@ export class PayUService {
 
     // Create URL parameters with proper encoding
     const orderedParams = new URLSearchParams();
-    orderedParams.append('key', encodeURIComponent(this.merchantKey));
-    orderedParams.append('txnid', encodeURIComponent(params.txnId));
-    orderedParams.append('amount', encodeURIComponent(params.amount));
-    orderedParams.append('productinfo', encodeURIComponent(params.productInfo));
-    orderedParams.append('firstname', encodeURIComponent(params.firstname));
-    orderedParams.append('email', encodeURIComponent(params.email));
-    orderedParams.append('phone', encodeURIComponent(params.phone));
-    orderedParams.append('surl', encodeURIComponent(params.successUrl));
-    orderedParams.append('furl', encodeURIComponent(params.failureUrl));
-    // Add UDF fields as per PayU requirements
+    orderedParams.append('key', this.merchantKey);
+    orderedParams.append('txnid', params.txnId);
+    orderedParams.append('amount', params.amount);
+    orderedParams.append('productinfo', params.productInfo);
+    orderedParams.append('firstname', params.firstname);
+    orderedParams.append('email', params.email);
+    orderedParams.append('phone', params.phone);
+    orderedParams.append('surl', params.successUrl);
+    orderedParams.append('furl', params.failureUrl);
     orderedParams.append('udf1', '');
     orderedParams.append('udf2', '');
     orderedParams.append('udf3', '');
     orderedParams.append('udf4', '');
     orderedParams.append('udf5', '');
     orderedParams.append('service_provider', 'payu_paisa');
-    orderedParams.append('hash', params.hash); // Hash is already in correct format
+    orderedParams.append('hash', params.hash);
 
     const redirectUrl = `${PAYU_TEST_URL}?${orderedParams.toString()}`;
     

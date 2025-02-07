@@ -29,28 +29,32 @@ serve(async (req) => {
     const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`
     await db.createPaymentTransaction(userId, txnId, amount, subscription.id)
 
-    const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY')
-    const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
+    // Debug logging for environment variables
+    console.log('Checking PayU credentials:');
+    const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY');
+    const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT');
     
-    console.log('Environment check:')
-    console.log('PAYU_MERCHANT_KEY exists:', !!merchantKey)
-    console.log('PAYU_MERCHANT_SALT exists:', !!merchantSalt)
-    console.log('PAYU_MERCHANT_KEY length:', merchantKey?.length)
-    console.log('PAYU_MERCHANT_SALT length:', merchantSalt?.length)
-
+    console.log('PAYU_MERCHANT_KEY exists:', !!merchantKey);
+    console.log('PAYU_MERCHANT_SALT exists:', !!merchantSalt);
+    
     if (!merchantKey || !merchantSalt) {
+      const missingVars = [];
+      if (!merchantKey) missingVars.push('PAYU_MERCHANT_KEY');
+      if (!merchantSalt) missingVars.push('PAYU_MERCHANT_SALT');
+      
       const error = {
-        message: 'Payment gateway configuration missing',
+        message: 'PayU credentials are missing',
         details: {
-          merchantKey: merchantKey ? 'Present' : 'Missing',
-          merchantSalt: merchantSalt ? 'Present' : 'Missing'
+          missingVariables: missingVars,
+          hint: 'Please ensure PayU credentials are set in Supabase Edge Function secrets'
         }
-      }
-      console.error('Configuration error:', error)
+      };
+      
+      console.error('Configuration error:', error);
       return new Response(
-        JSON.stringify({ error: error.message, details: error.details }),
+        JSON.stringify(error),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
-      )
+      );
     }
 
     const email = await db.getUserEmail(userId)
@@ -59,13 +63,14 @@ serve(async (req) => {
     const successUrl = `${origin}/payment/success`
     const failureUrl = `${origin}/payment/failure`
     
-    console.log('Payment configuration:')
-    console.log('Email:', email)
-    console.log('Amount:', amountString)
-    console.log('Product Info:', productInfo)
-    console.log('Success URL:', successUrl)
-    console.log('Failure URL:', failureUrl)
-    console.log('Transaction ID:', txnId)
+    console.log('Payment configuration:', {
+      email,
+      amount: amountString,
+      productInfo,
+      successUrl,
+      failureUrl,
+      txnId
+    });
 
     const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
     console.log('Generated Hash:', hash)
@@ -97,7 +102,7 @@ serve(async (req) => {
       JSON.stringify({ 
         error: error.message,
         type: error.name,
-        stack: error.stack 
+        details: error.stack 
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )

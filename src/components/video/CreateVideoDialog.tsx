@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -105,11 +104,6 @@ export const CreateVideoDialog = ({
           const { data: { publicUrl } } = supabase.storage
             .from('background-music')
             .getPublicUrl(filePath);
-
-          toast({
-            title: "Success",
-            description: "Background music uploaded successfully",
-          });
           
           setUploadProgress(100);
           setUploadedFileName(file.name);
@@ -149,7 +143,6 @@ export const CreateVideoDialog = ({
 
     setIsSubmitting(true);
     try {
-      // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       
       if (!user) {

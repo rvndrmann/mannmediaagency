@@ -29,7 +29,6 @@ serve(async (req) => {
     const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`
     await db.createPaymentTransaction(userId, txnId, amount, subscription.id)
 
-    // Log environment variables presence
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY')
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
     

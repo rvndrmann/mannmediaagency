@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LayoutDashboard, Share2, LogOut, DollarSign, User, Video } from "lucide-react";
@@ -76,7 +77,7 @@ export const Sidebar = () => {
                 <div className="text-xs text-gray-400">Free Plan</div>
               </div>
             </div>
-            <div className="text-sm text-gray-400">Available Stories</div>
+            <div className="text-sm text-gray-400">Available Videos</div>
             <div className="text-2xl font-bold text-white">{availableStories}</div>
             <div className="text-xs text-gray-400 mt-1">
               ({userCredits?.credits_remaining || 0} credits)

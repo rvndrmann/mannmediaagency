@@ -17,6 +17,7 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      console.log("Attempting to sign up with email:", email);
       const { error } = await supabase.auth.signUp({
         email,
         password,
@@ -25,8 +26,12 @@ const Auth = () => {
         },
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Sign up error:", error);
+        throw error;
+      }
 
+      console.log("Sign up successful");
       toast({
         title: "Success!",
         description: "Check your email for the confirmation link.",
@@ -35,6 +40,7 @@ const Auth = () => {
       setEmail("");
       setPassword("");
     } catch (error: any) {
+      console.error("Sign up error:", error);
       toast({
         variant: "destructive",
         title: "Error",
@@ -50,15 +56,21 @@ const Auth = () => {
     setLoading(true);
     
     try {
+      console.log("Attempting to sign in with email:", email);
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Sign in error:", error);
+        throw error;
+      }
 
+      console.log("Sign in successful");
       navigate("/");
     } catch (error: any) {
+      console.error("Sign in error:", error);
       toast({
         variant: "destructive",
         title: "Error",

@@ -146,8 +146,8 @@ serve(async (req) => {
 
     const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
 
-    // Construct the form data as URLSearchParams
-    const formData = new URLSearchParams()
+    // Create form data for POST request
+    const formData = new FormData()
     formData.append('key', merchantKey)
     formData.append('txnid', txnId)
     formData.append('amount', amountString)
@@ -158,8 +158,27 @@ serve(async (req) => {
     formData.append('furl', failureUrl)
     formData.append('hash', hash)
 
-    const redirectUrl = `${PAYU_TEST_URL}?${formData.toString()}`
+    // Send POST request to PayU
+    const payuResponse = await fetch(PAYU_TEST_URL, {
+      method: 'POST',
+      body: formData
+    })
 
+    if (!payuResponse.ok) {
+      console.error('PayU API error:', await payuResponse.text())
+      return new Response(
+        JSON.stringify({ error: 'Failed to initiate payment with PayU' }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }, 
+          status: 500 
+        }
+      )
+    }
+
+    const redirectUrl = payuResponse.url
     console.log('Generated redirect URL:', redirectUrl);
 
     return new Response(

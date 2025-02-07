@@ -126,6 +126,42 @@ export type Database = {
         }
         Relationships: []
       }
+      subscriptions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          plan_name: string
+          status: string
+          transaction_id: string | null
+          updated_at: string | null
+          user_id: string
+          valid_until: string | null
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          plan_name: string
+          status: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id: string
+          valid_until?: string | null
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          plan_name?: string
+          status?: string
+          transaction_id?: string | null
+          updated_at?: string | null
+          user_id?: string
+          valid_until?: string | null
+        }
+        Relationships: []
+      }
       user_credits: {
         Row: {
           created_at: string | null

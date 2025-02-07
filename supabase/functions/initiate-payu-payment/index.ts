@@ -10,9 +10,14 @@ const corsHeaders = {
 const PAYU_TEST_URL = "https://test.payu.in/_payment";
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // This is critical for CORS to work
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, {
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      },
+    })
   }
 
   try {
@@ -21,7 +26,13 @@ serve(async (req) => {
     if (!userId) {
       return new Response(
         JSON.stringify({ error: 'User ID is required' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }, 
+          status: 400 
+        }
       )
     }
 
@@ -36,7 +47,7 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         status: 'pending',
-        amount: 899, // For BASIC plan, hardcoded for now
+        amount: 899,
         plan_name: 'BASIC'
       })
       .select()
@@ -44,7 +55,16 @@ serve(async (req) => {
 
     if (subscriptionError) {
       console.error('Subscription error:', subscriptionError)
-      throw new Error('Failed to create subscription')
+      return new Response(
+        JSON.stringify({ error: 'Failed to create subscription' }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }, 
+          status: 500 
+        }
+      )
     }
 
     // Create transaction record
@@ -62,7 +82,16 @@ serve(async (req) => {
 
     if (txnError) {
       console.error('Transaction error:', txnError)
-      throw new Error('Failed to create transaction')
+      return new Response(
+        JSON.stringify({ error: 'Failed to create transaction' }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }, 
+          status: 500 
+        }
+      )
     }
 
     // PayU payment parameters
@@ -74,7 +103,17 @@ serve(async (req) => {
     // Get user email
     const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId)
     if (userError || !user) {
-      throw new Error('Failed to get user details')
+      console.error('User error:', userError)
+      return new Response(
+        JSON.stringify({ error: 'Failed to get user details' }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }, 
+          status: 500 
+        }
+      )
     }
 
     const email = user.email || ''
@@ -84,13 +123,24 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ redirectUrl }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        }
+      }
     )
   } catch (error) {
     console.error('Error:', error.message)
     return new Response(
       JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        }, 
+        status: 500 
+      }
     )
   }
 })

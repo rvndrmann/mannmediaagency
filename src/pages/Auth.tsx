@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -20,25 +19,33 @@ const Auth = () => {
     setLoading(true);
 
     try {
+      console.log("Starting authentication process...");
       if (isSignUp) {
-        const { error } = await supabase.auth.signUp({
+        console.log("Attempting signup...");
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
+        console.log("Signup response:", { data, error });
+        
         if (error) throw error;
         toast({
           title: "Check your email",
           description: "We've sent you a verification link.",
         });
       } else {
-        const { error } = await supabase.auth.signInWithPassword({
+        console.log("Attempting signin...");
+        const { data, error } = await supabase.auth.signInWithPassword({
           email,
           password,
         });
+        console.log("Signin response:", { data, error });
+        
         if (error) throw error;
         navigate("/");
       }
     } catch (error: any) {
+      console.error("Authentication error:", error);
       toast({
         title: "Error",
         description: error.message,

@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -7,6 +8,19 @@ const Plans = () => {
   const navigate = useNavigate();
 
   const plans = [
+    {
+      name: "BASIC",
+      credits: "30 Credits",
+      videos: "2 videos per month",
+      price: "₹899",
+      billing: "One-time payment",
+      features: [
+        "Create 2 videos per month",
+        "Background Music",
+        "No Watermark",
+        "HD Video Resolution"
+      ]
+    },
     {
       name: "STARTER",
       credits: "270 Credits",
@@ -73,11 +87,11 @@ const Plans = () => {
         </div>
         
         <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1 mb-8">
-          <Button variant="ghost" className="rounded-full">Monthly</Button>
-          <Button variant="default" className="rounded-full">Yearly</Button>
+          <Button variant="default" className="rounded-full">One-time</Button>
+          <Button variant="ghost" className="rounded-full">Yearly</Button>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {plans.map((plan) => (
             <Card key={plan.name} className="p-6">
               <div className="space-y-4">
@@ -89,11 +103,13 @@ const Plans = () => {
                 
                 <div>
                   <div className="text-3xl font-bold">{plan.price}</div>
-                  <div className="text-sm text-gray-500">per month</div>
                   <div className="text-sm text-gray-500">{plan.billing}</div>
                 </div>
 
-                <Button className="w-full" onClick={() => navigate("/billing")}>
+                <Button 
+                  className="w-full" 
+                  onClick={() => navigate("/billing")}
+                >
                   Subscribe
                 </Button>
 

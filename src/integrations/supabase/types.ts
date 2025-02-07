@@ -9,6 +9,50 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      payment_transactions: {
+        Row: {
+          amount: number
+          created_at: string | null
+          id: string
+          payu_transaction_id: string | null
+          status: string
+          subscription_id: string | null
+          transaction_id: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          amount: number
+          created_at?: string | null
+          id?: string
+          payu_transaction_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          transaction_id: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          amount?: number
+          created_at?: string | null
+          id?: string
+          payu_transaction_id?: string | null
+          status?: string
+          subscription_id?: string | null
+          transaction_id?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_transactions_subscription_id_fkey"
+            columns: ["subscription_id"]
+            isOneToOne: false
+            referencedRelation: "subscriptions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null
@@ -155,6 +199,8 @@ export type Database = {
           amount: number
           created_at: string | null
           id: string
+          payment_status: string | null
+          payu_transaction_id: string | null
           plan_name: string
           status: string
           transaction_id: string | null
@@ -166,6 +212,8 @@ export type Database = {
           amount: number
           created_at?: string | null
           id?: string
+          payment_status?: string | null
+          payu_transaction_id?: string | null
           plan_name: string
           status: string
           transaction_id?: string | null
@@ -177,6 +225,8 @@ export type Database = {
           amount?: number
           created_at?: string | null
           id?: string
+          payment_status?: string | null
+          payu_transaction_id?: string | null
           plan_name?: string
           status?: string
           transaction_id?: string | null

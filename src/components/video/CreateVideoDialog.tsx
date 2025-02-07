@@ -1,16 +1,22 @@
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
+import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { X } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useQuery } from "@tanstack/react-query";
-import { DialogActions } from "./dialog/DialogActions";
-import { MusicUploader } from "./dialog/MusicUploader";
-import { StyleSelector } from "./dialog/StyleSelector";
+import { Progress } from "@/components/ui/progress";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface CreateVideoDialogProps {
   isOpen: boolean;
@@ -39,7 +45,7 @@ export const CreateVideoDialog = ({
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: storyTypes } = useQuery({
+  const { data: storyTypes, isError } = useQuery({
     queryKey: ["storyTypes"],
     queryFn: async () => {
       console.log("Fetching story types...");
@@ -56,6 +62,77 @@ export const CreateVideoDialog = ({
       return data as StoryType[];
     },
   });
+
+  console.log("Current story types:", storyTypes);
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('audio/')) {
+        toast({
+          title: "Error",
+          description: "Please upload an audio file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setBackgroundMusic(file);
+      setUploadProgress(0);
+
+      // Start upload immediately when file is selected
+      try {
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+
+        // Create a ReadableStream from the file
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const arrayBuffer = event.target?.result as ArrayBuffer;
+          const blob = new Blob([arrayBuffer], { type: file.type });
+          
+          const { error: uploadError } = await supabase.storage
+            .from('background-music')
+            .upload(filePath, blob, {
+              cacheControl: '3600',
+              upsert: false
+            });
+
+          if (uploadError) {
+            throw uploadError;
+          }
+
+          const { data: { publicUrl } } = supabase.storage
+            .from('background-music')
+            .getPublicUrl(filePath);
+
+          toast({
+            title: "Success",
+            description: "Background music uploaded successfully",
+          });
+          
+          setUploadProgress(100);
+        };
+
+        reader.onprogress = (event) => {
+          if (event.lengthComputable) {
+            const percent = (event.loaded / event.total) * 100;
+            setUploadProgress(percent);
+            console.log('Upload progress:', percent);
+          }
+        };
+
+        reader.readAsArrayBuffer(file);
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to upload background music",
+          variant: "destructive",
+        });
+        setUploadProgress(0);
+      }
+    }
+  };
 
   const handleSubmit = async () => {
     if (!source.trim()) {
@@ -95,6 +172,8 @@ export const CreateVideoDialog = ({
       }
 
       const selectedStoryType = storyTypes?.find(type => type.story_type === style);
+      console.log("Selected style:", style);
+      console.log("Selected story type:", selectedStoryType);
       const story_type_id = selectedStoryType?.id || null;
 
       const { error } = await supabase
@@ -127,6 +206,8 @@ export const CreateVideoDialog = ({
       setIsSubmitting(false);
     }
   };
+
+  console.log("Current style value:", style);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -161,19 +242,49 @@ export const CreateVideoDialog = ({
               />
             </div>
 
-            <StyleSelector
-              value={style}
-              onChange={setStyle}
-              storyTypes={storyTypes || []}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="style" className="text-xl text-purple-600">
+                Style
+              </Label>
+              <Select value={style} onValueChange={setStyle}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder="Select a style" />
+                </SelectTrigger>
+                <SelectContent>
+                  {storyTypes?.map((type) => (
+                    <SelectItem 
+                      key={type.id} 
+                      value={type.story_type || ""}
+                    >
+                      {type.story_type}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-            <MusicUploader
-              onFileUpload={(file) => {
-                setBackgroundMusic(file);
-                setUploadProgress(0);
-              }}
-              uploadProgress={uploadProgress}
-            />
+            <div className="space-y-2">
+              <Label htmlFor="backgroundMusic" className="text-xl text-purple-600">
+                Background Music
+              </Label>
+              <div className="space-y-2">
+                <Input
+                  id="backgroundMusic"
+                  type="file"
+                  accept="audio/*"
+                  onChange={handleFileChange}
+                  className="w-full p-2 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
+                />
+                {uploadProgress > 0 && (
+                  <div className="space-y-1">
+                    <Progress value={uploadProgress} className="h-2" />
+                    <p className="text-sm text-purple-600">
+                      {uploadProgress === 100 ? 'Upload complete!' : `Uploading: ${Math.round(uploadProgress)}%`}
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
 
             <div className="flex items-center justify-between">
               <Label htmlFor="readyToGo" className="text-xl text-purple-600">
@@ -186,11 +297,23 @@ export const CreateVideoDialog = ({
               />
             </div>
 
-            <DialogActions
-              onClose={onClose}
-              onSubmit={handleSubmit}
-              isSubmitting={isSubmitting}
-            />
+            <div className="flex justify-between pt-4">
+              <Button
+                variant="outline"
+                onClick={onClose}
+                disabled={isSubmitting}
+                className="px-8 border-purple-200 text-purple-600 hover:bg-purple-50"
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-8 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                {isSubmitting ? "Creating..." : "Create Video"}
+              </Button>
+            </div>
           </div>
         </div>
       </DialogContent>

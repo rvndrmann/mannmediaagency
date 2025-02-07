@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -144,6 +145,13 @@ export const CreateVideoDialog = ({
 
     setIsSubmitting(true);
     try {
+      // Get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        throw new Error("No authenticated user found");
+      }
+
       let backgroundMusicUrl = null;
       
       if (backgroundMusic) {
@@ -176,6 +184,7 @@ export const CreateVideoDialog = ({
             ready_to_go: readyToGo,
             background_music: backgroundMusicUrl,
             story_type_id: story_type_id,
+            user_id: user.id  // Add the user_id here
           },
         ]);
 

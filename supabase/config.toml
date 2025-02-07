@@ -1,1 +1,4 @@
+
 project_id = "avdwgvjhufslhqrrmxgo"
+[functions.initiate-payu-payment]
+verify_jwt = true

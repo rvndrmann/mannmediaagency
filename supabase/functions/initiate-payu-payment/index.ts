@@ -103,6 +103,8 @@ serve(async (req) => {
 
     if (!merchantKey || !merchantSalt) {
       console.error('PayU credentials missing')
+      console.error('Merchant Key:', merchantKey ? 'Present' : 'Missing')
+      console.error('Merchant Salt:', merchantSalt ? 'Present' : 'Missing')
       return new Response(
         JSON.stringify({ error: 'Payment gateway configuration missing' }),
         { 
@@ -144,19 +146,19 @@ serve(async (req) => {
 
     const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
 
-    const queryParams = new URLSearchParams({
-      key: merchantKey,
-      txnid: txnId,
-      amount: amountString,
-      productinfo: productInfo,
-      firstname: 'User',
-      email: email,
-      surl: successUrl,
-      furl: failureUrl,
-      hash: hash
-    }).toString();
+    // Construct the form data as URLSearchParams
+    const formData = new URLSearchParams()
+    formData.append('key', merchantKey)
+    formData.append('txnid', txnId)
+    formData.append('amount', amountString)
+    formData.append('productinfo', productInfo)
+    formData.append('firstname', 'User')
+    formData.append('email', email)
+    formData.append('surl', successUrl)
+    formData.append('furl', failureUrl)
+    formData.append('hash', hash)
 
-    const redirectUrl = `${PAYU_TEST_URL}?${queryParams}`
+    const redirectUrl = `${PAYU_TEST_URL}?${formData.toString()}`
 
     console.log('Generated redirect URL:', redirectUrl);
 

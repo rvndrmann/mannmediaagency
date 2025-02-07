@@ -40,7 +40,7 @@ export class PayUService {
     orderedParams.append('key', this.merchantKey);
     orderedParams.append('txnid', params.txnId);
     orderedParams.append('amount', params.amount);
-    orderedParams.append('productinfo', params.productInfo);
+    orderedParams.append('productinfo', params.productInfo); // Note: PayU expects 'productinfo' not 'productInfo'
     orderedParams.append('firstname', params.firstname);
     orderedParams.append('email', params.email);
     orderedParams.append('phone', params.phone);

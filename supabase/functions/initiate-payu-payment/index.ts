@@ -109,6 +109,7 @@ serve(async (req) => {
     })
 
     console.log('Payment Initiation - Complete');
+    console.log('Redirect URL generated:', redirectUrl);
 
     return new Response(
       JSON.stringify({ redirectUrl }),

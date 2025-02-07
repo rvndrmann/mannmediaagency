@@ -20,54 +20,6 @@ const Plans = () => {
         "No Watermark",
         "HD Video Resolution"
       ]
-    },
-    {
-      name: "STARTER",
-      credits: "270 Credits",
-      videos: "13 videos per month",
-      price: "US$15.83",
-      billing: "US$190 billed annually",
-      features: [
-        "Create 3 videos per week",
-        "1 Series",
-        "Auto-Post To Channel",
-        "Background Music",
-        "No Watermark"
-      ]
-    },
-    {
-      name: "DAILY",
-      credits: "630 Credits",
-      videos: "30 videos per month",
-      price: "US$32.50",
-      billing: "US$390 billed annually",
-      features: [
-        "Create 30 videos per month",
-        "1 Series",
-        "Edit & Preview Videos",
-        "Auto-Post To Channel",
-        "HD Video Resolution",
-        "Background Music",
-        "Voice Cloning",
-        "No Watermark"
-      ]
-    },
-    {
-      name: "ENTERPRISE",
-      credits: "1260 Credits",
-      videos: "90 videos per month",
-      price: "US$49.17",
-      billing: "US$590 billed annually",
-      features: [
-        "Create 90 videos per month",
-        "1 Series",
-        "Edit & Preview Videos",
-        "Auto-Post To Channel",
-        "HD Video Resolution",
-        "Background Music",
-        "No Watermark",
-        "Download Videos"
-      ]
     }
   ];
 
@@ -88,7 +40,6 @@ const Plans = () => {
         
         <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1 mb-8">
           <Button variant="default" className="rounded-full">One-time</Button>
-          <Button variant="ghost" className="rounded-full">Yearly</Button>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">

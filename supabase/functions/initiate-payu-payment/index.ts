@@ -5,17 +5,16 @@ import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
 }
 
 const PAYU_TEST_URL = "https://test.payu.in/_payment";
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
-      headers: {
-        ...corsHeaders,
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      },
+      headers: corsHeaders
     })
   }
 
@@ -117,9 +116,6 @@ serve(async (req) => {
       )
     }
 
-    const amountString = amount.toFixed(2)
-    const productInfo = `${planName} Plan Subscription`
-    
     // Get user email
     const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId)
     if (userError || !user) {
@@ -137,6 +133,8 @@ serve(async (req) => {
     }
 
     const email = user.email || ''
+    const amountString = amount.toFixed(2)
+    const productInfo = `${planName} Plan Subscription`
     
     // Construct success and failure URLs using the origin
     const successUrl = `${origin}/payment/success`
@@ -146,39 +144,20 @@ serve(async (req) => {
 
     const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
 
-    // Create form data for POST request
-    const formData = new FormData()
-    formData.append('key', merchantKey)
-    formData.append('txnid', txnId)
-    formData.append('amount', amountString)
-    formData.append('productinfo', productInfo)
-    formData.append('firstname', 'User')
-    formData.append('email', email)
-    formData.append('surl', successUrl)
-    formData.append('furl', failureUrl)
-    formData.append('hash', hash)
+    // Create URLSearchParams for POST request
+    const params = new URLSearchParams()
+    params.append('key', merchantKey)
+    params.append('txnid', txnId)
+    params.append('amount', amountString)
+    params.append('productinfo', productInfo)
+    params.append('firstname', 'User')
+    params.append('email', email)
+    params.append('surl', successUrl)
+    params.append('furl', failureUrl)
+    params.append('hash', hash)
 
-    // Send POST request to PayU
-    const payuResponse = await fetch(PAYU_TEST_URL, {
-      method: 'POST',
-      body: formData
-    })
-
-    if (!payuResponse.ok) {
-      console.error('PayU API error:', await payuResponse.text())
-      return new Response(
-        JSON.stringify({ error: 'Failed to initiate payment with PayU' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }, 
-          status: 500 
-        }
-      )
-    }
-
-    const redirectUrl = payuResponse.url
+    // Construct the full URL with parameters
+    const redirectUrl = `${PAYU_TEST_URL}?${params.toString()}`
     console.log('Generated redirect URL:', redirectUrl);
 
     return new Response(
@@ -221,3 +200,4 @@ async function generateHash(
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
   return hashHex
 }
+

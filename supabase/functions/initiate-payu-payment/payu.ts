@@ -19,24 +19,55 @@ export class PayUService {
     failureUrl: string,
     hash: string
   }): string {
-    const formData = new URLSearchParams();
-    
-    // Required parameters in specific order as per PayU docs
-    formData.append('key', this.merchantKey);
-    formData.append('txnid', params.txnId);
-    formData.append('amount', params.amount);
-    formData.append('productinfo', params.productInfo);
-    formData.append('firstname', 'User');
-    formData.append('email', params.email);
-    formData.append('phone', '9999999999');
-    formData.append('surl', params.successUrl);
-    formData.append('furl', params.failureUrl);
-    formData.append('hash', params.hash);
-    formData.append('service_provider', 'payu_paisa');
+    // Log all parameters before URL generation
+    console.log('PayU Service - Input Parameters:', {
+      key: this.merchantKey,
+      txnid: params.txnId,
+      amount: params.amount,
+      productinfo: params.productInfo,
+      firstname: 'User',
+      email: params.email,
+      phone: '9999999999',
+      surl: params.successUrl,
+      furl: params.failureUrl,
+      hash: params.hash,
+    });
 
-    const redirectUrl = `${PAYU_TEST_URL}?${formData.toString()}`;
-    console.log('PayU Service - Request Parameters:', Object.fromEntries(formData));
-    console.log('PayU Service - Generated URL:', redirectUrl);
+    // Create parameters object to ensure specific order
+    const orderedParams = {
+      key: this.merchantKey,
+      txnid: params.txnId,
+      amount: params.amount,
+      productinfo: params.productInfo,
+      firstname: 'User',
+      email: params.email,
+      phone: '9999999999',
+      surl: params.successUrl,
+      furl: params.failureUrl,
+      hash: params.hash,
+      service_provider: 'payu_paisa'
+    };
+
+    // Validate all required parameters are present
+    const requiredParams = ['key', 'txnid', 'amount', 'productinfo', 'firstname', 'email', 'phone', 'surl', 'furl', 'hash'];
+    const missingParams = requiredParams.filter(param => !orderedParams[param]);
+    
+    if (missingParams.length > 0) {
+      console.error('Missing required parameters:', missingParams);
+      throw new Error(`Missing required parameters: ${missingParams.join(', ')}`);
+    }
+
+    // Build URL parameters string manually to ensure proper encoding
+    const urlParams = Object.entries(orderedParams)
+      .map(([key, value]) => `${encodeURIComponent(key)}=${encodeURIComponent(value)}`)
+      .join('&');
+
+    const redirectUrl = `${PAYU_TEST_URL}?${urlParams}`;
+    
+    // Log the final URL for debugging
+    console.log('PayU Service - Final URL:', redirectUrl);
+    console.log('PayU Service - URL Parameters:', urlParams);
+    
     return redirectUrl;
   }
 }

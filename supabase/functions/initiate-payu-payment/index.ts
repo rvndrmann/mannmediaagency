@@ -21,7 +21,7 @@ serve(async (req) => {
   }
 
   try {
-    const { userId } = await req.json()
+    const { userId, planName = 'BASIC', amount = 899 } = await req.json()
     
     if (!userId) {
       return new Response(
@@ -47,8 +47,8 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         status: 'pending',
-        amount: 899,
-        plan_name: 'BASIC'
+        amount: amount,
+        plan_name: planName
       })
       .select()
       .single()
@@ -74,7 +74,7 @@ serve(async (req) => {
       .insert({
         user_id: userId,
         transaction_id: txnId,
-        amount: 899,
+        amount: amount,
         status: 'pending',
         payment_method: 'payu',
         subscription_id: subscription.id
@@ -97,8 +97,8 @@ serve(async (req) => {
     // PayU payment parameters
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY')
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
-    const amount = "899.00"
-    const productInfo = "BASIC Plan Subscription"
+    const amountString = amount.toFixed(2)
+    const productInfo = `${planName} Plan Subscription`
     
     // Get user email
     const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId)
@@ -117,9 +117,9 @@ serve(async (req) => {
     }
 
     const email = user.email || ''
-    const hash = await generateHash(merchantKey!, txnId, amount, productInfo, email, merchantSalt!)
+    const hash = await generateHash(merchantKey!, txnId, amountString, productInfo, email, merchantSalt!)
 
-    const redirectUrl = `${PAYU_TEST_URL}?key=${merchantKey}&txnid=${txnId}&amount=${amount}&productinfo=${encodeURIComponent(productInfo)}&firstname=User&email=${encodeURIComponent(email)}&surl=https://your-domain.com/payment/success&furl=https://your-domain.com/payment/failure&hash=${hash}`
+    const redirectUrl = `${PAYU_TEST_URL}?key=${merchantKey}&txnid=${txnId}&amount=${amountString}&productinfo=${encodeURIComponent(productInfo)}&firstname=User&email=${encodeURIComponent(email)}&surl=https://your-domain.com/payment/success&furl=https://your-domain.com/payment/failure&hash=${hash}`
 
     return new Response(
       JSON.stringify({ redirectUrl }),

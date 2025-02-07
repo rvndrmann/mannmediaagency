@@ -37,6 +37,15 @@ const Plans = () => {
     }
   ];
 
+  const handleSubscribe = (plan: typeof plans[0]) => {
+    navigate("/billing", { 
+      state: { 
+        planName: plan.name,
+        amount: parseInt(plan.price.replace("₹", ""))
+      } 
+    });
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
@@ -73,7 +82,7 @@ const Plans = () => {
 
                 <Button 
                   className="w-full" 
-                  onClick={() => navigate("/billing")}
+                  onClick={() => handleSubscribe(plan)}
                 >
                   Subscribe
                 </Button>

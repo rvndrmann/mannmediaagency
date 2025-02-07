@@ -4,12 +4,24 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { useEffect } from "react";
 
 const PayUPayment = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { planName, amount } = location.state || { planName: 'BASIC', amount: 899 };
+  const { planName, amount } = location.state || {};
+
+  useEffect(() => {
+    if (!planName || !amount) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Invalid plan details. Please select a plan first.",
+      });
+      navigate("/plans");
+    }
+  }, [planName, amount, navigate, toast]);
 
   const initiatePayment = async () => {
     try {
@@ -23,6 +35,8 @@ const PayUPayment = () => {
         return;
       }
 
+      console.log("Initiating payment with:", { userId: user.id, planName, amount });
+
       const { data, error } = await supabase.functions.invoke('initiate-payu-payment', {
         body: { 
           userId: user.id,
@@ -33,7 +47,12 @@ const PayUPayment = () => {
 
       if (error) {
         console.error('Payment initiation error:', error);
-        throw error;
+        toast({
+          variant: "destructive",
+          title: "Payment Error",
+          description: error.message || "Failed to initiate payment. Please try again.",
+        });
+        return;
       }
       
       if (data?.redirectUrl) {
@@ -50,6 +69,10 @@ const PayUPayment = () => {
       });
     }
   };
+
+  if (!planName || !amount) {
+    return null; // The useEffect will handle the navigation
+  }
 
   return (
     <div className="container mx-auto p-6">
@@ -71,7 +94,7 @@ const PayUPayment = () => {
           </div>
         </CardContent>
         <CardFooter className="flex justify-end space-x-2">
-          <Button variant="outline" onClick={() => navigate(-1)}>Cancel</Button>
+          <Button variant="outline" onClick={() => navigate("/plans")}>Cancel</Button>
           <Button onClick={initiatePayment}>Proceed to Payment</Button>
         </CardFooter>
       </Card>

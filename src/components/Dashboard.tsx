@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus } from "lucide-react";
@@ -11,16 +12,14 @@ export const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
-  // Fetch user's stories
+  // Fetch stories without user filter
   const { data: stories, isLoading: isLoadingStories } = useQuery({
     queryKey: ["userStories"],
     queryFn: async () => {
-      console.log("Fetching user stories...");
-      const { data: session } = await supabase.auth.getSession();
+      console.log("Fetching stories...");
       const { data, error } = await supabase
         .from("stories")
         .select("*")
-        .eq('user_id', session.session?.user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -45,7 +44,6 @@ export const Dashboard = () => {
         },
         (payload) => {
           console.log('Real-time update received:', payload);
-          // Invalidate and refetch stories when there's an update
           queryClient.invalidateQueries({ queryKey: ["userStories"] });
         }
       )
@@ -56,7 +54,6 @@ export const Dashboard = () => {
     };
   }, [queryClient]);
 
-  // Format date function
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString('en-US', {
       year: 'numeric',
@@ -75,7 +72,7 @@ export const Dashboard = () => {
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `video-${Date.now()}.mp4`; // Generate unique filename
+      link.download = `video-${Date.now()}.mp4`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

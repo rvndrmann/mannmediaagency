@@ -79,12 +79,10 @@ export const CreateVideoDialog = ({
       setBackgroundMusic(file);
       setUploadProgress(0);
 
-      // Start upload immediately when file is selected
       try {
         const fileExt = file.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
 
-        // Create a ReadableStream from the file
         const reader = new FileReader();
         reader.onload = async (event) => {
           const arrayBuffer = event.target?.result as ArrayBuffer;
@@ -146,12 +144,6 @@ export const CreateVideoDialog = ({
 
     setIsSubmitting(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        throw new Error("No authenticated session");
-      }
-
       let backgroundMusicUrl = null;
       
       if (backgroundMusic) {
@@ -182,7 +174,6 @@ export const CreateVideoDialog = ({
           {
             source: source.trim(),
             ready_to_go: readyToGo,
-            user_id: session.user.id,
             background_music: backgroundMusicUrl,
             story_type_id: story_type_id,
           },

@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { Youtube, Instagram } from "lucide-react";
@@ -21,13 +22,11 @@ export const IntegrationPanel = () => {
   const handleYoutubeConnect = async () => {
     console.log("Connecting to Youtube...");
     toast.info("YouTube integration coming soon!");
-    // TODO: Implement OAuth flow
   };
 
   const handleInstagramConnect = async () => {
     console.log("Connecting to Instagram...");
     toast.info("Instagram integration coming soon!");
-    // TODO: Implement OAuth flow
   };
 
   const isConnected = (platform: string) => {

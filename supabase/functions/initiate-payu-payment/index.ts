@@ -36,6 +36,8 @@ serve(async (req) => {
     console.log('Environment check:')
     console.log('PAYU_MERCHANT_KEY exists:', !!merchantKey)
     console.log('PAYU_MERCHANT_SALT exists:', !!merchantSalt)
+    console.log('PAYU_MERCHANT_KEY length:', merchantKey?.length)
+    console.log('PAYU_MERCHANT_SALT length:', merchantSalt?.length)
 
     if (!merchantKey || !merchantSalt) {
       const error = {
@@ -64,8 +66,11 @@ serve(async (req) => {
     console.log('Product Info:', productInfo)
     console.log('Success URL:', successUrl)
     console.log('Failure URL:', failureUrl)
+    console.log('Transaction ID:', txnId)
 
     const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
+    console.log('Generated Hash:', hash)
+
     const payuService = new PayUService(merchantKey, merchantSalt)
     const redirectUrl = payuService.generateRedirectUrl({
       txnId,
@@ -77,7 +82,7 @@ serve(async (req) => {
       hash
     })
 
-    console.log('Generated redirect URL:', redirectUrl)
+    console.log('Final redirect URL:', redirectUrl)
 
     return new Response(
       JSON.stringify({ redirectUrl }),

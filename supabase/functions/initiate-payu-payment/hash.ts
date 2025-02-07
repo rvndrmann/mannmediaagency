@@ -4,7 +4,11 @@ export async function generateHash(
   txnId: string,
   amount: string,
   productInfo: string,
+  firstname: string,
   email: string,
+  phone: string,
+  surl: string,
+  furl: string,
   merchantSalt: string
 ): Promise<string> {
   // Log input parameters
@@ -13,12 +17,16 @@ export async function generateHash(
     txnId,
     amount,
     productInfo,
+    firstname,
     email,
+    phone,
+    surl,
+    furl,
     merchantSalt: '[REDACTED]'
   });
 
   // The order of concatenation is important for PayU hash generation
-  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|User|${email}|||||||||||${merchantSalt}`;
+  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|${phone}|${surl}|${furl}|||||||${merchantSalt}`;
   console.log('Hash Generation - Hash String (before SHA-512):', hashString);
   
   const encoder = new TextEncoder();

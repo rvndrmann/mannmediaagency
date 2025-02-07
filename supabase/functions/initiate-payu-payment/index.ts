@@ -65,6 +65,8 @@ serve(async (req) => {
     const productInfo = `${planName} Plan Subscription`
     const successUrl = `${origin}/payment/success`
     const failureUrl = `${origin}/payment/failure`
+    const firstname = "User"
+    const phone = "9999999999"
     
     console.log('Payment Configuration:', {
       email,
@@ -72,11 +74,24 @@ serve(async (req) => {
       productInfo,
       successUrl,
       failureUrl,
-      txnId
+      txnId,
+      firstname,
+      phone
     });
 
-    // Generate hash
-    const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
+    // Generate hash with all required parameters
+    const hash = await generateHash(
+      merchantKey,
+      txnId,
+      amountString,
+      productInfo,
+      firstname,
+      email,
+      phone,
+      successUrl,
+      failureUrl,
+      merchantSalt
+    )
     console.log('Hash Generated Successfully');
 
     // Generate PayU redirect URL
@@ -85,7 +100,9 @@ serve(async (req) => {
       txnId,
       amount: amountString,
       productInfo,
+      firstname,
       email,
+      phone,
       successUrl,
       failureUrl,
       hash

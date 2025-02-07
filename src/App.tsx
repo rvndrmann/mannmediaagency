@@ -11,6 +11,9 @@ import CreateVideo from "./pages/CreateVideo";
 import Integrations from "./pages/Integrations";
 import Plans from "./pages/Plans";
 import Auth from "./pages/Auth";
+import PayUPayment from "./pages/PayUPayment";
+import PaymentSuccess from "./pages/PaymentSuccess";
+import PaymentFailure from "./pages/PaymentFailure";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -80,6 +83,30 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Plans />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/billing"
+              element={
+                <ProtectedRoute>
+                  <PayUPayment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/success"
+              element={
+                <ProtectedRoute>
+                  <PaymentSuccess />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/failure"
+              element={
+                <ProtectedRoute>
+                  <PaymentFailure />
                 </ProtectedRoute>
               }
             />

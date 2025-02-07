@@ -1,102 +1,34 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-}
-
-const PAYU_TEST_URL = "https://test.payu.in/_payment";
+import { corsHeaders } from "./cors.ts"
+import { DatabaseService } from "./db.ts"
+import { PayUService } from "./payu.ts"
+import { generateHash } from "./hash.ts"
+import { PaymentRequest } from "./types.ts"
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, {
-      headers: corsHeaders
-    })
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    // Get the origin from the request headers, fallback to a default if not present
     const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || '';
     console.log('Request origin:', origin);
 
-    const { userId, planName = 'BASIC', amount = 899 } = await req.json()
+    const { userId, planName = 'BASIC', amount = 899 } = await req.json() as PaymentRequest
     
     if (!userId) {
       return new Response(
         JSON.stringify({ error: 'User ID is required' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }, 
-          status: 400 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
       )
     }
 
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
-
-    // Fetch user's subscription
-    const { data: subscription, error: subscriptionError } = await supabase
-      .from('subscriptions')
-      .insert({
-        user_id: userId,
-        status: 'pending',
-        amount: amount,
-        plan_name: planName
-      })
-      .select()
-      .single()
-
-    if (subscriptionError) {
-      console.error('Subscription error:', subscriptionError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create subscription' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }, 
-          status: 500 
-        }
-      )
-    }
-
-    // Create transaction record
+    const db = new DatabaseService()
+    const subscription = await db.createSubscription({ userId, planName, amount })
     const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`
-    const { error: txnError } = await supabase
-      .from('payment_transactions')
-      .insert({
-        user_id: userId,
-        transaction_id: txnId,
-        amount: amount,
-        status: 'pending',
-        payment_method: 'payu',
-        subscription_id: subscription.id
-      })
+    await db.createPaymentTransaction(userId, txnId, amount, subscription.id)
 
-    if (txnError) {
-      console.error('Transaction error:', txnError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create transaction' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }, 
-          status: 500 
-        }
-      )
-    }
-
-    // PayU payment parameters
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY')
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
 
@@ -106,98 +38,42 @@ serve(async (req) => {
       console.error('Merchant Salt:', merchantSalt ? 'Present' : 'Missing')
       return new Response(
         JSON.stringify({ error: 'Payment gateway configuration missing' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }, 
-          status: 500 
-        }
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
       )
     }
 
-    // Get user email
-    const { data: { user }, error: userError } = await supabase.auth.admin.getUserById(userId)
-    if (userError || !user) {
-      console.error('User error:', userError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to get user details' }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }, 
-          status: 500 
-        }
-      )
-    }
-
-    const email = user.email || ''
+    const email = await db.getUserEmail(userId)
     const amountString = amount.toFixed(2)
     const productInfo = `${planName} Plan Subscription`
-    
-    // Construct success and failure URLs using the origin
     const successUrl = `${origin}/payment/success`
     const failureUrl = `${origin}/payment/failure`
+    
     console.log('Success URL:', successUrl);
     console.log('Failure URL:', failureUrl);
 
     const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
+    const payuService = new PayUService(merchantKey, merchantSalt)
+    const redirectUrl = payuService.generateRedirectUrl({
+      txnId,
+      amount: amountString,
+      productInfo,
+      email,
+      successUrl,
+      failureUrl,
+      hash
+    })
 
-    // Create URLSearchParams for POST request
-    const params = new URLSearchParams()
-    params.append('key', merchantKey)
-    params.append('txnid', txnId)
-    params.append('amount', amountString)
-    params.append('productinfo', productInfo)
-    params.append('firstname', 'User')
-    params.append('email', email)
-    params.append('surl', successUrl)
-    params.append('furl', failureUrl)
-    params.append('hash', hash)
-
-    // Construct the full URL with parameters
-    const redirectUrl = `${PAYU_TEST_URL}?${params.toString()}`
     console.log('Generated redirect URL:', redirectUrl);
 
     return new Response(
       JSON.stringify({ redirectUrl }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        }
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
     console.error('Error:', error.message)
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        }, 
-        status: 500 
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }
 })
-
-async function generateHash(
-  merchantKey: string,
-  txnId: string,
-  amount: string,
-  productInfo: string,
-  email: string,
-  merchantSalt: string
-): Promise<string> {
-  const str = `${merchantKey}|${txnId}|${amount}|${productInfo}|User|${email}|||||||||||${merchantSalt}`
-  const encoder = new TextEncoder()
-  const data = encoder.encode(str)
-  const hashBuffer = await crypto.subtle.digest('SHA-512', data)
-  const hashArray = Array.from(new Uint8Array(hashBuffer))
-  const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
-  return hashHex
-}
-

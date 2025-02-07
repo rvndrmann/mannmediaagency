@@ -14,6 +14,8 @@ export type Database = {
           amount: number
           created_at: string | null
           id: string
+          payment_method: string | null
+          payu_data: Json | null
           payu_transaction_id: string | null
           status: string
           subscription_id: string | null
@@ -25,6 +27,8 @@ export type Database = {
           amount: number
           created_at?: string | null
           id?: string
+          payment_method?: string | null
+          payu_data?: Json | null
           payu_transaction_id?: string | null
           status?: string
           subscription_id?: string | null
@@ -36,6 +40,8 @@ export type Database = {
           amount?: number
           created_at?: string | null
           id?: string
+          payment_method?: string | null
+          payu_data?: Json | null
           payu_transaction_id?: string | null
           status?: string
           subscription_id?: string | null

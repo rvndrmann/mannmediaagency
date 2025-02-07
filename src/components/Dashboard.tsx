@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus } from "lucide-react";
@@ -145,15 +146,8 @@ export const Dashboard = () => {
                 <Plus className="w-6 h-6 text-purple-600" />
               </div>
               <div className="text-gray-500">
-                No videos created yet. Create your first video now!
+                No videos created yet.
               </div>
-              <Button 
-                onClick={() => navigate("/create-video")}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Video
-              </Button>
             </div>
           </Card>
         )}

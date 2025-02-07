@@ -20,6 +20,20 @@ const Plans = () => {
         "No Watermark",
         "HD Video Resolution"
       ]
+    },
+    {
+      name: "PRO",
+      credits: "100 Credits",
+      videos: "10 videos per month",
+      price: "₹2499",
+      billing: "One-time payment",
+      features: [
+        "Create 10 videos (10 credits each)",
+        "Background Music",
+        "No Watermark",
+        "HD Video Resolution",
+        "Priority Support"
+      ]
     }
   ];
 
@@ -42,7 +56,7 @@ const Plans = () => {
           <Button variant="default" className="rounded-full">One-time</Button>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
           {plans.map((plan) => (
             <Card key={plan.name} className="p-6">
               <div className="space-y-4">

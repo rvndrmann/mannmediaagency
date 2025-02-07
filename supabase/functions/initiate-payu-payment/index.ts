@@ -85,7 +85,7 @@ serve(async (req) => {
       phone
     });
 
-    // Generate hash
+    // Generate hash with correct parameter order
     const hash = await generateHash(
       merchantKey,
       txnId,
@@ -93,9 +93,6 @@ serve(async (req) => {
       productInfo,
       firstname,
       email,
-      phone,
-      successUrl,
-      failureUrl,
       merchantSalt
     )
     console.log('Hash Generated Successfully');

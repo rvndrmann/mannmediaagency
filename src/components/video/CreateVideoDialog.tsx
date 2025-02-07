@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X } from "lucide-react";
+import { X, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { useQuery } from "@tanstack/react-query";
 import { Progress } from "@/components/ui/progress";
 import {
@@ -42,6 +42,7 @@ export const CreateVideoDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
   const [style, setStyle] = useState<string>("");
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -79,6 +80,7 @@ export const CreateVideoDialog = ({
       }
       setBackgroundMusic(file);
       setUploadProgress(0);
+      setUploadedFileName(null);
 
       try {
         const fileExt = file.name.split('.').pop();
@@ -110,6 +112,7 @@ export const CreateVideoDialog = ({
           });
           
           setUploadProgress(100);
+          setUploadedFileName(file.name);
         };
 
         reader.onprogress = (event) => {
@@ -129,6 +132,7 @@ export const CreateVideoDialog = ({
           variant: "destructive",
         });
         setUploadProgress(0);
+        setUploadedFileName(null);
       }
     }
   };
@@ -184,7 +188,7 @@ export const CreateVideoDialog = ({
             ready_to_go: readyToGo,
             background_music: backgroundMusicUrl,
             story_type_id: story_type_id,
-            user_id: user.id  // Add the user_id here
+            user_id: user.id
           },
         ]);
 
@@ -281,6 +285,12 @@ export const CreateVideoDialog = ({
                     <p className="text-sm text-purple-600">
                       {uploadProgress === 100 ? 'Upload complete!' : `Uploading: ${Math.round(uploadProgress)}%`}
                     </p>
+                  </div>
+                )}
+                {uploadedFileName && uploadProgress === 100 && (
+                  <div className="flex items-center gap-2 text-green-600 mt-2">
+                    <CheckCircle className="h-4 w-4" />
+                    <span className="text-sm">Uploaded: {uploadedFileName}</span>
                   </div>
                 )}
               </div>

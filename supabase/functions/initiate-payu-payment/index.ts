@@ -100,6 +100,21 @@ serve(async (req) => {
     // PayU payment parameters
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY')
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
+
+    if (!merchantKey || !merchantSalt) {
+      console.error('PayU credentials missing')
+      return new Response(
+        JSON.stringify({ error: 'Payment gateway configuration missing' }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          }, 
+          status: 500 
+        }
+      )
+    }
+
     const amountString = amount.toFixed(2)
     const productInfo = `${planName} Plan Subscription`
     
@@ -127,9 +142,21 @@ serve(async (req) => {
     console.log('Success URL:', successUrl);
     console.log('Failure URL:', failureUrl);
 
-    const hash = await generateHash(merchantKey!, txnId, amountString, productInfo, email, merchantSalt!)
+    const hash = await generateHash(merchantKey, txnId, amountString, productInfo, email, merchantSalt)
 
-    const redirectUrl = `${PAYU_TEST_URL}?key=${merchantKey}&txnid=${txnId}&amount=${amountString}&productinfo=${encodeURIComponent(productInfo)}&firstname=User&email=${encodeURIComponent(email)}&surl=${encodeURIComponent(successUrl)}&furl=${encodeURIComponent(failureUrl)}&hash=${hash}`
+    const queryParams = new URLSearchParams({
+      key: merchantKey,
+      txnid: txnId,
+      amount: amountString,
+      productinfo: productInfo,
+      firstname: 'User',
+      email: email,
+      surl: successUrl,
+      furl: failureUrl,
+      hash: hash
+    }).toString();
+
+    const redirectUrl = `${PAYU_TEST_URL}?${queryParams}`
 
     console.log('Generated redirect URL:', redirectUrl);
 

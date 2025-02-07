@@ -35,7 +35,7 @@ export class PayUService {
       hash: params.hash,
     });
 
-    // Create URL parameters with proper encoding
+    // Create URL parameters in the exact order PayU expects
     const orderedParams = new URLSearchParams();
     orderedParams.append('key', this.merchantKey);
     orderedParams.append('txnid', params.txnId);
@@ -46,11 +46,6 @@ export class PayUService {
     orderedParams.append('phone', params.phone);
     orderedParams.append('surl', params.successUrl);
     orderedParams.append('furl', params.failureUrl);
-    orderedParams.append('udf1', '');
-    orderedParams.append('udf2', '');
-    orderedParams.append('udf3', '');
-    orderedParams.append('udf4', '');
-    orderedParams.append('udf5', '');
     orderedParams.append('service_provider', 'payu_paisa');
     orderedParams.append('hash', params.hash);
 

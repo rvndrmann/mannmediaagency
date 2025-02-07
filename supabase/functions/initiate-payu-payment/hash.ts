@@ -30,12 +30,6 @@ export async function generateHash(
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   
-  // Following PayU's example, v1 and v2 hashes are different
-  const hashObject = {
-    v1: hashHex,
-    v2: hashHex // For now keeping them same as we don't have clear documentation on how v2 should differ
-  };
-  
-  console.log('Hash Generation - Final Hash Object:', hashObject);
-  return JSON.stringify(hashObject);
+  // Return just the hash string without v1/v2 format - PayU's example seems to be showing something different
+  return hashHex;
 }

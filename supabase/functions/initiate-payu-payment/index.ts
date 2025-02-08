@@ -36,12 +36,12 @@ serve(async (req) => {
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY');
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT');
     
-    if (!merchantKey || !merchantSalt) {
-      console.error('Configuration Error: PayU credentials not found');
-      throw new Error('PayU credentials are not configured');
+    if (!merchantKey?.trim() || !merchantSalt?.trim()) {
+      console.error('Configuration Error: Invalid PayU credentials');
+      throw new Error('PayU credentials are not properly configured');
     }
 
-    console.log('PayU Configuration: Credentials found and validated');
+    console.log('PayU Configuration: Valid credentials found');
 
     // Initialize database and create subscription
     const db = new DatabaseService();
@@ -83,26 +83,33 @@ serve(async (req) => {
       merchantSalt
     );
 
-    // Generate PayU redirect URL
-    const payuService = new PayUService(merchantKey, merchantSalt);
-    const redirectUrl = payuService.generateRedirectUrl({
-      txnId,
-      amount: cleanAmount,
-      productInfo,
-      firstname,
-      email,
-      phone,
-      successUrl,
-      failureUrl,
-      hash
-    });
+    try {
+      // Initialize PayU service with credentials
+      const payuService = new PayUService(merchantKey, merchantSalt);
+      
+      // Generate PayU redirect URL
+      const redirectUrl = payuService.generateRedirectUrl({
+        txnId,
+        amount: cleanAmount,
+        productInfo,
+        firstname,
+        email,
+        phone,
+        successUrl,
+        failureUrl,
+        hash
+      });
 
-    console.log('Payment Initiation - Complete');
+      console.log('Payment Initiation - Complete');
 
-    return new Response(
-      JSON.stringify({ redirectUrl }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+      return new Response(
+        JSON.stringify({ redirectUrl }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    } catch (error) {
+      console.error('PayU Service Error:', error);
+      throw new Error(`Failed to initialize PayU service: ${error.message}`);
+    }
   } catch (error) {
     console.error('Payment Error:', {
       message: error.message,

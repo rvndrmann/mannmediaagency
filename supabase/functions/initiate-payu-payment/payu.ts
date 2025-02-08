@@ -6,17 +6,17 @@ export class PayUService {
   private merchantSalt: string;
   
   constructor(merchantKey: string, merchantSalt: string) {
-    if (!merchantKey || !merchantSalt) {
-      console.error('PayU Service - Initialization Error: Missing credentials', {
+    if (!merchantKey?.trim() || !merchantSalt?.trim()) {
+      console.error('PayU Service - Initialization Error: Invalid credentials', {
         hasMerchantKey: !!merchantKey,
         hasMerchantSalt: !!merchantSalt
       });
-      throw new Error('PayU credentials are required');
+      throw new Error('Valid PayU credentials are required');
     }
     
-    this.merchantKey = merchantKey;
-    this.merchantSalt = merchantSalt;
-    console.log('PayU Service - Initialized successfully with merchant key');
+    this.merchantKey = merchantKey.trim();
+    this.merchantSalt = merchantSalt.trim();
+    console.log('PayU Service - Initialized successfully');
   }
 
   generateRedirectUrl(params: {
@@ -36,10 +36,18 @@ export class PayUService {
     });
 
     try {
+      // Validate all required parameters
+      const requiredParams = ['txnId', 'amount', 'productInfo', 'firstname', 'email', 'phone', 'successUrl', 'failureUrl', 'hash'];
+      const missingParams = requiredParams.filter(param => !params[param]);
+      
+      if (missingParams.length > 0) {
+        throw new Error(`Missing required parameters: ${missingParams.join(', ')}`);
+      }
+
       // Clean amount (remove trailing zeros)
       const cleanAmount = Number(params.amount).toFixed(2);
 
-      // Create form data with mandatory parameters
+      // Create form data with mandatory parameters IN THE EXACT ORDER required by PayU
       const orderedParams = new URLSearchParams();
       orderedParams.append('key', this.merchantKey);
       orderedParams.append('txnid', params.txnId);
@@ -51,19 +59,15 @@ export class PayUService {
       orderedParams.append('surl', params.successUrl);
       orderedParams.append('furl', params.failureUrl);
       orderedParams.append('hash', params.hash);
-      // Service provider is mandatory
       orderedParams.append('service_provider', 'payu_paisa');
-      // Enforce INR currency
       orderedParams.append('currency', 'INR');
-      // Add callback URL
-      orderedParams.append('curl', params.failureUrl);
 
       const redirectUrl = `${PAYU_LIVE_URL}?${orderedParams.toString()}`;
-      console.log('PayU Service - Generated redirect URL. Hash and key redacted for security');
+      console.log('PayU Service - Generated redirect URL:', redirectUrl.replace(this.merchantKey, '[KEY_REDACTED]').replace(params.hash, '[HASH_REDACTED]'));
       return redirectUrl;
     } catch (error) {
       console.error('PayU Service - Error generating URL:', error);
-      throw new Error('Failed to generate PayU redirect URL');
+      throw error;
     }
   }
 }

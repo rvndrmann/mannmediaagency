@@ -25,12 +25,14 @@ export async function generateHash(
     
     // PayU hash sequence:
     // key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
+    // Using txnId as udf1 for transaction tracking
+    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|${txnId}|||||||||||${merchantSalt}`;
     
     // Log hash string with sensitive data redacted
     const redactedHashString = hashString
       .replace(merchantKey, '[KEY_REDACTED]')
-      .replace(merchantSalt, '[SALT_REDACTED]');
+      .replace(merchantSalt, '[SALT_REDACTED]')
+      .replace(new RegExp(txnId, 'g'), '[TXNID_REDACTED]');
     console.log('Hash Generation - Hash string created:', redactedHashString);
     
     // Generate SHA512 hash
@@ -54,7 +56,7 @@ export async function verifyResponseHash(
 ): Promise<boolean> {
   try {
     // Extract required parameters
-    const { status, txnid, amount, productinfo, firstname, email, key } = params;
+    const { status, txnid, amount, productinfo, firstname, email, key, udf1 } = params;
     const receivedHash = params.hash || '';
 
     // Reverse hash sequence for response validation:
@@ -68,7 +70,10 @@ export async function verifyResponseHash(
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const calculatedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
 
-    return calculatedHash === receivedHash.toLowerCase();
+    const hashesMatch = calculatedHash === receivedHash.toLowerCase();
+    console.log('Hash Verification -', hashesMatch ? 'Success' : 'Failed');
+    
+    return hashesMatch;
   } catch (error) {
     console.error('Hash Verification - Error:', error);
     return false;

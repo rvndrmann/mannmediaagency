@@ -16,30 +16,34 @@ const PaymentSuccess = () => {
   useEffect(() => {
     const verifyPayment = async () => {
       try {
-        // Get transaction ID from URL parameters
-        const params = new URLSearchParams(location.search);
-        const txnId = params.get('txnid');
-        
-        if (!txnId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
           toast({
             variant: "destructive",
             title: "Error",
-            description: "Transaction ID not found",
+            description: "User not authenticated",
           });
-          navigate('/plans');
+          navigate('/auth');
           return;
         }
 
+        // Get transaction ID from URL parameters or verify latest pending transaction
+        const params = new URLSearchParams(location.search);
+        const txnId = params.get('txnid');
+        
         // Verify payment status
         const { data, error } = await supabase.functions.invoke('verify-payu-payment', {
-          body: { transactionId: txnId }
+          body: { 
+            transactionId: txnId,
+            userId: user.id
+          }
         });
 
-        if (error || !data.success) {
-          throw new Error(error?.message || 'Payment verification failed');
+        if (error) {
+          throw error;
         }
 
-        if (data.status !== 'success') {
+        if (!data.success || data.status !== 'success') {
           navigate('/payment/failure');
           return;
         }

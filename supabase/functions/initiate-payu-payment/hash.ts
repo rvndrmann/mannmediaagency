@@ -1,4 +1,3 @@
-
 console.log('Hash Generation Module - Initializing');
 
 export async function generateHash(
@@ -23,16 +22,16 @@ export async function generateHash(
     // Clean amount to ensure 2 decimal places
     const cleanAmount = Number(amount).toFixed(2);
     
-    // PayU hash sequence:
-    // key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-    // Note: txnId is used as udf1 for tracking
-    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|${txnId}|||||||||||${merchantSalt}`;
+    // PayU hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
+    // We keep all UDF fields empty and ensure exactly 13 pipes after email
+    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
     
     // Log hash string with sensitive data redacted
     const redactedHashString = hashString
       .replace(merchantKey, '[KEY_REDACTED]')
       .replace(merchantSalt, '[SALT_REDACTED]');
     console.log('Hash Generation - Hash string created:', redactedHashString);
+    console.log('Hash Generation - Pipe separators count:', (hashString.match(/\|/g) || []).length);
     
     // Generate SHA512 hash
     const encoder = new TextEncoder();
@@ -55,12 +54,14 @@ export async function verifyResponseHash(
 ): Promise<boolean> {
   try {
     // Extract required parameters
-    const { status, txnid, amount, productinfo, firstname, email, key, udf1 } = params;
+    const { status, txnid, amount, productinfo, firstname, email, key } = params;
     const receivedHash = params.hash || '';
 
     // Reverse hash sequence for response validation:
     // SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-    const reverseHashString = `${merchantSalt}|${status}|||||||||||${udf1}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+    const reverseHashString = `${merchantSalt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+    
+    console.log('Hash Verification - Pipe separators count:', (reverseHashString.match(/\|/g) || []).length);
 
     // Generate hash for verification
     const encoder = new TextEncoder();

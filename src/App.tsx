@@ -14,6 +14,7 @@ import Auth from "./pages/Auth";
 import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
+import PaymentCancel from "./pages/PaymentCancel";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -107,6 +108,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <PaymentFailure />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/cancel"
+              element={
+                <ProtectedRoute>
+                  <PaymentCancel />
                 </ProtectedRoute>
               }
             />

@@ -70,6 +70,7 @@ serve(async (req) => {
     const productInfo = `${planName} Plan`;
     const successUrl = new URL('/payment/success', origin).toString();
     const failureUrl = new URL('/payment/failure', origin).toString();
+    const cancelUrl = new URL('/payment/cancel', origin).toString();
     const firstname = "User";
     const phone = "9999999999";
     
@@ -79,6 +80,7 @@ serve(async (req) => {
       productInfo,
       successUrl,
       failureUrl,
+      cancelUrl,
       txnId
     });
 
@@ -105,6 +107,7 @@ serve(async (req) => {
         phone,
         successUrl,
         failureUrl,
+        cancelUrl,
         hash
       });
 

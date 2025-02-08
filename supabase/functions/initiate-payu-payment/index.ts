@@ -49,16 +49,15 @@ serve(async (req) => {
 
     console.log('PayU Configuration: Valid credentials found');
 
-    // Initialize database and create subscription
+    // Initialize database and create payment transaction
     const db = new DatabaseService();
-    const subscription = await db.createSubscription({ userId, planName, amount });
     
     // Generate unique transaction ID with timestamp and random string
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `LIVE${timestamp}${random}`;
     
-    await db.createPaymentTransaction(userId, txnId, amount, subscription.id);
+    await db.createPaymentTransaction(userId, txnId, amount);
 
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId);

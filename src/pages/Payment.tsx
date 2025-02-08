@@ -32,10 +32,15 @@ const Payment = () => {
           title: "Error",
           description: "Please login to continue",
         });
+        navigate("/auth");
         return;
       }
 
-      console.log("Initiating payment with:", { userId: user.id, planName, amount });
+      console.log("Initiating payment with:", { 
+        userId: user.id, 
+        planName, 
+        amount,
+      });
 
       const { data, error } = await supabase.functions.invoke('initiate-payu-payment', {
         body: { 
@@ -56,7 +61,8 @@ const Payment = () => {
       }
       
       if (data?.redirectUrl) {
-        window.location.href = data.redirectUrl;
+        // Use window.location.assign for better browser compatibility
+        window.location.assign(data.redirectUrl);
       } else {
         throw new Error('No redirect URL received');
       }

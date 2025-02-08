@@ -11,12 +11,18 @@ serve(async (req) => {
   
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { 
+      headers: {
+        ...corsHeaders,
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Max-Age': '86400',
+      }
+    });
   }
 
   try {
     // Get and validate origin
-    const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || '';
+    const origin = req.headers.get('origin');
     if (!origin) {
       console.error('Origin Validation Error: Missing origin header');
       throw new Error('Origin header is required');
@@ -56,15 +62,19 @@ serve(async (req) => {
 
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId);
+    if (!email) {
+      throw new Error('User email not found');
+    }
+
     const cleanAmount = Number(amount).toFixed(2);
     const productInfo = `${planName} Plan`;
-    const successUrl = `${origin}/payment/success`;
-    const failureUrl = `${origin}/payment/failure`;
+    const successUrl = new URL('/payment/success', origin).toString();
+    const failureUrl = new URL('/payment/failure', origin).toString();
     const firstname = "User";
     const phone = "9999999999";
     
     console.log('Payment Parameters:', {
-      email,
+      email: email.substring(0, 4) + '...',
       amount: cleanAmount,
       productInfo,
       successUrl,
@@ -102,7 +112,13 @@ serve(async (req) => {
 
       return new Response(
         JSON.stringify({ redirectUrl }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'no-store'
+          } 
+        }
       );
     } catch (error) {
       console.error('PayU Service Error:', error);

@@ -1,5 +1,6 @@
 
-const PAYU_LIVE_URL = "https://secure.payu.in/_payment";
+// Use test URL for development
+const PAYU_TEST_URL = "https://test.payu.in/_payment";
 
 export class PayUService {
   private merchantKey: string;
@@ -13,7 +14,7 @@ export class PayUService {
     
     this.merchantKey = merchantKey.trim();
     this.merchantSalt = merchantSalt.trim();
-    console.log('PayU Service - Initialized successfully');
+    console.log('PayU Service - Initialized with merchant key:', merchantKey.substring(0, 4) + '...');
   }
 
   generateFormData(params: {
@@ -29,6 +30,7 @@ export class PayUService {
   }): URLSearchParams {
     console.log('PayU Service - Generating form data with params:', {
       ...params,
+      email: params.email ? params.email.substring(0, 4) + '...' : 'missing',
       hash: '[REDACTED]'
     });
 
@@ -49,16 +51,17 @@ export class PayUService {
       formData.append('key', this.merchantKey);
       formData.append('txnid', params.txnId);
       formData.append('amount', cleanAmount);
-      formData.append('productinfo', params.productInfo);
-      formData.append('firstname', params.firstname);
-      formData.append('email', params.email);
+      formData.append('productinfo', encodeURIComponent(params.productInfo));
+      formData.append('firstname', encodeURIComponent(params.firstname));
+      formData.append('email', encodeURIComponent(params.email));
       formData.append('phone', params.phone);
-      formData.append('surl', params.successUrl);
-      formData.append('furl', params.failureUrl);
+      formData.append('surl', encodeURIComponent(params.successUrl));
+      formData.append('furl', encodeURIComponent(params.failureUrl));
       formData.append('hash', params.hash);
       formData.append('service_provider', 'payu_paisa');
       formData.append('currency', 'INR');
 
+      console.log('PayU Service - Form data generated successfully');
       return formData;
     } catch (error) {
       console.error('PayU Service - Error generating form data:', error);
@@ -78,7 +81,7 @@ export class PayUService {
     hash: string
   }): string {
     const formData = this.generateFormData(params);
-    const redirectUrl = `${PAYU_LIVE_URL}?${formData.toString()}`;
+    const redirectUrl = `${PAYU_TEST_URL}?${formData.toString()}`;
     console.log('PayU Service - Generated redirect URL:', redirectUrl.replace(this.merchantKey, '[KEY_REDACTED]'));
     return redirectUrl;
   }

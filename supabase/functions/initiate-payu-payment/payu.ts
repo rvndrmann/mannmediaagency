@@ -6,8 +6,17 @@ export class PayUService {
   private merchantSalt: string;
   
   constructor(merchantKey: string, merchantSalt: string) {
+    if (!merchantKey || !merchantSalt) {
+      console.error('PayU Service - Initialization Error: Missing credentials', {
+        hasMerchantKey: !!merchantKey,
+        hasMerchantSalt: !!merchantSalt
+      });
+      throw new Error('PayU credentials are required');
+    }
+    
     this.merchantKey = merchantKey;
     this.merchantSalt = merchantSalt;
+    console.log('PayU Service - Initialized successfully with merchant key');
   }
 
   generateRedirectUrl(params: {
@@ -28,7 +37,7 @@ export class PayUService {
 
     try {
       // Clean amount (remove trailing zeros)
-      const cleanAmount = parseFloat(params.amount).toString();
+      const cleanAmount = Number(params.amount).toFixed(2);
 
       // PayU's parameter order is important for hash verification
       const orderedParams = new URLSearchParams();
@@ -51,9 +60,7 @@ export class PayUService {
       orderedParams.append('curl', params.failureUrl);
 
       const redirectUrl = `${PAYU_TEST_URL}?${orderedParams.toString()}`;
-      console.log('PayU Service - Generated URL (hash redacted):', 
-        redirectUrl.replace(params.hash, '[REDACTED_HASH]')
-      );
+      console.log('PayU Service - Generated URL. Hash and key redacted for security');
       
       return redirectUrl;
     } catch (error) {

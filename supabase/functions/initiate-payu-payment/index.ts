@@ -36,9 +36,11 @@ serve(async (req) => {
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT');
     
     if (!merchantKey || !merchantSalt) {
-      console.error('Configuration Error: Missing PayU credentials');
-      throw new Error('PayU credentials are not configured');
+      console.error('Configuration Error: PayU credentials not found in environment');
+      throw new Error('PayU credentials are not configured. Please check the Edge Function secrets configuration.');
     }
+
+    console.log('PayU Configuration: Credentials found');
 
     // Initialize database and create subscription
     const db = new DatabaseService();
@@ -53,7 +55,7 @@ serve(async (req) => {
 
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId);
-    const cleanAmount = amount.toFixed(2); // PayU expects amount with 2 decimal places
+    const cleanAmount = Number(amount).toFixed(2); // PayU expects amount with 2 decimal places
     const productInfo = `${planName} Plan`; // Use exact product info
     const successUrl = `${origin}/payment/success`;
     const failureUrl = `${origin}/payment/failure`;

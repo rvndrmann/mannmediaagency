@@ -8,14 +8,25 @@ export async function generateHash(
   merchantSalt: string
 ): Promise<string> {
   console.log('Hash Generation - Starting with parameters:', {
-    merchantKey,
+    merchantKey: merchantKey ? '[PROVIDED]' : '[MISSING]',
     txnId,
     amount,
     productInfo,
     firstname,
     email,
-    merchantSalt: '[REDACTED]'
+    merchantSalt: merchantSalt ? '[PROVIDED]' : '[MISSING]'
   });
+
+  // Validate required parameters
+  if (!merchantKey || !merchantSalt) {
+    console.error('Hash Generation - Error: Missing merchant credentials');
+    throw new Error('PayU merchant credentials are required');
+  }
+
+  if (!txnId || !amount || !productInfo || !firstname || !email) {
+    console.error('Hash Generation - Error: Missing required parameters');
+    throw new Error('All parameters are required for hash generation');
+  }
 
   // Clean amount (remove trailing zeros but keep 2 decimal places for PayU)
   const cleanAmount = Number(amount).toFixed(2);
@@ -23,7 +34,7 @@ export async function generateHash(
   // PayU's hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
   const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
   
-  console.log('Hash String (salt redacted):', hashString.replace(merchantSalt, '[REDACTED]'));
+  console.log('Hash String (credentials redacted):', hashString.replace(merchantKey, '[KEY]').replace(merchantSalt, '[SALT]'));
   
   try {
     const encoder = new TextEncoder();

@@ -9,13 +9,11 @@ import { PaymentRequest } from "./types.ts"
 serve(async (req) => {
   console.log('Payment Initiation - Starting');
   
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Get and validate origin
     const origin = req.headers.get('origin') || req.headers.get('referer')?.replace(/\/$/, '') || '';
     if (!origin) {
       console.error('Origin Validation Error: Missing origin header');
@@ -23,7 +21,6 @@ serve(async (req) => {
     }
     console.log('Request origin:', origin);
 
-    // Parse and validate request body
     const { userId, planName, amount } = await req.json() as PaymentRequest;
     console.log('Payment Request:', { userId, planName, amount });
     
@@ -32,7 +29,6 @@ serve(async (req) => {
       throw new Error('User ID is required');
     }
 
-    // Verify PayU credentials are set
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY');
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT');
     
@@ -43,23 +39,21 @@ serve(async (req) => {
 
     console.log('PayU Configuration: Valid credentials found');
 
-    // Initialize database and create subscription
     const db = new DatabaseService();
     const subscription = await db.createSubscription({ userId, planName, amount });
     
-    // Generate unique transaction ID with timestamp and random string
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `LIVE${timestamp}${random}`;
     
     await db.createPaymentTransaction(userId, txnId, amount, subscription.id);
 
-    // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId);
     const cleanAmount = Number(amount).toFixed(2);
     const productInfo = `${planName} Plan`;
-    const successUrl = `${origin}/payment/success`;
-    const failureUrl = `${origin}/payment/failure`;
+    // Add transaction ID to success/failure URLs for verification
+    const successUrl = `${origin}/payment/success?txnId=${txnId}`;
+    const failureUrl = `${origin}/payment/failure?txnId=${txnId}`;
     const firstname = "User";
     const phone = "9999999999";
     
@@ -72,7 +66,6 @@ serve(async (req) => {
       txnId
     });
 
-    // Generate hash using PayU's specified format
     const hash = await generateHash(
       merchantKey,
       txnId,
@@ -84,7 +77,6 @@ serve(async (req) => {
     );
 
     try {
-      // Initialize PayU service and generate redirect URL
       const payuService = new PayUService(merchantKey, merchantSalt);
       const redirectUrl = payuService.generateRedirectUrl({
         txnId,

@@ -3,61 +3,105 @@
 
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { CheckCircle2 } from "lucide-react";
+import { CheckCircle2, Loader2 } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createClientComponentClient } from "@supabase/auth-helpers-nextjs";
 import { toast } from "sonner";
 
+type PaymentStatus = 'verifying' | 'success' | 'error';
+
 const PaymentSuccess = () => {
   const router = useRouter();
   const searchParams = useSearchParams();
   const txnId = searchParams.get('txnId');
-  const [isVerifying, setIsVerifying] = useState(true);
+  const [status, setStatus] = useState<PaymentStatus>('verifying');
+  const [error, setError] = useState<string | null>(null);
   const supabase = createClientComponentClient();
 
   useEffect(() => {
     const verifyPayment = async () => {
       if (!txnId) {
-        toast.error("Invalid transaction ID");
-        router.push('/');
+        setError('Missing transaction ID');
+        setStatus('error');
+        toast.error("Invalid transaction details");
         return;
       }
 
       try {
-        const { data: transaction, error } = await supabase
+        const { data: transaction, error: fetchError } = await supabase
           .from('payment_transactions')
-          .select('status')
+          .select('status, payment_status')
           .eq('transaction_id', txnId)
-          .single();
+          .maybeSingle();
 
-        if (error) throw error;
+        if (fetchError) {
+          console.error('Transaction fetch error:', fetchError);
+          throw new Error('Failed to verify payment status');
+        }
 
-        if (!transaction || transaction.status !== 'success') {
-          toast.error("Payment verification failed");
-          router.push('/payment/failure');
+        if (!transaction) {
+          setError('Transaction not found');
+          setStatus('error');
+          router.push(`/payment/failure?txnId=${txnId}&error=transaction_not_found`);
           return;
         }
 
-        setIsVerifying(false);
+        // Check for explicit success status
+        if (transaction.status === 'success' || transaction.payment_status === 'success') {
+          setStatus('success');
+          toast.success("Payment verified successfully!");
+        } else {
+          setError('Payment verification failed');
+          setStatus('error');
+          router.push(`/payment/failure?txnId=${txnId}&error=payment_failed&status=${transaction.status}`);
+        }
       } catch (error) {
         console.error('Payment verification error:', error);
+        setError(error instanceof Error ? error.message : 'Unknown error occurred');
+        setStatus('error');
         toast.error("Failed to verify payment");
-        router.push('/payment/failure');
+        router.push(`/payment/failure?txnId=${txnId}&error=verification_failed`);
       }
     };
 
     verifyPayment();
   }, [txnId, router, supabase]);
 
-  if (isVerifying) {
+  if (status === 'verifying') {
     return (
       <div className="container mx-auto p-6">
         <Card className="max-w-md mx-auto">
           <CardHeader className="text-center">
-            <CardTitle>Verifying Payment...</CardTitle>
+            <div className="flex justify-center mb-4">
+              <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+            </div>
+            <CardTitle>Verifying Payment</CardTitle>
             <CardDescription>Please wait while we verify your payment</CardDescription>
           </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 text-center">
+              This may take a few moments...
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="container mx-auto p-6">
+        <Card className="max-w-md mx-auto">
+          <CardHeader className="text-center">
+            <CardTitle className="text-red-600">Verification Failed</CardTitle>
+            <CardDescription>{error || 'An error occurred during payment verification'}</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <p className="text-sm text-gray-600 text-center">
+              We encountered an issue while verifying your payment. You will be redirected to the payment failure page.
+            </p>
+          </CardContent>
         </Card>
       </div>
     );
@@ -75,7 +119,7 @@ const PaymentSuccess = () => {
         </CardHeader>
         <CardContent>
           <p className="text-sm text-gray-600 text-center">
-            Your payment has been processed successfully. You can now continue using our services.
+            Your payment has been processed and verified successfully. You can now continue using our services.
           </p>
         </CardContent>
         <CardFooter className="flex justify-center">

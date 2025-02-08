@@ -15,6 +15,8 @@ export type Database = {
           created_at: string | null
           id: string
           payment_method: string | null
+          payment_response: Json | null
+          payment_status: string | null
           payu_data: Json | null
           payu_transaction_id: string | null
           status: string
@@ -22,12 +24,15 @@ export type Database = {
           transaction_id: string
           updated_at: string | null
           user_id: string
+          webhook_received_at: string | null
         }
         Insert: {
           amount: number
           created_at?: string | null
           id?: string
           payment_method?: string | null
+          payment_response?: Json | null
+          payment_status?: string | null
           payu_data?: Json | null
           payu_transaction_id?: string | null
           status?: string
@@ -35,12 +40,15 @@ export type Database = {
           transaction_id: string
           updated_at?: string | null
           user_id: string
+          webhook_received_at?: string | null
         }
         Update: {
           amount?: number
           created_at?: string | null
           id?: string
           payment_method?: string | null
+          payment_response?: Json | null
+          payment_status?: string | null
           payu_data?: Json | null
           payu_transaction_id?: string | null
           status?: string
@@ -48,6 +56,7 @@ export type Database = {
           transaction_id?: string
           updated_at?: string | null
           user_id?: string
+          webhook_received_at?: string | null
         }
         Relationships: [
           {

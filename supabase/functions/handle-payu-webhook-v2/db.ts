@@ -27,8 +27,30 @@ export class DatabaseService {
     });
 
     try {
-      // Update payment transaction
-      const { data: txnData, error: txnError } = await this.supabase
+      // Begin by fetching the transaction to get subscription_id and user_id
+      const { data: txnData, error: fetchError } = await this.supabase
+        .from('payment_transactions')
+        .select('subscription_id, user_id')
+        .eq('transaction_id', transactionId)
+        .single();
+
+      if (fetchError) {
+        this.logger.error('Failed to fetch transaction details', fetchError);
+        throw fetchError;
+      }
+
+      if (!txnData?.subscription_id) {
+        this.logger.error('No subscription found for transaction', { transactionId });
+        throw new Error('No subscription found for transaction');
+      }
+
+      this.logger.info('Found subscription', {
+        subscriptionId: txnData.subscription_id,
+        userId: txnData.user_id
+      });
+
+      // Update payment transaction first
+      const { error: txnError } = await this.supabase
         .from('payment_transactions')
         .update({
           status: status,
@@ -37,46 +59,18 @@ export class DatabaseService {
           payment_response: payuResponse,
           webhook_received_at: new Date().toISOString(),
         })
-        .eq('transaction_id', transactionId)
-        .select()
-        .single();
+        .eq('transaction_id', transactionId);
 
       if (txnError) {
         this.logger.error('Failed to update transaction', txnError);
         throw txnError;
       }
 
-      this.logger.info('Transaction updated', {
-        transactionId,
-        newStatus: status,
-        updatedAt: txnData?.webhook_received_at
-      });
-
-      // Get subscription ID for this transaction
-      const { data: subscriptionData, error: fetchError } = await this.supabase
-        .from('payment_transactions')
-        .select('subscription_id, user_id')
-        .eq('transaction_id', transactionId)
-        .single();
-
-      if (fetchError) {
-        this.logger.error('Failed to fetch subscription', fetchError);
-        throw fetchError;
-      }
-
-      if (!subscriptionData?.subscription_id) {
-        this.logger.error('No subscription found', { transactionId });
-        throw new Error('No subscription found for transaction');
-      }
-
-      this.logger.info('Found subscription', {
-        subscriptionId: subscriptionData.subscription_id,
-        userId: subscriptionData.user_id
-      });
+      this.logger.info('Transaction updated successfully');
 
       // Update subscription status
       const subscriptionStatus = status === 'success' ? 'active' : 'failed';
-      const { data: subData, error: subError } = await this.supabase
+      const { error: subError } = await this.supabase
         .from('subscriptions')
         .update({
           status: subscriptionStatus,
@@ -84,32 +78,30 @@ export class DatabaseService {
           payu_transaction_id: payuResponse.mihpayid,
           updated_at: new Date().toISOString()
         })
-        .eq('id', subscriptionData.subscription_id)
-        .select()
-        .single();
+        .eq('id', txnData.subscription_id);
 
       if (subError) {
         this.logger.error('Failed to update subscription', subError);
         throw subError;
       }
 
-      this.logger.info('Subscription updated', {
+      this.logger.info('Subscription updated successfully', {
         status: subscriptionStatus,
-        subscriptionId: subscriptionData.subscription_id,
-        updatedAt: subData?.updated_at
+        subscriptionId: txnData.subscription_id
       });
 
-      // Verify credits
+      // Log current credits for verification
       const { data: creditsData, error: creditsError } = await this.supabase
         .from('user_credits')
         .select('credits_remaining, updated_at')
-        .eq('user_id', subscriptionData.user_id)
-        .single();
+        .eq('user_id', txnData.user_id)
+        .maybeSingle();
 
       if (creditsError) {
         this.logger.error('Failed to check credits', creditsError);
       } else {
-        this.logger.info('Credits status', {
+        this.logger.info('Credits status after update', {
+          userId: txnData.user_id,
           credits: creditsData?.credits_remaining,
           lastUpdated: creditsData?.updated_at
         });
@@ -121,4 +113,3 @@ export class DatabaseService {
     }
   }
 }
-

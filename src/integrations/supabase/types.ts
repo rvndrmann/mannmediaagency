@@ -30,6 +30,42 @@ export type Database = {
         }
         Relationships: []
       }
+      credit_update_logs: {
+        Row: {
+          created_at: string | null
+          credits_after: number | null
+          credits_before: number | null
+          id: string
+          plan_name: string | null
+          status: string | null
+          subscription_id: string | null
+          trigger_source: string | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          credits_after?: number | null
+          credits_before?: number | null
+          id?: string
+          plan_name?: string | null
+          status?: string | null
+          subscription_id?: string | null
+          trigger_source?: string | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          credits_after?: number | null
+          credits_before?: number | null
+          id?: string
+          plan_name?: string | null
+          status?: string | null
+          subscription_id?: string | null
+          trigger_source?: string | null
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       payment_transactions: {
         Row: {
           amount: number

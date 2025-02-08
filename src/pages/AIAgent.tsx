@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
-  role: "user" | "assistant";
+  role: "user" | "assistant";  // Strictly typed as literal union
   content: string;
 }
 
@@ -32,7 +32,7 @@ const AIAgent = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage = { role: "user", content: input };
+    const userMessage: Message = { role: "user", content: input };
     setMessages((prev) => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
@@ -70,7 +70,7 @@ const AIAgent = () => {
                   if (newMessages[newMessages.length - 1]?.role === 'assistant') {
                     newMessages[newMessages.length - 1].content = assistantMessage;
                   } else {
-                    newMessages.push({ role: 'assistant', content: assistantMessage });
+                    newMessages.push({ role: 'assistant' as const, content: assistantMessage });
                   }
                   return newMessages;
                 });
@@ -107,10 +107,11 @@ const AIAgent = () => {
           >
             <ReactMarkdown
               components={{
-                code({ node, inline, className, children, ...props }) {
+                code({ children, className, ...props }) {
+                  const match = /language-(\w+)/.exec(className || '');
                   return (
                     <code
-                      className={`${inline ? 'bg-gray-700 px-1 py-0.5 rounded' : 'block bg-gray-700 p-2 rounded'} ${className}`}
+                      className={`${match ? 'bg-gray-700 p-2 block rounded' : 'bg-gray-700 px-1 py-0.5 rounded'} ${className}`}
                       {...props}
                     >
                       {children}

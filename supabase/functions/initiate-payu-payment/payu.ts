@@ -1,6 +1,6 @@
 
-// Use test URL for development
-const PAYU_TEST_URL = "https://test.payu.in/_payment";
+// Use production URL for live mode
+const PAYU_PRODUCTION_URL = "https://secure.payu.in/_payment";
 
 export class PayUService {
   private merchantKey: string;
@@ -107,7 +107,7 @@ export class PayUService {
           <title>Redirecting to PayU...</title>
         </head>
         <body>
-          <form id="payuForm" method="post" action="${PAYU_TEST_URL}">
+          <form id="payuForm" method="post" action="${PAYU_PRODUCTION_URL}">
             ${formEntries.join('\n            ')}
           </form>
           <script>

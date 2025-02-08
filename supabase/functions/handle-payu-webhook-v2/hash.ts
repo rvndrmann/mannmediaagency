@@ -27,3 +27,4 @@ function createResponseHash(params: Record<string, string>, salt: string): strin
     .update(hashString)
     .digest('hex');
 }
+

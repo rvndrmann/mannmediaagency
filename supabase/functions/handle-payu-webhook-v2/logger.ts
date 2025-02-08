@@ -31,3 +31,4 @@ export function createLogger(requestId: string): Logger {
       logEvent('DEBUG', message, undefined, data)
   };
 }
+

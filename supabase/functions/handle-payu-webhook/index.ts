@@ -13,6 +13,13 @@ serve(async (req) => {
   }
 
   try {
+    // Log request details
+    console.log('PayU Webhook - Request headers:', {
+      contentType: req.headers.get('content-type'),
+      userAgent: req.headers.get('user-agent'),
+      method: req.method
+    })
+
     // Verify PayU merchant salt is configured
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
     if (!merchantSalt) {
@@ -34,14 +41,23 @@ serve(async (req) => {
       mihpayid: params.mihpayid,
       mode: params.mode,
       error: params.error,
-      error_Message: params.error_Message
+      error_Message: params.error_Message,
+      bank_ref_num: params.bank_ref_num,
+      bankcode: params.bankcode,
+      cardnum: params.cardnum ? '****' + params.cardnum.slice(-4) : undefined,
+      name_on_card: params.name_on_card,
+      issuing_bank: params.issuing_bank,
+      cardtype: params.cardtype
     })
 
     // Verify hash signature
     const isValid = await verifyResponseHash(params, merchantSalt)
 
     if (!isValid) {
-      console.error('PayU Webhook - Invalid signature')
+      console.error('PayU Webhook - Invalid signature', {
+        receivedHash: params.hash,
+        txnId: params.txnid
+      })
       throw new Error('Invalid webhook signature')
     }
 
@@ -63,7 +79,12 @@ serve(async (req) => {
     console.log('PayU Webhook - Successfully processed webhook')
 
     return new Response(
-      JSON.stringify({ success: true }),
+      JSON.stringify({ 
+        success: true,
+        message: 'Webhook processed successfully',
+        txnId: params.txnid,
+        status: paymentStatus
+      }),
       { 
         headers: { 
           ...corsHeaders,
@@ -89,3 +110,4 @@ serve(async (req) => {
     )
   }
 })
+

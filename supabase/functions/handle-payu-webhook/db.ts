@@ -24,7 +24,7 @@ export class DatabaseService {
 
     try {
       // Update payment transaction
-      const { error: txnError } = await this.supabase
+      const { data: txnData, error: txnError } = await this.supabase
         .from('payment_transactions')
         .update({
           status: status,
@@ -34,16 +34,22 @@ export class DatabaseService {
           webhook_received_at: new Date().toISOString(),
         })
         .eq('transaction_id', transactionId)
+        .select()
+        .single()
 
       if (txnError) {
         console.error('Database Service - Error updating payment transaction:', txnError)
         throw txnError
       }
 
-      console.log('Database Service - Payment transaction updated successfully')
+      console.log('Database Service - Payment transaction updated successfully:', {
+        transactionId,
+        newStatus: status,
+        updatedAt: txnData?.webhook_received_at
+      })
 
       // Get subscription ID for this transaction
-      const { data: txnData, error: fetchError } = await this.supabase
+      const { data: subscriptionData, error: fetchError } = await this.supabase
         .from('payment_transactions')
         .select('subscription_id, user_id')
         .eq('transaction_id', transactionId)
@@ -54,16 +60,19 @@ export class DatabaseService {
         throw fetchError
       }
 
-      if (!txnData?.subscription_id) {
+      if (!subscriptionData?.subscription_id) {
         console.error('Database Service - No subscription found for transaction')
         throw new Error('No subscription found for transaction')
       }
 
-      console.log('Database Service - Found subscription:', txnData.subscription_id)
+      console.log('Database Service - Found subscription:', {
+        subscriptionId: subscriptionData.subscription_id,
+        userId: subscriptionData.user_id
+      })
 
       // Update subscription status
       const subscriptionStatus = status === 'success' ? 'active' : 'failed'
-      const { error: subError } = await this.supabase
+      const { data: subData, error: subError } = await this.supabase
         .from('subscriptions')
         .update({
           status: subscriptionStatus,
@@ -71,7 +80,9 @@ export class DatabaseService {
           payu_transaction_id: payuResponse.mihpayid,
           updated_at: new Date().toISOString()
         })
-        .eq('id', txnData.subscription_id)
+        .eq('id', subscriptionData.subscription_id)
+        .select()
+        .single()
 
       if (subError) {
         console.error('Database Service - Error updating subscription:', subError)
@@ -80,14 +91,15 @@ export class DatabaseService {
 
       console.log('Database Service - Subscription updated successfully:', {
         status: subscriptionStatus,
-        subscriptionId: txnData.subscription_id
+        subscriptionId: subscriptionData.subscription_id,
+        updatedAt: subData?.updated_at
       })
 
       // Verify credits were updated by checking user_credits
       const { data: creditsData, error: creditsError } = await this.supabase
         .from('user_credits')
         .select('credits_remaining, updated_at')
-        .eq('user_id', txnData.user_id)
+        .eq('user_id', subscriptionData.user_id)
         .single()
 
       if (creditsError) {
@@ -105,3 +117,4 @@ export class DatabaseService {
     }
   }
 }
+

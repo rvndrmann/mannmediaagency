@@ -30,7 +30,7 @@ export class DatabaseService {
       // Begin by fetching the transaction to get user_id
       const { data: txnData, error: fetchError } = await this.supabase
         .from('payment_transactions')
-        .select('user_id')
+        .select('user_id, amount')
         .eq('transaction_id', transactionId)
         .single();
 
@@ -45,8 +45,28 @@ export class DatabaseService {
       }
 
       this.logger.info('Found transaction', {
-        userId: txnData.user_id
+        userId: txnData.user_id,
+        amount: txnData.amount
       });
+
+      // Create audit log entry
+      const { error: auditError } = await this.supabase
+        .from('audit_logs')
+        .insert({
+          event_type: 'payment_webhook_received',
+          data: {
+            transaction_id: transactionId,
+            status,
+            payu_response: payuResponse,
+            user_id: txnData.user_id,
+            amount: txnData.amount
+          }
+        });
+
+      if (auditError) {
+        this.logger.error('Failed to create audit log', auditError);
+        // Continue processing even if audit log fails
+      }
 
       // Update payment transaction
       const { error: txnError } = await this.supabase
@@ -90,3 +110,4 @@ export class DatabaseService {
     }
   }
 }
+

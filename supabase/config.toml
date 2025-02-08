@@ -4,3 +4,5 @@ project_id = "avdwgvjhufslhqrrmxgo"
 verify_jwt = true
 [functions.handle-payu-webhook-v2]
 verify_jwt = false
+[functions.verify-payu-payment]
+verify_jwt = true

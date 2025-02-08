@@ -68,11 +68,11 @@ serve(async (req) => {
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId)
     const amountString = amount.toFixed(2)
-    const productInfo = `${planName} Plan Subscription`
+    const productInfo = `${planName} Plan` // Simplified product info
     const successUrl = `${origin}/payment/success`
     const failureUrl = `${origin}/payment/failure`
-    const firstname = "User"
-    const phone = "9999999999"
+    const firstname = "User" // Default value
+    const phone = "9999999999" // Default value
     
     console.log('Payment Configuration:', {
       email,
@@ -112,7 +112,6 @@ serve(async (req) => {
     })
 
     console.log('Payment Initiation - Complete');
-    console.log('Final Redirect URL:', redirectUrl);
 
     return new Response(
       JSON.stringify({ redirectUrl }),

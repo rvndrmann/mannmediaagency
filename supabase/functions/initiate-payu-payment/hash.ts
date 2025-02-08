@@ -9,20 +9,21 @@ export async function generateHash(
   merchantSalt: string
 ): Promise<string> {
   // Log input parameters for debugging
-  console.log('Hash Generation - Raw Input Parameters:', {
+  console.log('Hash Generation - Input Parameters:', {
     merchantKey,
     txnId,
     amount,
-    productInfo,
+    productinfo: productInfo, // Note: PayU expects 'productinfo'
     firstname,
     email,
     merchantSalt: '[REDACTED]'
   });
 
-  // PayU's hash string format: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
+  // PayU's hash string format with exact parameter names and all UDF fields:
+  // key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
+  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|udf1|udf2|udf3|udf4|udf5||||||${merchantSalt}`;
   
-  console.log('Hash Generation - Hash String (before SHA-512):', hashString);
+  console.log('Hash Generation - Raw Hash String:', hashString.replace(merchantSalt, '[REDACTED]'));
   
   const encoder = new TextEncoder();
   const data = encoder.encode(hashString);
@@ -30,6 +31,6 @@ export async function generateHash(
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
   
-  // Return just the hash string without v1/v2 format - PayU's example seems to be showing something different
+  console.log('Hash Generation - Final Hash Length:', hashHex.length);
   return hashHex;
 }

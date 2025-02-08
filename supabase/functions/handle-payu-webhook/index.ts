@@ -1,8 +1,8 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { corsHeaders } from "./cors.ts"
-import { verifyPayUSignature } from "./verify-signature.ts"
 import { DatabaseService } from "./db.ts"
+import { verifyResponseHash } from "../initiate-payu-payment/hash.ts"
 
 serve(async (req) => {
   console.log('PayU Webhook - Request received')
@@ -13,7 +13,7 @@ serve(async (req) => {
   }
 
   try {
-    // Verify PayU merchant key and salt are configured
+    // Verify PayU merchant salt is configured
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
     if (!merchantSalt) {
       console.error('PayU Webhook - Missing merchant salt')
@@ -33,9 +33,8 @@ serve(async (req) => {
       amount: params.amount,
     })
 
-    // Verify hash signature
-    const hash = params.hash || ''
-    const isValid = verifyPayUSignature(params, merchantSalt, hash)
+    // Verify hash signature using new verification method
+    const isValid = await verifyResponseHash(params, merchantSalt)
 
     if (!isValid) {
       console.error('PayU Webhook - Invalid signature')

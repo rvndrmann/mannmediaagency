@@ -7,10 +7,7 @@ export class PayUService {
   
   constructor(merchantKey: string, merchantSalt: string) {
     if (!merchantKey?.trim() || !merchantSalt?.trim()) {
-      console.error('PayU Service - Initialization Error: Invalid credentials', {
-        hasMerchantKey: !!merchantKey,
-        hasMerchantSalt: !!merchantSalt
-      });
+      console.error('PayU Service - Initialization Error: Invalid credentials');
       throw new Error('Valid PayU credentials are required');
     }
     
@@ -19,7 +16,7 @@ export class PayUService {
     console.log('PayU Service - Initialized successfully');
   }
 
-  generateRedirectUrl(params: {
+  generateFormData(params: {
     txnId: string,
     amount: string,
     productInfo: string,
@@ -29,8 +26,8 @@ export class PayUService {
     successUrl: string,
     failureUrl: string,
     hash: string
-  }): string {
-    console.log('PayU Service - Generating redirect URL with params:', {
+  }): URLSearchParams {
+    console.log('PayU Service - Generating form data with params:', {
       ...params,
       hash: '[REDACTED]'
     });
@@ -59,17 +56,30 @@ export class PayUService {
       formData.append('surl', params.successUrl);
       formData.append('furl', params.failureUrl);
       formData.append('hash', params.hash);
-      // Add required PayU parameters
       formData.append('service_provider', 'payu_paisa');
       formData.append('currency', 'INR');
 
-      // Generate the complete URL with parameters
-      const redirectUrl = `${PAYU_LIVE_URL}?${formData.toString()}`;
-      console.log('PayU Service - Generated redirect URL:', redirectUrl.replace(this.merchantKey, '[KEY_REDACTED]').replace(params.hash, '[HASH_REDACTED]'));
-      return redirectUrl;
+      return formData;
     } catch (error) {
-      console.error('PayU Service - Error generating URL:', error);
+      console.error('PayU Service - Error generating form data:', error);
       throw error;
     }
+  }
+
+  generateRedirectUrl(params: {
+    txnId: string,
+    amount: string,
+    productInfo: string,
+    firstname: string,
+    email: string,
+    phone: string,
+    successUrl: string,
+    failureUrl: string,
+    hash: string
+  }): string {
+    const formData = this.generateFormData(params);
+    const redirectUrl = `${PAYU_LIVE_URL}?${formData.toString()}`;
+    console.log('PayU Service - Generated redirect URL:', redirectUrl.replace(this.merchantKey, '[KEY_REDACTED]'));
+    return redirectUrl;
   }
 }

@@ -12,27 +12,33 @@ export class DatabaseService {
     )
   }
 
-  async createSubscription(params: PaymentRequest): Promise<SubscriptionRecord> {
+  async createSubscription(params: PaymentRequest, txnId: string): Promise<SubscriptionRecord> {
+    console.log('Creating subscription with params:', { ...params, txnId });
+    
     const { data: subscription, error } = await this.supabase
       .from('subscriptions')
       .insert({
         user_id: params.userId,
         status: 'pending',
         amount: params.amount,
-        plan_name: params.planName
+        plan_name: params.planName,
+        transaction_id: txnId  // Set transaction_id during creation
       })
       .select()
       .single()
 
     if (error) {
-      console.error('Subscription error:', error)
-      throw new Error('Failed to create subscription')
+      console.error('Subscription creation error:', error);
+      throw new Error(`Failed to create subscription: ${error.message}`);
     }
 
-    return subscription
+    console.log('Subscription created successfully:', subscription);
+    return subscription;
   }
 
   async createPaymentTransaction(userId: string, txnId: string, amount: number, subscriptionId: string) {
+    console.log('Creating payment transaction:', { userId, txnId, amount, subscriptionId });
+    
     const { error: txnError } = await this.supabase
       .from('payment_transactions')
       .insert({
@@ -45,17 +51,23 @@ export class DatabaseService {
       })
 
     if (txnError) {
-      console.error('Transaction error:', txnError)
-      throw new Error('Failed to create transaction')
+      console.error('Transaction creation error:', txnError);
+      throw new Error(`Failed to create transaction: ${txnError.message}`);
     }
+
+    console.log('Payment transaction created successfully');
   }
 
   async getUserEmail(userId: string): Promise<string> {
+    console.log('Fetching email for user:', userId);
+    
     const { data: { user }, error: userError } = await this.supabase.auth.admin.getUserById(userId)
     if (userError || !user) {
-      console.error('User error:', userError)
-      throw new Error('Failed to get user details')
+      console.error('User fetch error:', userError);
+      throw new Error('Failed to get user details');
     }
-    return user.email || ''
+    
+    console.log('User email fetched successfully');
+    return user.email || '';
   }
 }

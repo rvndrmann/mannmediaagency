@@ -13,6 +13,7 @@ serve(async (req) => {
 
   try {
     const { transactionId, userId } = await req.json()
+    console.log('Payment verification started:', { transactionId, userId });
     
     // Initialize Supabase client
     const supabaseClient = createClient(
@@ -23,6 +24,7 @@ serve(async (req) => {
     // If no transactionId provided, try to find latest pending transaction
     let txnToVerify = transactionId
     if (!txnToVerify && userId) {
+      console.log('No transaction ID provided, looking for latest pending transaction');
       const { data: latestTxn, error: txnError } = await supabaseClient
         .from('payment_transactions')
         .select('transaction_id')
@@ -33,22 +35,23 @@ serve(async (req) => {
         .single()
 
       if (txnError) {
-        console.error('Error fetching latest transaction:', txnError)
-        throw new Error('No pending transaction found')
+        console.error('Error fetching latest transaction:', txnError);
+        throw new Error('No pending transaction found');
       }
 
       txnToVerify = latestTxn.transaction_id
+      console.log('Found latest pending transaction:', txnToVerify);
     }
 
     if (!txnToVerify) {
-      throw new Error('No transaction ID available to verify')
+      throw new Error('No transaction ID available to verify');
     }
 
     const merchantKey = Deno.env.get('PAYU_MERCHANT_KEY')
     const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
     
     if (!merchantKey || !merchantSalt) {
-      throw new Error('PayU credentials not configured')
+      throw new Error('PayU credentials not configured');
     }
 
     // Create command for PayU verification
@@ -69,6 +72,7 @@ serve(async (req) => {
       .map(b => b.toString(16).padStart(2, '0'))
       .join('')
 
+    console.log('Making PayU verification request');
     // Make request to PayU
     const response = await fetch(PAYU_BASE_URL, {
       method: 'POST',
@@ -79,14 +83,15 @@ serve(async (req) => {
     })
 
     const payuResponse = await response.json()
-    console.log('PayU Verification Response:', payuResponse)
+    console.log('PayU Verification Response:', payuResponse);
 
     // Process PayU response
     if (payuResponse.status === 1 && payuResponse.transaction_details[txnToVerify]) {
       const txnDetails = payuResponse.transaction_details[txnToVerify]
       
+      console.log('Updating transaction status:', txnDetails.status);
       // Update transaction status in our database
-      const { data: updateData, error: updateError } = await supabaseClient
+      const { error: updateError } = await supabaseClient
         .from('payment_transactions')
         .update({
           payment_status: txnDetails.status,
@@ -95,14 +100,15 @@ serve(async (req) => {
           updated_at: new Date().toISOString()
         })
         .eq('transaction_id', txnToVerify)
-        .select()
 
       if (updateError) {
-        throw updateError
+        console.error('Error updating transaction:', updateError);
+        throw updateError;
       }
 
       // If payment successful, update subscription status
       if (txnDetails.status === 'success') {
+        console.log('Payment successful, updating subscription status');
         const { error: subError } = await supabaseClient
           .from('subscriptions')
           .update({
@@ -113,8 +119,10 @@ serve(async (req) => {
           .eq('transaction_id', txnToVerify)
 
         if (subError) {
-          console.error('Error updating subscription:', subError)
+          console.error('Error updating subscription:', subError);
+          throw subError;
         }
+        console.log('Subscription updated successfully');
       }
 
       return new Response(
@@ -127,9 +135,9 @@ serve(async (req) => {
       )
     }
 
-    throw new Error('Invalid response from PayU')
+    throw new Error('Invalid response from PayU');
   } catch (error) {
-    console.error('Verification error:', error)
+    console.error('Verification error:', error);
     return new Response(
       JSON.stringify({
         error: error.message

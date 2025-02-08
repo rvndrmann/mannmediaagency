@@ -6,7 +6,7 @@ import { useNavigate, useLocation } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
 import { useEffect } from "react";
 
-const PayUPayment = () => {
+const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
@@ -102,4 +102,4 @@ const PayUPayment = () => {
   );
 };
 
-export default PayUPayment;
+export default Payment;

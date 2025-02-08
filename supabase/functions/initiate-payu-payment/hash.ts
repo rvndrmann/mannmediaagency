@@ -24,8 +24,8 @@ export async function generateHash(
     const cleanAmount = Number(amount).toFixed(2);
     
     // PayU hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-    // 5 empty UDF fields + 6 empty fields = 11 pipes between email and SALT
-    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
+    // Using txnId as udf1 for tracking, then 4 empty UDFs + 6 empty fields = 10 pipes before SALT
+    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|${txnId}||||||||||${merchantSalt}`;
     
     // Validate pipe separator count (should be exactly 16)
     const pipeCount = (hashString.match(/\|/g) || []).length;
@@ -80,8 +80,8 @@ export async function verifyResponseHash(
     });
 
     // PayU response hash sequence: SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-    // 11 empty fields between status and email
-    const reverseHashString = `${merchantSalt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+    // Include txnId as udf1 in verification hash
+    const reverseHashString = `${merchantSalt}|${status}||||||||||${txnid}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
     
     // Validate pipe separator count (should be exactly 16)
     const pipeCount = (reverseHashString.match(/\|/g) || []).length;

@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -15,6 +14,7 @@ import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
+import AIAgent from "./pages/AIAgent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -84,6 +84,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Plans />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-agent"
+              element={
+                <ProtectedRoute>
+                  <AIAgent />
                 </ProtectedRoute>
               }
             />

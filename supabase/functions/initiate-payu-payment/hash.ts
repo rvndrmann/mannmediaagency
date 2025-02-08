@@ -25,14 +25,13 @@ export async function generateHash(
     
     // PayU hash sequence:
     // key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-    // Using txnId as udf1 for transaction tracking
+    // Note: txnId is used as udf1 for tracking
     const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|${txnId}|||||||||||${merchantSalt}`;
     
     // Log hash string with sensitive data redacted
     const redactedHashString = hashString
       .replace(merchantKey, '[KEY_REDACTED]')
-      .replace(merchantSalt, '[SALT_REDACTED]')
-      .replace(new RegExp(txnId, 'g'), '[TXNID_REDACTED]');
+      .replace(merchantSalt, '[SALT_REDACTED]');
     console.log('Hash Generation - Hash string created:', redactedHashString);
     
     // Generate SHA512 hash
@@ -61,7 +60,7 @@ export async function verifyResponseHash(
 
     // Reverse hash sequence for response validation:
     // SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-    const reverseHashString = `${merchantSalt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+    const reverseHashString = `${merchantSalt}|${status}|||||||||||${udf1}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
 
     // Generate hash for verification
     const encoder = new TextEncoder();
@@ -70,10 +69,7 @@ export async function verifyResponseHash(
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const calculatedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
 
-    const hashesMatch = calculatedHash === receivedHash.toLowerCase();
-    console.log('Hash Verification -', hashesMatch ? 'Success' : 'Failed');
-    
-    return hashesMatch;
+    return calculatedHash === receivedHash.toLowerCase();
   } catch (error) {
     console.error('Hash Verification - Error:', error);
     return false;

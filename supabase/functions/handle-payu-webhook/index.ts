@@ -27,18 +27,13 @@ serve(async (req) => {
       params[key] = value.toString()
     }
 
-    // Log webhook parameters (excluding sensitive data)
     console.log('PayU Webhook - Received parameters:', {
       txnId: params.txnid,
       status: params.status,
       amount: params.amount,
-      udf1: params.udf1, // Log udf1 which contains our txnId
-      error: params.error || 'none',
-      errorMessage: params.error_Message || 'none',
-      cancelUrl: params.curl ? 'provided' : 'missing'
     })
 
-    // Verify hash signature
+    // Verify hash signature using new verification method
     const isValid = await verifyResponseHash(params, merchantSalt)
 
     if (!isValid) {
@@ -49,31 +44,11 @@ serve(async (req) => {
     // Initialize database service
     const db = new DatabaseService()
 
-    // Additional error handling for PayU specific status codes
-    let paymentStatus = params.status
-    if (params.error && params.error !== 'NO_ERROR') {
-      paymentStatus = 'error'
-      console.error('PayU Webhook - Payment Error:', {
-        error: params.error,
-        message: params.error_Message
-      })
-    }
-
-    // Update payment status with all PayU response data
+    // Update payment status
     await db.updatePaymentStatus(
       params.txnid,
-      paymentStatus,
-      {
-        ...params,
-        udf1: params.udf1, // Store udf1 which contains our txnId
-        udf2: params.udf2,
-        udf3: params.udf3,
-        udf4: params.udf4,
-        udf5: params.udf5,
-        error: params.error,
-        error_Message: params.error_Message,
-        curl: params.curl
-      }
+      params.status,
+      params
     )
 
     console.log('PayU Webhook - Successfully processed webhook')

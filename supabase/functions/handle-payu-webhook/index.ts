@@ -37,7 +37,7 @@ serve(async (req) => {
       error_Message: params.error_Message
     })
 
-    // Verify hash signature using new verification method
+    // Verify hash signature
     const isValid = await verifyResponseHash(params, merchantSalt)
 
     if (!isValid) {
@@ -51,9 +51,12 @@ serve(async (req) => {
     const db = new DatabaseService()
 
     // Update payment status
+    const paymentStatus = params.status.toLowerCase()
+    console.log('PayU Webhook - Updating payment with status:', paymentStatus)
+
     await db.updatePaymentStatus(
       params.txnid,
-      params.status.toLowerCase(),
+      paymentStatus,
       params
     )
 
@@ -69,11 +72,12 @@ serve(async (req) => {
       }
     )
   } catch (error) {
-    console.error('PayU Webhook Error:', error)
+    console.error('PayU Webhook Error:', error.message, error.stack)
     
     return new Response(
       JSON.stringify({ 
-        error: error.message 
+        error: error.message,
+        stack: error.stack 
       }),
       { 
         status: 500,

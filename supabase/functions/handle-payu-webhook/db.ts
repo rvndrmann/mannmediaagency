@@ -16,7 +16,7 @@ export class DatabaseService {
     status: string, 
     payuResponse: Record<string, any>
   ) {
-    console.log('Database Service - Updating payment status:', {
+    console.log('Database Service - Starting payment status update:', {
       transactionId,
       status,
       payuTransactionId: payuResponse.mihpayid
@@ -45,7 +45,7 @@ export class DatabaseService {
       // Get subscription ID for this transaction
       const { data: txnData, error: fetchError } = await this.supabase
         .from('payment_transactions')
-        .select('subscription_id')
+        .select('subscription_id, user_id')
         .eq('transaction_id', transactionId)
         .single()
 
@@ -59,11 +59,14 @@ export class DatabaseService {
         throw new Error('No subscription found for transaction')
       }
 
+      console.log('Database Service - Found subscription:', txnData.subscription_id)
+
       // Update subscription status
+      const subscriptionStatus = status === 'success' ? 'active' : 'failed'
       const { error: subError } = await this.supabase
         .from('subscriptions')
         .update({
-          status: status === 'success' ? 'active' : 'failed',
+          status: subscriptionStatus,
           payment_status: status,
           payu_transaction_id: payuResponse.mihpayid,
           updated_at: new Date().toISOString()
@@ -75,7 +78,27 @@ export class DatabaseService {
         throw subError
       }
 
-      console.log('Database Service - Subscription updated successfully')
+      console.log('Database Service - Subscription updated successfully:', {
+        status: subscriptionStatus,
+        subscriptionId: txnData.subscription_id
+      })
+
+      // Verify credits were updated by checking user_credits
+      const { data: creditsData, error: creditsError } = await this.supabase
+        .from('user_credits')
+        .select('credits_remaining, updated_at')
+        .eq('user_id', txnData.user_id)
+        .single()
+
+      if (creditsError) {
+        console.error('Database Service - Error checking user credits:', creditsError)
+      } else {
+        console.log('Database Service - Current user credits:', {
+          credits: creditsData?.credits_remaining,
+          lastUpdated: creditsData?.updated_at
+        })
+      }
+
     } catch (error) {
       console.error('Database Service - Error in updatePaymentStatus:', error)
       throw error

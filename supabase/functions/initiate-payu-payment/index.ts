@@ -44,7 +44,7 @@ serve(async (req) => {
     const db = new DatabaseService();
     const subscription = await db.createSubscription({ userId, planName, amount });
     
-    // Generate transaction ID without underscores
+    // Generate transaction ID without underscores and ensure uniqueness
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `TXN${timestamp}${random}`;
@@ -53,7 +53,7 @@ serve(async (req) => {
 
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId);
-    const cleanAmount = amount.toFixed(2);
+    const cleanAmount = amount.toFixed(2); // PayU expects amount with 2 decimal places
     const productInfo = `${planName} Plan`; // Use exact product info
     const successUrl = `${origin}/payment/success`;
     const failureUrl = `${origin}/payment/failure`;

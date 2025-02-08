@@ -1,4 +1,3 @@
-
 export async function generateHash(
   merchantKey: string,
   txnId: string,
@@ -18,8 +17,8 @@ export async function generateHash(
     merchantSalt: '[REDACTED]'
   });
 
-  // Ensure amount is properly formatted (no trailing zeros)
-  const cleanAmount = parseFloat(amount).toString();
+  // Clean amount (remove trailing zeros but keep 2 decimal places for PayU)
+  const cleanAmount = Number(amount).toFixed(2);
   
   // PayU's hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
   const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;

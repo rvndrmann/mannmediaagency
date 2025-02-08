@@ -39,7 +39,7 @@ export class PayUService {
       // Clean amount (remove trailing zeros)
       const cleanAmount = Number(params.amount).toFixed(2);
 
-      // PayU's parameter order is important for hash verification
+      // Create form data with mandatory parameters
       const orderedParams = new URLSearchParams();
       orderedParams.append('key', this.merchantKey);
       orderedParams.append('txnid', params.txnId);
@@ -50,18 +50,16 @@ export class PayUService {
       orderedParams.append('phone', params.phone);
       orderedParams.append('surl', params.successUrl);
       orderedParams.append('furl', params.failureUrl);
-      orderedParams.append('service_provider', 'payu_paisa');
       orderedParams.append('hash', params.hash);
-      // Add pg parameter for credit card/debit card
-      orderedParams.append('pg', 'CC');
+      // Service provider is mandatory
+      orderedParams.append('service_provider', 'payu_paisa');
       // Enforce INR currency
       orderedParams.append('currency', 'INR');
       // Add callback URL
       orderedParams.append('curl', params.failureUrl);
 
       const redirectUrl = `${PAYU_LIVE_URL}?${orderedParams.toString()}`;
-      console.log('PayU Service - Generated Live URL. Hash and key redacted for security');
-      
+      console.log('PayU Service - Generated redirect URL. Hash and key redacted for security');
       return redirectUrl;
     } catch (error) {
       console.error('PayU Service - Error generating URL:', error);

@@ -62,6 +62,8 @@ export class PayUService {
       formData.append('surl', params.successUrl);
       formData.append('furl', params.failureUrl);
       formData.append('curl', params.cancelUrl);
+      // Add webhook notification URL
+      formData.append('notify_url', 'https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/handle-payu-webhook');
       formData.append('hash', params.hash);
       formData.append('service_provider', 'payu_paisa');
       formData.append('currency', 'INR');

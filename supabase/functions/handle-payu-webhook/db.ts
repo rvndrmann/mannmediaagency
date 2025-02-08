@@ -16,44 +16,69 @@ export class DatabaseService {
     status: string, 
     payuResponse: Record<string, any>
   ) {
-    const { error } = await this.supabase
-      .from('payment_transactions')
-      .update({
-        status: status.toLowerCase(),
-        payment_status: status,
-        payment_response: payuResponse,
-        webhook_received_at: new Date().toISOString(),
-      })
-      .eq('transaction_id', transactionId)
+    console.log('Database Service - Updating payment status:', {
+      transactionId,
+      status,
+      payuTransactionId: payuResponse.mihpayid
+    })
 
-    if (error) {
-      console.error('Error updating payment status:', error)
-      throw new Error('Failed to update payment status')
-    }
+    try {
+      // Update payment transaction
+      const { error: txnError } = await this.supabase
+        .from('payment_transactions')
+        .update({
+          status: status,
+          payment_status: status,
+          payu_transaction_id: payuResponse.mihpayid,
+          payment_response: payuResponse,
+          webhook_received_at: new Date().toISOString(),
+        })
+        .eq('transaction_id', transactionId)
 
-    // If payment is successful, update subscription status
-    if (status.toLowerCase() === 'success') {
-      const { data: transaction } = await this.supabase
+      if (txnError) {
+        console.error('Database Service - Error updating payment transaction:', txnError)
+        throw txnError
+      }
+
+      console.log('Database Service - Payment transaction updated successfully')
+
+      // Get subscription ID for this transaction
+      const { data: txnData, error: fetchError } = await this.supabase
         .from('payment_transactions')
         .select('subscription_id')
         .eq('transaction_id', transactionId)
         .single()
 
-      if (transaction?.subscription_id) {
-        const { error: subError } = await this.supabase
-          .from('subscriptions')
-          .update({
-            status: 'active',
-            payment_status: 'completed',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', transaction.subscription_id)
-
-        if (subError) {
-          console.error('Error updating subscription:', subError)
-          throw new Error('Failed to update subscription status')
-        }
+      if (fetchError) {
+        console.error('Database Service - Error fetching subscription ID:', fetchError)
+        throw fetchError
       }
+
+      if (!txnData?.subscription_id) {
+        console.error('Database Service - No subscription found for transaction')
+        throw new Error('No subscription found for transaction')
+      }
+
+      // Update subscription status
+      const { error: subError } = await this.supabase
+        .from('subscriptions')
+        .update({
+          status: status === 'success' ? 'active' : 'failed',
+          payment_status: status,
+          payu_transaction_id: payuResponse.mihpayid,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', txnData.subscription_id)
+
+      if (subError) {
+        console.error('Database Service - Error updating subscription:', subError)
+        throw subError
+      }
+
+      console.log('Database Service - Subscription updated successfully')
+    } catch (error) {
+      console.error('Database Service - Error in updatePaymentStatus:', error)
+      throw error
     }
   }
 }

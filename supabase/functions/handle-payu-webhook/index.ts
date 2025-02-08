@@ -31,6 +31,10 @@ serve(async (req) => {
       txnId: params.txnid,
       status: params.status,
       amount: params.amount,
+      mihpayid: params.mihpayid,
+      mode: params.mode,
+      error: params.error,
+      error_Message: params.error_Message
     })
 
     // Verify hash signature using new verification method
@@ -41,13 +45,15 @@ serve(async (req) => {
       throw new Error('Invalid webhook signature')
     }
 
+    console.log('PayU Webhook - Signature verified successfully')
+
     // Initialize database service
     const db = new DatabaseService()
 
     // Update payment status
     await db.updatePaymentStatus(
       params.txnid,
-      params.status,
+      params.status.toLowerCase(),
       params
     )
 

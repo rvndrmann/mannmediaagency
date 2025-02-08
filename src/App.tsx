@@ -11,7 +11,7 @@ import CreateVideo from "./pages/CreateVideo";
 import Integrations from "./pages/Integrations";
 import Plans from "./pages/Plans";
 import Auth from "./pages/Auth";
-import PayUPayment from "./pages/PayUPayment";
+import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 
@@ -87,10 +87,10 @@ const App = () => (
               }
             />
             <Route
-              path="/billing"
+              path="/payment"
               element={
                 <ProtectedRoute>
-                  <PayUPayment />
+                  <Payment />
                 </ProtectedRoute>
               }
             />

@@ -39,7 +39,7 @@ const Plans = () => {
 
   const handleSubscribe = (plan: typeof plans[0]) => {
     const amount = parseInt(plan.price.replace("₹", ""));
-    navigate("/billing", { 
+    navigate("/payment", { 
       state: { 
         planName: plan.name,
         amount: amount

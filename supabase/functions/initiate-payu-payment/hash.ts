@@ -1,3 +1,4 @@
+
 console.log('Hash Generation Module - Initializing');
 
 export async function generateHash(
@@ -23,15 +24,27 @@ export async function generateHash(
     const cleanAmount = Number(amount).toFixed(2);
     
     // PayU hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-    // We keep all UDF fields empty and ensure exactly 13 pipes after email
-    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
+    // Empty UDF fields (5) followed by empty fields (6)
+    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||||${merchantSalt}`;
+    
+    // Validate pipe separator count (should be exactly 16)
+    const pipeCount = (hashString.match(/\|/g) || []).length;
+    if (pipeCount !== 16) {
+      console.error(`Hash Generation - Invalid pipe count: ${pipeCount}, expected 16`);
+      throw new Error(`Invalid hash string format: expected 16 separators, got ${pipeCount}`);
+    }
     
     // Log hash string with sensitive data redacted
     const redactedHashString = hashString
       .replace(merchantKey, '[KEY_REDACTED]')
-      .replace(merchantSalt, '[SALT_REDACTED]');
+      .replace(merchantSalt, '[SALT_REDACTED]')
+      .replace(email, '[EMAIL_REDACTED]');
     console.log('Hash Generation - Hash string created:', redactedHashString);
-    console.log('Hash Generation - Pipe separators count:', (hashString.match(/\|/g) || []).length);
+    console.log('Hash Generation - String components:', {
+      pipeCount,
+      totalLength: hashString.length,
+      emptyFieldsCount: hashString.split('||').length - 1
+    });
     
     // Generate SHA512 hash
     const encoder = new TextEncoder();
@@ -57,11 +70,37 @@ export async function verifyResponseHash(
     const { status, txnid, amount, productinfo, firstname, email, key } = params;
     const receivedHash = params.hash || '';
 
-    // Reverse hash sequence for response validation:
-    // SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-    const reverseHashString = `${merchantSalt}|${status}|||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+    // Validate required parameters
+    const requiredParams = { status, txnid, amount, productinfo, firstname, email, key, merchantSalt };
+    Object.entries(requiredParams).forEach(([paramKey, value]) => {
+      if (!value?.toString().trim()) {
+        console.error(`Hash Verification - Missing required parameter: ${paramKey}`);
+        throw new Error(`${paramKey} is required for hash verification`);
+      }
+    });
+
+    // PayU response hash sequence: SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
+    // 11 empty fields (5 UDF + 6 additional)
+    const reverseHashString = `${merchantSalt}|${status}|||||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
     
-    console.log('Hash Verification - Pipe separators count:', (reverseHashString.match(/\|/g) || []).length);
+    // Validate pipe separator count (should be exactly 16)
+    const pipeCount = (reverseHashString.match(/\|/g) || []).length;
+    if (pipeCount !== 16) {
+      console.error(`Hash Verification - Invalid pipe count: ${pipeCount}, expected 16`);
+      throw new Error(`Invalid verification hash string format: expected 16 separators, got ${pipeCount}`);
+    }
+    
+    // Log verification string with sensitive data redacted
+    const redactedVerificationString = reverseHashString
+      .replace(merchantSalt, '[SALT_REDACTED]')
+      .replace(key, '[KEY_REDACTED]')
+      .replace(email, '[EMAIL_REDACTED]');
+    console.log('Hash Verification - Verification string:', redactedVerificationString);
+    console.log('Hash Verification - String components:', {
+      pipeCount,
+      totalLength: reverseHashString.length,
+      emptyFieldsCount: reverseHashString.split('||').length - 1
+    });
 
     // Generate hash for verification
     const encoder = new TextEncoder();
@@ -70,7 +109,14 @@ export async function verifyResponseHash(
     const hashArray = Array.from(new Uint8Array(hashBuffer));
     const calculatedHash = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toLowerCase();
 
-    return calculatedHash === receivedHash.toLowerCase();
+    const hashesMatch = calculatedHash === receivedHash.toLowerCase();
+    console.log('Hash Verification - Result:', {
+      match: hashesMatch,
+      calculatedHashLength: calculatedHash.length,
+      receivedHashLength: receivedHash.length
+    });
+
+    return hashesMatch;
   } catch (error) {
     console.error('Hash Verification - Error:', error);
     return false;

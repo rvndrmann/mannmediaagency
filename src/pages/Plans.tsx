@@ -3,9 +3,24 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { format } from "date-fns";
+import { Check, X, Clock } from "lucide-react";
+
+interface Transaction {
+  created_at: string;
+  amount: number;
+  status: string;
+  payment_status: string;
+  transaction_id: string;
+}
 
 const Plans = () => {
   const navigate = useNavigate();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
 
   const plans = [
     {
@@ -47,6 +62,39 @@ const Plans = () => {
     });
   };
 
+  useEffect(() => {
+    const fetchTransactions = async () => {
+      try {
+        const { data, error } = await supabase
+          .from('payment_transactions')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (error) {
+          console.error('Error fetching transactions:', error);
+          return;
+        }
+
+        setTransactions(data || []);
+      } catch (error) {
+        console.error('Error:', error);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+
+    fetchTransactions();
+  }, []);
+
+  const getStatusIcon = (status: string, payment_status: string) => {
+    if (status === 'completed' && payment_status === 'success') {
+      return <Check className="w-4 h-4 text-green-500" />;
+    } else if (status === 'failed' || payment_status === 'failure') {
+      return <X className="w-4 h-4 text-red-500" />;
+    }
+    return <Clock className="w-4 h-4 text-yellow-500" />;
+  };
+
   return (
     <div className="min-h-screen bg-background p-6">
       <div className="max-w-7xl mx-auto">
@@ -66,7 +114,7 @@ const Plans = () => {
           <Button variant="default" className="rounded-full">One-time</Button>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-12">
           {plans.map((plan) => (
             <Card key={plan.name} className="p-6">
               <div className="space-y-4">
@@ -102,6 +150,57 @@ const Plans = () => {
               </div>
             </Card>
           ))}
+        </div>
+
+        <div className="mt-8">
+          <h2 className="text-xl font-bold mb-4">Transaction History</h2>
+          {isLoading ? (
+            <div className="text-center py-4">Loading transactions...</div>
+          ) : transactions.length === 0 ? (
+            <div className="text-center py-4 text-gray-500">No transactions found</div>
+          ) : (
+            <Card className="w-full">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Date</TableHead>
+                    <TableHead>Amount</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Transaction ID</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {transactions.map((transaction) => (
+                    <TableRow key={transaction.transaction_id}>
+                      <TableCell>
+                        {format(new Date(transaction.created_at), 'MMM dd, yyyy')}
+                      </TableCell>
+                      <TableCell>₹{transaction.amount}</TableCell>
+                      <TableCell className="flex items-center gap-2">
+                        {getStatusIcon(transaction.status, transaction.payment_status)}
+                        <span className={
+                          transaction.status === 'completed' && transaction.payment_status === 'success'
+                            ? 'text-green-500'
+                            : transaction.status === 'failed' || transaction.payment_status === 'failure'
+                            ? 'text-red-500'
+                            : 'text-yellow-500'
+                        }>
+                          {transaction.status === 'completed' && transaction.payment_status === 'success'
+                            ? 'Success'
+                            : transaction.status === 'failed' || transaction.payment_status === 'failure'
+                            ? 'Failed'
+                            : 'Pending'}
+                        </span>
+                      </TableCell>
+                      <TableCell className="font-mono">
+                        {transaction.transaction_id.slice(0, 12)}...
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </Card>
+          )}
         </div>
       </div>
     </div>

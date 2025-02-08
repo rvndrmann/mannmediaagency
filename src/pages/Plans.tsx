@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useNavigate } from "react-router-dom";
@@ -25,12 +24,12 @@ const Plans = () => {
   const plans = [
     {
       name: "BASIC",
-      credits: "30 Credits",
-      videos: "3 videos per month",
-      price: "₹50",
+      credits: "10 Credits",
+      videos: "1 video",
+      price: "₹299",
       billing: "One-time payment",
       features: [
-        "Create 3 videos (10 credits each)",
+        "Create 1 video (10 credits)",
         "Background Music",
         "No Watermark",
         "HD Video Resolution"
@@ -39,7 +38,7 @@ const Plans = () => {
     {
       name: "PRO",
       credits: "100 Credits",
-      videos: "10 videos per month",
+      videos: "10 videos",
       price: "₹2499",
       billing: "One-time payment",
       features: [

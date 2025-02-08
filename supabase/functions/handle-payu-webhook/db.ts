@@ -1,5 +1,6 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
+import { createClient } from '@supabase/supabase-js';
+import { PaymentStatus } from './types.ts';
 
 export class DatabaseService {
   private supabase;
@@ -8,19 +9,29 @@ export class DatabaseService {
     this.supabase = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    );
+  }
+
+  private log(action: string, data: Record<string, unknown>) {
+    const timestamp = new Date().toISOString();
+    console.log(JSON.stringify({
+      timestamp,
+      type: 'DATABASE_ACTION',
+      action,
+      ...data
+    }));
   }
 
   async updatePaymentStatus(
     transactionId: string, 
-    status: string, 
+    status: PaymentStatus, 
     payuResponse: Record<string, any>
   ) {
-    console.log('Database Service - Starting payment status update:', {
+    this.log('START_UPDATE', {
       transactionId,
       status,
       payuTransactionId: payuResponse.mihpayid
-    })
+    });
 
     try {
       // Update payment transaction
@@ -35,43 +46,43 @@ export class DatabaseService {
         })
         .eq('transaction_id', transactionId)
         .select()
-        .single()
+        .single();
 
       if (txnError) {
-        console.error('Database Service - Error updating payment transaction:', txnError)
-        throw txnError
+        this.log('ERROR_UPDATING_TRANSACTION', { error: txnError });
+        throw txnError;
       }
 
-      console.log('Database Service - Payment transaction updated successfully:', {
+      this.log('TRANSACTION_UPDATED', {
         transactionId,
         newStatus: status,
         updatedAt: txnData?.webhook_received_at
-      })
+      });
 
       // Get subscription ID for this transaction
       const { data: subscriptionData, error: fetchError } = await this.supabase
         .from('payment_transactions')
         .select('subscription_id, user_id')
         .eq('transaction_id', transactionId)
-        .single()
+        .single();
 
       if (fetchError) {
-        console.error('Database Service - Error fetching subscription ID:', fetchError)
-        throw fetchError
+        this.log('ERROR_FETCHING_SUBSCRIPTION', { error: fetchError });
+        throw fetchError;
       }
 
       if (!subscriptionData?.subscription_id) {
-        console.error('Database Service - No subscription found for transaction')
-        throw new Error('No subscription found for transaction')
+        this.log('ERROR_NO_SUBSCRIPTION', { transactionId });
+        throw new Error('No subscription found for transaction');
       }
 
-      console.log('Database Service - Found subscription:', {
+      this.log('FOUND_SUBSCRIPTION', {
         subscriptionId: subscriptionData.subscription_id,
         userId: subscriptionData.user_id
-      })
+      });
 
       // Update subscription status
-      const subscriptionStatus = status === 'success' ? 'active' : 'failed'
+      const subscriptionStatus = status === 'success' ? 'active' : 'failed';
       const { data: subData, error: subError } = await this.supabase
         .from('subscriptions')
         .update({
@@ -82,39 +93,38 @@ export class DatabaseService {
         })
         .eq('id', subscriptionData.subscription_id)
         .select()
-        .single()
+        .single();
 
       if (subError) {
-        console.error('Database Service - Error updating subscription:', subError)
-        throw subError
+        this.log('ERROR_UPDATING_SUBSCRIPTION', { error: subError });
+        throw subError;
       }
 
-      console.log('Database Service - Subscription updated successfully:', {
+      this.log('SUBSCRIPTION_UPDATED', {
         status: subscriptionStatus,
         subscriptionId: subscriptionData.subscription_id,
         updatedAt: subData?.updated_at
-      })
+      });
 
       // Verify credits were updated by checking user_credits
       const { data: creditsData, error: creditsError } = await this.supabase
         .from('user_credits')
         .select('credits_remaining, updated_at')
         .eq('user_id', subscriptionData.user_id)
-        .single()
+        .single();
 
       if (creditsError) {
-        console.error('Database Service - Error checking user credits:', creditsError)
+        this.log('ERROR_CHECKING_CREDITS', { error: creditsError });
       } else {
-        console.log('Database Service - Current user credits:', {
+        this.log('CREDITS_STATUS', {
           credits: creditsData?.credits_remaining,
           lastUpdated: creditsData?.updated_at
-        })
+        });
       }
 
     } catch (error) {
-      console.error('Database Service - Error in updatePaymentStatus:', error)
-      throw error
+      this.log('ERROR_IN_UPDATE_PAYMENT', { error: error.message });
+      throw error;
     }
   }
 }
-

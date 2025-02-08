@@ -1,89 +1,111 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { corsHeaders } from "./cors.ts"
-import { DatabaseService } from "./db.ts"
-import { verifyResponseHash } from "../initiate-payu-payment/hash.ts"
+import { serve } from "std/http/server.ts";
+import { corsHeaders } from "./cors.ts";
+import { DatabaseService } from "./db.ts";
+import { verifyResponseHash } from "../initiate-payu-payment/hash.ts";
+import { PayUWebhookPayload, PaymentStatus } from "./types.ts";
+
+const logWebhookEvent = (eventType: string, data: Record<string, unknown>) => {
+  const timestamp = new Date().toISOString();
+  console.log(JSON.stringify({
+    timestamp,
+    type: 'WEBHOOK_EVENT',
+    eventType,
+    ...data
+  }));
+};
 
 serve(async (req) => {
-  console.log('PayU Webhook - Request received')
+  const requestId = crypto.randomUUID();
+  logWebhookEvent('REQUEST_RECEIVED', { requestId });
 
   // Handle CORS
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
 
   try {
     // Log request details
-    console.log('PayU Webhook - Request headers:', {
+    logWebhookEvent('REQUEST_DETAILS', {
+      requestId,
       contentType: req.headers.get('content-type'),
       userAgent: req.headers.get('user-agent'),
       method: req.method
-    })
+    });
 
-    // Verify PayU merchant salt is configured
-    const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT')
+    // Verify PayU merchant salt
+    const merchantSalt = Deno.env.get('PAYU_MERCHANT_SALT');
     if (!merchantSalt) {
-      console.error('PayU Webhook - Missing merchant salt')
-      throw new Error('PayU merchant salt not configured')
+      logWebhookEvent('ERROR', { requestId, error: 'Missing merchant salt' });
+      throw new Error('PayU merchant salt not configured');
     }
 
     // Parse webhook payload
-    const formData = await req.formData()
-    const params: Record<string, string> = {}
+    const formData = await req.formData();
+    const params: Record<string, string> = {};
     for (const [key, value] of formData.entries()) {
-      params[key] = value.toString()
+      params[key] = value.toString();
     }
 
-    console.log('PayU Webhook - Received parameters:', {
-      txnId: params.txnid,
-      status: params.status,
-      amount: params.amount,
-      mihpayid: params.mihpayid,
-      mode: params.mode,
-      error: params.error,
-      error_Message: params.error_Message,
-      bank_ref_num: params.bank_ref_num,
-      bankcode: params.bankcode,
-      cardnum: params.cardnum ? '****' + params.cardnum.slice(-4) : undefined,
-      name_on_card: params.name_on_card,
-      issuing_bank: params.issuing_bank,
-      cardtype: params.cardtype
-    })
+    const payload = params as unknown as PayUWebhookPayload;
+
+    logWebhookEvent('PAYLOAD_RECEIVED', {
+      requestId,
+      txnId: payload.txnid,
+      status: payload.status,
+      amount: payload.amount,
+      mihpayid: payload.mihpayid,
+      mode: payload.mode,
+      error: payload.error,
+      error_Message: payload.error_Message,
+      bank_ref_num: payload.bank_ref_num,
+      bankcode: payload.bankcode,
+      cardnum: payload.cardnum ? '****' + payload.cardnum.slice(-4) : undefined,
+      name_on_card: payload.name_on_card,
+      issuing_bank: payload.issuing_bank,
+      cardtype: payload.cardtype
+    });
 
     // Verify hash signature
-    const isValid = await verifyResponseHash(params, merchantSalt)
+    const isValid = await verifyResponseHash(params, merchantSalt);
 
     if (!isValid) {
-      console.error('PayU Webhook - Invalid signature', {
+      logWebhookEvent('SIGNATURE_INVALID', {
+        requestId,
         receivedHash: params.hash,
         txnId: params.txnid
-      })
-      throw new Error('Invalid webhook signature')
+      });
+      throw new Error('Invalid webhook signature');
     }
 
-    console.log('PayU Webhook - Signature verified successfully')
+    logWebhookEvent('SIGNATURE_VERIFIED', { requestId });
 
     // Initialize database service
-    const db = new DatabaseService()
+    const db = new DatabaseService();
 
     // Update payment status
-    const paymentStatus = params.status.toLowerCase()
-    console.log('PayU Webhook - Updating payment with status:', paymentStatus)
+    const paymentStatus = params.status.toLowerCase() as PaymentStatus;
+    logWebhookEvent('UPDATING_PAYMENT', { requestId, status: paymentStatus });
 
     await db.updatePaymentStatus(
       params.txnid,
       paymentStatus,
       params
-    )
+    );
 
-    console.log('PayU Webhook - Successfully processed webhook')
+    logWebhookEvent('WEBHOOK_PROCESSED', {
+      requestId,
+      txnId: params.txnid,
+      status: paymentStatus
+    });
 
     return new Response(
       JSON.stringify({ 
         success: true,
         message: 'Webhook processed successfully',
         txnId: params.txnid,
-        status: paymentStatus
+        status: paymentStatus,
+        requestId
       }),
       { 
         headers: { 
@@ -91,14 +113,19 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         }
       }
-    )
+    );
   } catch (error) {
-    console.error('PayU Webhook Error:', error.message, error.stack)
+    logWebhookEvent('ERROR', {
+      requestId,
+      error: error.message,
+      stack: error.stack
+    });
     
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        stack: error.stack 
+        stack: error.stack,
+        requestId 
       }),
       { 
         status: 500,
@@ -107,7 +134,6 @@ serve(async (req) => {
           'Content-Type': 'application/json'
         }
       }
-    )
+    );
   }
-})
-
+});

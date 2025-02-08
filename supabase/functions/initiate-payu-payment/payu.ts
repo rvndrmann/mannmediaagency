@@ -47,22 +47,24 @@ export class PayUService {
       // Clean amount (remove trailing zeros)
       const cleanAmount = Number(params.amount).toFixed(2);
 
-      // Create form data with mandatory parameters IN THE EXACT ORDER required by PayU
-      const orderedParams = new URLSearchParams();
-      orderedParams.append('key', this.merchantKey);
-      orderedParams.append('txnid', params.txnId);
-      orderedParams.append('amount', cleanAmount);
-      orderedParams.append('productinfo', params.productInfo);
-      orderedParams.append('firstname', params.firstname);
-      orderedParams.append('email', params.email);
-      orderedParams.append('phone', params.phone);
-      orderedParams.append('surl', params.successUrl);
-      orderedParams.append('furl', params.failureUrl);
-      orderedParams.append('hash', params.hash);
-      orderedParams.append('service_provider', 'payu_paisa');
-      orderedParams.append('currency', 'INR');
+      // Create URLSearchParams with parameters in the EXACT order required by PayU
+      const formData = new URLSearchParams();
+      formData.append('key', this.merchantKey);
+      formData.append('txnid', params.txnId);
+      formData.append('amount', cleanAmount);
+      formData.append('productinfo', params.productInfo);
+      formData.append('firstname', params.firstname);
+      formData.append('email', params.email);
+      formData.append('phone', params.phone);
+      formData.append('surl', params.successUrl);
+      formData.append('furl', params.failureUrl);
+      formData.append('hash', params.hash);
+      // Add required PayU parameters
+      formData.append('service_provider', 'payu_paisa');
+      formData.append('currency', 'INR');
 
-      const redirectUrl = `${PAYU_LIVE_URL}?${orderedParams.toString()}`;
+      // Generate the complete URL with parameters
+      const redirectUrl = `${PAYU_LIVE_URL}?${formData.toString()}`;
       console.log('PayU Service - Generated redirect URL:', redirectUrl.replace(this.merchantKey, '[KEY_REDACTED]').replace(params.hash, '[HASH_REDACTED]'));
       return redirectUrl;
     } catch (error) {

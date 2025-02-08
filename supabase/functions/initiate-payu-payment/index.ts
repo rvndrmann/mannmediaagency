@@ -47,7 +47,7 @@ serve(async (req) => {
     const db = new DatabaseService();
     const subscription = await db.createSubscription({ userId, planName, amount });
     
-    // Generate unique transaction ID
+    // Generate unique transaction ID with timestamp and random string
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `LIVE${timestamp}${random}`;
@@ -72,7 +72,7 @@ serve(async (req) => {
       txnId
     });
 
-    // Generate hash
+    // Generate hash using PayU's specified format
     const hash = await generateHash(
       merchantKey,
       txnId,
@@ -84,10 +84,8 @@ serve(async (req) => {
     );
 
     try {
-      // Initialize PayU service with credentials
+      // Initialize PayU service and generate redirect URL
       const payuService = new PayUService(merchantKey, merchantSalt);
-      
-      // Generate PayU redirect URL
       const redirectUrl = payuService.generateRedirectUrl({
         txnId,
         amount: cleanAmount,

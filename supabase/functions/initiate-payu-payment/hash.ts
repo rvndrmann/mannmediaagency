@@ -1,3 +1,4 @@
+
 export async function generateHash(
   merchantKey: string,
   txnId: string,
@@ -28,15 +29,21 @@ export async function generateHash(
     throw new Error('All parameters are required for hash generation');
   }
 
-  // Clean amount (remove trailing zeros but keep 2 decimal places for PayU)
+  // Clean amount to ensure 2 decimal places
   const cleanAmount = Number(amount).toFixed(2);
   
-  // PayU's hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
+  // PayU hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
+  // Note the 5 empty fields (||||||) before SALT
   const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
   
-  console.log('Hash String (credentials redacted):', hashString.replace(merchantKey, '[KEY]').replace(merchantSalt, '[SALT]'));
+  console.log('Hash Generation - Hash string created (credentials redacted):', 
+    hashString
+      .replace(merchantKey, '[KEY]')
+      .replace(merchantSalt, '[SALT]')
+  );
   
   try {
+    // Generate SHA512 hash
     const encoder = new TextEncoder();
     const data = encoder.encode(hashString);
     const hashBuffer = await crypto.subtle.digest('SHA-512', data);

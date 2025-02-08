@@ -1,5 +1,5 @@
 
-const PAYU_TEST_URL = "https://test.payu.in/_payment";
+const PAYU_LIVE_URL = "https://secure.payu.in/_payment";
 
 export class PayUService {
   private merchantKey: string;
@@ -59,8 +59,8 @@ export class PayUService {
       // Add callback URL
       orderedParams.append('curl', params.failureUrl);
 
-      const redirectUrl = `${PAYU_TEST_URL}?${orderedParams.toString()}`;
-      console.log('PayU Service - Generated URL. Hash and key redacted for security');
+      const redirectUrl = `${PAYU_LIVE_URL}?${orderedParams.toString()}`;
+      console.log('PayU Service - Generated Live URL. Hash and key redacted for security');
       
       return redirectUrl;
     } catch (error) {

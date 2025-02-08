@@ -43,12 +43,17 @@ serve(async (req) => {
     // Initialize database and create subscription
     const db = new DatabaseService();
     const subscription = await db.createSubscription({ userId, planName, amount });
-    const txnId = `TXN_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    
+    // Generate transaction ID without underscores
+    const timestamp = Date.now();
+    const random = Math.random().toString(36).substring(2, 8);
+    const txnId = `TXN${timestamp}${random}`;
+    
     await db.createPaymentTransaction(userId, txnId, amount, subscription.id);
 
     // Get user email and prepare payment parameters
     const email = await db.getUserEmail(userId);
-    const amountString = amount.toFixed(2);
+    const cleanAmount = amount.toFixed(2);
     const productInfo = `${planName} Plan`; // Use exact product info
     const successUrl = `${origin}/payment/success`;
     const failureUrl = `${origin}/payment/failure`;
@@ -57,7 +62,7 @@ serve(async (req) => {
     
     console.log('Payment Parameters:', {
       email,
-      amount: amountString,
+      amount: cleanAmount,
       productInfo,
       successUrl,
       failureUrl,
@@ -70,7 +75,7 @@ serve(async (req) => {
     const hash = await generateHash(
       merchantKey,
       txnId,
-      amountString,
+      cleanAmount,
       productInfo,
       firstname,
       email,
@@ -81,7 +86,7 @@ serve(async (req) => {
     const payuService = new PayUService(merchantKey, merchantSalt);
     const redirectUrl = payuService.generateRedirectUrl({
       txnId,
-      amount: amountString,
+      amount: cleanAmount,
       productInfo,
       firstname,
       email,

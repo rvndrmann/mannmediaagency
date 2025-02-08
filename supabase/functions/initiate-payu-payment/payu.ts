@@ -27,20 +27,18 @@ export class PayUService {
     });
 
     try {
+      // Clean amount (remove trailing zeros)
+      const cleanAmount = parseFloat(params.amount).toString();
+
       // PayU's parameter order is important for hash verification
       const orderedParams = new URLSearchParams();
       orderedParams.append('key', this.merchantKey);
       orderedParams.append('txnid', params.txnId);
-      orderedParams.append('amount', params.amount);
-      orderedParams.append('productinfo', params.productInfo); // Note the exact name PayU expects
+      orderedParams.append('amount', cleanAmount);
+      orderedParams.append('productinfo', params.productInfo); // Note: PayU expects 'productinfo'
       orderedParams.append('firstname', params.firstname);
       orderedParams.append('email', params.email);
       orderedParams.append('phone', params.phone);
-      orderedParams.append('udf1', 'udf1');
-      orderedParams.append('udf2', 'udf2');
-      orderedParams.append('udf3', 'udf3');
-      orderedParams.append('udf4', 'udf4');
-      orderedParams.append('udf5', 'udf5');
       orderedParams.append('surl', params.successUrl);
       orderedParams.append('furl', params.failureUrl);
       orderedParams.append('service_provider', 'payu_paisa');

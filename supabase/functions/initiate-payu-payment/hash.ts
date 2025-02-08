@@ -18,8 +18,11 @@ export async function generateHash(
     merchantSalt: '[REDACTED]'
   });
 
+  // Ensure amount is properly formatted (no trailing zeros)
+  const cleanAmount = parseFloat(amount).toString();
+  
   // PayU's hash sequence: key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-  const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|udf1|udf2|udf3|udf4|udf5||||||${merchantSalt}`;
+  const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
   
   console.log('Hash String (salt redacted):', hashString.replace(merchantSalt, '[REDACTED]'));
   

@@ -44,7 +44,7 @@ export class PayUService {
         throw new Error(`Missing required parameters: ${missingParams.join(', ')}`);
       }
 
-      // Clean amount (remove trailing zeros)
+      // Clean amount (ensure 2 decimal places)
       const cleanAmount = Number(params.amount).toFixed(2);
 
       // Create URLSearchParams with parameters in the EXACT order required by PayU

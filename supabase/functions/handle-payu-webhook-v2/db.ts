@@ -27,10 +27,10 @@ export class DatabaseService {
     });
 
     try {
-      // Begin by fetching the transaction to get subscription_id and user_id
+      // Begin by fetching the transaction to get user_id
       const { data: txnData, error: fetchError } = await this.supabase
         .from('payment_transactions')
-        .select('subscription_id, user_id')
+        .select('user_id')
         .eq('transaction_id', transactionId)
         .single();
 
@@ -39,21 +39,20 @@ export class DatabaseService {
         throw fetchError;
       }
 
-      if (!txnData?.subscription_id) {
-        this.logger.error('No subscription found for transaction', { transactionId });
-        throw new Error('No subscription found for transaction');
+      if (!txnData?.user_id) {
+        this.logger.error('No user found for transaction', { transactionId });
+        throw new Error('No user found for transaction');
       }
 
-      this.logger.info('Found subscription', {
-        subscriptionId: txnData.subscription_id,
+      this.logger.info('Found transaction', {
         userId: txnData.user_id
       });
 
-      // Update payment transaction first
+      // Update payment transaction
       const { error: txnError } = await this.supabase
         .from('payment_transactions')
         .update({
-          status: status,
+          status: status === 'success' ? 'completed' : 'failed',
           payment_status: status,
           payu_transaction_id: payuResponse.mihpayid,
           payment_response: payuResponse,
@@ -67,28 +66,6 @@ export class DatabaseService {
       }
 
       this.logger.info('Transaction updated successfully');
-
-      // Update subscription status
-      const subscriptionStatus = status === 'success' ? 'active' : 'failed';
-      const { error: subError } = await this.supabase
-        .from('subscriptions')
-        .update({
-          status: subscriptionStatus,
-          payment_status: status,
-          payu_transaction_id: payuResponse.mihpayid,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', txnData.subscription_id);
-
-      if (subError) {
-        this.logger.error('Failed to update subscription', subError);
-        throw subError;
-      }
-
-      this.logger.info('Subscription updated successfully', {
-        status: subscriptionStatus,
-        subscriptionId: txnData.subscription_id
-      });
 
       // Log current credits for verification
       const { data: creditsData, error: creditsError } = await this.supabase

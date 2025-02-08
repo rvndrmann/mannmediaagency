@@ -1,6 +1,6 @@
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
-import { PaymentRequest, SubscriptionRecord } from './types.ts'
+import { PaymentRequest } from './types.ts'
 
 export class DatabaseService {
   private supabase;
@@ -12,32 +12,8 @@ export class DatabaseService {
     )
   }
 
-  async createSubscription(params: PaymentRequest, txnId: string): Promise<SubscriptionRecord> {
-    console.log('Creating subscription with params:', { ...params, txnId });
-    
-    const { data: subscription, error } = await this.supabase
-      .from('subscriptions')
-      .insert({
-        user_id: params.userId,
-        status: 'pending',
-        amount: params.amount,
-        plan_name: params.planName,
-        transaction_id: txnId  // Set transaction_id during creation
-      })
-      .select()
-      .single()
-
-    if (error) {
-      console.error('Subscription creation error:', error);
-      throw new Error(`Failed to create subscription: ${error.message}`);
-    }
-
-    console.log('Subscription created successfully:', subscription);
-    return subscription;
-  }
-
-  async createPaymentTransaction(userId: string, txnId: string, amount: number, subscriptionId: string) {
-    console.log('Creating payment transaction:', { userId, txnId, amount, subscriptionId });
+  async createPaymentTransaction(userId: string, txnId: string, amount: number) {
+    console.log('Creating payment transaction:', { userId, txnId, amount });
     
     const { error: txnError } = await this.supabase
       .from('payment_transactions')
@@ -46,8 +22,7 @@ export class DatabaseService {
         transaction_id: txnId,
         amount: amount,
         status: 'pending',
-        payment_method: 'payu',
-        subscription_id: subscriptionId
+        payment_method: 'payu'
       })
 
     if (txnError) {

@@ -27,7 +27,7 @@ export class PayUService {
     successUrl: string,
     failureUrl: string,
     hash: string
-  }): URLSearchParams {
+  }): FormData {
     console.log('PayU Service - Generating form data with params:', {
       ...params,
       email: params.email ? params.email.substring(0, 4) + '...' : 'missing',
@@ -46,17 +46,17 @@ export class PayUService {
       // Clean amount (ensure 2 decimal places)
       const cleanAmount = Number(params.amount).toFixed(2);
 
-      // Create URLSearchParams with parameters in the EXACT order required by PayU
-      const formData = new URLSearchParams();
+      // Create FormData with parameters in the EXACT order required by PayU
+      const formData = new FormData();
       formData.append('key', this.merchantKey);
       formData.append('txnid', params.txnId);
       formData.append('amount', cleanAmount);
-      formData.append('productinfo', encodeURIComponent(params.productInfo));
-      formData.append('firstname', encodeURIComponent(params.firstname));
-      formData.append('email', encodeURIComponent(params.email));
+      formData.append('productinfo', params.productInfo);
+      formData.append('firstname', params.firstname);
+      formData.append('email', params.email);
       formData.append('phone', params.phone);
-      formData.append('surl', encodeURIComponent(params.successUrl));
-      formData.append('furl', encodeURIComponent(params.failureUrl));
+      formData.append('surl', params.successUrl);
+      formData.append('furl', params.failureUrl);
       formData.append('hash', params.hash);
       formData.append('service_provider', 'payu_paisa');
       formData.append('currency', 'INR');
@@ -69,7 +69,7 @@ export class PayUService {
     }
   }
 
-  generateRedirectUrl(params: {
+  generateHtmlForm(params: {
     txnId: string,
     amount: string,
     productInfo: string,
@@ -81,8 +81,29 @@ export class PayUService {
     hash: string
   }): string {
     const formData = this.generateFormData(params);
-    const redirectUrl = `${PAYU_TEST_URL}?${formData.toString()}`;
-    console.log('PayU Service - Generated redirect URL:', redirectUrl.replace(this.merchantKey, '[KEY_REDACTED]'));
-    return redirectUrl;
+    const formEntries: string[] = [];
+    
+    // Convert FormData to hidden input fields
+    formData.forEach((value, key) => {
+      formEntries.push(`<input type="hidden" name="${key}" value="${value}">`);
+    });
+
+    // Create an HTML form that will auto-submit
+    return `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Redirecting to PayU...</title>
+        </head>
+        <body>
+          <form id="payuForm" method="post" action="${PAYU_TEST_URL}">
+            ${formEntries.join('\n            ')}
+          </form>
+          <script>
+            document.getElementById('payuForm').submit();
+          </script>
+        </body>
+      </html>
+    `;
   }
 }

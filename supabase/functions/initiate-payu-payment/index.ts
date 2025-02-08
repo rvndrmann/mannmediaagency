@@ -94,9 +94,9 @@ serve(async (req) => {
     );
 
     try {
-      // Initialize PayU service and generate redirect URL
+      // Initialize PayU service and generate HTML form
       const payuService = new PayUService(merchantKey, merchantSalt);
-      const redirectUrl = payuService.generateRedirectUrl({
+      const htmlForm = payuService.generateHtmlForm({
         txnId,
         amount: cleanAmount,
         productInfo,
@@ -110,16 +110,13 @@ serve(async (req) => {
 
       console.log('Payment Initiation - Complete');
 
-      return new Response(
-        JSON.stringify({ redirectUrl }),
-        { 
-          headers: { 
-            ...corsHeaders,
-            'Content-Type': 'application/json',
-            'Cache-Control': 'no-store'
-          } 
-        }
-      );
+      return new Response(htmlForm, { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-store'
+        } 
+      });
     } catch (error) {
       console.error('PayU Service Error:', error);
       throw new Error(`Failed to initialize PayU service: ${error.message}`);

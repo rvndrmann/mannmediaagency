@@ -60,11 +60,17 @@ const Payment = () => {
         return;
       }
       
-      if (data?.redirectUrl) {
-        // Use window.location.assign for better browser compatibility
-        window.location.assign(data.redirectUrl);
+      // Create a temporary div to hold the HTML form
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = data;
+      document.body.appendChild(tempDiv);
+
+      // Submit the form
+      const form = tempDiv.querySelector('form');
+      if (form) {
+        form.submit();
       } else {
-        throw new Error('No redirect URL received');
+        throw new Error('Invalid payment form received');
       }
     } catch (error) {
       console.error('Payment error:', error);

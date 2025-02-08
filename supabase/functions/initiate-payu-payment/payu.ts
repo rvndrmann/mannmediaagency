@@ -26,7 +26,6 @@ export class PayUService {
     phone: string,
     successUrl: string,
     failureUrl: string,
-    cancelUrl: string,
     hash: string
   }): FormData {
     console.log('PayU Service - Generating form data with params:', {
@@ -37,7 +36,7 @@ export class PayUService {
 
     try {
       // Validate all required parameters
-      const requiredParams = ['txnId', 'amount', 'productInfo', 'firstname', 'email', 'phone', 'successUrl', 'failureUrl', 'cancelUrl', 'hash'];
+      const requiredParams = ['txnId', 'amount', 'productInfo', 'firstname', 'email', 'phone', 'successUrl', 'failureUrl', 'hash'];
       const missingParams = requiredParams.filter(param => !params[param]);
       
       if (missingParams.length > 0) {
@@ -58,13 +57,9 @@ export class PayUService {
       formData.append('phone', params.phone);
       formData.append('surl', params.successUrl);
       formData.append('furl', params.failureUrl);
-      formData.append('curl', params.cancelUrl);
       formData.append('hash', params.hash);
       formData.append('service_provider', 'payu_paisa');
       formData.append('currency', 'INR');
-      formData.append('udf1', params.txnId); // Add transaction ID as UDF1 for tracking
-      formData.append('retry', '0'); // Disable retry attempts
-      formData.append('pg', ''); // Let PayU choose payment gateway
 
       console.log('PayU Service - Form data generated successfully');
       return formData;
@@ -83,7 +78,6 @@ export class PayUService {
     phone: string,
     successUrl: string,
     failureUrl: string,
-    cancelUrl: string,
     hash: string
   }): string {
     const formData = this.generateFormData(params);

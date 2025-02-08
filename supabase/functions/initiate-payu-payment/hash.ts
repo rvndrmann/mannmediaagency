@@ -25,7 +25,7 @@ export async function generateHash(
     
     // PayU hash sequence with exactly 15 pipe delimiters:
     // key|txnid|amount|productinfo|firstname|email|udf1|udf2|udf3|udf4|udf5||||||SALT
-    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|${txnId}|||||||||||${merchantSalt}`;
+    const hashString = `${merchantKey}|${txnId}|${cleanAmount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
     
     // Log hash string with sensitive data redacted
     const redactedHashString = hashString
@@ -59,7 +59,7 @@ export async function verifyResponseHash(
 
     // Reverse hash sequence for response validation:
     // SALT|status||||||udf5|udf4|udf3|udf2|udf1|email|firstname|productinfo|amount|txnid|key
-    const reverseHashString = `${merchantSalt}|${status}||||||||||${txnid}|${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
+    const reverseHashString = `${merchantSalt}|${status}||||||||||${email}|${firstname}|${productinfo}|${amount}|${txnid}|${key}`;
 
     // Generate hash for verification
     const encoder = new TextEncoder();

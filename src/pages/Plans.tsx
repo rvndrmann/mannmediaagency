@@ -82,10 +82,10 @@ const Plans = () => {
                 </div>
 
                 <Button 
-                  className="w-full" 
                   onClick={() => handleSubscribe(plan)}
+                  className="w-[135px] bg-payu hover:bg-payu/90 font-extrabold text-xs py-[11px] px-0 rounded-[3.229px]"
                 >
-                  Subscribe
+                  Subscribe Now
                 </Button>
 
                 <div className="space-y-2">

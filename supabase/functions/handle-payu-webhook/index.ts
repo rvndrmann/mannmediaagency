@@ -17,11 +17,36 @@ const logWebhookEvent = (eventType: string, data: Record<string, unknown>) => {
 
 serve(async (req) => {
   const requestId = crypto.randomUUID();
-  logWebhookEvent('REQUEST_RECEIVED', { requestId });
+  const url = new URL(req.url);
+  
+  logWebhookEvent('REQUEST_RECEIVED', { 
+    requestId,
+    path: url.pathname,
+    method: req.method 
+  });
 
   // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
+  }
+
+  // Add test endpoint
+  if (url.pathname.endsWith('/test')) {
+    logWebhookEvent('TEST_ENDPOINT_CALLED', { requestId });
+    return new Response(
+      JSON.stringify({ 
+        success: true, 
+        message: 'Webhook endpoint is accessible',
+        timestamp: new Date().toISOString(),
+        requestId
+      }),
+      { 
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
   }
 
   try {
@@ -30,7 +55,8 @@ serve(async (req) => {
       requestId,
       contentType: req.headers.get('content-type'),
       userAgent: req.headers.get('user-agent'),
-      method: req.method
+      method: req.method,
+      headers: Object.fromEntries(req.headers.entries())
     });
 
     // Verify PayU merchant salt

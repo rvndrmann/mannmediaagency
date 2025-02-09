@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Video } from "lucide-react";
+import { Video, X } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScriptEditor } from "@/components/video/ScriptEditor";
@@ -52,6 +52,10 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     setBackgroundMusic(musicUrl);
   };
 
+  const handleRemoveMusic = () => {
+    setBackgroundMusic(null);
+  };
+
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
   };
@@ -82,6 +86,19 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
               <StyleSelector style={style} setStyle={setStyle} />
               <div className="mb-6">
                 <MusicUploader onUpload={handleMusicUpload} />
+                {backgroundMusic && (
+                  <div className="flex items-center gap-2 mt-2">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleRemoveMusic}
+                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                    >
+                      <X className="h-4 w-4 mr-1" />
+                      Remove Music
+                    </Button>
+                  </div>
+                )}
               </div>
 
               <div className="flex items-center justify-between">
@@ -114,4 +131,3 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     </div>
   );
 };
-

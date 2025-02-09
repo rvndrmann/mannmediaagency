@@ -7,7 +7,11 @@ import { CheckCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
-export const MusicUploader = () => {
+interface MusicUploaderProps {
+  onUpload?: (url: string) => void;
+}
+
+export const MusicUploader = ({ onUpload }: MusicUploaderProps) => {
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
@@ -32,34 +36,25 @@ export const MusicUploader = () => {
         const fileExt = file.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
 
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const arrayBuffer = event.target?.result as ArrayBuffer;
-          const blob = new Blob([arrayBuffer], { type: file.type });
-          
-          const { error: uploadError } = await supabase.storage
-            .from('background-music')
-            .upload(filePath, blob, {
-              cacheControl: '3600',
-              upsert: false
-            });
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('background-music')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
 
-          if (uploadError) {
-            throw uploadError;
-          }
+        if (uploadError) {
+          throw uploadError;
+        }
 
-          setUploadProgress(100);
-          setUploadedFileName(file.name);
-        };
+        const { data: { publicUrl } } = supabase.storage
+          .from('background-music')
+          .getPublicUrl(filePath);
 
-        reader.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percent = (event.loaded / event.total) * 100;
-            setUploadProgress(percent);
-          }
-        };
+        setUploadProgress(100);
+        setUploadedFileName(file.name);
+        onUpload?.(publicUrl);
 
-        reader.readAsArrayBuffer(file);
       } catch (error) {
         console.error('Upload error:', error);
         toast({

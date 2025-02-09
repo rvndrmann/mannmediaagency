@@ -48,6 +48,7 @@ export const useVideoDialog = (script: string) => {
         return;
       }
 
+      // If all checks pass, open the dialog
       setIsVideoDialogOpen(true);
     } catch (error) {
       console.error("Error:", error);

@@ -26,6 +26,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const [script, setScript] = useState("");
   const [style, setStyle] = useState<string>("");
   const [readyToGo, setReadyToGo] = useState(false);
+  const [backgroundMusic, setBackgroundMusic] = useState<string | null>(null);
   
   // Fetch user credits
   const { data: userCredits } = useQuery({
@@ -45,6 +46,10 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const showCreateVideoButton = readyToGo;
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
+  const handleMusicUpload = (musicUrl: string) => {
+    setBackgroundMusic(musicUrl);
+  };
+
   return (
     <div className="space-y-4">
       <Card className="p-4">
@@ -61,7 +66,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
           <div className="space-y-4 mt-4">
             <StyleSelector style={style} setStyle={setStyle} />
-            <MusicUploader />
+            <MusicUploader onUpload={handleMusicUpload} />
 
             <div className="flex items-center justify-between">
               <Label htmlFor="readyToGo" className="text-lg text-purple-700">
@@ -94,6 +99,9 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
         availableVideos={availableVideos}
         creditsRemaining={userCredits?.credits_remaining || 0}
         initialScript={script}
+        initialStyle={style}
+        initialReadyToGo={readyToGo}
+        initialBackgroundMusic={backgroundMusic}
       />
     </div>
   );

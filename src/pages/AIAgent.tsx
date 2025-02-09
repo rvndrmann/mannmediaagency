@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
 import { ChatMessage } from "@/components/chat/ChatMessage";
@@ -11,8 +11,13 @@ interface Message {
   content: string;
 }
 
+const STORAGE_KEY = "ai_agent_chat_history";
+
 const AIAgent = () => {
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const savedMessages = localStorage.getItem(STORAGE_KEY);
+    return savedMessages ? JSON.parse(savedMessages) : [];
+  });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -24,6 +29,11 @@ const AIAgent = () => {
 
   useEffect(() => {
     scrollToBottom();
+  }, [messages]);
+
+  // Persist messages to localStorage whenever they change
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
   const handleSubmit = async (e: React.FormEvent) => {

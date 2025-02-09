@@ -41,7 +41,6 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   });
 
   const { isCreating, createStory } = useStoryCreation();
-  const showCreateVideoButton = readyToGo;
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
   const handleMusicUpload = (musicUrl: string) => {
@@ -89,17 +88,15 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
                 />
               </div>
 
-              {showCreateVideoButton && (
-                <Button 
-                  variant="secondary" 
-                  onClick={handleCreateVideo}
-                  disabled={isCreating}
-                  className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
-                >
-                  <Video className="h-4 w-4 mr-2" />
-                  {isCreating ? "Creating Video..." : "Create Video"}
-                </Button>
-              )}
+              <Button 
+                variant="secondary" 
+                onClick={handleCreateVideo}
+                disabled={isCreating}
+                className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Video className="h-4 w-4 mr-2" />
+                {isCreating ? "Creating Video..." : "Create Video"}
+              </Button>
             </div>
           </div>
         </div>

@@ -1,7 +1,6 @@
 
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
 import { Video } from "lucide-react";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { Switch } from "@/components/ui/switch";
@@ -10,6 +9,7 @@ import { ScriptEditor } from "@/components/video/ScriptEditor";
 import { StyleSelector } from "@/components/video/StyleSelector";
 import { MusicUploader } from "@/components/video/MusicUploader";
 import { useVideoDialog } from "@/hooks/use-video-dialog";
+import { Button } from "@/components/ui/button";
 
 interface Message {
   role: "user" | "assistant";
@@ -26,15 +26,13 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const [readyToGo, setReadyToGo] = useState(false);
   const { isVideoDialogOpen, setIsVideoDialogOpen, handleCreateVideo } = useVideoDialog(script);
 
+  const showCreateVideoButton = readyToGo;
+
   return (
     <div className="space-y-4">
       <Card className="p-4">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Script Builder</h3>
-          <Button variant="secondary" onClick={handleCreateVideo}>
-            <Video className="h-4 w-4 mr-2" />
-            Create Video
-          </Button>
         </div>
 
         <div className="space-y-4">
@@ -58,6 +56,17 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
                 onCheckedChange={setReadyToGo}
               />
             </div>
+
+            {showCreateVideoButton && (
+              <Button 
+                variant="secondary" 
+                onClick={handleCreateVideo}
+                className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+              >
+                <Video className="h-4 w-4 mr-2" />
+                Create Video
+              </Button>
+            )}
           </div>
         </div>
       </Card>

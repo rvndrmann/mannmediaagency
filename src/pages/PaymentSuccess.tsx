@@ -27,11 +27,9 @@ const PaymentSuccess = () => {
           return;
         }
 
-        // Get transaction ID from URL parameters or verify latest pending transaction
         const params = new URLSearchParams(location.search);
         const txnId = params.get('txnid');
         
-        // Verify payment status
         const { data, error } = await supabase.functions.invoke('verify-payu-payment', {
           body: { 
             transactionId: txnId,
@@ -48,7 +46,6 @@ const PaymentSuccess = () => {
           return;
         }
 
-        // Payment verified successfully
         setVerifying(false);
       } catch (error) {
         console.error('Payment verification error:', error);
@@ -66,14 +63,14 @@ const PaymentSuccess = () => {
 
   if (verifying) {
     return (
-      <div className="container mx-auto p-6">
-        <Card className="max-w-md mx-auto">
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <Card className="max-w-md w-full glass-card">
           <CardHeader className="text-center">
             <div className="flex justify-center mb-4">
-              <Loader2 className="h-12 w-12 text-blue-500 animate-spin" />
+              <Loader2 className="h-12 w-12 text-white animate-spin" />
             </div>
-            <CardTitle>Verifying Payment</CardTitle>
-            <CardDescription>Please wait while we confirm your payment</CardDescription>
+            <CardTitle className="text-white">Verifying Payment</CardTitle>
+            <CardDescription className="text-gray-400">Please wait while we confirm your payment</CardDescription>
           </CardHeader>
         </Card>
       </div>
@@ -81,22 +78,27 @@ const PaymentSuccess = () => {
   }
 
   return (
-    <div className="container mx-auto p-6">
-      <Card className="max-w-md mx-auto">
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <Card className="max-w-md w-full glass-card">
         <CardHeader className="text-center">
           <div className="flex justify-center mb-4">
             <CheckCircle2 className="h-12 w-12 text-green-500" />
           </div>
-          <CardTitle>Payment Successful!</CardTitle>
-          <CardDescription>Thank you for your payment</CardDescription>
+          <CardTitle className="text-white">Payment Successful!</CardTitle>
+          <CardDescription className="text-gray-400">Thank you for your payment</CardDescription>
         </CardHeader>
         <CardContent>
-          <p className="text-sm text-gray-600 text-center">
+          <p className="text-sm text-gray-400 text-center">
             Your payment has been processed successfully. Your credits have been added to your account.
           </p>
         </CardContent>
         <CardFooter className="flex justify-center">
-          <Button onClick={() => navigate('/')}>Return to Dashboard</Button>
+          <Button 
+            onClick={() => navigate('/')}
+            className="bg-white/10 hover:bg-white/20 text-white"
+          >
+            Return to Dashboard
+          </Button>
         </CardFooter>
       </Card>
     </div>

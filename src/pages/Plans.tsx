@@ -93,15 +93,15 @@ const Plans = () => {
           <Button 
             variant="ghost" 
             onClick={() => navigate("/")}
-            className="mr-4"
+            className="mr-4 text-white hover:bg-white/10"
           >
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold">Choose Your Plan</h1>
+          <h1 className="text-2xl font-bold text-white">Choose Your Plan</h1>
         </div>
         
-        <div className="flex items-center gap-2 bg-gray-100 rounded-full p-1 mb-8">
+        <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-8">
           <Button variant="default" className="rounded-full">One-time</Button>
         </div>
         

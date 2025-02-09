@@ -1,3 +1,4 @@
+
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { SidebarProvider } from "@/components/ui/sidebar";
@@ -5,7 +6,7 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 const Index = () => {
   return (
     <SidebarProvider>
-      <div className="flex min-h-screen w-full bg-white">
+      <div className="flex min-h-screen w-full bg-background">
         <Sidebar />
         <Dashboard />
       </div>

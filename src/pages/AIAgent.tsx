@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface Message {
   role: "user" | "assistant";
@@ -22,6 +25,7 @@ const AIAgent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -128,23 +132,37 @@ const AIAgent = () => {
   );
 
   return (
-    <div className="flex-1 p-4 flex gap-4 h-[calc(100vh-2rem)]">
-      {/* Chat Panel */}
-      <div className="flex-1 flex flex-col relative border rounded-lg p-4">
-        <h2 className="text-lg font-semibold mb-4">Chat</h2>
-        {renderChat()}
-        <ChatInput
-          input={input}
-          isLoading={isLoading}
-          onInputChange={setInput}
-          onSubmit={handleSubmit}
-        />
+    <div className="flex-1 p-4 flex flex-col gap-4 h-[calc(100vh-2rem)]">
+      <div className="flex items-center gap-2">
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          className="w-8 h-8"
+        >
+          <ChevronLeft className="h-4 w-4" />
+        </Button>
+        <h1 className="text-2xl font-bold">AI Agent</h1>
       </div>
+      
+      <div className="flex gap-4 flex-1">
+        {/* Chat Panel */}
+        <div className="flex-1 flex flex-col relative border rounded-lg p-4">
+          <h2 className="text-lg font-semibold mb-4">Chat</h2>
+          {renderChat()}
+          <ChatInput
+            input={input}
+            isLoading={isLoading}
+            onInputChange={setInput}
+            onSubmit={handleSubmit}
+          />
+        </div>
 
-      {/* Script Builder Panel */}
-      <div className="flex-1 border rounded-lg p-4 overflow-y-auto">
-        <h2 className="text-lg font-semibold mb-4">Script Builder</h2>
-        <ScriptBuilderTab messages={messages} />
+        {/* Script Builder Panel */}
+        <div className="flex-1 border rounded-lg p-4 overflow-y-auto">
+          <h2 className="text-lg font-semibold mb-4">Script Builder</h2>
+          <ScriptBuilderTab messages={messages} />
+        </div>
       </div>
     </div>
   );

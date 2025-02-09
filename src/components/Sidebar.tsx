@@ -38,6 +38,7 @@ export const Sidebar = () => {
 
   const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 10);
   const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
+  const hasMinimumCreditsForAI = (userCredits?.credits_remaining || 0) >= 1;
 
   const handleCreateVideo = () => {
     if (!hasEnoughCredits) {
@@ -58,6 +59,15 @@ export const Sidebar = () => {
   };
 
   const handleAIAgentClick = () => {
+    if (!hasMinimumCreditsForAI) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 1 credit to use the AI Agent. Please purchase more credits.",
+        variant: "destructive",
+      });
+      navigate("/plans");
+      return;
+    }
     console.log("Navigating to AI Agent...");
     navigate("/ai-agent");
   };
@@ -98,13 +108,27 @@ export const Sidebar = () => {
               <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
             </Button>
 
-            <Button
-              variant="ghost"
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-              onClick={handleAIAgentClick}
-            >
-              <Bot className="mr-2 h-4 w-4" /> AI Agent
-            </Button>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <div>
+                  <Button
+                    variant="ghost"
+                    className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
+                      !hasMinimumCreditsForAI ? 'opacity-50 cursor-not-allowed' : ''
+                    }`}
+                    onClick={handleAIAgentClick}
+                    disabled={!hasMinimumCreditsForAI}
+                  >
+                    <Bot className="mr-2 h-4 w-4" /> AI Agent
+                  </Button>
+                </div>
+              </TooltipTrigger>
+              {!hasMinimumCreditsForAI && (
+                <TooltipContent>
+                  <p>You need at least 1 credit to use the AI Agent</p>
+                </TooltipContent>
+              )}
+            </Tooltip>
             
             <Tooltip>
               <TooltipTrigger asChild>

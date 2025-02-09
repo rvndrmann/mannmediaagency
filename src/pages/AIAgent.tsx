@@ -10,6 +10,7 @@ import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Message {
   role: "user" | "assistant";
@@ -135,38 +136,57 @@ const AIAgent = () => {
   );
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="min-h-screen bg-[#1A1F2C]">
       <div className="container mx-auto p-4 space-y-4">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
             size="icon"
             onClick={() => navigate(-1)}
-            className="w-8 h-8"
+            className="w-8 h-8 text-white hover:bg-white/10"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
-          <h1 className="text-2xl font-bold text-gray-900">AI Agent</h1>
+          <h1 className="text-2xl font-bold text-white">AI Agent</h1>
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Chat Panel */}
-          <Card className="p-4 h-[calc(100vh-8rem)] flex flex-col bg-white shadow-sm">
-            <div className="flex-1 relative">
-              {renderChat()}
-            </div>
-            <div className="pt-4 border-t">
-              <ChatInput
-                input={input}
-                isLoading={isLoading}
-                onInputChange={setInput}
-                onSubmit={handleSubmit}
-              />
-            </div>
+          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)] flex flex-col">
+            <Tabs defaultValue="chat" className="w-full">
+              <TabsList className="w-full bg-[#333333] mb-4">
+                <TabsTrigger 
+                  value="chat" 
+                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
+                >
+                  Chat
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="history" 
+                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
+                >
+                  History
+                </TabsTrigger>
+              </TabsList>
+              <TabsContent value="chat" className="flex-1 flex flex-col">
+                <div className="flex-1 relative">
+                  {renderChat()}
+                </div>
+                <div className="pt-4">
+                  <ChatInput
+                    input={input}
+                    isLoading={isLoading}
+                    onInputChange={setInput}
+                    onSubmit={handleSubmit}
+                  />
+                </div>
+              </TabsContent>
+              <TabsContent value="history">
+                <div className="text-white/70">Chat history will be shown here</div>
+              </TabsContent>
+            </Tabs>
           </Card>
 
-          {/* Script Builder Panel */}
-          <Card className="p-4 h-[calc(100vh-8rem)] bg-white shadow-sm">
+          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)]">
             <ScriptBuilderTab messages={messages} />
           </Card>
         </div>

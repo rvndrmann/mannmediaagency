@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Video } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
@@ -11,7 +10,6 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoryCreation } from "@/hooks/use-story-creation";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Card } from "@/components/ui/card";
 
 interface Message {
   role: "user" | "assistant";
@@ -78,19 +76,19 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
           <div className="space-y-6">
             <div className="space-y-2">
-              <Label className="text-lg font-semibold text-purple-700">Style</Label>
+              <Label className="text-lg font-semibold text-white/90">Style</Label>
               <StyleSelector style={style} setStyle={setStyle} />
             </div>
 
             <div className="space-y-2">
-              <Label className="text-lg font-semibold text-purple-700">Background Music</Label>
+              <Label className="text-lg font-semibold text-white/90">Background Music</Label>
               <MusicUploader onUpload={handleMusicUpload} />
               {backgroundMusic && (
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={handleRemoveMusic}
-                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                  className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
                 >
                   Remove Music
                 </Button>
@@ -98,7 +96,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
             </div>
 
             <div className="flex items-center justify-between">
-              <Label htmlFor="readyToGo" className="text-lg font-semibold text-purple-700">
+              <Label htmlFor="readyToGo" className="text-lg font-semibold text-white/90">
                 Ready to Go
               </Label>
               <Switch
@@ -114,7 +112,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
       <Button 
         onClick={handleCreateVideo}
         disabled={isCreating}
-        className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 rounded-lg"
+        className="w-full bg-[#9b87f5] hover:bg-[#7E69AB] text-white h-12 rounded-lg"
       >
         <Video className="h-5 w-5 mr-2" />
         {isCreating ? "Creating Video..." : "Create Video"}

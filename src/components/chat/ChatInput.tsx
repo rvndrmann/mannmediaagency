@@ -12,15 +12,19 @@ interface ChatInputProps {
 
 export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInputProps) => {
   return (
-    <form onSubmit={onSubmit} className="fixed bottom-0 left-0 right-0 bg-white p-4 border-t flex gap-2 max-w-[calc(50%-1rem)] mx-4">
+    <form onSubmit={onSubmit} className="flex gap-2">
       <Input
         value={input}
         onChange={(e) => onInputChange(e.target.value)}
-        placeholder="Type your message..."
+        placeholder="Ask Lovable..."
         disabled={isLoading}
-        className="flex-1"
+        className="flex-1 bg-[#333333] border-white/10 text-white placeholder:text-white/50"
       />
-      <Button type="submit" disabled={isLoading}>
+      <Button 
+        type="submit" 
+        disabled={isLoading}
+        className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white"
+      >
         <Send className="h-4 w-4" />
       </Button>
     </form>

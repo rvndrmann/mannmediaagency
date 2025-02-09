@@ -41,9 +41,9 @@ export const PlanCard = ({
 
         <Button 
           onClick={onSubscribe}
-          className="w-[135px] bg-payu hover:bg-payu/90 font-extrabold text-xs py-[11px] px-0 rounded-[3.229px]"
+          className="w-[135px] bg-[#1065b7] hover:bg-[#1065b7]/90 font-extrabold text-xs py-[11px] px-0 rounded-[3.229px] text-white"
         >
-          Subscribe Now
+          Buy Now
         </Button>
 
         <div className="space-y-2">

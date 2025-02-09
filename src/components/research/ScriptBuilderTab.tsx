@@ -68,16 +68,16 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
   return (
     <div className="h-[calc(100vh-12rem)] flex flex-col">
-      <Card className="p-4 flex-1" onClick={handleCardClick}>
-        <div className="flex flex-col h-full">
-          <div className="space-y-4 flex-1">
+      <Card className="flex-1 flex flex-col" onClick={handleCardClick}>
+        <div className="flex-1 overflow-y-auto p-4">
+          <div className="space-y-4">
             <ScriptEditor
               script={script}
               setScript={setScript}
               messages={messages}
             />
 
-            <div className="space-y-4 mt-4">
+            <div className="space-y-4">
               <StyleSelector style={style} setStyle={setStyle} />
               <MusicUploader onUpload={handleMusicUpload} />
 
@@ -91,18 +91,21 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
                   onCheckedChange={setReadyToGo}
                 />
               </div>
-
-              <Button 
-                variant="secondary" 
-                onClick={handleCreateVideo}
-                disabled={isCreating}
-                className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                {isCreating ? "Creating Video..." : "Create Video"}
-              </Button>
             </div>
           </div>
+        </div>
+
+        {/* Fixed button container at the bottom */}
+        <div className="p-4 border-t bg-white">
+          <Button 
+            variant="secondary" 
+            onClick={handleCreateVideo}
+            disabled={isCreating}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+          >
+            <Video className="h-4 w-4 mr-2" />
+            {isCreating ? "Creating Video..." : "Create Video"}
+          </Button>
         </div>
       </Card>
     </div>

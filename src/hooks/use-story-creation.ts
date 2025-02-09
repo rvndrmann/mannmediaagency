@@ -78,7 +78,7 @@ export const useStoryCreation = () => {
       // Use the first matching story type
       const storyType = storyTypes[0];
 
-      // Insert the story
+      // Insert the story with video_length_seconds as null initially
       const { error: insertError } = await supabase
         .from("stories")
         .insert({
@@ -87,6 +87,7 @@ export const useStoryCreation = () => {
           ready_to_go: readyToGo,
           background_music: backgroundMusic,
           user_id: user.id,
+          video_length_seconds: null, // This will be updated when the video is generated
         });
 
       if (insertError) {

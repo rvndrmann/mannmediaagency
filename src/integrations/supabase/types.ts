@@ -273,6 +273,7 @@ export type Database = {
           "stories id": number
           story_type_id: number | null
           user_id: string | null
+          video_length_seconds: number | null
         }
         Insert: {
           background_music?: string | null
@@ -283,6 +284,7 @@ export type Database = {
           "stories id"?: number
           story_type_id?: number | null
           user_id?: string | null
+          video_length_seconds?: number | null
         }
         Update: {
           background_music?: string | null
@@ -293,6 +295,7 @@ export type Database = {
           "stories id"?: number
           story_type_id?: number | null
           user_id?: string | null
+          video_length_seconds?: number | null
         }
         Relationships: [
           {

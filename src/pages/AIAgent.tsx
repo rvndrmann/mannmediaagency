@@ -4,9 +4,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { useToast } from "@/components/ui/use-toast";
-import { Send } from "lucide-react";
+import { Send, MessageSquare, Search, BookMarked, PenTool } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
+import { ResearchTab } from "@/components/research/ResearchTab";
+import { SavedMaterialsTab } from "@/components/research/SavedMaterialsTab";
+import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface Message {
   role: "user" | "assistant";
@@ -106,51 +110,90 @@ const AIAgent = () => {
     }
   };
 
+  const renderChat = () => (
+    <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+      {messages.map((message, index) => (
+        <Card
+          key={index}
+          className={`p-4 max-w-[80%] ${
+            message.role === "user"
+              ? "ml-auto bg-blue-500 text-white"
+              : "bg-gray-50 text-gray-800"
+          }`}
+        >
+          <ReactMarkdown
+            components={{
+              code({ children, className, ...props }) {
+                const match = /language-(\w+)/.exec(className || '');
+                return (
+                  <code
+                    className={`${match ? 'bg-gray-100 p-2 block rounded' : 'bg-gray-100 px-1 py-0.5 rounded'} ${className}`}
+                    {...props}
+                  >
+                    {children}
+                  </code>
+                );
+              },
+            }}
+          >
+            {message.content}
+          </ReactMarkdown>
+        </Card>
+      ))}
+      <div ref={messagesEndRef} />
+    </div>
+  );
+
   return (
     <div className="flex-1 p-4 flex flex-col h-[calc(100vh-2rem)]">
-      <div className="flex-1 overflow-y-auto mb-4 space-y-4">
-        {messages.map((message, index) => (
-          <Card
-            key={index}
-            className={`p-4 max-w-[80%] ${
-              message.role === "user"
-                ? "ml-auto bg-blue-500 text-white"
-                : "bg-gray-50 text-gray-800"
-            }`}
-          >
-            <ReactMarkdown
-              components={{
-                code({ children, className, ...props }) {
-                  const match = /language-(\w+)/.exec(className || '');
-                  return (
-                    <code
-                      className={`${match ? 'bg-gray-100 p-2 block rounded' : 'bg-gray-100 px-1 py-0.5 rounded'} ${className}`}
-                      {...props}
-                    >
-                      {children}
-                    </code>
-                  );
-                },
-              }}
-            >
-              {message.content}
-            </ReactMarkdown>
-          </Card>
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-      <form onSubmit={handleSubmit} className="flex gap-2">
-        <Input
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          placeholder="Type your message..."
-          disabled={isLoading}
-          className="flex-1"
-        />
-        <Button type="submit" disabled={isLoading || !input.trim()}>
-          <Send className="h-4 w-4" />
-        </Button>
-      </form>
+      <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+        <TabsList className="mb-4">
+          <TabsTrigger value="chat">
+            <MessageSquare className="h-4 w-4 mr-2" />
+            Chat
+          </TabsTrigger>
+          <TabsTrigger value="research">
+            <Search className="h-4 w-4 mr-2" />
+            Research
+          </TabsTrigger>
+          <TabsTrigger value="saved">
+            <BookMarked className="h-4 w-4 mr-2" />
+            Saved Materials
+          </TabsTrigger>
+          <TabsTrigger value="script">
+            <PenTool className="h-4 w-4 mr-2" />
+            Script Builder
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="chat" className="flex-1 flex flex-col">
+          {renderChat()}
+          <form onSubmit={handleSubmit} className="flex gap-2">
+            <Input
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="Type your message..."
+              disabled={isLoading}
+              className="flex-1"
+            />
+            <Button type="submit" disabled={isLoading}>
+              <Send className="h-4 w-4" />
+            </Button>
+          </form>
+        </TabsContent>
+
+        <TabsContent value="research" className="flex-1 overflow-y-auto">
+          <ResearchTab />
+        </TabsContent>
+
+        <TabsContent value="saved" className="flex-1 overflow-y-auto">
+          <SavedMaterialsTab />
+        </TabsContent>
+
+        <TabsContent value="script" className="flex-1 overflow-y-auto">
+          <ScriptBuilderTab />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

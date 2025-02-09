@@ -149,6 +149,90 @@ export type Database = {
         }
         Relationships: []
       }
+      research_material_tags: {
+        Row: {
+          research_material_id: string
+          tag_id: string
+        }
+        Insert: {
+          research_material_id: string
+          tag_id: string
+        }
+        Update: {
+          research_material_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "research_material_tags_research_material_id_fkey"
+            columns: ["research_material_id"]
+            isOneToOne: false
+            referencedRelation: "research_materials"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "research_material_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "research_tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      research_materials: {
+        Row: {
+          analysis: Json | null
+          content: string
+          content_type: string
+          created_at: string | null
+          id: string
+          summary: string | null
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          analysis?: Json | null
+          content: string
+          content_type: string
+          created_at?: string | null
+          id?: string
+          summary?: string | null
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          analysis?: Json | null
+          content?: string
+          content_type?: string
+          created_at?: string | null
+          id?: string
+          summary?: string | null
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      research_tags: {
+        Row: {
+          created_at: string | null
+          id: string
+          name: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          id?: string
+          name: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          id?: string
+          name?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       social_integrations: {
         Row: {
           access_token: string | null

@@ -50,48 +50,46 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   };
 
   const handleCardClick = (e: React.MouseEvent) => {
-    e.stopPropagation(); // Prevent any click propagation
+    e.stopPropagation();
   };
 
   return (
-    <div className="space-y-4">
-      <Card className="p-4" onClick={handleCardClick}>
-        <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold">Script Builder</h3>
-        </div>
+    <div className="h-[calc(100vh-12rem)] flex flex-col">
+      <Card className="p-4 flex-1" onClick={handleCardClick}>
+        <div className="flex flex-col h-full">
+          <div className="space-y-4 flex-1">
+            <ScriptEditor
+              script={script}
+              setScript={setScript}
+              messages={messages}
+            />
 
-        <div className="space-y-4">
-          <ScriptEditor
-            script={script}
-            setScript={setScript}
-            messages={messages}
-          />
+            <div className="space-y-4 mt-4">
+              <StyleSelector style={style} setStyle={setStyle} />
+              <MusicUploader onUpload={handleMusicUpload} />
 
-          <div className="space-y-4 mt-4">
-            <StyleSelector style={style} setStyle={setStyle} />
-            <MusicUploader onUpload={handleMusicUpload} />
+              <div className="flex items-center justify-between">
+                <Label htmlFor="readyToGo" className="text-lg text-purple-700">
+                  Ready to Go
+                </Label>
+                <Switch
+                  id="readyToGo"
+                  checked={readyToGo}
+                  onCheckedChange={setReadyToGo}
+                />
+              </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="readyToGo" className="text-lg text-purple-700">
-                Ready to Go
-              </Label>
-              <Switch
-                id="readyToGo"
-                checked={readyToGo}
-                onCheckedChange={setReadyToGo}
-              />
+              {showCreateVideoButton && (
+                <Button 
+                  variant="secondary" 
+                  onClick={handleCreateVideo}
+                  className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
+                >
+                  <Video className="h-4 w-4 mr-2" />
+                  Create Video
+                </Button>
+              )}
             </div>
-
-            {showCreateVideoButton && (
-              <Button 
-                variant="secondary" 
-                onClick={handleCreateVideo}
-                className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                <Video className="h-4 w-4 mr-2" />
-                Create Video
-              </Button>
-            )}
           </div>
         </div>
       </Card>
@@ -109,4 +107,3 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     </div>
   );
 };
-

@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -35,7 +34,6 @@ const AIAgent = () => {
     scrollToBottom();
   }, [messages]);
 
-  // Persist messages to localStorage whenever they change
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
@@ -145,9 +143,9 @@ const AIAgent = () => {
         <h1 className="text-2xl font-bold">AI Agent</h1>
       </div>
       
-      <div className="flex gap-4 flex-1">
+      <div className="flex gap-4 flex-1 overflow-hidden">
         {/* Chat Panel */}
-        <div className="flex-1 flex flex-col relative border rounded-lg p-4">
+        <div className="flex-1 flex flex-col relative border rounded-lg p-4 overflow-hidden">
           <h2 className="text-lg font-semibold mb-4">Chat</h2>
           {renderChat()}
           <ChatInput
@@ -159,7 +157,7 @@ const AIAgent = () => {
         </div>
 
         {/* Script Builder Panel */}
-        <div className="flex-1 border rounded-lg p-4 overflow-y-auto">
+        <div className="w-[450px] border rounded-lg p-4">
           <h2 className="text-lg font-semibold mb-4">Script Builder</h2>
           <ScriptBuilderTab messages={messages} />
         </div>

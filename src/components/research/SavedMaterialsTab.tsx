@@ -33,7 +33,18 @@ export const SavedMaterialsTab = () => {
       return;
     }
 
-    setMaterials(data);
+    // Validate and transform the data to match our interface
+    const validMaterials = data
+      .filter(item => ['text', 'url', 'image'].includes(item.content_type))
+      .map(item => ({
+        id: item.id,
+        content_type: item.content_type as 'text' | 'url' | 'image',
+        content: item.content,
+        summary: item.summary || '',
+        created_at: item.created_at
+      }));
+
+    setMaterials(validMaterials);
   };
 
   const getIcon = (type: 'text' | 'url' | 'image') => {

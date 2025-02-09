@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoryCreation } from "@/hooks/use-story-creation";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   role: "user" | "assistant";
@@ -69,8 +70,8 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   return (
     <div className="h-[calc(100vh-12rem)] flex flex-col">
       <Card className="flex-1 flex flex-col" onClick={handleCardClick}>
-        <div className="flex-1 overflow-y-auto p-4 pb-0">
-          <div className="space-y-4 mb-4">
+        <ScrollArea className="flex-1">
+          <div className="p-4 space-y-4">
             <ScriptEditor
               script={script}
               setScript={setScript}
@@ -95,10 +96,10 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
               </div>
             </div>
           </div>
-        </div>
+        </ScrollArea>
 
         {/* Fixed button container at the bottom */}
-        <div className="p-4 mt-auto border-t bg-white">
+        <div className="p-4 border-t bg-white">
           <Button 
             variant="secondary" 
             onClick={handleCreateVideo}
@@ -113,3 +114,4 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     </div>
   );
 };
+

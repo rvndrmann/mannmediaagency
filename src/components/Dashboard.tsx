@@ -1,9 +1,9 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus } from "lucide-react";
+import { Plus, Video, X } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -82,6 +82,25 @@ export const Dashboard = () => {
     }
   };
 
+  const updateVideoLength = async (story: any, duration: number) => {
+    if (story.video_length_seconds === null) {
+      const { error } = await supabase
+        .from("stories")
+        .update({ video_length_seconds: Math.round(duration) })
+        .eq("stories id", story["stories id"]);
+
+      if (error) {
+        console.error('Error updating video length:', error);
+      }
+    }
+  };
+
+  const formatDuration = (seconds: number) => {
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = Math.round(seconds % 60);
+    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
+  };
+
   return (
     <div className="flex-1 p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -110,14 +129,26 @@ export const Dashboard = () => {
                       src={story.final_video_with_music} 
                       controls 
                       className="w-full h-full object-cover rounded"
+                      onLoadedMetadata={(e) => {
+                        const video = e.target as HTMLVideoElement;
+                        updateVideoLength(story, video.duration);
+                      }}
                     />
-                    <Button 
-                      variant="outline" 
-                      onClick={() => handleDownload(story.final_video_with_music)}
-                      className="mt-2 w-full"
-                    >
-                      Download Video
-                    </Button>
+                    <div className="flex items-center justify-between w-full mt-2">
+                      {story.video_length_seconds && (
+                        <div className="flex items-center text-sm text-gray-600">
+                          <Video className="w-4 h-4 mr-1" />
+                          {formatDuration(story.video_length_seconds)}
+                        </div>
+                      )}
+                      <Button 
+                        variant="outline" 
+                        onClick={() => handleDownload(story.final_video_with_music)}
+                        className="ml-auto"
+                      >
+                        Download Video
+                      </Button>
+                    </div>
                   </div>
                 ) : (
                   <div className="h-full flex items-center justify-center">

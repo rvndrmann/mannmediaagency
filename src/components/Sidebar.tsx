@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { LayoutDashboard, LogOut, DollarSign, User, Video, Bot } from "lucide-react";
+import { LayoutDashboard, LogOut, DollarSign, User, Video, Bot, AlertCircle } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
@@ -136,12 +136,18 @@ export const Sidebar = () => {
               <DollarSign className="mr-2 h-4 w-4" /> Plans & Billing
             </Button>
             
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-            >
-              <IntegrationPanel /> Integrations (Coming Soon)
-            </Button>
+            <div className="relative">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+              >
+                <IntegrationPanel /> Integrations
+              </Button>
+              <div className="flex items-center gap-1 text-xs text-red-500 mt-1 pl-8">
+                <AlertCircle className="h-3 w-3" />
+                <span>Coming Soon</span>
+              </div>
+            </div>
           </nav>
         </div>
       </SidebarContent>

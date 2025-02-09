@@ -34,8 +34,14 @@ serve(async (req) => {
       }),
     });
 
+    // Return the response stream directly
     return new Response(response.body, {
-      headers: { ...corsHeaders, 'Content-Type': 'text/event-stream' },
+      headers: { 
+        ...corsHeaders, 
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive' 
+      },
     });
   } catch (error) {
     console.error('Error:', error);

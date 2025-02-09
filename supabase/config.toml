@@ -1,5 +1,7 @@
 
 project_id = "avdwgvjhufslhqrrmxgo"
+[functions.chat-with-ai]
+verify_jwt = false
 [functions.initiate-payu-payment]
 verify_jwt = true
 [functions.handle-payu-webhook-v2]

@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -49,11 +50,11 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <div className="min-h-screen bg-background font-sans antialiased">
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
+    <div className="min-h-screen bg-background font-sans antialiased">
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <TooltipProvider>
           <Routes>
             <Route
               path="/"
@@ -129,9 +130,9 @@ const App = () => (
             />
             <Route path="/auth" element={<Auth />} />
           </Routes>
-        </BrowserRouter>
-      </div>
-    </TooltipProvider>
+        </TooltipProvider>
+      </BrowserRouter>
+    </div>
   </QueryClientProvider>
 );
 

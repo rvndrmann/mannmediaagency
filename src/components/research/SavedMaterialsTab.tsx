@@ -5,6 +5,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { FileText, Link, Image as ImageIcon, Video } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface ResearchMaterial {
   id: string;
@@ -51,14 +52,16 @@ export const SavedMaterialsTab = () => {
       {materials.map((material) => (
         <Card key={material.id} className="p-4">
           <div className="flex items-start justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-start gap-2 flex-1">
               {getIcon(material.content_type)}
-              <div>
-                <h4 className="font-semibold">{material.content.substring(0, 50)}...</h4>
-                <p className="text-sm text-gray-500">{material.summary}</p>
+              <div className="flex-1">
+                <ScrollArea className="h-[200px] w-full rounded-md border p-4">
+                  <div className="whitespace-pre-wrap">{material.content}</div>
+                </ScrollArea>
+                <p className="text-sm text-gray-500 mt-2">{material.summary}</p>
               </div>
             </div>
-            <Button variant="secondary" size="sm">
+            <Button variant="secondary" size="sm" className="ml-4">
               <Video className="h-4 w-4 mr-2" />
               Create Video
             </Button>
@@ -66,6 +69,9 @@ export const SavedMaterialsTab = () => {
           <div className="mt-2 flex gap-2">
             <Badge variant="secondary">Research</Badge>
             <Badge variant="outline">{material.content_type}</Badge>
+            <Badge variant="outline">
+              {new Date(material.created_at).toLocaleDateString()}
+            </Badge>
           </div>
         </Card>
       ))}

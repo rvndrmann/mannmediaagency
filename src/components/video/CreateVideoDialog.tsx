@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -24,11 +25,9 @@ interface CreateVideoDialogProps {
   availableVideos: number;
   creditsRemaining: number;
   initialScript?: string;
-}
-
-interface StoryType {
-  id: number;
-  story_type: string | null;
+  initialStyle?: string;
+  initialReadyToGo?: boolean;
+  initialBackgroundMusic?: string | null;
 }
 
 export const CreateVideoDialog = ({
@@ -37,36 +36,47 @@ export const CreateVideoDialog = ({
   availableVideos,
   creditsRemaining,
   initialScript = "",
+  initialStyle = "",
+  initialReadyToGo = false,
+  initialBackgroundMusic = null,
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState(initialScript);
-  const [readyToGo, setReadyToGo] = useState(false);
+  const [readyToGo, setReadyToGo] = useState(initialReadyToGo);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
-  const [style, setStyle] = useState<string>("");
+  const [style, setStyle] = useState<string>(initialStyle);
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const { data: storyTypes, isError } = useQuery({
+  // Initialize with initial values when dialog opens
+  useEffect(() => {
+    if (isOpen) {
+      setSource(initialScript);
+      setStyle(initialStyle);
+      setReadyToGo(initialReadyToGo);
+      if (initialBackgroundMusic) {
+        setUploadedFileName(initialBackgroundMusic);
+        setUploadProgress(100);
+      }
+    }
+  }, [isOpen, initialScript, initialStyle, initialReadyToGo, initialBackgroundMusic]);
+
+  const { data: storyTypes } = useQuery({
     queryKey: ["storyTypes"],
     queryFn: async () => {
-      console.log("Fetching story types...");
       const { data, error } = await supabase
         .from("story_type")
         .select("id, story_type");
       
       if (error) {
-        console.error("Error fetching story types:", error);
         throw error;
       }
       
-      console.log("Fetched story types:", data);
-      return data as StoryType[];
+      return data;
     },
   });
-
-  console.log("Current story types:", storyTypes);
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -115,7 +125,6 @@ export const CreateVideoDialog = ({
           if (event.lengthComputable) {
             const percent = (event.loaded / event.total) * 100;
             setUploadProgress(percent);
-            console.log('Upload progress:', percent);
           }
         };
 
@@ -171,8 +180,6 @@ export const CreateVideoDialog = ({
       }
 
       const selectedStoryType = storyTypes?.find(type => type.story_type === style);
-      console.log("Selected style:", style);
-      console.log("Selected story type:", selectedStoryType);
       const story_type_id = selectedStoryType?.id || null;
 
       const { error } = await supabase
@@ -181,7 +188,7 @@ export const CreateVideoDialog = ({
           {
             source: source.trim(),
             ready_to_go: readyToGo,
-            background_music: backgroundMusicUrl,
+            background_music: backgroundMusicUrl || initialBackgroundMusic,
             story_type_id: story_type_id,
             user_id: user.id
           },
@@ -206,8 +213,6 @@ export const CreateVideoDialog = ({
     }
   };
 
-  console.log("Current style value:", style);
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
@@ -219,7 +224,7 @@ export const CreateVideoDialog = ({
               <span className="text-lg">Back to Dashboard</span>
             </div>
             <span className="text-purple-600">
-              {availableVideos} videos available ({creditsRemaining} credits - costs 10 credits per video)
+              {availableVideos} videos available ({creditsRemaining} credits - costs 20 credits per video)
             </span>
           </div>
           

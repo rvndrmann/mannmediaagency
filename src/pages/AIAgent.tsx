@@ -17,12 +17,21 @@ interface Message {
   content: string;
 }
 
+interface ResearchMaterial {
+  id: string;
+  content_type: 'text' | 'url' | 'image';
+  content: string;
+  summary: string;
+  created_at: string;
+}
+
 const AIAgent = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
+  const [researchMaterials, setResearchMaterials] = useState<ResearchMaterial[]>([]);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,11 +41,57 @@ const AIAgent = () => {
     scrollToBottom();
   }, [messages]);
 
+  useEffect(() => {
+    fetchResearchMaterials();
+  }, []);
+
+  const fetchResearchMaterials = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('research_materials')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      // Validate and transform the data
+      const validMaterials = data
+        .filter(item => ['text', 'url', 'image'].includes(item.content_type))
+        .map(item => ({
+          id: item.id,
+          content_type: item.content_type as 'text' | 'url' | 'image',
+          content: item.content,
+          summary: item.summary || '',
+          created_at: item.created_at
+        }));
+
+      setResearchMaterials(validMaterials);
+    } catch (error) {
+      console.error('Error fetching research materials:', error);
+      toast({
+        title: "Error",
+        description: "Failed to fetch research materials",
+        variant: "destructive",
+      });
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessage: Message = { role: "user", content: input };
+    // Create a context string from research materials
+    const researchContext = researchMaterials
+      .map(material => `${material.content_type.toUpperCase()}: ${material.content}\nSummary: ${material.summary}`)
+      .join('\n\n');
+
+    const userMessage: Message = { 
+      role: "user", 
+      content: researchContext 
+        ? `Context from research materials:\n${researchContext}\n\nUser question: ${input}`
+        : input 
+    };
+
     setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);

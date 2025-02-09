@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
 export const useVideoDialog = (script: string) => {
@@ -29,22 +29,20 @@ export const useVideoDialog = (script: string) => {
         return;
       }
 
-      // This will trigger the decrease_credits function via the after_story_created trigger
-      const { error } = await supabase
-        .from("stories")
-        .insert([
-          {
-            source: script.trim(),
-            ready_to_go: true,
-            user_id: user.id
-          },
-        ]);
+      // Check user credits before showing dialog
+      const { data: userCredits, error: creditsError } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
 
-      if (error) {
-        console.error("Error creating story:", error);
+      if (creditsError) {
+        throw creditsError;
+      }
+
+      if (!userCredits || userCredits.credits_remaining < 20) {
         toast({
           title: "Error",
-          description: error.message,
+          description: "Not enough credits to create a video. Each video costs 20 credits.",
           variant: "destructive",
         });
         return;

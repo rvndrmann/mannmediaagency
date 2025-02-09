@@ -10,6 +10,8 @@ import { StyleSelector } from "@/components/video/StyleSelector";
 import { MusicUploader } from "@/components/video/MusicUploader";
 import { useVideoDialog } from "@/hooks/use-video-dialog";
 import { Button } from "@/components/ui/button";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface Message {
   role: "user" | "assistant";
@@ -24,9 +26,24 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const [script, setScript] = useState("");
   const [style, setStyle] = useState<string>("");
   const [readyToGo, setReadyToGo] = useState(false);
-  const { isVideoDialogOpen, setIsVideoDialogOpen, handleCreateVideo } = useVideoDialog(script);
+  
+  // Fetch user credits
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
 
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const { isVideoDialogOpen, setIsVideoDialogOpen, handleCreateVideo } = useVideoDialog(script);
   const showCreateVideoButton = readyToGo;
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
   return (
     <div className="space-y-4">
@@ -74,8 +91,8 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
       <CreateVideoDialog
         isOpen={isVideoDialogOpen}
         onClose={() => setIsVideoDialogOpen(false)}
-        availableVideos={5}
-        creditsRemaining={100}
+        availableVideos={availableVideos}
+        creditsRemaining={userCredits?.credits_remaining || 0}
         initialScript={script}
       />
     </div>

@@ -29,6 +29,7 @@ const Plans = () => {
       billing: "One-time payment",
       features: [
         "Create 1 video (10 credits)",
+        "AI Agent: ₹0.30 per 1000 words",
         "Background Music",
         "No Watermark",
         "HD Video Resolution"
@@ -42,6 +43,7 @@ const Plans = () => {
       billing: "One-time payment",
       features: [
         "Create 10 videos (10 credits each)",
+        "AI Agent: ₹0.30 per 1000 words",
         "Background Music",
         "No Watermark",
         "HD Video Resolution",

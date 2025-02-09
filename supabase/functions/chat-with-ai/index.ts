@@ -30,9 +30,6 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'gpt-4o',
         messages,
-        response_format: {
-          type: "text"
-        },
         temperature: 1,
         max_tokens: 2048,
         top_p: 1,
@@ -47,13 +44,13 @@ serve(async (req) => {
       throw new Error(error.error?.message || 'OpenAI API request failed');
     }
 
-    // Return the response stream directly
+    // Return the streaming response with the appropriate headers
     return new Response(response.body, {
       headers: { 
-        ...corsHeaders, 
+        ...corsHeaders,
         'Content-Type': 'text/event-stream',
         'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive' 
+        'Connection': 'keep-alive'
       },
     });
   } catch (error) {

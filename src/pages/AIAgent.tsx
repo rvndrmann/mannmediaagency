@@ -38,16 +38,28 @@ const AIAgent = () => {
     setIsLoading(true);
 
     try {
-      const response = await supabase.functions.invoke('chat-with-ai', {
-        body: { messages: [...messages, userMessage] },
-      });
+      const response = await fetch(
+        `${supabase.functions.url}/chat-with-ai`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${supabase.auth.getSession()?.access_token}`,
+          },
+          body: JSON.stringify({ messages: [...messages, userMessage] }),
+        }
+      );
 
-      if (response.error) throw response.error;
+      if (!response.ok) {
+        throw new Error('Failed to get response from AI');
+      }
 
-      const reader = response.data.getReader();
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error('Failed to get response reader');
+
       const decoder = new TextDecoder();
-
       let assistantMessage = "";
+
       while (true) {
         const { value, done } = await reader.read();
         if (done) break;

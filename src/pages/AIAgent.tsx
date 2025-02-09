@@ -111,7 +111,7 @@ const AIAgent = () => {
   };
 
   const renderChat = () => (
-    <div className="flex-1 overflow-y-auto mb-4 space-y-4">
+    <div className="flex-1 overflow-y-auto mb-4 space-y-4 pb-20">
       {messages.map((message, index) => (
         <Card
           key={index}
@@ -166,9 +166,9 @@ const AIAgent = () => {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="chat" className="flex-1 flex flex-col">
+        <TabsContent value="chat" className="flex-1 flex flex-col relative">
           {renderChat()}
-          <form onSubmit={handleSubmit} className="flex gap-2">
+          <form onSubmit={handleSubmit} className="absolute bottom-0 left-0 right-0 bg-white p-4 border-t flex gap-2">
             <Input
               value={input}
               onChange={(e) => setInput(e.target.value)}

@@ -141,7 +141,7 @@ export const Sidebar = () => {
                 variant="ghost" 
                 className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
               >
-                <IntegrationPanel /> Integrations
+                <IntegrationPanel /> Integration
               </Button>
               <div className="flex items-center gap-1 text-xs text-red-500 mt-1 pl-8">
                 <AlertCircle className="h-3 w-3" />

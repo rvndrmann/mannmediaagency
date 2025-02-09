@@ -125,14 +125,16 @@ const AIAgent = () => {
   };
 
   const renderChat = () => (
-    <ScrollArea className="flex-1 pr-4">
-      <div className="space-y-4 pb-4">
-        {messages.map((message, index) => (
-          <ChatMessage key={index} message={message} />
-        ))}
-        <div ref={messagesEndRef} />
-      </div>
-    </ScrollArea>
+    <div className="flex-1 relative">
+      <ScrollArea className="h-[calc(100vh-16rem)] pr-4">
+        <div className="space-y-4 pb-4">
+          {messages.map((message, index) => (
+            <ChatMessage key={index} message={message} />
+          ))}
+          <div ref={messagesEndRef} />
+        </div>
+      </ScrollArea>
+    </div>
   );
 
   return (
@@ -152,7 +154,7 @@ const AIAgent = () => {
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)] flex flex-col">
-            <Tabs defaultValue="chat" className="w-full">
+            <Tabs defaultValue="chat" className="flex-1 flex flex-col">
               <TabsList className="w-full bg-[#333333] mb-4">
                 <TabsTrigger 
                   value="chat" 
@@ -167,11 +169,9 @@ const AIAgent = () => {
                   History
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="chat" className="flex-1 flex flex-col">
-                <div className="flex-1 relative">
-                  {renderChat()}
-                </div>
-                <div className="pt-4">
+              <TabsContent value="chat" className="flex-1 flex flex-col m-0">
+                {renderChat()}
+                <div className="pt-4 sticky bottom-0 bg-[#222222]/60 backdrop-blur-xl">
                   <ChatInput
                     input={input}
                     isLoading={isLoading}

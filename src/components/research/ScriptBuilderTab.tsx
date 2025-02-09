@@ -69,8 +69,8 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   return (
     <div className="h-[calc(100vh-12rem)] flex flex-col">
       <Card className="flex-1 flex flex-col" onClick={handleCardClick}>
-        <div className="flex-1 overflow-y-auto p-4">
-          <div className="space-y-4">
+        <div className="flex-1 overflow-y-auto p-4 pb-0">
+          <div className="space-y-4 mb-4">
             <ScriptEditor
               script={script}
               setScript={setScript}
@@ -79,7 +79,9 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
             <div className="space-y-4">
               <StyleSelector style={style} setStyle={setStyle} />
-              <MusicUploader onUpload={handleMusicUpload} />
+              <div className="mb-6">
+                <MusicUploader onUpload={handleMusicUpload} />
+              </div>
 
               <div className="flex items-center justify-between">
                 <Label htmlFor="readyToGo" className="text-lg text-purple-700">
@@ -96,7 +98,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
         </div>
 
         {/* Fixed button container at the bottom */}
-        <div className="p-4 border-t bg-white">
+        <div className="p-4 mt-auto border-t bg-white">
           <Button 
             variant="secondary" 
             onClick={handleCreateVideo}

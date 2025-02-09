@@ -1,16 +1,17 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { MessageSquare, Search, BookMarked, PenTool } from "lucide-react";
+import { MessageSquare, PenTool } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { ResearchTab } from "@/components/research/ResearchTab";
-import { SavedMaterialsTab } from "@/components/research/SavedMaterialsTab";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { useResearchMaterials } from "@/hooks/useResearchMaterials";
-import { Message } from "@/types/chat";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
 const AIAgent = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -18,7 +19,6 @@ const AIAgent = () => {
   const [isLoading, setIsLoading] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
-  const { getNewMaterialsContext } = useResearchMaterials();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -32,10 +32,9 @@ const AIAgent = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    const userMessageContent = getNewMaterialsContext(input);
     const userMessage: Message = { 
       role: "user", 
-      content: userMessageContent
+      content: input
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -128,14 +127,6 @@ const AIAgent = () => {
             <MessageSquare className="h-4 w-4 mr-2" />
             Chat
           </TabsTrigger>
-          <TabsTrigger value="research">
-            <Search className="h-4 w-4 mr-2" />
-            Research
-          </TabsTrigger>
-          <TabsTrigger value="saved">
-            <BookMarked className="h-4 w-4 mr-2" />
-            Saved Materials
-          </TabsTrigger>
           <TabsTrigger value="script">
             <PenTool className="h-4 w-4 mr-2" />
             Script Builder
@@ -150,14 +141,6 @@ const AIAgent = () => {
             onInputChange={setInput}
             onSubmit={handleSubmit}
           />
-        </TabsContent>
-
-        <TabsContent value="research" className="flex-1 overflow-y-auto">
-          <ResearchTab />
-        </TabsContent>
-
-        <TabsContent value="saved" className="flex-1 overflow-y-auto">
-          <SavedMaterialsTab />
         </TabsContent>
 
         <TabsContent value="script" className="flex-1 overflow-y-auto">

@@ -1,7 +1,11 @@
 
 import { Card } from "@/components/ui/card";
 import ReactMarkdown from "react-markdown";
-import { Message } from "@/types/chat";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
 interface ChatMessageProps {
   message: Message;

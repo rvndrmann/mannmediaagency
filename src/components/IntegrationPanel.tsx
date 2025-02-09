@@ -36,13 +36,7 @@ export const IntegrationPanel = () => {
   return (
     <Sheet>
       <SheetTrigger asChild>
-        <Button 
-          variant="ghost" 
-          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-        >
-          <Youtube className="mr-2 h-4 w-4" />
-          Integrations
-        </Button>
+        <Youtube className="mr-2 h-4 w-4" />
       </SheetTrigger>
       <SheetContent className="w-[400px] sm:w-[540px] bg-gray-900 border-gray-800">
         <SheetHeader>

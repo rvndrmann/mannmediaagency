@@ -38,18 +38,18 @@ const AIAgent = () => {
     setIsLoading(true);
 
     try {
-      const { data: stream, error } = await supabase.functions.invoke('chat-with-ai', {
+      const response = await supabase.functions.invoke('chat-with-ai', {
         body: { messages: [...messages, userMessage] },
       });
 
-      if (error) throw error;
+      if (response.error) throw response.error;
 
-      let assistantMessage = "";
-      const reader = stream?.getReader();
+      const reader = response.data.getReader();
       const decoder = new TextDecoder();
 
+      let assistantMessage = "";
       while (true) {
-        const { value, done } = await reader?.read();
+        const { value, done } = await reader.read();
         if (done) break;
 
         const chunk = decoder.decode(value);

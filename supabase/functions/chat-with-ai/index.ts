@@ -29,12 +29,12 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: 'gpt-4o',
-        messages: messages,
+        messages,
         response_format: {
           type: "text"
         },
         temperature: 1,
-        max_completion_tokens: 2048,
+        max_tokens: 2048,
         top_p: 1,
         frequency_penalty: 0,
         presence_penalty: 0,

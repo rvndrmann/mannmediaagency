@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import ReactMarkdown from "react-markdown";
 
 interface Message {
-  role: "user" | "assistant";  // Strictly typed as literal union
+  role: "user" | "assistant";
   content: string;
 }
 
@@ -33,7 +33,7 @@ const AIAgent = () => {
     if (!input.trim() || isLoading) return;
 
     const userMessage: Message = { role: "user", content: input };
-    setMessages((prev) => [...prev, userMessage]);
+    setMessages(prev => [...prev, userMessage]);
     setInput("");
     setIsLoading(true);
 
@@ -65,12 +65,12 @@ const AIAgent = () => {
               const content = parsed.choices[0]?.delta?.content;
               if (content) {
                 assistantMessage += content;
-                setMessages((prev) => {
+                setMessages(prev => {
                   const newMessages = [...prev];
                   if (newMessages[newMessages.length - 1]?.role === 'assistant') {
                     newMessages[newMessages.length - 1].content = assistantMessage;
                   } else {
-                    newMessages.push({ role: 'assistant' as const, content: assistantMessage });
+                    newMessages.push({ role: 'assistant', content: assistantMessage });
                   }
                   return newMessages;
                 });

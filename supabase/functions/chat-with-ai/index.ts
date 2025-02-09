@@ -28,11 +28,16 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-3.5-turbo',
         messages: messages,
         stream: true,
       }),
     });
+
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error?.message || 'OpenAI API request failed');
+    }
 
     // Return the response stream directly
     return new Response(response.body, {

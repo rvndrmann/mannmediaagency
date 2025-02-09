@@ -7,7 +7,6 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
@@ -28,14 +27,6 @@ const AIAgent = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const navigate = useNavigate();
-
-  const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  };
-
-  useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -124,21 +115,19 @@ const AIAgent = () => {
   };
 
   const renderChat = () => (
-    <div className="flex-1 relative">
-      <ScrollArea className="h-[calc(100vh-16rem)] pr-4">
-        <div className="space-y-4 pb-4">
-          {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
+    <div className="flex-1 flex flex-col h-full">
+      <div className="flex-1 space-y-4 pb-4">
+        {messages.map((message, index) => (
+          <ChatMessage key={index} message={message} />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
     </div>
   );
 
   return (
-    <div className="min-h-screen bg-[#1A1F2C]">
-      <div className="container mx-auto p-4 space-y-4">
+    <div className="h-screen bg-[#1A1F2C] overflow-hidden">
+      <div className="container h-full mx-auto p-4 space-y-4">
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -151,9 +140,9 @@ const AIAgent = () => {
           <h1 className="text-2xl font-bold text-white">AI Agent</h1>
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)] flex flex-col">
-            <Tabs defaultValue="chat" className="flex-1 flex flex-col">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 h-[calc(100vh-8rem)]">
+          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-full flex flex-col">
+            <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
               <TabsList className="w-full bg-[#333333] mb-4">
                 <TabsTrigger 
                   value="chat" 
@@ -162,9 +151,9 @@ const AIAgent = () => {
                   Chat
                 </TabsTrigger>
               </TabsList>
-              <TabsContent value="chat" className="flex-1 flex flex-col m-0">
+              <TabsContent value="chat" className="flex-1 flex flex-col m-0 h-full">
                 {renderChat()}
-                <div className="pt-4 sticky bottom-0 bg-[#222222]/60 backdrop-blur-xl">
+                <div className="pt-4 bg-[#222222]/60 backdrop-blur-xl">
                   <ChatInput
                     input={input}
                     isLoading={isLoading}
@@ -176,7 +165,7 @@ const AIAgent = () => {
             </Tabs>
           </Card>
 
-          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)]">
+          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-full">
             <ScriptBuilderTab messages={messages} />
           </Card>
         </div>

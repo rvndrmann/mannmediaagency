@@ -1,15 +1,15 @@
+
 import { useState } from "react";
-import { Video } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { Label } from "@/components/ui/label";
 import { ScriptEditor } from "@/components/video/ScriptEditor";
 import { StyleSelector } from "@/components/video/StyleSelector";
 import { MusicUploader } from "@/components/video/MusicUploader";
+import { Switch } from "@/components/ui/switch";
+import { Label } from "@/components/ui/label";
 import { Button } from "@/components/ui/button";
+import { Video } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoryCreation } from "@/hooks/use-story-creation";
-import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface Message {
   role: "user" | "assistant";
@@ -44,7 +44,6 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   });
 
   const { isCreating, createStory } = useStoryCreation();
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
   const handleMusicUpload = (musicUrl: string) => {
     setBackgroundMusic(musicUrl);
@@ -66,48 +65,46 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
   return (
     <div className="h-full flex flex-col space-y-6">
-      <ScrollArea className="flex-1">
-        <div className="space-y-6">
-          <ScriptEditor
-            script={script}
-            setScript={setScript}
-            messages={messages}
-          />
+      <div className="flex-1">
+        <ScriptEditor
+          script={script}
+          setScript={setScript}
+          messages={messages}
+        />
 
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label className="text-lg font-semibold text-white/90">Style</Label>
-              <StyleSelector style={style} setStyle={setStyle} />
-            </div>
+        <div className="space-y-6 mt-6">
+          <div className="space-y-2">
+            <Label className="text-lg font-semibold text-white/90">Style</Label>
+            <StyleSelector style={style} setStyle={setStyle} />
+          </div>
 
-            <div className="space-y-2">
-              <Label className="text-lg font-semibold text-white/90">Background Music</Label>
-              <MusicUploader onUpload={handleMusicUpload} />
-              {backgroundMusic && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={handleRemoveMusic}
-                  className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
-                >
-                  Remove Music
-                </Button>
-              )}
-            </div>
+          <div className="space-y-2">
+            <Label className="text-lg font-semibold text-white/90">Background Music</Label>
+            <MusicUploader onUpload={handleMusicUpload} />
+            {backgroundMusic && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleRemoveMusic}
+                className="text-red-400 hover:text-red-300 hover:bg-red-950/30"
+              >
+                Remove Music
+              </Button>
+            )}
+          </div>
 
-            <div className="flex items-center justify-between">
-              <Label htmlFor="readyToGo" className="text-lg font-semibold text-white/90">
-                Ready to Go
-              </Label>
-              <Switch
-                id="readyToGo"
-                checked={readyToGo}
-                onCheckedChange={setReadyToGo}
-              />
-            </div>
+          <div className="flex items-center justify-between">
+            <Label htmlFor="readyToGo" className="text-lg font-semibold text-white/90">
+              Ready to Go
+            </Label>
+            <Switch
+              id="readyToGo"
+              checked={readyToGo}
+              onCheckedChange={setReadyToGo}
+            />
           </div>
         </div>
-      </ScrollArea>
+      </div>
 
       <Button 
         onClick={handleCreateVideo}

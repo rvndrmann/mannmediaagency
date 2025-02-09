@@ -37,7 +37,7 @@ export const StyleSelector = ({ style, setStyle }: StyleSelectorProps) => {
   });
 
   return (
-    <div className="space-y-2">
+    <div className="space-y-2" onClick={(e) => e.stopPropagation()}>
       <Label htmlFor="style" className="text-lg text-purple-700">
         Style
       </Label>
@@ -59,3 +59,4 @@ export const StyleSelector = ({ style, setStyle }: StyleSelectorProps) => {
     </div>
   );
 };
+

@@ -50,8 +50,9 @@ export const ScriptEditor = ({ script, setScript, messages }: ScriptEditorProps)
         value={script}
         onChange={(e) => setScript(e.target.value)}
         placeholder="Start writing your script here..."
-        className="min-h-[200px]"
+        className="min-h-[200px] focus:outline-none resize-none"
       />
     </div>
   );
 };
+

@@ -28,7 +28,6 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const [readyToGo, setReadyToGo] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<string | null>(null);
   
-  // Fetch user credits
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -50,9 +49,13 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     setBackgroundMusic(musicUrl);
   };
 
+  const handleCardClick = (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent any click propagation
+  };
+
   return (
     <div className="space-y-4">
-      <Card className="p-4">
+      <Card className="p-4" onClick={handleCardClick}>
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold">Script Builder</h3>
         </div>

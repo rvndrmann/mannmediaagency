@@ -106,3 +106,4 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     </div>
   );
 };
+

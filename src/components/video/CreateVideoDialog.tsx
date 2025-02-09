@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -45,23 +44,10 @@ export const CreateVideoDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(null);
+  const [uploadedFileName, setUploadedFileName] = useState<string | null>(initialBackgroundMusic);
   const [style, setStyle] = useState<string>(initialStyle);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  // Initialize with initial values when dialog opens
-  useEffect(() => {
-    if (isOpen) {
-      setSource(initialScript);
-      setStyle(initialStyle);
-      setReadyToGo(initialReadyToGo);
-      if (initialBackgroundMusic) {
-        setUploadedFileName(initialBackgroundMusic);
-        setUploadProgress(100);
-      }
-    }
-  }, [isOpen, initialScript, initialStyle, initialReadyToGo, initialBackgroundMusic]);
 
   const { data: storyTypes } = useQuery({
     queryKey: ["storyTypes"],

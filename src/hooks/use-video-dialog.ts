@@ -66,3 +66,4 @@ export const useVideoDialog = (script: string) => {
     handleCreateVideo,
   };
 };
+

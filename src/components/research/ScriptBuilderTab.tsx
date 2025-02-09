@@ -30,9 +30,13 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
       const { data, error } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (error) throw error;

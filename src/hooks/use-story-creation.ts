@@ -19,7 +19,7 @@ export const useStoryCreation = () => {
         description: "Please generate or write a script first",
         variant: "destructive",
       });
-      return;
+      return false;
     }
 
     setIsCreating(true);
@@ -33,13 +33,14 @@ export const useStoryCreation = () => {
           description: "Please sign in to create a video",
           variant: "destructive",
         });
-        return;
+        return false;
       }
 
       // Check user credits
       const { data: userCredits, error: creditsError } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (creditsError) {
@@ -52,19 +53,30 @@ export const useStoryCreation = () => {
           description: "Not enough credits to create a video. Each video costs 20 credits.",
           variant: "destructive",
         });
-        return;
+        return false;
       }
 
       // Get story type id based on style name
-      const { data: storyType, error: storyTypeError } = await supabase
+      const { data: storyTypes, error: storyTypeError } = await supabase
         .from("story_type")
         .select("id")
-        .eq("story_type", style)
-        .single();
+        .eq("story_type", style);
 
       if (storyTypeError) {
         throw storyTypeError;
       }
+
+      if (!storyTypes || storyTypes.length === 0) {
+        toast({
+          title: "Error",
+          description: "Selected style not found",
+          variant: "destructive",
+        });
+        return false;
+      }
+
+      // Use the first matching story type
+      const storyType = storyTypes[0];
 
       // Insert the story
       const { error: insertError } = await supabase
@@ -86,7 +98,6 @@ export const useStoryCreation = () => {
         description: "Video creation started successfully!",
       });
 
-      // Reset form
       return true;
     } catch (error) {
       console.error("Error:", error);

@@ -32,6 +32,7 @@ const AIAgent = () => {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const { toast } = useToast();
   const [researchMaterials, setResearchMaterials] = useState<ResearchMaterial[]>([]);
+  const [processedMaterialIds, setProcessedMaterialIds] = useState<Set<string>>(new Set());
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -80,16 +81,30 @@ const AIAgent = () => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
 
-    // Create a context string from research materials
-    const researchContext = researchMaterials
-      .map(material => `${material.content_type.toUpperCase()}: ${material.content}\nSummary: ${material.summary}`)
-      .join('\n\n');
+    // Get only new research materials that haven't been processed
+    const newMaterials = researchMaterials.filter(material => !processedMaterialIds.has(material.id));
+
+    let userMessageContent = input;
+
+    // Only include context if there are new materials
+    if (newMaterials.length > 0) {
+      const researchContext = newMaterials
+        .map(material => `${material.content_type.toUpperCase()}: ${material.content}\nSummary: ${material.summary}`)
+        .join('\n\n');
+
+      userMessageContent = `New research materials:\n${researchContext}\n\nUser question: ${input}`;
+      
+      // Mark these materials as processed
+      setProcessedMaterialIds(prev => {
+        const newSet = new Set(prev);
+        newMaterials.forEach(material => newSet.add(material.id));
+        return newSet;
+      });
+    }
 
     const userMessage: Message = { 
       role: "user", 
-      content: researchContext 
-        ? `Context from research materials:\n${researchContext}\n\nUser question: ${input}`
-        : input 
+      content: userMessageContent
     };
 
     setMessages(prev => [...prev, userMessage]);

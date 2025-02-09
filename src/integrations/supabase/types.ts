@@ -30,6 +30,33 @@ export type Database = {
         }
         Relationships: []
       }
+      chat_usage: {
+        Row: {
+          created_at: string | null
+          credits_charged: number
+          id: string
+          message_content: string | null
+          user_id: string
+          words_count: number
+        }
+        Insert: {
+          created_at?: string | null
+          credits_charged?: number
+          id?: string
+          message_content?: string | null
+          user_id: string
+          words_count?: number
+        }
+        Update: {
+          created_at?: string | null
+          credits_charged?: number
+          id?: string
+          message_content?: string | null
+          user_id?: string
+          words_count?: number
+        }
+        Relationships: []
+      }
       credit_update_logs: {
         Row: {
           created_at: string | null

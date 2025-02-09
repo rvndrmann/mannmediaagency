@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,6 +11,7 @@ import { useNavigate } from "react-router-dom";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQuery } from "@tanstack/react-query";
 
 interface Message {
   role: "user" | "assistant";
@@ -29,6 +31,24 @@ const AIAgent = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Query user credits
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return null;
+
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq("user_id", user.id)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -44,6 +64,16 @@ const AIAgent = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!input.trim() || isLoading) return;
+
+    // Check if user has enough credits
+    if (!userCredits || userCredits.credits_remaining < 1) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 1 credit to continue chatting. Each 1000 words costs 1 credit.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     const userMessage: Message = { 
       role: "user", 
@@ -69,7 +99,8 @@ const AIAgent = () => {
       );
 
       if (!response.ok) {
-        throw new Error('Failed to get response from AI');
+        const errorData = await response.json();
+        throw new Error(errorData.error || 'Failed to get response from AI');
       }
 
       const reader = response.body?.getReader();
@@ -115,7 +146,7 @@ const AIAgent = () => {
       console.error('Error:', error);
       toast({
         title: "Error",
-        description: "Failed to get response from AI",
+        description: error instanceof Error ? error.message : "Failed to get response from AI",
         variant: "destructive",
       });
     } finally {
@@ -125,6 +156,11 @@ const AIAgent = () => {
 
   const renderChat = () => (
     <div className="flex-1 relative">
+      <div className="absolute top-0 right-0 p-2 bg-gray-800 rounded-bl-lg z-10">
+        <span className="text-sm text-gray-300">
+          Credits: {userCredits?.credits_remaining || 0}
+        </span>
+      </div>
       <ScrollArea className="h-[calc(100vh-16rem)] pr-4">
         <div className="space-y-4 pb-4">
           {messages.map((message, index) => (

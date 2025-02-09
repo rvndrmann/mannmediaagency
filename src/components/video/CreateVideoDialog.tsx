@@ -23,6 +23,7 @@ interface CreateVideoDialogProps {
   onClose: () => void;
   availableVideos: number;
   creditsRemaining: number;
+  initialScript?: string;
 }
 
 interface StoryType {
@@ -35,8 +36,9 @@ export const CreateVideoDialog = ({
   onClose,
   availableVideos,
   creditsRemaining,
+  initialScript = "",
 }: CreateVideoDialogProps) => {
-  const [source, setSource] = useState("");
+  const [source, setSource] = useState(initialScript);
   const [readyToGo, setReadyToGo] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);

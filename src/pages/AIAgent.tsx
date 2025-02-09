@@ -191,7 +191,7 @@ const AIAgent = () => {
         </TabsContent>
 
         <TabsContent value="script" className="flex-1 overflow-y-auto">
-          <ScriptBuilderTab />
+          <ScriptBuilderTab messages={messages} />
         </TabsContent>
       </Tabs>
     </div>

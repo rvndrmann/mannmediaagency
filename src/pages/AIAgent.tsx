@@ -1,10 +1,8 @@
 
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { MessageSquare, PenTool } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 
@@ -120,33 +118,24 @@ const AIAgent = () => {
   );
 
   return (
-    <div className="flex-1 p-4 flex flex-col h-[calc(100vh-2rem)]">
-      <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-        <TabsList className="mb-4">
-          <TabsTrigger value="chat">
-            <MessageSquare className="h-4 w-4 mr-2" />
-            Chat
-          </TabsTrigger>
-          <TabsTrigger value="script">
-            <PenTool className="h-4 w-4 mr-2" />
-            Script Builder
-          </TabsTrigger>
-        </TabsList>
+    <div className="flex-1 p-4 flex gap-4 h-[calc(100vh-2rem)]">
+      {/* Chat Panel */}
+      <div className="flex-1 flex flex-col relative border rounded-lg p-4">
+        <h2 className="text-lg font-semibold mb-4">Chat</h2>
+        {renderChat()}
+        <ChatInput
+          input={input}
+          isLoading={isLoading}
+          onInputChange={setInput}
+          onSubmit={handleSubmit}
+        />
+      </div>
 
-        <TabsContent value="chat" className="flex-1 flex flex-col relative">
-          {renderChat()}
-          <ChatInput
-            input={input}
-            isLoading={isLoading}
-            onInputChange={setInput}
-            onSubmit={handleSubmit}
-          />
-        </TabsContent>
-
-        <TabsContent value="script" className="flex-1 overflow-y-auto">
-          <ScriptBuilderTab messages={messages} />
-        </TabsContent>
-      </Tabs>
+      {/* Script Builder Panel */}
+      <div className="flex-1 border rounded-lg p-4 overflow-y-auto">
+        <h2 className="text-lg font-semibold mb-4">Script Builder</h2>
+        <ScriptBuilderTab messages={messages} />
+      </div>
     </div>
   );
 };

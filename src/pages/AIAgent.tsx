@@ -38,13 +38,14 @@ const AIAgent = () => {
     setIsLoading(true);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
       const response = await fetch(
-        `${supabase.functions.url}/chat-with-ai`,
+        `${(supabase.functions as any).url}/chat-with-ai`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${supabase.auth.getSession()?.access_token}`,
+            'Authorization': `Bearer ${session?.access_token}`,
           },
           body: JSON.stringify({ messages: [...messages, userMessage] }),
         }
@@ -114,7 +115,7 @@ const AIAgent = () => {
             className={`p-4 max-w-[80%] ${
               message.role === "user"
                 ? "ml-auto bg-blue-500 text-white"
-                : "bg-gray-800"
+                : "bg-gray-50 text-gray-800"
             }`}
           >
             <ReactMarkdown
@@ -123,7 +124,7 @@ const AIAgent = () => {
                   const match = /language-(\w+)/.exec(className || '');
                   return (
                     <code
-                      className={`${match ? 'bg-gray-700 p-2 block rounded' : 'bg-gray-700 px-1 py-0.5 rounded'} ${className}`}
+                      className={`${match ? 'bg-gray-100 p-2 block rounded' : 'bg-gray-100 px-1 py-0.5 rounded'} ${className}`}
                       {...props}
                     >
                       {children}

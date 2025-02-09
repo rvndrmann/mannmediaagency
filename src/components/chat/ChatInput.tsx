@@ -16,7 +16,7 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
       <Input
         value={input}
         onChange={(e) => onInputChange(e.target.value)}
-        placeholder="Ask Lovable..."
+        placeholder="Create script..."
         disabled={isLoading}
         className="flex-1 bg-[#333333] border-white/10 text-white placeholder:text-white/50"
       />

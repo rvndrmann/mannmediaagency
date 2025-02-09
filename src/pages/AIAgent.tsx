@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -162,12 +161,6 @@ const AIAgent = () => {
                 >
                   Chat
                 </TabsTrigger>
-                <TabsTrigger 
-                  value="history" 
-                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
-                >
-                  History
-                </TabsTrigger>
               </TabsList>
               <TabsContent value="chat" className="flex-1 flex flex-col m-0">
                 {renderChat()}
@@ -179,9 +172,6 @@ const AIAgent = () => {
                     onSubmit={handleSubmit}
                   />
                 </div>
-              </TabsContent>
-              <TabsContent value="history">
-                <div className="text-white/70">Chat history will be shown here</div>
               </TabsContent>
             </Tabs>
           </Card>

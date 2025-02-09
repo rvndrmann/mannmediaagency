@@ -41,7 +41,10 @@ export const ScriptEditor = ({ script, setScript, messages }: ScriptEditorProps)
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={handleGenerateScript}>
+        <Button 
+          onClick={handleGenerateScript}
+          className="bg-[#F2FCE2] text-gray-800 hover:bg-[#F2FCE2]/80"
+        >
           <PenTool className="h-4 w-4 mr-2" />
           Use Last AI Response
         </Button>

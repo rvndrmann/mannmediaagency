@@ -1,7 +1,6 @@
 
 import { useState } from "react";
-import { Card } from "@/components/ui/card";
-import { Video, X } from "lucide-react";
+import { Video } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScriptEditor } from "@/components/video/ScriptEditor";
@@ -12,6 +11,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoryCreation } from "@/hooks/use-story-creation";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
 
 interface Message {
   role: "user" | "assistant";
@@ -56,14 +56,9 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     setBackgroundMusic(null);
   };
 
-  const handleCardClick = (e: React.MouseEvent) => {
-    e.stopPropagation();
-  };
-
   const handleCreateVideo = async () => {
     const success = await createStory(script, style, readyToGo, backgroundMusic);
     if (success) {
-      // Reset form
       setScript("");
       setStyle("");
       setReadyToGo(false);
@@ -72,62 +67,58 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   };
 
   return (
-    <div className="h-[calc(100vh-12rem)] flex flex-col">
-      <Card className="flex-1 flex flex-col" onClick={handleCardClick}>
-        <ScrollArea className="flex-1">
-          <div className="p-4 space-y-4">
-            <ScriptEditor
-              script={script}
-              setScript={setScript}
-              messages={messages}
-            />
+    <div className="h-full flex flex-col space-y-6">
+      <ScrollArea className="flex-1">
+        <div className="space-y-6">
+          <ScriptEditor
+            script={script}
+            setScript={setScript}
+            messages={messages}
+          />
 
-            <div className="space-y-4">
+          <div className="space-y-6">
+            <div className="space-y-2">
+              <Label className="text-lg font-semibold text-purple-700">Style</Label>
               <StyleSelector style={style} setStyle={setStyle} />
-              <div className="mb-6">
-                <MusicUploader onUpload={handleMusicUpload} />
-                {backgroundMusic && (
-                  <div className="flex items-center gap-2 mt-2">
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={handleRemoveMusic}
-                      className="text-red-500 hover:text-red-700 hover:bg-red-50"
-                    >
-                      <X className="h-4 w-4 mr-1" />
-                      Remove Music
-                    </Button>
-                  </div>
-                )}
-              </div>
+            </div>
 
-              <div className="flex items-center justify-between">
-                <Label htmlFor="readyToGo" className="text-lg text-purple-700">
-                  Ready to Go
-                </Label>
-                <Switch
-                  id="readyToGo"
-                  checked={readyToGo}
-                  onCheckedChange={setReadyToGo}
-                />
-              </div>
+            <div className="space-y-2">
+              <Label className="text-lg font-semibold text-purple-700">Background Music</Label>
+              <MusicUploader onUpload={handleMusicUpload} />
+              {backgroundMusic && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRemoveMusic}
+                  className="text-red-500 hover:text-red-700 hover:bg-red-50"
+                >
+                  Remove Music
+                </Button>
+              )}
+            </div>
+
+            <div className="flex items-center justify-between">
+              <Label htmlFor="readyToGo" className="text-lg font-semibold text-purple-700">
+                Ready to Go
+              </Label>
+              <Switch
+                id="readyToGo"
+                checked={readyToGo}
+                onCheckedChange={setReadyToGo}
+              />
             </div>
           </div>
-        </ScrollArea>
-
-        {/* Fixed button container at the bottom */}
-        <div className="p-4 border-t bg-white">
-          <Button 
-            variant="secondary" 
-            onClick={handleCreateVideo}
-            disabled={isCreating}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-          >
-            <Video className="h-4 w-4 mr-2" />
-            {isCreating ? "Creating Video..." : "Create Video"}
-          </Button>
         </div>
-      </Card>
+      </ScrollArea>
+
+      <Button 
+        onClick={handleCreateVideo}
+        disabled={isCreating}
+        className="w-full bg-purple-600 hover:bg-purple-700 text-white h-12 rounded-lg"
+      >
+        <Video className="h-5 w-5 mr-2" />
+        {isCreating ? "Creating Video..." : "Create Video"}
+      </Button>
     </div>
   );
 };

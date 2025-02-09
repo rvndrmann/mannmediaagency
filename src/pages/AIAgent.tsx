@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +8,8 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Card } from "@/components/ui/card";
 
 interface Message {
   role: "user" | "assistant";
@@ -121,45 +124,51 @@ const AIAgent = () => {
   };
 
   const renderChat = () => (
-    <div className="flex-1 overflow-y-auto space-y-4 pb-24">
-      {messages.map((message, index) => (
-        <ChatMessage key={index} message={message} />
-      ))}
-      <div ref={messagesEndRef} />
-    </div>
+    <ScrollArea className="flex-1 pr-4">
+      <div className="space-y-4 pb-4">
+        {messages.map((message, index) => (
+          <ChatMessage key={index} message={message} />
+        ))}
+        <div ref={messagesEndRef} />
+      </div>
+    </ScrollArea>
   );
 
   return (
-    <div className="flex-1 p-4 flex flex-col gap-4 h-[calc(100vh-2rem)]">
-      <div className="flex items-center gap-2">
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => navigate(-1)}
-          className="w-8 h-8"
-        >
-          <ChevronLeft className="h-4 w-4" />
-        </Button>
-        <h1 className="text-2xl font-bold">AI Agent</h1>
-      </div>
-      
-      <div className="flex gap-4 flex-1 overflow-hidden">
-        {/* Chat Panel */}
-        <div className="flex-1 flex flex-col relative border rounded-lg p-4 overflow-hidden">
-          <h2 className="text-lg font-semibold mb-4">Chat</h2>
-          {renderChat()}
-          <ChatInput
-            input={input}
-            isLoading={isLoading}
-            onInputChange={setInput}
-            onSubmit={handleSubmit}
-          />
+    <div className="min-h-screen bg-gray-50/50">
+      <div className="container mx-auto p-4 space-y-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="w-8 h-8"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </Button>
+          <h1 className="text-2xl font-bold text-gray-900">AI Agent</h1>
         </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Chat Panel */}
+          <Card className="p-4 h-[calc(100vh-8rem)] flex flex-col bg-white shadow-sm">
+            <div className="flex-1 relative">
+              {renderChat()}
+            </div>
+            <div className="pt-4 border-t">
+              <ChatInput
+                input={input}
+                isLoading={isLoading}
+                onInputChange={setInput}
+                onSubmit={handleSubmit}
+              />
+            </div>
+          </Card>
 
-        {/* Script Builder Panel */}
-        <div className="w-[450px] border rounded-lg p-4">
-          <h2 className="text-lg font-semibold mb-4">Script Builder</h2>
-          <ScriptBuilderTab messages={messages} />
+          {/* Script Builder Panel */}
+          <Card className="p-4 h-[calc(100vh-8rem)] bg-white shadow-sm">
+            <ScriptBuilderTab messages={messages} />
+          </Card>
         </div>
       </div>
     </div>

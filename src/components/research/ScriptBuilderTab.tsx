@@ -2,16 +2,15 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Video } from "lucide-react";
-import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScriptEditor } from "@/components/video/ScriptEditor";
 import { StyleSelector } from "@/components/video/StyleSelector";
 import { MusicUploader } from "@/components/video/MusicUploader";
-import { useVideoDialog } from "@/hooks/use-video-dialog";
 import { Button } from "@/components/ui/button";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useStoryCreation } from "@/hooks/use-story-creation";
 
 interface Message {
   role: "user" | "assistant";
@@ -41,7 +40,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     },
   });
 
-  const { isVideoDialogOpen, setIsVideoDialogOpen, handleCreateVideo } = useVideoDialog(script);
+  const { isCreating, createStory } = useStoryCreation();
   const showCreateVideoButton = readyToGo;
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
@@ -51,6 +50,17 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
   const handleCardClick = (e: React.MouseEvent) => {
     e.stopPropagation();
+  };
+
+  const handleCreateVideo = async () => {
+    const success = await createStory(script, style, readyToGo, backgroundMusic);
+    if (success) {
+      // Reset form
+      setScript("");
+      setStyle("");
+      setReadyToGo(false);
+      setBackgroundMusic(null);
+    }
   };
 
   return (
@@ -83,27 +93,17 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
                 <Button 
                   variant="secondary" 
                   onClick={handleCreateVideo}
+                  disabled={isCreating}
                   className="w-full mt-4 bg-purple-600 hover:bg-purple-700 text-white"
                 >
                   <Video className="h-4 w-4 mr-2" />
-                  Create Video
+                  {isCreating ? "Creating Video..." : "Create Video"}
                 </Button>
               )}
             </div>
           </div>
         </div>
       </Card>
-
-      <CreateVideoDialog
-        isOpen={isVideoDialogOpen}
-        onClose={() => setIsVideoDialogOpen(false)}
-        availableVideos={availableVideos}
-        creditsRemaining={userCredits?.credits_remaining || 0}
-        initialScript={script}
-        initialStyle={style}
-        initialReadyToGo={readyToGo}
-        initialBackgroundMusic={backgroundMusic}
-      />
     </div>
   );
 };

@@ -1,22 +1,16 @@
+
 import { useState } from "react";
-import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { X, CheckCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useQuery } from "@tanstack/react-query";
-import { Progress } from "@/components/ui/progress";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { DialogHeaderSection } from "./dialog/DialogHeaderSection";
+import { ScriptInputSection } from "./dialog/ScriptInputSection";
+import { StyleSelectorSection } from "./dialog/StyleSelectorSection";
+import { MusicUploaderSection } from "./dialog/MusicUploaderSection";
+import { DialogActionsSection } from "./dialog/DialogActionsSection";
 
 interface CreateVideoDialogProps {
   isOpen: boolean;
@@ -48,21 +42,6 @@ export const CreateVideoDialog = ({
   const [style, setStyle] = useState<string>(initialStyle);
   const navigate = useNavigate();
   const { toast } = useToast();
-
-  const { data: storyTypes } = useQuery({
-    queryKey: ["storyTypes"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("story_type")
-        .select("id, story_type");
-      
-      if (error) {
-        throw error;
-      }
-      
-      return data;
-    },
-  });
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -152,7 +131,7 @@ export const CreateVideoDialog = ({
         const fileExt = backgroundMusic.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
         
-        const { error: uploadError, data } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('background-music')
           .upload(filePath, backgroundMusic);
 
@@ -164,6 +143,10 @@ export const CreateVideoDialog = ({
           
         backgroundMusicUrl = publicUrl;
       }
+
+      const { data: storyTypes } = await supabase
+        .from("story_type")
+        .select("id, story_type");
 
       const selectedStoryType = storyTypes?.find(type => type.story_type === style);
       const story_type_id = selectedStoryType?.id || null;
@@ -202,115 +185,45 @@ export const CreateVideoDialog = ({
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
       <DialogContent className="sm:max-w-[600px]">
-        <DialogTitle className="sr-only">Create Your Video</DialogTitle>
-        <div className="relative">
-          <div className="flex items-center justify-between mb-2">
-            <div className="flex items-center gap-2 cursor-pointer" onClick={onClose}>
-              <X className="h-5 w-5" />
-              <span className="text-lg">Back to Dashboard</span>
-            </div>
-            <span className="text-purple-600">
-              {availableVideos} videos available ({creditsRemaining} credits - costs 20 credits per video)
-            </span>
+        <DialogHeaderSection
+          onClose={onClose}
+          availableVideos={availableVideos}
+          creditsRemaining={creditsRemaining}
+        />
+        
+        <div className="space-y-6">
+          <ScriptInputSection
+            source={source}
+            onSourceChange={setSource}
+          />
+
+          <StyleSelectorSection
+            style={style}
+            onStyleChange={setStyle}
+          />
+
+          <MusicUploaderSection
+            uploadProgress={uploadProgress}
+            uploadedFileName={uploadedFileName}
+            onFileChange={handleFileChange}
+          />
+
+          <div className="flex items-center justify-between">
+            <Label htmlFor="readyToGo" className="text-xl text-purple-600">
+              Ready to Go
+            </Label>
+            <Switch
+              id="readyToGo"
+              checked={readyToGo}
+              onCheckedChange={setReadyToGo}
+            />
           </div>
-          
-          <h2 className="text-4xl font-bold text-purple-600 mb-8">
-            Create Your Video
-          </h2>
 
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="source" className="text-xl text-purple-600">
-                Script or Idea <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="source"
-                value={source}
-                onChange={(e) => setSource(e.target.value)}
-                placeholder="Enter your script or idea"
-                className="w-full p-4 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="style" className="text-xl text-purple-600">
-                Style
-              </Label>
-              <Select value={style} onValueChange={setStyle}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder="Select a style" />
-                </SelectTrigger>
-                <SelectContent>
-                  {storyTypes?.map((type) => (
-                    <SelectItem 
-                      key={type.id} 
-                      value={type.story_type || ""}
-                    >
-                      {type.story_type}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label htmlFor="backgroundMusic" className="text-xl text-purple-600">
-                Background Music
-              </Label>
-              <div className="space-y-2">
-                <Input
-                  id="backgroundMusic"
-                  type="file"
-                  accept="audio/*"
-                  onChange={handleFileChange}
-                  className="w-full p-2 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500"
-                />
-                {uploadProgress > 0 && (
-                  <div className="space-y-1">
-                    <Progress value={uploadProgress} className="h-2" />
-                    <p className="text-sm text-purple-600">
-                      {uploadProgress === 100 ? 'Upload complete!' : `Uploading: ${Math.round(uploadProgress)}%`}
-                    </p>
-                  </div>
-                )}
-                {uploadedFileName && uploadProgress === 100 && (
-                  <div className="flex items-center gap-2 text-green-600 mt-2">
-                    <CheckCircle className="h-4 w-4" />
-                    <span className="text-sm">Uploaded: {uploadedFileName}</span>
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="readyToGo" className="text-xl text-purple-600">
-                Ready to Go
-              </Label>
-              <Switch
-                id="readyToGo"
-                checked={readyToGo}
-                onCheckedChange={setReadyToGo}
-              />
-            </div>
-
-            <div className="flex justify-between pt-4">
-              <Button
-                variant="outline"
-                onClick={onClose}
-                disabled={isSubmitting}
-                className="px-8 border-purple-200 text-purple-600 hover:bg-purple-50"
-              >
-                Cancel
-              </Button>
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting}
-                className="px-8 bg-purple-600 hover:bg-purple-700 text-white"
-              >
-                {isSubmitting ? "Creating..." : "Create Video"}
-              </Button>
-            </div>
-          </div>
+          <DialogActionsSection
+            onClose={onClose}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+          />
         </div>
       </DialogContent>
     </Dialog>

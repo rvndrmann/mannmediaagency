@@ -92,9 +92,9 @@ export const VideoShowcase = () => {
       >
         <CarouselContent className="-ml-4 flex">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="pl-4 min-w-[280px] md:min-w-[320px] lg:min-w-[340px] flex-shrink-0">
+            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/4">
               <div className="space-y-4">
-                <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl min-h-[360px]">
+                <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl max-h-[400px]">
                   <video
                     ref={(el) => {
                       if (el) {
@@ -176,3 +176,4 @@ export const VideoShowcase = () => {
     </div>
   );
 };
+

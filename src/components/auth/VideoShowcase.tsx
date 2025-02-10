@@ -32,13 +32,13 @@ export const VideoShowcase = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 animate-pulse">
+        {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
             className="space-y-4"
           >
-            <div className="aspect-video bg-gray-800 rounded-xl" />
+            <div className="aspect-[9/16] bg-gray-800 rounded-xl" />
             <div className="h-4 bg-gray-800 rounded w-3/4" />
             <div className="h-3 bg-gray-800 rounded w-1/2" />
           </div>
@@ -48,11 +48,11 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
       {videos?.map((video) => (
         <div key={video.id} className="space-y-4">
           {/* Video Container */}
-          <div className="group relative aspect-video rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
+          <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
             {/* Video Player */}
             <video
               className="w-full h-full object-cover"
@@ -120,4 +120,3 @@ export const VideoShowcase = () => {
     </div>
   );
 };
-

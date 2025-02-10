@@ -1,14 +1,16 @@
+
 import { Button } from "@/components/ui/button";
 import { Youtube, Instagram, ArrowLeft } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { useEffect } from "react";
 
 const Integrations = () => {
   const navigate = useNavigate();
   
-  const { data: integrations } = useQuery({
+  const { data: integrations, refetch: refetchIntegrations } = useQuery({
     queryKey: ["socialIntegrations"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -26,9 +28,71 @@ const Integrations = () => {
   };
 
   const handleInstagramConnect = async () => {
-    console.log("Connecting to Instagram...");
-    toast.info("Instagram integration coming soon!");
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      toast.error("Please sign in to connect Instagram");
+      return;
+    }
+
+    if (isConnected('instagram')) {
+      // Disconnect Instagram
+      const { error } = await supabase
+        .from('social_integrations')
+        .delete()
+        .eq('platform', 'instagram')
+        .eq('user_id', user.id);
+
+      if (error) {
+        toast.error("Failed to disconnect Instagram");
+        return;
+      }
+
+      await refetchIntegrations();
+      toast.success("Instagram disconnected successfully");
+      return;
+    }
+
+    // Instagram OAuth configuration
+    const instagramClientId = import.meta.env.VITE_INSTAGRAM_CLIENT_ID;
+    const redirectUri = `${window.location.origin}/integrations`;
+    const scope = 'instagram_basic,instagram_content_publish';
+    
+    const authUrl = `https://api.instagram.com/oauth/authorize?client_id=${instagramClientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+    
+    window.location.href = authUrl;
   };
+
+  // Handle OAuth redirect
+  useEffect(() => {
+    const handleInstagramCallback = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      
+      if (code) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) throw new Error('No user found');
+
+          const response = await supabase.functions.invoke('instagram-auth', {
+            body: { code, user_id: user.id },
+          });
+
+          if (response.error) throw new Error(response.error);
+
+          await refetchIntegrations();
+          toast.success('Instagram connected successfully!');
+          
+          // Clean up URL
+          window.history.replaceState({}, document.title, window.location.pathname);
+        } catch (error) {
+          console.error('Instagram auth error:', error);
+          toast.error('Failed to connect Instagram');
+        }
+      }
+    };
+
+    handleInstagramCallback();
+  }, [refetchIntegrations]);
 
   const isConnected = (platform: string) => {
     return integrations?.some(integration => integration.platform === platform);

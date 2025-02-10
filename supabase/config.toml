@@ -8,3 +8,5 @@ verify_jwt = true
 verify_jwt = false
 [functions.verify-payu-payment]
 verify_jwt = true
+[functions.instagram-auth]
+verify_jwt = true

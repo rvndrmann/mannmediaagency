@@ -44,8 +44,7 @@ export const VideoShowcase = () => {
       videos.forEach((video) => {
         const videoEl = videoRefs.current[video.id];
         if (videoEl) {
-          videoEl.currentTime = 0;
-          // Load just enough to show the first frame
+          videoEl.currentTime = 2; // Set to show 2-second frame
           videoEl.load();
         }
       });
@@ -54,8 +53,8 @@ export const VideoShowcase = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-6 gap-4 animate-pulse">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-3 gap-4 animate-pulse">
+        {[1, 2, 3].map((i) => (
           <div
             key={i}
             className="space-y-4"
@@ -77,13 +76,13 @@ export const VideoShowcase = () => {
           loop: true,
           dragFree: true,
           containScroll: false,
-          skipSnaps: true,
+          skipSnaps: false,
         }}
         className="w-full"
       >
-        <CarouselContent className="gap-6">
+        <CarouselContent className="-ml-4">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="basis-1/6 transition-opacity duration-300">
+            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
               <div className="space-y-4">
                 {/* Video Container */}
                 <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
@@ -100,11 +99,11 @@ export const VideoShowcase = () => {
                     controls
                     onLoadedMetadata={(e) => {
                       const videoEl = e.currentTarget;
-                      videoEl.currentTime = 0;
+                      videoEl.currentTime = 2; // Set to show 2-second frame
                     }}
                     onLoadedData={(e) => {
                       const videoEl = e.currentTarget;
-                      videoEl.currentTime = 0;
+                      videoEl.currentTime = 2; // Set to show 2-second frame
                     }}
                     onPlay={() => setPlayingVideoId(video.id)}
                     onPause={() => setPlayingVideoId(null)}
@@ -115,7 +114,7 @@ export const VideoShowcase = () => {
                         document.querySelectorAll('video').forEach(v => {
                           if (v !== videoEl) {
                             v.pause();
-                            v.currentTime = 0;
+                            v.currentTime = 2; // Reset other videos to 2-second frame
                           }
                         });
                         videoEl.play();
@@ -155,7 +154,7 @@ export const VideoShowcase = () => {
 
                 {/* Video Information Below */}
                 <div className="space-y-2">
-                  <h3 className="text-white text-xl font-bold line-clamp-1">
+                  <h3 className="text-white text-lg md:text-xl font-bold line-clamp-1">
                     {video.title}
                   </h3>
                   <p className="text-gray-400 text-sm line-clamp-2">

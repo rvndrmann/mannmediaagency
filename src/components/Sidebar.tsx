@@ -160,13 +160,16 @@ export const Sidebar = () => {
               <DollarSign className="mr-2 h-4 w-4" /> Plans & Billing
             </Button>
             
-            <Button 
-              variant="ghost" 
-              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-              onClick={() => navigate("/integrations")}
-            >
-              <Link2 className="mr-2 h-4 w-4" /> Integration
-            </Button>
+            <div className="space-y-1">
+              <Button 
+                variant="ghost" 
+                className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 opacity-50 cursor-not-allowed"
+                disabled={true}
+              >
+                <Link2 className="mr-2 h-4 w-4" /> Integration
+              </Button>
+              <div className="text-xs text-gray-400 pl-10">Coming Soon</div>
+            </div>
           </nav>
         </div>
       </SidebarContent>

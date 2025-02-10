@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -11,6 +10,8 @@ import CreateVideo from "./pages/CreateVideo";
 import Integrations from "./pages/Integrations";
 import Plans from "./pages/Plans";
 import Auth from "./pages/Auth";
+import LoginForm from "./components/auth/LoginForm";
+import SignupForm from "./components/auth/SignupForm";
 import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
@@ -64,6 +65,9 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/login" element={<LoginForm />} />
+            <Route path="/auth/signup" element={<SignupForm />} />
             <Route
               path="/create-video"
               element={
@@ -128,7 +132,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="/auth" element={<Auth />} />
           </Routes>
         </TooltipProvider>
       </BrowserRouter>

@@ -1,6 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
 
 interface ShowcaseVideo {
   id: string;
@@ -13,6 +14,8 @@ interface ShowcaseVideo {
 }
 
 export const VideoShowcase = () => {
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcaseVideos"],
     queryFn: async () => {
@@ -56,6 +59,9 @@ export const VideoShowcase = () => {
               poster={video.thumbnail_url}
               preload="none"
               controls
+              onPlay={() => setPlayingVideoId(video.id)}
+              onPause={() => setPlayingVideoId(null)}
+              onEnded={() => setPlayingVideoId(null)}
               onClick={(e) => {
                 const videoEl = e.currentTarget;
                 if (videoEl.paused) {
@@ -82,8 +88,12 @@ export const VideoShowcase = () => {
               </span>
             </div>
 
-            {/* Play Button Overlay (only shown when video is paused) */}
-            <div className="absolute inset-0 flex items-center justify-center opacity-90 group-hover:opacity-0 transition-opacity duration-300 pointer-events-none">
+            {/* Play Button Overlay (only shown when video is paused and being hovered) */}
+            <div 
+              className={`absolute inset-0 flex items-center justify-center opacity-0 
+                ${playingVideoId !== video.id ? 'group-hover:opacity-90' : ''} 
+                transition-opacity duration-300 pointer-events-none`}
+            >
               <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
                 <svg
                   className="w-8 h-8 text-white"
@@ -110,3 +120,4 @@ export const VideoShowcase = () => {
     </div>
   );
 };
+

@@ -87,13 +87,12 @@ export const VideoShowcase = () => {
           align: "start",
           loop: true,
           dragFree: true,
-          slidesToScroll: 1,
         }}
         className="w-full"
       >
-        <CarouselContent className="-ml-4">
+        <CarouselContent className="-ml-4 flex">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/6">
+            <CarouselItem key={video.id} className="pl-4 min-w-[200px] sm:min-w-[250px] md:min-w-[300px] flex-shrink-0">
               <div className="space-y-4">
                 <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl min-h-[360px]">
                   <video

@@ -1,5 +1,6 @@
+
 import { useState } from "react";
-import { Video } from "lucide-react";
+import { Video, AlertCircle } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScriptEditor } from "@/components/video/ScriptEditor";
@@ -10,6 +11,8 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useStoryCreation } from "@/hooks/use-story-creation";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useNavigate } from "react-router-dom";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface Message {
   role: "user" | "assistant";
@@ -25,6 +28,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   const [style, setStyle] = useState<string>("");
   const [readyToGo, setReadyToGo] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<string | null>(null);
+  const navigate = useNavigate();
   
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -44,7 +48,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   });
 
   const { isCreating, createStory } = useStoryCreation();
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
   const handleMusicUpload = (musicUrl: string) => {
     setBackgroundMusic(musicUrl);
@@ -55,6 +59,11 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   };
 
   const handleCreateVideo = async () => {
+    if (!hasEnoughCredits) {
+      navigate("/plans");
+      return;
+    }
+
     const success = await createStory(script, style, readyToGo, backgroundMusic);
     if (success) {
       setScript("");
@@ -63,6 +72,26 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
       setBackgroundMusic(null);
     }
   };
+
+  if (!hasEnoughCredits) {
+    return (
+      <div className="h-full flex flex-col items-center justify-center p-6 space-y-6">
+        <Alert variant="destructive" className="w-full">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Insufficient Credits</AlertTitle>
+          <AlertDescription>
+            You need at least 10 credits to create a video. Current balance: {userCredits?.credits_remaining || 0} credits.
+          </AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => navigate("/plans")}
+          className="w-full bg-[#9b87f5] hover:bg-[#7E69AB] text-white h-12 rounded-lg"
+        >
+          Purchase Credits
+        </Button>
+      </div>
+    );
+  }
 
   return (
     <div className="h-full flex flex-col space-y-6">

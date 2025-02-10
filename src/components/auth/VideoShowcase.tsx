@@ -53,8 +53,8 @@ export const VideoShowcase = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 gap-4 animate-pulse">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-3 md:grid-cols-6 gap-4 animate-pulse">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
             className="space-y-4"
@@ -69,7 +69,7 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="relative w-full">
+    <div className="relative w-full px-12">
       <Carousel
         opts={{
           align: "start",
@@ -82,7 +82,7 @@ export const VideoShowcase = () => {
       >
         <CarouselContent className="-ml-4">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/3">
+            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/6">
               <div className="space-y-4">
                 {/* Video Container */}
                 <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
@@ -165,9 +165,10 @@ export const VideoShowcase = () => {
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious className="absolute -left-12 bg-purple-600 hover:bg-purple-700 text-white border-none" />
-        <CarouselNext className="absolute -right-12 bg-purple-600 hover:bg-purple-700 text-white border-none" />
+        <CarouselPrevious className="absolute left-0 bg-purple-600 hover:bg-purple-700 text-white border-none" />
+        <CarouselNext className="absolute right-0 bg-purple-600 hover:bg-purple-700 text-white border-none" />
       </Carousel>
     </div>
   );
 };
+

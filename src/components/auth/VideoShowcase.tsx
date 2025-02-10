@@ -64,8 +64,8 @@ export const VideoShowcase = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
-        {[1, 2, 3, 4, 5, 6].map((i) => (
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
+        {[1, 2, 3, 4].map((i) => (
           <div
             key={i}
             className="space-y-4"
@@ -80,7 +80,7 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="relative w-full max-w-[1400px] mx-auto px-4 md:px-8 lg:px-12">
+    <div className="relative w-full">
       <Carousel
         ref={emblaRef}
         opts={{
@@ -92,7 +92,7 @@ export const VideoShowcase = () => {
       >
         <CarouselContent className="-ml-4 flex">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="pl-4 min-w-[200px] sm:min-w-[250px] md:min-w-[300px] flex-shrink-0">
+            <CarouselItem key={video.id} className="pl-4 min-w-[280px] md:min-w-[320px] lg:min-w-[340px] flex-shrink-0">
               <div className="space-y-4">
                 <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl min-h-[360px]">
                   <video
@@ -176,4 +176,3 @@ export const VideoShowcase = () => {
     </div>
   );
 };
-

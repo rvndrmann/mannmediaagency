@@ -11,7 +11,7 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900">
       {/* Navigation Bar */}
       <div className="w-full px-6 py-4 flex justify-between items-center">
-        <div className="text-2xl font-bold text-white">Logo</div>
+        <div className="text-2xl font-bold text-white">mannmediaagency</div>
         <div className="flex items-center gap-4">
           <Button
             onClick={() => navigate("/auth/login")}

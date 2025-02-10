@@ -9,6 +9,7 @@ interface ShowcaseVideo {
   video_url: string;
   thumbnail_url: string;
   category: string;
+  is_visible: boolean;
 }
 
 export const VideoShowcase = () => {
@@ -18,6 +19,7 @@ export const VideoShowcase = () => {
       const { data, error } = await supabase
         .from("auth_showcase_videos")
         .select("*")
+        .eq("is_visible", true)
         .order("order");
       
       if (error) throw error;
@@ -80,7 +82,7 @@ export const VideoShowcase = () => {
               </span>
             </div>
 
-            {/* Play Button Overlay */}
+            {/* Play Button Overlay (only shown when video is paused) */}
             <div className="absolute inset-0 flex items-center justify-center opacity-90 group-hover:opacity-0 transition-opacity duration-300 pointer-events-none">
               <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
                 <svg

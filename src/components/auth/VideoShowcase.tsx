@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -22,6 +22,7 @@ interface ShowcaseVideo {
 
 export const VideoShowcase = () => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcaseVideos"],
@@ -74,13 +75,24 @@ export const VideoShowcase = () => {
                 <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
                   {/* Video Player */}
                   <video
+                    ref={(el) => {
+                      if (el) {
+                        videoRefs.current[video.id] = el;
+                        // Set current time to 0 to show first frame
+                        el.currentTime = 0;
+                      }
+                    }}
                     className="w-full h-full object-cover"
                     poster={video.thumbnail_url}
-                    preload="none"
+                    preload="metadata"
                     controls
                     onPlay={() => setPlayingVideoId(video.id)}
                     onPause={() => setPlayingVideoId(null)}
                     onEnded={() => setPlayingVideoId(null)}
+                    onLoadedMetadata={(e) => {
+                      // Ensure we show the first frame when metadata is loaded
+                      e.currentTarget.currentTime = 0;
+                    }}
                     onClick={(e) => {
                       const videoEl = e.currentTarget;
                       if (videoEl.paused) {

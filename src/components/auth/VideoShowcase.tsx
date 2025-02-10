@@ -1,7 +1,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -37,6 +37,20 @@ export const VideoShowcase = () => {
       return data as ShowcaseVideo[];
     },
   });
+
+  // Effect to initialize video frames when videos are loaded
+  useEffect(() => {
+    if (videos) {
+      videos.forEach((video) => {
+        const videoEl = videoRefs.current[video.id];
+        if (videoEl) {
+          videoEl.currentTime = 0;
+          // Load just enough to show the first frame
+          videoEl.load();
+        }
+      });
+    }
+  }, [videos]);
 
   if (isLoading) {
     return (
@@ -78,21 +92,23 @@ export const VideoShowcase = () => {
                     ref={(el) => {
                       if (el) {
                         videoRefs.current[video.id] = el;
-                        // Set current time to 0 to show first frame
-                        el.currentTime = 0;
                       }
                     }}
                     className="w-full h-full object-cover"
-                    poster={video.thumbnail_url}
-                    preload="metadata"
+                    playsInline
+                    preload="auto"
                     controls
+                    onLoadedMetadata={(e) => {
+                      const videoEl = e.currentTarget;
+                      videoEl.currentTime = 0;
+                    }}
+                    onLoadedData={(e) => {
+                      const videoEl = e.currentTarget;
+                      videoEl.currentTime = 0;
+                    }}
                     onPlay={() => setPlayingVideoId(video.id)}
                     onPause={() => setPlayingVideoId(null)}
                     onEnded={() => setPlayingVideoId(null)}
-                    onLoadedMetadata={(e) => {
-                      // Ensure we show the first frame when metadata is loaded
-                      e.currentTarget.currentTime = 0;
-                    }}
                     onClick={(e) => {
                       const videoEl = e.currentTarget;
                       if (videoEl.paused) {

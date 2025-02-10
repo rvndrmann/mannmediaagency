@@ -31,8 +31,12 @@ export const VideoShowcase = () => {
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
-            className="aspect-video bg-gray-800 rounded-xl"
-          />
+            className="space-y-4"
+          >
+            <div className="aspect-video bg-gray-800 rounded-xl" />
+            <div className="h-4 bg-gray-800 rounded w-3/4" />
+            <div className="h-3 bg-gray-800 rounded w-1/2" />
+          </div>
         ))}
       </div>
     );
@@ -41,70 +45,63 @@ export const VideoShowcase = () => {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {videos?.map((video) => (
-        <div
-          key={video.id}
-          className="group relative aspect-video rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl"
-        >
-          {/* Video Player */}
-          <video
-            className="w-full h-full object-cover"
-            poster={video.thumbnail_url}
-            preload="none"
-            controls // Added controls for better playback control
-            onClick={(e) => {
-              const videoEl = e.currentTarget;
-              if (videoEl.paused) {
-                // Stop all other videos before playing this one
-                document.querySelectorAll('video').forEach(v => {
-                  if (v !== videoEl) {
-                    v.pause();
-                    v.currentTime = 0;
-                  }
-                });
-                videoEl.play();
-              } else {
-                videoEl.pause();
-              }
-            }}
-          >
-            <source src={video.video_url} type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
-          
-          {/* Dark Gradient Overlay - Only visible when video is not playing */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-60 group-hover:opacity-90 transition-opacity pointer-events-none" />
+        <div key={video.id} className="space-y-4">
+          {/* Video Container */}
+          <div className="group relative aspect-video rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
+            {/* Video Player */}
+            <video
+              className="w-full h-full object-cover"
+              poster={video.thumbnail_url}
+              preload="none"
+              controls
+              onClick={(e) => {
+                const videoEl = e.currentTarget;
+                if (videoEl.paused) {
+                  document.querySelectorAll('video').forEach(v => {
+                    if (v !== videoEl) {
+                      v.pause();
+                      v.currentTime = 0;
+                    }
+                  });
+                  videoEl.play();
+                } else {
+                  videoEl.pause();
+                }
+              }}
+            >
+              <source src={video.video_url} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
 
-          {/* Content Overlay - Only visible when video is not playing */}
-          <div className="absolute inset-0 p-6 flex flex-col justify-between transform transition-transform duration-300 pointer-events-none">
-            {/* Top Section with Category */}
-            <div className="flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
+            {/* Category Badge */}
+            <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <span className="inline-block px-3 py-1 bg-purple-600/90 text-xs font-medium text-white rounded-full">
                 {video.category}
               </span>
             </div>
 
-            {/* Bottom Section with Title and Description */}
-            <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform">
-              <h3 className="text-white text-xl font-bold mb-2 drop-shadow-lg">
-                {video.title}
-              </h3>
-              <p className="text-gray-200 text-sm line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                {video.description}
-              </p>
+            {/* Play Button Overlay */}
+            <div className="absolute inset-0 flex items-center justify-center opacity-90 group-hover:opacity-0 transition-opacity duration-300 pointer-events-none">
+              <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
+                <svg
+                  className="w-8 h-8 text-white"
+                  fill="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M8 5v14l11-7z" />
+                </svg>
+              </div>
             </div>
           </div>
 
-          {/* Play Button Overlay - Only visible when video is not playing */}
-          <div className="absolute inset-0 flex items-center justify-center opacity-90 group-hover:opacity-0 transition-opacity duration-300 pointer-events-none">
-            <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
+          {/* Video Information Below */}
+          <div className="space-y-2">
+            <h3 className="text-white text-xl font-bold line-clamp-1">
+              {video.title}
+            </h3>
+            <p className="text-gray-400 text-sm line-clamp-2">
+              {video.description}
+            </p>
           </div>
         </div>
       ))}

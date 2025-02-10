@@ -57,8 +57,7 @@ export const VideoVisibilityTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stories")
-        .select("stories id, final_video_with_music, source")
-        .not("final_video_with_music", "is", null);
+        .select("stories id, final_video_with_music, source");
       
       if (error) throw error;
       return data as Story[];

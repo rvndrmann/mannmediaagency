@@ -17,3 +17,4 @@ export type SidebarMenuButtonProps = React.ComponentProps<"button"> & {
   isActive?: boolean;
   tooltip?: string | React.ComponentProps<any>;
 } & VariantProps<typeof sidebarMenuButtonVariants>;
+

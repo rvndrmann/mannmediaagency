@@ -296,6 +296,42 @@ export type Database = {
         }
         Relationships: []
       }
+      scheduled_posts: {
+        Row: {
+          caption: string | null
+          created_at: string | null
+          id: string
+          media_url: string | null
+          platform: string
+          scheduled_for: string
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          media_url?: string | null
+          platform: string
+          scheduled_for: string
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          caption?: string | null
+          created_at?: string | null
+          id?: string
+          media_url?: string | null
+          platform?: string
+          scheduled_for?: string
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       social_integrations: {
         Row: {
           access_token: string | null

@@ -33,7 +33,6 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Initial session check
     const checkSession = async () => {
       try {
         const { data: { session } } = await supabase.auth.getSession();
@@ -48,24 +47,25 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 
     checkSession();
 
-    // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
       setIsAuthenticated(!!session);
       setIsLoading(false);
     });
 
-    // Cleanup subscription on unmount
     return () => {
       subscription.unsubscribe();
     };
   }, []);
 
-  // Show loading state while checking authentication
   if (isLoading) {
     return <div>Loading...</div>;
   }
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth" replace />;
+  if (!isAuthenticated) {
+    return <Auth />;
+  }
+
+  return <>{children}</>;
 };
 
 const App = () => (
@@ -84,7 +84,6 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="/auth" element={<Auth />} />
             <Route path="/auth/login" element={<LoginForm />} />
             <Route path="/auth/signup" element={<SignupForm />} />
             <Route path="/plans" element={<Plans />} />

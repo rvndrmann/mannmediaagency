@@ -45,11 +45,25 @@ export const VideoShowcase = () => {
           key={video.id}
           className="group relative aspect-video rounded-lg overflow-hidden hover:scale-[1.02] transition-transform duration-300"
         >
-          <img
-            src={video.thumbnail_url}
-            alt={video.title}
-            className="w-full h-full object-cover"
-          />
+          {/* Video Player */}
+          <video
+            className="w-full h-full object-cover cursor-pointer"
+            poster={video.thumbnail_url}
+            preload="none"
+            onClick={(e) => {
+              const videoEl = e.currentTarget;
+              if (videoEl.paused) {
+                videoEl.play();
+              } else {
+                videoEl.pause();
+              }
+            }}
+          >
+            <source src={video.video_url} type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+          
+          {/* Overlay with information */}
           <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent flex flex-col justify-end p-4 opacity-0 group-hover:opacity-100 transition-opacity">
             <span className="inline-block px-2 py-1 bg-purple-600 text-xs text-white rounded-full mb-2 w-fit">
               {video.category}

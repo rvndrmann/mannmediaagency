@@ -132,11 +132,11 @@ export const VideoVisibilityTable = () => {
               <TableCell>{video.category}</TableCell>
               <TableCell>
                 <Select
-                  value={video.story_id?.toString() || ""}
+                  value={video.story_id?.toString() || "null"}
                   onValueChange={(value) => {
                     updateStoryId.mutate({
                       id: video.id,
-                      story_id: value ? parseInt(value) : null,
+                      story_id: value === "null" ? null : parseInt(value),
                     });
                   }}
                 >
@@ -144,13 +144,13 @@ export const VideoVisibilityTable = () => {
                     <SelectValue placeholder="Select a story" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="">None</SelectItem>
+                    <SelectItem value="null">None</SelectItem>
                     {stories?.map((story) => (
                       <SelectItem 
                         key={story["stories id"]} 
                         value={story["stories id"].toString()}
                       >
-                        Story #{story["stories id"]}
+                        Story ID: {story["stories id"]}
                         {story.source ? ` - ${story.source.substring(0, 30)}...` : ''}
                       </SelectItem>
                     ))}

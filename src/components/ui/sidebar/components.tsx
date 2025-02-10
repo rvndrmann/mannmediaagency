@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PanelLeft } from "lucide-react";
 import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Slot } from "@radix-ui/react-slot";
 import { useSidebar } from "./context";
 
 export const SidebarInput = React.forwardRef<

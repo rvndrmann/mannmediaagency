@@ -20,6 +20,10 @@ interface ShowcaseVideo {
   thumbnail_url: string;
   category: string;
   is_visible: boolean;
+  story_id: number | null;
+  story?: {
+    "final_video_with_music": string | null;
+  } | null;
 }
 
 export const VideoShowcase = () => {
@@ -41,7 +45,12 @@ export const VideoShowcase = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("auth_showcase_videos")
-        .select("*")
+        .select(`
+          *,
+          story:stories!auth_showcase_videos_story_id_fkey (
+            final_video_with_music
+          )
+        `)
         .eq("is_visible", true)
         .order("order");
       
@@ -131,7 +140,10 @@ export const VideoShowcase = () => {
                       }
                     }}
                   >
-                    <source src={video.video_url} type="video/mp4" />
+                    <source 
+                      src={video.story?.final_video_with_music || video.video_url} 
+                      type="video/mp4" 
+                    />
                     Your browser does not support the video tag.
                   </video>
 
@@ -176,4 +188,3 @@ export const VideoShowcase = () => {
     </div>
   );
 };
-

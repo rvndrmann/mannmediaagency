@@ -38,6 +38,7 @@ export type Database = {
           id: string
           is_visible: boolean | null
           order: number | null
+          story_id: number | null
           thumbnail_url: string
           title: string
           video_url: string
@@ -49,6 +50,7 @@ export type Database = {
           id?: string
           is_visible?: boolean | null
           order?: number | null
+          story_id?: number | null
           thumbnail_url: string
           title: string
           video_url: string
@@ -60,11 +62,20 @@ export type Database = {
           id?: string
           is_visible?: boolean | null
           order?: number | null
+          story_id?: number | null
           thumbnail_url?: string
           title?: string
           video_url?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "auth_showcase_videos_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["stories id"]
+          },
+        ]
       }
       chat_usage: {
         Row: {

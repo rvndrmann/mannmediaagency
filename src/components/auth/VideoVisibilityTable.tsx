@@ -10,6 +10,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { toast } from "sonner";
 
 interface ShowcaseVideo {
   id: string;
@@ -19,12 +27,19 @@ interface ShowcaseVideo {
   thumbnail_url: string;
   category: string;
   is_visible: boolean;
+  story_id: number | null;
+}
+
+interface Story {
+  "stories id": number;
+  final_video_with_music: string | null;
+  source: string | null;
 }
 
 export const VideoVisibilityTable = () => {
   const queryClient = useQueryClient();
 
-  const { data: videos, isLoading } = useQuery({
+  const { data: videos, isLoading: isVideosLoading } = useQuery({
     queryKey: ["showcaseVideos"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -34,6 +49,19 @@ export const VideoVisibilityTable = () => {
       
       if (error) throw error;
       return data as ShowcaseVideo[];
+    },
+  });
+
+  const { data: stories, isLoading: isStoriesLoading } = useQuery({
+    queryKey: ["stories"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stories")
+        .select("stories id, final_video_with_music, source")
+        .not("final_video_with_music", "is", null);
+      
+      if (error) throw error;
+      return data as Story[];
     },
   });
 
@@ -48,10 +76,34 @@ export const VideoVisibilityTable = () => {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["showcaseVideos"] });
+      toast.success("Visibility updated successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to update visibility");
+      console.error("Error updating visibility:", error);
     },
   });
 
-  if (isLoading) {
+  const updateStoryId = useMutation({
+    mutationFn: async ({ id, story_id }: { id: string; story_id: number | null }) => {
+      const { error } = await supabase
+        .from("auth_showcase_videos")
+        .update({ story_id })
+        .eq("id", id);
+
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["showcaseVideos"] });
+      toast.success("Story assigned successfully");
+    },
+    onError: (error) => {
+      toast.error("Failed to assign story");
+      console.error("Error assigning story:", error);
+    },
+  });
+
+  if (isVideosLoading || isStoriesLoading) {
     return <div>Loading...</div>;
   }
 
@@ -63,6 +115,7 @@ export const VideoVisibilityTable = () => {
             <TableHead>Thumbnail</TableHead>
             <TableHead>Title</TableHead>
             <TableHead>Category</TableHead>
+            <TableHead>Story ID</TableHead>
             <TableHead>Visible</TableHead>
           </TableRow>
         </TableHeader>
@@ -78,6 +131,33 @@ export const VideoVisibilityTable = () => {
               </TableCell>
               <TableCell className="font-medium">{video.title}</TableCell>
               <TableCell>{video.category}</TableCell>
+              <TableCell>
+                <Select
+                  value={video.story_id?.toString() || ""}
+                  onValueChange={(value) => {
+                    updateStoryId.mutate({
+                      id: video.id,
+                      story_id: value ? parseInt(value) : null,
+                    });
+                  }}
+                >
+                  <SelectTrigger className="w-[200px]">
+                    <SelectValue placeholder="Select a story" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="">None</SelectItem>
+                    {stories?.map((story) => (
+                      <SelectItem 
+                        key={story["stories id"]} 
+                        value={story["stories id"].toString()}
+                      >
+                        Story #{story["stories id"]}
+                        {story.source ? ` - ${story.source.substring(0, 30)}...` : ''}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </TableCell>
               <TableCell>
                 <Switch
                   checked={video.is_visible}

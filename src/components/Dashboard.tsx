@@ -1,16 +1,34 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Video, X } from "lucide-react";
+import { Plus, Video, DollarSign } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/components/ui/use-toast";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const { toast } = useToast();
+
+  // Fetch user credits
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
   // Fetch stories without user filter
   const { data: stories, isLoading: isLoadingStories } = useQuery({
@@ -101,6 +119,19 @@ export const Dashboard = () => {
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
+  const handleCreateOrPurchase = () => {
+    if (!hasEnoughCredits) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 10 credits to create a video. Please purchase more credits.",
+        variant: "destructive",
+      });
+      navigate("/plans");
+      return;
+    }
+    navigate("/create-video");
+  };
+
   return (
     <div className="flex-1 p-4 md:p-8">
       <div className="flex justify-between items-center mb-6">
@@ -170,17 +201,39 @@ export const Dashboard = () => {
           <Card className="col-span-full p-8 text-center bg-gray-50">
             <div className="flex flex-col items-center gap-4">
               <div className="p-3 rounded-full bg-purple-100">
-                <Plus className="w-6 h-6 text-purple-600" />
+                {hasEnoughCredits ? (
+                  <Plus className="w-6 h-6 text-purple-600" />
+                ) : (
+                  <DollarSign className="w-6 h-6 text-purple-600" />
+                )}
               </div>
-              <div className="text-gray-500">
-                No videos created yet. Create your first video now!
+              <div className="space-y-2">
+                <div className="text-gray-500">
+                  {hasEnoughCredits ? (
+                    "No videos created yet. Create your first video now!"
+                  ) : (
+                    <>
+                      <p>You need at least 10 credits to create a video.</p>
+                      <p className="text-sm">Current balance: {userCredits?.credits_remaining || 0} credits</p>
+                    </>
+                  )}
+                </div>
               </div>
               <Button 
-                onClick={() => navigate("/create-video")}
+                onClick={handleCreateOrPurchase}
                 className="bg-purple-600 hover:bg-purple-700"
               >
-                <Plus className="w-4 h-4 mr-2" />
-                Create First Video
+                {hasEnoughCredits ? (
+                  <>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Create First Video
+                  </>
+                ) : (
+                  <>
+                    <DollarSign className="w-4 h-4 mr-2" />
+                    Purchase Credits
+                  </>
+                )}
               </Button>
             </div>
           </Card>
@@ -189,3 +242,4 @@ export const Dashboard = () => {
     </div>
   );
 };
+

@@ -27,11 +27,11 @@ export const VideoShowcase = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
-        {[1, 2, 3].map((i) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+        {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
-            className="aspect-video bg-gray-800 rounded-lg"
+            className="aspect-video bg-gray-800 rounded-xl"
           />
         ))}
       </div>
@@ -39,15 +39,15 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
       {videos?.map((video) => (
         <div
           key={video.id}
-          className="group relative aspect-video rounded-lg overflow-hidden hover:scale-[1.02] transition-all duration-300 shadow-lg"
+          className="group relative aspect-video rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl"
         >
           {/* Video Player */}
           <video
-            className="w-full h-full object-cover cursor-pointer"
+            className="w-full h-full object-cover"
             poster={video.thumbnail_url}
             preload="none"
             onClick={(e) => {
@@ -63,18 +63,32 @@ export const VideoShowcase = () => {
             Your browser does not support the video tag.
           </video>
           
-          {/* Overlay with information */}
-          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/50 to-transparent flex flex-col justify-end p-6 opacity-0 group-hover:opacity-100 transition-opacity">
-            <span className="inline-block px-3 py-1 bg-purple-600 text-xs font-medium text-white rounded-full mb-3 w-fit">
-              {video.category}
-            </span>
-            <h3 className="text-white text-lg font-semibold mb-2">{video.title}</h3>
-            <p className="text-gray-200 text-sm line-clamp-2">{video.description}</p>
+          {/* Dark Gradient Overlay - Always visible */}
+          <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-transparent opacity-60 group-hover:opacity-90 transition-opacity" />
+
+          {/* Content Overlay */}
+          <div className="absolute inset-0 p-6 flex flex-col justify-between transform transition-transform duration-300">
+            {/* Top Section with Category */}
+            <div className="flex justify-between items-start opacity-0 group-hover:opacity-100 transition-opacity">
+              <span className="inline-block px-3 py-1 bg-purple-600/90 text-xs font-medium text-white rounded-full">
+                {video.category}
+              </span>
+            </div>
+
+            {/* Bottom Section with Title and Description */}
+            <div className="transform translate-y-4 group-hover:translate-y-0 transition-transform">
+              <h3 className="text-white text-xl font-bold mb-2 drop-shadow-lg">
+                {video.title}
+              </h3>
+              <p className="text-gray-200 text-sm line-clamp-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                {video.description}
+              </p>
+            </div>
           </div>
 
-          {/* Play button overlay */}
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center opacity-75 group-hover:opacity-0 transition-opacity">
+          {/* Play Button Overlay */}
+          <div className="absolute inset-0 flex items-center justify-center opacity-90 group-hover:opacity-0 transition-opacity duration-300">
+            <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
               <svg
                 className="w-8 h-8 text-white"
                 fill="currentColor"

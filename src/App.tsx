@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -68,6 +69,7 @@ const App = () => (
             <Route path="/auth" element={<Auth />} />
             <Route path="/auth/login" element={<LoginForm />} />
             <Route path="/auth/signup" element={<SignupForm />} />
+            <Route path="/plans" element={<Plans />} />
             <Route
               path="/create-video"
               element={
@@ -81,14 +83,6 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <Integrations />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/plans"
-              element={
-                <ProtectedRoute>
-                  <Plans />
                 </ProtectedRoute>
               }
             />

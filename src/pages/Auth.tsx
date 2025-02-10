@@ -46,46 +46,48 @@ const Auth = () => {
         <div className="w-full max-w-6xl mx-auto flex flex-col lg:flex-row gap-8 items-center">
           {/* Left side - Video Showcase */}
           <div className="w-full lg:w-7/12 space-y-8">
-            <div className="text-center lg:text-left">
-              <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
-                Create Amazing Videos with AI
-              </h1>
-              <p className="text-gray-300 text-base sm:text-lg">
-                Transform your content into engaging videos in minutes
-              </p>
-            </div>
-            <VideoShowcase />
-            
-            {/* Powered By Section */}
-            <div className="pt-8 border-t border-gray-800">
-              <p className="text-gray-400 text-sm mb-4 text-center">Powered by</p>
-              <div className="flex justify-center items-center gap-4 sm:gap-8 flex-wrap px-2">
-                <div className="flex items-center space-x-2">
-                  <img 
-                    src="/lovable-uploads/a0d067e3-31c4-4460-9f9b-7c01de698cb0.png"
-                    alt="Kling AI Logo"
-                    className="h-5 sm:h-6 w-auto"
-                  />
-                  <span className="text-gray-300 text-xs sm:text-sm">Kling AI</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <img 
-                    src="/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png"
-                    alt="Eleven Labs Logo"
-                    className="h-5 sm:h-6 w-auto"
-                  />
-                  <span className="text-gray-300 text-xs sm:text-sm">Eleven Labs</span>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <img 
-                    src="/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png"
-                    alt="ChatGPT-4o Logo"
-                    className="h-5 sm:h-6 w-auto"
-                  />
-                  <span className="text-gray-300 text-xs sm:text-sm">ChatGPT-4o</span>
+            <div className="text-center lg:text-left space-y-8">
+              <div>
+                <h1 className="text-3xl sm:text-4xl font-bold text-white mb-4">
+                  Create Amazing Videos with AI
+                </h1>
+                <p className="text-gray-300 text-base sm:text-lg">
+                  Transform your content into engaging videos in minutes
+                </p>
+              </div>
+
+              {/* Powered By Section - Moved here */}
+              <div className="pt-4">
+                <p className="text-gray-400 text-sm mb-4">Powered by</p>
+                <div className="flex justify-center lg:justify-start items-center gap-4 sm:gap-8 flex-wrap">
+                  <div className="flex items-center space-x-2">
+                    <img 
+                      src="/lovable-uploads/a0d067e3-31c4-4460-9f9b-7c01de698cb0.png"
+                      alt="Kling AI Logo"
+                      className="h-5 sm:h-6 w-auto"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm">Kling AI</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <img 
+                      src="/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png"
+                      alt="Eleven Labs Logo"
+                      className="h-5 sm:h-6 w-auto"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm">Eleven Labs</span>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <img 
+                      src="/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png"
+                      alt="ChatGPT-4o Logo"
+                      className="h-5 sm:h-6 w-auto"
+                    />
+                    <span className="text-gray-300 text-xs sm:text-sm">ChatGPT-4o</span>
+                  </div>
                 </div>
               </div>
             </div>
+            <VideoShowcase />
           </div>
         </div>
       </div>

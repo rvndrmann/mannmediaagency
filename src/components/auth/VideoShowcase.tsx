@@ -80,7 +80,7 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="relative w-full px-4 md:px-8 lg:px-12">
+    <div className="relative w-full max-w-[1400px] mx-auto px-4 md:px-8 lg:px-12">
       <Carousel
         ref={emblaRef}
         opts={{
@@ -93,9 +93,9 @@ export const VideoShowcase = () => {
       >
         <CarouselContent className="-ml-4">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/3 lg:basis-1/6">
+            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/6">
               <div className="space-y-4">
-                <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
+                <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl min-h-[360px]">
                   <video
                     ref={(el) => {
                       if (el) {

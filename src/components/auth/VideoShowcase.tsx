@@ -10,7 +10,7 @@ import {
   CarouselPrevious,
 } from "@/components/ui/carousel";
 import useEmblaCarousel from 'embla-carousel-react';
-import AutoplayType from 'embla-carousel-autoplay/components/Autoplay';
+import Autoplay from 'embla-carousel-autoplay';
 
 interface ShowcaseVideo {
   id: string;
@@ -33,7 +33,7 @@ export const VideoShowcase = () => {
   
   const [emblaRef, emblaApi] = useEmblaCarousel(
     { loop: true },
-    [AutoplayType(autoplayOptions)]
+    [Autoplay(autoplayOptions)]
   );
 
   const { data: videos, isLoading } = useQuery({

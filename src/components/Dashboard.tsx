@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Video, DollarSign } from "lucide-react";
@@ -152,7 +151,7 @@ export const Dashboard = () => {
           </Card>
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
-            <Card key={story["stories id"]} className="overflow-hidden">
+            <Card key={story["stories id"]} className="overflow-hidden mx-auto w-full max-w-md">
               <div className="aspect-video bg-gray-100">
                 {story.final_video_with_music ? (
                   <div className="flex flex-col items-center gap-2 p-4">
@@ -198,7 +197,7 @@ export const Dashboard = () => {
             </Card>
           ))
         ) : (
-          <Card className="col-span-full p-8 text-center bg-gray-50">
+          <Card className="col-span-full p-8 text-center bg-gray-50 mx-auto w-full max-w-md">
             <div className="flex flex-col items-center gap-4">
               <div className="p-3 rounded-full bg-purple-100">
                 {hasEnoughCredits ? (
@@ -242,4 +241,3 @@ export const Dashboard = () => {
     </div>
   );
 };
-

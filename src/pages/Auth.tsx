@@ -43,6 +43,37 @@ const Auth = () => {
 
       {/* Main Content */}
       <div className="px-6 lg:px-12 py-12 lg:py-24">
+        {/* Powered By Section - Moved above main content */}
+        <div className="text-center mb-16">
+          <p className="text-gray-400 text-sm mb-6">Powered by</p>
+          <div className="flex justify-center items-center gap-8 flex-wrap">
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/a0d067e3-31c4-4460-9f9b-7c01de698cb0.png"
+                alt="Kling AI Logo"
+                className="h-6 w-auto"
+              />
+              <span className="text-gray-300">Kling AI</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png"
+                alt="Eleven Labs Logo"
+                className="h-6 w-auto"
+              />
+              <span className="text-gray-300">Eleven Labs</span>
+            </div>
+            <div className="flex items-center space-x-3">
+              <img 
+                src="/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png"
+                alt="ChatGPT-4o Logo"
+                className="h-6 w-auto"
+              />
+              <span className="text-gray-300">ChatGPT-4o</span>
+            </div>
+          </div>
+        </div>
+
         <div className="w-full max-w-7xl mx-auto flex flex-col lg:flex-row items-center justify-between gap-12 lg:gap-24">
           {/* Left Column - Text Content */}
           <div className="w-full lg:w-1/2 space-y-8">
@@ -53,37 +84,6 @@ const Auth = () => {
               <p className="text-xl text-gray-300">
                 Transform your content into engaging videos in minutes
               </p>
-            </div>
-
-            {/* Powered By Section */}
-            <div className="pt-8">
-              <p className="text-gray-400 text-sm mb-6">Powered by</p>
-              <div className="flex justify-center lg:justify-start items-center gap-8 flex-wrap">
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src="/lovable-uploads/a0d067e3-31c4-4460-9f9b-7c01de698cb0.png"
-                    alt="Kling AI Logo"
-                    className="h-6 w-auto"
-                  />
-                  <span className="text-gray-300">Kling AI</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src="/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png"
-                    alt="Eleven Labs Logo"
-                    className="h-6 w-auto"
-                  />
-                  <span className="text-gray-300">Eleven Labs</span>
-                </div>
-                <div className="flex items-center space-x-3">
-                  <img 
-                    src="/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png"
-                    alt="ChatGPT-4o Logo"
-                    className="h-6 w-auto"
-                  />
-                  <span className="text-gray-300">ChatGPT-4o</span>
-                </div>
-              </div>
             </div>
           </div>
 

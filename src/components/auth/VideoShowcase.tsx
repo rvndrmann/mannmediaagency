@@ -50,13 +50,12 @@ export const VideoShowcase = () => {
     },
   });
 
-  // Effect to initialize video frames when videos are loaded
   useEffect(() => {
     if (videos) {
       videos.forEach((video) => {
         const videoEl = videoRefs.current[video.id];
         if (videoEl) {
-          videoEl.currentTime = 2; // Set to show 2-second frame
+          videoEl.currentTime = 2;
           videoEl.load();
         }
       });
@@ -65,7 +64,7 @@ export const VideoShowcase = () => {
 
   if (isLoading) {
     return (
-      <div className="grid grid-cols-3 md:grid-cols-6 gap-4 animate-pulse">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 animate-pulse">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <div
             key={i}
@@ -81,25 +80,22 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="relative w-full px-12">
+    <div className="relative w-full px-4 md:px-8 lg:px-12">
       <Carousel
         ref={emblaRef}
         opts={{
           align: "start",
           loop: true,
           dragFree: true,
-          containScroll: false,
-          skipSnaps: false,
+          slidesToScroll: 1,
         }}
         className="w-full"
       >
         <CarouselContent className="-ml-4">
           {videos?.map((video) => (
-            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/6">
+            <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/3 lg:basis-1/6">
               <div className="space-y-4">
-                {/* Video Container */}
                 <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl">
-                  {/* Video Player */}
                   <video
                     ref={(el) => {
                       if (el) {
@@ -112,11 +108,11 @@ export const VideoShowcase = () => {
                     controls
                     onLoadedMetadata={(e) => {
                       const videoEl = e.currentTarget;
-                      videoEl.currentTime = 2; // Set to show 2-second frame
+                      videoEl.currentTime = 2;
                     }}
                     onLoadedData={(e) => {
                       const videoEl = e.currentTarget;
-                      videoEl.currentTime = 2; // Set to show 2-second frame
+                      videoEl.currentTime = 2;
                     }}
                     onPlay={() => setPlayingVideoId(video.id)}
                     onPause={() => setPlayingVideoId(null)}
@@ -127,7 +123,7 @@ export const VideoShowcase = () => {
                         document.querySelectorAll('video').forEach(v => {
                           if (v !== videoEl) {
                             v.pause();
-                            v.currentTime = 2; // Reset other videos to 2-second frame
+                            v.currentTime = 2;
                           }
                         });
                         videoEl.play();
@@ -140,14 +136,12 @@ export const VideoShowcase = () => {
                     Your browser does not support the video tag.
                   </video>
 
-                  {/* Category Badge */}
                   <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
                     <span className="inline-block px-3 py-1 bg-purple-600/90 text-xs font-medium text-white rounded-full">
                       {video.category}
                     </span>
                   </div>
 
-                  {/* Play Button Overlay */}
                   <div 
                     className={`absolute inset-0 flex items-center justify-center opacity-0 
                       ${playingVideoId !== video.id ? 'group-hover:opacity-90' : ''} 
@@ -165,9 +159,8 @@ export const VideoShowcase = () => {
                   </div>
                 </div>
 
-                {/* Video Information Below */}
                 <div className="space-y-2">
-                  <h3 className="text-white text-lg md:text-xl font-bold line-clamp-1">
+                  <h3 className="text-white text-lg font-bold line-clamp-1">
                     {video.title}
                   </h3>
                   <p className="text-gray-400 text-sm line-clamp-2">
@@ -178,8 +171,8 @@ export const VideoShowcase = () => {
             </CarouselItem>
           ))}
         </CarouselContent>
-        <CarouselPrevious className="absolute left-0 bg-purple-600 hover:bg-purple-700 text-white border-none" />
-        <CarouselNext className="absolute right-0 bg-purple-600 hover:bg-purple-700 text-white border-none" />
+        <CarouselPrevious className="absolute -left-2 md:-left-4 lg:-left-12 bg-purple-600 hover:bg-purple-700 text-white border-none" />
+        <CarouselNext className="absolute -right-2 md:-right-4 lg:-right-12 bg-purple-600 hover:bg-purple-700 text-white border-none" />
       </Carousel>
     </div>
   );

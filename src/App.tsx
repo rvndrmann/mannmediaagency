@@ -50,89 +50,87 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   return isAuthenticated ? <>{children}</> : <Navigate to="/auth" />;
 };
 
-function App() {
-  return (
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background font-sans antialiased">
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <TooltipProvider>
-            <Routes>
-              <Route
-                path="/"
-                element={
-                  <ProtectedRoute>
-                    <Index />
-                  </ProtectedRoute>
-                }
-              />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/login" element={<LoginForm />} />
-              <Route path="/auth/signup" element={<SignupForm />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route
-                path="/create-video"
-                element={
-                  <ProtectedRoute>
-                    <CreateVideo />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/integrations"
-                element={
-                  <ProtectedRoute>
-                    <Integrations />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/ai-agent"
-                element={
-                  <ProtectedRoute>
-                    <AIAgent />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment"
-                element={
-                  <ProtectedRoute>
-                    <Payment />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment/success"
-                element={
-                  <ProtectedRoute>
-                    <PaymentSuccess />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment/failure"
-                element={
-                  <ProtectedRoute>
-                    <PaymentFailure />
-                  </ProtectedRoute>
-                }
-              />
-              <Route
-                path="/payment/cancel"
-                element={
-                  <ProtectedRoute>
-                    <PaymentCancel />
-                  </ProtectedRoute>
-                }
-              />
-            </Routes>
-          </TooltipProvider>
-        </BrowserRouter>
-      </div>
-    </QueryClientProvider>
-  );
-}
+const App = () => (
+  <QueryClientProvider client={queryClient}>
+    <div className="min-h-screen bg-background font-sans antialiased">
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <TooltipProvider>
+          <Routes>
+            <Route
+              path="/"
+              element={
+                <ProtectedRoute>
+                  <Index />
+                </ProtectedRoute>
+              }
+            />
+            <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/login" element={<LoginForm />} />
+            <Route path="/auth/signup" element={<SignupForm />} />
+            <Route path="/plans" element={<Plans />} />
+            <Route
+              path="/create-video"
+              element={
+                <ProtectedRoute>
+                  <CreateVideo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/integrations"
+              element={
+                <ProtectedRoute>
+                  <Integrations />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/ai-agent"
+              element={
+                <ProtectedRoute>
+                  <AIAgent />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment"
+              element={
+                <ProtectedRoute>
+                  <Payment />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/success"
+              element={
+                <ProtectedRoute>
+                  <PaymentSuccess />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/failure"
+              element={
+                <ProtectedRoute>
+                  <PaymentFailure />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/payment/cancel"
+              element={
+                <ProtectedRoute>
+                  <PaymentCancel />
+                </ProtectedRoute>
+              }
+            />
+          </Routes>
+        </TooltipProvider>
+      </BrowserRouter>
+    </div>
+  </QueryClientProvider>
+);
 
 export default App;

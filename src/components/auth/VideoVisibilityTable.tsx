@@ -57,7 +57,7 @@ export const VideoVisibilityTable = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stories")
-        .select('"stories id", final_video_with_music, source');
+        .select("stories id, final_video_with_music, source");
       
       if (error) throw error;
       return data as Story[];
@@ -132,11 +132,11 @@ export const VideoVisibilityTable = () => {
               <TableCell>{video.category}</TableCell>
               <TableCell>
                 <Select
-                  value={video.story_id?.toString() || "null"}
+                  value={video.story_id?.toString() || ""}
                   onValueChange={(value) => {
                     updateStoryId.mutate({
                       id: video.id,
-                      story_id: value === "null" ? null : parseInt(value),
+                      story_id: value ? parseInt(value) : null,
                     });
                   }}
                 >
@@ -144,7 +144,7 @@ export const VideoVisibilityTable = () => {
                     <SelectValue placeholder="Select a story" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="null">None</SelectItem>
+                    <SelectItem value="">None</SelectItem>
                     {stories?.map((story) => (
                       <SelectItem 
                         key={story["stories id"]} 

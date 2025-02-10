@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { LayoutDashboard, LogOut, DollarSign, User, Video, Bot, AlertCircle, Link2 } from "lucide-react";
@@ -188,3 +189,4 @@ export const Sidebar = () => {
     </SidebarComponent>
   );
 };
+

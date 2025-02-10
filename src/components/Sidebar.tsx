@@ -84,11 +84,22 @@ export const Sidebar = () => {
           {/* Profile Section */}
           <Card className="bg-gray-800 border-gray-700 p-4">
             <div className="flex items-center gap-3 mb-3">
-              <div className="h-10 w-10 rounded-full bg-gray-700 flex items-center justify-center">
+              <div className="h-10 w-10 flex-shrink-0 rounded-full bg-gray-700 flex items-center justify-center">
                 <User className="h-5 w-5 text-gray-400" />
               </div>
-              <div>
-                <div className="text-sm font-medium text-white">{user?.email}</div>
+              <div className="min-w-0 flex-1">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="text-sm font-medium text-white truncate">
+                        {user?.email}
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{user?.email}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
                 <div className="text-xs text-gray-400">Free Plan</div>
               </div>
             </div>
@@ -189,4 +200,3 @@ export const Sidebar = () => {
     </SidebarComponent>
   );
 };
-

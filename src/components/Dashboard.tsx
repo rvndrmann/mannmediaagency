@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Video, DollarSign } from "lucide-react";
@@ -140,9 +141,9 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 place-items-center">
         {isLoadingStories ? (
-          <Card className="p-6">
+          <Card className="p-6 w-full max-w-md">
             <div className="animate-pulse flex flex-col gap-4">
               <div className="h-40 bg-gray-200 rounded"></div>
               <div className="h-4 bg-gray-200 rounded w-1/4"></div>
@@ -151,7 +152,7 @@ export const Dashboard = () => {
           </Card>
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
-            <Card key={story["stories id"]} className="overflow-hidden mx-auto w-full max-w-md">
+            <Card key={story["stories id"]} className="overflow-hidden w-full max-w-md">
               <div className="aspect-video bg-gray-100">
                 {story.final_video_with_music ? (
                   <div className="flex flex-col items-center gap-2 p-4">
@@ -197,7 +198,7 @@ export const Dashboard = () => {
             </Card>
           ))
         ) : (
-          <Card className="col-span-full p-8 text-center bg-gray-50 mx-auto w-full max-w-md">
+          <Card className="col-span-full p-8 text-center bg-gray-50 w-full max-w-md">
             <div className="flex flex-col items-center gap-4">
               <div className="p-3 rounded-full bg-purple-100">
                 {hasEnoughCredits ? (

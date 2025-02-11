@@ -93,7 +93,7 @@ const SignupForm = () => {
           <Button
             variant="ghost"
             className="text-gray-400 hover:text-gray-300"
-            onClick={() => navigate("/auth")}
+            onClick={() => navigate("/")}
           >
             Back to home
           </Button>

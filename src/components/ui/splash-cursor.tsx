@@ -26,6 +26,11 @@ export const SplashCursor = () => {
     const resizeCanvas = () => {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
+      // Force an initial point at the center when resizing
+      mouseRef.current = {
+        x: window.innerWidth / 2,
+        y: window.innerHeight / 2,
+      };
     };
 
     resizeCanvas();
@@ -36,9 +41,9 @@ export const SplashCursor = () => {
       pointsRef.current.push({
         x,
         y,
-        dx: (Math.random() - 0.5) * 4,
-        dy: (Math.random() - 0.5) * 4,
-        size: Math.random() * 20 + 10,
+        dx: (Math.random() - 0.5) * 6, // Increased speed
+        dy: (Math.random() - 0.5) * 6, // Increased speed
+        size: Math.random() * 30 + 15, // Increased size
         color: colors[Math.floor(Math.random() * colors.length)],
         alpha: 1,
       });
@@ -48,7 +53,7 @@ export const SplashCursor = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Add new points based on mouse position
-      if (Math.random() < 0.3) {
+      if (Math.random() < 0.5) { // Increased frequency
         addPoint(mouseRef.current.x, mouseRef.current.y);
       }
 
@@ -56,7 +61,7 @@ export const SplashCursor = () => {
       pointsRef.current = pointsRef.current.filter((point) => {
         point.x += point.dx;
         point.y += point.dy;
-        point.alpha *= 0.98;
+        point.alpha *= 0.97; // Slightly slower fade
 
         ctx.beginPath();
         ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
@@ -76,6 +81,11 @@ export const SplashCursor = () => {
       };
     };
 
+    // Add initial points at the center
+    for (let i = 0; i < 5; i++) {
+      addPoint(window.innerWidth / 2, window.innerHeight / 2);
+    }
+
     window.addEventListener("mousemove", handleMouseMove);
     animate();
 
@@ -88,7 +98,7 @@ export const SplashCursor = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-50 opacity-70"
+      className="pointer-events-none fixed inset-0 z-[1] opacity-90" // Increased opacity and adjusted z-index
     />
   );
 };

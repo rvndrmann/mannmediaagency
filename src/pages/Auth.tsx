@@ -12,7 +12,7 @@ const Auth = () => {
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900">
       <SplashCursor />
       {/* Navigation Bar */}
-      <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4">
+      <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
         <div className="text-2xl font-bold text-white w-full sm:w-auto text-center sm:text-left">
           mannmediaagency
         </div>
@@ -44,7 +44,7 @@ const Auth = () => {
       </div>
 
       {/* Main Content */}
-      <div className="px-6 lg:px-12 py-12 lg:py-24">
+      <div className="px-6 lg:px-12 py-12 lg:py-24 relative z-10">
         {/* Main Heading - Moved above Powered By */}
         <div className="text-center mb-16">
           <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">

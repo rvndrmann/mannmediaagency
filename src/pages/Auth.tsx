@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { LogIn, RocketIcon, TagIcon } from "lucide-react";
 import { VideoShowcase } from "@/components/auth/VideoShowcase";
 import { SplashCursor } from "@/components/ui/splash-cursor";
-import { RainbowButton } from "@/components/ui/rainbow-button";
 
 const Auth = () => {
   const navigate = useNavigate();
@@ -34,13 +33,13 @@ const Auth = () => {
             <TagIcon className="mr-2 h-4 w-4" />
             Pricing
           </Button>
-          <RainbowButton
+          <Button
             onClick={() => navigate("/auth/signup")}
-            className="flex items-center gap-2"
+            className="bg-purple-600 hover:bg-purple-700 text-white"
           >
-            <RocketIcon className="h-4 w-4" />
+            <RocketIcon className="mr-2 h-4 w-4" />
             Start Now
-          </RainbowButton>
+          </Button>
         </div>
       </div>
 

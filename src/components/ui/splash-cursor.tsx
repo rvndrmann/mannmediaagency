@@ -37,15 +37,16 @@ export const SplashCursor = () => {
     window.addEventListener("resize", resizeCanvas);
 
     const addPoint = (x: number, y: number) => {
-      const colors = ["#E2CBFF", "#393BB2", "#8B5CF6"];
+      // Using lighter, more pastel colors
+      const colors = ["#E5DEFF", "#D3E4FD", "#E2CBFF"];
       pointsRef.current.push({
         x,
         y,
-        dx: (Math.random() - 0.5) * 6, // Increased speed
-        dy: (Math.random() - 0.5) * 6, // Increased speed
-        size: Math.random() * 30 + 15, // Increased size
+        dx: (Math.random() - 0.5) * 6,
+        dy: (Math.random() - 0.5) * 6,
+        size: Math.random() * 30 + 15,
         color: colors[Math.floor(Math.random() * colors.length)],
-        alpha: 1,
+        alpha: 0.8, // Reduced initial alpha for more transparency
       });
     };
 
@@ -53,7 +54,7 @@ export const SplashCursor = () => {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
       // Add new points based on mouse position
-      if (Math.random() < 0.5) { // Increased frequency
+      if (Math.random() < 0.5) {
         addPoint(mouseRef.current.x, mouseRef.current.y);
       }
 
@@ -61,7 +62,7 @@ export const SplashCursor = () => {
       pointsRef.current = pointsRef.current.filter((point) => {
         point.x += point.dx;
         point.y += point.dy;
-        point.alpha *= 0.97; // Slightly slower fade
+        point.alpha *= 0.97;
 
         ctx.beginPath();
         ctx.arc(point.x, point.y, point.size, 0, Math.PI * 2);
@@ -98,7 +99,7 @@ export const SplashCursor = () => {
   return (
     <canvas
       ref={canvasRef}
-      className="pointer-events-none fixed inset-0 z-[1] opacity-90" // Increased opacity and adjusted z-index
+      className="pointer-events-none fixed inset-0 z-[1] opacity-70" // Reduced opacity from 90 to 70
     />
   );
 };

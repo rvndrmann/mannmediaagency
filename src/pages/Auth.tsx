@@ -3,12 +3,14 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, RocketIcon, TagIcon } from "lucide-react";
 import { VideoShowcase } from "@/components/auth/VideoShowcase";
+import { SplashCursor } from "@/components/ui/splash-cursor";
 
 const Auth = () => {
   const navigate = useNavigate();
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900">
+      <SplashCursor />
       {/* Navigation Bar */}
       <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4">
         <div className="text-2xl font-bold text-white w-full sm:w-auto text-center sm:text-left">
@@ -85,7 +87,7 @@ const Auth = () => {
         </div>
 
         {/* Video Showcase - Full Width */}
-        <div className="w-full max-w-[1400px] mx-auto">
+        <div className="w-full max-w-[1400px] mx-auto relative z-10">
           <VideoShowcase />
         </div>
       </div>

@@ -44,23 +44,16 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
 
   const generateMetadata = useMutation({
     mutationFn: async () => {
-      const response = await fetch("/api/generate-story-metadata", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke("generate-story-metadata", {
+        body: {
           storyId,
           additionalContext,
           customTitleTwist,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to generate metadata");
-      }
-
-      return response.json();
+      if (error) throw error;
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["storyMetadata", storyId] });

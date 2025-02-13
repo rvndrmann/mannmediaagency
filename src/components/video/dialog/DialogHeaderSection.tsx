@@ -20,9 +20,10 @@ export const DialogHeaderSection = ({
           <X className="h-5 w-5" />
           <span className="text-lg">Back to Dashboard</span>
         </div>
-        <span className="text-purple-600">
-          {availableVideos} videos available ({creditsRemaining} credits - costs 20 credits per video)
-        </span>
+        <div className="text-purple-600 text-right">
+          <div>Available Credits: {creditsRemaining}</div>
+          <div className="text-sm text-gray-500">Cost: 20 credits per video</div>
+        </div>
       </div>
       
       <DialogTitle className="text-4xl font-bold text-purple-600 mb-8">

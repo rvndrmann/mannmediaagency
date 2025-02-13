@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Video, DollarSign, ArrowRight } from "lucide-react";
@@ -161,21 +162,21 @@ export const Dashboard = () => {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 md:gap-6 place-items-center">
+      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 place-items-start">
         {isLoadingStories ? (
-          <Card className="p-6 w-full max-w-md">
+          <Card className="p-4 w-full max-w-[300px]">
             <div className="animate-pulse flex flex-col gap-4">
-              <div className="h-40 bg-gray-200 rounded"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-4 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-32 bg-gray-200 rounded"></div>
+              <div className="h-3 bg-gray-200 rounded w-1/4"></div>
+              <div className="h-3 bg-gray-200 rounded w-3/4"></div>
             </div>
           </Card>
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
-            <Card key={story["stories id"]} className="overflow-hidden w-full max-w-md">
+            <Card key={story["stories id"]} className="overflow-hidden w-full max-w-[300px]">
               <div className="aspect-video bg-gray-100">
                 {story.final_video_with_music ? (
-                  <div className="flex flex-col items-center gap-2 p-4">
+                  <div className="flex flex-col items-center gap-1 p-2">
                     <video 
                       src={story.final_video_with_music} 
                       controls 
@@ -185,14 +186,14 @@ export const Dashboard = () => {
                         updateVideoLength(story, video.duration);
                       }}
                     />
-                    <div className="flex items-center justify-between w-full mt-2">
+                    <div className="flex items-center justify-between w-full mt-1">
                       {story.video_length_seconds && (
-                        <div className="flex items-center text-sm text-gray-600">
-                          <Video className="w-4 h-4 mr-1" />
+                        <div className="flex items-center text-xs text-gray-600">
+                          <Video className="w-3 h-3 mr-1" />
                           {formatDuration(story.video_length_seconds)}
-                          <div className="ml-4 flex items-center text-blue-500">
-                            <span className="text-sm">Click three dots to download</span>
-                            <ArrowRight className="w-4 h-4 ml-1" />
+                          <div className="ml-2 flex items-center text-blue-500">
+                            <span className="text-xs">Click three dots to download</span>
+                            <ArrowRight className="w-3 h-3 ml-1" />
                           </div>
                         </div>
                       )}
@@ -200,22 +201,22 @@ export const Dashboard = () => {
                   </div>
                 ) : (
                   <div className="h-full flex items-center justify-center">
-                    <div className="text-gray-400">Processing...</div>
+                    <div className="text-gray-400 text-sm">Processing...</div>
                   </div>
                 )}
               </div>
-              <div className="p-4">
-                <p className="text-sm text-gray-500 mb-2">
+              <div className="p-2">
+                <p className="text-xs text-gray-500 mb-1">
                   Created: {formatDate(story.created_at)}
                 </p>
-                <p className="text-sm text-gray-500">
+                <p className="text-xs text-gray-500">
                   Status: {story.ready_to_go ? "Ready" : "Processing"}
                 </p>
               </div>
             </Card>
           ))
         ) : (
-          <Card className="col-span-full p-8 text-center bg-gray-50 w-full max-w-md">
+          <Card className="col-span-full p-6 text-center bg-gray-50 w-full max-w-md">
             <div className="flex flex-col items-center gap-4">
               <div className="p-3 rounded-full bg-purple-100">
                 {hasEnoughCredits ? (

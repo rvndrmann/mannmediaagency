@@ -78,7 +78,7 @@ ${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',  // Changed to correct model name
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }

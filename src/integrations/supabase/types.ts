@@ -408,6 +408,7 @@ export type Database = {
           ready_to_go: boolean | null
           source: string | null
           "stories id": number
+          story: string | null
           story_type_id: number | null
           user_id: string | null
           video_length_seconds: number | null
@@ -419,6 +420,7 @@ export type Database = {
           ready_to_go?: boolean | null
           source?: string | null
           "stories id"?: number
+          story?: string | null
           story_type_id?: number | null
           user_id?: string | null
           video_length_seconds?: number | null
@@ -430,6 +432,7 @@ export type Database = {
           ready_to_go?: boolean | null
           source?: string | null
           "stories id"?: number
+          story?: string | null
           story_type_id?: number | null
           user_id?: string | null
           video_length_seconds?: number | null

@@ -520,6 +520,56 @@ export type Database = {
           },
         ]
       }
+      story_metadata: {
+        Row: {
+          additional_context: string | null
+          created_at: string
+          custom_title_twist: string | null
+          id: string
+          instagram_hashtags: string | null
+          keywords: string | null
+          seo_description: string | null
+          seo_title: string | null
+          story_id: number
+          thumbnail_prompt: string | null
+          updated_at: string
+        }
+        Insert: {
+          additional_context?: string | null
+          created_at?: string
+          custom_title_twist?: string | null
+          id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          story_id: number
+          thumbnail_prompt?: string | null
+          updated_at?: string
+        }
+        Update: {
+          additional_context?: string | null
+          created_at?: string
+          custom_title_twist?: string | null
+          id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          seo_description?: string | null
+          seo_title?: string | null
+          story_id?: number
+          thumbnail_prompt?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "story_metadata_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: true
+            referencedRelation: "stories"
+            referencedColumns: ["stories id"]
+          },
+        ]
+      }
       story_type: {
         Row: {
           created_at: string

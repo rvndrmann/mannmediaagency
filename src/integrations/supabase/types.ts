@@ -140,6 +140,72 @@ export type Database = {
         }
         Relationships: []
       }
+      discount_codes: {
+        Row: {
+          code: string
+          created_at: string | null
+          discount_percentage: number
+          id: string
+          valid_from: string | null
+          valid_until: string
+        }
+        Insert: {
+          code: string
+          created_at?: string | null
+          discount_percentage: number
+          id?: string
+          valid_from?: string | null
+          valid_until: string
+        }
+        Update: {
+          code?: string
+          created_at?: string | null
+          discount_percentage?: number
+          id?: string
+          valid_from?: string | null
+          valid_until?: string
+        }
+        Relationships: []
+      }
+      discount_usage: {
+        Row: {
+          discount_code_id: string
+          id: string
+          transaction_id: string | null
+          used_at: string | null
+          user_id: string
+        }
+        Insert: {
+          discount_code_id: string
+          id?: string
+          transaction_id?: string | null
+          used_at?: string | null
+          user_id: string
+        }
+        Update: {
+          discount_code_id?: string
+          id?: string
+          transaction_id?: string | null
+          used_at?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "discount_usage_discount_code_id_fkey"
+            columns: ["discount_code_id"]
+            isOneToOne: false
+            referencedRelation: "discount_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "discount_usage_transaction_id_fkey"
+            columns: ["transaction_id"]
+            isOneToOne: false
+            referencedRelation: "payment_transactions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_states: {
         Row: {
           created_at: string

@@ -2,15 +2,12 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 
-interface PlanFeature {
-  text: string;
-}
-
 interface PlanProps {
   name: string;
   credits: string;
   videos: string;
   price: string;
+  originalPrice?: string;
   billing: string;
   features: string[];
   onSubscribe: () => void;
@@ -21,6 +18,7 @@ export const PlanCard = ({
   credits,
   videos,
   price,
+  originalPrice,
   billing,
   features,
   onSubscribe,
@@ -35,7 +33,14 @@ export const PlanCard = ({
         </div>
         
         <div>
-          <div className="text-3xl font-bold text-white">{price}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-3xl font-bold text-white">{price}</div>
+            {originalPrice && (
+              <div className="text-lg text-white/50 line-through">
+                {originalPrice}
+              </div>
+            )}
+          </div>
           <div className="text-sm text-white/70">{billing}</div>
         </div>
 

@@ -30,10 +30,10 @@ serve(async (req) => {
     const { storyId, additionalContext, customTitleTwist } = await req.json();
     console.log(`Generating metadata for story ${storyId}`);
     
-    // Get Supabase client
+    // Get Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
-    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY')!;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const supabaseServiceRoleKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
+    const supabase = createClient(supabaseUrl, supabaseServiceRoleKey);
 
     // Get story content
     const { data: story, error: storyError } = await supabase
@@ -78,7 +78,7 @@ ${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}`;
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',  // Changed to correct model name
+        model: 'gpt-4',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }
@@ -134,7 +134,7 @@ ${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}`;
 
     console.log('Successfully generated metadata:', metadata);
 
-    // Store metadata in database
+    // Store metadata in database using service role key to bypass RLS
     const { error: insertError } = await supabase
       .from('story_metadata')
       .upsert({

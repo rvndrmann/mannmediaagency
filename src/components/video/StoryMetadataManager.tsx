@@ -29,6 +29,20 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  const { data: story } = useQuery({
+    queryKey: ["story", storyId],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("stories")
+        .select("final_video_with_music")
+        .eq("stories id", storyId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
   const handleCopy = async (text: string, fieldName: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
@@ -113,6 +127,20 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
 
   return (
     <div className="space-y-6 p-4">
+      {/* Video Player Section */}
+      {story?.final_video_with_music && (
+        <div className="rounded-lg overflow-hidden bg-[#222222] aspect-[9/16] max-h-[400px]">
+          <video
+            src={story.final_video_with_music}
+            controls
+            className="w-full h-full object-contain"
+            playsInline
+          >
+            Your browser does not support the video tag.
+          </video>
+        </div>
+      )}
+
       <div className="space-y-2">
         <label className="text-sm font-medium text-white/90">
           Additional Context

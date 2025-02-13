@@ -54,7 +54,16 @@ serve(async (req) => {
     // Prepare system message for better SEO and social media expertise
     const systemMessage = `You are an expert SEO and social media specialist with deep knowledge of content optimization, 
     keyword research, and social media trends. Your task is to analyze content and generate optimized metadata that will 
-    maximize visibility and engagement across different platforms.`;
+    maximize visibility and engagement across different platforms.
+
+    You must respond with a valid JSON object containing EXACTLY these fields:
+    {
+      "seo_title": "string (60-70 chars)",
+      "seo_description": "string (max 160 chars)",
+      "keywords": "string (comma-separated)",
+      "instagram_hashtags": "string (space-separated hashtags)",
+      "thumbnail_prompt": "string"
+    }`;
 
     // Prepare user message with detailed requirements
     const userMessage = `Generate metadata for the following content:
@@ -68,16 +77,7 @@ Requirements:
 2. SEO Description (max 160 characters, compelling and actionable)
 3. Keywords (10-15 relevant terms, comma-separated)
 4. Instagram Hashtags (20-30 trending and relevant hashtags)
-5. Thumbnail Design Prompt (include text placement and visual elements)
-
-Return ONLY a valid JSON object with these exact keys:
-{
-  "seo_title": "string (60-70 chars)",
-  "seo_description": "string (max 160 chars)",
-  "keywords": "string (comma-separated)",
-  "instagram_hashtags": "string (space-separated hashtags)",
-  "thumbnail_prompt": "string"
-}`;
+5. Thumbnail Design Prompt (include text placement and visual elements)`;
 
     console.log('Calling OpenAI API...');
     
@@ -89,12 +89,12 @@ Return ONLY a valid JSON object with these exact keys:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4-mini',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }
         ],
-        temperature: 0.7, // Balanced between creativity and consistency
+        temperature: 0.7,
         max_tokens: 1000,
       }),
     });
@@ -106,6 +106,7 @@ Return ONLY a valid JSON object with these exact keys:
     }
 
     const gptData = await openAIResponse.json();
+    console.log('OpenAI response:', JSON.stringify(gptData));
     
     if (!gptData.choices?.[0]?.message?.content) {
       throw new Error('Invalid response from OpenAI API');
@@ -114,8 +115,11 @@ Return ONLY a valid JSON object with these exact keys:
     // Parse and validate the response
     let metadata: MetadataResponse;
     try {
-      metadata = JSON.parse(gptData.choices[0].message.content);
+      const content = gptData.choices[0].message.content;
+      console.log('Attempting to parse content:', content);
+      metadata = JSON.parse(content.trim());
       if (!validateMetadata(metadata)) {
+        console.error('Invalid metadata format:', metadata);
         throw new Error('Invalid metadata format');
       }
     } catch (error) {
@@ -128,7 +132,7 @@ Return ONLY a valid JSON object with these exact keys:
       metadata.seo_description = metadata.seo_description.substring(0, 157) + '...';
     }
 
-    console.log('Successfully generated metadata');
+    console.log('Successfully generated metadata:', metadata);
 
     // Store metadata in database
     const { error: insertError } = await supabase

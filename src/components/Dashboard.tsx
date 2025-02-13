@@ -8,6 +8,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -30,14 +31,19 @@ export const Dashboard = () => {
 
   const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
-  // Fetch stories without user filter
+  // Fetch stories with metadata
   const { data: stories, isLoading: isLoadingStories } = useQuery({
     queryKey: ["userStories"],
     queryFn: async () => {
       console.log("Fetching stories...");
       const { data, error } = await supabase
         .from("stories")
-        .select("*")
+        .select(`
+          *,
+          story_metadata (
+            seo_title
+          )
+        `)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -174,6 +180,11 @@ export const Dashboard = () => {
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
             <Card key={story["stories id"]} className="overflow-hidden w-full max-w-[300px]">
+              <div className="p-2 border-b border-gray-200">
+                <Badge variant="secondary" className="text-xs">
+                  Story #{story["stories id"]}
+                </Badge>
+              </div>
               <div className="aspect-video bg-gray-100">
                 {story.final_video_with_music ? (
                   <div className="flex flex-col items-center gap-1 p-2">
@@ -205,8 +216,13 @@ export const Dashboard = () => {
                   </div>
                 )}
               </div>
-              <div className="p-2">
-                <p className="text-xs text-gray-500 mb-1">
+              <div className="p-2 space-y-2">
+                {story.story_metadata?.seo_title && (
+                  <p className="text-sm font-medium line-clamp-2">
+                    {story.story_metadata.seo_title}
+                  </p>
+                )}
+                <p className="text-xs text-gray-500">
                   Created: {formatDate(story.created_at)}
                 </p>
                 <p className="text-xs text-gray-500">

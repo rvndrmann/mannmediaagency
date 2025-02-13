@@ -38,7 +38,8 @@ export const Dashboard = () => {
         .select(`
           *,
           story_metadata (
-            seo_title
+            seo_title,
+            instagram_hashtags
           )
         `)
         .order("created_at", { ascending: false });

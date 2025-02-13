@@ -1,8 +1,11 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Video, ArrowRight } from "lucide-react";
+import { Video, ArrowRight, Copy, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useToast } from "@/hooks/use-toast";
 
 interface StoryCardProps {
   story: {
@@ -13,17 +16,54 @@ interface StoryCardProps {
     video_length_seconds: number | null;
     story_metadata?: {
       seo_title: string | null;
+      instagram_hashtags: string | null;
     } | null;
   };
   onVideoLoad: (story: any, duration: number) => void;
 }
 
 export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
+  const { toast } = useToast();
+  const [copiedField, setCopiedField] = useState<string | null>(null);
+
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
     const remainingSeconds = Math.round(seconds % 60);
     return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
+
+  const handleCopy = async (text: string, field: string) => {
+    try {
+      await navigator.clipboard.writeText(text);
+      setCopiedField(field);
+      toast({
+        title: "Copied!",
+        description: `${field} copied to clipboard`,
+      });
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (err) {
+      toast({
+        title: "Failed to copy",
+        description: "Please try again",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const CopyButton = ({ text, field }: { text: string; field: string }) => (
+    <Button
+      variant="ghost"
+      size="sm"
+      className="h-8 w-8 p-0"
+      onClick={() => handleCopy(text, field)}
+    >
+      {copiedField === field ? (
+        <Check className="h-4 w-4 text-green-500" />
+      ) : (
+        <Copy className="h-4 w-4" />
+      )}
+    </Button>
+  );
 
   return (
     <Card className="overflow-hidden w-full max-w-[300px]">
@@ -65,10 +105,35 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
       </div>
       <div className="p-2 space-y-2">
         {story.story_metadata?.seo_title && (
-          <p className="text-sm font-medium line-clamp-2">
-            {story.story_metadata.seo_title}
-          </p>
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1 text-gray-600">Title:</p>
+              <p className="text-sm line-clamp-2">
+                {story.story_metadata.seo_title}
+              </p>
+            </div>
+            <CopyButton 
+              text={story.story_metadata.seo_title} 
+              field="Title" 
+            />
+          </div>
         )}
+        
+        {story.story_metadata?.instagram_hashtags && (
+          <div className="flex items-start justify-between gap-2">
+            <div className="flex-1">
+              <p className="text-sm font-medium mb-1 text-gray-600">Hashtags:</p>
+              <p className="text-sm line-clamp-2">
+                {story.story_metadata.instagram_hashtags}
+              </p>
+            </div>
+            <CopyButton 
+              text={story.story_metadata.instagram_hashtags} 
+              field="Hashtags" 
+            />
+          </div>
+        )}
+        
         <p className="text-xs text-gray-500">
           Created: {formatDate(story.created_at)}
         </p>

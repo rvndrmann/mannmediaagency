@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
-import { useToast } from "@/components/ui/use-toast";
+import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { StoryCard } from "./dashboard/StoryCard";
 import { EmptyState } from "./dashboard/EmptyState";
@@ -48,8 +48,11 @@ export const Dashboard = () => {
         console.error("Error fetching stories:", error);
         throw error;
       }
-      console.log("Fetched stories:", data);
-      return data;
+
+      // Filter out stories without final_video_with_music
+      const availableStories = data?.filter(story => story.final_video_with_music !== null) || [];
+      console.log("Fetched available stories:", availableStories);
+      return availableStories;
     },
   });
 

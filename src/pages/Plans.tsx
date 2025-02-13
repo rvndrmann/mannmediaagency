@@ -97,12 +97,13 @@ const Plans = () => {
         return;
       }
 
+      // Changed from .single() to .maybeSingle() here
       const { data: usageData } = await supabase
         .from('discount_usage')
         .select('*')
         .eq('user_id', user.id)
         .eq('discount_code_id', discountData.id)
-        .single();
+        .maybeSingle();
 
       if (usageData) {
         toast({

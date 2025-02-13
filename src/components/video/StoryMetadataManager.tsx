@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
-import { Loader2, RefreshCw } from "lucide-react";
+import { Loader2, RefreshCw, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -25,8 +25,19 @@ interface StoryMetadata {
 export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => {
   const [additionalContext, setAdditionalContext] = useState("");
   const [customTitleTwist, setCustomTitleTwist] = useState("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  const handleCopy = async (text: string, fieldName: string) => {
+    await navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    toast({
+      title: "Copied",
+      description: "Text copied to clipboard",
+    });
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const { data: metadata, isLoading } = useQuery({
     queryKey: ["storyMetadata", storyId],
@@ -79,6 +90,27 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
     );
   }
 
+  const MetadataField = ({ label, value }: { label: string; value: string }) => (
+    <div className="space-y-1">
+      <label className="text-sm font-medium text-purple-400">{label}</label>
+      <div className="flex items-start gap-2">
+        <p className="flex-1 text-white/90 bg-[#333333] p-2 rounded">{value}</p>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => handleCopy(value, label)}
+          className="shrink-0 h-8 w-8 p-0 hover:bg-white/10"
+        >
+          {copiedField === label ? (
+            <Check className="h-4 w-4 text-green-500" />
+          ) : (
+            <Copy className="h-4 w-4 text-white/70" />
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6 p-4">
       <div className="space-y-2">
@@ -124,30 +156,11 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
             <h3 className="text-lg font-semibold text-white/90">Generated Metadata</h3>
             
             <div className="space-y-4 bg-[#222222] p-4 rounded-lg">
-              <div>
-                <label className="text-sm font-medium text-purple-400">SEO Title</label>
-                <p className="text-white/90">{metadata.seo_title}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-purple-400">SEO Description</label>
-                <p className="text-white/90">{metadata.seo_description}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-purple-400">Keywords</label>
-                <p className="text-white/90">{metadata.keywords}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-purple-400">Instagram Hashtags</label>
-                <p className="text-white/90">{metadata.instagram_hashtags}</p>
-              </div>
-
-              <div>
-                <label className="text-sm font-medium text-purple-400">Thumbnail Prompt</label>
-                <p className="text-white/90">{metadata.thumbnail_prompt}</p>
-              </div>
+              <MetadataField label="SEO Title" value={metadata.seo_title} />
+              <MetadataField label="SEO Description" value={metadata.seo_description} />
+              <MetadataField label="Keywords" value={metadata.keywords} />
+              <MetadataField label="Instagram Hashtags" value={metadata.instagram_hashtags} />
+              <MetadataField label="Thumbnail Prompt" value={metadata.thumbnail_prompt} />
             </div>
           </div>
         </div>

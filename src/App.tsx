@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,6 +18,7 @@ import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
 import AIAgent from "./pages/AIAgent";
 import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
+import Metadata from "./pages/Metadata";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -108,6 +108,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CreateVideo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/metadata/:storyId?"
+              element={
+                <ProtectedRoute>
+                  <Metadata />
                 </ProtectedRoute>
               }
             />

@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { LayoutDashboard, LogOut, DollarSign, User, Video, Bot, AlertCircle, Link2 } from "lucide-react";
+import { LayoutDashboard, LogOut, DollarSign, User, Video, Bot, AlertCircle, Link2, Settings } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { useQuery } from "@tanstack/react-query";
@@ -53,25 +53,6 @@ export const Sidebar = () => {
     navigate("/create-video");
   };
 
-  const handleDashboardClick = () => {
-    console.log("Navigating to dashboard...");
-    navigate("/");
-  };
-
-  const handleAIAgentClick = () => {
-    if (!hasMinimumCreditsForAI) {
-      toast({
-        title: "Insufficient Credits",
-        description: "You need at least 1 credit to use the AI Agent. Please purchase more credits.",
-        variant: "destructive",
-      });
-      navigate("/plans");
-      return;
-    }
-    console.log("Navigating to AI Agent...");
-    navigate("/ai-agent");
-  };
-
   return (
     <SidebarComponent>
       <SidebarHeader>
@@ -114,54 +95,40 @@ export const Sidebar = () => {
             <Button
               variant="ghost"
               className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-              onClick={handleDashboardClick}
+              onClick={() => navigate("/")}
             >
               <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
             </Button>
 
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    variant="ghost"
-                    className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
-                      !hasMinimumCreditsForAI ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    onClick={handleAIAgentClick}
-                    disabled={!hasMinimumCreditsForAI}
-                  >
-                    <Bot className="mr-2 h-4 w-4" /> AI Agent
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {!hasMinimumCreditsForAI && (
-                <TooltipContent>
-                  <p>You need at least 1 credit to use the AI Agent</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
+                !hasMinimumCreditsForAI ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              onClick={() => navigate("/ai-agent")}
+              disabled={!hasMinimumCreditsForAI}
+            >
+              <Bot className="mr-2 h-4 w-4" /> AI Agent
+            </Button>
             
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <div>
-                  <Button
-                    variant="ghost"
-                    className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
-                      !hasEnoughCredits ? 'opacity-50 cursor-not-allowed' : ''
-                    }`}
-                    onClick={handleCreateVideo}
-                    disabled={!hasEnoughCredits}
-                  >
-                    <Video className="mr-2 h-4 w-4" /> Create Video
-                  </Button>
-                </div>
-              </TooltipTrigger>
-              {!hasEnoughCredits && (
-                <TooltipContent>
-                  <p>You need at least 10 credits to create a video</p>
-                </TooltipContent>
-              )}
-            </Tooltip>
+            <Button
+              variant="ghost"
+              className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
+                !hasEnoughCredits ? 'opacity-50 cursor-not-allowed' : ''
+              }`}
+              onClick={handleCreateVideo}
+              disabled={!hasEnoughCredits}
+            >
+              <Video className="mr-2 h-4 w-4" /> Create Video
+            </Button>
+
+            <Button
+              variant="ghost"
+              className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+              onClick={() => navigate("/metadata")}
+            >
+              <Settings className="mr-2 h-4 w-4" /> Metadata Manager
+            </Button>
 
             <Button
               variant="ghost"

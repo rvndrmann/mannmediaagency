@@ -18,6 +18,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
 import AIAgent from "./pages/AIAgent";
+import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -62,7 +63,12 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    return <Auth />;
+    return (
+      <>
+        <PromotionalBanner />
+        <Auth />
+      </>
+    );
   }
 
   return <>{children}</>;
@@ -84,8 +90,18 @@ const App = () => (
                 </ProtectedRoute>
               }
             />
-            <Route path="/auth/login" element={<LoginForm />} />
-            <Route path="/auth/signup" element={<SignupForm />} />
+            <Route path="/auth/login" element={
+              <>
+                <PromotionalBanner />
+                <LoginForm />
+              </>
+            } />
+            <Route path="/auth/signup" element={
+              <>
+                <PromotionalBanner />
+                <SignupForm />
+              </>
+            } />
             <Route path="/plans" element={<Plans />} />
             <Route
               path="/create-video"

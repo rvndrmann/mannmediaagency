@@ -9,7 +9,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 const Metadata = () => {
-  const { storyId } = useParams();
+  const { storyId } = useParams<{ storyId?: string }>();
   const navigate = useNavigate();
 
   const { data: story, isLoading: storyLoading } = useQuery({
@@ -18,7 +18,7 @@ const Metadata = () => {
       const { data, error } = await supabase
         .from("stories")
         .select("*")
-        .eq("stories id", storyId)
+        .eq("stories id", parseInt(storyId || "0"))
         .single();
 
       if (error) throw error;

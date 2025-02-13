@@ -8,6 +8,19 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface MetadataResponse {
+  seo_title: string;
+  seo_description: string;
+  keywords: string;
+  instagram_hashtags: string;
+  thumbnail_prompt: string;
+}
+
+function validateMetadata(data: any): data is MetadataResponse {
+  const required = ['seo_title', 'seo_description', 'keywords', 'instagram_hashtags', 'thumbnail_prompt'];
+  return required.every(key => typeof data[key] === 'string');
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -15,6 +28,7 @@ serve(async (req) => {
 
   try {
     const { storyId, additionalContext, customTitleTwist } = await req.json();
+    console.log(`Generating metadata for story ${storyId}`);
     
     // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
@@ -28,29 +42,45 @@ serve(async (req) => {
       .eq('stories id', storyId)
       .single();
 
-    if (storyError) throw storyError;
+    if (storyError) {
+      console.error('Error fetching story:', storyError);
+      throw storyError;
+    }
 
-    // Prepare prompt for ChatGPT
-    const prompt = `Given this story content: ${story.story}
-    Additional context: ${additionalContext || ''}
-    Custom title twist: ${customTitleTwist || ''}
+    if (!story?.story) {
+      throw new Error('Story content not found');
+    }
 
-    Please generate the following in a JSON format:
-    1. SEO-friendly title incorporating the custom twist
-    2. Compelling meta description (max 160 characters)
-    3. Relevant keywords separated by commas
-    4. Instagram hashtags (max 30)
-    5. Thumbnail design prompt with bold text placement suggestions
+    // Prepare system message for better SEO and social media expertise
+    const systemMessage = `You are an expert SEO and social media specialist with deep knowledge of content optimization, 
+    keyword research, and social media trends. Your task is to analyze content and generate optimized metadata that will 
+    maximize visibility and engagement across different platforms.`;
 
-    Format the response as a valid JSON object with these keys:
-    {
-      "seo_title": "",
-      "seo_description": "",
-      "keywords": "",
-      "instagram_hashtags": "",
-      "thumbnail_prompt": ""
-    }`;
+    // Prepare user message with detailed requirements
+    const userMessage = `Generate metadata for the following content:
 
+Story Content: ${story.story}
+${additionalContext ? `Additional Context: ${additionalContext}` : ''}
+${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}
+
+Requirements:
+1. SEO Title (60-70 characters, must include custom twist if provided)
+2. SEO Description (max 160 characters, compelling and actionable)
+3. Keywords (10-15 relevant terms, comma-separated)
+4. Instagram Hashtags (20-30 trending and relevant hashtags)
+5. Thumbnail Design Prompt (include text placement and visual elements)
+
+Return ONLY a valid JSON object with these exact keys:
+{
+  "seo_title": "string (60-70 chars)",
+  "seo_description": "string (max 160 chars)",
+  "keywords": "string (comma-separated)",
+  "instagram_hashtags": "string (space-separated hashtags)",
+  "thumbnail_prompt": "string"
+}`;
+
+    console.log('Calling OpenAI API...');
+    
     // Call ChatGPT API
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
@@ -61,14 +91,44 @@ serve(async (req) => {
       body: JSON.stringify({
         model: 'gpt-4o-mini',
         messages: [
-          { role: 'system', content: 'You are a skilled SEO and social media expert.' },
-          { role: 'user', content: prompt }
+          { role: 'system', content: systemMessage },
+          { role: 'user', content: userMessage }
         ],
+        temperature: 0.7, // Balanced between creativity and consistency
+        max_tokens: 1000,
       }),
     });
 
+    if (!openAIResponse.ok) {
+      const error = await openAIResponse.json();
+      console.error('OpenAI API error:', error);
+      throw new Error(`OpenAI API error: ${error.error?.message || 'Unknown error'}`);
+    }
+
     const gptData = await openAIResponse.json();
-    const metadata = JSON.parse(gptData.choices[0].message.content);
+    
+    if (!gptData.choices?.[0]?.message?.content) {
+      throw new Error('Invalid response from OpenAI API');
+    }
+
+    // Parse and validate the response
+    let metadata: MetadataResponse;
+    try {
+      metadata = JSON.parse(gptData.choices[0].message.content);
+      if (!validateMetadata(metadata)) {
+        throw new Error('Invalid metadata format');
+      }
+    } catch (error) {
+      console.error('Error parsing metadata:', error);
+      throw new Error('Failed to parse metadata response');
+    }
+
+    // Validate metadata fields
+    if (metadata.seo_description.length > 160) {
+      metadata.seo_description = metadata.seo_description.substring(0, 157) + '...';
+    }
+
+    console.log('Successfully generated metadata');
 
     // Store metadata in database
     const { error: insertError } = await supabase
@@ -86,12 +146,16 @@ serve(async (req) => {
         onConflict: 'story_id'
       });
 
-    if (insertError) throw insertError;
+    if (insertError) {
+      console.error('Error inserting metadata:', insertError);
+      throw insertError;
+    }
 
     return new Response(JSON.stringify(metadata), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {
+    console.error('Error in generate-story-metadata function:', error);
     return new Response(JSON.stringify({ error: error.message }), {
       status: 500,
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },

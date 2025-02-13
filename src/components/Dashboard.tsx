@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Video, DollarSign, Download } from "lucide-react";
@@ -83,9 +82,36 @@ export const Dashboard = () => {
     });
   };
 
-  const handleDownload = (videoUrl: string) => {
+  const handleDownload = async (videoUrl: string) => {
     try {
-      // Create an anchor element
+      const response = await fetch(videoUrl, {
+        mode: 'cors',  // Try with CORS first
+        headers: {
+          'Origin': window.location.origin
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `mann-media-video-${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+
+      toast({
+        title: "Success",
+        description: "Video download started",
+      });
+    } catch (error) {
+      console.error('Error downloading video:', error);
+      // If CORS fails, fallback to direct download
       const link = document.createElement('a');
       link.href = videoUrl;
       link.download = `mann-media-video-${Date.now()}.mp4`;
@@ -94,15 +120,8 @@ export const Dashboard = () => {
       document.body.removeChild(link);
       
       toast({
-        title: "Success",
-        description: "Video download started",
-      });
-    } catch (error) {
-      console.error('Error downloading video:', error);
-      toast({
-        title: "Error",
-        description: "There was an error downloading the video. Please try again.",
-        variant: "destructive",
+        title: "Download Started",
+        description: "Your video download has begun",
       });
     }
   };

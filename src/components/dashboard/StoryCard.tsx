@@ -123,9 +123,9 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
               <p className="text-sm font-medium mb-1 text-gray-600">Hashtags:</p>
-              <p className="text-sm line-clamp-2">
+              <div className="max-h-20 overflow-y-auto pr-2 text-sm">
                 {story.story_metadata.instagram_hashtags}
-              </p>
+              </div>
             </div>
             <CopyButton 
               text={story.story_metadata.instagram_hashtags} 

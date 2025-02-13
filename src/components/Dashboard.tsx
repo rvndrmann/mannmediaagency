@@ -49,8 +49,13 @@ export const Dashboard = () => {
         throw error;
       }
 
-      // Filter out stories without final_video_with_music
-      const availableStories = data?.filter(story => story.final_video_with_music !== null) || [];
+      // Filter out stories without final_video_with_music and stories id
+      const availableStories = data?.filter(story => 
+        story.final_video_with_music !== null && 
+        story["stories id"] !== null && 
+        story["stories id"] !== undefined
+      ) || [];
+      
       console.log("Fetched available stories:", availableStories);
       return availableStories;
     },

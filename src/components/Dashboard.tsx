@@ -1,6 +1,6 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Video, DollarSign, Download } from "lucide-react";
+import { Plus, Video, DollarSign, ArrowRight } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -190,16 +190,12 @@ export const Dashboard = () => {
                         <div className="flex items-center text-sm text-gray-600">
                           <Video className="w-4 h-4 mr-1" />
                           {formatDuration(story.video_length_seconds)}
+                          <div className="ml-4 flex items-center text-blue-500">
+                            <span className="text-sm">Click three dots to download</span>
+                            <ArrowRight className="w-4 h-4 ml-1" />
+                          </div>
                         </div>
                       )}
-                      <Button 
-                        variant="outline" 
-                        onClick={() => handleDownload(story.final_video_with_music)}
-                        className="ml-auto flex items-center gap-2"
-                      >
-                        <Download className="w-4 h-4" />
-                        Download
-                      </Button>
                     </div>
                   </div>
                 ) : (

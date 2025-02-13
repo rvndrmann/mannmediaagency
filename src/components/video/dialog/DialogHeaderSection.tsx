@@ -17,16 +17,16 @@ export const DialogHeaderSection = ({
     <div className="relative">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2 cursor-pointer" onClick={onClose}>
-          <X className="h-5 w-5" />
-          <span className="text-lg">Back to Dashboard</span>
+          <X className="h-4 w-4" />
+          <span className="text-base">Back to Dashboard</span>
         </div>
-        <div className="text-purple-600 text-right">
+        <div className="text-purple-600 text-right text-sm">
           <div>Available Credits: {creditsRemaining}</div>
-          <div className="text-sm text-gray-500">Cost: 20 credits per video</div>
+          <div className="text-xs text-gray-500">Cost: 10 credits per video</div>
         </div>
       </div>
       
-      <DialogTitle className="text-4xl font-bold text-purple-600 mb-8">
+      <DialogTitle className="text-2xl font-bold text-purple-600 mb-4">
         Create Your Video
       </DialogTitle>
     </div>

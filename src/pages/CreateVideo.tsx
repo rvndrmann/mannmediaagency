@@ -25,7 +25,7 @@ const CreateVideo = () => {
     },
   });
 
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 10);
 
   return (
     <div className="flex-1 p-8 bg-background">

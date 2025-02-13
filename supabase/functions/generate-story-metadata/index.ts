@@ -52,36 +52,25 @@ serve(async (req) => {
     }
 
     // Prepare system message for better SEO and social media expertise
-    const systemMessage = `You are an expert SEO and social media specialist with deep knowledge of content optimization, 
-    keyword research, and social media trends. Your task is to analyze content and generate optimized metadata that will 
-    maximize visibility and engagement across different platforms.
-
-    You must respond with a valid JSON object containing EXACTLY these fields:
-    {
-      "seo_title": "string (60-70 chars)",
-      "seo_description": "string (max 160 chars)",
-      "keywords": "string (comma-separated)",
-      "instagram_hashtags": "string (space-separated hashtags)",
-      "thumbnail_prompt": "string"
-    }`;
+    const systemMessage = `You are an expert SEO and social media specialist. Generate ONLY a JSON object with exactly these fields and nothing else:
+{
+  "seo_title": "(60-70 chars title)",
+  "seo_description": "(max 160 chars description)",
+  "keywords": "(10-15 comma-separated terms)",
+  "instagram_hashtags": "(20-30 space-separated hashtags)",
+  "thumbnail_prompt": "(visual design prompt)"
+}`;
 
     // Prepare user message with detailed requirements
-    const userMessage = `Generate metadata for the following content:
+    const userMessage = `Analyze this content and generate metadata:
 
 Story Content: ${story.story}
 ${additionalContext ? `Additional Context: ${additionalContext}` : ''}
-${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}
-
-Requirements:
-1. SEO Title (60-70 characters, must include custom twist if provided)
-2. SEO Description (max 160 characters, compelling and actionable)
-3. Keywords (10-15 relevant terms, comma-separated)
-4. Instagram Hashtags (20-30 trending and relevant hashtags)
-5. Thumbnail Design Prompt (include text placement and visual elements)`;
+${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}`;
 
     console.log('Calling OpenAI API...');
     
-    // Call ChatGPT API
+    // Call ChatGPT API with the correct model
     const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -89,7 +78,7 @@ Requirements:
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4-mini',
+        model: 'gpt-4o-mini',
         messages: [
           { role: 'system', content: systemMessage },
           { role: 'user', content: userMessage }
@@ -106,7 +95,7 @@ Requirements:
     }
 
     const gptData = await openAIResponse.json();
-    console.log('OpenAI response:', JSON.stringify(gptData));
+    console.log('Raw OpenAI response:', JSON.stringify(gptData));
     
     if (!gptData.choices?.[0]?.message?.content) {
       throw new Error('Invalid response from OpenAI API');
@@ -115,16 +104,27 @@ Requirements:
     // Parse and validate the response
     let metadata: MetadataResponse;
     try {
-      const content = gptData.choices[0].message.content;
-      console.log('Attempting to parse content:', content);
-      metadata = JSON.parse(content.trim());
+      const content = gptData.choices[0].message.content.trim();
+      console.log('Content to parse:', content);
+      
+      // Attempt to extract JSON if it's wrapped in other text
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) {
+        throw new Error('No JSON object found in response');
+      }
+      
+      const jsonString = jsonMatch[0];
+      console.log('Extracted JSON:', jsonString);
+      
+      metadata = JSON.parse(jsonString);
+      
       if (!validateMetadata(metadata)) {
         console.error('Invalid metadata format:', metadata);
         throw new Error('Invalid metadata format');
       }
     } catch (error) {
       console.error('Error parsing metadata:', error);
-      throw new Error('Failed to parse metadata response');
+      throw new Error(`Failed to parse metadata response: ${error.message}`);
     }
 
     // Validate metadata fields

@@ -85,36 +85,30 @@ export const Dashboard = () => {
   const handleDownload = async (videoUrl: string) => {
     try {
       const response = await fetch(videoUrl, {
-        mode: 'cors',  // Try with CORS first
-        headers: {
-          'Origin': window.location.origin
-        }
+        mode: 'no-cors'  // Use no-cors mode to bypass CORS restrictions
       });
       
-      if (!response.ok) {
-        throw new Error('Network response was not ok');
-      }
-
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
+      // Since no-cors mode returns an opaque response, 
+      // we'll fall back to direct download
       const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `mann-media-video-${Date.now()}.mp4`;
+      link.href = videoUrl;
+      link.setAttribute('download', `mann-media-video-${Date.now()}.mp4`);
+      link.setAttribute('target', '_blank');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
 
       toast({
-        title: "Success",
-        description: "Video download started",
+        title: "Download Started",
+        description: "Your video download has begun",
       });
     } catch (error) {
       console.error('Error downloading video:', error);
-      // If CORS fails, fallback to direct download
+      // Even if fetch fails, try direct download as fallback
       const link = document.createElement('a');
       link.href = videoUrl;
-      link.download = `mann-media-video-${Date.now()}.mp4`;
+      link.setAttribute('download', `mann-media-video-${Date.now()}.mp4`);
+      link.setAttribute('target', '_blank');
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

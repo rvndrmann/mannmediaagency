@@ -54,7 +54,7 @@ serve(async (req) => {
     // Prepare system message for better SEO and social media expertise
     const systemMessage = `You are an expert SEO and social media specialist. Generate ONLY a JSON object with exactly these fields and nothing else:
 {
-  "seo_title": "(60-70 chars title)",
+  "seo_title": "(60-70 chars title that MUST incorporate the provided custom title twist if one is given)",
   "seo_description": "(max 160 chars description)",
   "keywords": "(10-15 comma-separated terms)",
   "instagram_hashtags": "(20-30 space-separated hashtags)",
@@ -66,7 +66,9 @@ serve(async (req) => {
 
 Story Content: ${story.story}
 ${additionalContext ? `Additional Context: ${additionalContext}` : ''}
-${customTitleTwist ? `Custom Title Twist: ${customTitleTwist}` : ''}`;
+${customTitleTwist ? `IMPORTANT - Custom Title Twist: The SEO title MUST incorporate this twist: ${customTitleTwist}` : ''}
+
+${customTitleTwist ? 'Remember to incorporate the Custom Title Twist into the SEO title while keeping it engaging and SEO-friendly.' : ''}`;
 
     console.log('Calling OpenAI API...');
     

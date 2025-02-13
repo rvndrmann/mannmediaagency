@@ -528,6 +528,7 @@ export type Database = {
           id: string
           instagram_hashtags: string | null
           keywords: string | null
+          regeneration_count: number | null
           seo_description: string | null
           seo_title: string | null
           story_id: number
@@ -541,6 +542,7 @@ export type Database = {
           id?: string
           instagram_hashtags?: string | null
           keywords?: string | null
+          regeneration_count?: number | null
           seo_description?: string | null
           seo_title?: string | null
           story_id: number
@@ -554,6 +556,7 @@ export type Database = {
           id?: string
           instagram_hashtags?: string | null
           keywords?: string | null
+          regeneration_count?: number | null
           seo_description?: string | null
           seo_title?: string | null
           story_id?: number

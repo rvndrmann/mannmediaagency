@@ -18,9 +18,12 @@ interface StoryMetadata {
   keywords: string;
   instagram_hashtags: string;
   thumbnail_prompt: string;
+  regeneration_count: number;
   additional_context?: string;
   custom_title_twist?: string;
 }
+
+const MAX_REGENERATIONS = 3;
 
 export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => {
   const [additionalContext, setAdditionalContext] = useState("");
@@ -69,6 +72,17 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
 
   const generateMetadata = useMutation({
     mutationFn: async () => {
+      // First update the regeneration count
+      const { error: updateError } = await supabase
+        .from("story_metadata")
+        .update({ 
+          regeneration_count: (metadata?.regeneration_count || 0) + 1 
+        })
+        .eq("story_id", storyId);
+
+      if (updateError) throw updateError;
+
+      // Then generate new metadata
       const { data, error } = await supabase.functions.invoke("generate-story-metadata", {
         body: {
           storyId,
@@ -95,6 +109,9 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
       });
     },
   });
+
+  const remainingRegenerations = MAX_REGENERATIONS - (metadata?.regeneration_count || 0);
+  const canRegenerate = remainingRegenerations > 0;
 
   if (isLoading) {
     return (
@@ -165,18 +182,28 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
         />
       </div>
 
-      <Button
-        onClick={() => generateMetadata.mutate()}
-        disabled={generateMetadata.isPending}
-        className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-      >
-        {generateMetadata.isPending ? (
-          <Loader2 className="h-4 w-4 animate-spin mr-2" />
-        ) : (
-          <RefreshCw className="h-4 w-4 mr-2" />
+      <div className="space-y-2">
+        <Button
+          onClick={() => generateMetadata.mutate()}
+          disabled={generateMetadata.isPending || !canRegenerate}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white disabled:bg-gray-600"
+        >
+          {generateMetadata.isPending ? (
+            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+          ) : (
+            <RefreshCw className="h-4 w-4 mr-2" />
+          )}
+          {metadata ? "Regenerate Metadata" : "Generate Metadata"}
+          <span className="ml-2 text-sm opacity-90">
+            ({remainingRegenerations} regenerations left)
+          </span>
+        </Button>
+        {!canRegenerate && (
+          <p className="text-sm text-red-400 text-center mt-2">
+            You have reached the maximum number of regenerations for this metadata.
+          </p>
         )}
-        {metadata ? "Regenerate Metadata" : "Generate Metadata"}
-      </Button>
+      </div>
 
       {metadata && (
         <div className="space-y-4 mt-6">

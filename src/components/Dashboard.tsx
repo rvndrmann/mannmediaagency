@@ -1,6 +1,7 @@
+
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Plus, Video, DollarSign } from "lucide-react";
+import { Plus, Video, DollarSign, Download } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -84,17 +85,23 @@ export const Dashboard = () => {
 
   const handleDownload = (videoUrl: string) => {
     try {
-      window.open(videoUrl, '_blank');
+      // Create an anchor element
+      const link = document.createElement('a');
+      link.href = videoUrl;
+      link.download = `mann-media-video-${Date.now()}.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
       
       toast({
         title: "Success",
-        description: "Video opened in new tab. You can save it from there.",
+        description: "Video download started",
       });
     } catch (error) {
-      console.error('Error opening video:', error);
+      console.error('Error downloading video:', error);
       toast({
         title: "Error",
-        description: "There was an error opening the video. Please try again.",
+        description: "There was an error downloading the video. Please try again.",
         variant: "destructive",
       });
     }
@@ -175,9 +182,10 @@ export const Dashboard = () => {
                       <Button 
                         variant="outline" 
                         onClick={() => handleDownload(story.final_video_with_music)}
-                        className="ml-auto"
+                        className="ml-auto flex items-center gap-2"
                       >
-                        Open Video
+                        <Download className="w-4 h-4" />
+                        Download
                       </Button>
                     </div>
                   </div>

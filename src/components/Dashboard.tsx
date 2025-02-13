@@ -1,21 +1,19 @@
 
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Plus, Video, DollarSign, ArrowRight } from "lucide-react";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState, useEffect } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/components/ui/use-toast";
-import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import { StoryCard } from "./dashboard/StoryCard";
+import { EmptyState } from "./dashboard/EmptyState";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // Fetch user credits
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -31,7 +29,6 @@ export const Dashboard = () => {
 
   const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
-  // Fetch stories with metadata
   const { data: stories, isLoading: isLoadingStories } = useQuery({
     queryKey: ["userStories"],
     queryFn: async () => {
@@ -78,55 +75,6 @@ export const Dashboard = () => {
     };
   }, [queryClient]);
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true
-    });
-  };
-
-  const handleDownload = async (videoUrl: string) => {
-    try {
-      const response = await fetch(videoUrl, {
-        mode: 'no-cors'  // Use no-cors mode to bypass CORS restrictions
-      });
-      
-      // Since no-cors mode returns an opaque response, 
-      // we'll fall back to direct download
-      const link = document.createElement('a');
-      link.href = videoUrl;
-      link.setAttribute('download', `mann-media-video-${Date.now()}.mp4`);
-      link.setAttribute('target', '_blank');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-
-      toast({
-        title: "Download Started",
-        description: "Your video download has begun",
-      });
-    } catch (error) {
-      console.error('Error downloading video:', error);
-      // Even if fetch fails, try direct download as fallback
-      const link = document.createElement('a');
-      link.href = videoUrl;
-      link.setAttribute('download', `mann-media-video-${Date.now()}.mp4`);
-      link.setAttribute('target', '_blank');
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      
-      toast({
-        title: "Download Started",
-        description: "Your video download has begun",
-      });
-    }
-  };
-
   const updateVideoLength = async (story: any, duration: number) => {
     if (story.video_length_seconds === null) {
       const { error } = await supabase
@@ -138,12 +86,6 @@ export const Dashboard = () => {
         console.error('Error updating video length:', error);
       }
     }
-  };
-
-  const formatDuration = (seconds: number) => {
-    const minutes = Math.floor(seconds / 60);
-    const remainingSeconds = Math.round(seconds % 60);
-    return `${minutes}:${remainingSeconds.toString().padStart(2, '0')}`;
   };
 
   const handleCreateOrPurchase = () => {
@@ -179,98 +121,18 @@ export const Dashboard = () => {
           </Card>
         ) : stories && stories.length > 0 ? (
           stories.map((story) => (
-            <Card key={story["stories id"]} className="overflow-hidden w-full max-w-[300px]">
-              <div className="p-2 border-b border-gray-200">
-                <Badge variant="secondary" className="text-xs">
-                  Story #{story["stories id"]}
-                </Badge>
-              </div>
-              <div className="aspect-video bg-gray-100">
-                {story.final_video_with_music ? (
-                  <div className="flex flex-col items-center gap-1 p-2">
-                    <video 
-                      src={story.final_video_with_music} 
-                      controls 
-                      className="w-full h-full object-cover rounded"
-                      onLoadedMetadata={(e) => {
-                        const video = e.target as HTMLVideoElement;
-                        updateVideoLength(story, video.duration);
-                      }}
-                    />
-                    <div className="flex items-center justify-between w-full mt-1">
-                      {story.video_length_seconds && (
-                        <div className="flex items-center text-xs text-gray-600">
-                          <Video className="w-3 h-3 mr-1" />
-                          {formatDuration(story.video_length_seconds)}
-                          <div className="ml-2 flex items-center text-blue-500">
-                            <span className="text-xs">Click three dots to download</span>
-                            <ArrowRight className="w-3 h-3 ml-1" />
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="h-full flex items-center justify-center">
-                    <div className="text-gray-400 text-sm">Processing...</div>
-                  </div>
-                )}
-              </div>
-              <div className="p-2 space-y-2">
-                {story.story_metadata?.seo_title && (
-                  <p className="text-sm font-medium line-clamp-2">
-                    {story.story_metadata.seo_title}
-                  </p>
-                )}
-                <p className="text-xs text-gray-500">
-                  Created: {formatDate(story.created_at)}
-                </p>
-                <p className="text-xs text-gray-500">
-                  Status: {story.ready_to_go ? "Ready" : "Processing"}
-                </p>
-              </div>
-            </Card>
+            <StoryCard 
+              key={story["stories id"]} 
+              story={story}
+              onVideoLoad={updateVideoLength}
+            />
           ))
         ) : (
-          <Card className="col-span-full p-6 text-center bg-gray-50 w-full max-w-md">
-            <div className="flex flex-col items-center gap-4">
-              <div className="p-3 rounded-full bg-purple-100">
-                {hasEnoughCredits ? (
-                  <Plus className="w-6 h-6 text-purple-600" />
-                ) : (
-                  <DollarSign className="w-6 h-6 text-purple-600" />
-                )}
-              </div>
-              <div className="space-y-2">
-                <div className="text-gray-500">
-                  {hasEnoughCredits ? (
-                    "No videos created yet. Create your first video now!"
-                  ) : (
-                    <>
-                      <p>You need at least 10 credits to create a video.</p>
-                      <p className="text-sm">Current balance: {userCredits?.credits_remaining || 0} credits</p>
-                    </>
-                  )}
-                </div>
-              </div>
-              <Button 
-                onClick={handleCreateOrPurchase}
-                className="bg-purple-600 hover:bg-purple-700"
-              >
-                {hasEnoughCredits ? (
-                  <>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Create First Video
-                  </>
-                ) : (
-                  <>
-                    <DollarSign className="w-4 h-4 mr-2" />
-                    Purchase Credits
-                  </>
-                )}
-              </Button>
-            </div>
-          </Card>
+          <EmptyState
+            hasEnoughCredits={hasEnoughCredits}
+            creditsRemaining={userCredits?.credits_remaining || 0}
+            onCreateOrPurchase={handleCreateOrPurchase}
+          />
         )}
       </div>
     </div>

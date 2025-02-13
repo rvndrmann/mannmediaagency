@@ -76,7 +76,7 @@ export const Sidebar = () => {
     <SidebarComponent>
       <SidebarHeader>
         <div className="flex items-center gap-2 px-4 py-2">
-          <div className="text-xl font-bold text-white">Lovable</div>
+          <div className="text-xl font-bold text-white">Mann Media Agency</div>
         </div>
       </SidebarHeader>
       <SidebarContent>

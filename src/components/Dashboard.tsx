@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Plus, Video, DollarSign } from "lucide-react";
@@ -83,20 +82,33 @@ export const Dashboard = () => {
     });
   };
 
-  const handleDownload = async (videoUrl: string) => {
+  const handleDownload = async (videoUrl: string, fileName: string) => {
     try {
       const response = await fetch(videoUrl);
+      if (!response.ok) throw new Error('Network response was not ok');
+      
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = `video-${Date.now()}.mp4`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = fileName || `video-${Date.now()}.mp4`;
+      document.body.appendChild(a);
+      a.click();
       window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success",
+        description: "Video download started successfully",
+      });
     } catch (error) {
       console.error('Error downloading video:', error);
+      toast({
+        title: "Download Failed",
+        description: "There was an error downloading the video. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -174,7 +186,10 @@ export const Dashboard = () => {
                       )}
                       <Button 
                         variant="outline" 
-                        onClick={() => handleDownload(story.final_video_with_music)}
+                        onClick={() => handleDownload(
+                          story.final_video_with_music,
+                          `mann-media-video-${story["stories id"]}.mp4`
+                        )}
                         className="ml-auto"
                       >
                         Download Video

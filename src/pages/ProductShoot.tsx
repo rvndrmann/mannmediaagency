@@ -1,366 +1,180 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
+import { Card } from "@/components/ui/card";
+import { Download, Loader2, ImageIcon, CreditCard } from "lucide-react";
 import { toast } from "sonner";
-import { Loader2, Upload, Image as ImageIcon, ChevronLeft } from "lucide-react";
-import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { Slider } from "@/components/ui/slider";
-import { Label } from "@/components/ui/label";
-import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
-import { ProductImageMetadata } from "@/components/product/ProductImageMetadata";
-import { ProductImageHistory } from "@/components/product/ProductImageHistory";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
-type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
-
-export default function ProductShoot() {
-  const navigate = useNavigate();
-  const [productImage, setProductImage] = useState<File | null>(null);
+const ProductShoot = () => {
   const [prompt, setPrompt] = useState("");
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
-  const [imageSize, setImageSize] = useState<ImageSize>("square_hd");
-  const [guidanceScale, setGuidanceScale] = useState(3.5);
-  const [numInferenceSteps, setNumInferenceSteps] = useState(8);
-  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
-  const [selectedHistoryImage, setSelectedHistoryImage] = useState<{
-    jobId: string;
-    url: string;
-  } | null>(null);
+  const queryClient = useQueryClient();
 
-  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setProductImage(file);
-      const objectUrl = URL.createObjectURL(file);
-      setPreviewUrl(objectUrl);
-    }
-  };
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
 
-  const generateMetadata = async (jobId: string, promptText: string) => {
-    try {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
-      if (!accessToken) {
-        throw new Error("Authentication required");
-      }
-
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/generate-product-metadata`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ 
-            imageJobId: jobId,
-            prompt: promptText,
-          }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to generate metadata");
-      }
-
-      const data = await response.json();
+      if (error) throw error;
       return data;
-    } catch (error) {
-      console.error("Error generating metadata:", error);
-      toast.error("Failed to generate metadata");
-    }
-  };
-
-  const generateMutation = useMutation({
-    mutationFn: async () => {
-      if (!productImage || !prompt) {
-        throw new Error("Please provide both an image and a prompt");
-      }
-
-      const formData = new FormData();
-      formData.append("image", productImage);
-      formData.append("prompt", prompt);
-      formData.append("imageSize", imageSize);
-      formData.append("guidanceScale", guidanceScale.toString());
-      formData.append("numInferenceSteps", numInferenceSteps.toString());
-      formData.append("outputFormat", "png");
-
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
-      if (!accessToken) {
-        throw new Error("You must be logged in to generate images");
-      }
-
-      console.log('Initiating image generation');
-      
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/initiate-image-generation`,
-        {
-          method: "POST",
-          body: formData,
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || `Failed to initiate image generation (${response.status})`);
-      }
-
-      const data = await response.json();
-      return data.jobId;
     },
-    onSuccess: (jobId) => {
-      setCurrentJobId(jobId);
-      toast.success("Image generation started!");
+  });
+
+  const { data: images, isLoading: imagesLoading } = useQuery({
+    queryKey: ["product-images"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+  });
+
+  const generateImage = useMutation({
+    mutationFn: async () => {
+      if (!prompt.trim()) {
+        throw new Error("Please enter a prompt");
+      }
+
+      if (!userCredits || userCredits.credits_remaining < 1) {
+        throw new Error("Insufficient credits. You need 1 credit to generate an image.");
+      }
+
+      const { data, error } = await supabase.functions.invoke("generate-product-image", {
+        body: { prompt: prompt.trim() },
+      });
+
+      if (error) throw error;
+      return data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-images"] });
+      queryClient.invalidateQueries({ queryKey: ["userCredits"] });
+      setPrompt("");
+      toast.success("Image generation started");
     },
     onError: (error) => {
-      console.error("Generation error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to start image generation");
+      toast.error(error instanceof Error ? error.message : "Failed to generate image");
     },
   });
 
-  const checkStatusMutation = useMutation({
-    mutationFn: async (jobId: string) => {
-      const session = await supabase.auth.getSession();
-      const accessToken = session.data.session?.access_token;
-      
-      if (!accessToken) {
-        throw new Error("You must be logged in to check image status");
-      }
-
-      const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/check-image-status`,
-        {
-          method: "POST",
-          headers: {
-            Authorization: `Bearer ${accessToken}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({ jobId }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error("Failed to check image status");
-      }
-
-      const data = await response.json();
-      return data;
-    },
-  });
-
-  useEffect(() => {
-    if (!currentJobId) return;
-
-    const pollInterval = setInterval(async () => {
-      try {
-        const result = await checkStatusMutation.mutateAsync(currentJobId);
-        
-        if (result.status === 'completed') {
-          setGeneratedImage(result.resultUrl);
-          setCurrentJobId(null);
-          toast.success("Image generated successfully!");
-          // Generate metadata after successful image generation
-          await generateMetadata(currentJobId, prompt);
-          clearInterval(pollInterval);
-        } else if (result.status === 'failed') {
-          setCurrentJobId(null);
-          toast.error("Image generation failed");
-          clearInterval(pollInterval);
-        }
-      } catch (error) {
-        console.error('Error checking status:', error);
-        clearInterval(pollInterval);
-      }
-    }, 5000);
-
-    return () => clearInterval(pollInterval);
-  }, [currentJobId]);
-
-  const handleHistoryImageSelect = (jobId: string, imageUrl: string) => {
-    setSelectedHistoryImage({ jobId, url: imageUrl });
-    setGeneratedImage(imageUrl);
+  const handleDownload = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `product-image-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      toast.error("Failed to download image");
+    }
   };
 
   return (
-    <div className="container mx-auto py-8">
-      <div className="max-w-7xl mx-auto">
-        <div className="flex items-center gap-4 mb-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="w-10 h-10"
-          >
-            <ChevronLeft className="h-6 w-6" />
-          </Button>
-          <h2 className="text-2xl font-bold">Product Shoot</h2>
-        </div>
+    <div className="min-h-screen bg-background">
+      <div className="flex h-screen">
+        {/* Left Panel - Input Fields */}
+        <div className="w-1/3 p-6 border-r border-gray-800">
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-2">Product Image Generator</h1>
+              <p className="text-gray-400">
+                Credits remaining: {userCredits?.credits_remaining || 0}
+              </p>
+            </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          {/* Left Panel */}
-          <div className="lg:col-span-8 space-y-6">
             <div className="space-y-4">
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Product Image
-                </label>
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => document.getElementById("imageUpload")?.click()}
-                  >
-                    <Upload className="w-4 h-4 mr-2" />
-                    Upload Image
-                  </Button>
-                  <input
-                    type="file"
-                    id="imageUpload"
-                    className="hidden"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                  />
-                </div>
-                {previewUrl && (
-                  <div className="mt-4 relative aspect-square w-full max-w-[200px]">
-                    <img
-                      src={previewUrl}
-                      alt="Product preview"
-                      className="rounded-lg object-cover w-full h-full"
-                    />
-                  </div>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Prompt
-                </label>
-                <Textarea
-                  placeholder="Describe how you want your product to look..."
-                  value={prompt}
-                  onChange={(e) => setPrompt(e.target.value)}
-                  className="min-h-[100px]"
-                />
-              </div>
-
-              <div className="space-y-4 border rounded-lg p-4">
-                <h3 className="font-medium mb-3">Advanced Settings</h3>
-                
-                <div className="space-y-2">
-                  <Label>Image Size</Label>
-                  <Select value={imageSize} onValueChange={(value: ImageSize) => setImageSize(value)}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select image size" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="square_hd">Square HD</SelectItem>
-                      <SelectItem value="square">Square</SelectItem>
-                      <SelectItem value="portrait_4_3">Portrait 4:3</SelectItem>
-                      <SelectItem value="portrait_16_9">Portrait 16:9</SelectItem>
-                      <SelectItem value="landscape_4_3">Landscape 4:3</SelectItem>
-                      <SelectItem value="landscape_16_9">Landscape 16:9</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Guidance Scale ({guidanceScale})</Label>
-                  <Slider
-                    value={[guidanceScale]}
-                    onValueChange={(value) => setGuidanceScale(value[0])}
-                    min={1}
-                    max={20}
-                    step={0.1}
-                  />
-                  <p className="text-xs text-gray-400">Controls how closely the AI follows your prompt</p>
-                </div>
-
-                <div className="space-y-2">
-                  <Label>Quality Steps ({numInferenceSteps})</Label>
-                  <Slider
-                    value={[numInferenceSteps]}
-                    onValueChange={(value) => setNumInferenceSteps(value[0])}
-                    min={1}
-                    max={50}
-                    step={1}
-                  />
-                  <p className="text-xs text-gray-400">Higher values produce better quality but take longer</p>
-                </div>
-              </div>
+              <Textarea
+                placeholder="Describe the product image you want to generate..."
+                value={prompt}
+                onChange={(e) => setPrompt(e.target.value)}
+                className="min-h-[150px] bg-gray-900 border-gray-700 text-white"
+              />
 
               <Button
-                className="w-full"
-                onClick={() => generateMutation.mutate()}
-                disabled={!productImage || !prompt || generateMutation.isPending || !!currentJobId}
+                onClick={() => generateImage.mutate()}
+                disabled={generateImage.isPending || !prompt.trim()}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white"
               >
-                {generateMutation.isPending || currentJobId ? (
+                {generateImage.isPending ? (
                   <>
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    {currentJobId ? "Generating..." : "Starting generation..."}
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Generating...
                   </>
                 ) : (
                   <>
-                    <ImageIcon className="w-4 h-4 mr-2" />
-                    Generate Image
+                    <ImageIcon className="mr-2 h-4 w-4" />
+                    <CreditCard className="mr-2 h-4 w-4" />
+                    Generate Image (1 credit)
                   </>
                 )}
               </Button>
             </div>
-
-            <div className="space-y-4">
-              <h3 className="text-xl font-semibold">Generation History</h3>
-              <ProductImageHistory onSelectImage={handleHistoryImageSelect} />
-            </div>
           </div>
+        </div>
 
-          {/* Right Panel */}
-          <div className="lg:col-span-4 space-y-6">
-            <div className="sticky top-8">
-              <h3 className="text-xl font-semibold mb-4">Generated Image</h3>
-              <div className="border-2 border-dashed border-gray-700 rounded-lg aspect-square flex items-center justify-center mb-6">
-                {generatedImage ? (
-                  <img
-                    src={generatedImage}
-                    alt="Generated product"
-                    className="rounded-lg object-cover w-full h-full"
-                  />
-                ) : (
-                  <div className="text-gray-400 text-center p-4">
-                    {currentJobId ? "Generating your image..." : "Generated image will appear here"}
-                  </div>
-                )}
-              </div>
-              
-              {(currentJobId || selectedHistoryImage?.jobId) && (
-                <div className="space-y-4">
-                  <h3 className="text-xl font-semibold">Image Metadata</h3>
-                  <div className="border rounded-lg p-4">
-                    <ProductImageMetadata 
-                      imageJobId={currentJobId || selectedHistoryImage?.jobId || ""} 
-                    />
-                  </div>
+        {/* Right Panel - Generated Images */}
+        <div className="flex-1 p-6">
+          <ScrollArea className="h-[calc(100vh-3rem)]">
+            <div className="grid grid-cols-1 gap-6">
+              {imagesLoading ? (
+                <div className="flex items-center justify-center h-32">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
                 </div>
+              ) : images?.length === 0 ? (
+                <Card className="p-6 text-center bg-gray-900 border-gray-700">
+                  <ImageIcon className="h-12 w-12 mx-auto text-gray-600 mb-4" />
+                  <p className="text-gray-400">No images generated yet</p>
+                </Card>
+              ) : (
+                images?.map((image) => (
+                  <Card 
+                    key={image.id}
+                    className="p-4 bg-gray-900 border-gray-700 animate-fade-in"
+                  >
+                    <div className="space-y-4">
+                      <img
+                        src={image.result_url}
+                        alt={image.prompt}
+                        className="w-full h-auto rounded-lg"
+                      />
+                      <div className="flex items-center justify-between">
+                        <p className="text-sm text-gray-400 line-clamp-2">
+                          {image.prompt}
+                        </p>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleDownload(image.result_url)}
+                          className="text-gray-400 hover:text-white hover:bg-gray-800"
+                        >
+                          <Download className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                  </Card>
+                ))
               )}
             </div>
-          </div>
+          </ScrollArea>
         </div>
       </div>
     </div>
   );
-}
+};
+
+export default ProductShoot;

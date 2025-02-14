@@ -806,6 +806,133 @@ export type Database = {
         }
         Relationships: []
       }
+      video_audio_tracks: {
+        Row: {
+          audio_url: string
+          created_at: string | null
+          duration: number | null
+          id: string
+          project_id: string
+          start_time: number | null
+          track_type: string
+          updated_at: string | null
+          volume: number | null
+        }
+        Insert: {
+          audio_url: string
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          project_id: string
+          start_time?: number | null
+          track_type: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Update: {
+          audio_url?: string
+          created_at?: string | null
+          duration?: number | null
+          id?: string
+          project_id?: string
+          start_time?: number | null
+          track_type?: string
+          updated_at?: string | null
+          volume?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "video_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      video_projects: {
+        Row: {
+          created_at: string | null
+          description: string | null
+          duration_seconds: number | null
+          id: string
+          settings: Json | null
+          status: string | null
+          thumbnail_url: string | null
+          title: string
+          updated_at: string | null
+          user_id: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          settings?: Json | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title: string
+          updated_at?: string | null
+          user_id: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          description?: string | null
+          duration_seconds?: number | null
+          id?: string
+          settings?: Json | null
+          status?: string | null
+          thumbnail_url?: string | null
+          title?: string
+          updated_at?: string | null
+          user_id?: string
+          video_url?: string | null
+        }
+        Relationships: []
+      }
+      video_subtitles: {
+        Row: {
+          created_at: string | null
+          end_time: number
+          id: string
+          project_id: string
+          start_time: number
+          style: Json | null
+          text: string
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_time: number
+          id?: string
+          project_id: string
+          start_time: number
+          style?: Json | null
+          text: string
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_time?: number
+          id?: string
+          project_id?: string
+          start_time?: number
+          style?: Json | null
+          text?: string
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fk_project"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "video_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never

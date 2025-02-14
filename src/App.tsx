@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +20,7 @@ import AIAgent from "./pages/AIAgent";
 import ProductShoot from "./pages/ProductShoot";
 import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 import Metadata from "./pages/Metadata";
+import VideoEditor from "./pages/VideoEditor";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -174,6 +174,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <PaymentCancel />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/video-editor"
+              element={
+                <ProtectedRoute>
+                  <VideoEditor />
                 </ProtectedRoute>
               }
             />

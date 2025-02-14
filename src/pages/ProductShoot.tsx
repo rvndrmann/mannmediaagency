@@ -64,6 +64,7 @@ const ProductShoot = () => {
       if (error) throw error;
       return data;
     },
+    refetchInterval: 5000,
   });
 
   const generateImage = useMutation({

@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { ProductImageMetadata } from "./ProductImageMetadata";
 import { Button } from "@/components/ui/button";
 import { Download, RefreshCw, Loader2 } from "lucide-react";
@@ -50,10 +50,10 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
     mutationFn: async () => {
       if (!imageJob?.prompt) throw new Error("No prompt found for image");
 
-      const response = await fetch(`${supabase.supabaseUrl}/functions/v1/generate-product-metadata`, {
+      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-product-metadata`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${supabase.supabaseKey}`,
+          "Authorization": `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

@@ -41,9 +41,13 @@ const VideoEditor = () => {
   const { data: projects, isLoading } = useQuery({
     queryKey: ["video-projects"],
     queryFn: async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const { data, error } = await supabase
         .from("video_projects")
         .select("*")
+        .eq('user_id', user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
@@ -53,6 +57,10 @@ const VideoEditor = () => {
 
   const uploadVideo = useMutation({
     mutationFn: async (file: File) => {
+      // First get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
       const filePath = `${fileName}`;
@@ -72,7 +80,8 @@ const VideoEditor = () => {
         .insert({
           title: file.name,
           video_url: publicUrl,
-          status: 'draft'
+          status: 'draft',
+          user_id: user.id  // Add the user_id field
         });
 
       if (dbError) throw dbError;

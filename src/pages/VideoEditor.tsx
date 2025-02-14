@@ -81,11 +81,7 @@ const VideoEditor = () => {
         .from('videos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false,
-          onUploadProgress: (progress) => {
-            const percentage = (progress.loaded / progress.total) * 100;
-            setUploadProgress(percentage);
-          },
+          upsert: false
         });
 
       if (uploadError) throw uploadError;

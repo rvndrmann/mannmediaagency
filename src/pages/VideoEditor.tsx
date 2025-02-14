@@ -9,6 +9,7 @@ import { Timeline } from "@/components/video-editor/Timeline/Timeline";
 import { VideoPlayer } from "@/components/video-editor/VideoPlayer/VideoPlayer";
 import { PlaybackControls } from "@/components/video-editor/Controls/PlaybackControls";
 import { Sidebar } from "@/components/video-editor/Sidebar/Sidebar";
+import { TimelineSegment } from "@/components/video-editor/Timeline/TimelineSegment";
 
 interface VideoProject {
   id: string;

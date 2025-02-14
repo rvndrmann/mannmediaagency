@@ -1,4 +1,3 @@
-
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -44,6 +43,11 @@ export const VideoShowcase = () => {
 
   // Function to get the full URL for storage items
   const getStorageUrl = (path: string) => {
+    // If the path is already a full URL, return it as is
+    if (path.startsWith('http')) {
+      return path;
+    }
+    // Otherwise, generate the URL from the storage bucket
     const { data } = supabase.storage.from("showcase-videos").getPublicUrl(path);
     return data.publicUrl;
   };

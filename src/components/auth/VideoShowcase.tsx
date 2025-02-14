@@ -15,6 +15,8 @@ import { useToast } from "@/hooks/use-toast";
 import { ShowcaseVideo } from "./types/showcase";
 import { LoadingSkeleton } from "./showcase/LoadingSkeleton";
 import { MobileShowcase } from "./showcase/MobileShowcase";
+import { VideoCard } from "./showcase/VideoCard";
+
 export const VideoShowcase = () => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const [videoErrors, setVideoErrors] = useState<{ [key: string]: boolean }>({});
@@ -33,7 +35,6 @@ export const VideoShowcase = () => {
     [Autoplay(autoplayOptions)]
   );
 
-  // Query to fetch videos
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcaseVideos"],
     queryFn: async () => {
@@ -53,7 +54,6 @@ export const VideoShowcase = () => {
     },
   });
 
-  // Mutation to store video
   const storeVideoMutation = useMutation({
     mutationFn: async (video: { url: string, type: string, storyId?: number }) => {
       const response = await supabase.functions.invoke('store-video', {
@@ -80,20 +80,17 @@ export const VideoShowcase = () => {
     },
   });
 
-  // Effect to trigger video storage for new videos
   useEffect(() => {
     if (videos) {
       videos.forEach(async (video) => {
         const videoUrl = video.story?.final_video_with_music || video.video_url;
         
-        // Check if video is already stored
         const { data: storedVideo } = await supabase
           .from('stored_videos')
           .select('*')
           .eq('original_url', videoUrl)
           .maybeSingle();
 
-        // If not stored, trigger storage
         if (!storedVideo) {
           storeVideoMutation.mutate({
             url: videoUrl,

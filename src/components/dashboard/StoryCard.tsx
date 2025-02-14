@@ -1,7 +1,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Video, ArrowRight, Copy, Check, PlayCircle, AlertCircle } from "lucide-react";
+import { Video, ArrowRight, Copy, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -25,8 +25,6 @@ interface StoryCardProps {
 export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [videoError, setVideoError] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
 
   const formatDuration = (seconds: number) => {
     const minutes = Math.floor(seconds / 60);
@@ -52,16 +50,6 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
     }
   };
 
-  const handleVideoError = () => {
-    setVideoError(true);
-    setIsLoading(false);
-    toast({
-      title: "Video Error",
-      description: "Unable to load video. Please try again later.",
-      variant: "destructive",
-    });
-  };
-
   const CopyButton = ({ text, field }: { text: string; field: string }) => (
     <Button
       variant="ghost"
@@ -84,35 +72,18 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
           Story #{story["stories id"]}
         </Badge>
       </div>
-      <div className="aspect-video bg-gray-100 relative">
+      <div className="aspect-video bg-gray-100">
         {story.final_video_with_music ? (
           <div className="flex flex-col items-center gap-1 p-2">
-            {isLoading && (
-              <div className="absolute inset-0 flex items-center justify-center bg-gray-100">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-600"></div>
-              </div>
-            )}
-            {videoError ? (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-100">
-                <AlertCircle className="h-8 w-8 text-red-500 mb-2" />
-                <span className="text-sm text-gray-600">Video unavailable</span>
-              </div>
-            ) : (
-              <video 
-                src={story.final_video_with_music} 
-                controls 
-                className={`w-full h-full object-cover rounded transition-opacity duration-300 ${isLoading ? 'opacity-0' : 'opacity-100'}`}
-                onLoadedMetadata={(e) => {
-                  const video = e.target as HTMLVideoElement;
-                  onVideoLoad(story, video.duration);
-                  setIsLoading(false);
-                }}
-                onError={handleVideoError}
-                onLoadStart={() => setIsLoading(true)}
-                playsInline
-                crossOrigin="anonymous"
-              />
-            )}
+            <video 
+              src={story.final_video_with_music} 
+              controls 
+              className="w-full h-full object-cover rounded"
+              onLoadedMetadata={(e) => {
+                const video = e.target as HTMLVideoElement;
+                onVideoLoad(story, video.duration);
+              }}
+            />
             <div className="flex items-center justify-between w-full mt-1">
               {story.video_length_seconds && (
                 <div className="flex items-center text-xs text-gray-600">
@@ -128,10 +99,7 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
-            <div className="flex flex-col items-center text-gray-400">
-              <PlayCircle className="w-8 h-8 mb-2 animate-pulse" />
-              <div className="text-sm">Processing...</div>
-            </div>
+            <div className="text-gray-400 text-sm">Processing...</div>
           </div>
         )}
       </div>

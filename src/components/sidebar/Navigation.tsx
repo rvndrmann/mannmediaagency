@@ -71,13 +71,16 @@ export const Navigation = () => {
         <Video className="mr-2 h-4 w-4" /> Create Video
       </Button>
 
-      <Button
-        variant="ghost"
-        className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
-        onClick={() => navigate("/video-editor")}
-      >
-        <Video className="mr-2 h-4 w-4" /> Video Editor
-      </Button>
+      <div className="space-y-1">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 opacity-50 cursor-not-allowed"
+          disabled={true}
+        >
+          <Video className="mr-2 h-4 w-4" /> Video Editor
+        </Button>
+        <div className="text-xs text-red-500 pl-10">Coming Soon</div>
+      </div>
 
       <Button
         variant="ghost"

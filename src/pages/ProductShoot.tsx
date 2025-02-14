@@ -1,6 +1,5 @@
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2, Upload, Image as ImageIcon, ChevronLeft } from "lucide-react";
@@ -16,6 +15,8 @@ import {
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
 import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
+import { ProductImageMetadata } from "@/components/product/ProductImageMetadata";
+import { ProductImageHistory } from "@/components/product/ProductImageHistory";
 
 type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
 
@@ -29,6 +30,10 @@ export default function ProductShoot() {
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [numInferenceSteps, setNumInferenceSteps] = useState(8);
   const [currentJobId, setCurrentJobId] = useState<string | null>(null);
+  const [selectedHistoryImage, setSelectedHistoryImage] = useState<{
+    jobId: string;
+    url: string;
+  } | null>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -147,9 +152,14 @@ export default function ProductShoot() {
     return () => clearInterval(pollInterval);
   }, [currentJobId]);
 
+  const handleHistoryImageSelect = (jobId: string, imageUrl: string) => {
+    setSelectedHistoryImage({ jobId, url: imageUrl });
+    setGeneratedImage(imageUrl);
+  };
+
   return (
     <div className="container mx-auto py-8">
-      <div className="max-w-4xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto space-y-8">
         <div className="flex items-center gap-4 mb-6">
           <Button
             variant="ghost"
@@ -162,8 +172,8 @@ export default function ProductShoot() {
           <h2 className="text-2xl font-bold">Product Shoot</h2>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="space-y-6">
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
+          <div className="lg:col-span-4 space-y-6">
             <p className="text-gray-400">
               Upload your product image and describe how you want it to look.
             </p>
@@ -278,7 +288,7 @@ export default function ProductShoot() {
             </div>
           </div>
 
-          <div className="space-y-4">
+          <div className="lg:col-span-4 space-y-6">
             <h3 className="text-xl font-semibold">Generated Image</h3>
             <div className="border-2 border-dashed border-gray-700 rounded-lg aspect-square flex items-center justify-center">
               {generatedImage ? (
@@ -293,6 +303,19 @@ export default function ProductShoot() {
                 </div>
               )}
             </div>
+            {(currentJobId || selectedHistoryImage?.jobId) && (
+              <div className="space-y-4">
+                <h3 className="text-xl font-semibold">Image Metadata</h3>
+                <ProductImageMetadata 
+                  imageJobId={currentJobId || selectedHistoryImage?.jobId || ""} 
+                />
+              </div>
+            )}
+          </div>
+
+          <div className="lg:col-span-4 space-y-4">
+            <h3 className="text-xl font-semibold">Generation History</h3>
+            <ProductImageHistory onSelectImage={handleHistoryImageSelect} />
           </div>
         </div>
       </div>

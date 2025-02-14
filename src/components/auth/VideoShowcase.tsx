@@ -12,6 +12,8 @@ import {
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { useIsMobile } from "@/hooks/use-mobile";
+import { AlertCircle } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ShowcaseVideo {
   id: string;
@@ -30,7 +32,10 @@ interface ShowcaseVideo {
 export const VideoShowcase = () => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
+  const [videoErrors, setVideoErrors] = useState<{ [key: string]: boolean }>({});
+  const [loadingVideos, setLoadingVideos] = useState<{ [key: string]: boolean }>({});
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const autoplayOptions = {
     delay: 4000,
@@ -74,51 +79,77 @@ export const VideoShowcase = () => {
     }
   }, [videos]);
 
+  const handleVideoError = (videoId: string) => {
+    setVideoErrors(prev => ({ ...prev, [videoId]: true }));
+    setLoadingVideos(prev => ({ ...prev, [videoId]: false }));
+    toast({
+      title: "Video Error",
+      description: "Unable to load showcase video. Please try again later.",
+      variant: "destructive",
+    });
+  };
+
   const VideoCard = ({ video }: { video: ShowcaseVideo }) => (
     <div className="space-y-4">
       <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl max-h-[400px]">
-        <video
-          ref={(el) => {
-            if (el) {
-              videoRefs.current[video.id] = el;
-            }
-          }}
-          className="w-full h-full object-cover"
-          playsInline
-          preload="auto"
-          controls
-          onLoadedMetadata={(e) => {
-            const videoEl = e.currentTarget;
-            videoEl.currentTime = 2;
-          }}
-          onLoadedData={(e) => {
-            const videoEl = e.currentTarget;
-            videoEl.currentTime = 2;
-          }}
-          onPlay={() => setPlayingVideoId(video.id)}
-          onPause={() => setPlayingVideoId(null)}
-          onEnded={() => setPlayingVideoId(null)}
-          onClick={(e) => {
-            const videoEl = e.currentTarget;
-            if (videoEl.paused) {
-              document.querySelectorAll('video').forEach(v => {
-                if (v !== videoEl) {
-                  v.pause();
-                  v.currentTime = 2;
-                }
-              });
-              videoEl.play();
-            } else {
-              videoEl.pause();
-            }
-          }}
-        >
-          <source 
-            src={video.story?.final_video_with_music || video.video_url} 
-            type="video/mp4" 
-          />
-          Your browser does not support the video tag.
-        </video>
+        {loadingVideos[video.id] && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-800/50 z-20">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-white"></div>
+          </div>
+        )}
+        
+        {videoErrors[video.id] ? (
+          <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-800">
+            <AlertCircle className="h-12 w-12 text-red-500 mb-2" />
+            <span className="text-sm text-gray-300">Video unavailable</span>
+          </div>
+        ) : (
+          <video
+            ref={(el) => {
+              if (el) {
+                videoRefs.current[video.id] = el;
+              }
+            }}
+            className="w-full h-full object-cover"
+            playsInline
+            preload="auto"
+            controls
+            crossOrigin="anonymous"
+            onLoadedMetadata={(e) => {
+              const videoEl = e.currentTarget;
+              videoEl.currentTime = 2;
+              setLoadingVideos(prev => ({ ...prev, [video.id]: false }));
+            }}
+            onLoadStart={() => {
+              setLoadingVideos(prev => ({ ...prev, [video.id]: true }));
+              setVideoErrors(prev => ({ ...prev, [video.id]: false }));
+            }}
+            onError={() => handleVideoError(video.id)}
+            onPlay={() => setPlayingVideoId(video.id)}
+            onPause={() => setPlayingVideoId(null)}
+            onEnded={() => setPlayingVideoId(null)}
+            onClick={(e) => {
+              const videoEl = e.currentTarget;
+              if (videoEl.paused) {
+                document.querySelectorAll('video').forEach(v => {
+                  if (v !== videoEl) {
+                    v.pause();
+                    v.currentTime = 2;
+                  }
+                });
+                videoEl.play();
+              } else {
+                videoEl.pause();
+              }
+            }}
+          >
+            <source 
+              src={video.story?.final_video_with_music || video.video_url} 
+              type="video/mp4" 
+            />
+            Your browser does not support the video tag.
+          </video>
+        )}
 
         <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
           <span className="inline-block px-3 py-1 bg-purple-600/90 text-xs font-medium text-white rounded-full">
@@ -126,21 +157,23 @@ export const VideoShowcase = () => {
           </span>
         </div>
 
-        <div 
-          className={`absolute inset-0 flex items-center justify-center opacity-0 
-            ${playingVideoId !== video.id ? 'group-hover:opacity-90' : ''} 
-            transition-opacity duration-300 pointer-events-none`}
-        >
-          <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
+        {!videoErrors[video.id] && (
+          <div 
+            className={`absolute inset-0 flex items-center justify-center opacity-0 
+              ${playingVideoId !== video.id ? 'group-hover:opacity-90' : ''} 
+              transition-opacity duration-300 pointer-events-none`}
+          >
+            <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
+              <svg
+                className="w-8 h-8 text-white"
+                fill="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path d="M8 5v14l11-7z" />
+              </svg>
+            </div>
           </div>
-        </div>
+        )}
       </div>
 
       <div className="space-y-2">

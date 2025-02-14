@@ -19,6 +19,9 @@ import { supabase } from "@/integrations/supabase/client";
 
 type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
 
+const SUPABASE_URL = "https://avdwgvjhufslhqrrmxgo.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4Mzg3OTMsImV4cCI6MjA1NDQxNDc5M30.NYkKpNhStznwM0M-ZwyANUJNoGsYDM7xF2oMaWQ92w4";
+
 export default function ProductShoot() {
   const navigate = useNavigate();
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -59,18 +62,23 @@ export default function ProductShoot() {
         throw new Error("You must be logged in to generate images");
       }
 
+      console.log('Making request to:', `${SUPABASE_URL}/functions/v1/generate-product-image`);
+      
       const response = await fetch(
-        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-product-image`,
+        `${SUPABASE_URL}/functions/v1/generate-product-image`,
         {
           method: "POST",
           body: formData,
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
+            apikey: SUPABASE_ANON_KEY,
           },
         }
       );
 
+      console.log('Response status:', response.status);
+      
+      // Check if the response is HTML (error page)
       const contentType = response.headers.get('content-type');
       if (contentType && contentType.includes('text/html')) {
         const errorText = await response.text();

@@ -30,6 +30,39 @@ export type Database = {
         }
         Relationships: []
       }
+      auth_showcase_videos: {
+        Row: {
+          category: string | null
+          created_at: string | null
+          description: string | null
+          display_order: number | null
+          id: string
+          thumbnail_path: string | null
+          title: string
+          video_path: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          thumbnail_path?: string | null
+          title: string
+          video_path: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string | null
+          description?: string | null
+          display_order?: number | null
+          id?: string
+          thumbnail_path?: string | null
+          title?: string
+          video_path?: string
+        }
+        Relationships: []
+      }
       chat_usage: {
         Row: {
           created_at: string | null

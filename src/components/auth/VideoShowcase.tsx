@@ -17,8 +17,8 @@ type ShowcaseVideo = {
   title: string;
   description: string | null;
   category: string | null;
-  video_url: string;
-  thumbnail_url: string | null;
+  video_path: string;
+  thumbnail_path: string | null;
   display_order: number;
 };
 
@@ -41,6 +41,12 @@ export const VideoShowcase = () => {
       return data as ShowcaseVideo[];
     },
   });
+
+  // Function to get the full URL for storage items
+  const getStorageUrl = (path: string) => {
+    const { data } = supabase.storage.from("showcase-videos").getPublicUrl(path);
+    return data.publicUrl;
+  };
 
   if (isLoading) {
     return (
@@ -67,9 +73,9 @@ export const VideoShowcase = () => {
             onClick={() => setSelectedVideo(video)}
           >
             <div className="relative aspect-video">
-              {video.thumbnail_url ? (
+              {video.thumbnail_path ? (
                 <img
-                  src={video.thumbnail_url}
+                  src={getStorageUrl(video.thumbnail_path)}
                   alt={video.title}
                   className="w-full h-full object-cover"
                 />
@@ -106,7 +112,7 @@ export const VideoShowcase = () => {
           {selectedVideo && (
             <div className="aspect-video w-full">
               <video
-                src={selectedVideo.video_url}
+                src={getStorageUrl(selectedVideo.video_path)}
                 controls
                 className="w-full h-full"
                 autoPlay

@@ -2,7 +2,6 @@
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, RocketIcon, TagIcon } from "lucide-react";
-import { VideoShowcase } from "@/components/auth/VideoShowcase";
 import { SplashCursor } from "@/components/ui/splash-cursor";
 
 const Auth = () => {
@@ -91,11 +90,6 @@ const Auth = () => {
               <span className="text-gray-300">ChatGPT-4o</span>
             </div>
           </div>
-        </div>
-
-        {/* Video Showcase - Full Width */}
-        <div className="w-full max-w-[1400px] mx-auto relative z-10">
-          <VideoShowcase />
         </div>
       </div>
     </div>

@@ -5,14 +5,14 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Copy, Check } from "lucide-react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
 interface ProductImageMetadataProps {
   imageJobId: string;
 }
 
-type ProductMetadata = {
+interface ProductMetadata {
   id: string;
   image_job_id: string;
   seo_title: string | null;
@@ -21,37 +21,41 @@ type ProductMetadata = {
   instagram_hashtags: string | null;
   product_context: string | null;
   custom_title: string | null;
-};
+}
 
 export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const queryClient = useQueryClient();
 
   const { data: metadata, isLoading } = useQuery({
     queryKey: ["product-metadata", imageJobId],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("product_image_metadata")
-        .select("*")
+        .select()
         .eq("image_job_id", imageJobId)
-        .maybeSingle();
+        .single();
 
-      if (error) throw error;
-      return data as ProductMetadata | null;
+      if (error && error.code !== 'PGRST116') throw error;
+      return (data || { image_job_id: imageJobId }) as ProductMetadata;
     },
   });
 
   const updateMetadata = useMutation({
-    mutationFn: async (values: Partial<Omit<ProductMetadata, "id" | "image_job_id">>) => {
+    mutationFn: async (values: Partial<Omit<ProductMetadata, "id">>) => {
       const { error } = await supabase
         .from("product_image_metadata")
         .upsert({
           image_job_id: imageJobId,
           ...values,
-        });
+        })
+        .select()
+        .single();
 
       if (error) throw error;
     },
     onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-metadata", imageJobId] });
       toast.success("Metadata updated successfully");
     },
     onError: (error) => {
@@ -60,7 +64,8 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
     },
   });
 
-  const handleCopy = async (text: string, fieldName: string) => {
+  const handleCopy = async (text: string | null, fieldName: string) => {
+    if (!text) return;
     await navigator.clipboard.writeText(text);
     setCopiedField(fieldName);
     toast.success("Copied to clipboard");

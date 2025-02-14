@@ -24,22 +24,28 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
   const { data: generationHistory, isLoading } = useQuery({
     queryKey: ["product-image-history"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      const { data: jobs, error } = await supabase
         .from("image_generation_jobs")
-        .select(`
-          id,
-          prompt,
-          result_url,
-          created_at,
-          product_image_metadata (
-            seo_title,
-            instagram_hashtags
-          )
-        `)
+        .select("id, prompt, result_url, created_at")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data as ImageGenerationJob[];
+
+      // Fetch metadata separately
+      const jobsWithMetadata = await Promise.all((jobs || []).map(async (job) => {
+        const { data: metadata } = await supabase
+          .from("product_image_metadata")
+          .select("seo_title, instagram_hashtags")
+          .eq("image_job_id", job.id)
+          .single();
+
+        return {
+          ...job,
+          product_image_metadata: metadata || null
+        } as ImageGenerationJob;
+      }));
+
+      return jobsWithMetadata;
     },
   });
 

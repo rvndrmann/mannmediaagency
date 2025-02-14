@@ -1,10 +1,12 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Upload, Image as ImageIcon } from "lucide-react";
+import { Loader2, Upload, Image as ImageIcon, ChevronLeft } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { 
   Select,
   SelectContent,
@@ -19,6 +21,7 @@ import { supabase } from "@/integrations/supabase/client";
 type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
 
 export default function ProductShoot() {
+  const navigate = useNavigate();
   const [productImage, setProductImage] = useState<File | null>(null);
   const [prompt, setPrompt] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -50,13 +53,20 @@ export default function ProductShoot() {
       formData.append("numInferenceSteps", numInferenceSteps.toString());
       formData.append("outputFormat", "png");
 
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      
+      if (!accessToken) {
+        throw new Error("You must be logged in to generate images");
+      }
+
       const response = await fetch(
         `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-product-image`,
         {
           method: "POST",
           body: formData,
           headers: {
-            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+            Authorization: `Bearer ${accessToken}`,
           },
         }
       );
@@ -85,14 +95,23 @@ export default function ProductShoot() {
   return (
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto space-y-8">
+        <div className="flex items-center gap-4 mb-6">
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="w-10 h-10"
+          >
+            <ChevronLeft className="h-6 w-6" />
+          </Button>
+          <h2 className="text-2xl font-bold">Product Shoot</h2>
+        </div>
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
           <div className="space-y-6">
-            <div>
-              <h2 className="text-2xl font-bold mb-4">Product Shoot</h2>
-              <p className="text-gray-400 mb-6">
-                Upload your product image and describe how you want it to look.
-              </p>
-            </div>
+            <p className="text-gray-400">
+              Upload your product image and describe how you want it to look.
+            </p>
 
             <div className="space-y-4">
               <div>

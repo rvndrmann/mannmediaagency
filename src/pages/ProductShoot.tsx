@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -41,6 +42,42 @@ export default function ProductShoot() {
       setProductImage(file);
       const objectUrl = URL.createObjectURL(file);
       setPreviewUrl(objectUrl);
+    }
+  };
+
+  const generateMetadata = async (jobId: string, promptText: string) => {
+    try {
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      
+      if (!accessToken) {
+        throw new Error("Authentication required");
+      }
+
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/generate-product-metadata`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ 
+            imageJobId: jobId,
+            prompt: promptText,
+          }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to generate metadata");
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error("Error generating metadata:", error);
+      toast.error("Failed to generate metadata");
     }
   };
 
@@ -137,6 +174,8 @@ export default function ProductShoot() {
           setGeneratedImage(result.resultUrl);
           setCurrentJobId(null);
           toast.success("Image generated successfully!");
+          // Generate metadata after successful image generation
+          await generateMetadata(currentJobId, prompt);
           clearInterval(pollInterval);
         } else if (result.status === 'failed') {
           setCurrentJobId(null);
@@ -147,7 +186,7 @@ export default function ProductShoot() {
         console.error('Error checking status:', error);
         clearInterval(pollInterval);
       }
-    }, 5000); // Poll every 5 seconds
+    }, 5000);
 
     return () => clearInterval(pollInterval);
   }, [currentJobId]);
@@ -159,7 +198,7 @@ export default function ProductShoot() {
 
   return (
     <div className="container mx-auto py-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+      <div className="max-w-7xl mx-auto">
         <div className="flex items-center gap-4 mb-6">
           <Button
             variant="ghost"
@@ -173,11 +212,8 @@ export default function ProductShoot() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-          <div className="lg:col-span-4 space-y-6">
-            <p className="text-gray-400">
-              Upload your product image and describe how you want it to look.
-            </p>
-
+          {/* Left Panel */}
+          <div className="lg:col-span-8 space-y-6">
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">
@@ -286,36 +322,42 @@ export default function ProductShoot() {
                 )}
               </Button>
             </div>
+
+            <div className="space-y-4">
+              <h3 className="text-xl font-semibold">Generation History</h3>
+              <ProductImageHistory onSelectImage={handleHistoryImageSelect} />
+            </div>
           </div>
 
+          {/* Right Panel */}
           <div className="lg:col-span-4 space-y-6">
-            <h3 className="text-xl font-semibold">Generated Image</h3>
-            <div className="border-2 border-dashed border-gray-700 rounded-lg aspect-square flex items-center justify-center">
-              {generatedImage ? (
-                <img
-                  src={generatedImage}
-                  alt="Generated product"
-                  className="rounded-lg object-cover w-full h-full"
-                />
-              ) : (
-                <div className="text-gray-400 text-center p-4">
-                  {currentJobId ? "Generating your image..." : "Generated image will appear here"}
+            <div className="sticky top-8">
+              <h3 className="text-xl font-semibold mb-4">Generated Image</h3>
+              <div className="border-2 border-dashed border-gray-700 rounded-lg aspect-square flex items-center justify-center mb-6">
+                {generatedImage ? (
+                  <img
+                    src={generatedImage}
+                    alt="Generated product"
+                    className="rounded-lg object-cover w-full h-full"
+                  />
+                ) : (
+                  <div className="text-gray-400 text-center p-4">
+                    {currentJobId ? "Generating your image..." : "Generated image will appear here"}
+                  </div>
+                )}
+              </div>
+              
+              {(currentJobId || selectedHistoryImage?.jobId) && (
+                <div className="space-y-4">
+                  <h3 className="text-xl font-semibold">Image Metadata</h3>
+                  <div className="border rounded-lg p-4">
+                    <ProductImageMetadata 
+                      imageJobId={currentJobId || selectedHistoryImage?.jobId || ""} 
+                    />
+                  </div>
                 </div>
               )}
             </div>
-            {(currentJobId || selectedHistoryImage?.jobId) && (
-              <div className="space-y-4">
-                <h3 className="text-xl font-semibold">Image Metadata</h3>
-                <ProductImageMetadata 
-                  imageJobId={currentJobId || selectedHistoryImage?.jobId || ""} 
-                />
-              </div>
-            )}
-          </div>
-
-          <div className="lg:col-span-4 space-y-4">
-            <h3 className="text-xl font-semibold">Generation History</h3>
-            <ProductImageHistory onSelectImage={handleHistoryImageSelect} />
           </div>
         </div>
       </div>

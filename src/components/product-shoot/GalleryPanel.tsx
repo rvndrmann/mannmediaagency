@@ -13,7 +13,6 @@ interface GeneratedImage {
 
 interface GalleryPanelProps {
   isMobile: boolean;
-  activePanel: 'input' | 'gallery';
   images: GeneratedImage[] | null;
   isLoading: boolean;
   onDownload: (url: string) => void;
@@ -21,7 +20,6 @@ interface GalleryPanelProps {
 
 export function GalleryPanel({
   isMobile,
-  activePanel,
   images,
   isLoading,
   onDownload,
@@ -29,9 +27,11 @@ export function GalleryPanel({
   return (
     <div className={cn(
       "p-6",
-      isMobile ? (activePanel === 'gallery' ? "block" : "hidden") : "flex-1"
+      isMobile ? "w-full" : "flex-1"
     )}>
-      <ScrollArea className="h-[calc(100vh-3rem)]">
+      <ScrollArea className={cn(
+        isMobile ? "max-h-[calc(100vh-24rem)]" : "h-[calc(100vh-3rem)]"
+      )}>
         <div className="grid grid-cols-1 gap-6">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">

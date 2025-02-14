@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,7 +15,6 @@ import {
 
 interface InputPanelProps {
   isMobile: boolean;
-  activePanel: 'input' | 'gallery';
   prompt: string;
   onPromptChange: (value: string) => void;
   previewUrl: string | null;
@@ -37,7 +35,6 @@ interface InputPanelProps {
 
 export function InputPanel({
   isMobile,
-  activePanel,
   prompt,
   onPromptChange,
   previewUrl,
@@ -57,9 +54,8 @@ export function InputPanel({
 }: InputPanelProps) {
   return (
     <div className={cn(
-      "space-y-6 p-6 border-r border-gray-800 overflow-y-auto",
-      isMobile ? "w-full" : "w-1/3",
-      isMobile && activePanel !== 'input' && "hidden"
+      "space-y-6 p-6 border-r border-gray-800",
+      isMobile ? "w-full border-r-0 border-b" : "w-1/3 overflow-y-auto"
     )}>
       <div className="space-y-6">
         {!isMobile && (

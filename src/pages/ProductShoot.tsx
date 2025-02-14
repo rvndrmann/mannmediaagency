@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +10,6 @@ import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
-  const [activePanel, setActivePanel] = useState<'input' | 'gallery'>(isMobile ? 'input' : 'gallery');
   const [prompt, setPrompt] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -129,18 +127,13 @@ const ProductShoot = () => {
   return (
     <div className="min-h-screen bg-background">
       {isMobile && (
-        <MobilePanelToggle
-          activePanel={activePanel}
-          onPanelChange={setActivePanel}
-        />
+        <MobilePanelToggle title="Product Image Generator" />
       )}
       <div className={cn(
-        "h-screen",
-        isMobile ? "block" : "flex"
+        isMobile ? "flex flex-col" : "flex h-screen"
       )}>
         <InputPanel
           isMobile={isMobile}
-          activePanel={activePanel}
           prompt={prompt}
           onPromptChange={setPrompt}
           previewUrl={previewUrl}
@@ -160,7 +153,6 @@ const ProductShoot = () => {
         />
         <GalleryPanel
           isMobile={isMobile}
-          activePanel={activePanel}
           images={images}
           isLoading={imagesLoading}
           onDownload={handleDownload}

@@ -9,6 +9,17 @@ interface ProductImageHistoryProps {
   onSelectImage: (jobId: string, imageUrl: string) => void;
 }
 
+type ImageGenerationJob = {
+  id: string;
+  prompt: string;
+  result_url: string | null;
+  created_at: string;
+  product_image_metadata: {
+    seo_title: string | null;
+    instagram_hashtags: string | null;
+  } | null;
+};
+
 export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps) {
   const { data: generationHistory, isLoading } = useQuery({
     queryKey: ["product-image-history"],
@@ -16,7 +27,10 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
       const { data, error } = await supabase
         .from("image_generation_jobs")
         .select(`
-          *,
+          id,
+          prompt,
+          result_url,
+          created_at,
           product_image_metadata (
             seo_title,
             instagram_hashtags
@@ -25,7 +39,7 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data as ImageGenerationJob[];
     },
   });
 
@@ -64,7 +78,7 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
             <Button
               variant="secondary"
               className="w-full"
-              onClick={() => onSelectImage(job.id, job.result_url)}
+              onClick={() => job.result_url && onSelectImage(job.id, job.result_url)}
             >
               View Details
             </Button>

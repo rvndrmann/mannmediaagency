@@ -12,6 +12,17 @@ interface ProductImageMetadataProps {
   imageJobId: string;
 }
 
+type ProductMetadata = {
+  id: string;
+  image_job_id: string;
+  seo_title: string | null;
+  seo_description: string | null;
+  keywords: string | null;
+  instagram_hashtags: string | null;
+  product_context: string | null;
+  custom_title: string | null;
+};
+
 export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
@@ -25,19 +36,12 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
         .maybeSingle();
 
       if (error) throw error;
-      return data;
+      return data as ProductMetadata | null;
     },
   });
 
   const updateMetadata = useMutation({
-    mutationFn: async (values: {
-      seo_title?: string;
-      seo_description?: string;
-      keywords?: string;
-      instagram_hashtags?: string;
-      product_context?: string;
-      custom_title?: string;
-    }) => {
+    mutationFn: async (values: Partial<Omit<ProductMetadata, "id" | "image_job_id">>) => {
       const { error } = await supabase
         .from("product_image_metadata")
         .upsert({
@@ -65,7 +69,7 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
 
   const MetadataField = ({ label, value, onChange }: { 
     label: string; 
-    value: string; 
+    value: string | null; 
     onChange: (value: string) => void; 
   }) => (
     <div className="space-y-2">
@@ -111,32 +115,32 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
     <div className="space-y-6">
       <MetadataField
         label="SEO Title"
-        value={metadata?.seo_title || ""}
+        value={metadata?.seo_title}
         onChange={(value) => updateMetadata.mutate({ seo_title: value })}
       />
       <MetadataField
         label="SEO Description"
-        value={metadata?.seo_description || ""}
+        value={metadata?.seo_description}
         onChange={(value) => updateMetadata.mutate({ seo_description: value })}
       />
       <MetadataField
         label="Keywords"
-        value={metadata?.keywords || ""}
+        value={metadata?.keywords}
         onChange={(value) => updateMetadata.mutate({ keywords: value })}
       />
       <MetadataField
         label="Instagram Hashtags"
-        value={metadata?.instagram_hashtags || ""}
+        value={metadata?.instagram_hashtags}
         onChange={(value) => updateMetadata.mutate({ instagram_hashtags: value })}
       />
       <MetadataField
         label="Product Description"
-        value={metadata?.product_context || ""}
+        value={metadata?.product_context}
         onChange={(value) => updateMetadata.mutate({ product_context: value })}
       />
       <MetadataField
         label="Custom Title"
-        value={metadata?.custom_title || ""}
+        value={metadata?.custom_title}
         onChange={(value) => updateMetadata.mutate({ custom_title: value })}
       />
     </div>

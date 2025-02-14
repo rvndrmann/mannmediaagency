@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { prompt, imageJobId } = await req.json();
+    const { prompt, imageJobId, additionalContext, customTitleTwist } = await req.json();
     
     if (!prompt || !imageJobId) {
       throw new Error('Prompt and imageJobId are required');
@@ -35,23 +35,15 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           {
             role: 'system',
-            content: `You are a professional product marketing specialist. Generate metadata for product images. 
-            Format your response as a JSON object with these fields:
-            {
-              "seo_title": "60 chars max, compelling title",
-              "seo_description": "160 chars max description optimized for SEO",
-              "keywords": "10-15 relevant comma-separated keywords",
-              "instagram_hashtags": "20-30 relevant space-separated hashtags (include # symbol)",
-              "product_context": "2-3 sentences about the product and its key features"
-            }`
+            content: 'You are a professional product marketing specialist. Generate metadata for product images. Format your response as a valid JSON object with these fields: seo_title (60 chars max, compelling title), seo_description (160 chars max description optimized for SEO), keywords (10-15 relevant comma-separated keywords), instagram_hashtags (20-30 relevant space-separated hashtags including # symbol), product_context (2-3 sentences about the product and its key features)'
           },
           {
             role: 'user',
-            content: `Generate optimized metadata for this product image prompt: "${prompt}"`
+            content: `Generate optimized metadata for this product image. Main prompt: "${prompt}"${additionalContext ? ` Additional context: ${additionalContext}` : ''}${customTitleTwist ? ` Custom title twist: ${customTitleTwist}` : ''}`
           }
         ],
         temperature: 0.7,
@@ -63,7 +55,14 @@ serve(async (req) => {
     }
 
     const completion = await response.json();
-    const metadata = JSON.parse(completion.choices[0].message.content);
+    let metadata;
+    
+    try {
+      metadata = JSON.parse(completion.choices[0].message.content);
+    } catch (error) {
+      console.error('Failed to parse OpenAI response:', completion.choices[0].message.content);
+      throw new Error('Invalid metadata format received from OpenAI');
+    }
 
     // Update the database with generated metadata
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -80,7 +79,7 @@ serve(async (req) => {
       .upsert({
         image_job_id: imageJobId,
         ...metadata,
-        regeneration_count: 0,
+        metadata_regeneration_count: 0,
       });
 
     if (upsertError) {

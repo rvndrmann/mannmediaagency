@@ -1,15 +1,17 @@
+
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PlayCircle } from "lucide-react";
+import { PlayCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useState } from "react";
+import { useState, useRef } from "react";
+import { Badge } from "@/components/ui/badge";
 
 type ShowcaseVideo = {
   id: string;
@@ -23,6 +25,7 @@ type ShowcaseVideo = {
 
 export const VideoShowcase = () => {
   const [selectedVideo, setSelectedVideo] = useState<ShowcaseVideo | null>(null);
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcase-videos"],
@@ -41,15 +44,25 @@ export const VideoShowcase = () => {
     },
   });
 
-  // Function to get the full URL for storage items
   const getStorageUrl = (path: string) => {
-    // If the path is already a full URL, return it as is
     if (path.startsWith('http')) {
       return path;
     }
-    // Otherwise, generate the URL from the storage bucket
     const { data } = supabase.storage.from("showcase-videos").getPublicUrl(path);
     return data.publicUrl;
+  };
+
+  const scroll = (direction: "left" | "right") => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 320; // Width of one card + gap
+      const newScrollLeft =
+        scrollContainerRef.current.scrollLeft +
+        (direction === "right" ? scrollAmount : -scrollAmount);
+      scrollContainerRef.current.scrollTo({
+        left: newScrollLeft,
+        behavior: "smooth",
+      });
+    }
   };
 
   if (isLoading) {
@@ -65,45 +78,81 @@ export const VideoShowcase = () => {
   }
 
   return (
-    <div className="py-16">
+    <div className="py-16 px-4">
       <h2 className="text-3xl font-bold text-white text-center mb-12">
         See What Others Have Created
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 px-4">
-        {videos.map((video) => (
-          <Card
-            key={video.id}
-            className="bg-gray-800/50 border-gray-700 overflow-hidden cursor-pointer transform transition-all duration-200 hover:scale-105"
-            onClick={() => setSelectedVideo(video)}
-          >
-            <div className="relative aspect-video">
-              {video.thumbnail_path ? (
-                <img
-                  src={getStorageUrl(video.thumbnail_path)}
-                  alt={video.title}
-                  className="w-full h-full object-cover"
-                />
-              ) : (
-                <div className="w-full h-full bg-gray-700" />
-              )}
-              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                <Button variant="ghost" className="text-white">
-                  <PlayCircle className="w-12 h-12" />
-                </Button>
+      
+      <div className="relative max-w-[1400px] mx-auto">
+        {/* Navigation Buttons */}
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute left-0 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70"
+          onClick={() => scroll("left")}
+        >
+          <ChevronLeft className="h-8 w-8" />
+        </Button>
+        
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute right-0 top-1/2 -translate-y-1/2 z-10 text-white bg-black/50 hover:bg-black/70"
+          onClick={() => scroll("right")}
+        >
+          <ChevronRight className="h-8 w-8" />
+        </Button>
+
+        {/* Scrollable Container */}
+        <div 
+          ref={scrollContainerRef}
+          className="flex gap-6 overflow-x-auto snap-x snap-mandatory scrollbar-hide"
+          style={{ scrollbarWidth: 'none', msOverflowStyle: 'none' }}
+        >
+          {videos.map((video) => (
+            <Card
+              key={video.id}
+              className="flex-none w-[300px] snap-center bg-gray-800/50 border-gray-700 overflow-hidden cursor-pointer transform transition-all duration-200 hover:scale-105"
+              onClick={() => setSelectedVideo(video)}
+            >
+              <div className="relative aspect-[9/16]">
+                {video.thumbnail_path ? (
+                  <img
+                    src={getStorageUrl(video.thumbnail_path)}
+                    alt={video.title}
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <div className="w-full h-full bg-gray-700" />
+                )}
+                <div className="absolute inset-0 flex flex-col justify-between p-4 bg-gradient-to-b from-black/60 via-transparent to-black/60">
+                  <div>
+                    {video.category && (
+                      <Badge variant="secondary" className="mb-2">
+                        {video.category}
+                      </Badge>
+                    )}
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-white mb-2">
+                      {video.title}
+                    </h3>
+                    {video.description && (
+                      <p className="text-sm text-gray-200 line-clamp-2">
+                        {video.description}
+                      </p>
+                    )}
+                  </div>
+                </div>
+                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
+                  <Button variant="ghost" className="text-white">
+                    <PlayCircle className="w-12 h-12" />
+                  </Button>
+                </div>
               </div>
-            </div>
-            <div className="p-4">
-              <h3 className="text-lg font-semibold text-white mb-2">
-                {video.title}
-              </h3>
-              {video.description && (
-                <p className="text-gray-400 text-sm line-clamp-2">
-                  {video.description}
-                </p>
-              )}
-            </div>
-          </Card>
-        ))}
+            </Card>
+          ))}
+        </div>
       </div>
 
       <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>

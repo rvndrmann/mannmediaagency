@@ -16,6 +16,7 @@ interface VideoCardProps {
 
 const MAX_RETRIES = 2;
 const RETRY_DELAY = 2000;
+const LOAD_TIMEOUT = 10000; // 10 seconds timeout for loading
 
 export const VideoCard = ({
   video,
@@ -29,8 +30,11 @@ export const VideoCard = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const [retryCount, setRetryCount] = useState(0);
   const [errorDetails, setErrorDetails] = useState<string>("");
+  const [isLoadingVideo, setIsLoadingVideo] = useState(true);
+  const loadTimeoutRef = useRef<NodeJS.Timeout>();
 
   const isValidVideoUrl = (url: string) => {
+    if (!url) return false;
     try {
       const parsedUrl = new URL(url);
       return ['http:', 'https:'].includes(parsedUrl.protocol);
@@ -58,13 +62,13 @@ export const VideoCard = ({
           errorMessage += "The video playback was aborted.";
           break;
         case MediaError.MEDIA_ERR_NETWORK:
-          errorMessage += "A network error occurred.";
+          errorMessage += "A network error occurred while loading the video.";
           break;
         case MediaError.MEDIA_ERR_DECODE:
-          errorMessage += "The video format is not supported.";
+          errorMessage += "The video format is not supported by your browser.";
           break;
         case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
-          errorMessage += "The video source is not supported.";
+          errorMessage += "The video format or source is not supported.";
           break;
         default:
           errorMessage += "An unknown error occurred.";
@@ -72,11 +76,13 @@ export const VideoCard = ({
     }
 
     setErrorDetails(errorMessage);
+    setIsLoadingVideo(false);
 
     if (retryCount < MAX_RETRIES) {
       console.log(`Retrying video load (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
       setTimeout(() => {
         setRetryCount(prev => prev + 1);
+        setIsLoadingVideo(true);
         if (videoEl) {
           videoEl.load();
         }
@@ -93,18 +99,52 @@ export const VideoCard = ({
 
   useEffect(() => {
     const videoEl = videoRef.current;
-    if (videoEl) {
-      videoEl.currentTime = 2;
-      videoEl.load();
-    }
+    if (!videoEl) return;
 
     const videoUrl = video.story?.final_video_with_music || video.video_url;
     if (!isValidVideoUrl(videoUrl)) {
       console.error('Invalid video URL:', videoUrl);
       onVideoError(video.id);
       setErrorDetails("Invalid video URL format");
+      setIsLoadingVideo(false);
+      return;
     }
+
+    // Set initial loading state
+    setIsLoadingVideo(true);
+    videoEl.currentTime = 2;
+
+    // Clear previous timeout if it exists
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+
+    // Set new timeout for loading
+    loadTimeoutRef.current = setTimeout(() => {
+      if (isLoadingVideo) {
+        setIsLoadingVideo(false);
+        setErrorDetails("Video loading timed out. Please try again.");
+        onVideoError(video.id);
+      }
+    }, LOAD_TIMEOUT);
+
+    return () => {
+      if (loadTimeoutRef.current) {
+        clearTimeout(loadTimeoutRef.current);
+      }
+    };
   }, [video, onVideoError]);
+
+  const handleLoadedData = (e: React.SyntheticEvent<HTMLVideoElement>) => {
+    const videoEl = e.currentTarget;
+    if (loadTimeoutRef.current) {
+      clearTimeout(loadTimeoutRef.current);
+    }
+    videoEl.currentTime = 2;
+    setIsLoadingVideo(false);
+    onVideoLoad(video.id);
+    setRetryCount(0);
+  };
 
   const handlePlayClick = (e: React.MouseEvent<HTMLVideoElement>) => {
     const videoEl = e.currentTarget;
@@ -131,7 +171,7 @@ export const VideoCard = ({
   return (
     <div className="space-y-4">
       <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl max-h-[400px]">
-        {isLoading && (
+        {(isLoading || isLoadingVideo) && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900/50 z-20">
             <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
           </div>
@@ -152,18 +192,14 @@ export const VideoCard = ({
             ref={videoRef}
             className="w-full h-full object-cover"
             playsInline
-            preload="auto"
+            preload="metadata"
+            muted
             controls
             onLoadedMetadata={(e) => {
               const videoEl = e.currentTarget;
               videoEl.currentTime = 2;
             }}
-            onLoadedData={(e) => {
-              const videoEl = e.currentTarget;
-              videoEl.currentTime = 2;
-              onVideoLoad(video.id);
-              setRetryCount(0); // Reset retry count on successful load
-            }}
+            onLoadedData={handleLoadedData}
             onPlay={() => onPlayStateChange(video.id)}
             onPause={() => onPlayStateChange(null)}
             onEnded={() => onPlayStateChange(null)}

@@ -31,19 +31,32 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
 
       if (error) throw error;
 
-      // Fetch metadata separately
-      const jobsWithMetadata = await Promise.all((jobs || []).map(async (job) => {
-        const { data: metadata } = await supabase
-          .from("product_image_metadata")
-          .select("seo_title, instagram_hashtags")
-          .eq("image_job_id", job.id)
-          .single();
+      // Initialize jobs array if null
+      const jobsArray = jobs || [];
 
-        return {
-          ...job,
-          product_image_metadata: metadata || null
-        } as ImageGenerationJob;
-      }));
+      // Map through jobs and handle metadata queries
+      const jobsWithMetadata = await Promise.all(
+        jobsArray.map(async (job) => {
+          try {
+            const { data: metadata } = await supabase
+              .from("product_image_metadata")
+              .select("seo_title, instagram_hashtags")
+              .eq("image_job_id", job.id)
+              .single();
+
+            return {
+              ...job,
+              product_image_metadata: metadata
+            } as ImageGenerationJob;
+          } catch (error) {
+            console.error(`Error fetching metadata for job ${job.id}:`, error);
+            return {
+              ...job,
+              product_image_metadata: null
+            } as ImageGenerationJob;
+          }
+        })
+      );
 
       return jobsWithMetadata;
     },

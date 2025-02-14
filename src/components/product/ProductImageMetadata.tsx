@@ -12,7 +12,7 @@ interface ProductImageMetadataProps {
   imageJobId: string;
 }
 
-interface ProductMetadata {
+type ProductMetadata = {
   id: string;
   image_job_id: string;
   seo_title: string | null;
@@ -21,7 +21,7 @@ interface ProductMetadata {
   instagram_hashtags: string | null;
   product_context: string | null;
   custom_title: string | null;
-}
+};
 
 export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) {
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -30,29 +30,49 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
   const { data: metadata, isLoading } = useQuery({
     queryKey: ["product-metadata", imageJobId],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_image_metadata")
-        .select()
-        .eq("image_job_id", imageJobId)
-        .single();
+      try {
+        const { data, error } = await supabase
+          .from("product_image_metadata")
+          .select()
+          .eq("image_job_id", imageJobId)
+          .single();
 
-      if (error && error.code !== 'PGRST116') throw error;
-      return (data || { image_job_id: imageJobId }) as ProductMetadata;
+        if (error && error.code !== "PGRST116") throw error;
+        
+        const defaultMetadata = {
+          image_job_id: imageJobId,
+          id: "",
+          seo_title: null,
+          seo_description: null,
+          keywords: null,
+          instagram_hashtags: null,
+          product_context: null,
+          custom_title: null,
+        };
+
+        return data || defaultMetadata;
+      } catch (error) {
+        console.error("Error fetching metadata:", error);
+        return null;
+      }
     },
   });
 
   const updateMetadata = useMutation({
     mutationFn: async (values: Partial<Omit<ProductMetadata, "id">>) => {
-      const { error } = await supabase
-        .from("product_image_metadata")
-        .upsert({
-          image_job_id: imageJobId,
-          ...values,
-        })
-        .select()
-        .single();
+      try {
+        const { error } = await supabase
+          .from("product_image_metadata")
+          .upsert({
+            image_job_id: imageJobId,
+            ...values,
+          });
 
-      if (error) throw error;
+        if (error) throw error;
+      } catch (error) {
+        console.error("Error updating metadata:", error);
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-metadata", imageJobId] });
@@ -116,36 +136,40 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
     return <div>Loading metadata...</div>;
   }
 
+  if (!metadata) {
+    return <div>No metadata available</div>;
+  }
+
   return (
     <div className="space-y-6">
       <MetadataField
         label="SEO Title"
-        value={metadata?.seo_title}
+        value={metadata.seo_title}
         onChange={(value) => updateMetadata.mutate({ seo_title: value })}
       />
       <MetadataField
         label="SEO Description"
-        value={metadata?.seo_description}
+        value={metadata.seo_description}
         onChange={(value) => updateMetadata.mutate({ seo_description: value })}
       />
       <MetadataField
         label="Keywords"
-        value={metadata?.keywords}
+        value={metadata.keywords}
         onChange={(value) => updateMetadata.mutate({ keywords: value })}
       />
       <MetadataField
         label="Instagram Hashtags"
-        value={metadata?.instagram_hashtags}
+        value={metadata.instagram_hashtags}
         onChange={(value) => updateMetadata.mutate({ instagram_hashtags: value })}
       />
       <MetadataField
         label="Product Description"
-        value={metadata?.product_context}
+        value={metadata.product_context}
         onChange={(value) => updateMetadata.mutate({ product_context: value })}
       />
       <MetadataField
         label="Custom Title"
-        value={metadata?.custom_title}
+        value={metadata.custom_title}
         onChange={(value) => updateMetadata.mutate({ custom_title: value })}
       />
     </div>

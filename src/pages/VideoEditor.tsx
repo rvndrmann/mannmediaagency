@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
-import { Share2 } from "lucide-react";
+import { Share2, Scissors } from "lucide-react";
 import { Timeline } from "@/components/video-editor/Timeline/Timeline";
 import { VideoPlayer } from "@/components/video-editor/VideoPlayer/VideoPlayer";
 import { PlaybackControls } from "@/components/video-editor/Controls/PlaybackControls";
@@ -22,6 +22,12 @@ interface VideoProject {
   aspect_ratio?: string;
 }
 
+interface VideoSegment {
+  id: string;
+  startTime: number;
+  endTime: number;
+}
+
 const VideoEditor = () => {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -32,6 +38,8 @@ const VideoEditor = () => {
   const [selectedVideo, setSelectedVideo] = useState<VideoProject | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
   const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [segments, setSegments] = useState<VideoSegment[]>([]);
+  const [selectedSegmentId, setSelectedSegmentId] = useState<string | null>(null);
   const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery({
@@ -120,6 +128,11 @@ const VideoEditor = () => {
 
   const handleVideoSelect = (video: VideoProject) => {
     setSelectedVideo(video);
+    setSegments([{
+      id: crypto.randomUUID(),
+      startTime: 0,
+      endTime: video.duration_seconds || 0
+    }]);
     if (videoRef.current) {
       videoRef.current.currentTime = 0;
       setCurrentTime(0);
@@ -197,6 +210,64 @@ const VideoEditor = () => {
     // Additional logic for changing video container aspect ratio
   };
 
+  const handleSplitAtCurrentTime = () => {
+    if (!selectedVideo || !videoRef.current) return;
+
+    const currentTime = videoRef.current.currentTime;
+    
+    // Find the segment that contains the current time
+    const segmentToSplit = segments.find(
+      seg => currentTime > seg.startTime && currentTime < seg.endTime
+    );
+
+    if (segmentToSplit) {
+      // Remove the old segment and create two new ones
+      const newSegments = segments.filter(seg => seg.id !== segmentToSplit.id).concat([
+        {
+          id: crypto.randomUUID(),
+          startTime: segmentToSplit.startTime,
+          endTime: currentTime
+        },
+        {
+          id: crypto.randomUUID(),
+          startTime: currentTime,
+          endTime: segmentToSplit.endTime
+        }
+      ]);
+      setSegments(newSegments);
+    } else if (segments.length === 0) {
+      // Create initial segment if none exists
+      setSegments([{
+        id: crypto.randomUUID(),
+        startTime: 0,
+        endTime: duration
+      }]);
+    }
+  };
+
+  const handleSegmentSelect = (segmentId: string) => {
+    setSelectedSegmentId(segmentId);
+  };
+
+  const handleSegmentTrimStart = (segmentId: string, newStartTime: number) => {
+    setSegments(prev => prev.map(seg => 
+      seg.id === segmentId ? { ...seg, startTime: newStartTime } : seg
+    ));
+  };
+
+  const handleSegmentTrimEnd = (segmentId: string, newEndTime: number) => {
+    setSegments(prev => prev.map(seg => 
+      seg.id === segmentId ? { ...seg, endTime: newEndTime } : seg
+    ));
+  };
+
+  const handleDeleteSelectedSegment = () => {
+    if (selectedSegmentId) {
+      setSegments(prev => prev.filter(seg => seg.id !== selectedSegmentId));
+      setSelectedSegmentId(null);
+    }
+  };
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       <div className="glass-card border-b border-white/10 px-6 py-3 flex items-center justify-between">
@@ -252,20 +323,36 @@ const VideoEditor = () => {
                 isMuted={isMuted}
                 onMuteToggle={toggleMute}
                 disabled={!selectedVideo}
+                onSplit={handleSplitAtCurrentTime}
               />
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium text-white">Timeline</h3>
-                </div>
-                <div className="h-12 bg-white/5 rounded border border-white/10">
-                  {selectedVideo && (
-                    <TimelineSegment
-                      startTime={0}
-                      endTime={duration}
-                      duration={duration}
-                    />
+                  {selectedSegmentId && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleDeleteSelectedSegment}
+                      className="text-red-500 hover:text-red-400"
+                    >
+                      Delete Segment
+                    </Button>
                   )}
+                </div>
+                <div className="h-12 bg-white/5 rounded border border-white/10 timeline-container relative">
+                  {segments.map(segment => (
+                    <TimelineSegment
+                      key={segment.id}
+                      startTime={segment.startTime}
+                      endTime={segment.endTime}
+                      duration={duration}
+                      isSelected={segment.id === selectedSegmentId}
+                      onDragStart={() => handleSegmentSelect(segment.id)}
+                      onTrimStart={(newStartTime) => handleSegmentTrimStart(segment.id, newStartTime)}
+                      onTrimEnd={(newEndTime) => handleSegmentTrimEnd(segment.id, newEndTime)}
+                    />
+                  ))}
                 </div>
               </div>
             </div>

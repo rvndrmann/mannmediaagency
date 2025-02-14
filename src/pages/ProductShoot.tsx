@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -67,13 +66,22 @@ export default function ProductShoot() {
           body: formData,
           headers: {
             Authorization: `Bearer ${accessToken}`,
+            apikey: process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '',
           },
         }
       );
 
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('text/html')) {
+        const errorText = await response.text();
+        console.error('Received HTML response instead of JSON:', errorText);
+        throw new Error('Unexpected server response. Please try again.');
+      }
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || "Failed to generate image");
+        console.error('Error response:', errorData);
+        throw new Error(errorData.error || `Failed to generate image (${response.status})`);
       }
 
       const data = await response.json();

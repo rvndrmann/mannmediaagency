@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Card } from "@/components/ui/card";
-import { Download, Loader2, ImageIcon, CreditCard, Upload, X } from "lucide-react";
+import { Download, Loader2, ImageIcon, CreditCard, Upload, X, ChevronLeft, ChevronRight } from "lucide-react";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useIsMobile } from "@/hooks/use-mobile";
 import {
   Select,
   SelectContent,
@@ -16,8 +17,11 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
 
 const ProductShoot = () => {
+  const isMobile = useIsMobile();
+  const [activePanel, setActivePanel] = useState<'input' | 'gallery'>(isMobile ? 'input' : 'gallery');
   const [prompt, setPrompt] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -132,178 +136,214 @@ const ProductShoot = () => {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-background">
-      <div className="flex h-screen">
-        <div className="w-1/3 p-6 border-r border-gray-800 overflow-y-auto">
-          <div className="space-y-6">
-            <div>
-              <h1 className="text-2xl font-bold text-white mb-2">Product Image Generator</h1>
-              <p className="text-gray-400">
-                Credits remaining: {userCredits?.credits_remaining?.toFixed(2) || "0.00"}
-              </p>
-            </div>
+  const MobilePanelToggle = () => (
+    <div className="flex items-center justify-between bg-gray-900 p-4 border-b border-gray-800 sticky top-0 z-10">
+      <h1 className="text-xl font-bold text-white">
+        {activePanel === 'input' ? 'Product Image Generator' : 'Generated Images'}
+      </h1>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={() => setActivePanel(activePanel === 'input' ? 'gallery' : 'input')}
+        className="text-gray-400 hover:text-white"
+      >
+        {activePanel === 'input' ? <ChevronRight className="h-6 w-6" /> : <ChevronLeft className="h-6 w-6" />}
+      </Button>
+    </div>
+  );
 
-            <div className="space-y-2">
-              <Label className="text-white">Upload Image</Label>
-              <div className="relative">
-                {!previewUrl ? (
-                  <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
-                    <input
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileSelect}
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                    />
-                    <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                    <p className="text-sm text-gray-400">Drop an image or click to upload</p>
-                  </div>
-                ) : (
-                  <div className="relative">
-                    <img
-                      src={previewUrl}
-                      alt="Preview"
-                      className="w-full h-48 object-cover rounded-lg"
-                    />
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="absolute top-2 right-2 bg-black/50 hover:bg-black/70"
-                      onClick={clearSelectedFile}
-                    >
-                      <X className="h-4 w-4 text-white" />
-                    </Button>
-                  </div>
-                )}
+  const InputPanel = () => (
+    <div className={cn(
+      "space-y-6 p-6 border-r border-gray-800 overflow-y-auto",
+      isMobile ? "w-full" : "w-1/3",
+      isMobile && activePanel !== 'input' && "hidden"
+    )}>
+      <div className="space-y-6">
+        {!isMobile && (
+          <div>
+            <h1 className="text-2xl font-bold text-white mb-2">Product Image Generator</h1>
+            <p className="text-gray-400">
+              Credits remaining: {userCredits?.credits_remaining?.toFixed(2) || "0.00"}
+            </p>
+          </div>
+        )}
+
+        <div className="space-y-2">
+          <Label className="text-white">Upload Image</Label>
+          <div className="relative">
+            {!previewUrl ? (
+              <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+                <input
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                />
+                <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+                <p className="text-sm text-gray-400">Drop an image or click to upload</p>
               </div>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Prompt</Label>
-              <Textarea
-                placeholder="Describe the product image you want to generate..."
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-                className="min-h-[100px] bg-gray-900 border-gray-700 text-white"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Image Size</Label>
-              <Select value={imageSize} onValueChange={setImageSize}>
-                <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
-                  <SelectValue placeholder="Select size" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="square_hd">Square HD</SelectItem>
-                  <SelectItem value="portrait_hd">Portrait HD</SelectItem>
-                  <SelectItem value="landscape_hd">Landscape HD</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Inference Steps: {inferenceSteps}</Label>
-              <Slider
-                value={[inferenceSteps]}
-                onValueChange={(value) => setInferenceSteps(value[0])}
-                min={1}
-                max={20}
-                step={1}
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Guidance Scale: {guidanceScale}</Label>
-              <Slider
-                value={[guidanceScale]}
-                onValueChange={(value) => setGuidanceScale(value[0])}
-                min={1}
-                max={7}
-                step={0.1}
-                className="w-full"
-              />
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Output Format</Label>
-              <Select value={outputFormat} onValueChange={setOutputFormat}>
-                <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
-                  <SelectValue placeholder="Select format" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="png">PNG</SelectItem>
-                  <SelectItem value="jpg">JPG</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Button
-              onClick={() => generateImage.mutate()}
-              disabled={generateImage.isPending || !prompt.trim() || !selectedFile}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-            >
-              {generateImage.isPending ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Generating...
-                </>
-              ) : (
-                <>
-                  <ImageIcon className="mr-2 h-4 w-4" />
-                  <CreditCard className="mr-2 h-4 w-4" />
-                  Generate Image (0.2 credits)
-                </>
-              )}
-            </Button>
+            ) : (
+              <div className="relative">
+                <img
+                  src={previewUrl}
+                  alt="Preview"
+                  className="w-full h-48 object-cover rounded-lg"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="absolute top-2 right-2 bg-black/50 hover:bg-black/70"
+                  onClick={clearSelectedFile}
+                >
+                  <X className="h-4 w-4 text-white" />
+                </Button>
+              </div>
+            )}
           </div>
         </div>
 
-        <div className="flex-1 p-6">
-          <ScrollArea className="h-[calc(100vh-3rem)]">
-            <div className="grid grid-cols-1 gap-6">
-              {imagesLoading ? (
-                <div className="flex items-center justify-center h-32">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
-                </div>
-              ) : images?.length === 0 ? (
-                <Card className="p-6 text-center bg-gray-900 border-gray-700">
-                  <ImageIcon className="h-12 w-12 mx-auto text-gray-600 mb-4" />
-                  <p className="text-gray-400">No images generated yet</p>
-                </Card>
-              ) : (
-                images?.map((image) => (
-                  <Card 
-                    key={image.id}
-                    className="p-4 bg-gray-900 border-gray-700 animate-fade-in"
-                  >
-                    <div className="space-y-4">
-                      <img
-                        src={image.result_url}
-                        alt={image.prompt}
-                        className="w-full h-auto rounded-lg"
-                      />
-                      <div className="flex items-center justify-between">
-                        <p className="text-sm text-gray-400 line-clamp-2">
-                          {image.prompt}
-                        </p>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDownload(image.result_url)}
-                          className="text-gray-400 hover:text-white hover:bg-gray-800"
-                        >
-                          <Download className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </div>
-                  </Card>
-                ))
-              )}
-            </div>
-          </ScrollArea>
+        <div className="space-y-2">
+          <Label className="text-white">Prompt</Label>
+          <Textarea
+            placeholder="Describe the product image you want to generate..."
+            value={prompt}
+            onChange={(e) => setPrompt(e.target.value)}
+            className="min-h-[100px] bg-gray-900 border-gray-700 text-white"
+          />
         </div>
+
+        <div className="space-y-2">
+          <Label className="text-white">Image Size</Label>
+          <Select value={imageSize} onValueChange={setImageSize}>
+            <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
+              <SelectValue placeholder="Select size" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="square_hd">Square HD</SelectItem>
+              <SelectItem value="portrait_hd">Portrait HD</SelectItem>
+              <SelectItem value="landscape_hd">Landscape HD</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-white">Inference Steps: {inferenceSteps}</Label>
+          <Slider
+            value={[inferenceSteps]}
+            onValueChange={(value) => setInferenceSteps(value[0])}
+            min={1}
+            max={20}
+            step={1}
+            className="w-full"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-white">Guidance Scale: {guidanceScale}</Label>
+          <Slider
+            value={[guidanceScale]}
+            onValueChange={(value) => setGuidanceScale(value[0])}
+            min={1}
+            max={7}
+            step={0.1}
+            className="w-full"
+          />
+        </div>
+
+        <div className="space-y-2">
+          <Label className="text-white">Output Format</Label>
+          <Select value={outputFormat} onValueChange={setOutputFormat}>
+            <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
+              <SelectValue placeholder="Select format" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="png">PNG</SelectItem>
+              <SelectItem value="jpg">JPG</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <Button
+          onClick={() => generateImage.mutate()}
+          disabled={generateImage.isPending || !prompt.trim() || !selectedFile}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          {generateImage.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <ImageIcon className="mr-2 h-4 w-4" />
+              <CreditCard className="mr-2 h-4 w-4" />
+              Generate Image (0.2 credits)
+            </>
+          )}
+        </Button>
+      </div>
+    </div>
+  );
+
+  const GalleryPanel = () => (
+    <div className={cn(
+      "p-6",
+      isMobile ? (activePanel === 'gallery' ? "block" : "hidden") : "flex-1"
+    )}>
+      <ScrollArea className="h-[calc(100vh-3rem)]">
+        <div className="grid grid-cols-1 gap-6">
+          {imagesLoading ? (
+            <div className="flex items-center justify-center h-32">
+              <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+            </div>
+          ) : images?.length === 0 ? (
+            <Card className="p-6 text-center bg-gray-900 border-gray-700">
+              <ImageIcon className="h-12 w-12 mx-auto text-gray-600 mb-4" />
+              <p className="text-gray-400">No images generated yet</p>
+            </Card>
+          ) : (
+            images?.map((image) => (
+              <Card 
+                key={image.id}
+                className="p-4 bg-gray-900 border-gray-700 animate-fade-in"
+              >
+                <div className="space-y-4">
+                  <img
+                    src={image.result_url}
+                    alt={image.prompt}
+                    className="w-full h-auto rounded-lg"
+                  />
+                  <div className="flex items-center justify-between">
+                    <p className="text-sm text-gray-400 line-clamp-2">
+                      {image.prompt}
+                    </p>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDownload(image.result_url)}
+                      className="text-gray-400 hover:text-white hover:bg-gray-800"
+                    >
+                      <Download className="h-4 w-4" />
+                    </Button>
+                  </div>
+                </div>
+              </Card>
+            ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
+  );
+
+  return (
+    <div className="min-h-screen bg-background">
+      {isMobile && <MobilePanelToggle />}
+      <div className={cn(
+        "h-screen",
+        isMobile ? "block" : "flex"
+      )}>
+        <InputPanel />
+        <GalleryPanel />
       </div>
     </div>
   );

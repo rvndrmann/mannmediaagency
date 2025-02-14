@@ -1,7 +1,7 @@
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -54,54 +54,6 @@ export const VideoShowcase = () => {
       return data as ShowcaseVideo[];
     },
   });
-
-  const storeVideoMutation = useMutation({
-    mutationFn: async (video: { url: string, type: string, storyId?: number }) => {
-      const response = await supabase.functions.invoke('store-video', {
-        body: {
-          videoUrl: video.url,
-          videoType: video.type,
-          storyId: video.storyId
-        },
-      });
-
-      if (response.error) {
-        throw new Error('Failed to store video');
-      }
-
-      return response.data;
-    },
-    onError: (error) => {
-      console.error('Failed to store video:', error);
-      toast({
-        title: "Storage Error",
-        description: "Failed to store video in our system. Using original source.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  useEffect(() => {
-    if (videos) {
-      videos.forEach(async (video) => {
-        const videoUrl = video.story?.final_video_with_music || video.video_url;
-        
-        const { data: storedVideo } = await supabase
-          .from('stored_videos')
-          .select('*')
-          .eq('original_url', videoUrl)
-          .maybeSingle();
-
-        if (!storedVideo) {
-          storeVideoMutation.mutate({
-            url: videoUrl,
-            type: 'showcase',
-            storyId: video.story_id || undefined
-          });
-        }
-      });
-    }
-  }, [videos]);
 
   const handleVideoError = (videoId: string) => {
     setVideoErrors(prev => ({ ...prev, [videoId]: true }));

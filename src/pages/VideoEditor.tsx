@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -45,6 +44,8 @@ const VideoEditor = () => {
   const [duration, setDuration] = useState(0);
   const [volume, setVolume] = useState(1);
   const [isMuted, setIsMuted] = useState(false);
+  const [selectedVideo, setSelectedVideo] = useState<VideoProject | null>(null);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery({
@@ -74,13 +75,17 @@ const VideoEditor = () => {
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${user.id}/${fileName}`; // Add user ID to path for better organization
+      const filePath = `${user.id}/${fileName}`;
 
       const { error: uploadError, data } = await supabase.storage
         .from('videos')
         .upload(filePath, file, {
           cacheControl: '3600',
-          upsert: false
+          upsert: false,
+          onUploadProgress: (progress) => {
+            const percentage = (progress.loaded / progress.total) * 100;
+            setUploadProgress(percentage);
+          },
         });
 
       if (uploadError) throw uploadError;
@@ -89,26 +94,33 @@ const VideoEditor = () => {
         .from('videos')
         .getPublicUrl(filePath);
 
-      const { error: dbError } = await supabase
+      const newVideo = {
+        title: file.name,
+        video_url: publicUrl,
+        status: 'draft',
+        user_id: user.id
+      };
+
+      const { error: dbError, data: insertedVideo } = await supabase
         .from('video_projects')
-        .insert({
-          title: file.name,
-          video_url: publicUrl,
-          status: 'draft',
-          user_id: user.id
-        });
+        .insert(newVideo)
+        .select()
+        .single();
 
       if (dbError) throw dbError;
 
-      return { publicUrl, filePath };
+      return insertedVideo as VideoProject;
     },
-    onSuccess: () => {
+    onSuccess: (video) => {
       queryClient.invalidateQueries({ queryKey: ["video-projects"] });
+      setSelectedVideo(video);
       toast.success("Video uploaded successfully");
+      setUploadProgress(0);
     },
     onError: (error) => {
       console.error("Upload error:", error);
       toast.error("Failed to upload video. Please make sure you're signed in.");
+      setUploadProgress(0);
     },
   });
 
@@ -116,10 +128,20 @@ const VideoEditor = () => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type.startsWith('video/')) {
+        setUploadProgress(0);
         uploadVideo.mutate(file);
       } else {
         toast.error("Please select a video file");
       }
+    }
+  };
+
+  const handleVideoSelect = (video: VideoProject) => {
+    setSelectedVideo(video);
+    if (videoRef.current) {
+      videoRef.current.currentTime = 0;
+      setCurrentTime(0);
+      setIsPlaying(false);
     }
   };
 
@@ -177,11 +199,12 @@ const VideoEditor = () => {
 
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
-      {/* Top Bar */}
       <div className="glass-card border-b border-white/10 px-6 py-3 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <MobilePanelToggle title="Video Editor" />
-          <h1 className="text-white text-lg font-medium">Untitled Project</h1>
+          <h1 className="text-white text-lg font-medium">
+            {selectedVideo ? selectedVideo.title : "Untitled Project"}
+          </h1>
         </div>
         <div className="flex items-center gap-2">
           <Button variant="ghost" className="text-white">
@@ -191,9 +214,7 @@ const VideoEditor = () => {
         </div>
       </div>
 
-      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Panel */}
         <div className="w-64 glass-card border-r border-white/10 flex flex-col">
           <Tabs defaultValue="design" className="flex-1">
             <TabsList className="w-full justify-start px-2 pt-2 bg-transparent">
@@ -218,11 +239,34 @@ const VideoEditor = () => {
                 variant="outline"
                 onClick={() => document.getElementById('video-upload')?.click()}
                 className="w-full justify-start"
+                disabled={uploadVideo.isPending}
               >
                 <Upload className="w-4 h-4 mr-2" />
-                Upload Video
+                {uploadVideo.isPending ? "Uploading..." : "Upload Video"}
               </Button>
+              
+              {uploadProgress > 0 && uploadProgress < 100 && (
+                <Progress value={uploadProgress} className="mt-2" />
+              )}
+
               <div className="mt-4 space-y-2">
+                <div className="text-sm font-medium text-white mb-2">Your Videos</div>
+                {projects?.map((video) => (
+                  <Card 
+                    key={video.id}
+                    className={cn(
+                      "p-2 cursor-pointer hover:bg-white/5 transition-colors",
+                      selectedVideo?.id === video.id && "bg-white/10"
+                    )}
+                    onClick={() => handleVideoSelect(video)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <VideoIcon className="w-4 h-4 text-white/60" />
+                      <span className="text-sm text-white truncate">{video.title}</span>
+                    </div>
+                  </Card>
+                ))}
+
                 <Button variant="ghost" className="w-full justify-start text-white">
                   <Type className="w-4 h-4 mr-2" />
                   Text
@@ -230,10 +274,6 @@ const VideoEditor = () => {
                 <Button variant="ghost" className="w-full justify-start text-white">
                   <Image className="w-4 h-4 mr-2" />
                   Images
-                </Button>
-                <Button variant="ghost" className="w-full justify-start text-white">
-                  <VideoIcon className="w-4 h-4 mr-2" />
-                  Videos
                 </Button>
                 <Button variant="ghost" className="w-full justify-start text-white">
                   <Music className="w-4 h-4 mr-2" />
@@ -247,7 +287,6 @@ const VideoEditor = () => {
           </Tabs>
         </div>
 
-        {/* Preview Area */}
         <div className="flex-1 flex flex-col p-6 overflow-hidden">
           <div className="flex-1 relative">
             <div className="absolute inset-0 flex items-center justify-center bg-black rounded-lg overflow-hidden">
@@ -256,11 +295,11 @@ const VideoEditor = () => {
                 className="max-h-full max-w-full"
                 onTimeUpdate={handleTimeUpdate}
                 onLoadedMetadata={handleLoadedMetadata}
+                src={selectedVideo?.video_url || undefined}
               />
             </div>
           </div>
 
-          {/* Timeline */}
           <div className="h-48 glass-card mt-4 p-4 rounded-lg border border-white/10">
             <div className="space-y-4">
               <Progress 
@@ -277,6 +316,7 @@ const VideoEditor = () => {
                   size="icon"
                   onClick={togglePlay}
                   className="text-white"
+                  disabled={!selectedVideo}
                 >
                   {isPlaying ? (
                     <Pause className="w-4 h-4" />
@@ -290,6 +330,7 @@ const VideoEditor = () => {
                     size="icon"
                     onClick={toggleMute}
                     className="text-white"
+                    disabled={!selectedVideo}
                   >
                     {isMuted ? (
                       <VolumeX className="w-4 h-4" />
@@ -304,12 +345,12 @@ const VideoEditor = () => {
                       step={0.1}
                       onValueChange={handleVolumeChange}
                       className="bg-white/10"
+                      disabled={!selectedVideo}
                     />
                   </div>
                 </div>
               </div>
 
-              {/* Timeline Tracks */}
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
                   <h3 className="text-sm font-medium text-white">Video Track</h3>

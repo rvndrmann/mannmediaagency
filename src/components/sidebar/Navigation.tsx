@@ -1,6 +1,6 @@
 
 import { Button } from "@/components/ui/button";
-import { LayoutDashboard, DollarSign, Video, Bot, Link2, Settings } from "lucide-react";
+import { LayoutDashboard, DollarSign, Video, Bot, Link2, Settings, Camera } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -59,7 +59,7 @@ export const Navigation = () => {
       >
         <Bot className="mr-2 h-4 w-4" /> AI Agent
       </Button>
-      
+
       <Button
         variant="ghost"
         className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
@@ -69,6 +69,14 @@ export const Navigation = () => {
         disabled={!hasEnoughCredits}
       >
         <Video className="mr-2 h-4 w-4" /> Create Video
+      </Button>
+
+      <Button
+        variant="ghost"
+        className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
+        onClick={() => navigate("/product-shoot")}
+      >
+        <Camera className="mr-2 h-4 w-4" /> Product Shoot
       </Button>
 
       <Button

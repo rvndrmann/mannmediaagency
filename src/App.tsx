@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,7 @@ import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
 import AIAgent from "./pages/AIAgent";
+import ProductShoot from "./pages/ProductShoot";
 import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 import Metadata from "./pages/Metadata";
 
@@ -108,6 +110,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <CreateVideo />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/product-shoot"
+              element={
+                <ProtectedRoute>
+                  <ProductShoot />
                 </ProtectedRoute>
               }
             />

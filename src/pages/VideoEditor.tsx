@@ -30,6 +30,8 @@ import { TimelineCursor } from "@/components/video-editor/Timeline/TimelineCurso
 import { TimelineSegment } from "@/components/video-editor/Timeline/TimelineSegment";
 import { AspectRatioControl } from "@/components/video-editor/Controls/AspectRatioControl";
 import { cn } from "@/lib/utils";
+import { VideoList } from "@/components/video-editor/Library/VideoList";
+import { PlaybackControls } from "@/components/video-editor/Controls/PlaybackControls";
 
 interface VideoProject {
   id: string;
@@ -255,38 +257,17 @@ const VideoEditor = () => {
                 className="hidden"
                 id="video-upload"
               />
-              <Button
-                variant="outline"
-                onClick={() => document.getElementById('video-upload')?.click()}
-                className="w-full justify-start"
-                disabled={uploadVideo.isPending}
-              >
-                <Upload className="w-4 h-4 mr-2" />
-                {uploadVideo.isPending ? "Uploading..." : "Upload Video"}
-              </Button>
               
-              {uploadProgress > 0 && uploadProgress < 100 && (
-                <Progress value={uploadProgress} className="mt-2" />
-              )}
+              <VideoList
+                videos={projects || []}
+                selectedVideoId={selectedVideo?.id || null}
+                onVideoSelect={handleVideoSelect}
+                onUploadClick={() => document.getElementById('video-upload')?.click()}
+                isUploading={uploadVideo.isPending}
+                uploadProgress={uploadProgress}
+              />
 
               <div className="mt-4 space-y-2">
-                <div className="text-sm font-medium text-white mb-2">Your Videos</div>
-                {projects?.map((video) => (
-                  <Card 
-                    key={video.id}
-                    className={cn(
-                      "p-2 cursor-pointer hover:bg-white/5 transition-colors",
-                      selectedVideo?.id === video.id && "bg-white/10"
-                    )}
-                    onClick={() => handleVideoSelect(video)}
-                  >
-                    <div className="flex items-center gap-2">
-                      <VideoIcon className="w-4 h-4 text-white/60" />
-                      <span className="text-sm text-white truncate">{video.title}</span>
-                    </div>
-                  </Card>
-                ))}
-
                 <Button variant="ghost" className="w-full justify-start text-white">
                   <Type className="w-4 h-4 mr-2" />
                   Text
@@ -352,57 +333,15 @@ const VideoEditor = () => {
                 <span>{formatTime(duration)}</span>
               </div>
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={togglePlay}
-                    className="text-white"
-                    disabled={!selectedVideo}
-                  >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
-                    ) : (
-                      <Play className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-white"
-                    disabled={!selectedVideo}
-                  >
-                    <Scissors className="w-4 h-4" />
-                  </Button>
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={toggleMute}
-                    className="text-white"
-                    disabled={!selectedVideo}
-                  >
-                    {isMuted ? (
-                      <VolumeX className="w-4 h-4" />
-                    ) : (
-                      <Volume2 className="w-4 h-4" />
-                    )}
-                  </Button>
-                  <div className="w-24">
-                    <Slider
-                      value={[volume]}
-                      max={1}
-                      step={0.1}
-                      onValueChange={handleVolumeChange}
-                      className="bg-white/10"
-                      disabled={!selectedVideo}
-                    />
-                  </div>
-                </div>
-              </div>
+              <PlaybackControls
+                isPlaying={isPlaying}
+                onPlayPause={togglePlay}
+                volume={volume}
+                onVolumeChange={handleVolumeChange}
+                isMuted={isMuted}
+                onMuteToggle={toggleMute}
+                disabled={!selectedVideo}
+              />
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">

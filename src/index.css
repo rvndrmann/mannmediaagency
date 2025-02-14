@@ -7,25 +7,25 @@
 
 @layer base {
   :root {
-    --background: 223 18% 13%;
-    --foreground: 0 0% 100%;
-    --card: 0 0% 13%;
-    --card-foreground: 0 0% 100%;
-    --popover: 223 18% 13%;
-    --popover-foreground: 0 0% 100%;
-    --primary: 0 0% 100%;
-    --primary-foreground: 223 18% 13%;
-    --secondary: 220 13% 27%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 220 13% 27%;
-    --muted-foreground: 0 0% 63.9%;
-    --accent: 220 13% 27%;
-    --accent-foreground: 0 0% 100%;
+    --background: 48 33% 97%;
+    --foreground: 20 14.3% 4.1%;
+    --card: 60 5% 96%;
+    --card-foreground: 20 14.3% 4.1%;
+    --popover: 48 33% 97%;
+    --popover-foreground: 20 14.3% 4.1%;
+    --primary: 47 95% 90%;
+    --primary-foreground: 26 83.3% 14.1%;
+    --secondary: 48 10% 90%;
+    --secondary-foreground: 20 14.3% 4.1%;
+    --muted: 48 10% 90%;
+    --muted-foreground: 20 6% 40%;
+    --accent: 48 10% 90%;
+    --accent-foreground: 20 14.3% 4.1%;
     --destructive: 0 84.2% 60.2%;
-    --destructive-foreground: 0 0% 98%;
-    --border: 0 0% 100%;
-    --input: 220 13% 27%;
-    --ring: 0 0% 100%;
+    --destructive-foreground: 48 33% 97%;
+    --border: 20 5.9% 90%;
+    --input: 20 5.9% 90%;
+    --ring: 20 14.3% 4.1%;
     --radius: 0.75rem;
   }
 
@@ -39,7 +39,7 @@
   }
 
   .glass-card {
-    @apply bg-[#222222]/60 backdrop-blur-xl border border-white/10 shadow-lg;
+    @apply bg-[#FEF7CD]/60 backdrop-blur-xl border border-[#FEF7CD]/20 shadow-lg;
   }
 
   .animate-in {
@@ -51,12 +51,12 @@
   }
 
   .timeline-marker {
-    @apply absolute top-0 w-px h-full bg-white/20;
+    @apply absolute top-0 w-px h-full bg-foreground/20;
   }
 
   .timeline-marker::after {
     content: attr(data-time);
-    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-white/60;
+    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-foreground/60;
   }
 }
 

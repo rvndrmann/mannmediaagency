@@ -26,7 +26,7 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
   const startPosition = (startTime / duration) * 100;
   const width = ((endTime - startTime) / duration) * 100;
 
-  const bindDrag = useDrag(
+  const bindMainDrag = useDrag(
     ({ first, last }) => {
       if (first) onDragStart?.();
       if (last) onDragEnd?.();
@@ -61,7 +61,7 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
         left: `${startPosition}%`,
         width: `${width}%`
       }}
-      {...bindDrag()}
+      {...bindMainDrag()}
     >
       {/* Trim handles */}
       <div

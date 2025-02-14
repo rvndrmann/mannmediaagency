@@ -26,12 +26,12 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
   const startPosition = (startTime / duration) * 100;
   const width = ((endTime - startTime) / duration) * 100;
 
-  const bindDragHandle = useDrag(({ movement: [mx], first, last }) => {
+  const dragHandle = useDrag(({ movement: [mx], first, last }) => {
     if (first) onDragStart?.();
     if (last) onDragEnd?.();
   });
 
-  const bindTrimLeft = useDrag(({ movement: [mx], first, last }) => {
+  const trimLeft = useDrag(({ movement: [mx], first, last }) => {
     if (!first && !last) {
       const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
       const deltaTime = (mx / containerWidth) * duration;
@@ -40,7 +40,7 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
     }
   });
 
-  const bindTrimRight = useDrag(({ movement: [mx], first, last }) => {
+  const trimRight = useDrag(({ movement: [mx], first, last }) => {
     if (!first && !last) {
       const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
       const deltaTime = (mx / containerWidth) * duration;
@@ -56,16 +56,16 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
         left: `${startPosition}%`,
         width: `${width}%`
       }}
-      {...bindDragHandle()}
+      {...dragHandle()}
     >
       {/* Trim handles */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...bindTrimLeft()}
+        {...trimLeft()}
       />
       <div
         className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...bindTrimRight()}
+        {...trimRight()}
       />
     </div>
   );

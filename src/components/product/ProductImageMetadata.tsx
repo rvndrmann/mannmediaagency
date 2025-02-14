@@ -30,57 +30,39 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
   const { data: metadata, isLoading } = useQuery({
     queryKey: ["product-metadata", imageJobId],
     queryFn: async () => {
-      try {
-        const { data, error } = await supabase
-          .from("product_image_metadata")
-          .select()
-          .eq("image_job_id", imageJobId)
-          .single();
+      const { data, error } = await supabase
+        .from("product_image_metadata")
+        .select()
+        .eq("image_job_id", imageJobId)
+        .maybeSingle();
 
-        if (error && error.code !== "PGRST116") throw error;
-        
-        const defaultMetadata = {
-          image_job_id: imageJobId,
-          id: "",
-          seo_title: null,
-          seo_description: null,
-          keywords: null,
-          instagram_hashtags: null,
-          product_context: null,
-          custom_title: null,
-        };
-
-        return data || defaultMetadata;
-      } catch (error) {
+      if (error) {
         console.error("Error fetching metadata:", error);
-        return null;
+        throw error;
       }
+
+      return data as ProductMetadata | null;
     },
   });
 
   const updateMetadata = useMutation({
     mutationFn: async (values: Partial<Omit<ProductMetadata, "id">>) => {
-      try {
-        const { error } = await supabase
-          .from("product_image_metadata")
-          .upsert({
-            image_job_id: imageJobId,
-            ...values,
-          });
+      const { error } = await supabase
+        .from("product_image_metadata")
+        .upsert({
+          image_job_id: imageJobId,
+          ...values,
+        });
 
-        if (error) throw error;
-      } catch (error) {
-        console.error("Error updating metadata:", error);
-        throw error;
-      }
+      if (error) throw error;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-metadata", imageJobId] });
       toast.success("Metadata updated successfully");
     },
     onError: (error) => {
+      console.error("Error updating metadata:", error);
       toast.error("Failed to update metadata");
-      console.error("Metadata update error:", error);
     },
   });
 
@@ -136,40 +118,36 @@ export function ProductImageMetadata({ imageJobId }: ProductImageMetadataProps) 
     return <div>Loading metadata...</div>;
   }
 
-  if (!metadata) {
-    return <div>No metadata available</div>;
-  }
-
   return (
     <div className="space-y-6">
       <MetadataField
         label="SEO Title"
-        value={metadata.seo_title}
+        value={metadata?.seo_title || ""}
         onChange={(value) => updateMetadata.mutate({ seo_title: value })}
       />
       <MetadataField
         label="SEO Description"
-        value={metadata.seo_description}
+        value={metadata?.seo_description || ""}
         onChange={(value) => updateMetadata.mutate({ seo_description: value })}
       />
       <MetadataField
         label="Keywords"
-        value={metadata.keywords}
+        value={metadata?.keywords || ""}
         onChange={(value) => updateMetadata.mutate({ keywords: value })}
       />
       <MetadataField
         label="Instagram Hashtags"
-        value={metadata.instagram_hashtags}
+        value={metadata?.instagram_hashtags || ""}
         onChange={(value) => updateMetadata.mutate({ instagram_hashtags: value })}
       />
       <MetadataField
         label="Product Description"
-        value={metadata.product_context}
+        value={metadata?.product_context || ""}
         onChange={(value) => updateMetadata.mutate({ product_context: value })}
       />
       <MetadataField
         label="Custom Title"
-        value={metadata.custom_title}
+        value={metadata?.custom_title || ""}
         onChange={(value) => updateMetadata.mutate({ custom_title: value })}
       />
     </div>

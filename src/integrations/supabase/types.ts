@@ -314,6 +314,56 @@ export type Database = {
           },
         ]
       }
+      product_image_metadata: {
+        Row: {
+          created_at: string | null
+          custom_title: string | null
+          id: string
+          image_job_id: string
+          instagram_hashtags: string | null
+          keywords: string | null
+          product_context: string | null
+          regeneration_count: number | null
+          seo_description: string | null
+          seo_title: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          custom_title?: string | null
+          id?: string
+          image_job_id: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          product_context?: string | null
+          regeneration_count?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          custom_title?: string | null
+          id?: string
+          image_job_id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          product_context?: string | null
+          regeneration_count?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          updated_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_image_metadata_image_job_id_fkey"
+            columns: ["image_job_id"]
+            isOneToOne: true
+            referencedRelation: "image_generation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           avatar_url: string | null

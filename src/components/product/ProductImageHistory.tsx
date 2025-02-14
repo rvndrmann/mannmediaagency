@@ -24,41 +24,27 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
   const { data: generationHistory, isLoading } = useQuery({
     queryKey: ["product-image-history"],
     queryFn: async () => {
+      // First get all image generation jobs
       const { data: jobs, error } = await supabase
         .from("image_generation_jobs")
-        .select("id, prompt, result_url, created_at")
+        .select(`
+          id,
+          prompt,
+          result_url,
+          created_at,
+          product_image_metadata (
+            seo_title,
+            instagram_hashtags
+          )
+        `)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching image jobs:", error);
+        throw error;
+      }
 
-      // Initialize jobs array if null
-      const jobsArray = jobs || [];
-
-      // Map through jobs and handle metadata queries
-      const jobsWithMetadata = await Promise.all(
-        jobsArray.map(async (job) => {
-          try {
-            const { data: metadata } = await supabase
-              .from("product_image_metadata")
-              .select("seo_title, instagram_hashtags")
-              .eq("image_job_id", job.id)
-              .single();
-
-            return {
-              ...job,
-              product_image_metadata: metadata
-            } as ImageGenerationJob;
-          } catch (error) {
-            console.error(`Error fetching metadata for job ${job.id}:`, error);
-            return {
-              ...job,
-              product_image_metadata: null
-            } as ImageGenerationJob;
-          }
-        })
-      );
-
-      return jobsWithMetadata;
+      return (jobs || []) as ImageGenerationJob[];
     },
   });
 

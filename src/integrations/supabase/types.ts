@@ -195,6 +195,7 @@ export type Database = {
       image_generation_jobs: {
         Row: {
           created_at: string
+          generated_metadata: boolean | null
           id: string
           prompt: string
           request_id: string | null
@@ -206,6 +207,7 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          generated_metadata?: boolean | null
           id?: string
           prompt: string
           request_id?: string | null
@@ -217,6 +219,7 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          generated_metadata?: boolean | null
           id?: string
           prompt?: string
           request_id?: string | null
@@ -322,6 +325,7 @@ export type Database = {
           image_job_id: string
           instagram_hashtags: string | null
           keywords: string | null
+          metadata_regeneration_count: number | null
           product_context: string | null
           regeneration_count: number | null
           seo_description: string | null
@@ -335,6 +339,7 @@ export type Database = {
           image_job_id: string
           instagram_hashtags?: string | null
           keywords?: string | null
+          metadata_regeneration_count?: number | null
           product_context?: string | null
           regeneration_count?: number | null
           seo_description?: string | null
@@ -348,6 +353,7 @@ export type Database = {
           image_job_id?: string
           instagram_hashtags?: string | null
           keywords?: string | null
+          metadata_regeneration_count?: number | null
           product_context?: string | null
           regeneration_count?: number | null
           seo_description?: string | null

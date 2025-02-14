@@ -111,21 +111,21 @@ export const Dashboard = () => {
   };
 
   return (
-    <div className="flex-1 p-4 md:p-8">
+    <div className="flex-1 p-4 md:p-8 bg-cream-50">
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
-          <h1 className="text-xl md:text-2xl font-bold">Your Videos</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-gray-800">Your Videos</h1>
         </div>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 place-items-start">
         {isLoadingStories ? (
-          <Card className="p-4 w-full max-w-[300px]">
+          <Card className="p-4 w-full max-w-[300px] bg-white/50 backdrop-blur-sm border-cream-100">
             <div className="animate-pulse flex flex-col gap-4">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-3 bg-gray-200 rounded w-3/4"></div>
+              <div className="h-32 bg-cream-100 rounded"></div>
+              <div className="h-3 bg-cream-100 rounded w-1/4"></div>
+              <div className="h-3 bg-cream-100 rounded w-3/4"></div>
             </div>
           </Card>
         ) : stories && stories.length > 0 ? (

@@ -22,11 +22,13 @@ import {
   Layers,
   Palette,
   Video as VideoIcon,
-  Share2
+  Share2,
+  Scissors
 } from "lucide-react";
-import { SubtitleTrack } from "@/components/video-editor/SubtitleTrack";
-import { AudioControl } from "@/components/video-editor/AudioControl";
-import { PlaybackControls } from "@/components/video-editor/PlaybackControls";
+import { TimelineMarkers } from "@/components/video-editor/Timeline/TimelineMarkers";
+import { TimelineCursor } from "@/components/video-editor/Timeline/TimelineCursor";
+import { TimelineSegment } from "@/components/video-editor/Timeline/TimelineSegment";
+import { AspectRatioControl } from "@/components/video-editor/Controls/AspectRatioControl";
 import { cn } from "@/lib/utils";
 
 interface VideoProject {
@@ -35,6 +37,9 @@ interface VideoProject {
   video_url: string | null;
   duration_seconds: number | null;
   thumbnail_url: string | null;
+  width?: number;
+  height?: number;
+  aspect_ratio?: string;
 }
 
 const VideoEditor = () => {
@@ -46,6 +51,7 @@ const VideoEditor = () => {
   const [isMuted, setIsMuted] = useState(false);
   const [selectedVideo, setSelectedVideo] = useState<VideoProject | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [aspectRatio, setAspectRatio] = useState('16:9');
   const queryClient = useQueryClient();
 
   const { data: projects, isLoading } = useQuery({
@@ -193,6 +199,24 @@ const VideoEditor = () => {
     return `${minutes}:${seconds.toString().padStart(2, '0')}`;
   };
 
+  const handleTimelineClick = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (!videoRef.current || !duration) return;
+    
+    const timeline = e.currentTarget;
+    const rect = timeline.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const percentage = x / rect.width;
+    const newTime = percentage * duration;
+    
+    videoRef.current.currentTime = newTime;
+    setCurrentTime(newTime);
+  };
+
+  const handleAspectRatioChange = (ratio: string) => {
+    setAspectRatio(ratio);
+    // Additional logic for changing video container aspect ratio
+  };
+
   return (
     <div className="h-screen bg-background flex flex-col overflow-hidden">
       <div className="glass-card border-b border-white/10 px-6 py-3 flex items-center justify-between">
@@ -285,7 +309,16 @@ const VideoEditor = () => {
 
         <div className="flex-1 flex flex-col p-6 overflow-hidden">
           <div className="flex-1 relative">
-            <div className="absolute inset-0 flex items-center justify-center bg-black rounded-lg overflow-hidden">
+            <AspectRatioControl
+              onAspectRatioChange={handleAspectRatioChange}
+              currentRatio={aspectRatio}
+            />
+            <div className={cn(
+              "absolute inset-0 mt-12 flex items-center justify-center bg-black rounded-lg overflow-hidden",
+              aspectRatio === '16:9' && 'aspect-video',
+              aspectRatio === '9:16' && 'aspect-[9/16]',
+              aspectRatio === '1:1' && 'aspect-square'
+            )}>
               <video
                 ref={videoRef}
                 className="max-h-full max-w-full"
@@ -298,28 +331,52 @@ const VideoEditor = () => {
 
           <div className="h-48 glass-card mt-4 p-4 rounded-lg border border-white/10">
             <div className="space-y-4">
-              <Progress 
-                value={(currentTime / duration) * 100} 
-                className="h-2"
-              />
+              <div className="relative h-8" onClick={handleTimelineClick}>
+                <TimelineMarkers duration={duration} />
+                <TimelineCursor currentTime={currentTime} duration={duration} />
+                {selectedVideo && (
+                  <TimelineSegment
+                    startTime={0}
+                    endTime={duration}
+                    duration={duration}
+                  />
+                )}
+                <Progress 
+                  value={(currentTime / duration) * 100} 
+                  className="h-full absolute inset-0"
+                />
+              </div>
+
               <div className="flex justify-between text-sm text-white/60">
                 <span>{formatTime(currentTime)}</span>
                 <span>{formatTime(duration)}</span>
               </div>
-              <div className="flex items-center gap-4">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={togglePlay}
-                  className="text-white"
-                  disabled={!selectedVideo}
-                >
-                  {isPlaying ? (
-                    <Pause className="w-4 h-4" />
-                  ) : (
-                    <Play className="w-4 h-4" />
-                  )}
-                </Button>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={togglePlay}
+                    className="text-white"
+                    disabled={!selectedVideo}
+                  >
+                    {isPlaying ? (
+                      <Pause className="w-4 h-4" />
+                    ) : (
+                      <Play className="w-4 h-4" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="text-white"
+                    disabled={!selectedVideo}
+                  >
+                    <Scissors className="w-4 h-4" />
+                  </Button>
+                </div>
+
                 <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
@@ -349,18 +406,17 @@ const VideoEditor = () => {
 
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-white">Video Track</h3>
+                  <h3 className="text-sm font-medium text-white">Timeline</h3>
                 </div>
-                <div className="h-12 bg-white/5 rounded border border-white/10"></div>
-                
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-medium text-white">Audio Track</h3>
-                  <Button variant="outline" size="sm" className="text-white">
-                    <Music className="w-4 h-4 mr-2" />
-                    Add Audio
-                  </Button>
+                <div className="h-12 bg-white/5 rounded border border-white/10">
+                  {selectedVideo && (
+                    <TimelineSegment
+                      startTime={0}
+                      endTime={duration}
+                      duration={duration}
+                    />
+                  )}
                 </div>
-                <div className="h-12 bg-white/5 rounded border border-white/10"></div>
               </div>
             </div>
           </div>

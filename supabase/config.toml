@@ -12,4 +12,6 @@ verify_jwt = true
 verify_jwt = true
 [functions.generate-product-image]
 verify_jwt = true
+[functions.store-video]
+verify_jwt = true
 

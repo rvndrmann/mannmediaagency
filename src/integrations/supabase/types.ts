@@ -817,6 +817,12 @@ export type Database = {
         }
         Returns: boolean
       }
+      safely_decrease_decimal_credits: {
+        Args: {
+          amount: number
+        }
+        Returns: boolean
+      }
     }
     Enums: {
       image_generation_status: "pending" | "processing" | "completed" | "failed"

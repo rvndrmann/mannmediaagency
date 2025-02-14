@@ -4,7 +4,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 import { ProductImageMetadata } from "./ProductImageMetadata";
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Loader2 } from "lucide-react";
+import { Download, RefreshCw, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -17,6 +17,19 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   const [additionalContext, setAdditionalContext] = useState("");
   const [customTitleTwist, setCustomTitleTwist] = useState("");
   const queryClient = useQueryClient();
+
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   const { data: imageJob, isLoading: imageLoading } = useQuery({
     queryKey: ["image-job", imageJobId],
@@ -49,6 +62,11 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   const generateMetadata = useMutation({
     mutationFn: async () => {
       if (!imageJob?.prompt) throw new Error("No prompt found for image");
+      
+      // Check if user has enough credits
+      if (!userCredits || userCredits.credits_remaining < 0.20) {
+        throw new Error("Insufficient credits. You need 0.20 credits to generate metadata.");
+      }
 
       const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-product-metadata`, {
         method: "POST",
@@ -73,6 +91,7 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-metadata", imageJobId] });
+      queryClient.invalidateQueries({ queryKey: ["userCredits"] });
       toast.success("Metadata generated successfully");
     },
     onError: (error) => {
@@ -111,7 +130,7 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   }
 
   const remainingRegenerations = 3 - (metadata?.metadata_regeneration_count || 0);
-  const canRegenerate = remainingRegenerations > 0;
+  const canRegenerate = remainingRegenerations > 0 && (!userCredits || userCredits.credits_remaining >= 0.20);
 
   return (
     <div className="space-y-6">
@@ -171,16 +190,21 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
               {generateMetadata.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <RefreshCw className="h-4 w-4 mr-2" />
+                <>
+                  <RefreshCw className="h-4 w-4 mr-2" />
+                  <CreditCard className="h-4 w-4 mr-2" />
+                </>
               )}
-              {metadata ? "Regenerate Metadata" : "Generate Metadata"}
+              {metadata ? "Regenerate" : "Generate"} Metadata (0.20 credits)
               <span className="ml-2 text-sm opacity-90">
                 ({remainingRegenerations} regenerations left)
               </span>
             </Button>
             {!canRegenerate && (
               <p className="text-sm text-red-400 text-center mt-2">
-                You have reached the maximum number of regenerations for this metadata.
+                {remainingRegenerations > 0 
+                  ? "Insufficient credits. You need 0.20 credits to generate metadata."
+                  : "You have reached the maximum number of regenerations for this metadata."}
               </p>
             )}
           </div>

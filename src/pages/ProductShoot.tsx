@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,12 +127,13 @@ const ProductShoot = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-background flex flex-col">
       {isMobile && (
         <MobilePanelToggle title="Product Image Generator" />
       )}
       <div className={cn(
-        isMobile ? "flex flex-col" : "flex h-screen"
+        "flex-1 flex min-h-0",
+        isMobile ? "flex-col" : "flex"
       )}>
         <InputPanel
           isMobile={isMobile}

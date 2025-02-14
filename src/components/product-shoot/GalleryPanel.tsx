@@ -27,13 +27,14 @@ export function GalleryPanel({
 }: GalleryPanelProps) {
   return (
     <div className={cn(
-      "p-6",
-      isMobile ? "w-full" : "flex-1"
+      "bg-background",
+      isMobile ? "flex-1 min-h-0" : "flex-1"
     )}>
       <ScrollArea className={cn(
-        isMobile ? "max-h-[calc(100vh-24rem)]" : "h-[calc(100vh-3rem)]"
+        "h-full",
+        isMobile ? "max-h-[calc(100vh-16rem)]" : "h-[calc(100vh-3rem)]"
       )}>
-        <div className="grid grid-cols-1 gap-6">
+        <div className="grid grid-cols-1 gap-4 p-4">
           {isLoading ? (
             <div className="flex items-center justify-center h-32">
               <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
@@ -47,16 +48,16 @@ export function GalleryPanel({
             images.map((image) => (
               <Card 
                 key={image.id}
-                className="p-4 bg-gray-900 border-gray-700 animate-fade-in"
+                className="p-3 bg-gray-900 border-gray-700 animate-fade-in"
               >
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {image.status === 'processing' ? (
-                    <div className="flex flex-col items-center justify-center h-48 bg-gray-800 rounded-lg">
+                    <div className="flex flex-col items-center justify-center h-40 bg-gray-800 rounded-lg">
                       <Loader2 className="h-8 w-8 animate-spin text-purple-600 mb-2" />
                       <p className="text-sm text-gray-400">Processing image...</p>
                     </div>
                   ) : image.status === 'failed' ? (
-                    <div className="flex flex-col items-center justify-center h-48 bg-gray-800 rounded-lg">
+                    <div className="flex flex-col items-center justify-center h-40 bg-gray-800 rounded-lg">
                       <ImageIcon className="h-8 w-8 text-red-500 mb-2" />
                       <p className="text-sm text-red-400">Failed to generate image</p>
                     </div>
@@ -67,7 +68,7 @@ export function GalleryPanel({
                       className="w-full h-auto rounded-lg"
                     />
                   ) : (
-                    <div className="flex flex-col items-center justify-center h-48 bg-gray-800 rounded-lg">
+                    <div className="flex flex-col items-center justify-center h-40 bg-gray-800 rounded-lg">
                       <ImageIcon className="h-8 w-8 text-gray-600 mb-2" />
                       <p className="text-sm text-gray-400">Image not available</p>
                     </div>
@@ -81,7 +82,7 @@ export function GalleryPanel({
                         variant="ghost"
                         size="icon"
                         onClick={() => onDownload(image.result_url!)}
-                        className="text-gray-400 hover:text-white hover:bg-gray-800"
+                        className="text-gray-400 hover:text-white hover:bg-gray-800 ml-2 flex-shrink-0"
                       >
                         <Download className="h-4 w-4" />
                       </Button>

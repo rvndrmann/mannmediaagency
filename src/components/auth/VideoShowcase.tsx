@@ -3,13 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { PlayCircle, ChevronLeft, ChevronRight } from "lucide-react";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
+import { PlayCircle, PauseCircle, ChevronLeft, ChevronRight } from "lucide-react";
 import { useState, useRef } from "react";
 import { Badge } from "@/components/ui/badge";
 
@@ -24,8 +18,9 @@ type ShowcaseVideo = {
 };
 
 export const VideoShowcase = () => {
-  const [selectedVideo, setSelectedVideo] = useState<ShowcaseVideo | null>(null);
+  const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
 
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcase-videos"],
@@ -62,6 +57,28 @@ export const VideoShowcase = () => {
         left: newScrollLeft,
         behavior: "smooth",
       });
+    }
+  };
+
+  const handleVideoClick = (videoId: string) => {
+    if (playingVideoId === videoId) {
+      // Pause current video
+      const video = videoRefs.current[videoId];
+      if (video) {
+        video.pause();
+      }
+      setPlayingVideoId(null);
+    } else {
+      // Pause previous video if any
+      if (playingVideoId && videoRefs.current[playingVideoId]) {
+        videoRefs.current[playingVideoId].pause();
+      }
+      // Play new video
+      const video = videoRefs.current[videoId];
+      if (video) {
+        video.play();
+      }
+      setPlayingVideoId(videoId);
     }
   };
 
@@ -113,18 +130,34 @@ export const VideoShowcase = () => {
             <Card
               key={video.id}
               className="flex-none w-[300px] snap-center bg-gray-800/50 border-gray-700 overflow-hidden cursor-pointer transform transition-all duration-200 hover:scale-105"
-              onClick={() => setSelectedVideo(video)}
             >
               <div className="relative aspect-[9/16]">
-                {video.thumbnail_path ? (
+                {/* Thumbnail Image (shown when video is not playing) */}
+                {(!playingVideoId || playingVideoId !== video.id) && video.thumbnail_path && (
                   <img
                     src={getStorageUrl(video.thumbnail_path)}
                     alt={video.title}
                     className="w-full h-full object-cover"
                   />
-                ) : (
-                  <div className="w-full h-full bg-gray-700" />
                 )}
+                
+                {/* Video Element */}
+                <video
+                  ref={(el) => {
+                    if (el) videoRefs.current[video.id] = el;
+                  }}
+                  src={getStorageUrl(video.video_path)}
+                  className={`absolute inset-0 w-full h-full object-cover ${
+                    playingVideoId === video.id ? 'opacity-100' : 'opacity-0'
+                  }`}
+                  playsInline
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    handleVideoClick(video.id);
+                  }}
+                />
+
+                {/* Overlay with controls and info */}
                 <div className="absolute inset-0 flex flex-col justify-between p-4 bg-gradient-to-b from-black/60 via-transparent to-black/60">
                   <div>
                     {video.category && (
@@ -144,9 +177,25 @@ export const VideoShowcase = () => {
                     )}
                   </div>
                 </div>
-                <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 hover:opacity-100 transition-opacity">
-                  <Button variant="ghost" className="text-white">
-                    <PlayCircle className="w-12 h-12" />
+
+                {/* Play/Pause Button Overlay */}
+                <div 
+                  className="absolute inset-0 flex items-center justify-center hover:bg-black/30 transition-colors"
+                  onClick={() => handleVideoClick(video.id)}
+                >
+                  <Button 
+                    variant="ghost" 
+                    className="text-white opacity-0 hover:opacity-100 transition-opacity"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleVideoClick(video.id);
+                    }}
+                  >
+                    {playingVideoId === video.id ? (
+                      <PauseCircle className="w-12 h-12" />
+                    ) : (
+                      <PlayCircle className="w-12 h-12" />
+                    )}
                   </Button>
                 </div>
               </div>
@@ -154,31 +203,6 @@ export const VideoShowcase = () => {
           ))}
         </div>
       </div>
-
-      <Dialog open={!!selectedVideo} onOpenChange={() => setSelectedVideo(null)}>
-        <DialogContent className="max-w-4xl bg-gray-900 border-gray-800">
-          <DialogHeader>
-            <DialogTitle className="text-xl text-white">
-              {selectedVideo?.title}
-            </DialogTitle>
-          </DialogHeader>
-          {selectedVideo && (
-            <div className="aspect-video w-full">
-              <video
-                src={getStorageUrl(selectedVideo.video_path)}
-                controls
-                className="w-full h-full"
-                autoPlay
-              >
-                Your browser does not support the video tag.
-              </video>
-            </div>
-          )}
-          {selectedVideo?.description && (
-            <p className="text-gray-400 mt-4">{selectedVideo.description}</p>
-          )}
-        </DialogContent>
-      </Dialog>
     </div>
   );
 };

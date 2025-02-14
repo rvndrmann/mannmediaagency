@@ -59,23 +59,19 @@ export const VideoShowcase = () => {
   // Mutation to store video
   const storeVideoMutation = useMutation({
     mutationFn: async (video: { url: string, type: string, storyId?: number }) => {
-      const response = await fetch('/api/store-video', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
+      const response = await supabase.functions.invoke('store-video', {
+        body: {
           videoUrl: video.url,
           videoType: video.type,
           storyId: video.storyId
-        }),
+        },
       });
 
-      if (!response.ok) {
+      if (response.error) {
         throw new Error('Failed to store video');
       }
 
-      return response.json();
+      return response.data;
     },
     onError: (error) => {
       console.error('Failed to store video:', error);

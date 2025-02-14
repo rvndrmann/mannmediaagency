@@ -13,8 +13,20 @@ const Auth = () => {
       <SplashCursor />
       {/* Navigation Bar */}
       <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
-        <div className="text-2xl font-bold text-white w-full sm:w-auto text-center sm:text-left">
-          mannmediaagency
+        <div className="flex items-center gap-2 w-full sm:w-auto text-center sm:text-left">
+          <img 
+            src="/lovable-uploads/6339ca58-18ce-4e6a-9e56-116de738e55b.png" 
+            alt="Falcon Logo" 
+            className="h-8 w-auto"
+          />
+          <div>
+            <div className="text-2xl font-bold text-white">
+              MANNMEDIAAGENCY
+            </div>
+            <div className="text-sm text-gray-400">
+              mannmediaagency.com
+            </div>
+          </div>
         </div>
         <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-end">
           <Button

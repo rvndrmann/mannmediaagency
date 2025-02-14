@@ -1,5 +1,4 @@
-
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState, useRef, useEffect } from "react";
 import {
@@ -12,25 +11,16 @@ import {
 import useEmblaCarousel from 'embla-carousel-react';
 import Autoplay from 'embla-carousel-autoplay';
 import { useIsMobile } from "@/hooks/use-mobile";
-
-interface ShowcaseVideo {
-  id: string;
-  title: string;
-  description: string;
-  video_url: string;
-  thumbnail_url: string;
-  category: string;
-  is_visible: boolean;
-  story_id: number | null;
-  story?: {
-    "final_video_with_music": string | null;
-  } | null;
-}
-
+import { useToast } from "@/hooks/use-toast";
+import { ShowcaseVideo } from "./types/showcase";
+import { LoadingSkeleton } from "./showcase/LoadingSkeleton";
+import { MobileShowcase } from "./showcase/MobileShowcase";
 export const VideoShowcase = () => {
   const [playingVideoId, setPlayingVideoId] = useState<string | null>(null);
-  const videoRefs = useRef<{ [key: string]: HTMLVideoElement }>({});
+  const [videoErrors, setVideoErrors] = useState<{ [key: string]: boolean }>({});
+  const [loadingVideos, setLoadingVideos] = useState<{ [key: string]: boolean }>({});
   const isMobile = useIsMobile();
+  const { toast } = useToast();
   
   const autoplayOptions = {
     delay: 4000,
@@ -43,6 +33,7 @@ export const VideoShowcase = () => {
     [Autoplay(autoplayOptions)]
   );
 
+  // Query to fetch videos
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcaseVideos"],
     queryFn: async () => {
@@ -62,124 +53,87 @@ export const VideoShowcase = () => {
     },
   });
 
+  // Mutation to store video
+  const storeVideoMutation = useMutation({
+    mutationFn: async (video: { url: string, type: string, storyId?: number }) => {
+      const response = await supabase.functions.invoke('store-video', {
+        body: {
+          videoUrl: video.url,
+          videoType: video.type,
+          storyId: video.storyId
+        },
+      });
+
+      if (response.error) {
+        throw new Error('Failed to store video');
+      }
+
+      return response.data;
+    },
+    onError: (error) => {
+      console.error('Failed to store video:', error);
+      toast({
+        title: "Storage Error",
+        description: "Failed to store video in our system. Using original source.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Effect to trigger video storage for new videos
   useEffect(() => {
     if (videos) {
-      videos.forEach((video) => {
-        const videoEl = videoRefs.current[video.id];
-        if (videoEl) {
-          videoEl.currentTime = 2;
-          videoEl.load();
+      videos.forEach(async (video) => {
+        const videoUrl = video.story?.final_video_with_music || video.video_url;
+        
+        // Check if video is already stored
+        const { data: storedVideo } = await supabase
+          .from('stored_videos')
+          .select('*')
+          .eq('original_url', videoUrl)
+          .maybeSingle();
+
+        // If not stored, trigger storage
+        if (!storedVideo) {
+          storeVideoMutation.mutate({
+            url: videoUrl,
+            type: 'showcase',
+            storyId: video.story_id || undefined
+          });
         }
       });
     }
   }, [videos]);
 
-  const VideoCard = ({ video }: { video: ShowcaseVideo }) => (
-    <div className="space-y-4">
-      <div className="group relative aspect-[9/16] rounded-xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer shadow-xl max-h-[400px]">
-        <video
-          ref={(el) => {
-            if (el) {
-              videoRefs.current[video.id] = el;
-            }
-          }}
-          className="w-full h-full object-cover"
-          playsInline
-          preload="auto"
-          controls
-          onLoadedMetadata={(e) => {
-            const videoEl = e.currentTarget;
-            videoEl.currentTime = 2;
-          }}
-          onLoadedData={(e) => {
-            const videoEl = e.currentTarget;
-            videoEl.currentTime = 2;
-          }}
-          onPlay={() => setPlayingVideoId(video.id)}
-          onPause={() => setPlayingVideoId(null)}
-          onEnded={() => setPlayingVideoId(null)}
-          onClick={(e) => {
-            const videoEl = e.currentTarget;
-            if (videoEl.paused) {
-              document.querySelectorAll('video').forEach(v => {
-                if (v !== videoEl) {
-                  v.pause();
-                  v.currentTime = 2;
-                }
-              });
-              videoEl.play();
-            } else {
-              videoEl.pause();
-            }
-          }}
-        >
-          <source 
-            src={video.story?.final_video_with_music || video.video_url} 
-            type="video/mp4" 
-          />
-          Your browser does not support the video tag.
-        </video>
+  const handleVideoError = (videoId: string) => {
+    setVideoErrors(prev => ({ ...prev, [videoId]: true }));
+    setLoadingVideos(prev => ({ ...prev, [videoId]: false }));
+    toast({
+      title: "Video Error",
+      description: "Unable to load showcase video. Please try again later.",
+      variant: "destructive",
+    });
+  };
 
-        <div className="absolute top-4 left-4 opacity-0 group-hover:opacity-100 transition-opacity z-10">
-          <span className="inline-block px-3 py-1 bg-purple-600/90 text-xs font-medium text-white rounded-full">
-            {video.category}
-          </span>
-        </div>
-
-        <div 
-          className={`absolute inset-0 flex items-center justify-center opacity-0 
-            ${playingVideoId !== video.id ? 'group-hover:opacity-90' : ''} 
-            transition-opacity duration-300 pointer-events-none`}
-        >
-          <div className="w-16 h-16 bg-purple-600/80 rounded-full flex items-center justify-center shadow-lg">
-            <svg
-              className="w-8 h-8 text-white"
-              fill="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-        </div>
-      </div>
-
-      <div className="space-y-2">
-        <h3 className="text-white text-lg font-bold line-clamp-1">
-          {video.title}
-        </h3>
-        <p className="text-gray-400 text-sm line-clamp-2">
-          {video.description}
-        </p>
-      </div>
-    </div>
-  );
+  const handleVideoLoad = (videoId: string) => {
+    setLoadingVideos(prev => ({ ...prev, [videoId]: false }));
+  };
 
   if (isLoading) {
-    return (
-      <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 animate-pulse">
-        {[1, 2, 3, 4].map((i) => (
-          <div
-            key={i}
-            className="space-y-4"
-          >
-            <div className="aspect-[9/16] bg-gray-800 rounded-xl" />
-            <div className="h-4 bg-gray-800 rounded w-3/4" />
-            <div className="h-3 bg-gray-800 rounded w-1/2" />
-          </div>
-        ))}
-      </div>
-    );
+    return <LoadingSkeleton />;
   }
 
   if (isMobile) {
     return (
-      <div className="flex flex-col space-y-8 px-4">
-        {videos?.map((video) => (
-          <div key={video.id} className="w-full">
-            <VideoCard video={video} />
-          </div>
-        ))}
-      </div>
+      <MobileShowcase
+        videos={videos || []}
+        videoErrors={videoErrors}
+        loadingVideos={loadingVideos}
+        playingVideoId={playingVideoId}
+        onVideoError={handleVideoError}
+        onVideoLoad={handleVideoLoad}
+        onPlayStateChange={setPlayingVideoId}
+      />
     );
   }
 
@@ -197,7 +151,15 @@ export const VideoShowcase = () => {
         <CarouselContent className="-ml-4 flex">
           {videos?.map((video) => (
             <CarouselItem key={video.id} className="pl-4 basis-full sm:basis-1/2 md:basis-1/3 lg:basis-1/4 xl:basis-1/4">
-              <VideoCard video={video} />
+              <VideoCard
+                video={video}
+                onVideoError={handleVideoError}
+                onVideoLoad={handleVideoLoad}
+                isLoading={loadingVideos[video.id]}
+                hasError={videoErrors[video.id]}
+                isPlaying={playingVideoId === video.id}
+                onPlayStateChange={setPlayingVideoId}
+              />
             </CarouselItem>
           ))}
         </CarouselContent>

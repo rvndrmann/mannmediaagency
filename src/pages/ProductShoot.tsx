@@ -15,7 +15,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
 
 type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
 
@@ -63,7 +63,7 @@ export default function ProductShoot() {
       console.log('Initiating image generation');
       
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/initiate-image-generation`,
+        `${SUPABASE_URL}/functions/v1/initiate-image-generation`,
         {
           method: "POST",
           body: formData,
@@ -101,7 +101,7 @@ export default function ProductShoot() {
       }
 
       const response = await fetch(
-        `${supabase.supabaseUrl}/functions/v1/check-image-status`,
+        `${SUPABASE_URL}/functions/v1/check-image-status`,
         {
           method: "POST",
           headers: {

@@ -1,7 +1,8 @@
 
 import { ShowcaseVideo } from "../types/showcase";
 import { Loader2 } from "lucide-react";
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { toast } from "@/hooks/use-toast";
 
 interface VideoCardProps {
   video: ShowcaseVideo;
@@ -13,6 +14,9 @@ interface VideoCardProps {
   onPlayStateChange: (videoId: string | null) => void;
 }
 
+const MAX_RETRIES = 2;
+const RETRY_DELAY = 2000;
+
 export const VideoCard = ({
   video,
   onVideoError,
@@ -23,6 +27,69 @@ export const VideoCard = ({
   onPlayStateChange,
 }: VideoCardProps) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  const [errorDetails, setErrorDetails] = useState<string>("");
+
+  const isValidVideoUrl = (url: string) => {
+    try {
+      const parsedUrl = new URL(url);
+      return ['http:', 'https:'].includes(parsedUrl.protocol);
+    } catch {
+      return false;
+    }
+  };
+
+  const handleVideoError = (e: React.SyntheticEvent<HTMLVideoElement, Event>) => {
+    const videoEl = e.currentTarget;
+    const mediaError = videoEl.error;
+    
+    console.error('Video Error:', {
+      videoId: video.id,
+      errorCode: mediaError?.code,
+      errorMessage: mediaError?.message,
+      videoUrl: video.story?.final_video_with_music || video.video_url,
+    });
+
+    let errorMessage = "Failed to load video. ";
+    
+    if (mediaError) {
+      switch (mediaError.code) {
+        case MediaError.MEDIA_ERR_ABORTED:
+          errorMessage += "The video playback was aborted.";
+          break;
+        case MediaError.MEDIA_ERR_NETWORK:
+          errorMessage += "A network error occurred.";
+          break;
+        case MediaError.MEDIA_ERR_DECODE:
+          errorMessage += "The video format is not supported.";
+          break;
+        case MediaError.MEDIA_ERR_SRC_NOT_SUPPORTED:
+          errorMessage += "The video source is not supported.";
+          break;
+        default:
+          errorMessage += "An unknown error occurred.";
+      }
+    }
+
+    setErrorDetails(errorMessage);
+
+    if (retryCount < MAX_RETRIES) {
+      console.log(`Retrying video load (attempt ${retryCount + 1}/${MAX_RETRIES})...`);
+      setTimeout(() => {
+        setRetryCount(prev => prev + 1);
+        if (videoEl) {
+          videoEl.load();
+        }
+      }, RETRY_DELAY);
+    } else {
+      onVideoError(video.id);
+      toast({
+        title: "Video Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+  };
 
   useEffect(() => {
     const videoEl = videoRef.current;
@@ -30,7 +97,14 @@ export const VideoCard = ({
       videoEl.currentTime = 2;
       videoEl.load();
     }
-  }, [video]);
+
+    const videoUrl = video.story?.final_video_with_music || video.video_url;
+    if (!isValidVideoUrl(videoUrl)) {
+      console.error('Invalid video URL:', videoUrl);
+      onVideoError(video.id);
+      setErrorDetails("Invalid video URL format");
+    }
+  }, [video, onVideoError]);
 
   const handlePlayClick = (e: React.MouseEvent<HTMLVideoElement>) => {
     const videoEl = e.currentTarget;
@@ -41,7 +115,14 @@ export const VideoCard = ({
           v.currentTime = 2;
         }
       });
-      videoEl.play();
+      videoEl.play().catch(error => {
+        console.error('Play error:', error);
+        toast({
+          title: "Playback Error",
+          description: "Failed to play video. Please try again.",
+          variant: "destructive",
+        });
+      });
     } else {
       videoEl.pause();
     }
@@ -58,7 +139,13 @@ export const VideoCard = ({
         
         {hasError ? (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900/90 text-white text-center p-4">
-            <p>Failed to load video. Please try again later.</p>
+            <div className="space-y-2">
+              <p>Failed to load video</p>
+              <p className="text-sm text-gray-400">{errorDetails}</p>
+              {retryCount < MAX_RETRIES && (
+                <p className="text-sm text-purple-400">Retrying... ({retryCount + 1}/{MAX_RETRIES})</p>
+              )}
+            </div>
           </div>
         ) : (
           <video
@@ -67,7 +154,6 @@ export const VideoCard = ({
             playsInline
             preload="auto"
             controls
-            crossOrigin="anonymous"
             onLoadedMetadata={(e) => {
               const videoEl = e.currentTarget;
               videoEl.currentTime = 2;
@@ -76,11 +162,12 @@ export const VideoCard = ({
               const videoEl = e.currentTarget;
               videoEl.currentTime = 2;
               onVideoLoad(video.id);
+              setRetryCount(0); // Reset retry count on successful load
             }}
             onPlay={() => onPlayStateChange(video.id)}
             onPause={() => onPlayStateChange(null)}
             onEnded={() => onPlayStateChange(null)}
-            onError={() => onVideoError(video.id)}
+            onError={handleVideoError}
             onClick={handlePlayClick}
           >
             <source 

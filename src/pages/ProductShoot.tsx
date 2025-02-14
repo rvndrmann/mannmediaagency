@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +14,7 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { Label } from "@/components/ui/label";
+import { supabase } from "@/integrations/supabase/client";
 
 type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
 
@@ -50,13 +50,20 @@ export default function ProductShoot() {
       formData.append("numInferenceSteps", numInferenceSteps.toString());
       formData.append("outputFormat", "png");
 
-      const response = await fetch("/api/generate-product-image", {
-        method: "POST",
-        body: formData,
-      });
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_SUPABASE_URL}/functions/v1/generate-product-image`,
+        {
+          method: "POST",
+          body: formData,
+          headers: {
+            Authorization: `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
+          },
+        }
+      );
 
       if (!response.ok) {
-        throw new Error("Failed to generate image");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.error || "Failed to generate image");
       }
 
       const data = await response.json();
@@ -70,6 +77,7 @@ export default function ProductShoot() {
       toast.success("Image generated successfully!");
     },
     onError: (error) => {
+      console.error("Generation error:", error);
       toast.error(error instanceof Error ? error.message : "Failed to generate image");
     },
   });
@@ -78,7 +86,6 @@ export default function ProductShoot() {
     <div className="container mx-auto py-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Input Panel */}
           <div className="space-y-6">
             <div>
               <h2 className="text-2xl font-bold mb-4">Product Shoot</h2>
@@ -132,7 +139,6 @@ export default function ProductShoot() {
                 />
               </div>
 
-              {/* Advanced Settings */}
               <div className="space-y-4 border rounded-lg p-4">
                 <h3 className="font-medium mb-3">Advanced Settings</h3>
                 
@@ -198,7 +204,6 @@ export default function ProductShoot() {
             </div>
           </div>
 
-          {/* Result Panel */}
           <div className="space-y-4">
             <h3 className="text-xl font-semibold">Generated Image</h3>
             <div className="border-2 border-dashed border-gray-700 rounded-lg aspect-square flex items-center justify-center">

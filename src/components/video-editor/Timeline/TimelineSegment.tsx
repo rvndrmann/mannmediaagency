@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useDrag } from '@use-gesture/react';
+import type { ReactDOMAttributes } from '@use-gesture/react';
 
 interface TimelineSegmentProps {
   startTime: number;
@@ -26,7 +27,7 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
   const startPosition = (startTime / duration) * 100;
   const width = ((endTime - startTime) / duration) * 100;
 
-  const [{ dragBind }, api] = useDrag(
+  const dragBind = useDrag(
     () => ({
       onDragStart: () => onDragStart?.(),
       onDragEnd: () => onDragEnd?.()
@@ -36,7 +37,7 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
     }
   );
 
-  const [{ trimLeftBind }] = useDrag(
+  const trimLeftBind = useDrag(
     () => ({
       onDrag: ({ movement: [mx] }) => {
         const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
@@ -47,7 +48,7 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
     })
   );
 
-  const [{ trimRightBind }] = useDrag(
+  const trimRightBind = useDrag(
     () => ({
       onDrag: ({ movement: [mx] }) => {
         const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;

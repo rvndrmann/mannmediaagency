@@ -14,11 +14,6 @@ const Auth = () => {
       {/* Navigation Bar */}
       <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
         <div className="flex items-center gap-2 w-full sm:w-auto text-center sm:text-left">
-          <img 
-            src="/lovable-uploads/6339ca58-18ce-4e6a-9e56-116de738e55b.png" 
-            alt="Falcon Logo" 
-            className="h-8 w-auto"
-          />
           <div>
             <div className="text-2xl font-bold text-white">
               MANNMEDIAAGENCY
@@ -57,7 +52,7 @@ const Auth = () => {
 
       {/* Main Content */}
       <div className="px-6 lg:px-12 py-12 lg:py-24 relative z-10">
-        {/* Main Heading - Moved above Powered By */}
+        {/* Main Heading */}
         <div className="text-center mb-16">
           <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
             Create Amazing Videos with AI

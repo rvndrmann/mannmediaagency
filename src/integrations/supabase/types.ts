@@ -192,6 +192,42 @@ export type Database = {
           },
         ]
       }
+      image_generation_jobs: {
+        Row: {
+          created_at: string
+          id: string
+          prompt: string
+          request_id: string | null
+          result_url: string | null
+          settings: Json
+          status: Database["public"]["Enums"]["image_generation_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prompt: string
+          request_id?: string | null
+          result_url?: string | null
+          settings?: Json
+          status?: Database["public"]["Enums"]["image_generation_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prompt?: string
+          request_id?: string | null
+          result_url?: string | null
+          settings?: Json
+          status?: Database["public"]["Enums"]["image_generation_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       oauth_states: {
         Row: {
           created_at: string
@@ -727,7 +763,7 @@ export type Database = {
       }
     }
     Enums: {
-      [_ in never]: never
+      image_generation_status: "pending" | "processing" | "completed" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never

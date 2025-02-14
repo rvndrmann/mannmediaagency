@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,9 +19,6 @@ import { supabase } from "@/integrations/supabase/client";
 
 type ImageSize = 'square_hd' | 'square' | 'portrait_4_3' | 'portrait_16_9' | 'landscape_4_3' | 'landscape_16_9';
 
-const SUPABASE_URL = "https://avdwgvjhufslhqrrmxgo.supabase.co";
-const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4Mzg3OTMsImV4cCI6MjA1NDQxNDc5M30.NYkKpNhStznwM0M-ZwyANUJNoGsYDM7xF2oMaWQ92w4";
-
 export default function ProductShoot() {
   const navigate = useNavigate();
   const [productImage, setProductImage] = useState<File | null>(null);
@@ -31,6 +28,7 @@ export default function ProductShoot() {
   const [imageSize, setImageSize] = useState<ImageSize>("square_hd");
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [numInferenceSteps, setNumInferenceSteps] = useState(8);
+  const [currentJobId, setCurrentJobId] = useState<string | null>(null);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,51 +60,92 @@ export default function ProductShoot() {
         throw new Error("You must be logged in to generate images");
       }
 
-      console.log('Making request to:', `${SUPABASE_URL}/functions/v1/generate-product-image`);
+      console.log('Initiating image generation');
       
       const response = await fetch(
-        `${SUPABASE_URL}/functions/v1/generate-product-image`,
+        `${supabase.supabaseUrl}/functions/v1/initiate-image-generation`,
         {
           method: "POST",
           body: formData,
           headers: {
             Authorization: `Bearer ${accessToken}`,
-            apikey: SUPABASE_ANON_KEY,
           },
         }
       );
 
-      console.log('Response status:', response.status);
-      
-      // Check if the response is HTML (error page)
-      const contentType = response.headers.get('content-type');
-      if (contentType && contentType.includes('text/html')) {
-        const errorText = await response.text();
-        console.error('Received HTML response instead of JSON:', errorText);
-        throw new Error('Unexpected server response. Please try again.');
-      }
-
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        console.error('Error response:', errorData);
-        throw new Error(errorData.error || `Failed to generate image (${response.status})`);
+        throw new Error(errorData.error || `Failed to initiate image generation (${response.status})`);
       }
 
       const data = await response.json();
-      if (data.hasNsfw) {
-        toast.warning("The generated image may contain inappropriate content");
-      }
-      return data.imageUrl;
+      return data.jobId;
     },
-    onSuccess: (imageUrl) => {
-      setGeneratedImage(imageUrl);
-      toast.success("Image generated successfully!");
+    onSuccess: (jobId) => {
+      setCurrentJobId(jobId);
+      toast.success("Image generation started!");
     },
     onError: (error) => {
       console.error("Generation error:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate image");
+      toast.error(error instanceof Error ? error.message : "Failed to start image generation");
     },
   });
+
+  const checkStatusMutation = useMutation({
+    mutationFn: async (jobId: string) => {
+      const session = await supabase.auth.getSession();
+      const accessToken = session.data.session?.access_token;
+      
+      if (!accessToken) {
+        throw new Error("You must be logged in to check image status");
+      }
+
+      const response = await fetch(
+        `${supabase.supabaseUrl}/functions/v1/check-image-status`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${accessToken}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ jobId }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to check image status");
+      }
+
+      const data = await response.json();
+      return data;
+    },
+  });
+
+  useEffect(() => {
+    if (!currentJobId) return;
+
+    const pollInterval = setInterval(async () => {
+      try {
+        const result = await checkStatusMutation.mutateAsync(currentJobId);
+        
+        if (result.status === 'completed') {
+          setGeneratedImage(result.resultUrl);
+          setCurrentJobId(null);
+          toast.success("Image generated successfully!");
+          clearInterval(pollInterval);
+        } else if (result.status === 'failed') {
+          setCurrentJobId(null);
+          toast.error("Image generation failed");
+          clearInterval(pollInterval);
+        }
+      } catch (error) {
+        console.error('Error checking status:', error);
+        clearInterval(pollInterval);
+      }
+    }, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(pollInterval);
+  }, [currentJobId]);
 
   return (
     <div className="container mx-auto py-8">
@@ -222,12 +261,12 @@ export default function ProductShoot() {
               <Button
                 className="w-full"
                 onClick={() => generateMutation.mutate()}
-                disabled={!productImage || !prompt || generateMutation.isPending}
+                disabled={!productImage || !prompt || generateMutation.isPending || !!currentJobId}
               >
-                {generateMutation.isPending ? (
+                {generateMutation.isPending || currentJobId ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Generating...
+                    {currentJobId ? "Generating..." : "Starting generation..."}
                   </>
                 ) : (
                   <>
@@ -250,7 +289,7 @@ export default function ProductShoot() {
                 />
               ) : (
                 <div className="text-gray-400 text-center p-4">
-                  Generated image will appear here
+                  {currentJobId ? "Generating your image..." : "Generated image will appear here"}
                 </div>
               )}
             </div>

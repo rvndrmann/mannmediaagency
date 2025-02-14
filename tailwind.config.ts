@@ -20,13 +20,7 @@ export default {
     },
     extend: {
       colors: {
-        cream: {
-          50: "#FEF7CD",
-          100: "#FDE1D3",
-          200: "#F3F3F3",
-          300: "#F1F1F1",
-          400: "#EEEEEE",
-        },
+        payu: "#1065b7",
         border: "hsl(var(--border))",
         input: "hsl(var(--input))",
         ring: "hsl(var(--ring))",

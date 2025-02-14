@@ -66,13 +66,13 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
   );
 
   return (
-    <Card className="overflow-hidden w-full max-w-[300px] bg-white/50 backdrop-blur-sm border-cream-100">
-      <div className="p-2 border-b border-cream-100">
-        <Badge variant="secondary" className="text-xs bg-cream-50 text-gray-800">
+    <Card className="overflow-hidden w-full max-w-[300px]">
+      <div className="p-2 border-b border-gray-200">
+        <Badge variant="secondary" className="text-xs">
           Story #{story["stories id"]}
         </Badge>
       </div>
-      <div className="aspect-video bg-cream-50">
+      <div className="aspect-video bg-gray-100">
         {story.final_video_with_music ? (
           <div className="flex flex-col items-center gap-1 p-2">
             <video 
@@ -89,7 +89,7 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
                 <div className="flex items-center text-xs text-gray-600">
                   <Video className="w-3 h-3 mr-1" />
                   {formatDuration(story.video_length_seconds)}
-                  <div className="ml-2 flex items-center text-blue-600">
+                  <div className="ml-2 flex items-center text-blue-500">
                     <span className="text-xs">Click three dots to download</span>
                     <ArrowRight className="w-3 h-3 ml-1" />
                   </div>
@@ -99,7 +99,7 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
           </div>
         ) : (
           <div className="h-full flex items-center justify-center">
-            <div className="text-gray-600 text-sm">Processing...</div>
+            <div className="text-gray-400 text-sm">Processing...</div>
           </div>
         )}
       </div>
@@ -107,8 +107,8 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
         {story.story_metadata?.seo_title && (
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
-              <p className="text-sm font-medium mb-1 text-gray-700">Title:</p>
-              <p className="text-sm line-clamp-2 text-gray-800">
+              <p className="text-sm font-medium mb-1 text-gray-600">Title:</p>
+              <p className="text-sm line-clamp-2">
                 {story.story_metadata.seo_title}
               </p>
             </div>
@@ -122,8 +122,8 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
         {story.story_metadata?.instagram_hashtags && (
           <div className="flex items-start justify-between gap-2">
             <div className="flex-1">
-              <p className="text-sm font-medium mb-1 text-gray-700">Hashtags:</p>
-              <div className="max-h-20 overflow-y-auto pr-2 text-sm text-gray-800">
+              <p className="text-sm font-medium mb-1 text-gray-600">Hashtags:</p>
+              <div className="max-h-20 overflow-y-auto pr-2 text-sm">
                 {story.story_metadata.instagram_hashtags}
               </div>
             </div>
@@ -134,10 +134,10 @@ export const StoryCard = ({ story, onVideoLoad }: StoryCardProps) => {
           </div>
         )}
         
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-gray-500">
           Created: {formatDate(story.created_at)}
         </p>
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-gray-500">
           Status: {story.ready_to_go ? "Ready" : "Processing"}
         </p>
       </div>

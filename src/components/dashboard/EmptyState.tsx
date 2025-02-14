@@ -15,17 +15,17 @@ export const EmptyState = ({
   onCreateOrPurchase 
 }: EmptyStateProps) => {
   return (
-    <Card className="col-span-full p-6 text-center bg-white/50 backdrop-blur-sm border-cream-100 w-full max-w-md">
+    <Card className="col-span-full p-6 text-center bg-gray-50 w-full max-w-md">
       <div className="flex flex-col items-center gap-4">
-        <div className="p-3 rounded-full bg-cream-50">
+        <div className="p-3 rounded-full bg-purple-100">
           {hasEnoughCredits ? (
-            <Plus className="w-6 h-6 text-gray-800" />
+            <Plus className="w-6 h-6 text-purple-600" />
           ) : (
-            <DollarSign className="w-6 h-6 text-gray-800" />
+            <DollarSign className="w-6 h-6 text-purple-600" />
           )}
         </div>
         <div className="space-y-2">
-          <div className="text-gray-700">
+          <div className="text-gray-500">
             {hasEnoughCredits ? (
               "No videos created yet. Create your first video now!"
             ) : (
@@ -38,7 +38,7 @@ export const EmptyState = ({
         </div>
         <Button 
           onClick={onCreateOrPurchase}
-          className="bg-cream-50 hover:bg-cream-100 text-gray-800"
+          className="bg-purple-600 hover:bg-purple-700"
         >
           {hasEnoughCredits ? (
             <>

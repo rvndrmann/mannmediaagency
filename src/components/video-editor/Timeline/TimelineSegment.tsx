@@ -1,6 +1,7 @@
 
 import React from 'react';
 import { useDrag } from '@use-gesture/react';
+import type { ReactDOMAttributes } from '@use-gesture/react';
 
 interface TimelineSegmentProps {
   startTime: number;
@@ -26,32 +27,36 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
   const startPosition = (startTime / duration) * 100;
   const width = ((endTime - startTime) / duration) * 100;
 
-  const bindMainDrag = useDrag(
-    ({ first, last }) => {
-      if (first) onDragStart?.();
-      if (last) onDragEnd?.();
-    },
+  const dragBind = useDrag(
+    () => ({
+      onDragStart: () => onDragStart?.(),
+      onDragEnd: () => onDragEnd?.()
+    }),
     { 
       transform: ([x]) => [x, 0]
     }
   );
 
-  const bindTrimLeft = useDrag(
-    ({ movement: [mx] }) => {
-      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
-      const deltaTime = (mx / containerWidth) * duration;
-      const newStartTime = Math.max(0, Math.min(endTime - 1, startTime + deltaTime));
-      onTrimStart?.(newStartTime);
-    }
+  const trimLeftBind = useDrag(
+    () => ({
+      onDrag: ({ movement: [mx] }) => {
+        const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
+        const deltaTime = (mx / containerWidth) * duration;
+        const newStartTime = Math.max(0, Math.min(endTime - 1, startTime + deltaTime));
+        onTrimStart?.(newStartTime);
+      }
+    })
   );
 
-  const bindTrimRight = useDrag(
-    ({ movement: [mx] }) => {
-      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
-      const deltaTime = (mx / containerWidth) * duration;
-      const newEndTime = Math.max(startTime + 1, Math.min(duration, endTime + deltaTime));
-      onTrimEnd?.(newEndTime);
-    }
+  const trimRightBind = useDrag(
+    () => ({
+      onDrag: ({ movement: [mx] }) => {
+        const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
+        const deltaTime = (mx / containerWidth) * duration;
+        const newEndTime = Math.max(startTime + 1, Math.min(duration, endTime + deltaTime));
+        onTrimEnd?.(newEndTime);
+      }
+    })
   );
 
   return (
@@ -61,16 +66,16 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
         left: `${startPosition}%`,
         width: `${width}%`
       }}
-      {...bindMainDrag()}
+      {...dragBind()}
     >
       {/* Trim handles */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...bindTrimLeft()}
+        {...trimLeftBind()}
       />
       <div
         className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...bindTrimRight()}
+        {...trimRightBind()}
       />
     </div>
   );

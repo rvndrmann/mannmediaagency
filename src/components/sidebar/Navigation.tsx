@@ -43,7 +43,7 @@ export const Navigation = () => {
     <nav className="space-y-1">
       <Button
         variant="ghost"
-        className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100"
+        className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
         onClick={() => navigate("/")}
       >
         <LayoutDashboard className="mr-2 h-4 w-4" /> Dashboard
@@ -51,7 +51,7 @@ export const Navigation = () => {
 
       <Button
         variant="ghost"
-        className={`w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100 ${
+        className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
           !hasMinimumCreditsForAI ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         onClick={() => navigate("/ai-agent")}
@@ -62,7 +62,7 @@ export const Navigation = () => {
 
       <Button
         variant="ghost"
-        className={`w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100 ${
+        className={`w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 ${
           !hasEnoughCredits ? 'opacity-50 cursor-not-allowed' : ''
         }`}
         onClick={handleCreateVideo}
@@ -74,7 +74,7 @@ export const Navigation = () => {
       <div className="space-y-1">
         <Button
           variant="ghost"
-          className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100 opacity-50 cursor-not-allowed"
+          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 opacity-50 cursor-not-allowed"
           disabled={true}
         >
           <Video className="mr-2 h-4 w-4" /> Video Editor
@@ -84,7 +84,7 @@ export const Navigation = () => {
 
       <Button
         variant="ghost"
-        className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100"
+        className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
         onClick={() => navigate("/product-shoot")}
       >
         <Camera className="mr-2 h-4 w-4" /> Product Shoot
@@ -92,7 +92,7 @@ export const Navigation = () => {
 
       <Button
         variant="ghost"
-        className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100"
+        className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
         onClick={() => navigate("/metadata")}
       >
         <Settings className="mr-2 h-4 w-4" /> Metadata Manager
@@ -100,7 +100,7 @@ export const Navigation = () => {
 
       <Button
         variant="ghost"
-        className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100"
+        className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"
         onClick={() => navigate("/plans")}
       >
         <DollarSign className="mr-2 h-4 w-4" /> Plans & Billing
@@ -109,7 +109,7 @@ export const Navigation = () => {
       <div className="space-y-1">
         <Button 
           variant="ghost" 
-          className="w-full justify-start text-gray-700 hover:text-gray-900 hover:bg-cream-100 opacity-50 cursor-not-allowed"
+          className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 opacity-50 cursor-not-allowed"
           disabled={true}
         >
           <Link2 className="mr-2 h-4 w-4" /> Integration

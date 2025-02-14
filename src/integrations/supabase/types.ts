@@ -466,6 +466,56 @@ export type Database = {
         }
         Relationships: []
       }
+      stored_videos: {
+        Row: {
+          created_at: string | null
+          duration_seconds: number | null
+          id: string
+          metadata: Json | null
+          original_url: string
+          size_bytes: number | null
+          status: string
+          storage_path: string
+          story_id: number | null
+          updated_at: string | null
+          video_type: string
+        }
+        Insert: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          metadata?: Json | null
+          original_url: string
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
+          story_id?: number | null
+          updated_at?: string | null
+          video_type: string
+        }
+        Update: {
+          created_at?: string | null
+          duration_seconds?: number | null
+          id?: string
+          metadata?: Json | null
+          original_url?: string
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+          story_id?: number | null
+          updated_at?: string | null
+          video_type?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "stored_videos_story_id_fkey"
+            columns: ["story_id"]
+            isOneToOne: false
+            referencedRelation: "stories"
+            referencedColumns: ["stories id"]
+          },
+        ]
+      }
       stories: {
         Row: {
           background_music: string | null

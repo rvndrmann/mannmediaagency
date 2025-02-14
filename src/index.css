@@ -49,6 +49,15 @@
   .slide-in {
     animation: slideIn 0.3s ease-out;
   }
+
+  .timeline-marker {
+    @apply absolute top-0 w-px h-full bg-white/20;
+  }
+
+  .timeline-marker::after {
+    content: attr(data-time);
+    @apply absolute top-full mt-1 left-1/2 -translate-x-1/2 text-xs text-white/60;
+  }
 }
 
 @layer utilities {

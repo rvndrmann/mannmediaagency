@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,6 +8,7 @@ import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
 import {
   Play,
@@ -15,11 +17,18 @@ import {
   VolumeX,
   Upload,
   Plus,
-  Music
+  Music,
+  Type,
+  Image,
+  Layers,
+  Palette,
+  Video as VideoIcon,
+  Share2
 } from "lucide-react";
 import { SubtitleTrack } from "@/components/video-editor/SubtitleTrack";
 import { AudioControl } from "@/components/video-editor/AudioControl";
 import { PlaybackControls } from "@/components/video-editor/PlaybackControls";
+import { cn } from "@/lib/utils";
 
 interface VideoProject {
   id: string;
@@ -159,101 +168,157 @@ const VideoEditor = () => {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <MobilePanelToggle title="Video Editor" />
-      <div className="p-6">
-        <div className="max-w-6xl mx-auto space-y-6">
-          <Card className="p-6">
-            <div className="space-y-6">
-              <div className="flex items-center gap-4">
-                <Input
-                  type="file"
-                  accept="video/*"
-                  onChange={handleFileSelect}
-                  className="hidden"
-                  id="video-upload"
-                />
-                <Button
-                  variant="outline"
-                  onClick={() => document.getElementById('video-upload')?.click()}
-                >
-                  <Upload className="w-4 h-4 mr-2" />
-                  Upload Video
+    <div className="h-screen bg-background flex flex-col overflow-hidden">
+      {/* Top Bar */}
+      <div className="glass-card border-b border-white/10 px-6 py-3 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <MobilePanelToggle title="Video Editor" />
+          <h1 className="text-white text-lg font-medium">Untitled Project</h1>
+        </div>
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" className="text-white">
+            <Share2 className="w-4 h-4 mr-2" />
+            Share
+          </Button>
+        </div>
+      </div>
+
+      {/* Main Content */}
+      <div className="flex-1 flex overflow-hidden">
+        {/* Left Panel */}
+        <div className="w-64 glass-card border-r border-white/10 flex flex-col">
+          <Tabs defaultValue="design" className="flex-1">
+            <TabsList className="w-full justify-start px-2 pt-2 bg-transparent">
+              <TabsTrigger value="design" className="text-white">
+                <Palette className="w-4 h-4 mr-2" />
+                Design
+              </TabsTrigger>
+              <TabsTrigger value="elements" className="text-white">
+                <Layers className="w-4 h-4 mr-2" />
+                Elements
+              </TabsTrigger>
+            </TabsList>
+            <TabsContent value="design" className="p-4 flex-1">
+              <Input
+                type="file"
+                accept="video/*"
+                onChange={handleFileSelect}
+                className="hidden"
+                id="video-upload"
+              />
+              <Button
+                variant="outline"
+                onClick={() => document.getElementById('video-upload')?.click()}
+                className="w-full justify-start"
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                Upload Video
+              </Button>
+              <div className="mt-4 space-y-2">
+                <Button variant="ghost" className="w-full justify-start text-white">
+                  <Type className="w-4 h-4 mr-2" />
+                  Text
+                </Button>
+                <Button variant="ghost" className="w-full justify-start text-white">
+                  <Image className="w-4 h-4 mr-2" />
+                  Images
+                </Button>
+                <Button variant="ghost" className="w-full justify-start text-white">
+                  <VideoIcon className="w-4 h-4 mr-2" />
+                  Videos
+                </Button>
+                <Button variant="ghost" className="w-full justify-start text-white">
+                  <Music className="w-4 h-4 mr-2" />
+                  Audio
                 </Button>
               </div>
+            </TabsContent>
+            <TabsContent value="elements" className="p-4">
+              <div className="text-white/60 text-sm">No elements yet</div>
+            </TabsContent>
+          </Tabs>
+        </div>
 
-              <div className="relative aspect-video bg-black rounded-lg overflow-hidden">
-                <video
-                  ref={videoRef}
-                  className="w-full h-full"
-                  onTimeUpdate={handleTimeUpdate}
-                  onLoadedMetadata={handleLoadedMetadata}
-                />
+        {/* Preview Area */}
+        <div className="flex-1 flex flex-col p-6 overflow-hidden">
+          <div className="flex-1 relative">
+            <div className="absolute inset-0 flex items-center justify-center bg-black rounded-lg overflow-hidden">
+              <video
+                ref={videoRef}
+                className="max-h-full max-w-full"
+                onTimeUpdate={handleTimeUpdate}
+                onLoadedMetadata={handleLoadedMetadata}
+              />
+            </div>
+          </div>
+
+          {/* Timeline */}
+          <div className="h-48 glass-card mt-4 p-4 rounded-lg border border-white/10">
+            <div className="space-y-4">
+              <Progress 
+                value={(currentTime / duration) * 100} 
+                className="h-2"
+              />
+              <div className="flex justify-between text-sm text-white/60">
+                <span>{formatTime(currentTime)}</span>
+                <span>{formatTime(duration)}</span>
               </div>
-
-              <div className="space-y-4">
-                <Progress value={(currentTime / duration) * 100} />
-                <div className="flex justify-between text-sm text-gray-400">
-                  <span>{formatTime(currentTime)}</span>
-                  <span>{formatTime(duration)}</span>
-                </div>
-                <div className="flex items-center gap-4">
+              <div className="flex items-center gap-4">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={togglePlay}
+                  className="text-white"
+                >
+                  {isPlaying ? (
+                    <Pause className="w-4 h-4" />
+                  ) : (
+                    <Play className="w-4 h-4" />
+                  )}
+                </Button>
+                <div className="flex items-center gap-2">
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={togglePlay}
+                    onClick={toggleMute}
+                    className="text-white"
                   >
-                    {isPlaying ? (
-                      <Pause className="w-4 h-4" />
+                    {isMuted ? (
+                      <VolumeX className="w-4 h-4" />
                     ) : (
-                      <Play className="w-4 h-4" />
+                      <Volume2 className="w-4 h-4" />
                     )}
                   </Button>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={toggleMute}
-                    >
-                      {isMuted ? (
-                        <VolumeX className="w-4 h-4" />
-                      ) : (
-                        <Volume2 className="w-4 h-4" />
-                      )}
-                    </Button>
-                    <div className="w-24">
-                      <Slider
-                        value={[volume]}
-                        max={1}
-                        step={0.1}
-                        onValueChange={handleVolumeChange}
-                      />
-                    </div>
+                  <div className="w-24">
+                    <Slider
+                      value={[volume]}
+                      max={1}
+                      step={0.1}
+                      onValueChange={handleVolumeChange}
+                      className="bg-white/10"
+                    />
                   </div>
                 </div>
               </div>
 
-              <div className="space-y-4">
+              {/* Timeline Tracks */}
+              <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Background Music</h3>
-                  <Button variant="outline" size="sm">
+                  <h3 className="text-sm font-medium text-white">Video Track</h3>
+                </div>
+                <div className="h-12 bg-white/5 rounded border border-white/10"></div>
+                
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-medium text-white">Audio Track</h3>
+                  <Button variant="outline" size="sm" className="text-white">
                     <Music className="w-4 h-4 mr-2" />
-                    Add Music
+                    Add Audio
                   </Button>
                 </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-lg font-semibold">Subtitles</h3>
-                  <Button variant="outline" size="sm">
-                    <Plus className="w-4 h-4 mr-2" />
-                    Add Subtitle
-                  </Button>
-                </div>
+                <div className="h-12 bg-white/5 rounded border border-white/10"></div>
               </div>
             </div>
-          </Card>
+          </div>
         </div>
       </div>
     </div>

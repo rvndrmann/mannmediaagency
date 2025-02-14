@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -85,8 +84,8 @@ const ProductShoot = () => {
         throw new Error("Please upload an image");
       }
 
-      if (!userCredits || userCredits.credits_remaining < 1) {
-        throw new Error("Insufficient credits. You need 1 credit to generate an image.");
+      if (!userCredits || userCredits.credits_remaining < 0.2) {
+        throw new Error("Insufficient credits. You need 0.2 credits to generate an image.");
       }
 
       const formData = new FormData();
@@ -136,17 +135,15 @@ const ProductShoot = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="flex h-screen">
-        {/* Left Panel - Input Fields */}
         <div className="w-1/3 p-6 border-r border-gray-800 overflow-y-auto">
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold text-white mb-2">Product Image Generator</h1>
               <p className="text-gray-400">
-                Credits remaining: {userCredits?.credits_remaining || 0}
+                Credits remaining: {userCredits?.credits_remaining?.toFixed(2) || "0.00"}
               </p>
             </div>
 
-            {/* Image Upload */}
             <div className="space-y-2">
               <Label className="text-white">Upload Image</Label>
               <div className="relative">
@@ -181,7 +178,6 @@ const ProductShoot = () => {
               </div>
             </div>
 
-            {/* Prompt Input */}
             <div className="space-y-2">
               <Label className="text-white">Prompt</Label>
               <Textarea
@@ -192,7 +188,6 @@ const ProductShoot = () => {
               />
             </div>
 
-            {/* Image Size */}
             <div className="space-y-2">
               <Label className="text-white">Image Size</Label>
               <Select value={imageSize} onValueChange={setImageSize}>
@@ -207,7 +202,6 @@ const ProductShoot = () => {
               </Select>
             </div>
 
-            {/* Inference Steps */}
             <div className="space-y-2">
               <Label className="text-white">Inference Steps: {inferenceSteps}</Label>
               <Slider
@@ -220,7 +214,6 @@ const ProductShoot = () => {
               />
             </div>
 
-            {/* Guidance Scale */}
             <div className="space-y-2">
               <Label className="text-white">Guidance Scale: {guidanceScale}</Label>
               <Slider
@@ -233,7 +226,6 @@ const ProductShoot = () => {
               />
             </div>
 
-            {/* Output Format */}
             <div className="space-y-2">
               <Label className="text-white">Output Format</Label>
               <Select value={outputFormat} onValueChange={setOutputFormat}>
@@ -247,7 +239,6 @@ const ProductShoot = () => {
               </Select>
             </div>
 
-            {/* Generate Button */}
             <Button
               onClick={() => generateImage.mutate()}
               disabled={generateImage.isPending || !prompt.trim() || !selectedFile}
@@ -262,14 +253,13 @@ const ProductShoot = () => {
                 <>
                   <ImageIcon className="mr-2 h-4 w-4" />
                   <CreditCard className="mr-2 h-4 w-4" />
-                  Generate Image (1 credit)
+                  Generate Image (0.2 credits)
                 </>
               )}
             </Button>
           </div>
         </div>
 
-        {/* Right Panel - Generated Images */}
         <div className="flex-1 p-6">
           <ScrollArea className="h-[calc(100vh-3rem)]">
             <div className="grid grid-cols-1 gap-6">

@@ -1,37 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Progress } from "@/components/ui/progress";
-import { Slider } from "@/components/ui/slider";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
-import {
-  Play,
-  Pause,
-  Volume2,
-  VolumeX,
-  Upload,
-  Plus,
-  Music,
-  Type,
-  Image,
-  Layers,
-  Palette,
-  Video as VideoIcon,
-  Share2,
-  Scissors
-} from "lucide-react";
-import { TimelineMarkers } from "@/components/video-editor/Timeline/TimelineMarkers";
-import { TimelineCursor } from "@/components/video-editor/Timeline/TimelineCursor";
-import { TimelineSegment } from "@/components/video-editor/Timeline/TimelineSegment";
-import { AspectRatioControl } from "@/components/video-editor/Controls/AspectRatioControl";
-import { cn } from "@/lib/utils";
-import { VideoList } from "@/components/video-editor/Library/VideoList";
+import { Share2 } from "lucide-react";
+import { Timeline } from "@/components/video-editor/Timeline/Timeline";
+import { VideoPlayer } from "@/components/video-editor/VideoPlayer/VideoPlayer";
 import { PlaybackControls } from "@/components/video-editor/Controls/PlaybackControls";
+import { Sidebar } from "@/components/video-editor/Sidebar/Sidebar";
 
 interface VideoProject {
   id: string;
@@ -237,101 +214,34 @@ const VideoEditor = () => {
       </div>
 
       <div className="flex-1 flex overflow-hidden">
-        <div className="w-64 glass-card border-r border-white/10 flex flex-col">
-          <Tabs defaultValue="design" className="flex-1">
-            <TabsList className="w-full justify-start px-2 pt-2 bg-transparent">
-              <TabsTrigger value="design" className="text-white">
-                <Palette className="w-4 h-4 mr-2" />
-                Design
-              </TabsTrigger>
-              <TabsTrigger value="elements" className="text-white">
-                <Layers className="w-4 h-4 mr-2" />
-                Elements
-              </TabsTrigger>
-            </TabsList>
-            <TabsContent value="design" className="p-4 flex-1">
-              <Input
-                type="file"
-                accept="video/*"
-                onChange={handleFileSelect}
-                className="hidden"
-                id="video-upload"
-              />
-              
-              <VideoList
-                videos={projects || []}
-                selectedVideoId={selectedVideo?.id || null}
-                onVideoSelect={handleVideoSelect}
-                onUploadClick={() => document.getElementById('video-upload')?.click()}
-                isUploading={uploadVideo.isPending}
-                uploadProgress={uploadProgress}
-              />
-
-              <div className="mt-4 space-y-2">
-                <Button variant="ghost" className="w-full justify-start text-white">
-                  <Type className="w-4 h-4 mr-2" />
-                  Text
-                </Button>
-                <Button variant="ghost" className="w-full justify-start text-white">
-                  <Image className="w-4 h-4 mr-2" />
-                  Images
-                </Button>
-                <Button variant="ghost" className="w-full justify-start text-white">
-                  <Music className="w-4 h-4 mr-2" />
-                  Audio
-                </Button>
-              </div>
-            </TabsContent>
-            <TabsContent value="elements" className="p-4">
-              <div className="text-white/60 text-sm">No elements yet</div>
-            </TabsContent>
-          </Tabs>
-        </div>
+        <Sidebar
+          videos={projects || []}
+          selectedVideoId={selectedVideo?.id || null}
+          onVideoSelect={handleVideoSelect}
+          onFileSelect={handleFileSelect}
+          isUploading={uploadVideo.isPending}
+          uploadProgress={uploadProgress}
+        />
 
         <div className="flex-1 flex flex-col p-6 overflow-hidden">
-          <div className="flex-1 relative">
-            <AspectRatioControl
-              onAspectRatioChange={handleAspectRatioChange}
-              currentRatio={aspectRatio}
-            />
-            <div className={cn(
-              "absolute inset-0 mt-12 flex items-center justify-center bg-black rounded-lg overflow-hidden",
-              aspectRatio === '16:9' && 'aspect-video',
-              aspectRatio === '9:16' && 'aspect-[9/16]',
-              aspectRatio === '1:1' && 'aspect-square'
-            )}>
-              <video
-                ref={videoRef}
-                className="max-h-full max-w-full"
-                onTimeUpdate={handleTimeUpdate}
-                onLoadedMetadata={handleLoadedMetadata}
-                src={selectedVideo?.video_url || undefined}
-              />
-            </div>
-          </div>
+          <VideoPlayer
+            videoRef={videoRef}
+            videoUrl={selectedVideo?.video_url || undefined}
+            aspectRatio={aspectRatio}
+            onAspectRatioChange={setAspectRatio}
+            onTimeUpdate={handleTimeUpdate}
+            onLoadedMetadata={handleLoadedMetadata}
+          />
 
           <div className="h-48 glass-card mt-4 p-4 rounded-lg border border-white/10">
             <div className="space-y-4">
-              <div className="relative h-8" onClick={handleTimelineClick}>
-                <TimelineMarkers duration={duration} />
-                <TimelineCursor currentTime={currentTime} duration={duration} />
-                {selectedVideo && (
-                  <TimelineSegment
-                    startTime={0}
-                    endTime={duration}
-                    duration={duration}
-                  />
-                )}
-                <Progress 
-                  value={(currentTime / duration) * 100} 
-                  className="h-full absolute inset-0"
-                />
-              </div>
-
-              <div className="flex justify-between text-sm text-white/60">
-                <span>{formatTime(currentTime)}</span>
-                <span>{formatTime(duration)}</span>
-              </div>
+              <Timeline
+                currentTime={currentTime}
+                duration={duration}
+                onTimelineClick={handleTimelineClick}
+                formatTime={formatTime}
+                hasVideo={!!selectedVideo}
+              />
 
               <PlaybackControls
                 isPlaying={isPlaying}

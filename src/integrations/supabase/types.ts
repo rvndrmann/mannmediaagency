@@ -30,53 +30,6 @@ export type Database = {
         }
         Relationships: []
       }
-      auth_showcase_videos: {
-        Row: {
-          category: string | null
-          created_at: string
-          description: string | null
-          id: string
-          is_visible: boolean | null
-          order: number | null
-          story_id: number | null
-          thumbnail_url: string
-          title: string
-          video_url: string
-        }
-        Insert: {
-          category?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_visible?: boolean | null
-          order?: number | null
-          story_id?: number | null
-          thumbnail_url: string
-          title: string
-          video_url: string
-        }
-        Update: {
-          category?: string | null
-          created_at?: string
-          description?: string | null
-          id?: string
-          is_visible?: boolean | null
-          order?: number | null
-          story_id?: number | null
-          thumbnail_url?: string
-          title?: string
-          video_url?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "auth_showcase_videos_story_id_fkey"
-            columns: ["story_id"]
-            isOneToOne: false
-            referencedRelation: "stories"
-            referencedColumns: ["stories id"]
-          },
-        ]
-      }
       chat_usage: {
         Row: {
           created_at: string | null

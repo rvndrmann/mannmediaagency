@@ -67,15 +67,21 @@ const VideoEditor = () => {
   const uploadVideo = useMutation({
     mutationFn: async (file: File) => {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      if (!user) {
+        toast.error("Please sign in to upload videos");
+        throw new Error("Not authenticated");
+      }
 
       const fileExt = file.name.split('.').pop();
       const fileName = `${Math.random()}.${fileExt}`;
-      const filePath = `${fileName}`;
+      const filePath = `${user.id}/${fileName}`; // Add user ID to path for better organization
 
-      const { error: uploadError } = await supabase.storage
+      const { error: uploadError, data } = await supabase.storage
         .from('videos')
-        .upload(filePath, file);
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) throw uploadError;
 
@@ -89,18 +95,20 @@ const VideoEditor = () => {
           title: file.name,
           video_url: publicUrl,
           status: 'draft',
-          user_id: user.id  // Add the user_id field
+          user_id: user.id
         });
 
       if (dbError) throw dbError;
+
+      return { publicUrl, filePath };
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["video-projects"] });
       toast.success("Video uploaded successfully");
     },
     onError: (error) => {
-      toast.error("Failed to upload video");
       console.error("Upload error:", error);
+      toast.error("Failed to upload video. Please make sure you're signed in.");
     },
   });
 

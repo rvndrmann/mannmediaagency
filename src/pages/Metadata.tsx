@@ -15,6 +15,10 @@ const Metadata = () => {
   const { storyId } = useParams<{ storyId?: string }>();
   const navigate = useNavigate();
 
+  // Determine if the ID is for a story or image
+  const isUUID = storyId?.includes('-');
+  const parsedStoryId = !isUUID && storyId ? parseInt(storyId) : undefined;
+
   const { data: stories, isLoading: storiesLoading } = useQuery({
     queryKey: ["stories-without-metadata"],
     queryFn: async () => {
@@ -53,18 +57,20 @@ const Metadata = () => {
   });
 
   const { data: selectedStory } = useQuery({
-    queryKey: ["story", storyId],
+    queryKey: ["story", parsedStoryId],
     queryFn: async () => {
+      if (!parsedStoryId) throw new Error("Invalid story ID");
+      
       const { data, error } = await supabase
         .from("stories")
         .select("*")
-        .eq("stories id", parseInt(storyId || "0"))
-        .single();
+        .eq("stories id", parsedStoryId)
+        .maybeSingle();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!storyId,
+    enabled: !!parsedStoryId && !isUUID,
   });
 
   const handleStorySelect = (id: number) => {
@@ -72,7 +78,7 @@ const Metadata = () => {
   };
 
   const handleImageSelect = (id: string) => {
-    navigate(`/metadata/image/${id}`);
+    navigate(`/metadata/${id}`);
   };
 
   if (storiesLoading || imagesLoading) {
@@ -82,6 +88,9 @@ const Metadata = () => {
       </div>
     );
   }
+
+  // Determine initial tab based on the ID type
+  const initialTab = isUUID ? "images" : "stories";
 
   return (
     <SidebarProvider>
@@ -104,7 +113,7 @@ const Metadata = () => {
             </div>
 
             <div className="px-8">
-              <Tabs defaultValue="stories" className="w-full">
+              <Tabs defaultValue={initialTab} className="w-full">
                 <TabsList className="mb-4">
                   <TabsTrigger value="stories">Stories</TabsTrigger>
                   <TabsTrigger value="images">Product Images</TabsTrigger>
@@ -114,13 +123,13 @@ const Metadata = () => {
                   <div className="w-1/3">
                     <StoriesList 
                       stories={stories || []}
-                      selectedStoryId={storyId ? parseInt(storyId) : undefined}
+                      selectedStoryId={parsedStoryId}
                       onStorySelect={handleStorySelect}
                     />
                   </div>
                   <div className="flex-1">
-                    {storyId ? (
-                      <StoryMetadataManager storyId={parseInt(storyId)} />
+                    {parsedStoryId ? (
+                      <StoryMetadataManager storyId={parsedStoryId} />
                     ) : (
                       <div className="text-center text-white/70 py-8 bg-gray-800/50 rounded-lg">
                         Select a story from the list to manage its metadata
@@ -158,7 +167,7 @@ const Metadata = () => {
                     </div>
                   </div>
                   <div className="flex-1">
-                    {storyId ? (
+                    {isUUID && storyId ? (
                       <ProductMetadataManager imageJobId={storyId} />
                     ) : (
                       <div className="text-center text-white/70 py-8 bg-gray-800/50 rounded-lg">

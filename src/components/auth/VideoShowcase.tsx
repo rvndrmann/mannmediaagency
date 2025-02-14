@@ -1,7 +1,7 @@
 
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Carousel,
   CarouselContent,
@@ -36,6 +36,7 @@ export const VideoShowcase = () => {
     [Autoplay(autoplayOptions)]
   );
 
+  // Query to fetch videos
   const { data: videos, isLoading } = useQuery({
     queryKey: ["showcaseVideos"],
     queryFn: async () => {
@@ -54,6 +55,62 @@ export const VideoShowcase = () => {
       return data as ShowcaseVideo[];
     },
   });
+
+  // Mutation to store video
+  const storeVideoMutation = useMutation({
+    mutationFn: async (video: { url: string, type: string, storyId?: number }) => {
+      const response = await fetch('/api/store-video', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          videoUrl: video.url,
+          videoType: video.type,
+          storyId: video.storyId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to store video');
+      }
+
+      return response.json();
+    },
+    onError: (error) => {
+      console.error('Failed to store video:', error);
+      toast({
+        title: "Storage Error",
+        description: "Failed to store video in our system. Using original source.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Effect to trigger video storage for new videos
+  useEffect(() => {
+    if (videos) {
+      videos.forEach(async (video) => {
+        const videoUrl = video.story?.final_video_with_music || video.video_url;
+        
+        // Check if video is already stored
+        const { data: storedVideo } = await supabase
+          .from('stored_videos')
+          .select('*')
+          .eq('original_url', videoUrl)
+          .maybeSingle();
+
+        // If not stored, trigger storage
+        if (!storedVideo) {
+          storeVideoMutation.mutate({
+            url: videoUrl,
+            type: 'showcase',
+            storyId: video.story_id || undefined
+          });
+        }
+      });
+    }
+  }, [videos]);
 
   const handleVideoError = (videoId: string) => {
     setVideoErrors(prev => ({ ...prev, [videoId]: true }));

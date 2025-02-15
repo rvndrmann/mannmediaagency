@@ -1,5 +1,6 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -14,6 +15,29 @@ serve(async (req) => {
 
   try {
     console.log('Processing new image generation request')
+    
+    // Create Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing environment variables')
+    }
+
+    const supabase = createClient(supabaseUrl, supabaseKey)
+
+    // Get user ID from the authorization header
+    const authHeader = req.headers.get('authorization')
+    if (!authHeader) {
+      throw new Error('No authorization header')
+    }
+
+    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.split(' ')[1])
+    if (userError || !user) {
+      throw new Error('Invalid user token')
+    }
+
+    // Parse request data
     const formData = await req.formData()
     const image = formData.get('image')
     const prompt = formData.get('prompt')
@@ -38,6 +62,35 @@ serve(async (req) => {
       promptLength: prompt.length
     })
 
+    // Create a new image generation job record
+    const { data: jobData, error: jobError } = await supabase
+      .from('image_generation_jobs')
+      .insert([{
+        user_id: user.id,
+        prompt: prompt,
+        status: 'pending',
+        settings: {
+          imageSize,
+          numInferenceSteps,
+          guidanceScale,
+          outputFormat
+        }
+      }])
+      .select()
+      .single()
+
+    if (jobError) {
+      console.error('Error creating job:', jobError)
+      return new Response(
+        JSON.stringify({ 
+          error: jobError.message.includes('credits') 
+            ? 'Insufficient credits. You need at least 0.2 credits to generate an image.'
+            : 'Failed to create image generation job' 
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
     // Convert the image to base64
     try {
       const imageBuffer = await (image as File).arrayBuffer()
@@ -45,7 +98,7 @@ serve(async (req) => {
       const dataUri = `data:${(image as File).type};base64,${base64Image}`
       console.log('Image successfully converted to base64')
 
-      // Initial request to queue the job
+      // Send request to Fal.ai API
       console.log('Sending request to Fal.ai API')
       const apiKey = Deno.env.get('FAL_AI_API_KEY')
       if (!apiKey) {
@@ -76,6 +129,13 @@ serve(async (req) => {
       if (!queueResponse.ok) {
         const errorText = await queueResponse.text()
         console.error('Fal.ai API error:', errorText)
+        
+        // Update job status to failed
+        await supabase
+          .from('image_generation_jobs')
+          .update({ status: 'failed' })
+          .eq('id', jobData.id)
+
         throw new Error(`Failed to queue image generation: ${errorText}`)
       }
 
@@ -87,6 +147,15 @@ serve(async (req) => {
         throw new Error('No image generated')
       }
 
+      // Update job with result URL
+      await supabase
+        .from('image_generation_jobs')
+        .update({ 
+          status: 'completed',
+          result_url: result.images[0].url 
+        })
+        .eq('id', jobData.id)
+
       return new Response(
         JSON.stringify({ 
           imageUrl: result.images[0].url,
@@ -97,6 +166,13 @@ serve(async (req) => {
       )
     } catch (conversionError) {
       console.error('Image conversion error:', conversionError)
+      
+      // Update job status to failed
+      await supabase
+        .from('image_generation_jobs')
+        .update({ status: 'failed' })
+        .eq('id', jobData.id)
+
       throw new Error('Failed to process the uploaded image')
     }
   } catch (error) {

@@ -97,7 +97,8 @@ serve(async (req) => {
     }
 
     try {
-      // Step 1: Submit initial request to Fal.ai
+      // Step 1: Submit initial request to Fal.ai with the correct endpoint
+      console.log('Submitting request to Fal.ai API...');
       const submitResponse = await fetch('https://queue.fal.run/fal-ai/flux-subject', {
         method: 'POST',
         headers: {
@@ -117,7 +118,9 @@ serve(async (req) => {
       });
 
       if (!submitResponse.ok) {
-        throw new Error(`Failed to submit request: ${await submitResponse.text()}`);
+        const errorText = await submitResponse.text();
+        console.error('Fal.ai API error:', errorText);
+        throw new Error(`Failed to submit request: ${errorText}`);
       }
 
       const submitData = await submitResponse.json();
@@ -126,6 +129,8 @@ serve(async (req) => {
       if (!requestId) {
         throw new Error('No request ID received from API');
       }
+
+      console.log('Request submitted successfully, request ID:', requestId);
 
       // Update job with request ID
       await adminClient
@@ -138,6 +143,7 @@ serve(async (req) => {
       let result = null;
 
       while (pollCount < MAX_POLLS) {
+        console.log(`Checking status (attempt ${pollCount + 1}/${MAX_POLLS})...`);
         const statusResponse = await fetch(
           `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`,
           {
@@ -152,9 +158,11 @@ serve(async (req) => {
         }
 
         const statusData = await statusResponse.json();
+        console.log('Status:', statusData.status);
         
         if (statusData.status === 'COMPLETED') {
           // Step 3: Get the final result
+          console.log('Request completed, fetching result...');
           const resultResponse = await fetch(
             `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`,
             {
@@ -183,6 +191,8 @@ serve(async (req) => {
         throw new Error('Failed to get image URL from result');
       }
 
+      console.log('Successfully generated image');
+
       // Update job with success
       await adminClient
         .from('image_generation_jobs')
@@ -202,6 +212,8 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (processError) {
+      console.error('Process error:', processError);
+      
       // Update job with failure
       await adminClient
         .from('image_generation_jobs')

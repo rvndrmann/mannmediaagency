@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -55,35 +54,6 @@ const ProductShoot = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
   };
-
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session,
-  });
-
-  const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["product-images"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("image_generation_jobs")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session,
-    refetchInterval: 5000,
-  });
 
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -159,6 +129,35 @@ const ProductShoot = () => {
     },
   });
 
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session,
+  });
+
+  const { data: images, isLoading: imagesLoading } = useQuery({
+    queryKey: ["product-images"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session,
+    refetchInterval: 5000,
+  });
+
   const handleDownload = async (url: string) => {
     try {
       const response = await fetch(url);
@@ -218,4 +217,3 @@ const ProductShoot = () => {
 };
 
 export default ProductShoot;
-

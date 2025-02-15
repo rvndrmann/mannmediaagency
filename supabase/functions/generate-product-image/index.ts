@@ -37,7 +37,24 @@ serve(async (req) => {
       throw new Error('Invalid user token')
     }
 
-    // Check user credits first
+    // Parse request data first to validate input
+    const formData = await req.formData()
+    const imageFile = formData.get('image')
+    const prompt = formData.get('prompt')
+    const imageSize = formData.get('imageSize') || 'square_hd'
+    const numInferenceSteps = Number(formData.get('numInferenceSteps')) || 8
+    const guidanceScale = Number(formData.get('guidanceScale')) || 3.5
+    const outputFormat = formData.get('outputFormat') || 'png'
+
+    if (!imageFile || !prompt) {
+      console.error('Missing required parameters:', { hasImage: !!imageFile, hasPrompt: !!prompt })
+      return new Response(
+        JSON.stringify({ error: 'Image and prompt are required' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      )
+    }
+
+    // Check user credits
     const { data: userCredits, error: creditsError } = await supabase
       .from('user_credits')
       .select('credits_remaining')
@@ -59,24 +76,7 @@ serve(async (req) => {
       );
     }
 
-    // Parse request data
-    const formData = await req.formData()
-    const imageFile = formData.get('image')
-    const prompt = formData.get('prompt')
-    const imageSize = formData.get('imageSize') || 'square_hd'
-    const numInferenceSteps = Number(formData.get('numInferenceSteps')) || 8
-    const guidanceScale = Number(formData.get('guidanceScale')) || 3.5
-    const outputFormat = formData.get('outputFormat') || 'png'
-
-    if (!imageFile || !prompt) {
-      console.error('Missing required parameters:', { hasImage: !!imageFile, hasPrompt: !!prompt })
-      return new Response(
-        JSON.stringify({ error: 'Image and prompt are required' }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    console.log('Parameters received:', {
+    console.log('Parameters validated:', {
       imageSize,
       numInferenceSteps,
       guidanceScale,
@@ -85,8 +85,9 @@ serve(async (req) => {
       userCredits: userCredits.credits_remaining
     })
 
-    // Create a new image generation job record
-    const { data: jobData, error: jobError } = await supabase
+    // Create a new image generation job record using auth client
+    const authClient = createClient(supabaseUrl, authHeader.split(' ')[1])
+    const { data: jobData, error: jobError } = await authClient
       .from('image_generation_jobs')
       .insert([{
         user_id: user.id,
@@ -105,7 +106,7 @@ serve(async (req) => {
     if (jobError) {
       console.error('Error creating job:', jobError)
       return new Response(
-        JSON.stringify({ error: 'Failed to create image generation job' }),
+        JSON.stringify({ error: 'Failed to create image generation job: ' + jobError.message }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
@@ -155,8 +156,8 @@ serve(async (req) => {
         const errorText = await queueResponse.text()
         console.error('Fal.ai API error:', errorText)
         
-        // Update job status to failed
-        await supabase
+        // Update job status to failed using auth client
+        await authClient
           .from('image_generation_jobs')
           .update({ status: 'failed' })
           .eq('id', jobData.id)
@@ -172,8 +173,8 @@ serve(async (req) => {
         throw new Error('No image generated')
       }
 
-      // Update job with result URL
-      await supabase
+      // Update job with result URL using auth client
+      await authClient
         .from('image_generation_jobs')
         .update({ 
           status: 'completed',
@@ -192,8 +193,8 @@ serve(async (req) => {
     } catch (conversionError) {
       console.error('Image conversion error:', conversionError)
       
-      // Update job status to failed
-      await supabase
+      // Update job status to failed using auth client
+      await authClient
         .from('image_generation_jobs')
         .update({ status: 'failed' })
         .eq('id', jobData.id)

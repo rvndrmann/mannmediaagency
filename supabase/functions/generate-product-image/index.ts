@@ -41,14 +41,28 @@ serve(async (req) => {
       throw new Error('Invalid user token')
     }
 
+    console.log('User authenticated:', user.id)
+
     // Parse request data first to validate input
     const formData = await req.formData()
-    const imageFile = formData.get('image')
+    const imageFile = formData.get('image') as File
     const prompt = formData.get('prompt')
     const imageSize = formData.get('imageSize') || 'square_hd'
     const numInferenceSteps = Number(formData.get('numInferenceSteps')) || 8
     const guidanceScale = Number(formData.get('guidanceScale')) || 3.5
     const outputFormat = formData.get('outputFormat') || 'png'
+
+    console.log('Received form data:', {
+      hasImage: !!imageFile,
+      imageType: imageFile?.type,
+      imageName: imageFile?.name,
+      imageSize: imageFile?.size,
+      prompt,
+      imageSize,
+      numInferenceSteps,
+      guidanceScale,
+      outputFormat
+    })
 
     if (!imageFile || !prompt) {
       console.error('Missing required parameters:', { hasImage: !!imageFile, hasPrompt: !!prompt })
@@ -80,15 +94,6 @@ serve(async (req) => {
       );
     }
 
-    console.log('Parameters validated:', {
-      imageSize,
-      numInferenceSteps,
-      guidanceScale,
-      outputFormat,
-      promptLength: prompt.length,
-      userCredits: userCredits.credits_remaining
-    })
-
     // Create a new image generation job record using admin client
     const { data: jobData, error: jobError } = await adminClient
       .from('image_generation_jobs')
@@ -114,25 +119,17 @@ serve(async (req) => {
       )
     }
 
-    // Convert the image to base64
-    try {
-      if (!(imageFile instanceof File)) {
-        throw new Error('Invalid image file')
-      }
+    console.log('Created image generation job:', jobData.id)
 
-      // Read the file as an ArrayBuffer
-      const arrayBuffer = await imageFile.arrayBuffer()
-      const uint8Array = new Uint8Array(arrayBuffer)
-      
-      // Convert to base64 string safely
-      let binary = '';
-      uint8Array.forEach(byte => {
-        binary += String.fromCharCode(byte);
-      });
-      const base64Image = btoa(binary);
-      
-      const dataUri = `data:${imageFile.type};base64,${base64Image}`
-      console.log('Image successfully converted to base64')
+    try {
+      // Read the file data
+      const fileData = await imageFile.arrayBuffer();
+      const base64String = btoa(
+        new Uint8Array(fileData).reduce((data, byte) => data + String.fromCharCode(byte), '')
+      );
+      const dataUri = `data:${imageFile.type};base64,${base64String}`;
+
+      console.log('Successfully converted image to base64')
 
       // Send request to Fal.ai API
       console.log('Sending request to Fal.ai API')
@@ -169,7 +166,10 @@ serve(async (req) => {
         // Update job status to failed using admin client
         await adminClient
           .from('image_generation_jobs')
-          .update({ status: 'failed' })
+          .update({ 
+            status: 'failed',
+            error_message: errorText 
+          })
           .eq('id', jobData.id)
 
         throw new Error(`Failed to queue image generation: ${errorText}`)
@@ -206,10 +206,13 @@ serve(async (req) => {
       // Update job status to failed using admin client
       await adminClient
         .from('image_generation_jobs')
-        .update({ status: 'failed' })
+        .update({ 
+          status: 'failed',
+          error_message: conversionError.message 
+        })
         .eq('id', jobData.id)
 
-      throw new Error('Failed to process the uploaded image')
+      throw new Error('Failed to process the uploaded image: ' + conversionError.message)
     }
   } catch (error) {
     console.error('Error in generate-product-image function:', error)

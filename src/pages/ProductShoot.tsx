@@ -97,7 +97,7 @@ const ProductShoot = () => {
 
       const formData = new FormData();
       formData.append('prompt', prompt.trim());
-      formData.append('image', selectedFile);
+      formData.append('image', selectedFile, selectedFile.name); // Added filename
       formData.append('imageSize', imageSize);
       formData.append('numInferenceSteps', inferenceSteps.toString());
       formData.append('guidanceScale', guidanceScale.toString());

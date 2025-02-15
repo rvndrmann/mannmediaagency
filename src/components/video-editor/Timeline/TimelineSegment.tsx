@@ -3,74 +3,58 @@ import React from 'react';
 import { useDrag } from '@use-gesture/react';
 
 interface TimelineSegmentProps {
-  startTime: number;
-  endTime: number;
+  start: number;
   duration: number;
-  onDragStart?: () => void;
-  onDragEnd?: () => void;
-  onTrimStart?: (newStartTime: number) => void;
-  onTrimEnd?: (newEndTime: number) => void;
-  isSelected?: boolean;
+  totalDuration: number;
+  onUpdateTime?: (newStart: number) => void;
+  onUpdateDuration?: (newDuration: number) => void;
+  color?: string;
+  isDraggable?: boolean;
 }
 
 export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
-  startTime,
-  endTime,
+  start,
   duration,
-  onDragStart,
-  onDragEnd,
-  onTrimStart,
-  onTrimEnd,
-  isSelected = false,
+  totalDuration,
+  onUpdateTime,
+  onUpdateDuration,
+  color = 'bg-blue-500',
+  isDraggable = true
 }) => {
-  const startPosition = (startTime / duration) * 100;
-  const width = ((endTime - startTime) / duration) * 100;
+  const segmentWidth = (duration / totalDuration) * 100;
+  const segmentLeft = (start / totalDuration) * 100;
 
-  const bindDrag = useDrag(
-    ({ first, last }) => {
-      if (first) onDragStart?.();
-      if (last) onDragEnd?.();
+  // Only set up drag handlers if the segment is draggable
+  const bindDrag = isDraggable ? useDrag(
+    ({ movement: [mx], first, memo }) => {
+      if (first) {
+        // Return the initial values as memo
+        return { initialStart: start };
+      }
+
+      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
+      const pixelToTimeRatio = totalDuration / containerWidth;
+      const timeDelta = mx * pixelToTimeRatio;
+
+      if (onUpdateTime && typeof onUpdateTime === 'function') {
+        const newStart = Math.max(0, Math.min(totalDuration - duration, memo.initialStart + timeDelta));
+        onUpdateTime(newStart);
+      }
     },
-    { 
-      transform: ([x]) => [x, 0]
+    {
+      from: [0, 0],
+      bounds: { left: 0, right: 100 }
     }
-  );
-
-  const bindTrimLeft = useDrag(
-    ({ movement: [mx] }) => {
-      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
-      const deltaTime = (mx / containerWidth) * duration;
-      const newStartTime = Math.max(0, Math.min(endTime - 1, startTime + deltaTime));
-      onTrimStart?.(newStartTime);
-    }
-  );
-
-  const bindTrimRight = useDrag(
-    ({ movement: [mx] }) => {
-      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
-      const deltaTime = (mx / containerWidth) * duration;
-      const newEndTime = Math.max(startTime + 1, Math.min(duration, endTime + deltaTime));
-      onTrimEnd?.(newEndTime);
-    }
-  );
+  ) : () => {};
 
   return (
     <div
-      className={`absolute h-full ${isSelected ? 'bg-blue-500/40' : 'bg-white/30'} group transition-colors`}
+      className={`absolute h-full ${color} cursor-move`}
       style={{
-        left: `${startPosition}%`,
-        width: `${width}%`
+        width: `${segmentWidth}%`,
+        left: `${segmentLeft}%`
       }}
       {...bindDrag()}
-    >
-      <div
-        className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...bindTrimLeft()}
-      />
-      <div
-        className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...bindTrimRight()}
-      />
-    </div>
+    />
   );
 };

@@ -109,15 +109,20 @@ const ProductShoot = () => {
 
       if (response.error) {
         let errorMessage = "Failed to generate image";
-        try {
-          // Try to parse the error body if it exists
-          const errorBody = JSON.parse(response.error.message).error;
-          if (errorBody) {
-            errorMessage = errorBody;
+        
+        // Parse the error message from the response body
+        if (response.error.message) {
+          try {
+            const parsedBody = JSON.parse(response.error.message);
+            if (parsedBody.error) {
+              errorMessage = parsedBody.error;
+            }
+          } catch {
+            // If parsing fails, use the raw message
+            errorMessage = response.error.message;
           }
-        } catch {
-          errorMessage = response.error.message || errorMessage;
         }
+        
         throw new Error(errorMessage);
       }
 

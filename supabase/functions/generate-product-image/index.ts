@@ -7,6 +7,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const MAX_RETRIES = 3;
+const RETRY_DELAY = 2000; // 2 seconds
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -131,75 +134,91 @@ serve(async (req) => {
 
       console.log('Successfully converted image to base64')
 
-      // Send request to Fal.ai API
+      // Send request to Fal.ai API with retries
       console.log('Sending request to Fal.ai API')
       const apiKey = Deno.env.get('FAL_AI_API_KEY')
       if (!apiKey) {
         throw new Error('FAL_AI_API_KEY is not configured')
       }
 
-      const queueResponse = await fetch('https://queue.fal.run/fal-ai/flux-subject', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          prompt: prompt,
-          image_url: dataUri,
-          image_size: imageSize,
-          num_inference_steps: numInferenceSteps,
-          guidance_scale: guidanceScale,
-          output_format: outputFormat,
-          num_images: 1,
-          enable_safety_checker: true,
-          sync_mode: true
-        })
-      })
+      let result;
+      let retryCount = 0;
+      let lastError;
 
-      console.log('Fal.ai API response status:', queueResponse.status)
+      while (retryCount < MAX_RETRIES) {
+        try {
+          const queueResponse = await fetch('https://queue.fal.run/fal-ai/stable-diffusion-v1-5-subject', {
+            method: 'POST',
+            headers: {
+              'Authorization': `Key ${apiKey}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+              prompt: prompt,
+              image_url: dataUri,
+              image_size: imageSize,
+              num_inference_steps: numInferenceSteps,
+              guidance_scale: guidanceScale,
+              output_format: outputFormat,
+              num_images: 1,
+              enable_safety_checker: true,
+              sync_mode: true
+            })
+          });
 
-      if (!queueResponse.ok) {
-        const errorText = await queueResponse.text()
-        console.error('Fal.ai API error:', errorText)
-        
-        // Update job status to failed using admin client
-        await adminClient
-          .from('image_generation_jobs')
-          .update({ 
-            status: 'failed',
-            error_message: errorText 
-          })
-          .eq('id', jobData.id)
+          console.log('Fal.ai API response status:', queueResponse.status);
 
-        throw new Error(`Failed to queue image generation: ${errorText}`)
+          if (!queueResponse.ok) {
+            const errorText = await queueResponse.text();
+            console.error(`Fal.ai API error (attempt ${retryCount + 1}):`, errorText);
+            lastError = errorText;
+            throw new Error(errorText);
+          }
+
+          result = await queueResponse.json();
+          console.log('Successfully received result from Fal.ai');
+
+          if (!result.images?.[0]?.url) {
+            console.error('No image URL in response:', result);
+            lastError = 'No image generated';
+            throw new Error('No image generated');
+          }
+
+          // If we reach here, we have a successful result
+          break;
+        } catch (error) {
+          retryCount++;
+          if (retryCount < MAX_RETRIES) {
+            console.log(`Retrying request (attempt ${retryCount + 1} of ${MAX_RETRIES})`);
+            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
+          } else {
+            throw new Error(`Failed after ${MAX_RETRIES} attempts. Last error: ${lastError}`);
+          }
+        }
       }
 
-      const result = await queueResponse.json()
-      console.log('Successfully received result from Fal.ai')
+      // Store the request_id if available
+      const requestId = result.request_id || result.id;
       
-      if (!result.images?.[0]?.url) {
-        console.error('No image URL in response:', result)
-        throw new Error('No image generated')
-      }
-
       // Update job with result URL using admin client
       await adminClient
         .from('image_generation_jobs')
         .update({ 
           status: 'completed',
-          result_url: result.images[0].url 
+          result_url: result.images[0].url,
+          request_id: requestId
         })
-        .eq('id', jobData.id)
+        .eq('id', jobData.id);
 
       return new Response(
         JSON.stringify({ 
           imageUrl: result.images[0].url,
+          requestId: requestId,
           seed: result.seed,
           hasNsfw: result.has_nsfw_concepts?.[0] || false
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      );
     } catch (conversionError) {
       console.error('Image conversion error:', conversionError)
       

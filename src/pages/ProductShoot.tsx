@@ -95,11 +95,6 @@ const ProductShoot = () => {
         throw new Error("Please upload an image");
       }
 
-      // Check credits before making the request
-      if (!userCredits || userCredits.credits_remaining < 0.2) {
-        throw new Error(`Insufficient credits. You need 0.2 credits to generate an image. Your current balance is ${userCredits?.credits_remaining || 0} credits.`);
-      }
-
       const formData = new FormData();
       formData.append('prompt', prompt.trim());
       formData.append('image', selectedFile);
@@ -113,9 +108,16 @@ const ProductShoot = () => {
       });
 
       if (response.error) {
-        const errorMessage = typeof response.error === 'string' 
-          ? response.error 
-          : response.error.message || 'Failed to generate image';
+        let errorMessage = "Failed to generate image";
+        try {
+          // Try to parse the error body if it exists
+          const errorBody = JSON.parse(response.error.message).error;
+          if (errorBody) {
+            errorMessage = errorBody;
+          }
+        } catch {
+          errorMessage = response.error.message || errorMessage;
+        }
         throw new Error(errorMessage);
       }
 

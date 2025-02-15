@@ -123,7 +123,14 @@ serve(async (req) => {
       // Read the file as an ArrayBuffer
       const arrayBuffer = await imageFile.arrayBuffer()
       const uint8Array = new Uint8Array(arrayBuffer)
-      const base64Image = btoa(String.fromCharCode.apply(null, uint8Array))
+      
+      // Convert to base64 string safely
+      let binary = '';
+      uint8Array.forEach(byte => {
+        binary += String.fromCharCode(byte);
+      });
+      const base64Image = btoa(binary);
+      
       const dataUri = `data:${imageFile.type};base64,${base64Image}`
       console.log('Image successfully converted to base64')
 

@@ -95,6 +95,7 @@ const ProductShoot = () => {
         throw new Error("Please upload an image");
       }
 
+      // Check credits before making the request
       if (!userCredits || userCredits.credits_remaining < 0.2) {
         throw new Error("Insufficient credits. You need 0.2 credits to generate an image.");
       }
@@ -107,12 +108,15 @@ const ProductShoot = () => {
       formData.append('guidanceScale', guidanceScale.toString());
       formData.append('outputFormat', outputFormat);
 
-      const { data, error } = await supabase.functions.invoke("generate-product-image", {
+      const response = await supabase.functions.invoke("generate-product-image", {
         body: formData,
       });
 
-      if (error) throw error;
-      return data;
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+
+      return response.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-images"] });

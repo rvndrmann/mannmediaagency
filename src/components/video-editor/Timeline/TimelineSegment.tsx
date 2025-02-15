@@ -61,16 +61,16 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
         left: `${startPosition}%`,
         width: `${width}%`
       }}
-      {...dragHandler()}
+      {...dragHandler}
     >
       {/* Trim handles */}
       <div
         className="absolute left-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...trimLeftHandler()}
+        {...trimLeftHandler}
       />
       <div
         className="absolute right-0 top-0 bottom-0 w-1 cursor-ew-resize bg-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
-        {...trimRightHandler()}
+        {...trimRightHandler}
       />
     </div>
   );

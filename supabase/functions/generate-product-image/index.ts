@@ -37,6 +37,28 @@ serve(async (req) => {
       throw new Error('Invalid user token')
     }
 
+    // Check user credits first
+    const { data: userCredits, error: creditsError } = await supabase
+      .from('user_credits')
+      .select('credits_remaining')
+      .eq('user_id', user.id)
+      .single();
+
+    if (creditsError) {
+      console.error('Error checking credits:', creditsError);
+      throw new Error('Failed to check user credits');
+    }
+
+    if (!userCredits || userCredits.credits_remaining < 0.2) {
+      console.error('Insufficient credits:', userCredits?.credits_remaining);
+      return new Response(
+        JSON.stringify({ 
+          error: `Insufficient credits. You have ${userCredits?.credits_remaining || 0} credits, but need 0.2 credits to generate an image.`
+        }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
     // Parse request data
     const formData = await req.formData()
     const imageFile = formData.get('image')
@@ -59,7 +81,8 @@ serve(async (req) => {
       numInferenceSteps,
       guidanceScale,
       outputFormat,
-      promptLength: prompt.length
+      promptLength: prompt.length,
+      userCredits: userCredits.credits_remaining
     })
 
     // Create a new image generation job record
@@ -82,11 +105,7 @@ serve(async (req) => {
     if (jobError) {
       console.error('Error creating job:', jobError)
       return new Response(
-        JSON.stringify({ 
-          error: jobError.message.includes('credits') 
-            ? 'Insufficient credits. You need at least 0.2 credits to generate an image.'
-            : 'Failed to create image generation job' 
-        }),
+        JSON.stringify({ error: 'Failed to create image generation job' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }

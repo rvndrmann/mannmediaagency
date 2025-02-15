@@ -125,11 +125,24 @@ serve(async (req) => {
     console.log('Created image generation job:', jobData.id)
 
     try {
-      // Read the file data
-      const fileData = await imageFile.arrayBuffer();
-      const base64String = btoa(
-        new Uint8Array(fileData).reduce((data, byte) => data + String.fromCharCode(byte), '')
-      );
+      // Read the file data using chunks to handle larger files
+      const chunks: Uint8Array[] = [];
+      const reader = imageFile.stream().getReader();
+      
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        chunks.push(value);
+      }
+      
+      const fileData = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
+      let offset = 0;
+      for (const chunk of chunks) {
+        fileData.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      const base64String = btoa(String.fromCharCode(...fileData));
       const dataUri = `data:${imageFile.type};base64,${base64String}`;
 
       console.log('Successfully converted image to base64')
@@ -147,23 +160,29 @@ serve(async (req) => {
 
       while (retryCount < MAX_RETRIES) {
         try {
+          console.log(`Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
+          
+          const requestBody = {
+            prompt: prompt,
+            image_url: dataUri,
+            image_size: imageSize,
+            num_inference_steps: numInferenceSteps,
+            guidance_scale: guidanceScale,
+            output_format: outputFormat,
+            num_images: 1,
+            enable_safety_checker: true,
+            sync_mode: true
+          };
+          
+          console.log('Request body:', { ...requestBody, image_url: '[BASE64_IMAGE]' });
+          
           const queueResponse = await fetch('https://queue.fal.run/fal-ai/stable-diffusion-v1-5-subject', {
             method: 'POST',
             headers: {
               'Authorization': `Key ${apiKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({
-              prompt: prompt,
-              image_url: dataUri,
-              image_size: imageSize,
-              num_inference_steps: numInferenceSteps,
-              guidance_scale: guidanceScale,
-              output_format: outputFormat,
-              num_images: 1,
-              enable_safety_checker: true,
-              sync_mode: true
-            })
+            body: JSON.stringify(requestBody)
           });
 
           console.log('Fal.ai API response status:', queueResponse.status);
@@ -175,21 +194,32 @@ serve(async (req) => {
             throw new Error(errorText);
           }
 
-          result = await queueResponse.json();
-          console.log('Successfully received result from Fal.ai');
+          const responseText = await queueResponse.text();
+          console.log('Raw API response:', responseText);
+          
+          try {
+            result = JSON.parse(responseText);
+          } catch (parseError) {
+            console.error('Failed to parse API response:', parseError);
+            throw new Error('Invalid API response format');
+          }
+
+          console.log('Parsed API response:', result);
 
           if (!result.images?.[0]?.url) {
             console.error('No image URL in response:', result);
-            lastError = 'No image generated';
-            throw new Error('No image generated');
+            lastError = 'No image URL in API response';
+            throw new Error('No image URL in API response');
           }
 
           // If we reach here, we have a successful result
           break;
         } catch (error) {
           retryCount++;
+          console.error(`Attempt ${retryCount} failed:`, error);
+          
           if (retryCount < MAX_RETRIES) {
-            console.log(`Retrying request (attempt ${retryCount + 1} of ${MAX_RETRIES})`);
+            console.log(`Waiting ${RETRY_DELAY}ms before retry ${retryCount + 1}`);
             await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
           } else {
             throw new Error(`Failed after ${MAX_RETRIES} attempts. Last error: ${lastError}`);
@@ -210,6 +240,12 @@ serve(async (req) => {
         })
         .eq('id', jobData.id);
 
+      console.log('Successfully completed job:', {
+        jobId: jobData.id,
+        requestId,
+        hasUrl: !!result.images[0].url
+      });
+
       return new Response(
         JSON.stringify({ 
           imageUrl: result.images[0].url,
@@ -219,19 +255,19 @@ serve(async (req) => {
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } catch (conversionError) {
-      console.error('Image conversion error:', conversionError)
+    } catch (processError) {
+      console.error('Processing error:', processError)
       
       // Update job status to failed using admin client
       await adminClient
         .from('image_generation_jobs')
         .update({ 
           status: 'failed',
-          error_message: conversionError.message 
+          error_message: processError.message 
         })
         .eq('id', jobData.id)
 
-      throw new Error('Failed to process the uploaded image: ' + conversionError.message)
+      throw new Error('Failed to process the uploaded image: ' + processError.message)
     }
   } catch (error) {
     console.error('Error in generate-product-image function:', error)

@@ -97,7 +97,7 @@ const ProductShoot = () => {
 
       // Check credits before making the request
       if (!userCredits || userCredits.credits_remaining < 0.2) {
-        throw new Error("Insufficient credits. You need 0.2 credits to generate an image. Please purchase more credits to continue.");
+        throw new Error(`Insufficient credits. You need 0.2 credits to generate an image. Your current balance is ${userCredits?.credits_remaining || 0} credits.`);
       }
 
       const formData = new FormData();
@@ -130,12 +130,14 @@ const ProductShoot = () => {
     },
     onError: (error) => {
       const message = error instanceof Error ? error.message : "Failed to generate image";
+      const isCreditsError = message.toLowerCase().includes('credits');
+      
       toast.error(message, {
         duration: 5000,
-        action: {
+        action: isCreditsError ? {
           label: "Buy Credits",
           onClick: () => navigate("/plans")
-        }
+        } : undefined
       });
     },
   });

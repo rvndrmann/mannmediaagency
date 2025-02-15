@@ -1,7 +1,6 @@
 
 import React from 'react';
 import { useDrag } from '@use-gesture/react';
-import type { ReactDOMAttributes } from '@use-gesture/react';
 
 interface TimelineSegmentProps {
   startTime: number;
@@ -28,35 +27,31 @@ export const TimelineSegment: React.FC<TimelineSegmentProps> = ({
   const width = ((endTime - startTime) / duration) * 100;
 
   const dragBind = useDrag(
-    () => ({
-      onDragStart: () => onDragStart?.(),
-      onDragEnd: () => onDragEnd?.()
-    }),
+    ({ first, last }) => {
+      if (first) onDragStart?.();
+      if (last) onDragEnd?.();
+    },
     { 
       transform: ([x]) => [x, 0]
     }
   );
 
   const trimLeftBind = useDrag(
-    () => ({
-      onDrag: ({ movement: [mx] }) => {
-        const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
-        const deltaTime = (mx / containerWidth) * duration;
-        const newStartTime = Math.max(0, Math.min(endTime - 1, startTime + deltaTime));
-        onTrimStart?.(newStartTime);
-      }
-    })
+    ({ movement: [mx] }) => {
+      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
+      const deltaTime = (mx / containerWidth) * duration;
+      const newStartTime = Math.max(0, Math.min(endTime - 1, startTime + deltaTime));
+      onTrimStart?.(newStartTime);
+    }
   );
 
   const trimRightBind = useDrag(
-    () => ({
-      onDrag: ({ movement: [mx] }) => {
-        const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
-        const deltaTime = (mx / containerWidth) * duration;
-        const newEndTime = Math.max(startTime + 1, Math.min(duration, endTime + deltaTime));
-        onTrimEnd?.(newEndTime);
-      }
-    })
+    ({ movement: [mx] }) => {
+      const containerWidth = document.querySelector('.timeline-container')?.clientWidth || 1;
+      const deltaTime = (mx / containerWidth) * duration;
+      const newEndTime = Math.max(startTime + 1, Math.min(duration, endTime + deltaTime));
+      onTrimEnd?.(newEndTime);
+    }
   );
 
   return (

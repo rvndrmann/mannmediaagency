@@ -16,15 +16,17 @@ serve(async (req) => {
   try {
     console.log('Processing new image generation request')
     
-    // Create Supabase client
+    // Create Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
     
     if (!supabaseUrl || !supabaseKey) {
+      console.error('Missing environment variables:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey })
       throw new Error('Missing environment variables')
     }
 
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    // Create service role client for administrative operations
+    const adminClient = createClient(supabaseUrl, supabaseKey)
 
     // Get user ID from the authorization header
     const authHeader = req.headers.get('authorization')
@@ -32,8 +34,10 @@ serve(async (req) => {
       throw new Error('No authorization header')
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser(authHeader.split(' ')[1])
+    const token = authHeader.replace('Bearer ', '')
+    const { data: { user }, error: userError } = await adminClient.auth.getUser(token)
     if (userError || !user) {
+      console.error('User authentication error:', userError)
       throw new Error('Invalid user token')
     }
 
@@ -54,8 +58,8 @@ serve(async (req) => {
       )
     }
 
-    // Check user credits
-    const { data: userCredits, error: creditsError } = await supabase
+    // Check user credits using admin client
+    const { data: userCredits, error: creditsError } = await adminClient
       .from('user_credits')
       .select('credits_remaining')
       .eq('user_id', user.id)
@@ -85,9 +89,8 @@ serve(async (req) => {
       userCredits: userCredits.credits_remaining
     })
 
-    // Create a new image generation job record using auth client
-    const authClient = createClient(supabaseUrl, authHeader.split(' ')[1])
-    const { data: jobData, error: jobError } = await authClient
+    // Create a new image generation job record using admin client
+    const { data: jobData, error: jobError } = await adminClient
       .from('image_generation_jobs')
       .insert([{
         user_id: user.id,
@@ -156,8 +159,8 @@ serve(async (req) => {
         const errorText = await queueResponse.text()
         console.error('Fal.ai API error:', errorText)
         
-        // Update job status to failed using auth client
-        await authClient
+        // Update job status to failed using admin client
+        await adminClient
           .from('image_generation_jobs')
           .update({ status: 'failed' })
           .eq('id', jobData.id)
@@ -173,8 +176,8 @@ serve(async (req) => {
         throw new Error('No image generated')
       }
 
-      // Update job with result URL using auth client
-      await authClient
+      // Update job with result URL using admin client
+      await adminClient
         .from('image_generation_jobs')
         .update({ 
           status: 'completed',
@@ -193,8 +196,8 @@ serve(async (req) => {
     } catch (conversionError) {
       console.error('Image conversion error:', conversionError)
       
-      // Update job status to failed using auth client
-      await authClient
+      // Update job status to failed using admin client
+      await adminClient
         .from('image_generation_jobs')
         .update({ status: 'failed' })
         .eq('id', jobData.id)

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,9 +8,11 @@ import { cn } from "@/lib/utils";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
+import { useNavigate } from "react-router-dom";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -18,6 +21,19 @@ const ProductShoot = () => {
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");
   const queryClient = useQueryClient();
+
+  // Check authentication status
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        navigate("/auth/login");
+        return null;
+      }
+      return session;
+    },
+  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -51,6 +67,7 @@ const ProductShoot = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!session,
   });
 
   const { data: images, isLoading: imagesLoading } = useQuery({
@@ -64,6 +81,7 @@ const ProductShoot = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!session,
     refetchInterval: 5000,
   });
 
@@ -124,6 +142,10 @@ const ProductShoot = () => {
       toast.error("Failed to download image");
     }
   };
+
+  if (!session) {
+    return null; // Component will redirect via the session query
+  }
 
   return (
     <div className="min-h-screen bg-background">

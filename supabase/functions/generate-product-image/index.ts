@@ -39,15 +39,15 @@ serve(async (req) => {
 
     // Parse request data
     const formData = await req.formData()
-    const image = formData.get('image')
+    const imageFile = formData.get('image')
     const prompt = formData.get('prompt')
     const imageSize = formData.get('imageSize') || 'square_hd'
     const numInferenceSteps = Number(formData.get('numInferenceSteps')) || 8
     const guidanceScale = Number(formData.get('guidanceScale')) || 3.5
     const outputFormat = formData.get('outputFormat') || 'png'
 
-    if (!image || !prompt) {
-      console.error('Missing required parameters:', { hasImage: !!image, hasPrompt: !!prompt })
+    if (!imageFile || !prompt) {
+      console.error('Missing required parameters:', { hasImage: !!imageFile, hasPrompt: !!prompt })
       return new Response(
         JSON.stringify({ error: 'Image and prompt are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -93,9 +93,15 @@ serve(async (req) => {
 
     // Convert the image to base64
     try {
-      const imageBuffer = await (image as File).arrayBuffer()
-      const base64Image = btoa(String.fromCharCode(...new Uint8Array(imageBuffer)))
-      const dataUri = `data:${(image as File).type};base64,${base64Image}`
+      if (!(imageFile instanceof File)) {
+        throw new Error('Invalid image file')
+      }
+
+      // Read the file as an ArrayBuffer
+      const arrayBuffer = await imageFile.arrayBuffer()
+      const uint8Array = new Uint8Array(arrayBuffer)
+      const base64Image = btoa(String.fromCharCode.apply(null, uint8Array))
+      const dataUri = `data:${imageFile.type};base64,${base64Image}`
       console.log('Image successfully converted to base64')
 
       // Send request to Fal.ai API

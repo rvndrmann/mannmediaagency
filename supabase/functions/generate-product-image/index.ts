@@ -46,20 +46,12 @@ serve(async (req) => {
 
     console.log('User authenticated:', user.id)
 
-    // Parse request data first to validate input
-    const formData = await req.formData()
-    const imageFile = formData.get('image') as File
-    const prompt = formData.get('prompt')
-    const imageSize = formData.get('imageSize') || 'square_hd'
-    const numInferenceSteps = Number(formData.get('numInferenceSteps')) || 8
-    const guidanceScale = Number(formData.get('guidanceScale')) || 3.5
-    const outputFormat = formData.get('outputFormat') || 'png'
+    // Parse request data
+    const requestData = await req.json()
+    const { prompt, image: dataUri, imageSize = 'square_hd', numInferenceSteps = 8, guidanceScale = 3.5, outputFormat = 'png' } = requestData
 
-    console.log('Received form data:', {
-      hasImage: !!imageFile,
-      imageType: imageFile?.type,
-      imageName: imageFile?.name,
-      imageSize: imageFile?.size,
+    console.log('Received request data:', {
+      hasImage: !!dataUri,
       prompt,
       imageSize,
       numInferenceSteps,
@@ -67,8 +59,8 @@ serve(async (req) => {
       outputFormat
     })
 
-    if (!imageFile || !prompt) {
-      console.error('Missing required parameters:', { hasImage: !!imageFile, hasPrompt: !!prompt })
+    if (!dataUri || !prompt) {
+      console.error('Missing required parameters:', { hasImage: !!dataUri, hasPrompt: !!prompt })
       return new Response(
         JSON.stringify({ error: 'Image and prompt are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -125,28 +117,6 @@ serve(async (req) => {
     console.log('Created image generation job:', jobData.id)
 
     try {
-      // Read the file data using chunks to handle larger files
-      const chunks: Uint8Array[] = [];
-      const reader = imageFile.stream().getReader();
-      
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        chunks.push(value);
-      }
-      
-      const fileData = new Uint8Array(chunks.reduce((acc, chunk) => acc + chunk.length, 0));
-      let offset = 0;
-      for (const chunk of chunks) {
-        fileData.set(chunk, offset);
-        offset += chunk.length;
-      }
-      
-      const base64String = btoa(String.fromCharCode(...fileData));
-      const dataUri = `data:${imageFile.type};base64,${base64String}`;
-
-      console.log('Successfully converted image to base64')
-
       // Send request to Fal.ai API with retries
       console.log('Sending request to Fal.ai API')
       const apiKey = Deno.env.get('FAL_AI_API_KEY')
@@ -267,7 +237,7 @@ serve(async (req) => {
         })
         .eq('id', jobData.id)
 
-      throw new Error('Failed to process the uploaded image: ' + processError.message)
+      throw new Error('Failed to process the image: ' + processError.message)
     }
   } catch (error) {
     console.error('Error in generate-product-image function:', error)

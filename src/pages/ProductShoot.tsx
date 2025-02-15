@@ -85,6 +85,15 @@ const ProductShoot = () => {
     refetchInterval: 5000,
   });
 
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
   const generateImage = useMutation({
     mutationFn: async () => {
       if (!prompt.trim()) {
@@ -95,38 +104,39 @@ const ProductShoot = () => {
         throw new Error("Please upload an image");
       }
 
-      const formData = new FormData();
-      formData.append('prompt', prompt.trim());
-      formData.append('image', selectedFile, selectedFile.name); // Added filename
-      formData.append('imageSize', imageSize);
-      formData.append('numInferenceSteps', inferenceSteps.toString());
-      formData.append('guidanceScale', guidanceScale.toString());
-      formData.append('outputFormat', outputFormat);
+      try {
+        const base64Image = await convertFileToBase64(selectedFile);
 
-      const response = await supabase.functions.invoke("generate-product-image", {
-        body: formData,
-      });
+        const response = await supabase.functions.invoke("generate-product-image", {
+          body: {
+            prompt: prompt.trim(),
+            image: base64Image,
+            imageSize,
+            numInferenceSteps: inferenceSteps,
+            guidanceScale,
+            outputFormat
+          },
+        });
 
-      if (response.error) {
-        let errorMessage = "Failed to generate image";
-        
-        // Parse the error message from the response body
-        if (response.error.message) {
+        if (response.error) {
+          let errorMessage = "Failed to generate image";
+          
           try {
-            const parsedBody = JSON.parse(response.error.message);
-            if (parsedBody.error) {
-              errorMessage = parsedBody.error;
+            const parsedError = JSON.parse(response.error.message);
+            if (parsedError.error) {
+              errorMessage = parsedError.error;
             }
           } catch {
-            // If parsing fails, use the raw message
             errorMessage = response.error.message;
           }
+          
+          throw new Error(errorMessage);
         }
-        
-        throw new Error(errorMessage);
-      }
 
-      return response.data;
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-images"] });
@@ -208,3 +218,4 @@ const ProductShoot = () => {
 };
 
 export default ProductShoot;
+

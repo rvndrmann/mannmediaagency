@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const MAX_RETRIES = 3;
-const RETRY_DELAY = 2000; // 2 seconds
+const POLL_INTERVAL = 1000; // 1 second
+const MAX_POLLS = 60; // Maximum number of status checks
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -19,19 +19,17 @@ serve(async (req) => {
   try {
     console.log('Processing new image generation request')
     
-    // Create Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
+    const falApiKey = Deno.env.get('FAL_AI_API_KEY')
     
-    if (!supabaseUrl || !supabaseKey) {
-      console.error('Missing environment variables:', { hasUrl: !!supabaseUrl, hasKey: !!supabaseKey })
-      throw new Error('Missing environment variables')
+    if (!supabaseUrl || !supabaseKey || !falApiKey) {
+      throw new Error('Missing required environment variables')
     }
 
-    // Create service role client for administrative operations
     const adminClient = createClient(supabaseUrl, supabaseKey)
 
-    // Get user ID from the authorization header
+    // Authenticate user
     const authHeader = req.headers.get('authorization')
     if (!authHeader) {
       throw new Error('No authorization header')
@@ -40,62 +38,50 @@ serve(async (req) => {
     const token = authHeader.replace('Bearer ', '')
     const { data: { user }, error: userError } = await adminClient.auth.getUser(token)
     if (userError || !user) {
-      console.error('User authentication error:', userError)
       throw new Error('Invalid user token')
     }
 
-    console.log('User authenticated:', user.id)
-
-    // Parse request data
+    // Parse and validate request data
     const requestData = await req.json()
-    const { prompt, image: dataUri, imageSize = 'square_hd', numInferenceSteps = 8, guidanceScale = 3.5, outputFormat = 'png' } = requestData
-
-    console.log('Received request data:', {
-      hasImage: !!dataUri,
-      prompt,
-      imageSize,
-      numInferenceSteps,
-      guidanceScale,
-      outputFormat
-    })
+    const { 
+      prompt, 
+      image: dataUri, 
+      imageSize = 'square_hd',
+      numInferenceSteps = 8,
+      guidanceScale = 3.5,
+      outputFormat = 'png'
+    } = requestData
 
     if (!dataUri || !prompt) {
-      console.error('Missing required parameters:', { hasImage: !!dataUri, hasPrompt: !!prompt })
       return new Response(
         JSON.stringify({ error: 'Image and prompt are required' }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
     }
 
-    // Check user credits using admin client
+    // Check user credits
     const { data: userCredits, error: creditsError } = await adminClient
       .from('user_credits')
       .select('credits_remaining')
       .eq('user_id', user.id)
       .single();
 
-    if (creditsError) {
-      console.error('Error checking credits:', creditsError);
-      throw new Error('Failed to check user credits');
-    }
-
-    if (!userCredits || userCredits.credits_remaining < 0.2) {
-      console.error('Insufficient credits:', userCredits?.credits_remaining);
+    if (creditsError || !userCredits || userCredits.credits_remaining < 0.2) {
       return new Response(
         JSON.stringify({ 
-          error: `Insufficient credits. You have ${userCredits?.credits_remaining || 0} credits, but need 0.2 credits to generate an image.`
+          error: `Insufficient credits. You have ${userCredits?.credits_remaining || 0} credits, but need 0.2 credits.`
         }),
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    // Create a new image generation job record using admin client
+    // Create job record
     const { data: jobData, error: jobError } = await adminClient
       .from('image_generation_jobs')
       .insert([{
         user_id: user.id,
         prompt: prompt,
-        status: 'pending',
+        status: 'processing',
         settings: {
           imageSize,
           numInferenceSteps,
@@ -107,114 +93,104 @@ serve(async (req) => {
       .single()
 
     if (jobError) {
-      console.error('Error creating job:', jobError)
-      return new Response(
-        JSON.stringify({ error: 'Failed to create image generation job: ' + jobError.message }),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      throw new Error('Failed to create image generation job: ' + jobError.message)
     }
 
-    console.log('Created image generation job:', jobData.id)
-
     try {
-      // Send request to Fal.ai API with retries
-      console.log('Sending request to Fal.ai API')
-      const apiKey = Deno.env.get('FAL_AI_API_KEY')
-      if (!apiKey) {
-        throw new Error('FAL_AI_API_KEY is not configured')
+      // Step 1: Submit initial request to Fal.ai
+      const submitResponse = await fetch('https://queue.fal.run/fal-ai/flux-subject', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${falApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          prompt: prompt,
+          image_url: dataUri,
+          image_size: imageSize,
+          num_inference_steps: numInferenceSteps,
+          guidance_scale: guidanceScale,
+          output_format: outputFormat,
+          num_images: 1,
+          enable_safety_checker: true
+        })
+      });
+
+      if (!submitResponse.ok) {
+        throw new Error(`Failed to submit request: ${await submitResponse.text()}`);
       }
 
-      let result;
-      let retryCount = 0;
-      let lastError;
-
-      while (retryCount < MAX_RETRIES) {
-        try {
-          console.log(`Attempt ${retryCount + 1} of ${MAX_RETRIES}`);
-          
-          const requestBody = {
-            prompt: prompt,
-            image_url: dataUri,
-            image_size: imageSize,
-            num_inference_steps: numInferenceSteps,
-            guidance_scale: guidanceScale,
-            output_format: outputFormat,
-            num_images: 1,
-            enable_safety_checker: true,
-            sync_mode: true
-          };
-          
-          console.log('Request body:', { ...requestBody, image_url: '[BASE64_IMAGE]' });
-          
-          const queueResponse = await fetch('https://queue.fal.run/fal-ai/stable-diffusion-v1-5-subject', {
-            method: 'POST',
-            headers: {
-              'Authorization': `Key ${apiKey}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestBody)
-          });
-
-          console.log('Fal.ai API response status:', queueResponse.status);
-
-          if (!queueResponse.ok) {
-            const errorText = await queueResponse.text();
-            console.error(`Fal.ai API error (attempt ${retryCount + 1}):`, errorText);
-            lastError = errorText;
-            throw new Error(errorText);
-          }
-
-          const responseText = await queueResponse.text();
-          console.log('Raw API response:', responseText);
-          
-          try {
-            result = JSON.parse(responseText);
-          } catch (parseError) {
-            console.error('Failed to parse API response:', parseError);
-            throw new Error('Invalid API response format');
-          }
-
-          console.log('Parsed API response:', result);
-
-          if (!result.images?.[0]?.url) {
-            console.error('No image URL in response:', result);
-            lastError = 'No image URL in API response';
-            throw new Error('No image URL in API response');
-          }
-
-          // If we reach here, we have a successful result
-          break;
-        } catch (error) {
-          retryCount++;
-          console.error(`Attempt ${retryCount} failed:`, error);
-          
-          if (retryCount < MAX_RETRIES) {
-            console.log(`Waiting ${RETRY_DELAY}ms before retry ${retryCount + 1}`);
-            await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
-          } else {
-            throw new Error(`Failed after ${MAX_RETRIES} attempts. Last error: ${lastError}`);
-          }
-        }
-      }
-
-      // Store the request_id if available
-      const requestId = result.request_id || result.id;
+      const submitData = await submitResponse.json();
+      const requestId = submitData.request_id;
       
-      // Update job with result URL using admin client
+      if (!requestId) {
+        throw new Error('No request ID received from API');
+      }
+
+      // Update job with request ID
+      await adminClient
+        .from('image_generation_jobs')
+        .update({ request_id: requestId })
+        .eq('id', jobData.id);
+
+      // Step 2: Poll for status until complete
+      let pollCount = 0;
+      let result = null;
+
+      while (pollCount < MAX_POLLS) {
+        const statusResponse = await fetch(
+          `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`,
+          {
+            headers: {
+              'Authorization': `Key ${falApiKey}`
+            }
+          }
+        );
+
+        if (!statusResponse.ok) {
+          throw new Error(`Failed to check status: ${await statusResponse.text()}`);
+        }
+
+        const statusData = await statusResponse.json();
+        
+        if (statusData.status === 'COMPLETED') {
+          // Step 3: Get the final result
+          const resultResponse = await fetch(
+            `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`,
+            {
+              headers: {
+                'Authorization': `Key ${falApiKey}`
+              }
+            }
+          );
+
+          if (!resultResponse.ok) {
+            throw new Error(`Failed to get result: ${await resultResponse.text()}`);
+          }
+
+          result = await resultResponse.json();
+          break;
+        } else if (statusData.status === 'FAILED') {
+          throw new Error('Image generation failed');
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+        pollCount++;
+      }
+
+      if (!result || !result.images?.[0]?.url) {
+        throw new Error('Failed to get image URL from result');
+      }
+
+      // Update job with success
       await adminClient
         .from('image_generation_jobs')
         .update({ 
           status: 'completed',
-          result_url: result.images[0].url,
-          request_id: requestId
+          result_url: result.images[0].url
         })
         .eq('id', jobData.id);
-
-      console.log('Successfully completed job:', {
-        jobId: jobData.id,
-        requestId,
-        hasUrl: !!result.images[0].url
-      });
 
       return new Response(
         JSON.stringify({ 
@@ -226,24 +202,22 @@ serve(async (req) => {
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (processError) {
-      console.error('Processing error:', processError)
-      
-      // Update job status to failed using admin client
+      // Update job with failure
       await adminClient
         .from('image_generation_jobs')
         .update({ 
           status: 'failed',
           error_message: processError.message 
         })
-        .eq('id', jobData.id)
+        .eq('id', jobData.id);
 
-      throw new Error('Failed to process the image: ' + processError.message)
+      throw processError;
     }
   } catch (error) {
-    console.error('Error in generate-product-image function:', error)
+    console.error('Error in generate-product-image function:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
   }
 })

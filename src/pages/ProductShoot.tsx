@@ -97,7 +97,7 @@ const ProductShoot = () => {
 
       // Check credits before making the request
       if (!userCredits || userCredits.credits_remaining < 0.2) {
-        throw new Error("Insufficient credits. You need 0.2 credits to generate an image.");
+        throw new Error("Insufficient credits. You need 0.2 credits to generate an image. Please purchase more credits to continue.");
       }
 
       const formData = new FormData();
@@ -113,7 +113,10 @@ const ProductShoot = () => {
       });
 
       if (response.error) {
-        throw new Error(response.error.message);
+        const errorMessage = typeof response.error === 'string' 
+          ? response.error 
+          : response.error.message || 'Failed to generate image';
+        throw new Error(errorMessage);
       }
 
       return response.data;
@@ -126,7 +129,14 @@ const ProductShoot = () => {
       toast.success("Image generation started");
     },
     onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to generate image");
+      const message = error instanceof Error ? error.message : "Failed to generate image";
+      toast.error(message, {
+        duration: 5000,
+        action: {
+          label: "Buy Credits",
+          onClick: () => navigate("/plans")
+        }
+      });
     },
   });
 
@@ -148,7 +158,7 @@ const ProductShoot = () => {
   };
 
   if (!session) {
-    return null; // Component will redirect via the session query
+    return null;
   }
 
   return (

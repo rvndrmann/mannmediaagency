@@ -15,7 +15,7 @@ export function MobilePanelToggle({ title }: MobilePanelToggleProps) {
       <Button
         variant="ghost"
         size="icon"
-        onClick={() => navigate(-1)}
+        onClick={() => navigate("/")}
         className="text-gray-400 hover:text-white"
       >
         <ArrowLeft className="h-6 w-6" />

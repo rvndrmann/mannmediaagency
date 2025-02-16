@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +9,6 @@ import { GalleryPanel } from "@/components/image-to-video/GalleryPanel";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
-// Define the exact type that comes from Supabase
 interface SupabaseVideoJob {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -81,13 +79,18 @@ const ImageToVideo = () => {
   const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery({
     queryKey: ["videos"],
     queryFn: async () => {
+      console.log("Fetching videos...");
       const { data, error } = await supabase
         .from("video_generation_jobs")
         .select("*")
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching videos:", error);
+        throw error;
+      }
       
+      console.log("Fetched videos:", data);
       return ((data || []) as SupabaseVideoJob[]).map(video => ({
         id: video.id,
         status: video.status,
@@ -110,12 +113,8 @@ const ImageToVideo = () => {
         video.status === 'pending' || video.status === 'processing'
       );
 
-      if (hasPendingVideos) {
-        // Return 5 minutes (300000ms) for the polling interval
-        return 300000;
-      }
-      
-      return false;
+      // Poll every 10 seconds if there are pending videos
+      return hasPendingVideos ? 10000 : false;
     },
     retry: 3,
   });
@@ -124,6 +123,7 @@ const ImageToVideo = () => {
     if (!session?.access_token) return;
 
     const checkPendingVideos = async () => {
+      console.log("Checking pending videos...");
       const { data: pendingVideos, error } = await supabase
         .from('video_generation_jobs')
         .select('*')
@@ -135,20 +135,11 @@ const ImageToVideo = () => {
         return;
       }
 
-      // Type the pendingVideos as SupabaseVideoJob[]
-      const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
-        const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
-        
-        if (elapsedMinutes > 30) {
-          // Mark as failed if over 30 minutes
-          await supabase
-            .from('video_generation_jobs')
-            .update({ status: 'failed' })
-            .eq('id', video.id);
-          return;
-        }
+      console.log("Found pending videos:", pendingVideos);
 
+      const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
         try {
+          console.log(`Checking status for video ${video.id}...`);
           await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
           });
@@ -161,11 +152,9 @@ const ImageToVideo = () => {
       await refetchVideos();
     };
 
-    // Initial check
-    checkPendingVideos();
-
-    // Set up interval for checking pending videos (5 minutes)
-    const interval = setInterval(checkPendingVideos, 300000);
+    // Check every 10 seconds
+    const interval = setInterval(checkPendingVideos, 10000);
+    checkPendingVideos(); // Initial check
 
     return () => clearInterval(interval);
   }, [session?.access_token, refetchVideos]);

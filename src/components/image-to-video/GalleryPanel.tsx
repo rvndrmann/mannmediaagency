@@ -46,7 +46,7 @@ export function GalleryPanel({
                       {video.status === 'pending' ? 'Initializing...' : 'Processing video...'}
                       <br />
                       <span className="text-xs">
-                        {video.progress}% complete
+                        {video.progress || 0}% complete
                       </span>
                     </p>
                   </div>
@@ -57,6 +57,7 @@ export function GalleryPanel({
                     src={video.result_url}
                     className="w-full h-full object-cover"
                     controls
+                    key={video.result_url} // Force reload when URL changes
                   />
                   <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
                     <Button

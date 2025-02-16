@@ -910,6 +910,59 @@ export type Database = {
         }
         Relationships: []
       }
+      video_metadata: {
+        Row: {
+          additional_context: string | null
+          created_at: string
+          custom_title_twist: string | null
+          id: string
+          instagram_hashtags: string | null
+          keywords: string | null
+          metadata_regeneration_count: number | null
+          seo_description: string | null
+          seo_title: string | null
+          updated_at: string
+          video_context: string | null
+          video_job_id: string
+        }
+        Insert: {
+          additional_context?: string | null
+          created_at?: string
+          custom_title_twist?: string | null
+          id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          metadata_regeneration_count?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          updated_at?: string
+          video_context?: string | null
+          video_job_id: string
+        }
+        Update: {
+          additional_context?: string | null
+          created_at?: string
+          custom_title_twist?: string | null
+          id?: string
+          instagram_hashtags?: string | null
+          keywords?: string | null
+          metadata_regeneration_count?: number | null
+          seo_description?: string | null
+          seo_title?: string | null
+          updated_at?: string
+          video_context?: string | null
+          video_job_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "video_metadata_video_job_id_fkey"
+            columns: ["video_job_id"]
+            isOneToOne: true
+            referencedRelation: "video_generation_jobs"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       video_projects: {
         Row: {
           created_at: string | null

@@ -15,7 +15,7 @@ interface RequestBody {
 
 // Increased polling duration for video generation
 const POLL_INTERVAL = 5000; // 5 seconds
-const MAX_POLLS = 72; // 6 minutes total (72 * 5 seconds)
+const MAX_POLLS = 100; // ~8.3 minutes total (100 * 5 seconds)
 
 serve(async (req) => {
   const startTime = new Date().toISOString();
@@ -52,6 +52,17 @@ serve(async (req) => {
 
     let pollCount = 0;
 
+    // Get the job creation time to calculate elapsed time
+    const { data: job } = await supabaseClient
+      .from('video_generation_jobs')
+      .select('created_at')
+      .eq('request_id', request_id)
+      .single();
+
+    const createdAt = job?.created_at ? new Date(job.created_at) : new Date();
+    const now = new Date();
+    const elapsedMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
+
     while (pollCount < MAX_POLLS) {
       console.log(`Polling attempt ${pollCount + 1}/${MAX_POLLS}`);
       
@@ -78,13 +89,14 @@ serve(async (req) => {
 
       let status = 'processing';
       let progress = 0;
+      
+      // Calculate progress based on elapsed time (7-minute expected duration)
+      progress = Math.min(Math.round((elapsedMinutes / 7) * 100), 99);
 
-      // Calculate progress based on status and poll count
       if (statusResult.status === 'completed') {
         status = 'completed';
         progress = 100;
         
-        // Step 2: If completed, get the final result
         console.log('Status is completed, fetching final result...');
         const resultResponse = await fetch(
           `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`,
@@ -101,7 +113,6 @@ serve(async (req) => {
 
         const result = await resultResponse.json();
         
-        // Step 3: Update database with final result
         if (result.video?.url) {
           const { error: updateError } = await supabaseClient
             .from('video_generation_jobs')
@@ -144,9 +155,6 @@ serve(async (req) => {
         }
         throw new Error('Video generation failed');
       } else {
-        // Calculate progress based on poll count
-        progress = Math.min(Math.round((pollCount / MAX_POLLS) * 90), 99);
-        
         // Update progress in database
         const { error: updateError } = await supabaseClient
           .from('video_generation_jobs')
@@ -179,7 +187,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         status: currentJob?.status || 'processing', 
-        progress: currentJob?.progress || 99 
+        progress: currentJob?.progress || 99,
+        message: 'Video generation in progress. This typically takes 7 minutes.'
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

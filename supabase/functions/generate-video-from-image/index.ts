@@ -26,6 +26,19 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Get the user ID from the authorization header
+    const authHeader = req.headers.get('authorization')?.split('Bearer ')[1];
+    if (!authHeader) {
+      throw new Error('No authorization header');
+    }
+
+    // Verify the JWT and get the user
+    const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader);
+    
+    if (authError || !user) {
+      throw new Error('Unauthorized');
+    }
+
     const requestData: RequestBody = await req.json();
     const { prompt, negative_prompt, num_inference_steps, guidance_scale, image_url } = requestData;
 
@@ -52,10 +65,11 @@ serve(async (req) => {
       throw new Error(jsonResponse.error || 'Failed to submit video generation request');
     }
 
-    // Create job record in database
+    // Create job record in database with user_id
     const { data: job, error: insertError } = await supabaseClient
       .from('video_generation_jobs')
       .insert({
+        user_id: user.id, // Add user_id here
         prompt,
         negative_prompt,
         source_image_url: image_url,
@@ -70,6 +84,7 @@ serve(async (req) => {
       .single();
 
     if (insertError) {
+      console.error('Insert error:', insertError); // Add error logging
       throw insertError;
     }
 

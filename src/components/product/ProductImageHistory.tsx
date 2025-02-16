@@ -1,7 +1,6 @@
 
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Image } from "lucide-react";
 
@@ -53,21 +52,24 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
   }
 
   return (
-    <ScrollArea className="h-[600px] pr-4">
-      <div className="space-y-4">
+    <ScrollArea className="h-[600px] px-4">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4">
         {generationHistory?.map((job) => (
           <div
             key={job.id}
-            className="border border-gray-800 rounded-lg p-4 space-y-3 hover:border-gray-700 transition-colors"
+            className="group relative border border-gray-800 rounded-lg p-2 space-y-2 hover:border-gray-600 transition-colors cursor-pointer"
+            onClick={() => job.result_url && onSelectImage(job.id, job.result_url)}
           >
             <div className="aspect-square relative bg-gray-900 rounded-md overflow-hidden">
               {job.result_url ? (
-                <img
-                  src={job.result_url}
-                  alt={job.product_image_metadata?.seo_title || "Generated product image"}
-                  className="object-cover w-full h-full"
-                  onClick={() => onSelectImage(job.id, job.result_url)}
-                />
+                <>
+                  <img
+                    src={job.result_url}
+                    alt={job.product_image_metadata?.seo_title || "Generated product image"}
+                    className="object-cover w-full h-full"
+                  />
+                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
+                </>
               ) : (
                 <div className="flex items-center justify-center h-full">
                   <Image className="w-8 h-8 text-gray-600" />
@@ -75,18 +77,10 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
               )}
             </div>
             <div className="space-y-1">
-              <p className="text-sm font-medium truncate">
+              <p className="text-xs font-medium truncate text-gray-300">
                 {job.product_image_metadata?.seo_title || "Untitled"}
               </p>
-              <p className="text-xs text-gray-400 truncate">{job.prompt}</p>
             </div>
-            <Button
-              variant="secondary"
-              className="w-full"
-              onClick={() => job.result_url && onSelectImage(job.id, job.result_url)}
-            >
-              View Details
-            </Button>
           </div>
         ))}
       </div>

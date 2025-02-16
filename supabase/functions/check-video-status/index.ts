@@ -74,34 +74,32 @@ serve(async (req) => {
 
     let status = currentJob.status;
     let progress = currentJob.progress || 0;
+    let videoUrl = currentJob.result_url;
 
     if (statusResult.status === 'completed') {
-      // If completed, trigger the retrieve-video-result function
-      try {
-        const retrieveResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/retrieve-video-result`, {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ request_id })
-        });
+      // Get the final result using the GET endpoint
+      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+      });
 
-        if (!retrieveResponse.ok) {
-          throw new Error('Failed to retrieve video result');
-        }
-
-        const retrieveResult = await retrieveResponse.json();
-        return new Response(JSON.stringify(retrieveResult), {
-          headers: {
-            ...corsHeaders,
-            'Content-Type': 'application/json'
-          }
-        });
-      } catch (error) {
-        console.error('Error retrieving video result:', error);
-        throw error;
+      if (!resultResponse.ok) {
+        throw new Error(`Failed to fetch result: ${resultResponse.statusText}`);
       }
+
+      const result = await resultResponse.json();
+      console.log('Final result response:', result);
+
+      if (!result.video_url) {
+        throw new Error('No video URL in result');
+      }
+
+      status = 'completed';
+      progress = 100;
+      videoUrl = result.video_url;
     } else if (statusResult.status === 'failed') {
       status = 'failed';
       progress = 0;
@@ -118,6 +116,7 @@ serve(async (req) => {
       .update({ 
         status,
         progress,
+        result_url: videoUrl,
         updated_at: new Date().toISOString()
       })
       .eq('request_id', request_id);
@@ -129,13 +128,15 @@ serve(async (req) => {
 
     console.log('Successfully updated database with status:', {
       status,
-      progress
+      progress,
+      videoUrl
     });
 
     return new Response(
       JSON.stringify({ 
         status,
-        progress
+        progress,
+        video_url: videoUrl
       }),
       { 
         headers: {

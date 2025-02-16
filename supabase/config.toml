@@ -16,5 +16,3 @@ verify_jwt = true
 verify_jwt = true
 [functions.check-video-status]
 verify_jwt = false
-[functions.retrieve-video-result]
-verify_jwt = false

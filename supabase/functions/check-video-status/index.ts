@@ -28,18 +28,16 @@ serve(async (req) => {
       throw new Error('No request_id provided');
     }
 
-    // Check the status using the v1.6 endpoint
-    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/status`, {
-      method: 'POST',
+    // Check the status using the GET endpoint
+    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
+      method: 'GET',
       headers: {
         'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
-        'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ request_id }),
     });
 
     const statusResult = await statusResponse.json();
-    console.log('Kling AI Status Response:', statusResult);
+    console.log('FAL.ai Status Response:', statusResult);
 
     if (!statusResponse.ok) {
       throw new Error(statusResult.error || 'Failed to check video status');
@@ -49,14 +47,12 @@ serve(async (req) => {
     let videoUrl = null;
 
     if (statusResult.status === 'completed') {
-      // Get the final result using the v1.6 endpoint
-      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/result`, {
-        method: 'POST',
+      // Get the final result using the GET endpoint
+      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
+        method: 'GET',
         headers: {
           'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
-          'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ request_id }),
       });
 
       if (resultResponse.ok) {
@@ -79,14 +75,13 @@ serve(async (req) => {
     }
 
     // Update the job status in our database
-    const { error: updateError } = await supabaseClient.rpc(
-      'update_video_generation_status',
-      { 
-        p_request_id: request_id,
-        p_status: status,
-        p_result_url: videoUrl
-      }
-    );
+    const { error: updateError } = await supabaseClient
+      .from('video_generation_jobs')
+      .update({ 
+        status: status,
+        result_url: videoUrl
+      })
+      .eq('request_id', request_id);
 
     if (updateError) {
       console.error('Update error:', updateError);

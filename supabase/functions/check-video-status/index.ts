@@ -48,28 +48,41 @@ serve(async (req) => {
 
     // Calculate progress based on FAL.ai status
     if (statusResult.status === 'completed') {
-      // Get the final result using the GET endpoint
-      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
-        },
-      });
-
-      if (resultResponse.ok) {
-        const result = await resultResponse.json();
-        status = 'completed';
-        videoUrl = result.video_url;
-        progress = 100;
-        
-        console.log('Video generation completed:', {
-          request_id,
-          status,
-          video_url: videoUrl,
+      console.log('Status is completed, fetching final result...');
+      try {
+        // Get the final result using the GET endpoint
+        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+          },
         });
-      } else {
-        console.error('Failed to fetch video result:', await resultResponse.text());
-        throw new Error('Failed to fetch completed video result');
+
+        if (!resultResponse.ok) {
+          throw new Error(`Failed to fetch result: ${resultResponse.statusText}`);
+        }
+
+        const result = await resultResponse.json();
+        console.log('Final result response:', result);
+
+        if (result.video_url) {
+          status = 'completed';
+          videoUrl = result.video_url;
+          progress = 100;
+          
+          console.log('Video generation completed successfully:', {
+            request_id,
+            status,
+            video_url: videoUrl,
+          });
+        } else {
+          throw new Error('No video URL in completed result');
+        }
+      } catch (error) {
+        console.error('Error fetching completed video:', error);
+        status = 'failed';
+        progress = 0;
+        throw new Error(`Failed to fetch completed video: ${error.message}`);
       }
     } else if (statusResult.status === 'failed') {
       status = 'failed';
@@ -78,6 +91,7 @@ serve(async (req) => {
     } else if (statusResult.status === 'processing') {
       // Estimate progress based on processing state
       progress = Math.min(Math.round((statusResult.progress || 0) * 100), 99);
+      console.log('Processing progress:', progress);
     }
 
     // Update the job status in our database
@@ -92,9 +106,15 @@ serve(async (req) => {
       .eq('request_id', request_id);
 
     if (updateError) {
-      console.error('Update error:', updateError);
+      console.error('Database update error:', updateError);
       throw updateError;
     }
+
+    console.log('Successfully updated database with:', {
+      status,
+      result_url: videoUrl,
+      progress
+    });
 
     return new Response(
       JSON.stringify({ 
@@ -107,7 +127,7 @@ serve(async (req) => {
       }
     );
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Function error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
       { 

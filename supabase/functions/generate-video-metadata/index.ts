@@ -98,19 +98,48 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `You are a professional video marketing specialist. Generate metadata for video content. 
-            Your response MUST be a valid JSON object with these EXACT fields:
-            - seo_title: Maximum 60 characters, compelling title optimized for video content
-            - seo_description: Maximum 160 characters, optimized for video SEO
-            - keywords: Exactly 10-15 relevant comma-separated keywords
-            - instagram_hashtags: Exactly 20-30 relevant space-separated hashtags including # symbol
-            - video_context: 2-3 sentences about the video content and its key features
-            
-            DO NOT include any additional text or formatting outside of the JSON object.`
+            content: `You are a professional video marketing specialist. Generate metadata for video content with these STRICT requirements:
+
+1. SEO Title:
+   - MUST be under 60 characters
+   - Be compelling and optimized for video content
+   - Focus on key value proposition
+
+2. SEO Description:
+   - MUST be under 160 characters
+   - Optimize for video SEO
+   - Include key benefits or features
+
+3. Keywords:
+   - EXACTLY 10-15 relevant comma-separated keywords
+   - No spaces after commas
+   - Focus on search relevance
+
+4. Instagram Hashtags:
+   - EXACTLY 20-30 relevant hashtags
+   - Include # symbol
+   - Space-separated
+   - Mix of popular and niche tags
+
+5. Video Context:
+   - 2-3 concise sentences about the content
+   - Focus on key features and value
+
+Your response MUST be a valid JSON object with these EXACT fields:
+{
+  "seo_title": "...",
+  "seo_description": "...",
+  "keywords": "keyword1,keyword2,keyword3,...",
+  "instagram_hashtags": "#hashtag1 #hashtag2 #hashtag3 ...",
+  "video_context": "..."
+}
+
+DO NOT include any additional text or formatting outside of the JSON object.
+VERIFY all length requirements before responding.`
           },
           {
             role: 'user',

@@ -172,7 +172,7 @@ VERIFY all length requirements before responding.`
 
     console.log('Successfully validated metadata:', metadata);
 
-    // Upsert the metadata
+    // Update the upsert operation to handle conflicts
     const { error: upsertError } = await supabase
       .from('video_metadata')
       .upsert({
@@ -184,6 +184,10 @@ VERIFY all length requirements before responding.`
         video_context: metadata.video_context,
         additional_context: additionalContext,
         custom_title_twist: customTitleTwist,
+        metadata_regeneration_count: (regenerationCount || 0) + 1,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: 'video_job_id'
       });
 
     if (upsertError) {

@@ -32,12 +32,14 @@ export const Navigation = () => {
     {
       name: "Stories",
       subtext: "Powered by King AI",
+      logo: "/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png",
       to: "/",
       icon: ScrollText,
     },
     {
       name: "Product Shoot",
       subtext: "Powered by Fal.ai",
+      logo: "/lovable-uploads/6339ca58-18ce-4e6a-9e56-116de738e55b.png",
       to: "/product-shoot",
       icon: Image,
     },

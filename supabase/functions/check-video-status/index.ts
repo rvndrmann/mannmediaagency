@@ -9,6 +9,13 @@ const corsHeaders = {
   'Access-Control-Max-Age': '86400',
 };
 
+interface VideoJob {
+  id: string;
+  request_id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+}
+
 serve(async (req) => {
   console.log('Request received:', req.method);
 
@@ -20,56 +27,59 @@ serve(async (req) => {
     });
   }
 
-  // Only allow GET requests
-  if (req.method !== 'GET') {
-    return new Response(
-      JSON.stringify({ error: 'Method not allowed' }),
-      { 
-        status: 405,
-        headers: { 
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-  }
-
   try {
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get request_id from URL parameters
-    const url = new URL(req.url);
-    const request_id = url.searchParams.get('request_id');
-    
-    if (!request_id) {
-      throw new Error('No request_id provided');
-    }
-
-    const { data: job, error: jobError } = await supabaseClient
+    // Get all pending or processing jobs
+    const { data: jobs, error: jobError } = await supabaseClient
       .from('video_generation_jobs')
       .select('*')
-      .eq('request_id', request_id)
-      .single();
+      .in('status', ['pending', 'processing'])
+      .order('created_at', { ascending: true });
 
     if (jobError) {
       throw jobError;
     }
 
-    // Calculate progress based on elapsed time
-    const createdAt = new Date(job.created_at);
-    const now = new Date();
-    const elapsedMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
-    const progress = Math.min(Math.round((elapsedMinutes / 7) * 100), 99);
+    console.log(`Found ${jobs?.length || 0} pending/processing jobs`);
+
+    // Process each job
+    const results = [];
+    for (const job of jobs || []) {
+      if (job.request_id) {
+        console.log(`Checking status for job ${job.id} with request_id ${job.request_id}`);
+        
+        try {
+          // Call fetch-video-result endpoint for each job
+          const response = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-video-result?request_id=${job.request_id}`, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json'
+            }
+          });
+
+          const result = await response.json();
+          console.log(`Result for job ${job.id}:`, result);
+          results.push({ job_id: job.id, request_id: job.request_id, ...result });
+        } catch (error) {
+          console.error(`Error checking job ${job.id}:`, error);
+          results.push({ 
+            job_id: job.id, 
+            request_id: job.request_id, 
+            error: error instanceof Error ? error.message : 'Unknown error' 
+          });
+        }
+      }
+    }
 
     return new Response(
-      JSON.stringify({
-        status: job.status,
-        progress: job.status === 'completed' ? 100 : progress,
-        result_url: job.result_url,
-        message: 'Video generation in progress. This typically takes 7 minutes.'
+      JSON.stringify({ 
+        checked_jobs: results.length,
+        results 
       }),
       { 
         headers: { 

@@ -4,13 +4,12 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft, Loader2 } from "lucide-react";
-import { StoryMetadataManager } from "@/components/video/StoryMetadataManager";
-import { ProductMetadataManager } from "@/components/product/ProductMetadataManager";
-import { VideoMetadataManager } from "@/components/video/VideoMetadataManager";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { StoriesList } from "@/components/video/StoriesList";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { StoriesTabContent } from "@/components/video/StoriesTabContent";
+import { ImagesTabContent } from "@/components/video/ImagesTabContent";
+import { VideosTabContent } from "@/components/video/VideosTabContent";
 
 const Metadata = () => {
   const { storyId } = useParams<{ storyId?: string }>();
@@ -76,23 +75,6 @@ const Metadata = () => {
     },
   });
 
-  const { data: selectedStory } = useQuery({
-    queryKey: ["story", parsedStoryId],
-    queryFn: async () => {
-      if (!parsedStoryId) throw new Error("Invalid story ID");
-      
-      const { data, error } = await supabase
-        .from("stories")
-        .select("*")
-        .eq("stories id", parsedStoryId)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!parsedStoryId && !isUUID,
-  });
-
   const handleStorySelect = (id: number) => {
     navigate(`/metadata/${id}`);
   };
@@ -149,102 +131,30 @@ const Metadata = () => {
                   <TabsTrigger value="videos">Videos</TabsTrigger>
                 </TabsList>
 
-                <TabsContent value="stories" className="flex gap-6">
-                  <div className="w-1/3">
-                    <StoriesList 
-                      stories={stories || []}
-                      selectedStoryId={parsedStoryId}
-                      onStorySelect={handleStorySelect}
-                    />
-                  </div>
-                  <div className="flex-1">
-                    {parsedStoryId ? (
-                      <StoryMetadataManager storyId={parsedStoryId} />
-                    ) : (
-                      <div className="text-center text-white/70 py-8 bg-gray-800/50 rounded-lg">
-                        Select a story from the list to manage its metadata
-                      </div>
-                    )}
-                  </div>
+                <TabsContent value="stories">
+                  <StoriesTabContent 
+                    stories={stories || []}
+                    selectedStoryId={parsedStoryId}
+                    onStorySelect={handleStorySelect}
+                  />
                 </TabsContent>
 
-                <TabsContent value="images" className="flex gap-6">
-                  <div className="w-1/3">
-                    <div className="space-y-4">
-                      {images?.map((image) => (
-                        <div
-                          key={image.id}
-                          className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                            image.id === storyId
-                              ? "bg-purple-600"
-                              : "bg-gray-800 hover:bg-gray-700"
-                          }`}
-                          onClick={() => handleImageSelect(image.id)}
-                        >
-                          <img
-                            src={image.result_url}
-                            alt={image.prompt}
-                            className="w-full h-32 object-cover rounded-md mb-2"
-                          />
-                          <p className="text-sm text-white/90 line-clamp-2">
-                            {image.prompt}
-                          </p>
-                          <p className="text-xs text-white/60 mt-1">
-                            {new Date(image.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    {isUUID && storyId && !videos?.some(v => v.id === storyId) ? (
-                      <ProductMetadataManager imageJobId={storyId} />
-                    ) : (
-                      <div className="text-center text-white/70 py-8 bg-gray-800/50 rounded-lg">
-                        Select an image from the list to manage its metadata
-                      </div>
-                    )}
-                  </div>
+                <TabsContent value="images">
+                  <ImagesTabContent 
+                    images={images || []}
+                    selectedId={storyId}
+                    onImageSelect={handleImageSelect}
+                    showMetadata={isUUID && !!storyId && !videos?.some(v => v.id === storyId)}
+                  />
                 </TabsContent>
 
-                <TabsContent value="videos" className="flex gap-6">
-                  <div className="w-1/3">
-                    <div className="space-y-4">
-                      {videos?.map((video) => (
-                        <div
-                          key={video.id}
-                          className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                            video.id === storyId
-                              ? "bg-purple-600"
-                              : "bg-gray-800 hover:bg-gray-700"
-                          }`}
-                          onClick={() => handleVideoSelect(video.id)}
-                        >
-                          {video.result_url && (
-                            <video
-                              src={video.result_url}
-                              className="w-full h-32 object-cover rounded-md mb-2"
-                            />
-                          )}
-                          <p className="text-sm text-white/90 line-clamp-2">
-                            {video.prompt}
-                          </p>
-                          <p className="text-xs text-white/60 mt-1">
-                            {new Date(video.created_at).toLocaleDateString()}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                  <div className="flex-1">
-                    {isUUID && storyId && videos?.some(v => v.id === storyId) ? (
-                      <VideoMetadataManager videoJobId={storyId} />
-                    ) : (
-                      <div className="text-center text-white/70 py-8 bg-gray-800/50 rounded-lg">
-                        Select a video from the list to manage its metadata
-                      </div>
-                    )}
-                  </div>
+                <TabsContent value="videos">
+                  <VideosTabContent 
+                    videos={videos || []}
+                    selectedId={storyId}
+                    onVideoSelect={handleVideoSelect}
+                    showMetadata={isUUID && !!storyId && videos?.some(v => v.id === storyId)}
+                  />
                 </TabsContent>
               </Tabs>
             </div>

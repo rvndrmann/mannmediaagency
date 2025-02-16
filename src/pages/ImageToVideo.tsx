@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -136,54 +135,33 @@ const ImageToVideo = () => {
 
       console.log("Found pending videos:", pendingVideos?.length);
 
-      const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
+      for (const video of (pendingVideos || [])) {
         try {
           console.log(`Checking status for video ${video.id} with request_id ${video.request_id}...`);
           
-          // Step 1: Check status endpoint first
-          const statusResponse = await supabase.functions.invoke('check-video-status', {
+          const response = await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
           });
           
-          console.log(`Status check response for ${video.id}:`, statusResponse);
+          console.log(`Status check response for ${video.id}:`, response);
 
-          if (statusResponse.error) {
-            console.error('Error checking status:', statusResponse.error);
-            return;
+          if (response.error) {
+            if (response.error.message.includes('Polling timed out')) {
+              console.log(`Video ${video.id} still processing...`);
+              continue;
+            }
+            console.error('Error checking status:', response.error);
           }
 
-          // Step 2: Only proceed to fetch video URL if status is completed
-          if (statusResponse.data?.status === 'completed') {
-            console.log(`Video ${video.id} is marked as completed, fetching final URL...`);
-            
-            // Step 3: Fetch the final video URL
-            const resultResponse = await supabase.functions.invoke('fetch-video-result', {
-              body: { request_id: video.request_id },
-            });
-            
-            console.log(`Result URL fetch response for ${video.id}:`, resultResponse);
-
-            if (resultResponse.error) {
-              console.error('Error fetching result:', resultResponse.error);
-              return;
-            }
-
-            if (resultResponse.data?.video_url) {
-              console.log(`Successfully retrieved video URL for ${video.id}`);
-            }
-          } else {
-            console.log(`Video ${video.id} is still processing... Status:`, statusResponse.data?.status);
+          if (response.data?.status === 'completed') {
+            await refetchVideos();
           }
         } catch (error) {
           console.error(`Error processing video ${video.id}:`, error);
         }
-      });
-
-      await Promise.all(checkPromises);
-      await refetchVideos();
+      }
     };
 
-    // Check every 10 seconds
     const interval = setInterval(checkPendingVideos, 10000);
     checkPendingVideos(); // Initial check
 

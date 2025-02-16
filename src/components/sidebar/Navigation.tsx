@@ -24,31 +24,37 @@ export const Navigation = () => {
   const mainNavigation = [
     {
       name: "AI Agent",
+      subtext: "Powered by ChatGPT-4",
       to: "/ai-agent",
       icon: GalleryHorizontalEnd,
     },
     {
       name: "Stories",
+      subtext: "Powered by King AI",
       to: "/",
       icon: ScrollText,
     },
     {
       name: "Product Shoot",
+      subtext: "Powered by Fal.ai",
       to: "/product-shoot",
       icon: Image,
     },
     {
       name: "Image to Video",
+      subtext: "Powered by Kling AI",
       to: "/image-to-video",
       icon: FileVideo,
     },
     {
       name: "Faceless Video",
+      subtext: "Powered by Kling AI",
       to: "/create-video",
       icon: Video,
     },
     {
       name: "Metadata Manager",
+      subtext: "Powered by ChatGPT-4",
       to: "/metadata",
       icon: Database,
     },
@@ -94,8 +100,15 @@ export const Navigation = () => {
                 location.pathname === item.to && "bg-gray-800 text-white"
               )}
             >
-              <item.icon className="mr-2 h-4 w-4" />
-              {item.name}
+              <div className="flex items-center">
+                <item.icon className="mr-2 h-4 w-4" />
+                <div>
+                  <div>{item.name}</div>
+                  {item.subtext && (
+                    <div className="text-xs text-gray-500">{item.subtext}</div>
+                  )}
+                </div>
+              </div>
             </Button>
           </Link>
         ))}

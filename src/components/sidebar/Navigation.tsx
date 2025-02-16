@@ -9,6 +9,7 @@ import {
   Settings,
   FileVideo,
   Image,
+  Database,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 
@@ -25,6 +26,11 @@ export const Navigation = () => {
       name: "Product Shoot",
       to: "/product-shoot",
       icon: Image,
+    },
+    {
+      name: "Metadata Manager",
+      to: "/metadata",
+      icon: Database,
     },
     {
       name: "Image to Video",

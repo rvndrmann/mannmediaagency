@@ -113,7 +113,7 @@ export const Navigation = () => {
                       <img 
                         src={item.logo} 
                         alt={`${item.name} provider logo`} 
-                        className="h-4 w-4 object-contain"
+                        className="h-5 w-5 object-contain" // Changed from h-4 w-4 to h-5 w-5
                       />
                     )}
                     <div className="text-xs text-gray-500">{item.subtext}</div>

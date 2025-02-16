@@ -218,4 +218,3 @@ const ProductShoot = () => {
 };
 
 export default ProductShoot;
-

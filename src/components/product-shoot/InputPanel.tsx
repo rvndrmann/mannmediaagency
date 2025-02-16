@@ -1,9 +1,9 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { ImageUploader } from "./ImageUploader";
-import { ImageIcon, Loader2, CreditCard } from "lucide-react";
+import { Video, Loader2, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Select,
@@ -91,32 +91,36 @@ export function InputPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="square_hd">Square HD</SelectItem>
-              <SelectItem value="portrait_hd">Portrait HD</SelectItem>
-              <SelectItem value="landscape_hd">Landscape HD</SelectItem>
+              <SelectItem value="square">Square</SelectItem>
+              <SelectItem value="portrait_4_3">Portrait 4:3</SelectItem>
+              <SelectItem value="portrait_16_9">Portrait 16:9</SelectItem>
+              <SelectItem value="landscape_4_3">Landscape 4:3</SelectItem>
+              <SelectItem value="landscape_16_9">Landscape 16:9</SelectItem>
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
           <Label className="text-white">Inference Steps: {inferenceSteps}</Label>
-          <Slider
-            value={[inferenceSteps]}
-            onValueChange={(value) => onInferenceStepsChange(value[0])}
-            min={1}
-            max={20}
-            step={1}
+          <input
+            type="range"
+            min="1"
+            max="20"
+            value={inferenceSteps}
+            onChange={(e) => onInferenceStepsChange(Number(e.target.value))}
             className="w-full"
           />
         </div>
 
         <div className="space-y-2">
           <Label className="text-white">Guidance Scale: {guidanceScale}</Label>
-          <Slider
-            value={[guidanceScale]}
-            onValueChange={(value) => onGuidanceScaleChange(value[0])}
-            min={1}
-            max={7}
-            step={0.1}
+          <input
+            type="range"
+            min="1"
+            max="7"
+            step="0.1"
+            value={guidanceScale}
+            onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
             className="w-full"
           />
         </div>
@@ -146,7 +150,7 @@ export function InputPanel({
             </>
           ) : (
             <>
-              <ImageIcon className="mr-2 h-4 w-4" />
+              <Video className="mr-2 h-4 w-4" />
               <CreditCard className="mr-2 h-4 w-4" />
               Generate Image (0.2 credits)
             </>

@@ -59,7 +59,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4-mini',
         messages: [
           {
             role: 'system',
@@ -80,10 +80,19 @@ serve(async (req) => {
     }
 
     const completion = await response.json();
-    let metadata;
+    console.log('OpenAI response:', completion.choices[0].message.content);
     
+    let metadata;
     try {
       metadata = JSON.parse(completion.choices[0].message.content);
+      
+      // Validate required fields
+      const requiredFields = ['seo_title', 'seo_description', 'keywords', 'instagram_hashtags', 'product_context'];
+      for (const field of requiredFields) {
+        if (!metadata[field]) {
+          throw new Error(`Missing required field: ${field}`);
+        }
+      }
     } catch (error) {
       console.error('Failed to parse OpenAI response:', completion.choices[0].message.content);
       throw new Error('Invalid metadata format received from OpenAI');
@@ -92,7 +101,6 @@ serve(async (req) => {
     console.log('Successfully generated metadata, updating database');
 
     // Update the database with generated metadata
-    // Note: Removed metadata_regeneration_count from upsert to let triggers handle it
     const { error: upsertError } = await supabase
       .from('product_image_metadata')
       .upsert({

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -66,16 +65,14 @@ const ImageToVideo = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data || [];
     },
     enabled: !!session,
-    refetchInterval: (data) => {
+    refetchInterval: (data: VideoGenerationJob[] | undefined) => {
       if (!data) return false;
       
       const hasPendingVideos = data.some(
-        (video: VideoGenerationJob) => 
-          video.status === 'pending' || 
-          video.status === 'processing'
+        video => video.status === 'pending' || video.status === 'processing'
       );
       
       return hasPendingVideos ? 3000 : false;

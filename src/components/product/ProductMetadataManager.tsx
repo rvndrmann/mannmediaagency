@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { ProductImageMetadata } from "./ProductImageMetadata";
 import { Button } from "@/components/ui/button";
 import { Download, RefreshCw, Loader2, CreditCard } from "lucide-react";
@@ -68,26 +68,25 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
         throw new Error("Insufficient credits. You need 0.20 credits to generate metadata.");
       }
 
-      const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-product-metadata`, {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
+      const { data, error } = await supabase.functions.invoke('generate-product-metadata', {
+        body: {
           imageJobId,
           prompt: imageJob.prompt,
           additionalContext,
           customTitleTwist,
-        }),
+        },
       });
 
-      if (!response.ok) {
-        const error = await response.json();
+      if (error) {
+        console.error("Edge function error:", error);
         throw new Error(error.message || "Failed to generate metadata");
       }
 
-      return response.json();
+      if (!data) {
+        throw new Error("No data received from metadata generation");
+      }
+
+      return data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-metadata", imageJobId] });

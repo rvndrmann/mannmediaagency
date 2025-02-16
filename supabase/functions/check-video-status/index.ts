@@ -52,7 +52,7 @@ serve(async (req) => {
 
     let pollCount = 0;
 
-    // Get the job creation time to calculate elapsed time
+    // Get the job creation time
     const { data: job } = await supabaseClient
       .from('video_generation_jobs')
       .select('created_at')
@@ -60,11 +60,13 @@ serve(async (req) => {
       .single();
 
     const createdAt = job?.created_at ? new Date(job.created_at) : new Date();
-    const now = new Date();
-    const elapsedMinutes = (now.getTime() - createdAt.getTime()) / (1000 * 60);
 
     while (pollCount < MAX_POLLS) {
       console.log(`Polling attempt ${pollCount + 1}/${MAX_POLLS}`);
+      
+      // Calculate elapsed time inside the loop
+      const currentTime = new Date();
+      const elapsedMinutes = (currentTime.getTime() - createdAt.getTime()) / (1000 * 60);
       
       // Step 1: Check status
       const statusResponse = await fetch(

@@ -72,53 +72,42 @@ serve(async (req) => {
     const statusResult = await statusResponse.json();
     console.log('FAL.ai Status Response:', statusResult);
 
-    let status = 'processing';
-    let videoUrl = null;
+    let status = currentJob.status;
     let progress = currentJob.progress || 0;
 
-    // Calculate progress based on FAL.ai status
     if (statusResult.status === 'completed') {
-      console.log('Status is completed, fetching final result...');
+      // If completed, trigger the retrieve-video-result function
       try {
-        // Get the final result using the GET endpoint
-        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
-          method: 'GET',
+        const retrieveResponse = await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/retrieve-video-result`, {
+          method: 'POST',
           headers: {
-            'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
             'Content-Type': 'application/json'
           },
+          body: JSON.stringify({ request_id })
         });
 
-        if (!resultResponse.ok) {
-          throw new Error(`Failed to fetch result: ${resultResponse.statusText}`);
+        if (!retrieveResponse.ok) {
+          throw new Error('Failed to retrieve video result');
         }
 
-        const result = await resultResponse.json();
-        console.log('Final result response:', result);
-
-        if (result.video_url) {
-          status = 'completed';
-          videoUrl = result.video_url;
-          progress = 100;
-          
-          console.log('Video generation completed successfully:', {
-            request_id,
-            status,
-            video_url: videoUrl,
-          });
-        } else {
-          throw new Error('No video URL in completed result');
-        }
+        const retrieveResult = await retrieveResponse.json();
+        return new Response(JSON.stringify(retrieveResult), {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        });
       } catch (error) {
-        console.error('Error fetching completed video:', error);
-        throw new Error(`Failed to fetch completed video: ${error.message}`);
+        console.error('Error retrieving video result:', error);
+        throw error;
       }
     } else if (statusResult.status === 'failed') {
       status = 'failed';
       progress = 0;
       console.error('Video generation failed:', statusResult);
     } else if (statusResult.status === 'processing') {
-      // Estimate progress based on processing state
+      status = 'processing';
       progress = Math.min(Math.round((statusResult.progress || 0) * 100), 99);
       console.log('Processing progress:', progress);
     }
@@ -128,7 +117,6 @@ serve(async (req) => {
       .from('video_generation_jobs')
       .update({ 
         status,
-        result_url: videoUrl,
         progress,
         updated_at: new Date().toISOString()
       })
@@ -139,16 +127,14 @@ serve(async (req) => {
       throw updateError;
     }
 
-    console.log('Successfully updated database with:', {
+    console.log('Successfully updated database with status:', {
       status,
-      result_url: videoUrl,
       progress
     });
 
     return new Response(
       JSON.stringify({ 
         status,
-        video_url: videoUrl,
         progress
       }),
       { 

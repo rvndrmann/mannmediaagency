@@ -19,7 +19,7 @@ interface VideoGenerationJob {
   prompt: string;
   progress?: number;
   user_id: string;
-  retry_count: number;
+  retry_count?: number; // Made optional since it might not exist in all records
 }
 
 const ImageToVideo = () => {
@@ -67,7 +67,11 @@ const ImageToVideo = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return (data || []) as VideoGenerationJob[];
+      // Ensure each record has retry_count, defaulting to 0 if not present
+      return (data || []).map(video => ({
+        ...video,
+        retry_count: video.retry_count || 0
+      })) as VideoGenerationJob[];
     },
     enabled: !!session,
     refetchInterval: (query) => {
@@ -96,11 +100,11 @@ const ImageToVideo = () => {
         return;
       }
 
-      const checkPromises = pendingVideos.map(async (video) => {
+      const checkPromises = (pendingVideos || []).map(async (video) => {
         const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
         
-        // Only mark as failed if it's been more than 30 minutes
-        if (elapsedMinutes > 30 && video.retry_count >= 5) {
+        // Only mark as failed if it's been more than 30 minutes and has been retried 5 times
+        if (elapsedMinutes > 30 && (video.retry_count || 0) >= 5) {
           await supabase
             .from('video_generation_jobs')
             .update({ status: 'failed' })

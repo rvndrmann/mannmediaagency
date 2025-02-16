@@ -27,6 +27,26 @@ serve(async (req) => {
       throw new Error('No request_id provided');
     }
 
+    console.log(`Checking status for request_id: ${request_id}`);
+
+    // Get the current job status from our database
+    const { data: currentJob, error: dbError } = await supabaseClient
+      .from('video_generation_jobs')
+      .select('*')
+      .eq('request_id', request_id)
+      .single();
+
+    if (dbError) {
+      console.error('Error fetching job from database:', dbError);
+      throw dbError;
+    }
+
+    if (!currentJob) {
+      throw new Error(`No job found with request_id: ${request_id}`);
+    }
+
+    console.log(`Current job status: ${currentJob.status}, retry count: ${currentJob.retry_count}`);
+
     // Check the status using the GET endpoint
     const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
       method: 'GET',
@@ -39,12 +59,13 @@ serve(async (req) => {
     console.log('FAL.ai Status Response:', statusResult);
 
     if (!statusResponse.ok) {
+      console.error('FAL.ai error response:', statusResult);
       throw new Error(statusResult.error || 'Failed to check video status');
     }
 
     let status = 'processing';
     let videoUrl = null;
-    let progress = 0;
+    let progress = currentJob.progress || 0;
 
     // Calculate progress based on FAL.ai status
     if (statusResult.status === 'completed') {

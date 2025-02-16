@@ -19,6 +19,7 @@ interface VideoGenerationJob {
   prompt: string;
   progress?: number;
   user_id: string;
+  retry_count: number;
 }
 
 const ImageToVideo = () => {
@@ -98,7 +99,8 @@ const ImageToVideo = () => {
       const checkPromises = pendingVideos.map(async (video) => {
         const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
         
-        if (elapsedMinutes > 10) {
+        // Only mark as failed if it's been more than 30 minutes
+        if (elapsedMinutes > 30 && video.retry_count >= 5) {
           await supabase
             .from('video_generation_jobs')
             .update({ status: 'failed' })

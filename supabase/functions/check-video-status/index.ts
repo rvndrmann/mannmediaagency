@@ -13,6 +13,9 @@ interface RequestBody {
   request_id: string;
 }
 
+const POLL_INTERVAL = 1000; // 1 second
+const MAX_POLLS = 60; // Maximum number of status checks
+
 serve(async (req) => {
   const startTime = new Date().toISOString();
   console.log(`[${startTime}] check-video-status function started`);
@@ -46,79 +49,119 @@ serve(async (req) => {
     const falApiKey = Deno.env.get('FAL_AI_API_KEY');
     console.log('FAL API Key available:', !!falApiKey, 'Length:', falApiKey?.length);
 
-    // Use only the status endpoint
-    const falApiUrl = `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`;
-    console.log('Calling FAL API Status URL:', falApiUrl);
+    let pollCount = 0;
+    let result = null;
 
-    const statusResponse = await fetch(falApiUrl, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Key ${falApiKey}`,
-        'Content-Type': 'application/json'
-      },
-    });
+    while (pollCount < MAX_POLLS) {
+      console.log(`Polling attempt ${pollCount + 1}/${MAX_POLLS}`);
+      
+      // Step 1: Check status
+      const statusResponse = await fetch(
+        `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Key ${falApiKey}`,
+            'Content-Type': 'application/json'
+          },
+        }
+      );
 
-    console.log('FAL API Status Response status:', statusResponse.status);
-    console.log('FAL API Status Response headers:', Object.fromEntries(statusResponse.headers.entries()));
+      if (!statusResponse.ok) {
+        const errorText = await statusResponse.text();
+        console.error('Failed to fetch status, response:', errorText);
+        throw new Error(`Failed to fetch status: ${errorText}`);
+      }
 
-    if (!statusResponse.ok) {
-      const errorText = await statusResponse.text();
-      console.error('Failed to fetch status, response:', errorText);
-      throw new Error(`Failed to fetch status: ${errorText}`);
-    }
+      const statusResult = await statusResponse.json();
+      console.log('Status result:', statusResult);
 
-    const statusResult = await statusResponse.json();
-    console.log('FAL API Status Response body:', JSON.stringify(statusResult, null, 2));
+      let status = 'processing';
+      let progress = 0;
 
-    let status = 'processing';
-    let progress = 0;
-
-    // Calculate progress based on status
-    if (statusResult.status === 'completed') {
-      status = 'completed';
-      progress = 100;
-      console.log('Video processing completed! Status will be updated to completed.');
-    } else if (statusResult.status === 'processing') {
-      // Get the job to calculate elapsed time-based progress
-      const { data: currentJob } = await supabaseClient
-        .from('video_generation_jobs')
-        .select('created_at')
-        .eq('request_id', request_id)
-        .single();
-
-      if (currentJob) {
-        const createdAt = new Date(currentJob.created_at);
-        const elapsedMinutes = (Date.now() - createdAt.getTime()) / (1000 * 60);
+      // Calculate progress based on status and poll count
+      if (statusResult.status === 'completed') {
+        status = 'completed';
+        progress = 100;
         
-        if (elapsedMinutes <= 2) {
-          progress = Math.min(Math.round((elapsedMinutes / 2) * 30), 30);
-        } else if (elapsedMinutes <= 5) {
-          progress = Math.min(30 + Math.round(((elapsedMinutes - 2) / 3) * 40), 70);
-        } else {
-          progress = Math.min(70 + Math.round(((elapsedMinutes - 5) / 2) * 29), 99);
+        // Step 2: If completed, get the final result
+        console.log('Status is completed, fetching final result...');
+        const resultResponse = await fetch(
+          `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`,
+          {
+            headers: {
+              'Authorization': `Key ${falApiKey}`
+            }
+          }
+        );
+
+        if (!resultResponse.ok) {
+          throw new Error(`Failed to get result: ${await resultResponse.text()}`);
+        }
+
+        result = await resultResponse.json();
+        
+        // Step 3: Update database with final result
+        if (result.video?.url) {
+          const { error: updateError } = await supabaseClient
+            .from('video_generation_jobs')
+            .update({ 
+              status: 'completed',
+              progress: 100,
+              result_url: result.video.url,
+              updated_at: new Date().toISOString()
+            })
+            .eq('request_id', request_id);
+
+          if (updateError) {
+            console.error('Error updating job with result:', updateError);
+            throw updateError;
+          }
+
+          console.log('Successfully updated job with result URL');
+          return new Response(
+            JSON.stringify({ 
+              status: 'completed', 
+              progress: 100,
+              video_url: result.video.url 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        break;
+      } else if (statusResult.status === 'failed') {
+        throw new Error('Video generation failed');
+      } else {
+        // Calculate progress based on poll count
+        progress = Math.min(Math.round((pollCount / MAX_POLLS) * 90), 99);
+        
+        // Update progress in database
+        const { error: updateError } = await supabaseClient
+          .from('video_generation_jobs')
+          .update({ 
+            status,
+            progress,
+            updated_at: new Date().toISOString()
+          })
+          .eq('request_id', request_id);
+
+        if (updateError) {
+          console.error('Error updating job progress:', updateError);
+          throw updateError;
         }
       }
+
+      // Wait before next poll
+      await new Promise(resolve => setTimeout(resolve, POLL_INTERVAL));
+      pollCount++;
     }
 
-    // Update job status and progress in database
-    console.log(`Updating job status to ${status} with progress ${progress}`);
-    const { error: updateError } = await supabaseClient
-      .from('video_generation_jobs')
-      .update({ 
-        status,
-        progress,
-        updated_at: new Date().toISOString()
-      })
-      .eq('request_id', request_id);
-
-    if (updateError) {
-      console.error('Error updating job:', updateError);
-      throw updateError;
+    if (!result) {
+      throw new Error('Polling timed out');
     }
 
-    console.log('Successfully updated job status');
     return new Response(
-      JSON.stringify({ status, progress }),
+      JSON.stringify({ status: 'processing', progress: 99 }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {

@@ -38,7 +38,6 @@ export const Navigation = () => {
     },
     {
       name: "Product Shoot",
-      subtext: "Powered by Fal.ai",
       logo: "/lovable-uploads/6339ca58-18ce-4e6a-9e56-116de738e55b.png",
       to: "/product-shoot",
       icon: Image,
@@ -118,7 +117,9 @@ export const Navigation = () => {
                         className="h-5 w-5 object-contain"
                       />
                     )}
-                    <div className="text-xs text-gray-500">{item.subtext}</div>
+                    {item.subtext && (
+                      <div className="text-xs text-gray-500">{item.subtext}</div>
+                    )}
                   </div>
                 </div>
               </div>

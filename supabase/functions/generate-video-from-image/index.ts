@@ -69,7 +69,7 @@ serve(async (req) => {
     const { data: job, error: insertError } = await supabaseClient
       .from('video_generation_jobs')
       .insert({
-        user_id: user.id, // Add user_id here
+        user_id: user.id,
         prompt,
         negative_prompt,
         source_image_url: image_url,
@@ -84,11 +84,22 @@ serve(async (req) => {
       .single();
 
     if (insertError) {
-      console.error('Insert error:', insertError); // Add error logging
+      console.error('Insert error:', insertError);
       throw insertError;
     }
 
-    // Start polling for results
+    // Trigger initial status check
+    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        request_id: jsonResponse.request_id
+      }),
+    });
+
     return new Response(
       JSON.stringify({ 
         message: 'Video generation started',

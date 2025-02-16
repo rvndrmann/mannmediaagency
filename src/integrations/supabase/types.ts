@@ -992,6 +992,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_video_generation_status: {
+        Args: {
+          p_request_id: string
+          p_status: string
+          p_result_url?: string
+        }
+        Returns: undefined
+      }
     }
     Enums: {
       image_generation_status: "pending" | "processing" | "completed" | "failed"

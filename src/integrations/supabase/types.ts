@@ -850,6 +850,48 @@ export type Database = {
           },
         ]
       }
+      video_generation_jobs: {
+        Row: {
+          created_at: string
+          id: string
+          negative_prompt: string | null
+          prompt: string
+          request_id: string | null
+          result_url: string | null
+          settings: Json
+          source_image_url: string
+          status: Database["public"]["Enums"]["video_generation_status"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          negative_prompt?: string | null
+          prompt: string
+          request_id?: string | null
+          result_url?: string | null
+          settings?: Json
+          source_image_url: string
+          status?: Database["public"]["Enums"]["video_generation_status"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          negative_prompt?: string | null
+          prompt?: string
+          request_id?: string | null
+          result_url?: string | null
+          settings?: Json
+          source_image_url?: string
+          status?: Database["public"]["Enums"]["video_generation_status"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       video_projects: {
         Row: {
           created_at: string | null
@@ -953,6 +995,7 @@ export type Database = {
     }
     Enums: {
       image_generation_status: "pending" | "processing" | "completed" | "failed"
+      video_generation_status: "pending" | "processing" | "completed" | "failed"
     }
     CompositeTypes: {
       [_ in never]: never

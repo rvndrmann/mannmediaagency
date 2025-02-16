@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +9,17 @@ import { InputPanel } from "@/components/image-to-video/InputPanel";
 import { GalleryPanel } from "@/components/image-to-video/GalleryPanel";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+
+interface VideoGenerationJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  request_id: string;
+  result_url?: string;
+  prompt: string;
+  progress?: number;
+  user_id: string;
+}
 
 const ImageToVideo = () => {
   const isMobile = useIsMobile();
@@ -45,7 +57,7 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
-  const { data: videos, isLoading: videosLoading, refetch: refetchVideos } = useQuery({
+  const { data: videos, isLoading: videosLoading, refetch: refetchVideos } = useQuery<VideoGenerationJob[]>({
     queryKey: ["videos"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -58,9 +70,14 @@ const ImageToVideo = () => {
     },
     enabled: !!session,
     refetchInterval: (data) => {
-      const hasPendingVideos = data?.some(
-        video => video.status === 'pending' || video.status === 'processing'
+      if (!data) return false;
+      
+      const hasPendingVideos = data.some(
+        (video: VideoGenerationJob) => 
+          video.status === 'pending' || 
+          video.status === 'processing'
       );
+      
       return hasPendingVideos ? 3000 : false;
     },
     retry: 3,

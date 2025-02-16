@@ -5,13 +5,9 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Methods': 'GET, OPTIONS',
   'Access-Control-Max-Age': '86400',
 };
-
-interface RequestBody {
-  request_id: string;
-}
 
 interface FalVideoResponse {
   video?: {
@@ -33,6 +29,20 @@ serve(async (req) => {
     });
   }
 
+  // Only allow GET requests
+  if (req.method !== 'GET') {
+    return new Response(
+      JSON.stringify({ error: 'Method not allowed' }),
+      { 
+        status: 405,
+        headers: { 
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
+      }
+    );
+  }
+
   try {
     console.log('Initializing Supabase client...');
     const supabaseClient = createClient(
@@ -40,12 +50,12 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const body = await req.json();
-    console.log('Received request body:', body);
-
-    const { request_id }: RequestBody = body;
+    // Get request_id from URL parameters
+    const url = new URL(req.url);
+    const request_id = url.searchParams.get('request_id');
+    
     if (!request_id) {
-      console.error('No request_id provided in request body');
+      console.error('No request_id provided in URL parameters');
       throw new Error('No request_id provided');
     }
 

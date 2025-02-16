@@ -71,7 +71,7 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
       const response = await fetch(`${SUPABASE_URL}/functions/v1/generate-product-metadata`, {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${process.env.VITE_SUPABASE_ANON_KEY}`,
+          "Authorization": `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           "Content-Type": "application/json",
         },
         body: JSON.stringify({

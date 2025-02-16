@@ -852,7 +852,12 @@ export type Database = {
       }
       video_generation_jobs: {
         Row: {
+          aspect_ratio: string | null
+          content_type: string | null
           created_at: string
+          duration: string | null
+          file_name: string | null
+          file_size: number | null
           id: string
           negative_prompt: string | null
           prompt: string
@@ -865,7 +870,12 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          aspect_ratio?: string | null
+          content_type?: string | null
           created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
           negative_prompt?: string | null
           prompt: string
@@ -878,7 +888,12 @@ export type Database = {
           user_id: string
         }
         Update: {
+          aspect_ratio?: string | null
+          content_type?: string | null
           created_at?: string
+          duration?: string | null
+          file_name?: string | null
+          file_size?: number | null
           id?: string
           negative_prompt?: string | null
           prompt?: string

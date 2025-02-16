@@ -46,7 +46,7 @@ serve(async (req) => {
     const falApiKey = Deno.env.get('FAL_AI_API_KEY');
     console.log('FAL API Key available:', !!falApiKey, 'Length:', falApiKey?.length);
 
-    // Use the specific status endpoint
+    // Use only the status endpoint
     const falApiUrl = `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`;
     console.log('Calling FAL API Status URL:', falApiUrl);
 
@@ -77,6 +77,7 @@ serve(async (req) => {
     if (statusResult.status === 'completed') {
       status = 'completed';
       progress = 100;
+      console.log('Video processing completed! Status will be updated to completed.');
     } else if (statusResult.status === 'processing') {
       // Get the job to calculate elapsed time-based progress
       const { data: currentJob } = await supabaseClient

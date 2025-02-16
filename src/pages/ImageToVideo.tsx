@@ -134,37 +134,48 @@ const ImageToVideo = () => {
         return;
       }
 
-      console.log("Found pending videos:", pendingVideos);
+      console.log("Found pending videos:", pendingVideos?.length);
 
       const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
         try {
           console.log(`Checking status for video ${video.id} with request_id ${video.request_id}...`);
           
-          // First check status
+          // Step 1: Check status endpoint first
           const statusResponse = await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
           });
-          console.log('Status response:', statusResponse);
+          
+          console.log(`Status check response for ${video.id}:`, statusResponse);
 
           if (statusResponse.error) {
             console.error('Error checking status:', statusResponse.error);
             return;
           }
 
-          // If status is completed, fetch the result URL
+          // Step 2: Only proceed to fetch video URL if status is completed
           if (statusResponse.data?.status === 'completed') {
-            console.log(`Video ${video.id} is completed, fetching final URL...`);
+            console.log(`Video ${video.id} is marked as completed, fetching final URL...`);
+            
+            // Step 3: Fetch the final video URL
             const resultResponse = await supabase.functions.invoke('fetch-video-result', {
               body: { request_id: video.request_id },
             });
-            console.log('Result response:', resultResponse);
+            
+            console.log(`Result URL fetch response for ${video.id}:`, resultResponse);
 
             if (resultResponse.error) {
               console.error('Error fetching result:', resultResponse.error);
+              return;
             }
+
+            if (resultResponse.data?.video_url) {
+              console.log(`Successfully retrieved video URL for ${video.id}`);
+            }
+          } else {
+            console.log(`Video ${video.id} is still processing... Status:`, statusResponse.data?.status);
           }
         } catch (error) {
-          console.error('Error in check/fetch cycle:', error);
+          console.error(`Error processing video ${video.id}:`, error);
         }
       });
 

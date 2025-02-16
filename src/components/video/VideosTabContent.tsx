@@ -1,5 +1,6 @@
 
 import { VideoMetadataManager } from "@/components/video/VideoMetadataManager";
+import { InFeedAd } from "@/components/ads/InFeedAd";
 
 interface VideoData {
   id: string;
@@ -21,29 +22,32 @@ export const VideosTabContent = ({ videos, selectedId, onVideoSelect, showMetada
     <div className="flex gap-6">
       <div className="w-1/3">
         <div className="space-y-4">
-          {videos?.map((video) => (
-            <div
-              key={video.id}
-              className={`p-4 rounded-lg cursor-pointer transition-colors ${
-                video.id === selectedId
-                  ? "bg-purple-600"
-                  : "bg-gray-800 hover:bg-gray-700"
-              }`}
-              onClick={() => onVideoSelect(video.id)}
-            >
-              {video.result_url && (
-                <video
-                  src={video.result_url}
-                  className="w-full h-32 object-cover rounded-md mb-2"
-                />
-              )}
-              <p className="text-sm text-white/90 line-clamp-2">
-                {video.prompt}
-              </p>
-              <p className="text-xs text-white/60 mt-1">
-                {new Date(video.created_at).toLocaleDateString()}
-              </p>
-            </div>
+          {videos?.map((video, index) => (
+            <>
+              <div
+                key={video.id}
+                className={`p-4 rounded-lg cursor-pointer transition-colors ${
+                  video.id === selectedId
+                    ? "bg-purple-600"
+                    : "bg-gray-800 hover:bg-gray-700"
+                }`}
+                onClick={() => onVideoSelect(video.id)}
+              >
+                {video.result_url && (
+                  <video
+                    src={video.result_url}
+                    className="w-full h-32 object-cover rounded-md mb-2"
+                  />
+                )}
+                <p className="text-sm text-white/90 line-clamp-2">
+                  {video.prompt}
+                </p>
+                <p className="text-xs text-white/60 mt-1">
+                  {new Date(video.created_at).toLocaleDateString()}
+                </p>
+              </div>
+              {(index + 1) % 3 === 0 && <InFeedAd key={`ad-${index}`} />}
+            </>
           ))}
         </div>
       </div>

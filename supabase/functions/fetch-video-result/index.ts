@@ -13,9 +13,16 @@ interface RequestBody {
   request_id: string;
 }
 
+interface FalVideoResponse {
+  video?: {
+    url: string;
+  };
+}
+
 serve(async (req) => {
-  // Log the start of function execution
-  console.log('fetch-video-result function started');
+  // Log the start of function execution with timestamp
+  const startTime = new Date().toISOString();
+  console.log(`[${startTime}] fetch-video-result function started`);
   console.log('Request method:', req.method);
   
   if (req.method === 'OPTIONS') {
@@ -42,28 +49,35 @@ serve(async (req) => {
       throw new Error('No request_id provided');
     }
 
-    console.log(`Fetching result for request_id: ${request_id}`);
-    console.log('FAL API Key available:', !!Deno.env.get('FAL_AI_API_KEY'));
+    console.log(`[${new Date().toISOString()}] Fetching result for request_id: ${request_id}`);
+    const falApiKey = Deno.env.get('FAL_AI_API_KEY');
+    console.log('FAL API Key available:', !!falApiKey, 'Length:', falApiKey?.length);
 
-    const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
+    const falApiUrl = `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`;
+    console.log('Calling FAL API URL:', falApiUrl);
+
+    const resultResponse = await fetch(falApiUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+        'Authorization': `Key ${falApiKey}`,
         'Content-Type': 'application/json'
       },
     });
 
-    console.log('Result response status:', resultResponse.status);
+    console.log('FAL API Response status:', resultResponse.status);
+    console.log('FAL API Response headers:', Object.fromEntries(resultResponse.headers.entries()));
+
     if (!resultResponse.ok) {
-      console.error('Failed to fetch result, response:', await resultResponse.text());
-      throw new Error('Failed to fetch result');
+      const errorText = await resultResponse.text();
+      console.error('Failed to fetch result, response:', errorText);
+      throw new Error(`Failed to fetch result: ${errorText}`);
     }
 
-    const result = await resultResponse.json();
-    console.log('Result response:', result);
+    const result: FalVideoResponse = await resultResponse.json();
+    console.log('FAL API Response body:', JSON.stringify(result, null, 2));
 
-    if (result.video_url) {
-      console.log('Video URL found:', result.video_url);
+    if (result.video?.url) {
+      console.log('Video URL found:', result.video.url);
       console.log('Updating job with result URL...');
       
       const { error: updateError } = await supabaseClient
@@ -71,7 +85,7 @@ serve(async (req) => {
         .update({ 
           status: 'completed',
           progress: 100,
-          result_url: result.video_url,
+          result_url: result.video.url,
           updated_at: new Date().toISOString()
         })
         .eq('request_id', request_id);
@@ -85,22 +99,28 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           status: 'completed', 
-          video_url: result.video_url 
+          video_url: result.video.url 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    console.log('No video URL found yet, still processing');
+    console.log('No video URL found in response, still processing');
     return new Response(
       JSON.stringify({ status: 'processing' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('Function error:', error);
+    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
+    console.error(`[${new Date().toISOString()}] Function error:`, errorMessage);
+    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
+    
     return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : 'An unknown error occurred' }),
-      { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: errorMessage }),
+      { 
+        status: 400, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
     );
   }
 });

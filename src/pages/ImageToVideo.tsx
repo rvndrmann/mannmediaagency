@@ -108,6 +108,12 @@ const ImageToVideo = () => {
       return;
     }
 
+    if (!session?.access_token) {
+      toast.error("Please login to generate videos");
+      navigate("/auth/login");
+      return;
+    }
+
     try {
       setIsGenerating(true);
 
@@ -134,13 +140,16 @@ const ImageToVideo = () => {
 
       console.log('Public URL:', publicUrl); // Debug log
 
-      // Generate video
+      // Generate video with auth token
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           prompt: prompt.trim(),
           image_url: publicUrl,
           num_inference_steps: inferenceSteps,
           guidance_scale: guidanceScale,
+        },
+        headers: {
+          Authorization: `Bearer ${session.access_token}`,
         },
       });
 

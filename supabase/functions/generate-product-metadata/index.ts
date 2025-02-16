@@ -17,29 +17,24 @@ interface Metadata {
 }
 
 function validateMetadata(metadata: Metadata): void {
-  // Validate SEO title length
   if (metadata.seo_title.length > 60) {
     throw new Error('SEO title must not exceed 60 characters');
   }
 
-  // Validate SEO description length
   if (metadata.seo_description.length > 160) {
     throw new Error('SEO description must not exceed 160 characters');
   }
 
-  // Validate keywords count
   const keywordCount = metadata.keywords.split(',').length;
   if (keywordCount < 10 || keywordCount > 15) {
     throw new Error('Keywords must contain between 10 and 15 items');
   }
 
-  // Validate hashtag count
   const hashtagCount = metadata.instagram_hashtags.split(' ').length;
   if (hashtagCount < 20 || hashtagCount > 30) {
     throw new Error('Instagram hashtags must contain between 20 and 30 items');
   }
 
-  // Validate product context
   if (!metadata.product_context || metadata.product_context.trim().length === 0) {
     throw new Error('Product context cannot be empty');
   }
@@ -78,11 +73,15 @@ serve(async (req) => {
     const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Check existing metadata and regeneration count
-    const { data: existingMetadata } = await supabase
+    const { data: existingMetadata, error: fetchError } = await supabase
       .from('product_image_metadata')
       .select('metadata_regeneration_count')
       .eq('image_job_id', imageJobId)
       .maybeSingle();
+
+    if (fetchError) {
+      throw fetchError;
+    }
 
     const regenerationCount = existingMetadata?.metadata_regeneration_count || 0;
     if (regenerationCount >= 3) {
@@ -99,7 +98,7 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4',
         messages: [
           {
             role: 'system',
@@ -135,8 +134,6 @@ serve(async (req) => {
     let metadata: Metadata;
     try {
       metadata = JSON.parse(completion.choices[0].message.content);
-      
-      // Validate metadata structure and content
       validateMetadata(metadata);
     } catch (error) {
       console.error('Failed to parse or validate OpenAI response:', error);
@@ -146,7 +143,7 @@ serve(async (req) => {
 
     console.log('Successfully validated metadata:', metadata);
 
-    // Update the database with generated metadata
+    // Upsert the metadata
     const { error: upsertError } = await supabase
       .from('product_image_metadata')
       .upsert({

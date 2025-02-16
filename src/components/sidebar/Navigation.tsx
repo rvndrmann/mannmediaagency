@@ -43,7 +43,7 @@ export const Navigation = () => {
       icon: FileVideo,
     },
     {
-      name: "Video Editor",
+      name: "Create Video",
       to: "/create-video",
       icon: Video,
     },

@@ -151,9 +151,9 @@ const ImageToVideo = () => {
             return;
           }
 
+          // If status is completed, fetch the result URL
           if (statusResponse.data?.status === 'completed') {
-            // If status is completed, fetch the result
-            console.log(`Fetching result for completed video ${video.id}...`);
+            console.log(`Video ${video.id} is completed, fetching final URL...`);
             const resultResponse = await supabase.functions.invoke('fetch-video-result', {
               body: { request_id: video.request_id },
             });

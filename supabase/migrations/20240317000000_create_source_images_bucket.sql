@@ -1,7 +1,4 @@
 
--- Create the source-images bucket
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('source-images', 'source-images', true);
 
 -- Allow authenticated users to upload files to the bucket
 CREATE POLICY "Allow authenticated users to upload files"
@@ -22,3 +19,4 @@ USING (
   bucket_id = 'source-images' 
   AND auth.role() = 'authenticated'
 );
+

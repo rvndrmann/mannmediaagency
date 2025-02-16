@@ -7,9 +7,22 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface DynamicMask {
+  mask_url: string;
+  trajectories: Array<{
+    x: number;
+    y: number;
+  }>;
+}
+
 interface RequestBody {
   prompt: string;
   image_url: string;
+  duration?: "5" | "10";
+  aspect_ratio?: "16:9" | "9:16" | "1:1";
+  tail_image_url?: string;
+  static_mask_url?: string;
+  dynamic_masks?: DynamicMask[];
 }
 
 serve(async (req) => {
@@ -23,23 +36,33 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get the user ID from the authorization header
-    const authHeader = req.headers.get('authorization')?.split('Bearer ')[1];
+    // Get the authenticated user's ID from the request
+    const authHeader = req.headers.get('Authorization')?.split('Bearer ')[1];
     if (!authHeader) {
-      throw new Error('No authorization header');
+      throw new Error('No auth token provided');
     }
 
-    // Verify the JWT and get the user
     const { data: { user }, error: authError } = await supabaseClient.auth.getUser(authHeader);
-    
     if (authError || !user) {
       throw new Error('Unauthorized');
     }
 
-    const requestData: RequestBody = await req.json();
-    const { prompt, image_url } = requestData;
+    const {
+      prompt,
+      image_url,
+      duration = "5",
+      aspect_ratio = "16:9",
+      tail_image_url,
+      static_mask_url,
+      dynamic_masks,
+    }: RequestBody = await req.json();
 
-    // Submit request to FAL.AI using Kling
+    // Validate required fields
+    if (!prompt || !image_url) {
+      throw new Error('Missing required fields: prompt and image_url are required');
+    }
+
+    // Submit request to FAL AI
     const response = await fetch('https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video', {
       method: 'POST',
       headers: {
@@ -49,26 +72,39 @@ serve(async (req) => {
       body: JSON.stringify({
         prompt,
         image_url,
+        duration,
+        aspect_ratio,
+        ...(tail_image_url && { tail_image_url }),
+        ...(static_mask_url && { static_mask_url }),
+        ...(dynamic_masks && { dynamic_masks }),
       }),
     });
 
-    const jsonResponse = await response.json();
-    console.log('Kling AI Response:', jsonResponse);
-
     if (!response.ok) {
-      throw new Error(jsonResponse.error || 'Failed to submit video generation request');
+      const error = await response.json();
+      console.error('FAL AI Error:', error);
+      throw new Error(error.error || 'Failed to submit video generation request');
     }
 
-    // Create job record in database with user_id
+    const result = await response.json();
+    console.log('FAL AI Response:', result);
+
+    // Create job record in database
     const { data: job, error: insertError } = await supabaseClient
       .from('video_generation_jobs')
       .insert({
         user_id: user.id,
         prompt,
         source_image_url: image_url,
-        request_id: jsonResponse.request_id,
-        settings: {},
+        request_id: result.request_id,
         status: 'processing',
+        duration,
+        aspect_ratio,
+        settings: {
+          tail_image_url,
+          static_mask_url,
+          dynamic_masks,
+        },
       })
       .select()
       .single();
@@ -78,23 +114,11 @@ serve(async (req) => {
       throw insertError;
     }
 
-    // Trigger initial status check
-    await fetch(`${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        request_id: jsonResponse.request_id
-      }),
-    });
-
     return new Response(
       JSON.stringify({ 
         message: 'Video generation started',
         jobId: job.id,
-        requestId: jsonResponse.request_id
+        requestId: result.request_id
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

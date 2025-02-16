@@ -10,6 +10,13 @@ import {
   CollapsibleContent,
   CollapsibleTrigger,
 } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -22,6 +29,10 @@ interface InputPanelProps {
   onGenerate: () => void;
   isGenerating: boolean;
   creditsRemaining: number | null;
+  duration: string;
+  onDurationChange: (value: string) => void;
+  aspectRatio: string;
+  onAspectRatioChange: (value: string) => void;
 }
 
 export function InputPanel({
@@ -35,6 +46,10 @@ export function InputPanel({
   onGenerate,
   isGenerating,
   creditsRemaining,
+  duration,
+  onDurationChange,
+  aspectRatio,
+  onAspectRatioChange,
 }: InputPanelProps) {
   return (
     <div className={cn(
@@ -56,8 +71,8 @@ export function InputPanel({
           onFileSelect={onFileSelect}
           onClear={onClearFile}
           onSelectFromHistory={onSelectFromHistory}
-          aspectRatio={768/512}
-          helpText="Upload an image (768x512 recommended)"
+          aspectRatio={aspectRatio === "16:9" ? 16/9 : aspectRatio === "9:16" ? 9/16 : 1}
+          helpText="Upload an image (recommended aspect ratio)"
         />
 
         <div className="space-y-2">
@@ -68,6 +83,35 @@ export function InputPanel({
             onChange={(e) => onPromptChange(e.target.value)}
             className="min-h-[100px] bg-gray-900 border-gray-700 text-white"
           />
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label className="text-white">Duration</Label>
+            <Select value={duration} onValueChange={onDurationChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select duration" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="5">5 seconds</SelectItem>
+                <SelectItem value="10">10 seconds</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-white">Aspect Ratio</Label>
+            <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select aspect ratio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="16:9">16:9</SelectItem>
+                <SelectItem value="9:16">9:16</SelectItem>
+                <SelectItem value="1:1">1:1</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </div>
 
         <Collapsible>

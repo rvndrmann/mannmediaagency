@@ -18,6 +18,8 @@ const ImageToVideo = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [duration, setDuration] = useState<string>("5");
+  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
 
   // Check authentication status
   const { data: session } = useQuery({
@@ -127,7 +129,6 @@ const ImageToVideo = () => {
       let publicUrl = selectedImageUrl;
 
       if (selectedFile) {
-        // Upload image to get URL
         const fileExt = selectedFile.name.split('.').pop();
         const filePath = `${Date.now()}.${fileExt}`;
         
@@ -158,6 +159,8 @@ const ImageToVideo = () => {
         body: {
           prompt: prompt.trim(),
           image_url: publicUrl,
+          duration,
+          aspect_ratio: aspectRatio,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -209,6 +212,10 @@ const ImageToVideo = () => {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           creditsRemaining={userCredits?.credits_remaining}
+          duration={duration}
+          onDurationChange={setDuration}
+          aspectRatio={aspectRatio}
+          onAspectRatioChange={setAspectRatio}
         />
         <GalleryPanel
           isMobile={isMobile}
@@ -219,6 +226,6 @@ const ImageToVideo = () => {
       </div>
     </div>
   );
-}
+};
 
 export default ImageToVideo;

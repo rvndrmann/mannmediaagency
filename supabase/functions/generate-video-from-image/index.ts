@@ -9,9 +9,6 @@ const corsHeaders = {
 
 interface RequestBody {
   prompt: string;
-  negative_prompt?: string;
-  num_inference_steps?: number;
-  guidance_scale?: number;
   image_url: string;
 }
 
@@ -40,10 +37,10 @@ serve(async (req) => {
     }
 
     const requestData: RequestBody = await req.json();
-    const { prompt, negative_prompt, num_inference_steps, guidance_scale, image_url } = requestData;
+    const { prompt, image_url } = requestData;
 
-    // Submit request to FAL.AI
-    const response = await fetch('https://queue.fal.run/fal-ai/ltx-video/image-to-video', {
+    // Submit request to FAL.AI using Kling
+    const response = await fetch('https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
@@ -51,15 +48,12 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         prompt,
-        negative_prompt: negative_prompt || "low quality, worst quality, deformed, distorted, disfigured, motion smear, motion artifacts, fused fingers, bad anatomy, weird hand, ugly",
-        num_inference_steps: num_inference_steps || 30,
-        guidance_scale: guidance_scale || 3,
         image_url,
       }),
     });
 
     const jsonResponse = await response.json();
-    console.log('FAL.AI Response:', jsonResponse);
+    console.log('Kling AI Response:', jsonResponse);
 
     if (!response.ok) {
       throw new Error(jsonResponse.error || 'Failed to submit video generation request');
@@ -71,13 +65,9 @@ serve(async (req) => {
       .insert({
         user_id: user.id,
         prompt,
-        negative_prompt,
         source_image_url: image_url,
         request_id: jsonResponse.request_id,
-        settings: {
-          num_inference_steps,
-          guidance_scale,
-        },
+        settings: {},
         status: 'processing',
       })
       .select()

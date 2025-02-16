@@ -28,8 +28,8 @@ serve(async (req) => {
       throw new Error('No request_id provided');
     }
 
-    // Check status with FAL.AI
-    const response = await fetch(`https://rest.fal.run/fal-ai/ltx-video/image-to-video/${request_id}`, {
+    // First check the status
+    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
@@ -37,23 +37,44 @@ serve(async (req) => {
       },
     });
 
-    const result = await response.json();
-    console.log('FAL.AI Status Response:', result);
+    const statusResult = await statusResponse.json();
+    console.log('Kling AI Status Response:', statusResult);
 
-    if (!response.ok) {
-      throw new Error(result.error || 'Failed to check video status');
+    if (!statusResponse.ok) {
+      throw new Error(statusResult.error || 'Failed to check video status');
+    }
+
+    let status = 'processing';
+    let videoUrl = null;
+
+    if (statusResult.status === 'completed') {
+      // Get the final result
+      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (resultResponse.ok) {
+        const result = await resultResponse.json();
+        status = 'completed';
+        videoUrl = result.video_url;
+      } else {
+        throw new Error('Failed to fetch completed video result');
+      }
+    } else if (statusResult.status === 'failed') {
+      status = 'failed';
     }
 
     // Update the job status in our database
-    const status = result.status === 'COMPLETED' ? 'completed' : 
-                  result.status === 'FAILED' ? 'failed' : 'processing';
-
     const { error: updateError } = await supabaseClient.rpc(
       'update_video_generation_status',
       { 
         p_request_id: request_id,
         p_status: status,
-        p_result_url: result.video_url
+        p_result_url: videoUrl
       }
     );
 
@@ -65,7 +86,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         status,
-        video_url: result.video_url
+        video_url: videoUrl
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

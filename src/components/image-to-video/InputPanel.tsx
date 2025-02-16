@@ -2,7 +2,6 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Slider } from "@/components/ui/slider";
 import { ImageUploader } from "./ImageUploader";
 import { Video, Loader2, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -19,10 +18,6 @@ interface InputPanelProps {
   previewUrl: string | null;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
-  inferenceSteps: number;
-  onInferenceStepsChange: (value: number) => void;
-  guidanceScale: number;
-  onGuidanceScaleChange: (value: number) => void;
   onGenerate: () => void;
   isGenerating: boolean;
   creditsRemaining: number | null;
@@ -35,10 +30,6 @@ export function InputPanel({
   previewUrl,
   onFileSelect,
   onClearFile,
-  inferenceSteps,
-  onInferenceStepsChange,
-  guidanceScale,
-  onGuidanceScaleChange,
   onGenerate,
   isGenerating,
   creditsRemaining,
@@ -83,41 +74,14 @@ export function InputPanel({
           <CollapsibleContent className="mt-2 text-sm text-gray-400 space-y-2">
             <p>For best results, include:</p>
             <ul className="list-disc pl-4 space-y-1">
-              <li>Main action in a single sentence</li>
-              <li>Specific movements and gestures</li>
-              <li>Character/object appearances</li>
-              <li>Background and environment</li>
-              <li>Camera angles and movements</li>
-              <li>Lighting and colors</li>
+              <li>Main action or movement you want to see</li>
+              <li>Character/object movements and gestures</li>
+              <li>Camera movements (if desired)</li>
+              <li>Environment and atmosphere changes</li>
+              <li>Lighting and mood descriptions</li>
             </ul>
           </CollapsibleContent>
         </Collapsible>
-
-        <div className="space-y-2">
-          <Label className="text-white">Inference Steps: {inferenceSteps}</Label>
-          <Slider
-            value={[inferenceSteps]}
-            onValueChange={(value) => onInferenceStepsChange(value[0])}
-            min={20}
-            max={50}
-            step={1}
-            className="w-full"
-          />
-          <p className="text-xs text-gray-400">More steps (40+) for quality, fewer steps (20-30) for speed</p>
-        </div>
-
-        <div className="space-y-2">
-          <Label className="text-white">Guidance Scale: {guidanceScale}</Label>
-          <Slider
-            value={[guidanceScale]}
-            onValueChange={(value) => onGuidanceScaleChange(value[0])}
-            min={3}
-            max={7}
-            step={0.1}
-            className="w-full"
-          />
-          <p className="text-xs text-gray-400">Higher (5-7) for accuracy, lower (3-5) for creativity</p>
-        </div>
 
         <Button
           onClick={onGenerate}

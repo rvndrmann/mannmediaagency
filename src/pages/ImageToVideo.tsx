@@ -14,8 +14,6 @@ const ImageToVideo = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
-  const [inferenceSteps, setInferenceSteps] = useState(30);
-  const [guidanceScale, setGuidanceScale] = useState(3);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
@@ -121,32 +119,30 @@ const ImageToVideo = () => {
       const fileExt = selectedFile.name.split('.').pop();
       const filePath = `${Date.now()}.${fileExt}`;
       
-      console.log('Uploading file:', filePath); // Debug log
+      console.log('Uploading file:', filePath);
       
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from('source-images')
         .upload(filePath, selectedFile);
 
       if (uploadError) {
-        console.error('Upload error:', uploadError); // Debug log
+        console.error('Upload error:', uploadError);
         throw uploadError;
       }
 
-      console.log('Upload successful:', uploadData); // Debug log
+      console.log('Upload successful:', uploadData);
 
       const { data: { publicUrl } } = supabase.storage
         .from('source-images')
         .getPublicUrl(filePath);
 
-      console.log('Public URL:', publicUrl); // Debug log
+      console.log('Public URL:', publicUrl);
 
       // Generate video with auth token
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           prompt: prompt.trim(),
           image_url: publicUrl,
-          num_inference_steps: inferenceSteps,
-          guidance_scale: guidanceScale,
         },
         headers: {
           Authorization: `Bearer ${session.access_token}`,
@@ -194,10 +190,6 @@ const ImageToVideo = () => {
           previewUrl={previewUrl}
           onFileSelect={handleFileSelect}
           onClearFile={clearSelectedFile}
-          inferenceSteps={inferenceSteps}
-          onInferenceStepsChange={setInferenceSteps}
-          guidanceScale={guidanceScale}
-          onGuidanceScaleChange={setGuidanceScale}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           creditsRemaining={userCredits?.credits_remaining}

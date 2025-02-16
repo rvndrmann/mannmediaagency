@@ -8,6 +8,43 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface Metadata {
+  seo_title: string;
+  seo_description: string;
+  keywords: string;
+  instagram_hashtags: string;
+  product_context: string;
+}
+
+function validateMetadata(metadata: Metadata): void {
+  // Validate SEO title length
+  if (metadata.seo_title.length > 60) {
+    throw new Error('SEO title must not exceed 60 characters');
+  }
+
+  // Validate SEO description length
+  if (metadata.seo_description.length > 160) {
+    throw new Error('SEO description must not exceed 160 characters');
+  }
+
+  // Validate keywords count
+  const keywordCount = metadata.keywords.split(',').length;
+  if (keywordCount < 10 || keywordCount > 15) {
+    throw new Error('Keywords must contain between 10 and 15 items');
+  }
+
+  // Validate hashtag count
+  const hashtagCount = metadata.instagram_hashtags.split(' ').length;
+  if (hashtagCount < 20 || hashtagCount > 30) {
+    throw new Error('Instagram hashtags must contain between 20 and 30 items');
+  }
+
+  // Validate product context
+  if (!metadata.product_context || metadata.product_context.trim().length === 0) {
+    throw new Error('Product context cannot be empty');
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
@@ -21,6 +58,9 @@ serve(async (req) => {
     }
 
     console.log('Starting metadata generation process for:', imageJobId);
+    console.log('Prompt:', prompt);
+    console.log('Additional Context:', additionalContext);
+    console.log('Custom Title Twist:', customTitleTwist);
 
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
@@ -59,11 +99,19 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4-mini',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: 'You are a professional product marketing specialist. Generate metadata for product images. Format your response as a valid JSON object with these fields: seo_title (60 chars max, compelling title), seo_description (160 chars max description optimized for SEO), keywords (10-15 relevant comma-separated keywords), instagram_hashtags (20-30 relevant space-separated hashtags including # symbol), product_context (2-3 sentences about the product and its key features)'
+            content: `You are a professional product marketing specialist. Generate metadata for product images. 
+            Your response MUST be a valid JSON object with these EXACT fields:
+            - seo_title: Maximum 60 characters, compelling title
+            - seo_description: Maximum 160 characters, optimized for SEO
+            - keywords: Exactly 10-15 relevant comma-separated keywords
+            - instagram_hashtags: Exactly 20-30 relevant space-separated hashtags including # symbol
+            - product_context: 2-3 sentences about the product and its key features
+            
+            DO NOT include any additional text or formatting outside of the JSON object.`
           },
           {
             role: 'user',
@@ -75,30 +123,28 @@ serve(async (req) => {
     });
 
     if (!response.ok) {
-      console.error('OpenAI API error:', await response.text());
+      const errorText = await response.text();
+      console.error('OpenAI API error:', errorText);
       throw new Error('Failed to generate metadata with OpenAI');
     }
 
     const completion = await response.json();
-    console.log('OpenAI response:', completion.choices[0].message.content);
+    console.log('Raw OpenAI response:', completion);
+    console.log('Message content:', completion.choices[0].message.content);
     
-    let metadata;
+    let metadata: Metadata;
     try {
       metadata = JSON.parse(completion.choices[0].message.content);
       
-      // Validate required fields
-      const requiredFields = ['seo_title', 'seo_description', 'keywords', 'instagram_hashtags', 'product_context'];
-      for (const field of requiredFields) {
-        if (!metadata[field]) {
-          throw new Error(`Missing required field: ${field}`);
-        }
-      }
+      // Validate metadata structure and content
+      validateMetadata(metadata);
     } catch (error) {
-      console.error('Failed to parse OpenAI response:', completion.choices[0].message.content);
-      throw new Error('Invalid metadata format received from OpenAI');
+      console.error('Failed to parse or validate OpenAI response:', error);
+      console.error('Raw content:', completion.choices[0].message.content);
+      throw new Error(`Invalid metadata format: ${error.message}`);
     }
 
-    console.log('Successfully generated metadata, updating database');
+    console.log('Successfully validated metadata:', metadata);
 
     // Update the database with generated metadata
     const { error: upsertError } = await supabase

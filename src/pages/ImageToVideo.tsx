@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -64,6 +63,65 @@ const ImageToVideo = () => {
     enabled: !!session,
     refetchInterval: 5000,
   });
+
+  useEffect(() => {
+    if (!session?.access_token) return;
+
+    // Function to check status of pending/processing videos
+    const checkPendingVideos = async () => {
+      const { data: pendingVideos, error } = await supabase
+        .from('video_generation_jobs')
+        .select('*')
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false });
+
+      if (error) {
+        console.error('Error fetching pending videos:', error);
+        return;
+      }
+
+      // For each pending video, check its status
+      for (const video of pendingVideos) {
+        const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
+        
+        // If more than 10 minutes have passed, mark as failed
+        if (elapsedMinutes > 10) {
+          await supabase
+            .from('video_generation_jobs')
+            .update({ status: 'failed' })
+            .eq('id', video.id);
+          continue;
+        }
+
+        try {
+          // Check status with appropriate interval
+          const intervalMinutes = elapsedMinutes < 2 ? 0.5 : 1; // 30s for first 2 min, then 1 min
+          
+          const response = await supabase.functions.invoke('check-video-status', {
+            body: { request_id: video.request_id },
+          });
+
+          if (response.error) {
+            console.error('Error checking video status:', response.error);
+            continue;
+          }
+
+          // Wait before checking the next video
+          await new Promise(resolve => setTimeout(resolve, intervalMinutes * 60 * 1000));
+        } catch (error) {
+          console.error('Error checking video status:', error);
+        }
+      }
+    };
+
+    // Initial check
+    checkPendingVideos();
+
+    // Set up interval for periodic checks
+    const interval = setInterval(checkPendingVideos, 30000); // Check every 30 seconds
+
+    return () => clearInterval(interval);
+  }, [session?.access_token]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

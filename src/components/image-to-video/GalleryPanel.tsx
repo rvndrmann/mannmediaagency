@@ -2,6 +2,7 @@
 import { cn } from "@/lib/utils";
 import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
 
 interface GalleryPanelProps {
   isMobile: boolean;
@@ -33,9 +34,28 @@ export function GalleryPanel({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((video) => (
             <div key={video.id} className="relative group">
-              {video.status === 'processing' ? (
-                <div className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center">
-                  <Loader2 className="h-8 w-8 animate-spin text-purple-500" />
+              {video.status === 'pending' || video.status === 'processing' ? (
+                <div className="aspect-video bg-gray-800 rounded-lg flex flex-col items-center justify-center p-4">
+                  <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-4" />
+                  <div className="w-full max-w-xs space-y-2">
+                    <Progress 
+                      value={Math.min(
+                        ((Date.now() - new Date(video.created_at).getTime()) / (7 * 60 * 1000)) * 100,
+                        99
+                      )} 
+                      className="h-2 bg-gray-700"
+                    />
+                    <p className="text-sm text-center text-gray-400">
+                      {video.status === 'pending' ? 'Initializing...' : 'Processing video...'}
+                      <br />
+                      <span className="text-xs">
+                        {Math.max(
+                          7 - Math.floor((Date.now() - new Date(video.created_at).getTime()) / (60 * 1000)),
+                          1
+                        )} minutes remaining
+                      </span>
+                    </p>
+                  </div>
                 </div>
               ) : video.status === 'completed' && video.result_url ? (
                 <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden">

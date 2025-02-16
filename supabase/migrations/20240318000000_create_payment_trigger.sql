@@ -13,7 +13,7 @@ DECLARE
 BEGIN
   -- Determine credit amount based on payment amount
   CASE 
-    WHEN NEW.amount = 50 THEN credit_amount := 30;  -- BASIC plan
+    WHEN NEW.amount = 299 THEN credit_amount := 10;  -- BASIC plan
     WHEN NEW.amount = 2499 THEN credit_amount := 100;  -- PRO plan
     ELSE credit_amount := 0;
   END CASE;
@@ -70,7 +70,7 @@ BEGIN
       current_credits,
       new_credits,
       CASE 
-        WHEN NEW.amount = 50 THEN 'BASIC'
+        WHEN NEW.amount = 299 THEN 'BASIC'
         WHEN NEW.amount = 2499 THEN 'PRO'
         ELSE 'UNKNOWN'
       END,

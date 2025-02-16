@@ -13,7 +13,6 @@ interface RequestBody {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, {
       status: 204,
@@ -27,7 +26,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Parse the request body
     const { request_id }: RequestBody = await req.json();
     if (!request_id) {
       throw new Error('No request_id provided');
@@ -35,7 +33,6 @@ serve(async (req) => {
 
     console.log(`Checking status for request_id: ${request_id}`);
 
-    // Get the current job status from our database
     const { data: currentJob, error: dbError } = await supabaseClient
       .from('video_generation_jobs')
       .select('*')
@@ -51,15 +48,13 @@ serve(async (req) => {
       throw new Error(`No job found with request_id: ${request_id}`);
     }
 
-    console.log(`Current job status: ${currentJob.status}, progress: ${currentJob.progress || 0}`);
-
-    // First, try to get the video result directly
-    let videoUrl = currentJob.result_url;
-    let status = currentJob.status;
-    let progress = currentJob.progress || 0;
+    const createdAt = new Date(currentJob.created_at);
+    const elapsedMinutes = (Date.now() - createdAt.getTime()) / (1000 * 60);
     
+    console.log(`Current job status: ${currentJob.status}, elapsed time: ${elapsedMinutes.toFixed(2)} minutes`);
+
+    // Always try to get the result first
     try {
-      // Try to get the result first, regardless of status
       const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
         method: 'GET',
         headers: {
@@ -73,93 +68,105 @@ serve(async (req) => {
         console.log('Result response:', result);
 
         if (result.video_url) {
-          videoUrl = result.video_url;
-          status = 'completed';
-          progress = 100;
-          console.log('Retrieved video URL successfully:', videoUrl);
+          // We have a video! Update and return immediately
+          const { error: updateError } = await supabaseClient
+            .from('video_generation_jobs')
+            .update({ 
+              status: 'completed',
+              progress: 100,
+              result_url: result.video_url,
+              updated_at: new Date().toISOString()
+            })
+            .eq('request_id', request_id);
+
+          if (updateError) throw updateError;
+
+          return new Response(
+            JSON.stringify({ 
+              status: 'completed',
+              progress: 100,
+              video_url: result.video_url
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       }
     } catch (error) {
       console.error('Error retrieving video result:', error);
-      // Don't throw here, continue with status check
     }
 
-    // If we didn't get a video URL, check the status
-    if (!videoUrl) {
-      try {
-        const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
-            'Content-Type': 'application/json'
-          },
-        });
+    // If we get here, we didn't get a video result, so check status
+    let status = currentJob.status;
+    let progress = currentJob.progress || 0;
 
-        if (statusResponse.ok) {
-          const statusResult = await statusResponse.json();
-          console.log('Status response:', statusResult);
+    try {
+      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+      });
 
-          if (statusResult.status === 'processing') {
-            status = 'processing';
-            progress = Math.min(Math.round((statusResult.progress || 0) * 100), 99);
-          } else if (statusResult.status === 'failed') {
-            // Even if status is failed, keep the video URL if we have one
-            status = videoUrl ? 'completed' : 'failed';
-            progress = videoUrl ? 100 : 0;
+      if (statusResponse.ok) {
+        const statusResult = await statusResponse.json();
+        console.log('Status response:', statusResult);
+
+        if (statusResult.status === 'processing') {
+          status = 'processing';
+          // Calculate progress based on elapsed time
+          if (elapsedMinutes <= 2) {
+            progress = Math.min(Math.round((elapsedMinutes / 2) * 30), 30); // 0-30%
+          } else if (elapsedMinutes <= 5) {
+            progress = Math.min(30 + Math.round(((elapsedMinutes - 2) / 3) * 40), 70); // 30-70%
+          } else {
+            progress = Math.min(70 + Math.round(((elapsedMinutes - 5) / 2) * 29), 99); // 70-99%
           }
-        } else {
-          const errorText = await statusResponse.text();
-          console.error('Status check failed:', errorText);
-          
-          // If the video is older than 30 minutes and we have no video URL, mark as failed
-          const createdAt = new Date(currentJob.created_at);
-          const thirtyMinutesAgo = new Date(Date.now() - 30 * 60 * 1000);
-          
-          if (createdAt < thirtyMinutesAgo && !videoUrl) {
+        } else if (statusResult.status === 'failed') {
+          if (elapsedMinutes < 30) {
+            // Keep as processing if under 30 minutes
+            status = 'processing';
+            progress = Math.min(Math.round((elapsedMinutes / 30) * 99), 99);
+          } else {
             status = 'failed';
             progress = 0;
           }
         }
-      } catch (error) {
-        console.error('Error checking video status:', error);
-        // Don't throw here, use existing status
+      }
+    } catch (error) {
+      console.error('Error checking video status:', error);
+      
+      // Handle timeouts based on elapsed time
+      if (elapsedMinutes > 30) {
+        status = 'failed';
+        progress = 0;
       }
     }
 
-    // Update the job status in our database
+    // Update the job status
     const { error: updateError } = await supabaseClient
       .from('video_generation_jobs')
       .update({ 
         status,
         progress,
-        result_url: videoUrl,
         updated_at: new Date().toISOString()
       })
       .eq('request_id', request_id);
 
-    if (updateError) {
-      console.error('Database update error:', updateError);
-      throw updateError;
-    }
+    if (updateError) throw updateError;
 
     console.log('Successfully updated database with status:', {
       status,
-      progress,
-      videoUrl
+      progress
     });
 
     return new Response(
       JSON.stringify({ 
         status,
         progress,
-        video_url: videoUrl
+        video_url: currentJob.result_url
       }),
-      { 
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
     console.error('Function error:', error);
@@ -169,10 +176,7 @@ serve(async (req) => {
       }),
       { 
         status: 400,
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

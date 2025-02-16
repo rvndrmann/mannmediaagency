@@ -88,7 +88,6 @@ const ImageToVideo = () => {
 
       if (error) throw error;
       
-      // Type the data as SupabaseVideoJob[] and then map to VideoGenerationJob[]
       return ((data || []) as SupabaseVideoJob[]).map(video => ({
         id: video.id,
         status: video.status,
@@ -106,9 +105,17 @@ const ImageToVideo = () => {
       const data = query.state.data as VideoGenerationJob[] | undefined;
       if (!Array.isArray(data)) return false;
       
-      return data.some(video => 
+      // Check if any videos are in pending or processing state
+      const hasPendingVideos = data.some(video => 
         video.status === 'pending' || video.status === 'processing'
-      ) ? 3000 : false;
+      );
+
+      if (hasPendingVideos) {
+        // Return 5 minutes (300000ms) for the polling interval
+        return 300000;
+      }
+      
+      return false;
     },
     retry: 3,
   });
@@ -132,7 +139,8 @@ const ImageToVideo = () => {
       const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
         const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
         
-        if (elapsedMinutes > 30 && (video.retry_count || 0) >= 5) {
+        if (elapsedMinutes > 30) {
+          // Mark as failed if over 30 minutes
           await supabase
             .from('video_generation_jobs')
             .update({ status: 'failed' })
@@ -150,12 +158,14 @@ const ImageToVideo = () => {
       });
 
       await Promise.all(checkPromises);
-      refetchVideos();
+      await refetchVideos();
     };
 
+    // Initial check
     checkPendingVideos();
 
-    const interval = setInterval(checkPendingVideos, 10000);
+    // Set up interval for checking pending videos (5 minutes)
+    const interval = setInterval(checkPendingVideos, 300000);
 
     return () => clearInterval(interval);
   }, [session?.access_token, refetchVideos]);

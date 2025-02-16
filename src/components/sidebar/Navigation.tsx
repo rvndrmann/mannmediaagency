@@ -24,7 +24,7 @@ export const Navigation = () => {
   const mainNavigation = [
     {
       name: "AI Agent",
-      subtext: "Powered by ChatGPT-4",
+      subtext: "Powered by ChatGPT-4o",
       to: "/ai-agent",
       icon: GalleryHorizontalEnd,
     },
@@ -54,7 +54,7 @@ export const Navigation = () => {
     },
     {
       name: "Metadata Manager",
-      subtext: "Powered by ChatGPT-4",
+      subtext: "Powered by ChatGPT-4o",
       to: "/metadata",
       icon: Database,
     },

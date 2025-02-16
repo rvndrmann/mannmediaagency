@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -108,12 +109,10 @@ const ImageToVideo = () => {
       const data = query.state.data as VideoGenerationJob[] | undefined;
       if (!Array.isArray(data)) return false;
       
-      // Check if any videos are in pending or processing state
       const hasPendingVideos = data.some(video => 
         video.status === 'pending' || video.status === 'processing'
       );
 
-      // Poll every 10 seconds if there are pending videos
       return hasPendingVideos ? 10000 : false;
     },
     retry: 3,
@@ -139,20 +138,33 @@ const ImageToVideo = () => {
 
       const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
         try {
-          console.log(`Checking status for video ${video.id}...`);
+          console.log(`Checking status for video ${video.id} with request_id ${video.request_id}...`);
+          
+          // First check status
           const statusResponse = await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
           });
+          console.log('Status response:', statusResponse);
+
+          if (statusResponse.error) {
+            console.error('Error checking status:', statusResponse.error);
+            return;
+          }
 
           if (statusResponse.data?.status === 'completed') {
             // If status is completed, fetch the result
             console.log(`Fetching result for completed video ${video.id}...`);
-            await supabase.functions.invoke('fetch-video-result', {
+            const resultResponse = await supabase.functions.invoke('fetch-video-result', {
               body: { request_id: video.request_id },
             });
+            console.log('Result response:', resultResponse);
+
+            if (resultResponse.error) {
+              console.error('Error fetching result:', resultResponse.error);
+            }
           }
         } catch (error) {
-          console.error('Error checking video status:', error);
+          console.error('Error in check/fetch cycle:', error);
         }
       });
 

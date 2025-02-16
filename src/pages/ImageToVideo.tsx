@@ -115,17 +115,24 @@ const ImageToVideo = () => {
       const fileExt = selectedFile.name.split('.').pop();
       const filePath = `${Date.now()}.${fileExt}`;
       
+      console.log('Uploading file:', filePath); // Debug log
+      
       const { error: uploadError, data: uploadData } = await supabase.storage
         .from('source-images')
         .upload(filePath, selectedFile);
 
       if (uploadError) {
+        console.error('Upload error:', uploadError); // Debug log
         throw uploadError;
       }
+
+      console.log('Upload successful:', uploadData); // Debug log
 
       const { data: { publicUrl } } = supabase.storage
         .from('source-images')
         .getPublicUrl(filePath);
+
+      console.log('Public URL:', publicUrl); // Debug log
 
       // Generate video
       const response = await supabase.functions.invoke('generate-video-from-image', {

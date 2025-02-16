@@ -172,11 +172,10 @@ VERIFY all length requirements before responding.`
 
     console.log('Successfully validated metadata:', metadata);
 
-    // Update the upsert operation to handle conflicts
-    const { error: upsertError } = await supabase
+    // First, try to update existing record
+    const { error: updateError } = await supabase
       .from('video_metadata')
-      .upsert({
-        video_job_id: videoJobId,
+      .update({
         seo_title: metadata.seo_title,
         seo_description: metadata.seo_description,
         keywords: metadata.keywords,
@@ -186,13 +185,31 @@ VERIFY all length requirements before responding.`
         custom_title_twist: customTitleTwist,
         metadata_regeneration_count: (regenerationCount || 0) + 1,
         updated_at: new Date().toISOString()
-      }, {
-        onConflict: 'video_job_id'
-      });
+      })
+      .eq('video_job_id', videoJobId);
 
-    if (upsertError) {
-      console.error('Database update error:', upsertError);
-      throw upsertError;
+    // If no record exists, insert a new one
+    if (updateError) {
+      const { error: insertError } = await supabase
+        .from('video_metadata')
+        .insert({
+          video_job_id: videoJobId,
+          seo_title: metadata.seo_title,
+          seo_description: metadata.seo_description,
+          keywords: metadata.keywords,
+          instagram_hashtags: metadata.instagram_hashtags,
+          video_context: metadata.video_context,
+          additional_context: additionalContext,
+          custom_title_twist: customTitleTwist,
+          metadata_regeneration_count: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        throw insertError;
+      }
     }
 
     console.log('Video metadata generation completed successfully');

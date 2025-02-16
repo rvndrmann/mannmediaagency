@@ -1,25 +1,26 @@
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { cn } from "@/lib/utils";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { useNavigate } from "react-router-dom";
-import { useImageGeneration } from "@/hooks/use-image-generation";
-import { useGallery } from "@/hooks/use-gallery";
-import { useUserCredits } from "@/hooks/use-user-credits";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [prompt, setPrompt] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [imageSize, setImageSize] = useState("square_hd");
   const [inferenceSteps, setInferenceSteps] = useState(8);
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");
+  const queryClient = useQueryClient();
 
   // Check authentication status
   const { data: session } = useQuery({
@@ -34,15 +35,146 @@ const ProductShoot = () => {
     },
   });
 
-  const {
-    previewUrl,
-    handleFileSelect,
-    clearSelectedFile,
-    generateImage,
-  } = useImageGeneration();
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file);
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
+      } else {
+        toast.error("Please select an image file");
+      }
+    }
+  };
 
-  const { images, imagesLoading, handleDownload } = useGallery(!!session);
-  const userCredits = useUserCredits(!!session);
+  const clearSelectedFile = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  };
+
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session,
+  });
+
+  const { data: images, isLoading: imagesLoading } = useQuery({
+    queryKey: ["product-images"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session,
+    refetchInterval: 5000,
+  });
+
+  const convertFileToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = (error) => reject(error);
+    });
+  };
+
+  const generateImage = useMutation({
+    mutationFn: async () => {
+      if (!prompt.trim()) {
+        throw new Error("Please enter a prompt");
+      }
+
+      if (!selectedFile) {
+        throw new Error("Please upload an image");
+      }
+
+      try {
+        const base64Image = await convertFileToBase64(selectedFile);
+
+        const response = await supabase.functions.invoke("generate-product-image", {
+          body: {
+            prompt: prompt.trim(),
+            image: base64Image,
+            imageSize,
+            numInferenceSteps: inferenceSteps,
+            guidanceScale,
+            outputFormat
+          },
+        });
+
+        if (response.error) {
+          let errorMessage = "Failed to generate image";
+          
+          try {
+            const parsedError = JSON.parse(response.error.message);
+            if (parsedError.error) {
+              errorMessage = parsedError.error;
+            }
+          } catch {
+            errorMessage = response.error.message;
+          }
+          
+          throw new Error(errorMessage);
+        }
+
+        return response.data;
+      } catch (error) {
+        throw error;
+      }
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-images"] });
+      queryClient.invalidateQueries({ queryKey: ["userCredits"] });
+      setPrompt("");
+      clearSelectedFile();
+      toast.success("Image generation started");
+    },
+    onError: (error) => {
+      const message = error instanceof Error ? error.message : "Failed to generate image";
+      const isCreditsError = message.toLowerCase().includes('credits');
+      
+      toast.error(message, {
+        duration: 5000,
+        action: isCreditsError ? {
+          label: "Buy Credits",
+          onClick: () => navigate("/plans")
+        } : undefined
+      });
+    },
+  });
+
+  const handleDownload = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `product-image-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      toast.error("Failed to download image");
+    }
+  };
 
   if (!session) {
     return null;
@@ -70,13 +202,7 @@ const ProductShoot = () => {
           onGuidanceScaleChange={setGuidanceScale}
           outputFormat={outputFormat}
           onOutputFormatChange={setOutputFormat}
-          onGenerate={() => generateImage.mutate({
-            prompt,
-            imageSize,
-            inferenceSteps,
-            guidanceScale,
-            outputFormat
-          })}
+          onGenerate={() => generateImage.mutate()}
           isGenerating={generateImage.isPending}
           creditsRemaining={userCredits?.credits_remaining}
         />
@@ -92,3 +218,4 @@ const ProductShoot = () => {
 };
 
 export default ProductShoot;
+

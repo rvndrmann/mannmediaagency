@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -92,11 +91,8 @@ export function InputPanel({
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="square_hd">Square HD</SelectItem>
-              <SelectItem value="square">Square</SelectItem>
-              <SelectItem value="portrait_4_3">Portrait 4:3</SelectItem>
-              <SelectItem value="portrait_16_9">Portrait 16:9</SelectItem>
-              <SelectItem value="landscape_4_3">Landscape 4:3</SelectItem>
-              <SelectItem value="landscape_16_9">Landscape 16:9</SelectItem>
+              <SelectItem value="portrait_hd">Portrait HD</SelectItem>
+              <SelectItem value="landscape_hd">Landscape HD</SelectItem>
             </SelectContent>
           </Select>
         </div>

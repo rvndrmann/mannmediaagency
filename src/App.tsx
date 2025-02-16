@@ -21,6 +21,10 @@ import ProductShoot from "./pages/ProductShoot";
 import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 import Metadata from "./pages/Metadata";
 import ImageToVideo from "./pages/ImageToVideo";
+import AboutUs from "./pages/AboutUs";
+import Contact from "./pages/Contact";
+import Privacy from "./pages/Privacy";
+import Terms from "./pages/Terms";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -105,6 +109,10 @@ const App = () => (
               </>
             } />
             <Route path="/plans" element={<Plans />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/contact" element={<Contact />} />
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
             <Route
               path="/create-video"
               element={

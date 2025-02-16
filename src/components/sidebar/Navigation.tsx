@@ -25,7 +25,7 @@ export const Navigation = () => {
     {
       name: "AI Agent",
       subtext: "Powered by ChatGPT-4o",
-      logo: "/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png",
+      logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
       to: "/ai-agent",
       icon: GalleryHorizontalEnd,
     },
@@ -58,7 +58,7 @@ export const Navigation = () => {
     {
       name: "Metadata Manager",
       subtext: "Powered by ChatGPT-4o",
-      logo: "/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png",
+      logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
       to: "/metadata",
       icon: Database,
     },
@@ -113,7 +113,7 @@ export const Navigation = () => {
                       <img 
                         src={item.logo} 
                         alt={`${item.name} provider logo`} 
-                        className="h-5 w-5 object-contain" // Changed from h-4 w-4 to h-5 w-5
+                        className="h-5 w-5 object-contain"
                       />
                     )}
                     <div className="text-xs text-gray-500">{item.subtext}</div>

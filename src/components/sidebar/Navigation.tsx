@@ -44,14 +44,14 @@ export const Navigation = () => {
     {
       name: "Image to Video",
       subtext: "Powered by Kling AI",
-      logo: "/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png",
+      logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/image-to-video",
       icon: FileVideo,
     },
     {
       name: "Faceless Video",
       subtext: "Powered by Kling AI",
-      logo: "/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png",
+      logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/create-video",
       icon: Video,
     },

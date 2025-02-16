@@ -860,6 +860,7 @@ export type Database = {
           file_size: number | null
           id: string
           negative_prompt: string | null
+          progress: number | null
           prompt: string
           request_id: string | null
           result_url: string | null
@@ -878,6 +879,7 @@ export type Database = {
           file_size?: number | null
           id?: string
           negative_prompt?: string | null
+          progress?: number | null
           prompt: string
           request_id?: string | null
           result_url?: string | null
@@ -896,6 +898,7 @@ export type Database = {
           file_size?: number | null
           id?: string
           negative_prompt?: string | null
+          progress?: number | null
           prompt?: string
           request_id?: string | null
           result_url?: string | null

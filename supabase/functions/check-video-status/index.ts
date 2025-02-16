@@ -76,7 +76,7 @@ serve(async (req) => {
       progress = 0;
       console.error('Video generation failed:', statusResult);
     } else if (statusResult.status === 'processing') {
-      // Estimate progress based on queue position and processing state
+      // Estimate progress based on processing state
       progress = Math.min(Math.round((statusResult.progress || 0) * 100), 99);
     }
 

@@ -28,13 +28,14 @@ serve(async (req) => {
       throw new Error('No request_id provided');
     }
 
-    // First check the status
-    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
-      method: 'GET',
+    // Check the status using the v1.6 endpoint
+    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/status`, {
+      method: 'POST',
       headers: {
         'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
         'Content-Type': 'application/json',
       },
+      body: JSON.stringify({ request_id }),
     });
 
     const statusResult = await statusResponse.json();
@@ -48,24 +49,33 @@ serve(async (req) => {
     let videoUrl = null;
 
     if (statusResult.status === 'completed') {
-      // Get the final result
-      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
-        method: 'GET',
+      // Get the final result using the v1.6 endpoint
+      const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/result`, {
+        method: 'POST',
         headers: {
           'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
           'Content-Type': 'application/json',
         },
+        body: JSON.stringify({ request_id }),
       });
 
       if (resultResponse.ok) {
         const result = await resultResponse.json();
         status = 'completed';
         videoUrl = result.video_url;
+        
+        console.log('Video generation completed:', {
+          request_id,
+          status,
+          video_url: videoUrl,
+        });
       } else {
+        console.error('Failed to fetch video result:', await resultResponse.text());
         throw new Error('Failed to fetch completed video result');
       }
     } else if (statusResult.status === 'failed') {
       status = 'failed';
+      console.error('Video generation failed:', statusResult);
     }
 
     // Update the job status in our database

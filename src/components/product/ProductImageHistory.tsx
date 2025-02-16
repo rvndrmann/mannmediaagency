@@ -87,7 +87,7 @@ export function ProductImageHistory({
   return (
     <ScrollArea className="h-[400px] px-4">
       <div className="grid grid-cols-2 gap-4 pb-4">
-        {generationHistory?.slice(0, 4).map((job) => (
+        {generationHistory?.map((job) => (
           <div
             key={job.id}
             className="group relative border border-gray-800 rounded-lg p-2 space-y-2 hover:border-purple-600 transition-colors cursor-pointer"

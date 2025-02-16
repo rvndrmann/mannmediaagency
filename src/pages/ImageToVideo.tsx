@@ -10,6 +10,26 @@ import { GalleryPanel } from "@/components/image-to-video/GalleryPanel";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
 
+// Define the exact type that comes from Supabase
+interface SupabaseVideoJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  created_at: string;
+  request_id: string;
+  result_url?: string;
+  prompt: string;
+  progress?: number;
+  user_id: string;
+  aspect_ratio: string;
+  content_type: string;
+  duration: string;
+  file_name: string;
+  file_size: number;
+  negative_prompt: string;
+  source_image_url: string;
+  retry_count?: number;
+}
+
 interface VideoGenerationJob {
   id: string;
   status: 'pending' | 'processing' | 'completed' | 'failed';
@@ -19,7 +39,7 @@ interface VideoGenerationJob {
   prompt: string;
   progress?: number;
   user_id: string;
-  retry_count?: number; // Made optional since it might not exist in all records
+  retry_count?: number;
 }
 
 const ImageToVideo = () => {
@@ -67,9 +87,17 @@ const ImageToVideo = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      // Ensure each record has retry_count, defaulting to 0 if not present
-      return (data || []).map(video => ({
-        ...video,
+      
+      // Type the data as SupabaseVideoJob[] and then map to VideoGenerationJob[]
+      return ((data || []) as SupabaseVideoJob[]).map(video => ({
+        id: video.id,
+        status: video.status,
+        created_at: video.created_at,
+        request_id: video.request_id,
+        result_url: video.result_url,
+        prompt: video.prompt,
+        progress: video.progress,
+        user_id: video.user_id,
         retry_count: video.retry_count || 0
       })) as VideoGenerationJob[];
     },
@@ -100,10 +128,10 @@ const ImageToVideo = () => {
         return;
       }
 
-      const checkPromises = (pendingVideos || []).map(async (video) => {
+      // Type the pendingVideos as SupabaseVideoJob[]
+      const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
         const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
         
-        // Only mark as failed if it's been more than 30 minutes and has been retried 5 times
         if (elapsedMinutes > 30 && (video.retry_count || 0) >= 5) {
           await supabase
             .from('video_generation_jobs')

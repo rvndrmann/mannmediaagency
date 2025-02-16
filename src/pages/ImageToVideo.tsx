@@ -140,9 +140,17 @@ const ImageToVideo = () => {
       const checkPromises = ((pendingVideos || []) as SupabaseVideoJob[]).map(async (video) => {
         try {
           console.log(`Checking status for video ${video.id}...`);
-          await supabase.functions.invoke('check-video-status', {
+          const statusResponse = await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
           });
+
+          if (statusResponse.data?.status === 'completed') {
+            // If status is completed, fetch the result
+            console.log(`Fetching result for completed video ${video.id}...`);
+            await supabase.functions.invoke('fetch-video-result', {
+              body: { request_id: video.request_id },
+            });
+          }
         } catch (error) {
           console.error('Error checking video status:', error);
         }

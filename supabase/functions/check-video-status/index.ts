@@ -13,8 +13,9 @@ interface RequestBody {
   request_id: string;
 }
 
-const POLL_INTERVAL = 1000; // 1 second
-const MAX_POLLS = 60; // Maximum number of status checks
+// Increased polling duration for video generation
+const POLL_INTERVAL = 5000; // 5 seconds
+const MAX_POLLS = 72; // 6 minutes total (72 * 5 seconds)
 
 serve(async (req) => {
   const startTime = new Date().toISOString();
@@ -50,7 +51,6 @@ serve(async (req) => {
     console.log('FAL API Key available:', !!falApiKey, 'Length:', falApiKey?.length);
 
     let pollCount = 0;
-    let result = null;
 
     while (pollCount < MAX_POLLS) {
       console.log(`Polling attempt ${pollCount + 1}/${MAX_POLLS}`);
@@ -99,7 +99,7 @@ serve(async (req) => {
           throw new Error(`Failed to get result: ${await resultResponse.text()}`);
         }
 
-        result = await resultResponse.json();
+        const result = await resultResponse.json();
         
         // Step 3: Update database with final result
         if (result.video?.url) {
@@ -130,6 +130,18 @@ serve(async (req) => {
         }
         break;
       } else if (statusResult.status === 'failed') {
+        status = 'failed';
+        const { error: updateError } = await supabaseClient
+          .from('video_generation_jobs')
+          .update({ 
+            status: 'failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('request_id', request_id);
+
+        if (updateError) {
+          console.error('Error updating failed status:', updateError);
+        }
         throw new Error('Video generation failed');
       } else {
         // Calculate progress based on poll count
@@ -156,14 +168,22 @@ serve(async (req) => {
       pollCount++;
     }
 
-    if (!result) {
-      throw new Error('Polling timed out');
-    }
+    // Instead of throwing an error on timeout, return current progress
+    const { data: currentJob } = await supabaseClient
+      .from('video_generation_jobs')
+      .select('progress, status')
+      .eq('request_id', request_id)
+      .single();
 
+    console.log('Polling cycle completed, returning current progress:', currentJob);
     return new Response(
-      JSON.stringify({ status: 'processing', progress: 99 }),
+      JSON.stringify({ 
+        status: currentJob?.status || 'processing', 
+        progress: currentJob?.progress || 99 
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+
   } catch (error) {
     const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
     console.error(`[${new Date().toISOString()}] Function error:`, errorMessage);

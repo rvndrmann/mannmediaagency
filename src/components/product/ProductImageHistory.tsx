@@ -2,10 +2,13 @@
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Image } from "lucide-react";
+import { Image, ChevronLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface ProductImageHistoryProps {
   onSelectImage: (jobId: string, imageUrl: string) => void;
+  selectedImageId: string | null;
+  onBackToGallery: () => void;
 }
 
 type ImageGenerationJob = {
@@ -19,11 +22,14 @@ type ImageGenerationJob = {
   } | null;
 };
 
-export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps) {
+export function ProductImageHistory({ 
+  onSelectImage, 
+  selectedImageId,
+  onBackToGallery 
+}: ProductImageHistoryProps) {
   const { data: generationHistory, isLoading } = useQuery({
     queryKey: ["product-image-history"],
     queryFn: async () => {
-      // First get all image generation jobs
       const { data: jobs, error } = await supabase
         .from("image_generation_jobs")
         .select(`
@@ -51,13 +57,40 @@ export function ProductImageHistory({ onSelectImage }: ProductImageHistoryProps)
     return <div>Loading history...</div>;
   }
 
+  const selectedImage = generationHistory?.find(job => job.id === selectedImageId);
+
+  if (selectedImageId && selectedImage?.result_url) {
+    return (
+      <div className="p-4 space-y-4">
+        <Button 
+          variant="ghost" 
+          className="text-gray-400 hover:text-white"
+          onClick={onBackToGallery}
+        >
+          <ChevronLeft className="h-4 w-4 mr-2" />
+          Back to Gallery
+        </Button>
+        <div className="aspect-[4/3] relative bg-gray-900 rounded-lg overflow-hidden">
+          <img
+            src={selectedImage.result_url}
+            alt={selectedImage.product_image_metadata?.seo_title || "Selected image"}
+            className="object-contain w-full h-full"
+          />
+        </div>
+        <p className="text-sm font-medium text-gray-300">
+          {selectedImage.product_image_metadata?.seo_title || "Untitled"}
+        </p>
+      </div>
+    );
+  }
+
   return (
-    <ScrollArea className="h-[600px] px-4">
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 pb-4">
-        {generationHistory?.map((job) => (
+    <ScrollArea className="h-[400px] px-4">
+      <div className="grid grid-cols-2 gap-4 pb-4">
+        {generationHistory?.slice(0, 4).map((job) => (
           <div
             key={job.id}
-            className="group relative border border-gray-800 rounded-lg p-2 space-y-2 hover:border-gray-600 transition-colors cursor-pointer"
+            className="group relative border border-gray-800 rounded-lg p-2 space-y-2 hover:border-purple-600 transition-colors cursor-pointer"
             onClick={() => job.result_url && onSelectImage(job.id, job.result_url)}
           >
             <div className="aspect-square relative bg-gray-900 rounded-md overflow-hidden">

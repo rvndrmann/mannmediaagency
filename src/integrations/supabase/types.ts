@@ -998,6 +998,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      check_pending_video_statuses: {
+        Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
       safely_decrease_credits: {
         Args: {
           amount: number

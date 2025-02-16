@@ -1,10 +1,8 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ProductImageMetadata } from "./ProductImageMetadata";
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Loader2, CreditCard } from "lucide-react";
+import { Download, RefreshCw, Loader2, CreditCard, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -14,9 +12,16 @@ interface ProductMetadataManagerProps {
   imageJobId: string;
 }
 
+interface MetadataDisplay {
+  label: string;
+  value: string | null;
+  isMultiline?: boolean;
+}
+
 export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerProps) => {
   const [additionalContext, setAdditionalContext] = useState("");
   const [customTitleTwist, setCustomTitleTwist] = useState("");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
   const queryClient = useQueryClient();
   const navigate = useNavigate();
 
@@ -60,6 +65,14 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
       return data;
     },
   });
+
+  const handleCopy = async (text: string | null, fieldName: string) => {
+    if (!text) return;
+    await navigator.clipboard.writeText(text);
+    setCopiedField(fieldName);
+    toast.success("Copied to clipboard");
+    setTimeout(() => setCopiedField(null), 2000);
+  };
 
   const generateMetadata = useMutation({
     mutationFn: async () => {
@@ -146,6 +159,43 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   const remainingRegenerations = 3 - (metadata?.metadata_regeneration_count || 0);
   const canRegenerate = remainingRegenerations > 0 && (!userCredits || userCredits.credits_remaining >= 0.20);
 
+  const metadataFields: MetadataDisplay[] = metadata ? [
+    { label: "SEO Title", value: metadata.seo_title },
+    { label: "SEO Description", value: metadata.seo_description },
+    { label: "Keywords", value: metadata.keywords },
+    { label: "Instagram Hashtags", value: metadata.instagram_hashtags, isMultiline: true },
+    { label: "Product Description", value: metadata.product_context, isMultiline: true },
+  ] : [];
+
+  const MetadataField = ({ label, value, isMultiline }: MetadataDisplay) => (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-sm font-medium text-purple-400">{label}</label>
+        {value && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => handleCopy(value, label)}
+            className="h-8 w-8 p-0 hover:bg-white/10"
+          >
+            {copiedField === label ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="h-4 w-4 text-white/70" />
+            )}
+          </Button>
+        )}
+      </div>
+      <div className="flex-1 text-white/90 bg-[#333333] p-2 rounded">
+        {isMultiline ? (
+          <div className="whitespace-pre-wrap">{value}</div>
+        ) : (
+          <div className="line-clamp-1">{value}</div>
+        )}
+      </div>
+    </div>
+  );
+
   return (
     <div className="space-y-6">
       <div className="rounded-lg overflow-hidden bg-gray-900 p-4">
@@ -223,7 +273,21 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
             )}
           </div>
 
-          <ProductImageMetadata imageJobId={imageJobId} />
+          {metadata && (
+            <div className="space-y-4 mt-6">
+              <h3 className="text-lg font-semibold text-white/90">Generated Metadata</h3>
+              <div className="space-y-4 bg-[#222222] p-4 rounded-lg">
+                {metadataFields.map((field) => (
+                  <MetadataField
+                    key={field.label}
+                    label={field.label}
+                    value={field.value}
+                    isMultiline={field.isMultiline}
+                  />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
     </div>

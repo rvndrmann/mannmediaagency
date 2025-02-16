@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -91,82 +92,17 @@ const ImageToVideo = () => {
       }
       
       console.log("Fetched videos:", data);
-      return ((data || []) as SupabaseVideoJob[]).map(video => ({
-        id: video.id,
-        status: video.status,
-        created_at: video.created_at,
-        request_id: video.request_id,
-        result_url: video.result_url,
-        prompt: video.prompt,
-        progress: video.progress,
-        user_id: video.user_id,
-        retry_count: video.retry_count || 0
-      })) as VideoGenerationJob[];
+      return data as VideoGenerationJob[];
     },
     enabled: !!session,
-    refetchInterval: (query) => {
-      const data = query.state.data as VideoGenerationJob[] | undefined;
+    refetchInterval: (data) => {
       if (!Array.isArray(data)) return false;
-      
       const hasPendingVideos = data.some(video => 
         video.status === 'pending' || video.status === 'processing'
       );
-
       return hasPendingVideos ? 10000 : false;
     },
-    retry: 3,
   });
-
-  useEffect(() => {
-    if (!session?.access_token) return;
-
-    const checkPendingVideos = async () => {
-      console.log("Checking pending videos...");
-      const { data: pendingVideos, error } = await supabase
-        .from('video_generation_jobs')
-        .select('*')
-        .in('status', ['pending', 'processing'])
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Error fetching pending videos:', error);
-        return;
-      }
-
-      console.log("Found pending videos:", pendingVideos?.length);
-
-      for (const video of (pendingVideos || [])) {
-        try {
-          console.log(`Checking status for video ${video.id} with request_id ${video.request_id}...`);
-          
-          const response = await supabase.functions.invoke('check-video-status', {
-            body: { request_id: video.request_id },
-          });
-          
-          console.log(`Status check response for ${video.id}:`, response);
-
-          if (response.error) {
-            if (response.error.message.includes('Polling timed out')) {
-              console.log(`Video ${video.id} still processing...`);
-              continue;
-            }
-            console.error('Error checking status:', response.error);
-          }
-
-          if (response.data?.status === 'completed') {
-            await refetchVideos();
-          }
-        } catch (error) {
-          console.error(`Error processing video ${video.id}:`, error);
-        }
-      }
-    };
-
-    const interval = setInterval(checkPendingVideos, 10000);
-    checkPendingVideos(); // Initial check
-
-    return () => clearInterval(interval);
-  }, [session?.access_token, refetchVideos]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -195,23 +131,6 @@ const ImageToVideo = () => {
     clearSelectedFile();
     setSelectedImageUrl(imageUrl);
     setPreviewUrl(imageUrl);
-  };
-
-  const handleDownload = async (url: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `video-${Date.now()}.mp4`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      toast.error("Failed to download video");
-    }
   };
 
   const handleGenerate = async () => {
@@ -257,9 +176,6 @@ const ImageToVideo = () => {
           duration: "5",
           aspect_ratio: aspectRatio,
         },
-        headers: {
-          Authorization: `Bearer ${session.access_token}`,
-        },
       });
 
       if (response.error) {
@@ -268,7 +184,7 @@ const ImageToVideo = () => {
 
       await refetchVideos();
       
-      toast.success("Video generation started!");
+      toast.success("Video generation started! This typically takes about 7 minutes.");
       clearSelectedFile();
       setPrompt("");
     } catch (error) {
@@ -316,7 +232,22 @@ const ImageToVideo = () => {
           isMobile={isMobile}
           videos={videos}
           isLoading={videosLoading}
-          onDownload={handleDownload}
+          onDownload={async (url: string) => {
+            try {
+              const response = await fetch(url);
+              const blob = await response.blob();
+              const downloadUrl = window.URL.createObjectURL(blob);
+              const link = document.createElement('a');
+              link.href = downloadUrl;
+              link.download = `video-${Date.now()}.mp4`;
+              document.body.appendChild(link);
+              link.click();
+              document.body.removeChild(link);
+              window.URL.revokeObjectURL(downloadUrl);
+            } catch (error) {
+              toast.error("Failed to download video");
+            }
+          }}
         />
       </div>
     </div>

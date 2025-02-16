@@ -38,6 +38,7 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
     },
   });
 
+  // Update the metadata query to include force refresh
   const { data: metadata, isLoading: metadataLoading } = useQuery({
     queryKey: ["video-metadata", videoJobId],
     queryFn: async () => {
@@ -50,6 +51,8 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
       if (error) throw error;
       return data;
     },
+    refetchOnMount: true,
+    refetchOnWindowFocus: true,
   });
 
   const handleCopy = async (text: string | null, fieldName: string) => {

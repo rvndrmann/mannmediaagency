@@ -20,4 +20,6 @@ verify_jwt = false
 verify_jwt = false
 [functions.upload-showcase-video]
 verify_jwt = true
+[functions.generate-video-metadata]
+verify_jwt = true
 

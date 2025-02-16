@@ -5,6 +5,8 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Max-Age': '86400',
 };
 
 interface RequestBody {
@@ -12,8 +14,12 @@ interface RequestBody {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, {
+      status: 204,
+      headers: corsHeaders
+    });
   }
 
   try {
@@ -22,6 +28,7 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
+    // Parse the request body
     const { request_id }: RequestBody = await req.json();
     if (!request_id) {
       throw new Error('No request_id provided');
@@ -45,23 +52,25 @@ serve(async (req) => {
       throw new Error(`No job found with request_id: ${request_id}`);
     }
 
-    console.log(`Current job status: ${currentJob.status}, retry count: ${currentJob.retry_count}`);
+    console.log(`Current job status: ${currentJob.status}, retry count: ${currentJob.retry_count || 0}`);
 
     // Check the status using the GET endpoint
     const statusResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+        'Content-Type': 'application/json'
       },
     });
 
+    if (!statusResponse.ok) {
+      const errorText = await statusResponse.text();
+      console.error('FAL.ai error response:', errorText);
+      throw new Error(`Failed to check video status: ${errorText}`);
+    }
+
     const statusResult = await statusResponse.json();
     console.log('FAL.ai Status Response:', statusResult);
-
-    if (!statusResponse.ok) {
-      console.error('FAL.ai error response:', statusResult);
-      throw new Error(statusResult.error || 'Failed to check video status');
-    }
 
     let status = 'processing';
     let videoUrl = null;
@@ -76,6 +85,7 @@ serve(async (req) => {
           method: 'GET',
           headers: {
             'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+            'Content-Type': 'application/json'
           },
         });
 
@@ -101,8 +111,6 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error('Error fetching completed video:', error);
-        status = 'failed';
-        progress = 0;
         throw new Error(`Failed to fetch completed video: ${error.message}`);
       }
     } else if (statusResult.status === 'failed') {
@@ -144,16 +152,24 @@ serve(async (req) => {
         progress
       }),
       { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
   } catch (error) {
     console.error('Function error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }),
       { 
         status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        }
       }
     );
   }

@@ -22,7 +22,6 @@ serve(async (req) => {
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get the request ID from the request body
     const { request_id }: RequestBody = await req.json();
     if (!request_id) {
       throw new Error('No request_id provided');
@@ -45,7 +44,9 @@ serve(async (req) => {
 
     let status = 'processing';
     let videoUrl = null;
+    let progress = 0;
 
+    // Calculate progress based on FAL.ai status
     if (statusResult.status === 'completed') {
       // Get the final result using the GET endpoint
       const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
@@ -59,6 +60,7 @@ serve(async (req) => {
         const result = await resultResponse.json();
         status = 'completed';
         videoUrl = result.video_url;
+        progress = 100;
         
         console.log('Video generation completed:', {
           request_id,
@@ -71,15 +73,21 @@ serve(async (req) => {
       }
     } else if (statusResult.status === 'failed') {
       status = 'failed';
+      progress = 0;
       console.error('Video generation failed:', statusResult);
+    } else if (statusResult.status === 'processing') {
+      // Estimate progress based on queue position and processing state
+      progress = Math.min(Math.round((statusResult.progress || 0) * 100), 99);
     }
 
     // Update the job status in our database
     const { error: updateError } = await supabaseClient
       .from('video_generation_jobs')
       .update({ 
-        status: status,
-        result_url: videoUrl
+        status,
+        result_url: videoUrl,
+        progress,
+        updated_at: new Date().toISOString()
       })
       .eq('request_id', request_id);
 
@@ -91,7 +99,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         status,
-        video_url: videoUrl
+        video_url: videoUrl,
+        progress
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }

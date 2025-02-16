@@ -45,7 +45,7 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
-  const { data: videos, isLoading: videosLoading } = useQuery({
+  const { data: videos, isLoading: videosLoading, refetch: refetchVideos } = useQuery({
     queryKey: ["videos"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -57,7 +57,13 @@ const ImageToVideo = () => {
       return data;
     },
     enabled: !!session,
-    refetchInterval: 5000,
+    refetchInterval: (data) => {
+      const hasPendingVideos = data?.some(
+        video => video.status === 'pending' || video.status === 'processing'
+      );
+      return hasPendingVideos ? 3000 : false;
+    },
+    retry: 3,
   });
 
   useEffect(() => {
@@ -75,7 +81,7 @@ const ImageToVideo = () => {
         return;
       }
 
-      for (const video of pendingVideos) {
+      const checkPromises = pendingVideos.map(async (video) => {
         const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
         
         if (elapsedMinutes > 10) {
@@ -83,34 +89,28 @@ const ImageToVideo = () => {
             .from('video_generation_jobs')
             .update({ status: 'failed' })
             .eq('id', video.id);
-          continue;
+          return;
         }
 
         try {
-          const intervalMinutes = elapsedMinutes < 2 ? 0.5 : 1;
-          
-          const response = await supabase.functions.invoke('check-video-status', {
+          await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
           });
-
-          if (response.error) {
-            console.error('Error checking video status:', response.error);
-            continue;
-          }
-
-          await new Promise(resolve => setTimeout(resolve, intervalMinutes * 60 * 1000));
         } catch (error) {
           console.error('Error checking video status:', error);
         }
-      }
+      });
+
+      await Promise.all(checkPromises);
+      refetchVideos();
     };
 
     checkPendingVideos();
 
-    const interval = setInterval(checkPendingVideos, 30000);
+    const interval = setInterval(checkPendingVideos, 10000);
 
     return () => clearInterval(interval);
-  }, [session?.access_token]);
+  }, [session?.access_token, refetchVideos]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -179,18 +179,13 @@ const ImageToVideo = () => {
         const fileExt = selectedFile.name.split('.').pop();
         const filePath = `${Date.now()}.${fileExt}`;
         
-        console.log('Uploading file:', filePath);
-        
         const { error: uploadError, data: uploadData } = await supabase.storage
           .from('source-images')
           .upload(filePath, selectedFile);
 
         if (uploadError) {
-          console.error('Upload error:', uploadError);
           throw uploadError;
         }
-
-        console.log('Upload successful:', uploadData);
 
         const { data: { publicUrl: uploadedUrl } } = supabase.storage
           .from('source-images')
@@ -198,8 +193,6 @@ const ImageToVideo = () => {
 
         publicUrl = uploadedUrl;
       }
-
-      console.log('Using image URL:', publicUrl);
 
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
@@ -217,6 +210,8 @@ const ImageToVideo = () => {
         throw new Error(response.error.message);
       }
 
+      await refetchVideos();
+      
       toast.success("Video generation started!");
       clearSelectedFile();
       setPrompt("");

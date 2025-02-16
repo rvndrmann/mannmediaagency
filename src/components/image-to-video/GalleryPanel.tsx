@@ -39,20 +39,14 @@ export function GalleryPanel({
                   <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-4" />
                   <div className="w-full max-w-xs space-y-2">
                     <Progress 
-                      value={Math.min(
-                        ((Date.now() - new Date(video.created_at).getTime()) / (7 * 60 * 1000)) * 100,
-                        99
-                      )} 
+                      value={video.progress || 0}
                       className="h-2 bg-gray-700"
                     />
                     <p className="text-sm text-center text-gray-400">
                       {video.status === 'pending' ? 'Initializing...' : 'Processing video...'}
                       <br />
                       <span className="text-xs">
-                        {Math.max(
-                          7 - Math.floor((Date.now() - new Date(video.created_at).getTime()) / (60 * 1000)),
-                          1
-                        )} minutes remaining
+                        {video.progress}% complete
                       </span>
                     </p>
                   </div>

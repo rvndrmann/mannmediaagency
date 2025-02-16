@@ -98,19 +98,40 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `You are a professional product marketing specialist. Generate metadata for product images. 
-            Your response MUST be a valid JSON object with these EXACT fields:
-            - seo_title: Maximum 60 characters, compelling title
-            - seo_description: Maximum 160 characters, optimized for SEO
-            - keywords: Exactly 10-15 relevant comma-separated keywords
-            - instagram_hashtags: Exactly 20-30 relevant space-separated hashtags including # symbol
-            - product_context: 2-3 sentences about the product and its key features
-            
-            DO NOT include any additional text or formatting outside of the JSON object.`
+            content: `You are a professional product marketing specialist. Generate product metadata with these STRICT requirements:
+
+1. SEO Title (Maximum 60 characters):
+   - Create a compelling, SEO-optimized title
+   - Focus on the product's key benefit
+   - Example: "Premium Leather Wallet - Handcrafted Italian Design" (48 chars)
+
+2. SEO Description (Maximum 160 characters):
+   - Write a concise, benefit-focused description
+   - Include key features and value proposition
+   - Example: "Discover our handcrafted Italian leather wallet, featuring 8 card slots and RFID protection. Premium quality meets elegant design."
+
+3. Keywords (EXACTLY 10-15 items):
+   - Comma-separated without spaces
+   - Focus on product features and benefits
+   - Example: "leather wallet,handcrafted wallet,italian leather,RFID wallet,luxury wallet,mens wallet,premium wallet,card holder,bifold wallet,leather goods"
+
+4. Instagram Hashtags (EXACTLY 25 hashtags):
+   - Space-separated with # symbol
+   - Mix of popular and niche tags
+   - MUST include EXACTLY 25 hashtags, no more, no less
+   - Example: "#leathergoods #handcrafted #luxuryaccessories #handmadeleather #italianleather #leathercraft #luxurywallet #premiumwallet #handstitched #leatherwork #minimalwallet #leatheraccessories #walletdesign #mensfashion #leatherwallet #luxurylifestyle #handmadewallet #sustainable #artisancraft #giftforhim #EDCwallet #walletessentials #businessaccessories #rfidwallet #leathergifts"
+
+5. Product Context (2-3 sentences):
+   - Describe key features and benefits
+   - Focus on unique selling points
+   - Example: "This handcrafted Italian leather wallet combines timeless elegance with modern functionality. Features RFID protection and 8 card slots in a slim, minimalist design perfect for the sophisticated professional."
+
+Your response MUST be a valid JSON object with these EXACT fields. Do not include any text outside the JSON.
+Follow the length requirements strictly.`
           },
           {
             role: 'user',
@@ -143,21 +164,40 @@ serve(async (req) => {
 
     console.log('Successfully validated metadata:', metadata);
 
-    // Upsert the metadata
-    const { error: upsertError } = await supabase
+    // First, try to update existing record
+    const { error: updateError } = await supabase
       .from('product_image_metadata')
-      .upsert({
-        image_job_id: imageJobId,
+      .update({
         seo_title: metadata.seo_title,
         seo_description: metadata.seo_description,
         keywords: metadata.keywords,
         instagram_hashtags: metadata.instagram_hashtags,
         product_context: metadata.product_context,
-      });
+        metadata_regeneration_count: (regenerationCount || 0) + 1,
+        updated_at: new Date().toISOString()
+      })
+      .eq('image_job_id', imageJobId);
 
-    if (upsertError) {
-      console.error('Database update error:', upsertError);
-      throw upsertError;
+    // If no record exists, insert a new one
+    if (updateError) {
+      const { error: insertError } = await supabase
+        .from('product_image_metadata')
+        .insert({
+          image_job_id: imageJobId,
+          seo_title: metadata.seo_title,
+          seo_description: metadata.seo_description,
+          keywords: metadata.keywords,
+          instagram_hashtags: metadata.instagram_hashtags,
+          product_context: metadata.product_context,
+          metadata_regeneration_count: 1,
+          created_at: new Date().toISOString(),
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertError) {
+        console.error('Database insert error:', insertError);
+        throw insertError;
+      }
     }
 
     console.log('Metadata generation completed successfully');

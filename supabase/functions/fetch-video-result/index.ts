@@ -14,7 +14,12 @@ interface RequestBody {
 }
 
 serve(async (req) => {
+  // Log the start of function execution
+  console.log('fetch-video-result function started');
+  console.log('Request method:', req.method);
+  
   if (req.method === 'OPTIONS') {
+    console.log('Handling OPTIONS request');
     return new Response(null, {
       status: 204,
       headers: corsHeaders
@@ -22,17 +27,23 @@ serve(async (req) => {
   }
 
   try {
+    console.log('Initializing Supabase client...');
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    const { request_id }: RequestBody = await req.json();
+    const body = await req.json();
+    console.log('Received request body:', body);
+
+    const { request_id }: RequestBody = body;
     if (!request_id) {
+      console.error('No request_id provided in request body');
       throw new Error('No request_id provided');
     }
 
     console.log(`Fetching result for request_id: ${request_id}`);
+    console.log('FAL API Key available:', !!Deno.env.get('FAL_AI_API_KEY'));
 
     const resultResponse = await fetch(`https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`, {
       method: 'GET',
@@ -42,7 +53,9 @@ serve(async (req) => {
       },
     });
 
+    console.log('Result response status:', resultResponse.status);
     if (!resultResponse.ok) {
+      console.error('Failed to fetch result, response:', await resultResponse.text());
       throw new Error('Failed to fetch result');
     }
 
@@ -50,7 +63,9 @@ serve(async (req) => {
     console.log('Result response:', result);
 
     if (result.video_url) {
-      // Update the job with the result URL
+      console.log('Video URL found:', result.video_url);
+      console.log('Updating job with result URL...');
+      
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
         .update({ 
@@ -61,8 +76,12 @@ serve(async (req) => {
         })
         .eq('request_id', request_id);
 
-      if (updateError) throw updateError;
+      if (updateError) {
+        console.error('Error updating job:', updateError);
+        throw updateError;
+      }
 
+      console.log('Successfully updated job with result URL');
       return new Response(
         JSON.stringify({ 
           status: 'completed', 
@@ -72,6 +91,7 @@ serve(async (req) => {
       );
     }
 
+    console.log('No video URL found yet, still processing');
     return new Response(
       JSON.stringify({ status: 'processing' }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

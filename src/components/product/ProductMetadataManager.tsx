@@ -8,6 +8,7 @@ import { Download, RefreshCw, Loader2, CreditCard } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
+import { useNavigate } from "react-router-dom";
 
 interface ProductMetadataManagerProps {
   imageJobId: string;
@@ -17,6 +18,7 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   const [additionalContext, setAdditionalContext] = useState("");
   const [customTitleTwist, setCustomTitleTwist] = useState("");
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -79,6 +81,9 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
 
       if (error) {
         console.error("Edge function error:", error);
+        if (error.message.includes("Insufficient credits")) {
+          throw new Error("Insufficient credits. Please purchase more credits to generate metadata.");
+        }
         throw new Error(error.message || "Failed to generate metadata");
       }
 
@@ -95,7 +100,17 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
     },
     onError: (error) => {
       console.error("Error generating metadata:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to generate metadata");
+      if (error.message.includes("Insufficient credits")) {
+        toast.error("Insufficient credits", {
+          description: "You need 0.20 credits to generate metadata. Would you like to purchase more credits?",
+          action: {
+            label: "Purchase Credits",
+            onClick: () => navigate("/plans"),
+          },
+        });
+      } else {
+        toast.error(error instanceof Error ? error.message : "Failed to generate metadata");
+      }
     },
   });
 

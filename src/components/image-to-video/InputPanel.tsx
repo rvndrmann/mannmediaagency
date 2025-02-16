@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { ImageUploader } from "./ImageUploader";
+import { ImageSelector } from "./ImageSelector";
 import { Video, Loader2, CreditCard } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
@@ -18,6 +18,7 @@ interface InputPanelProps {
   previewUrl: string | null;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
+  onSelectFromHistory: (jobId: string, imageUrl: string) => void;
   onGenerate: () => void;
   isGenerating: boolean;
   creditsRemaining: number | null;
@@ -30,6 +31,7 @@ export function InputPanel({
   previewUrl,
   onFileSelect,
   onClearFile,
+  onSelectFromHistory,
   onGenerate,
   isGenerating,
   creditsRemaining,
@@ -49,10 +51,11 @@ export function InputPanel({
           </div>
         )}
 
-        <ImageUploader
+        <ImageSelector
           previewUrl={previewUrl}
           onFileSelect={onFileSelect}
           onClear={onClearFile}
+          onSelectFromHistory={onSelectFromHistory}
           aspectRatio={768/512}
           helpText="Upload an image (768x512 recommended)"
         />

@@ -17,6 +17,7 @@ const ImageToVideo = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   // Check authentication status
   const { data: session } = useQuery({
@@ -67,6 +68,7 @@ const ImageToVideo = () => {
     if (file) {
       if (file.type.startsWith('image/')) {
         setSelectedFile(file);
+        setSelectedImageUrl(null);
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
       } else {
@@ -76,11 +78,18 @@ const ImageToVideo = () => {
   };
 
   const clearSelectedFile = () => {
-    if (previewUrl) {
+    if (previewUrl && !selectedImageUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     setSelectedFile(null);
+    setSelectedImageUrl(null);
     setPreviewUrl(null);
+  };
+
+  const handleSelectFromHistory = (_jobId: string, imageUrl: string) => {
+    clearSelectedFile();
+    setSelectedImageUrl(imageUrl);
+    setPreviewUrl(imageUrl);
   };
 
   const handleDownload = async (url: string) => {
@@ -101,7 +110,7 @@ const ImageToVideo = () => {
   };
 
   const handleGenerate = async () => {
-    if (!selectedFile || !prompt.trim()) {
+    if ((!selectedFile && !selectedImageUrl) || !prompt.trim()) {
       toast.error("Please provide both an image and a prompt");
       return;
     }
@@ -115,28 +124,34 @@ const ImageToVideo = () => {
     try {
       setIsGenerating(true);
 
-      // Upload image to get URL
-      const fileExt = selectedFile.name.split('.').pop();
-      const filePath = `${Date.now()}.${fileExt}`;
-      
-      console.log('Uploading file:', filePath);
-      
-      const { error: uploadError, data: uploadData } = await supabase.storage
-        .from('source-images')
-        .upload(filePath, selectedFile);
+      let publicUrl = selectedImageUrl;
 
-      if (uploadError) {
-        console.error('Upload error:', uploadError);
-        throw uploadError;
+      if (selectedFile) {
+        // Upload image to get URL
+        const fileExt = selectedFile.name.split('.').pop();
+        const filePath = `${Date.now()}.${fileExt}`;
+        
+        console.log('Uploading file:', filePath);
+        
+        const { error: uploadError, data: uploadData } = await supabase.storage
+          .from('source-images')
+          .upload(filePath, selectedFile);
+
+        if (uploadError) {
+          console.error('Upload error:', uploadError);
+          throw uploadError;
+        }
+
+        console.log('Upload successful:', uploadData);
+
+        const { data: { publicUrl: uploadedUrl } } = supabase.storage
+          .from('source-images')
+          .getPublicUrl(filePath);
+
+        publicUrl = uploadedUrl;
       }
 
-      console.log('Upload successful:', uploadData);
-
-      const { data: { publicUrl } } = supabase.storage
-        .from('source-images')
-        .getPublicUrl(filePath);
-
-      console.log('Public URL:', publicUrl);
+      console.log('Using image URL:', publicUrl);
 
       // Generate video with auth token
       const response = await supabase.functions.invoke('generate-video-from-image', {
@@ -190,6 +205,7 @@ const ImageToVideo = () => {
           previewUrl={previewUrl}
           onFileSelect={handleFileSelect}
           onClearFile={clearSelectedFile}
+          onSelectFromHistory={handleSelectFromHistory}
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           creditsRemaining={userCredits?.credits_remaining}

@@ -39,7 +39,7 @@ const CreateVideo = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-3xl font-bold text-white">Create New Video</h1>
+          <h1 className="text-3xl font-bold text-white">Faceless Video</h1>
         </div>
         
         <Card className="p-6 glass-card">

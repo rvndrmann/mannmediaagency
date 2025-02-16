@@ -25,6 +25,7 @@ export const Navigation = () => {
     {
       name: "AI Agent",
       subtext: "Powered by ChatGPT-4o",
+      logo: "/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png",
       to: "/ai-agent",
       icon: GalleryHorizontalEnd,
     },
@@ -43,18 +44,21 @@ export const Navigation = () => {
     {
       name: "Image to Video",
       subtext: "Powered by Kling AI",
+      logo: "/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png",
       to: "/image-to-video",
       icon: FileVideo,
     },
     {
       name: "Faceless Video",
       subtext: "Powered by Kling AI",
+      logo: "/lovable-uploads/76ac2028-1545-407e-b33f-378f4dd531a1.png",
       to: "/create-video",
       icon: Video,
     },
     {
       name: "Metadata Manager",
       subtext: "Powered by ChatGPT-4o",
+      logo: "/lovable-uploads/4fef3d5e-6027-4434-ac33-efd08f0819df.png",
       to: "/metadata",
       icon: Database,
     },
@@ -100,13 +104,20 @@ export const Navigation = () => {
                 location.pathname === item.to && "bg-gray-800 text-white"
               )}
             >
-              <div className="flex items-center">
+              <div className="flex items-center w-full">
                 <item.icon className="mr-2 h-4 w-4" />
-                <div>
+                <div className="flex-1">
                   <div>{item.name}</div>
-                  {item.subtext && (
+                  <div className="flex items-center gap-2">
+                    {item.logo && (
+                      <img 
+                        src={item.logo} 
+                        alt={`${item.name} provider logo`} 
+                        className="h-4 w-4 object-contain"
+                      />
+                    )}
                     <div className="text-xs text-gray-500">{item.subtext}</div>
-                  )}
+                  </div>
                 </div>
               </div>
             </Button>

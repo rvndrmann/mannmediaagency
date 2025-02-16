@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,7 +57,7 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
-  const { data: videos, isLoading: videosLoading, refetch: refetchVideos } = useQuery<VideoGenerationJob[]>({
+  const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery({
     queryKey: ["videos"],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -65,17 +66,16 @@ const ImageToVideo = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      return data || [];
+      return (data || []) as VideoGenerationJob[];
     },
     enabled: !!session,
-    refetchInterval: (data: VideoGenerationJob[] | undefined) => {
-      if (!data) return false;
+    refetchInterval: (query) => {
+      const data = query.state.data as VideoGenerationJob[] | undefined;
+      if (!Array.isArray(data)) return false;
       
-      const hasPendingVideos = data.some(
-        video => video.status === 'pending' || video.status === 'processing'
-      );
-      
-      return hasPendingVideos ? 3000 : false;
+      return data.some(video => 
+        video.status === 'pending' || video.status === 'processing'
+      ) ? 3000 : false;
     },
     retry: 3,
   });
@@ -193,7 +193,7 @@ const ImageToVideo = () => {
         const fileExt = selectedFile.name.split('.').pop();
         const filePath = `${Date.now()}.${fileExt}`;
         
-        const { error: uploadError, data: uploadData } = await supabase.storage
+        const { error: uploadError } = await supabase.storage
           .from('source-images')
           .upload(filePath, selectedFile);
 
@@ -272,7 +272,7 @@ const ImageToVideo = () => {
         />
         <GalleryPanel
           isMobile={isMobile}
-          videos={videos || []}
+          videos={videos}
           isLoading={videosLoading}
           onDownload={handleDownload}
         />

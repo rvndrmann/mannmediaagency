@@ -23,14 +23,14 @@ export const Navigation = () => {
 
   const mainNavigation = [
     {
-      name: "Stories",
-      to: "/",
-      icon: ScrollText,
-    },
-    {
       name: "AI Agent",
       to: "/ai-agent",
       icon: GalleryHorizontalEnd,
+    },
+    {
+      name: "Stories",
+      to: "/",
+      icon: ScrollText,
     },
     {
       name: "Product Shoot",

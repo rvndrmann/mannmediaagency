@@ -17,10 +17,8 @@ const ImageToVideo = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
-  const [duration, setDuration] = useState<string>("5");
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
 
-  // Check authentication status
   const { data: session } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
@@ -33,7 +31,6 @@ const ImageToVideo = () => {
     },
   });
 
-  // Fetch user credits
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -48,7 +45,6 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
-  // Fetch videos
   const { data: videos, isLoading: videosLoading } = useQuery({
     queryKey: ["videos"],
     queryFn: async () => {
@@ -67,7 +63,6 @@ const ImageToVideo = () => {
   useEffect(() => {
     if (!session?.access_token) return;
 
-    // Function to check status of pending/processing videos
     const checkPendingVideos = async () => {
       const { data: pendingVideos, error } = await supabase
         .from('video_generation_jobs')
@@ -80,11 +75,9 @@ const ImageToVideo = () => {
         return;
       }
 
-      // For each pending video, check its status
       for (const video of pendingVideos) {
         const elapsedMinutes = (Date.now() - new Date(video.created_at).getTime()) / (60 * 1000);
         
-        // If more than 10 minutes have passed, mark as failed
         if (elapsedMinutes > 10) {
           await supabase
             .from('video_generation_jobs')
@@ -94,8 +87,7 @@ const ImageToVideo = () => {
         }
 
         try {
-          // Check status with appropriate interval
-          const intervalMinutes = elapsedMinutes < 2 ? 0.5 : 1; // 30s for first 2 min, then 1 min
+          const intervalMinutes = elapsedMinutes < 2 ? 0.5 : 1;
           
           const response = await supabase.functions.invoke('check-video-status', {
             body: { request_id: video.request_id },
@@ -106,7 +98,6 @@ const ImageToVideo = () => {
             continue;
           }
 
-          // Wait before checking the next video
           await new Promise(resolve => setTimeout(resolve, intervalMinutes * 60 * 1000));
         } catch (error) {
           console.error('Error checking video status:', error);
@@ -114,11 +105,9 @@ const ImageToVideo = () => {
       }
     };
 
-    // Initial check
     checkPendingVideos();
 
-    // Set up interval for periodic checks
-    const interval = setInterval(checkPendingVideos, 30000); // Check every 30 seconds
+    const interval = setInterval(checkPendingVideos, 30000);
 
     return () => clearInterval(interval);
   }, [session?.access_token]);
@@ -212,12 +201,11 @@ const ImageToVideo = () => {
 
       console.log('Using image URL:', publicUrl);
 
-      // Generate video with auth token
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           prompt: prompt.trim(),
           image_url: publicUrl,
-          duration,
+          duration: "5",
           aspect_ratio: aspectRatio,
         },
         headers: {
@@ -270,8 +258,6 @@ const ImageToVideo = () => {
           onGenerate={handleGenerate}
           isGenerating={isGenerating}
           creditsRemaining={userCredits?.credits_remaining}
-          duration={duration}
-          onDurationChange={setDuration}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
         />

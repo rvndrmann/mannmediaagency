@@ -28,14 +28,14 @@ export const Navigation = () => {
       icon: ScrollText,
     },
     {
+      name: "AI Agent",
+      to: "/ai-agent",
+      icon: GalleryHorizontalEnd,
+    },
+    {
       name: "Product Shoot",
       to: "/product-shoot",
       icon: Image,
-    },
-    {
-      name: "Metadata Manager",
-      to: "/metadata",
-      icon: Database,
     },
     {
       name: "Image to Video",
@@ -48,9 +48,9 @@ export const Navigation = () => {
       icon: Video,
     },
     {
-      name: "AI Agent",
-      to: "/ai-agent",
-      icon: GalleryHorizontalEnd,
+      name: "Metadata Manager",
+      to: "/metadata",
+      icon: Database,
     },
     {
       name: "Integrations",

@@ -1,12 +1,12 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Download, RefreshCw, Loader2, CreditCard, Copy, Check } from "lucide-react";
+import { Download, RefreshCw, Loader2, Copy, Check } from "lucide-react";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { useNavigate } from "react-router-dom";
 
 interface ProductMetadataManagerProps {
   imageJobId: string;
@@ -23,20 +23,6 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   const [customTitleTwist, setCustomTitleTwist] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const queryClient = useQueryClient();
-  const navigate = useNavigate();
-
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-  });
 
   const { data: imageJob, isLoading: imageLoading } = useQuery({
     queryKey: ["image-job", imageJobId],
@@ -78,11 +64,6 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
     mutationFn: async () => {
       if (!imageJob?.prompt) throw new Error("No prompt found for image");
       
-      // Check if user has enough credits
-      if (!userCredits || userCredits.credits_remaining < 0.20) {
-        throw new Error("Insufficient credits. You need 0.20 credits to generate metadata.");
-      }
-
       const { data, error } = await supabase.functions.invoke('generate-product-metadata', {
         body: {
           imageJobId,
@@ -94,9 +75,6 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
 
       if (error) {
         console.error("Edge function error:", error);
-        if (error.message.includes("Insufficient credits")) {
-          throw new Error("Insufficient credits. Please purchase more credits to generate metadata.");
-        }
         throw new Error(error.message || "Failed to generate metadata");
       }
 
@@ -108,22 +86,11 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["product-metadata", imageJobId] });
-      queryClient.invalidateQueries({ queryKey: ["userCredits"] });
       toast.success("Metadata generated successfully");
     },
     onError: (error) => {
       console.error("Error generating metadata:", error);
-      if (error.message.includes("Insufficient credits")) {
-        toast.error("Insufficient credits", {
-          description: "You need 0.20 credits to generate metadata. Would you like to purchase more credits?",
-          action: {
-            label: "Purchase Credits",
-            onClick: () => navigate("/plans"),
-          },
-        });
-      } else {
-        toast.error(error instanceof Error ? error.message : "Failed to generate metadata");
-      }
+      toast.error(error instanceof Error ? error.message : "Failed to generate metadata");
     },
   });
 
@@ -157,7 +124,7 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
   }
 
   const remainingRegenerations = 3 - (metadata?.metadata_regeneration_count || 0);
-  const canRegenerate = remainingRegenerations > 0 && (!userCredits || userCredits.credits_remaining >= 0.20);
+  const canRegenerate = remainingRegenerations > 0;
 
   const metadataFields: MetadataDisplay[] = metadata ? [
     { label: "SEO Title", value: metadata.seo_title },
@@ -254,21 +221,16 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
               {generateMetadata.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
               ) : (
-                <>
-                  <RefreshCw className="h-4 w-4 mr-2" />
-                  <CreditCard className="h-4 w-4 mr-2" />
-                </>
+                <RefreshCw className="h-4 w-4 mr-2" />
               )}
-              {metadata ? "Regenerate" : "Generate"} Metadata (0.20 credits)
+              {metadata ? "Regenerate" : "Generate"} Metadata
               <span className="ml-2 text-sm opacity-90">
                 ({remainingRegenerations} regenerations left)
               </span>
             </Button>
             {!canRegenerate && (
               <p className="text-sm text-red-400 text-center mt-2">
-                {remainingRegenerations > 0 
-                  ? "Insufficient credits. You need 0.20 credits to generate metadata."
-                  : "You have reached the maximum number of regenerations for this metadata."}
+                You have reached the maximum number of regenerations for this metadata.
               </p>
             )}
           </div>

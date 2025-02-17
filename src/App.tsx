@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ import AboutUs from "./pages/AboutUs";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import { ThemeProvider } from "next-themes";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -81,123 +83,125 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <div className="min-h-screen bg-background font-sans antialiased">
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <TooltipProvider>
-          <Routes>
-            <Route
-              path="/"
-              element={
-                <ProtectedRoute>
-                  <Index />
-                </ProtectedRoute>
-              }
-            />
-            <Route path="/auth/login" element={
-              <>
-                <PromotionalBanner />
-                <LoginForm />
-              </>
-            } />
-            <Route path="/auth/signup" element={
-              <>
-                <PromotionalBanner />
-                <SignupForm />
-              </>
-            } />
-            <Route path="/plans" element={<Plans />} />
-            <Route path="/about" element={<AboutUs />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route
-              path="/create-video"
-              element={
-                <ProtectedRoute>
-                  <CreateVideo />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/product-shoot"
-              element={
-                <ProtectedRoute>
-                  <ProductShoot />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/image-to-video"
-              element={
-                <ProtectedRoute>
-                  <ImageToVideo />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/metadata/:storyId?"
-              element={
-                <ProtectedRoute>
-                  <Metadata />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/integrations"
-              element={
-                <ProtectedRoute>
-                  <Integrations />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/ai-agent"
-              element={
-                <ProtectedRoute>
-                  <AIAgent />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payment"
-              element={
-                <ProtectedRoute>
-                  <Payment />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payment/success"
-              element={
-                <ProtectedRoute>
-                  <PaymentSuccess />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payment/failure"
-              element={
-                <ProtectedRoute>
-                  <PaymentFailure />
-                </ProtectedRoute>
-              }
-            />
-            <Route
-              path="/payment/cancel"
-              element={
-                <ProtectedRoute>
-                  <PaymentCancel />
-                </ProtectedRoute>
-              }
-            />
-          </Routes>
-        </TooltipProvider>
-      </BrowserRouter>
-    </div>
-  </QueryClientProvider>
+  <ThemeProvider defaultTheme="dark" enableSystem>
+    <QueryClientProvider client={queryClient}>
+      <div className="min-h-screen bg-background font-sans antialiased">
+        <BrowserRouter>
+          <TooltipProvider>
+            <Routes>
+              <Route
+                path="/"
+                element={
+                  <ProtectedRoute>
+                    <Index />
+                  </ProtectedRoute>
+                }
+              />
+              <Route path="/auth/login" element={
+                <>
+                  <PromotionalBanner />
+                  <LoginForm />
+                </>
+              } />
+              <Route path="/auth/signup" element={
+                <>
+                  <PromotionalBanner />
+                  <SignupForm />
+                </>
+              } />
+              <Route path="/plans" element={<Plans />} />
+              <Route path="/about" element={<AboutUs />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route
+                path="/create-video"
+                element={
+                  <ProtectedRoute>
+                    <CreateVideo />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/product-shoot"
+                element={
+                  <ProtectedRoute>
+                    <ProductShoot />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/image-to-video"
+                element={
+                  <ProtectedRoute>
+                    <ImageToVideo />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/metadata/:storyId?"
+                element={
+                  <ProtectedRoute>
+                    <Metadata />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/integrations"
+                element={
+                  <ProtectedRoute>
+                    <Integrations />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/ai-agent"
+                element={
+                  <ProtectedRoute>
+                    <AIAgent />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment"
+                element={
+                  <ProtectedRoute>
+                    <Payment />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment/success"
+                element={
+                  <ProtectedRoute>
+                    <PaymentSuccess />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment/failure"
+                element={
+                  <ProtectedRoute>
+                    <PaymentFailure />
+                  </ProtectedRoute>
+                }
+              />
+              <Route
+                path="/payment/cancel"
+                element={
+                  <ProtectedRoute>
+                    <PaymentCancel />
+                  </ProtectedRoute>
+                }
+              />
+            </Routes>
+          </TooltipProvider>
+          <Toaster />
+          <Sonner />
+        </BrowserRouter>
+      </div>
+    </QueryClientProvider>
+  </ThemeProvider>
 );
 
 export default App;

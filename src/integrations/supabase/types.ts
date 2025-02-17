@@ -916,14 +916,17 @@ export type Database = {
           content_type: string | null
           created_at: string
           duration: string | null
+          error_message: string | null
           file_name: string | null
           file_size: number | null
           id: string
+          last_checked_at: string | null
           negative_prompt: string | null
           progress: number | null
           prompt: string
           request_id: string | null
           result_url: string | null
+          retry_count: number | null
           settings: Json
           source_image_url: string
           status: Database["public"]["Enums"]["video_generation_status"]
@@ -935,14 +938,17 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           duration?: string | null
+          error_message?: string | null
           file_name?: string | null
           file_size?: number | null
           id?: string
+          last_checked_at?: string | null
           negative_prompt?: string | null
           progress?: number | null
           prompt: string
           request_id?: string | null
           result_url?: string | null
+          retry_count?: number | null
           settings?: Json
           source_image_url: string
           status?: Database["public"]["Enums"]["video_generation_status"]
@@ -954,14 +960,17 @@ export type Database = {
           content_type?: string | null
           created_at?: string
           duration?: string | null
+          error_message?: string | null
           file_name?: string | null
           file_size?: number | null
           id?: string
+          last_checked_at?: string | null
           negative_prompt?: string | null
           progress?: number | null
           prompt?: string
           request_id?: string | null
           result_url?: string | null
+          retry_count?: number | null
           settings?: Json
           source_image_url?: string
           status?: Database["public"]["Enums"]["video_generation_status"]
@@ -1138,7 +1147,12 @@ export type Database = {
     }
     Enums: {
       image_generation_status: "pending" | "processing" | "completed" | "failed"
-      video_generation_status: "pending" | "processing" | "completed" | "failed"
+      video_generation_status:
+        | "pending"
+        | "in_queue"
+        | "processing"
+        | "completed"
+        | "failed"
     }
     CompositeTypes: {
       [_ in never]: never

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,7 +11,7 @@ import { toast } from "sonner";
 
 interface SupabaseVideoJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'in_queue' | 'processing' | 'completed' | 'failed';
   created_at: string;
   request_id: string;
   result_url?: string;
@@ -27,11 +26,12 @@ interface SupabaseVideoJob {
   negative_prompt: string;
   source_image_url: string;
   retry_count?: number;
+  error_message?: string;
 }
 
 interface VideoGenerationJob {
   id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'in_queue' | 'processing' | 'completed' | 'failed';
   created_at: string;
   request_id: string;
   result_url?: string;
@@ -39,6 +39,7 @@ interface VideoGenerationJob {
   progress?: number;
   user_id: string;
   retry_count?: number;
+  error_message?: string;
 }
 
 const getPollingInterval = (elapsedMinutes: number): number => {
@@ -104,7 +105,6 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
-  // Real-time updates subscription
   useEffect(() => {
     const channel = supabase
       .channel('schema-db-changes')
@@ -127,10 +127,9 @@ const ImageToVideo = () => {
     };
   }, [refetchVideos]);
 
-  // Enhanced polling with dynamic intervals
   useEffect(() => {
     const pendingVideos = videos.filter(
-      video => video.status === 'pending' || video.status === 'processing'
+      video => video.status === 'in_queue' || video.status === 'processing'
     );
 
     if (pendingVideos.length === 0) return;
@@ -143,7 +142,6 @@ const ImageToVideo = () => {
       const elapsedTime = currentTime - startTime;
       const elapsedMinutes = elapsedTime / (60 * 1000);
 
-      // Stop polling after 7 minutes
       if (elapsedTime > MAX_POLLING_TIME) {
         console.log(`Stopping poll for video ${video.id} - exceeded 7 minutes`);
         
@@ -159,7 +157,7 @@ const ImageToVideo = () => {
       }
 
       try {
-        const response = await supabase.functions.invoke('fetch-video-result', {
+        const response = await supabase.functions.invoke('check-video-status', {
           body: { request_id: video.request_id }
         });
 
@@ -170,9 +168,10 @@ const ImageToVideo = () => {
 
         console.log(`Poll response for video ${video.id}:`, response.data);
         
-        // If completed, show success message
         if (response.data?.status === 'completed') {
           toast.success("Your video is ready!");
+        } else if (response.data?.status === 'failed') {
+          toast.error(response.data.error_message || "Failed to generate video");
         }
       } catch (error) {
         console.error(`Failed to poll video ${video.id}:`, error);
@@ -185,10 +184,8 @@ const ImageToVideo = () => {
       }
     };
 
-    // Initial poll
     pollResults();
 
-    // Set up polling with dynamic intervals
     const intervalId = setInterval(() => {
       const oldestPendingVideo = pendingVideos[0];
       if (!oldestPendingVideo) return;

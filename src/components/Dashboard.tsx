@@ -84,6 +84,19 @@ export const Dashboard = () => {
     };
   }, [queryClient]);
 
+  const handleVideoLoad = async (story: any, duration: number) => {
+    if (story["stories id"] && duration && duration !== story.video_length_seconds) {
+      const { error } = await supabase
+        .from("stories")
+        .update({ video_length_seconds: duration })
+        .eq("stories id", story["stories id"]);
+
+      if (error) {
+        console.error("Error updating video length:", error);
+      }
+    }
+  };
+
   const handleCreateOrPurchase = () => {
     if (!hasEnoughCredits) {
       toast({
@@ -121,7 +134,7 @@ export const Dashboard = () => {
             <StoryCard 
               key={story["stories id"]} 
               story={story}
-              onVideoLoad={updateVideoLength}
+              onVideoLoad={handleVideoLoad}
             />
           ))
         ) : (

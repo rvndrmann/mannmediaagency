@@ -1,3 +1,4 @@
+
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
@@ -89,7 +90,7 @@ serve(async (req) => {
 
     console.log('Regeneration count check passed:', regenerationCount);
 
-    // Generate metadata using OpenAI
+    // Generate metadata using OpenAI with improved prompt
     const response = await fetch('https://api.openai.com/v1/chat/completions', {
       method: 'POST',
       headers: {
@@ -97,38 +98,38 @@ serve(async (req) => {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'gpt-4',
+        model: 'gpt-4o-mini',
         messages: [
           {
             role: 'system',
-            content: `You are a professional video marketing specialist. Generate metadata for video content with these STRICT requirements:
+            content: `As a video marketing specialist, generate concise metadata following these STRICT limits:
 
-1. SEO Title:
-   - MUST be under 60 characters
-   - Be compelling and optimized for video content
+1. SEO Title (CRITICAL):
+   - MAXIMUM 50 characters (HARD LIMIT)
+   - Must be compelling and SEO-optimized
    - Focus on key value proposition
 
 2. SEO Description:
-   - MUST be under 160 characters
-   - Optimize for video SEO
-   - Include key benefits or features
+   - MAXIMUM 150 characters (HARD LIMIT)
+   - Must be SEO-optimized
+   - Include key benefits
 
 3. Keywords:
-   - EXACTLY 10-15 relevant comma-separated keywords
+   - EXACTLY 10-15 comma-separated keywords
    - No spaces after commas
-   - Focus on search relevance
+   - Must be relevant to video content
 
 4. Instagram Hashtags:
-   - EXACTLY 20-30 relevant hashtags
-   - Include # symbol
+   - EXACTLY 20-30 hashtags
+   - Include # prefix
    - Space-separated
-   - Mix of popular and niche tags
+   - Mix popular and niche
 
 5. Video Context:
-   - 2-3 concise sentences about the content
-   - Focus on key features and value
+   - 2-3 concise sentences
+   - Focus on key features
 
-Your response MUST be a valid JSON object with these EXACT fields:
+FORMAT YOUR RESPONSE AS A VALID JSON OBJECT WITH THESE EXACT FIELDS:
 {
   "seo_title": "...",
   "seo_description": "...",
@@ -137,12 +138,11 @@ Your response MUST be a valid JSON object with these EXACT fields:
   "video_context": "..."
 }
 
-DO NOT include any additional text or formatting outside of the JSON object.
-VERIFY all length requirements before responding.`
+IMPORTANT: VERIFY ALL LENGTH LIMITS BEFORE RESPONDING. DO NOT EXCEED CHARACTER LIMITS.`
           },
           {
             role: 'user',
-            content: `Generate optimized metadata for this video content. Main prompt: "${prompt}"${additionalContext ? ` Additional context: ${additionalContext}` : ''}${customTitleTwist ? ` Custom title twist: ${customTitleTwist}` : ''}`
+            content: `Generate concise metadata for this video. Main prompt: "${prompt}"${additionalContext ? ` Additional context: ${additionalContext}` : ''}${customTitleTwist ? ` Custom title twist: ${customTitleTwist}` : ''}`
           }
         ],
         temperature: 0.7,
@@ -156,8 +156,8 @@ VERIFY all length requirements before responding.`
     }
 
     const completion = await response.json();
-    console.log('OpenAI response:', completion);
-    
+    console.log('Raw OpenAI response:', completion);
+
     let metadata: VideoMetadata;
     try {
       metadata = JSON.parse(completion.choices[0].message.content);

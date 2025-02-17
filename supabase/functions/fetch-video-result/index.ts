@@ -10,10 +10,11 @@ const corsHeaders = {
 };
 
 interface FalVideoResponse {
-  status: 'completed' | 'processing' | 'failed';
-  video?: {
+  status: string;
+  result?: {
     url: string;
   };
+  error?: string;
   progress?: number;
 }
 
@@ -55,13 +56,15 @@ serve(async (req) => {
 
     console.log(`Fetching result for request_id: ${request_id}`);
 
-    const falApiUrl = `https://api.kling.ai/api/v1/direct/status/${request_id}`;
+    const falApiUrl = `https://api.fal.ai/rest/v1/video/check/${request_id}`;
     const falApiKey = Deno.env.get('FAL_AI_API_KEY');
 
     if (!falApiKey) {
+      console.error('FAL_AI_API_KEY is not configured');
       throw new Error('FAL_AI_API_KEY is not configured');
     }
 
+    console.log('Calling Fal AI API...');
     const resultResponse = await fetch(falApiUrl, {
       method: 'GET',
       headers: {
@@ -82,15 +85,21 @@ serve(async (req) => {
     const result: FalVideoResponse = await resultResponse.json();
     console.log('API Response:', JSON.stringify(result, null, 2));
 
-    if (result.status === 'completed' && result.video?.url) {
-      console.log('Video URL found:', result.video.url);
+    // Map Fal AI status to our status
+    const status = 
+      result.status === 'completed' ? 'completed' :
+      result.status === 'failed' ? 'failed' :
+      'processing';
+
+    if (status === 'completed' && result.result?.url) {
+      console.log('Video URL found:', result.result.url);
       
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
         .update({ 
           status: 'completed',
           progress: 100,
-          result_url: result.video.url,
+          result_url: result.result.url,
           updated_at: new Date().toISOString()
         })
         .eq('request_id', request_id);
@@ -103,7 +112,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           status: 'completed', 
-          video_url: result.video.url 
+          video_url: result.result.url 
         }),
         { 
           headers: { 
@@ -114,7 +123,8 @@ serve(async (req) => {
       );
     }
 
-    if (result.status === 'failed') {
+    if (status === 'failed') {
+      console.log('Video generation failed');
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
         .update({ 
@@ -131,7 +141,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           status: 'failed',
-          error: 'Video generation failed'
+          error: result.error || 'Video generation failed'
         }),
         { 
           headers: { 
@@ -143,10 +153,12 @@ serve(async (req) => {
     }
 
     // If still processing, update the progress
-    if (result.status === 'processing' && typeof result.progress === 'number') {
+    if (status === 'processing' && typeof result.progress === 'number') {
+      console.log('Video still processing, progress:', result.progress);
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
         .update({ 
+          status: 'processing',
           progress: result.progress,
           updated_at: new Date().toISOString()
         })
@@ -160,7 +172,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         status: 'processing',
-        progress: result.progress
+        progress: result.progress || 0
       }),
       { 
         headers: { 

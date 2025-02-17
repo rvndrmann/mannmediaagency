@@ -22,4 +22,5 @@ verify_jwt = false
 verify_jwt = true
 [functions.generate-video-metadata]
 verify_jwt = true
-
+[functions.generate-video-from-image]
+verify_jwt = true

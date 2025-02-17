@@ -82,7 +82,7 @@ serve(async (req) => {
       .from('video_generation_jobs')
       .update({
         request_id: data.request_id,
-        status: 'processing',
+        status: 'in_queue',
         last_checked_at: new Date().toISOString()
       })
       .eq('id', job_id)
@@ -91,28 +91,7 @@ serve(async (req) => {
       throw updateError
     }
 
-    // Do an immediate status check
-    try {
-      const initialStatusResponse = await fetch(
-        `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${data.request_id}`,
-        {
-          method: 'GET',
-          headers: {
-            'Authorization': `Key ${falApiKey}`,
-            'Content-Type': 'application/json'
-          }
-        }
-      )
-
-      if (initialStatusResponse.ok) {
-        const statusData = await initialStatusResponse.json()
-        console.log('Initial status check:', statusData)
-      }
-    } catch (error) {
-      console.error('Initial status check error:', error)
-    }
-
-    // Schedule future status checks
+    // Start the status checking process
     await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
       {
@@ -130,7 +109,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        status: 'processing',
+        status: 'in_queue',
         request_id: data.request_id 
       }),
       { 

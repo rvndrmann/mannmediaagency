@@ -111,23 +111,26 @@ serve(async (req) => {
       throw updateError
     }
 
-    // If the video is not yet complete, schedule another check
+    // Schedule another check only if the video is still being processed
     if (updates.status === 'processing' || updates.status === 'in_queue') {
-      // Wait for the specified interval
-      await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
-      
-      // Make another status check request
-      await fetch(
-        `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ request_id, job_id })
-        }
-      )
+      // Use Edge Runtime to handle background task
+      EdgeRuntime.waitUntil((async () => {
+        // Wait for the specified interval
+        await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
+        
+        // Make another status check request
+        await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ request_id, job_id })
+          }
+        )
+      })())
     }
 
     return new Response(

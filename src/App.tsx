@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -25,6 +26,7 @@ import AboutUs from "./pages/AboutUs";
 import Contact from "./pages/Contact";
 import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
+import ProductAd from "./pages/ProductAd";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -126,6 +128,14 @@ const App = () => (
               element={
                 <ProtectedRoute>
                   <ProductShoot />
+                </ProtectedRoute>
+              }
+            />
+            <Route
+              path="/product-ad"
+              element={
+                <ProtectedRoute>
+                  <ProductAd />
                 </ProtectedRoute>
               }
             />

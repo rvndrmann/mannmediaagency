@@ -39,20 +39,6 @@ export default function ProductAd() {
     enabled: !!session,
   });
 
-  const { data: projects, isLoading } = useQuery({
-    queryKey: ["product-ad-projects"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("product_ad_projects")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session,
-  });
-
   return (
     <div className="container mx-auto p-6">
       <h1 className="text-2xl font-bold text-white mb-6">Product Ad Generator</h1>

@@ -8,7 +8,6 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -44,45 +43,49 @@ serve(async (req) => {
       throw new Error('Invalid token')
     }
 
-    // Verify if the image URL is accessible with proper error handling and URL type detection
+    // Verify if the image URL is accessible
     try {
       console.log('Attempting to verify image URL:', image_url)
       
-      // Determine URL type for appropriate handling
-      const isFalUrl = image_url.startsWith('https://fal.media');
-      const isSupabaseUrl = image_url.includes(Deno.env.get('SUPABASE_URL') || '');
+      // Determine URL type
+      const isFalUrl = image_url.startsWith('https://fal.media')
+      const isSupabaseUrl = image_url.includes(Deno.env.get('SUPABASE_URL') || '')
       
-      console.log('URL type:', { isFalUrl, isSupabaseUrl });
+      console.log('URL type:', { isFalUrl, isSupabaseUrl })
 
-      // For Fal.ai URLs, we'll do a simple GET request since HEAD might not be supported
-      const response = isFalUrl 
-        ? await fetch(image_url)
-        : await fetch(image_url, { method: 'HEAD' });
+      // Add custom headers for potential CORS issues
+      const headers = {
+        'Accept': 'image/*',
+        'User-Agent': 'Mozilla/5.0 (compatible; VideoGenerator/1.0)',
+      }
 
-      console.log('Image URL verification status:', response.status);
+      // For Fal.ai URLs or Supabase Storage URLs, we'll do a GET request
+      const response = await fetch(image_url, { 
+        method: 'GET',
+        headers,
+      })
+
+      console.log('Image URL verification status:', response.status)
       
       if (!response.ok) {
-        throw new Error(`Image URL is not accessible (Status: ${response.status})`);
+        throw new Error(`Image URL is not accessible (Status: ${response.status})`)
       }
 
-      // For Fal.ai URLs, we trust the content type
-      if (!isFalUrl) {
-        const contentType = response.headers.get('content-type');
-        console.log('Content-Type:', contentType);
-        
-        if (!contentType?.startsWith('image/')) {
-          throw new Error('URL does not point to a valid image');
-        }
+      // Check content type
+      const contentType = response.headers.get('content-type')
+      console.log('Content-Type:', contentType)
+      
+      if (!isFalUrl && !contentType?.startsWith('image/')) {
+        throw new Error('URL does not point to a valid image')
       }
       
-      console.log('Image URL is valid and accessible');
+      console.log('Image URL is valid and accessible')
     } catch (error) {
-      console.error('Error checking image URL:', error);
-      throw new Error(`Source image is not accessible: ${error.message}`);
+      console.error('Error checking image URL:', error)
+      throw new Error(`Source image is not accessible: ${error.message}`)
     }
 
     // Call the video generation API with your implementation
-    // This is a placeholder - replace with your actual video generation logic
     const apiResponse = {
       status: 'in_queue',
       request_id: crypto.randomUUID(),

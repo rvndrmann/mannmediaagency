@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -40,6 +41,12 @@ interface VideoGenerationJob {
   retry_count?: number;
 }
 
+const getPollingInterval = (elapsedMinutes: number): number => {
+  if (elapsedMinutes < 2) return 30000; // 30 seconds for first 2 minutes
+  if (elapsedMinutes < 5) return 45000; // 45 seconds for 2-5 minutes
+  return 60000; // 60 seconds for 5-7 minutes
+};
+
 const ImageToVideo = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -49,7 +56,6 @@ const ImageToVideo = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
-  const POLLING_INTERVAL = 20000; // 20 seconds
   const MAX_POLLING_TIME = 7 * 60 * 1000; // 7 minutes in milliseconds
 
   const { data: session } = useQuery({
@@ -98,6 +104,7 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
+  // Real-time updates subscription
   useEffect(() => {
     const channel = supabase
       .channel('schema-db-changes')
@@ -120,6 +127,7 @@ const ImageToVideo = () => {
     };
   }, [refetchVideos]);
 
+  // Enhanced polling with dynamic intervals
   useEffect(() => {
     const pendingVideos = videos.filter(
       video => video.status === 'pending' || video.status === 'processing'
@@ -127,48 +135,72 @@ const ImageToVideo = () => {
 
     if (pendingVideos.length === 0) return;
 
-    const pollResults = async () => {
-      for (const video of pendingVideos) {
-        if (!video.request_id) continue;
+    const pollVideo = async (video: VideoGenerationJob) => {
+      if (!video.request_id) return;
 
-        const startTime = video.created_at ? new Date(video.created_at).getTime() : Date.now();
-        const currentTime = Date.now();
-        const elapsedTime = currentTime - startTime;
+      const startTime = video.created_at ? new Date(video.created_at).getTime() : Date.now();
+      const currentTime = Date.now();
+      const elapsedTime = currentTime - startTime;
+      const elapsedMinutes = elapsedTime / (60 * 1000);
 
-        if (elapsedTime > MAX_POLLING_TIME) {
-          console.log(`Stopping poll for video ${video.id} - exceeded 7 minutes`);
+      // Stop polling after 7 minutes
+      if (elapsedTime > MAX_POLLING_TIME) {
+        console.log(`Stopping poll for video ${video.id} - exceeded 7 minutes`);
+        
+        await supabase
+          .from('video_generation_jobs')
+          .update({
+            status: 'failed',
+            updated_at: new Date().toISOString()
+          })
+          .eq('id', video.id);
           
-          await supabase
-            .from('video_generation_jobs')
-            .update({
-              status: 'failed',
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', video.id);
-            
-          continue;
+        return;
+      }
+
+      try {
+        const response = await supabase.functions.invoke('fetch-video-result', {
+          body: { request_id: video.request_id }
+        });
+
+        if (response.error) {
+          console.error(`Error polling video ${video.id}:`, response.error);
+          return;
         }
 
-        try {
-          const response = await supabase.functions.invoke('fetch-video-result', {
-            body: { request_id: video.request_id }
-          });
-
-          if (response.error) {
-            console.error(`Error polling video ${video.id}:`, response.error);
-            continue;
-          }
-
-          console.log(`Poll response for video ${video.id}:`, response.data);
-        } catch (error) {
-          console.error(`Failed to poll video ${video.id}:`, error);
+        console.log(`Poll response for video ${video.id}:`, response.data);
+        
+        // If completed, show success message
+        if (response.data?.status === 'completed') {
+          toast.success("Your video is ready!");
         }
+      } catch (error) {
+        console.error(`Failed to poll video ${video.id}:`, error);
       }
     };
 
-    const pollInterval = setInterval(pollResults, POLLING_INTERVAL);
+    const pollResults = async () => {
+      for (const video of pendingVideos) {
+        await pollVideo(video);
+      }
+    };
 
-    return () => clearInterval(pollInterval);
+    // Initial poll
+    pollResults();
+
+    // Set up polling with dynamic intervals
+    const intervalId = setInterval(() => {
+      const oldestPendingVideo = pendingVideos[0];
+      if (!oldestPendingVideo) return;
+
+      const startTime = oldestPendingVideo.created_at ? new Date(oldestPendingVideo.created_at).getTime() : Date.now();
+      const elapsedMinutes = (Date.now() - startTime) / (60 * 1000);
+      const interval = getPollingInterval(elapsedMinutes);
+
+      pollResults();
+    }, getPollingInterval(0));
+
+    return () => clearInterval(intervalId);
   }, [videos]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {

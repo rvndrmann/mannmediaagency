@@ -1,19 +1,27 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { Card } from "@/components/ui/card";
-import { StoryCard } from "./dashboard/StoryCard";
-import { EmptyState } from "./dashboard/EmptyState";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { ContentGrid } from "./dashboard/ContentGrid";
+import { FilterBar } from "./dashboard/FilterBar";
 import { AnnouncementBanner } from "./announcements/AnnouncementBanner";
+
+type ContentType = "all" | "stories" | "images" | "videos";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const [activeTab, setActiveTab] = useState<ContentType>("all");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [dateRange, setDateRange] = useState<{ from: Date | undefined; to: Date | undefined }>({
+    from: undefined,
+    to: undefined,
+  });
 
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -28,12 +36,10 @@ export const Dashboard = () => {
     },
   });
 
-  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
-
+  // Fetch stories
   const { data: stories, isLoading: isLoadingStories } = useQuery({
     queryKey: ["userStories"],
     queryFn: async () => {
-      console.log("Fetching stories...");
       const { data, error } = await supabase
         .from("stories")
         .select(`
@@ -45,70 +51,44 @@ export const Dashboard = () => {
         `)
         .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error fetching stories:", error);
-        throw error;
-      }
-
-      const availableStories = data?.filter(story => 
-        story.final_video_with_music !== null && 
-        story["stories id"] !== null && 
-        story["stories id"] !== undefined
-      ) || [];
-      
-      console.log("Fetched available stories:", availableStories);
-      return availableStories;
+      if (error) throw error;
+      return data;
     },
   });
 
-  // Subscribe to real-time updates
-  useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'stories'
-        },
-        (payload) => {
-          console.log('Real-time update received:', payload);
-          queryClient.invalidateQueries({ queryKey: ["userStories"] });
-        }
-      )
-      .subscribe();
+  // Fetch images
+  const { data: images, isLoading: isLoadingImages } = useQuery({
+    queryKey: ["userImages"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select(`
+          *,
+          product_image_metadata (*)
+        `)
+        .order("created_at", { ascending: false });
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, [queryClient]);
+      if (error) throw error;
+      return data;
+    },
+  });
 
-  const handleVideoLoad = async (story: any, duration: number) => {
-    if (story["stories id"] && duration && duration !== story.video_length_seconds) {
-      const { error } = await supabase
-        .from("stories")
-        .update({ video_length_seconds: duration })
-        .eq("stories id", story["stories id"]);
+  // Fetch videos
+  const { data: videos, isLoading: isLoadingVideos } = useQuery({
+    queryKey: ["userVideos"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("video_generation_jobs")
+        .select(`
+          *,
+          video_metadata (*)
+        `)
+        .order("created_at", { ascending: false });
 
-      if (error) {
-        console.error("Error updating video length:", error);
-      }
-    }
-  };
-
-  const handleCreateOrPurchase = () => {
-    if (!hasEnoughCredits) {
-      toast({
-        title: "Insufficient Credits",
-        description: "You need at least 10 credits to create a video. Please purchase more credits.",
-        variant: "destructive",
-      });
-      navigate("/plans");
-      return;
-    }
-    navigate("/create-video");
-  };
+      if (error) throw error;
+      return data;
+    },
+  });
 
   return (
     <div className="flex-1 p-4 md:p-8">
@@ -116,35 +96,67 @@ export const Dashboard = () => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
-          <h1 className="text-xl md:text-2xl font-bold">Your Videos</h1>
+          <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
         </div>
       </div>
 
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 place-items-start">
-        {isLoadingStories ? (
-          <Card className="p-4 w-full max-w-[300px]">
-            <div className="animate-pulse flex flex-col gap-4">
-              <div className="h-32 bg-gray-200 rounded"></div>
-              <div className="h-3 bg-gray-200 rounded w-1/4"></div>
-              <div className="h-3 bg-gray-200 rounded w-3/4"></div>
-            </div>
-          </Card>
-        ) : stories && stories.length > 0 ? (
-          stories.map((story) => (
-            <StoryCard 
-              key={story["stories id"]} 
-              story={story}
-              onVideoLoad={handleVideoLoad}
-            />
-          ))
-        ) : (
-          <EmptyState
-            hasEnoughCredits={hasEnoughCredits}
-            creditsRemaining={userCredits?.credits_remaining || 0}
-            onCreateOrPurchase={handleCreateOrPurchase}
+      <FilterBar
+        searchQuery={searchQuery}
+        onSearchChange={setSearchQuery}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+      />
+
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)} className="mt-6">
+        <TabsList>
+          <TabsTrigger value="all">All Content</TabsTrigger>
+          <TabsTrigger value="stories">Stories</TabsTrigger>
+          <TabsTrigger value="images">Images</TabsTrigger>
+          <TabsTrigger value="videos">Videos</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="all">
+          <ContentGrid
+            stories={stories}
+            images={images}
+            videos={videos}
+            isLoading={isLoadingStories || isLoadingImages || isLoadingVideos}
+            searchQuery={searchQuery}
+            dateRange={dateRange}
+            type="all"
           />
-        )}
-      </div>
+        </TabsContent>
+
+        <TabsContent value="stories">
+          <ContentGrid
+            stories={stories}
+            isLoading={isLoadingStories}
+            searchQuery={searchQuery}
+            dateRange={dateRange}
+            type="stories"
+          />
+        </TabsContent>
+
+        <TabsContent value="images">
+          <ContentGrid
+            images={images}
+            isLoading={isLoadingImages}
+            searchQuery={searchQuery}
+            dateRange={dateRange}
+            type="images"
+          />
+        </TabsContent>
+
+        <TabsContent value="videos">
+          <ContentGrid
+            videos={videos}
+            isLoading={isLoadingVideos}
+            searchQuery={searchQuery}
+            dateRange={dateRange}
+            type="videos"
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -7,6 +7,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+// Map Fal.ai status to our database enum values
+const mapFalStatus = (falStatus: string): 'in_queue' | 'processing' | 'completed' | 'failed' => {
+  switch (falStatus.toLowerCase()) {
+    case 'completed':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'in_progress':
+    case 'processing':
+      return 'processing';
+    default:
+      return 'in_queue';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -33,7 +48,7 @@ serve(async (req) => {
       }
     )
 
-    // Initialize video generation with Fal.ai using the correct endpoint
+    // Initialize video generation with Fal.ai
     console.log('Initializing video generation with Fal.ai')
     const response = await fetch(
       'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video',
@@ -58,7 +73,6 @@ serve(async (req) => {
       const errorText = await response.text()
       console.error('Fal.ai API error:', errorText)
       
-      // Update job status to failed if the API call fails
       await supabaseAdmin
         .from('video_generation_jobs')
         .update({
@@ -78,7 +92,7 @@ serve(async (req) => {
       throw new Error('No request_id received from Fal.ai')
     }
 
-    // Update the job with the request_id from Fal.ai
+    // Update the job with the request_id and initial status
     const { error: updateError } = await supabaseAdmin
       .from('video_generation_jobs')
       .update({
@@ -92,8 +106,8 @@ serve(async (req) => {
       throw updateError
     }
 
-    // Initiate first status check
-    await fetch(
+    // Do an immediate status check before scheduling future checks
+    const initialCheckResponse = await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
       {
         method: 'POST',
@@ -107,6 +121,10 @@ serve(async (req) => {
         })
       }
     )
+
+    if (!initialCheckResponse.ok) {
+      console.error('Initial status check failed:', await initialCheckResponse.text())
+    }
 
     return new Response(
       JSON.stringify({ 

@@ -10,6 +10,21 @@ const corsHeaders = {
 const MAX_RETRIES = 90; // 15 minutes with 10-second intervals
 const CHECK_INTERVAL = 10000; // 10 seconds
 
+// Map Fal.ai status to our database enum values
+const mapFalStatus = (falStatus: string): 'in_queue' | 'processing' | 'completed' | 'failed' => {
+  switch (falStatus.toLowerCase()) {
+    case 'completed':
+      return 'completed';
+    case 'failed':
+      return 'failed';
+    case 'in_progress':
+    case 'processing':
+      return 'processing';
+    default:
+      return 'in_queue';
+  }
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -62,11 +77,12 @@ serve(async (req) => {
       throw new Error('Generation timed out')
     }
 
-    // Check status from Fal.ai using the correct endpoint
+    // Check status from Fal.ai using the correct endpoint with explicit GET method
     console.log('Checking status with Fal.ai')
     const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}/status`,
+      `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}`,
       {
+        method: 'GET',
         headers: {
           'Authorization': `Key ${falApiKey}`,
           'Content-Type': 'application/json'
@@ -75,45 +91,30 @@ serve(async (req) => {
     )
 
     if (!statusResponse.ok) {
-      throw new Error(`Failed to check status: ${await statusResponse.text()}`)
+      const errorText = await statusResponse.text()
+      console.error('Status check error:', errorText)
+      throw new Error(`Failed to check status: ${errorText}`)
     }
 
     const statusData = await statusResponse.json()
     console.log('Status check result:', statusData)
 
+    // Map the Fal.ai status to our database enum
+    const mappedStatus = mapFalStatus(statusData.status || '')
+    console.log('Mapped status:', mappedStatus)
+
     // Update job status and progress
     const updates: any = {
-      status: statusData.status === 'completed' ? 'completed' : 
-             statusData.status === 'failed' ? 'failed' : 'processing',
+      status: mappedStatus,
       progress: Math.round((statusData.progress || 0) * 100),
       retry_count: retryCount,
       last_checked_at: new Date().toISOString()
     }
 
-    if (statusData.status === 'completed') {
-      // Fetch the final result
-      const resultResponse = await fetch(
-        `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}`,
-        {
-          headers: {
-            'Authorization': `Key ${falApiKey}`,
-            'Content-Type': 'application/json'
-          },
-        }
-      )
-
-      if (!resultResponse.ok) {
-        throw new Error('Failed to fetch video result')
-      }
-
-      const resultData = await resultResponse.json()
-      console.log('Result data:', resultData)
-
-      if (resultData.video?.url) {
-        updates.result_url = resultData.video.url
-        updates.file_size = resultData.video.file_size || 0
-      }
-    } else if (statusData.status === 'failed') {
+    if (mappedStatus === 'completed' && statusData.video?.url) {
+      updates.result_url = statusData.video.url
+      updates.file_size = statusData.video.file_size || 0
+    } else if (mappedStatus === 'failed') {
       updates.error_message = statusData.error || 'Generation failed'
     }
 
@@ -128,7 +129,7 @@ serve(async (req) => {
     }
 
     // If the video is not yet complete, schedule another check
-    if (updates.status === 'processing') {
+    if (mappedStatus === 'processing' || mappedStatus === 'in_queue') {
       // Wait for the specified interval
       await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
       
@@ -148,7 +149,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        status: updates.status,
+        status: mappedStatus,
         progress: updates.progress,
         result_url: updates.result_url 
       }),

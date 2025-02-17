@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
@@ -20,9 +21,14 @@ serve(async (req) => {
       throw new Error('Missing required parameters: prompt and image_url are required')
     }
 
+    // Log environment and URL details for debugging
+    const supabaseUrl = Deno.env.get('SUPABASE_URL')
+    console.log('SUPABASE_URL:', supabaseUrl)
+    console.log('Full image URL:', image_url)
+
     // Create Supabase client
     const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
+      supabaseUrl ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
@@ -43,13 +49,16 @@ serve(async (req) => {
       throw new Error('Invalid token')
     }
 
-    // Verify if the image URL is from our storage
-    const storageUrlPattern = new RegExp(`${Deno.env.get('SUPABASE_URL')}/storage/v1/object/public/`)
-    if (storageUrlPattern.test(image_url)) {
-      // The URL is already a storage URL, we can use it directly
-      console.log('Using storage URL directly:', image_url)
-    } else {
-      throw new Error('Invalid image URL. Must be a Supabase storage URL.')
+    // Verify if the image URL is accessible
+    try {
+      const response = await fetch(image_url, { method: 'HEAD' })
+      if (!response.ok) {
+        throw new Error(`Image URL is not accessible (Status: ${response.status})`)
+      }
+      console.log('Image URL is accessible:', response.status)
+    } catch (error) {
+      console.error('Error checking image URL:', error)
+      throw new Error(`Source image is not accessible: ${error.message}`)
     }
 
     // Call the video generation API with your implementation
@@ -71,7 +80,7 @@ serve(async (req) => {
         aspect_ratio: aspect_ratio || "16:9",
         content_type: "mp4",
         duration: duration || "5",
-        file_name: `video_${apiResponse.request_id}.mp4`,
+        file_name: `video_${Date.now()}.mp4`,
         file_size: 0, // Will be updated when video is generated
         negative_prompt: "",
       })
@@ -82,6 +91,8 @@ serve(async (req) => {
       console.error('Error creating job:', jobError)
       throw jobError
     }
+
+    console.log('Job created successfully:', jobData)
 
     return new Response(
       JSON.stringify({ data: jobData }),

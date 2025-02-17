@@ -14,13 +14,10 @@ verify_jwt = true
 verify_jwt = true
 [functions.generate-product-metadata]
 verify_jwt = true
-[functions.check-video-status]
-verify_jwt = false
-[functions.fetch-video-result]
-verify_jwt = false
 [functions.upload-showcase-video]
 verify_jwt = true
 [functions.generate-video-metadata]
 verify_jwt = true
 [functions.generate-video-from-image]
 verify_jwt = true
+

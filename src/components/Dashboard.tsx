@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Card } from "@/components/ui/card";
 import { StoryCard } from "./dashboard/StoryCard";
 import { EmptyState } from "./dashboard/EmptyState";
+import { AnnouncementBanner } from "./announcements/AnnouncementBanner";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -49,7 +50,6 @@ export const Dashboard = () => {
         throw error;
       }
 
-      // Filter out stories without final_video_with_music and stories id
       const availableStories = data?.filter(story => 
         story.final_video_with_music !== null && 
         story["stories id"] !== null && 
@@ -84,19 +84,6 @@ export const Dashboard = () => {
     };
   }, [queryClient]);
 
-  const updateVideoLength = async (story: any, duration: number) => {
-    if (story.video_length_seconds === null) {
-      const { error } = await supabase
-        .from("stories")
-        .update({ video_length_seconds: Math.round(duration) })
-        .eq("stories id", story["stories id"]);
-
-      if (error) {
-        console.error('Error updating video length:', error);
-      }
-    }
-  };
-
   const handleCreateOrPurchase = () => {
     if (!hasEnoughCredits) {
       toast({
@@ -112,6 +99,7 @@ export const Dashboard = () => {
 
   return (
     <div className="flex-1 p-4 md:p-8">
+      <AnnouncementBanner />
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />

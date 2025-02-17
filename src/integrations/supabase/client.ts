@@ -16,7 +16,16 @@ export const supabase = createClient<Database>(
       persistSession: true,
       detectSessionInUrl: true,
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
-      flowType: 'pkce'
+      flowType: 'pkce',
+      // Adding these options to ensure proper redirect handling
+      debug: true, // This will help us see what's happening with auth
+      cookieOptions: {
+        // Ensure cookies are properly handled
+        name: 'sb-auth',
+        lifetime: 28800, // 8 hours
+        path: '/',
+        sameSite: 'lax'
+      }
     },
     db: {
       schema: 'public'

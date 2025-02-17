@@ -7,7 +7,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const MAX_RETRIES = 30; // 5 minutes with 10-second intervals
+const MAX_RETRIES = 90; // 15 minutes with 10-second intervals
 const CHECK_INTERVAL = 10000; // 10 seconds
 
 serve(async (req) => {
@@ -54,7 +54,7 @@ serve(async (req) => {
         .from('video_generation_jobs')
         .update({
           status: 'failed',
-          error_message: 'Generation timed out after 5 minutes',
+          error_message: 'Generation timed out after 15 minutes',
           last_checked_at: new Date().toISOString()
         })
         .eq('id', job_id)

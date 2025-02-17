@@ -43,27 +43,6 @@ serve(async (req) => {
       throw new Error('Invalid token')
     }
 
-    // Verify if the image URL is accessible
-    try {
-      console.log('Attempting to verify image URL:', image_url)
-      const response = await fetch(image_url, { 
-        method: 'GET',
-        headers: {
-          'Accept': 'image/*',
-          'User-Agent': 'Mozilla/5.0 (compatible; VideoGenerator/1.0)',
-        },
-      })
-
-      if (!response.ok) {
-        throw new Error(`Image URL is not accessible (Status: ${response.status})`)
-      }
-      
-      console.log('Image URL is valid and accessible')
-    } catch (error) {
-      console.error('Error checking image URL:', error)
-      throw new Error(`Source image is not accessible: ${error.message}`)
-    }
-
     // Initialize video generation with Fal.ai
     console.log('Initializing video generation with Fal.ai')
     const falApiKey = Deno.env.get('FAL_AI_API_KEY')
@@ -99,6 +78,33 @@ serve(async (req) => {
       throw new Error('No request ID received from Fal.ai')
     }
 
+    // Store the job in the database
+    const now = new Date()
+    const { data: jobData, error: jobError } = await supabaseAdmin
+      .from('video_generation_jobs')
+      .insert({
+        user_id: user.id,
+        status: 'in_queue',
+        prompt,
+        source_image_url: image_url,
+        request_id: falData.request_id,
+        aspect_ratio: aspect_ratio || "16:9",
+        content_type: "mp4",
+        duration: duration || "5",
+        file_name: `video_${Date.now()}.mp4`,
+        file_size: 0,
+        negative_prompt: "",
+        last_checked_at: now.toISOString(),
+        retry_count: 0,
+      })
+      .select()
+      .single()
+
+    if (jobError) {
+      console.error('Error creating job:', jobError)
+      throw jobError
+    }
+
     // Check initial status
     const statusResponse = await fetch(
       `https://queue.fal.run/fal-ai/kling-video/requests/${falData.request_id}/status`,
@@ -114,33 +120,9 @@ serve(async (req) => {
     }
 
     const statusData = await statusResponse.json()
-    console.log('Initial status:', statusData)
+    console.log('Initial status check:', statusData)
 
-    // Store the job in the database
-    const { data: jobData, error: jobError } = await supabaseAdmin
-      .from('video_generation_jobs')
-      .insert({
-        user_id: user.id,
-        status: 'in_queue',
-        prompt,
-        source_image_url: image_url,
-        request_id: falData.request_id,
-        aspect_ratio: aspect_ratio || "16:9",
-        content_type: "mp4",
-        duration: duration || "5",
-        file_name: `video_${Date.now()}.mp4`,
-        file_size: 0,
-        negative_prompt: "",
-      })
-      .select()
-      .single()
-
-    if (jobError) {
-      console.error('Error creating job:', jobError)
-      throw jobError
-    }
-
-    // If the status is completed, get the result and update the job
+    // Update the job status if needed
     if (statusData.status === 'completed') {
       const resultResponse = await fetch(
         `https://queue.fal.run/fal-ai/kling-video/requests/${falData.request_id}`,
@@ -153,7 +135,7 @@ serve(async (req) => {
 
       if (resultResponse.ok) {
         const resultData = await resultResponse.json()
-        console.log('Result data:', resultData)
+        console.log('Completed result data:', resultData)
 
         if (resultData.video?.url) {
           const { error: updateError } = await supabaseAdmin
@@ -188,8 +170,22 @@ serve(async (req) => {
       }
     }
 
-    // If we reach here, the job is still in progress
-    console.log('Job created successfully:', jobData)
+    // Schedule status check
+    EdgeRuntime.waitUntil(
+      fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ request_id: falData.request_id })
+        }
+      )
+    )
+
+    console.log('Job created and initial check completed:', jobData)
     return new Response(
       JSON.stringify({ data: jobData }),
       { 

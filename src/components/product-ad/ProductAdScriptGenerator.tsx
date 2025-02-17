@@ -15,6 +15,8 @@ interface ProductAdScriptGeneratorProps {
   onProjectCreated: (id: string) => void;
 }
 
+type ProductAdStatus = "draft" | "script_generated" | "shots_generated" | "video_generated" | "completed" | "failed";
+
 export const ProductAdScriptGenerator = ({
   activeProjectId,
   onProjectCreated,
@@ -84,7 +86,9 @@ export const ProductAdScriptGenerator = ({
         title,
         product_image_url: publicUrl,
         script: data.script,
-        status: 'script_generated',
+        status: 'script_generated' as ProductAdStatus,
+        settings: {},
+        metadata: {}
       };
 
       if (activeProjectId) {
@@ -95,11 +99,14 @@ export const ProductAdScriptGenerator = ({
 
         if (updateError) throw updateError;
       } else {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) throw new Error("User not authenticated");
+
         const { data: newProject, error: insertError } = await supabase
           .from('product_ad_projects')
           .insert({
             ...projectData,
-            user_id: (await supabase.auth.getUser()).data.user?.id,
+            user_id: userData.user.id,
           })
           .select()
           .single();
@@ -173,13 +180,10 @@ export const ProductAdScriptGenerator = ({
         </div>
 
         <div className="space-y-4">
-          <Label className="text-white">Product Image</Label>
           <ImageUploader
             previewUrl={previewUrl}
             onFileSelect={handleFileSelect}
             onClear={clearFile}
-            aspectRatio={1}
-            helpText="Upload your product image"
           />
         </div>
       </div>
@@ -212,4 +216,4 @@ export const ProductAdScriptGenerator = ({
       )}
     </div>
   );
-}
+};

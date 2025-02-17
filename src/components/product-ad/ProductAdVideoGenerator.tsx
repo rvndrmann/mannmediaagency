@@ -21,13 +21,12 @@ interface ProjectScript {
   scenes: Scene[];
 }
 
-// Updated interface to match database schema
+// Updated interface to match the actual database structure
 interface VideoJobData {
   id: string;
-  status: string;
+  status: 'in_queue' | 'processing' | 'completed' | 'failed';
   progress: number | null;
   result_url: string | null;
-  shot_index: number;
   project_id: string;
   aspect_ratio: string | null;
   content_type: string | null;
@@ -39,6 +38,10 @@ interface VideoJobData {
   last_checked_at: string | null;
   negative_prompt: string | null;
   user_id: string;
+  source_image_url: string;
+  prompt: string;
+  shot_index?: number; // Made optional since it might not always be present
+  settings: Record<string, any>;
 }
 
 export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVideoGeneratorProps) => {
@@ -80,7 +83,8 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
         .order("created_at");
 
       if (error) throw error;
-      // Cast the response to match our interface
+      
+      // Explicitly cast the response to match our interface
       return (data || []) as VideoJobData[];
     },
   });

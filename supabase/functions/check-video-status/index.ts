@@ -8,7 +8,8 @@ const corsHeaders = {
 }
 
 const TIMEOUT_MINUTES = 15;
-const MAX_RETRIES = Math.ceil(TIMEOUT_MINUTES * 2); // Checking every 30 seconds
+const CHECK_INTERVAL_MS = 30000; // 30 seconds
+const MAX_RETRIES = Math.ceil((TIMEOUT_MINUTES * 60 * 1000) / CHECK_INTERVAL_MS);
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
@@ -72,7 +73,7 @@ serve(async (req) => {
       )
     }
 
-    // Check the current status
+    // Check the status
     console.log('Checking status with Fal.ai')
     const statusResponse = await fetch(
       `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
@@ -114,7 +115,8 @@ serve(async (req) => {
           .update({
             status: 'completed',
             result_url: resultData.video.url,
-            updated_at: now.toISOString()
+            updated_at: now.toISOString(),
+            last_checked_at: now.toISOString()
           })
           .eq('id', job.id)
 
@@ -129,7 +131,8 @@ serve(async (req) => {
         .update({
           status: 'failed',
           error_message: statusData.error || 'Generation failed',
-          updated_at: now.toISOString()
+          updated_at: now.toISOString(),
+          last_checked_at: now.toISOString()
         })
         .eq('id', job.id)
 
@@ -139,8 +142,7 @@ serve(async (req) => {
       )
     }
 
-    // If still processing, schedule next check
-    const nextCheck = new Date(now.getTime() + 30000) // 30 seconds later
+    // If still processing, update job and schedule next check
     await supabaseAdmin
       .from('video_generation_jobs')
       .update({
@@ -153,22 +155,24 @@ serve(async (req) => {
 
     // Schedule next check if we haven't exceeded max retries
     if (job.retry_count < MAX_RETRIES) {
-      EdgeRuntime.waitUntil(
-        new Promise(resolve => setTimeout(resolve, 30000))
-          .then(() => 
-            fetch(
-              `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
-              {
-                method: 'POST',
-                headers: {
-                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                  'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({ request_id })
-              }
-            )
+      // Schedule next check after CHECK_INTERVAL_MS
+      setTimeout(async () => {
+        try {
+          await fetch(
+            `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
+            {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({ request_id })
+            }
           )
-      )
+        } catch (error) {
+          console.error('Error scheduling next check:', error)
+        }
+      }, CHECK_INTERVAL_MS)
     }
 
     return new Response(

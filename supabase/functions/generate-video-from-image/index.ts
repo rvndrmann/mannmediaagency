@@ -105,87 +105,20 @@ serve(async (req) => {
       throw jobError
     }
 
-    // Check initial status
-    const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/kling-video/requests/${falData.request_id}/status`,
+    // Schedule immediate status check
+    await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
       {
+        method: 'POST',
         headers: {
-          'Authorization': `Key ${falApiKey}`,
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json'
         },
+        body: JSON.stringify({ request_id: falData.request_id })
       }
     )
 
-    if (!statusResponse.ok) {
-      throw new Error('Failed to check initial status')
-    }
-
-    const statusData = await statusResponse.json()
-    console.log('Initial status check:', statusData)
-
-    // Update the job status if needed
-    if (statusData.status === 'completed') {
-      const resultResponse = await fetch(
-        `https://queue.fal.run/fal-ai/kling-video/requests/${falData.request_id}`,
-        {
-          headers: {
-            'Authorization': `Key ${falApiKey}`,
-          },
-        }
-      )
-
-      if (resultResponse.ok) {
-        const resultData = await resultResponse.json()
-        console.log('Completed result data:', resultData)
-
-        if (resultData.video?.url) {
-          const { error: updateError } = await supabaseAdmin
-            .from('video_generation_jobs')
-            .update({
-              status: 'completed',
-              result_url: resultData.video.url,
-              updated_at: new Date().toISOString()
-            })
-            .eq('id', jobData.id)
-
-          if (updateError) {
-            console.error('Error updating job status:', updateError)
-          }
-
-          return new Response(
-            JSON.stringify({ 
-              data: {
-                ...jobData,
-                status: 'completed',
-                result_url: resultData.video.url
-              }
-            }),
-            { 
-              headers: { 
-                ...corsHeaders,
-                'Content-Type': 'application/json'
-              } 
-            }
-          )
-        }
-      }
-    }
-
-    // Schedule status check
-    EdgeRuntime.waitUntil(
-      fetch(
-        `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({ request_id: falData.request_id })
-        }
-      )
-    )
-
-    console.log('Job created and initial check completed:', jobData)
+    console.log('Job created and initial check scheduled:', jobData)
     return new Response(
       JSON.stringify({ data: jobData }),
       { 

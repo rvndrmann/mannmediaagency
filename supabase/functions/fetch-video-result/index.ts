@@ -19,9 +19,18 @@ interface FalVideoResponse {
 }
 
 serve(async (req) => {
-  console.log(`[${new Date().toISOString()}] fetch-video-result function started`);
+  const logWithTimestamp = (message: string, data?: any) => {
+    const timestamp = new Date().toISOString();
+    console.log(`[${timestamp}] ${message}`);
+    if (data) {
+      console.log(`[${timestamp}] Data:`, JSON.stringify(data, null, 2));
+    }
+  };
+
+  logWithTimestamp('fetch-video-result function started');
   
   if (req.method === 'OPTIONS') {
+    logWithTimestamp('Handling OPTIONS request');
     return new Response(null, {
       status: 204,
       headers: corsHeaders
@@ -29,6 +38,7 @@ serve(async (req) => {
   }
 
   if (req.method !== 'GET') {
+    logWithTimestamp('Invalid method received', { method: req.method });
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
       { 
@@ -51,20 +61,21 @@ serve(async (req) => {
     const request_id = url.searchParams.get('request_id');
     
     if (!request_id) {
+      logWithTimestamp('No request_id provided');
       throw new Error('No request_id provided');
     }
 
-    console.log(`Fetching result for request_id: ${request_id}`);
+    logWithTimestamp('Processing request', { request_id });
 
     const falApiUrl = `https://api.fal.ai/rest/v1/video/check/${request_id}`;
     const falApiKey = Deno.env.get('FAL_AI_API_KEY');
 
     if (!falApiKey) {
-      console.error('FAL_AI_API_KEY is not configured');
+      logWithTimestamp('FAL_AI_API_KEY not configured');
       throw new Error('FAL_AI_API_KEY is not configured');
     }
 
-    console.log('Calling Fal AI API...');
+    logWithTimestamp('Calling Fal AI API', { url: falApiUrl });
     const resultResponse = await fetch(falApiUrl, {
       method: 'GET',
       headers: {
@@ -74,16 +85,23 @@ serve(async (req) => {
       },
     });
 
-    console.log('API Response status:', resultResponse.status);
+    logWithTimestamp('API Response received', { 
+      status: resultResponse.status,
+      statusText: resultResponse.statusText,
+      headers: Object.fromEntries(resultResponse.headers)
+    });
 
     if (!resultResponse.ok) {
       const errorText = await resultResponse.text();
-      console.error('Failed to fetch result:', errorText);
+      logWithTimestamp('API request failed', { 
+        status: resultResponse.status,
+        error: errorText 
+      });
       throw new Error(`Failed to fetch result: ${errorText}`);
     }
 
     const result: FalVideoResponse = await resultResponse.json();
-    console.log('API Response:', JSON.stringify(result, null, 2));
+    logWithTimestamp('API Response parsed', result);
 
     // Map Fal AI status to our status
     const status = 
@@ -91,8 +109,13 @@ serve(async (req) => {
       result.status === 'failed' ? 'failed' :
       'processing';
 
+    logWithTimestamp('Mapped status', { originalStatus: result.status, mappedStatus: status });
+
     if (status === 'completed' && result.result?.url) {
-      console.log('Video URL found:', result.result.url);
+      logWithTimestamp('Video completed', { 
+        status,
+        videoUrl: result.result.url
+      });
       
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
@@ -105,9 +128,11 @@ serve(async (req) => {
         .eq('request_id', request_id);
 
       if (updateError) {
-        console.error('Error updating job:', updateError);
+        logWithTimestamp('Error updating job status', updateError);
         throw updateError;
       }
+
+      logWithTimestamp('Successfully updated job to completed');
 
       return new Response(
         JSON.stringify({ 
@@ -124,7 +149,7 @@ serve(async (req) => {
     }
 
     if (status === 'failed') {
-      console.log('Video generation failed');
+      logWithTimestamp('Video generation failed', { error: result.error });
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
         .update({ 
@@ -134,9 +159,11 @@ serve(async (req) => {
         .eq('request_id', request_id);
 
       if (updateError) {
-        console.error('Error updating job status to failed:', updateError);
+        logWithTimestamp('Error updating job status to failed', updateError);
         throw updateError;
       }
+
+      logWithTimestamp('Successfully updated job to failed status');
 
       return new Response(
         JSON.stringify({ 
@@ -154,7 +181,11 @@ serve(async (req) => {
 
     // If still processing, update the progress
     if (status === 'processing' && typeof result.progress === 'number') {
-      console.log('Video still processing, progress:', result.progress);
+      logWithTimestamp('Video still processing', { 
+        status,
+        progress: result.progress 
+      });
+
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
         .update({ 
@@ -165,9 +196,16 @@ serve(async (req) => {
         .eq('request_id', request_id);
 
       if (updateError) {
-        console.error('Error updating progress:', updateError);
+        logWithTimestamp('Error updating progress', updateError);
+      } else {
+        logWithTimestamp('Successfully updated progress');
       }
     }
+
+    logWithTimestamp('Returning processing status', { 
+      status,
+      progress: result.progress || 0 
+    });
 
     return new Response(
       JSON.stringify({ 
@@ -183,7 +221,10 @@ serve(async (req) => {
     );
 
   } catch (error) {
-    console.error(`Function error:`, error);
+    logWithTimestamp('Function error', { 
+      error: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
     
     return new Response(
       JSON.stringify({ 

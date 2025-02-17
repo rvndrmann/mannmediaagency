@@ -49,13 +49,25 @@ serve(async (req) => {
       throw new Error('Invalid token')
     }
 
-    // Verify if the image URL is accessible
+    // Verify if the image URL is accessible with proper error handling
     try {
+      console.log('Attempting to verify image URL:', image_url)
       const response = await fetch(image_url, { method: 'HEAD' })
+      console.log('Image URL verification status:', response.status)
+      
       if (!response.ok) {
         throw new Error(`Image URL is not accessible (Status: ${response.status})`)
       }
-      console.log('Image URL is accessible:', response.status)
+      
+      // Additional check for content type
+      const contentType = response.headers.get('content-type')
+      console.log('Content-Type:', contentType)
+      
+      if (!contentType?.startsWith('image/')) {
+        throw new Error('URL does not point to a valid image')
+      }
+      
+      console.log('Image URL is valid and accessible')
     } catch (error) {
       console.error('Error checking image URL:', error)
       throw new Error(`Source image is not accessible: ${error.message}`)

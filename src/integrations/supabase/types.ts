@@ -1153,7 +1153,11 @@ export type Database = {
         | "processing"
         | "completed"
         | "failed"
-      video_generation_status_new: "in_queue" | "completed"
+      video_generation_status_new:
+        | "in_queue"
+        | "processing"
+        | "completed"
+        | "failed"
     }
     CompositeTypes: {
       [_ in never]: never

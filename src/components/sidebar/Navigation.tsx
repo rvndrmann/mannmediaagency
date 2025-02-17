@@ -15,6 +15,7 @@ import {
   Shield,
   FileText,
   CreditCard,
+  Play,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -29,6 +30,13 @@ export const Navigation = () => {
       logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
       to: "/ai-agent",
       icon: GalleryHorizontalEnd,
+    },
+    {
+      name: "Product Ad Video",
+      subtext: "AI Video Generator",
+      logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
+      to: "/product-ad",
+      icon: Play,
     },
     {
       name: "Stories",

@@ -353,6 +353,86 @@ export type Database = {
           },
         ]
       }
+      product_ad_projects: {
+        Row: {
+          created_at: string
+          id: string
+          metadata: Json | null
+          product_image_url: string | null
+          script: Json | null
+          settings: Json | null
+          status: Database["public"]["Enums"]["product_ad_status"] | null
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          product_image_url?: string | null
+          script?: Json | null
+          settings?: Json | null
+          status?: Database["public"]["Enums"]["product_ad_status"] | null
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          metadata?: Json | null
+          product_image_url?: string | null
+          script?: Json | null
+          settings?: Json | null
+          status?: Database["public"]["Enums"]["product_ad_status"] | null
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      product_ad_shots: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          order_index: number | null
+          project_id: string | null
+          scene_description: string | null
+          shot_type: string
+          status: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          order_index?: number | null
+          project_id?: string | null
+          scene_description?: string | null
+          shot_type: string
+          status?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          order_index?: number | null
+          project_id?: string | null
+          scene_description?: string | null
+          shot_type?: string
+          status?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "product_ad_shots_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "product_ad_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       product_image_metadata: {
         Row: {
           created_at: string | null
@@ -1147,6 +1227,13 @@ export type Database = {
     }
     Enums: {
       image_generation_status: "pending" | "processing" | "completed" | "failed"
+      product_ad_status:
+        | "draft"
+        | "script_generated"
+        | "shots_generated"
+        | "video_generated"
+        | "completed"
+        | "failed"
       video_generation_status:
         | "pending"
         | "in_queue"

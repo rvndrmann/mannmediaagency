@@ -46,37 +46,16 @@ serve(async (req) => {
     // Verify if the image URL is accessible
     try {
       console.log('Attempting to verify image URL:', image_url)
-      
-      // Determine URL type
-      const isFalUrl = image_url.startsWith('https://fal.media')
-      const isSupabaseUrl = image_url.includes(Deno.env.get('SUPABASE_URL') || '')
-      
-      console.log('URL type:', { isFalUrl, isSupabaseUrl })
-
-      // Add custom headers for potential CORS issues
-      const headers = {
-        'Accept': 'image/*',
-        'User-Agent': 'Mozilla/5.0 (compatible; VideoGenerator/1.0)',
-      }
-
-      // For Fal.ai URLs or Supabase Storage URLs, we'll do a GET request
       const response = await fetch(image_url, { 
         method: 'GET',
-        headers,
+        headers: {
+          'Accept': 'image/*',
+          'User-Agent': 'Mozilla/5.0 (compatible; VideoGenerator/1.0)',
+        },
       })
 
-      console.log('Image URL verification status:', response.status)
-      
       if (!response.ok) {
         throw new Error(`Image URL is not accessible (Status: ${response.status})`)
-      }
-
-      // Check content type
-      const contentType = response.headers.get('content-type')
-      console.log('Content-Type:', contentType)
-      
-      if (!isFalUrl && !contentType?.startsWith('image/')) {
-        throw new Error('URL does not point to a valid image')
       }
       
       console.log('Image URL is valid and accessible')
@@ -92,24 +71,18 @@ serve(async (req) => {
       throw new Error('FAL_AI_API_KEY is not configured')
     }
 
-    // Prepare the request to Fal.ai
-    const falResponse = await fetch('https://110602490-svd.fal.ai/sdxl-turbo-animation', {
+    // Submit the initial request to Fal.ai
+    const falResponse = await fetch('https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
         'Authorization': `Key ${falApiKey}`,
       },
       body: JSON.stringify({
-        prompt: prompt,
-        image_url: image_url,
-        negative_prompt: "",
-        num_inference_steps: 2,
-        guidance_scale: 0,
-        width: aspect_ratio === "16:9" ? 1024 : aspect_ratio === "9:16" ? 576 : 768,
-        height: aspect_ratio === "16:9" ? 576 : aspect_ratio === "9:16" ? 1024 : 768,
-        num_frames: 14,
-        loop: true,
-        scheduler: "euler_ancestral"
+        prompt,
+        image_url,
+        duration: duration || "5",
+        aspect_ratio: aspect_ratio || "16:9"
       })
     })
 
@@ -120,7 +93,28 @@ serve(async (req) => {
     }
 
     const falData = await falResponse.json()
-    console.log('Fal.ai response:', falData)
+    console.log('Fal.ai initial response:', falData)
+
+    if (!falData.request_id) {
+      throw new Error('No request ID received from Fal.ai')
+    }
+
+    // Check initial status
+    const statusResponse = await fetch(
+      `https://queue.fal.run/fal-ai/kling-video/requests/${falData.request_id}/status`,
+      {
+        headers: {
+          'Authorization': `Key ${falApiKey}`,
+        },
+      }
+    )
+
+    if (!statusResponse.ok) {
+      throw new Error('Failed to check initial status')
+    }
+
+    const statusData = await statusResponse.json()
+    console.log('Initial status:', statusData)
 
     // Store the job in the database
     const { data: jobData, error: jobError } = await supabaseAdmin
@@ -130,8 +124,7 @@ serve(async (req) => {
         status: 'in_queue',
         prompt,
         source_image_url: image_url,
-        request_id: falData.request_id || crypto.randomUUID(),
-        result_url: falData.image?.url,
+        request_id: falData.request_id,
         aspect_ratio: aspect_ratio || "16:9",
         content_type: "mp4",
         duration: duration || "5",
@@ -147,32 +140,58 @@ serve(async (req) => {
       throw jobError
     }
 
-    // If we got an immediate result, update the job status
-    if (falData.image?.url) {
-      const { error: updateError } = await supabaseAdmin
-        .from('video_generation_jobs')
-        .update({
-          status: 'completed',
-          result_url: falData.image.url,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', jobData.id)
+    // If the status is completed, get the result and update the job
+    if (statusData.status === 'completed') {
+      const resultResponse = await fetch(
+        `https://queue.fal.run/fal-ai/kling-video/requests/${falData.request_id}`,
+        {
+          headers: {
+            'Authorization': `Key ${falApiKey}`,
+          },
+        }
+      )
 
-      if (updateError) {
-        console.error('Error updating job status:', updateError)
+      if (resultResponse.ok) {
+        const resultData = await resultResponse.json()
+        console.log('Result data:', resultData)
+
+        if (resultData.video?.url) {
+          const { error: updateError } = await supabaseAdmin
+            .from('video_generation_jobs')
+            .update({
+              status: 'completed',
+              result_url: resultData.video.url,
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', jobData.id)
+
+          if (updateError) {
+            console.error('Error updating job status:', updateError)
+          }
+
+          return new Response(
+            JSON.stringify({ 
+              data: {
+                ...jobData,
+                status: 'completed',
+                result_url: resultData.video.url
+              }
+            }),
+            { 
+              headers: { 
+                ...corsHeaders,
+                'Content-Type': 'application/json'
+              } 
+            }
+          )
+        }
       }
     }
 
+    // If we reach here, the job is still in progress
     console.log('Job created successfully:', jobData)
-
     return new Response(
-      JSON.stringify({ 
-        data: {
-          ...jobData,
-          result_url: falData.image?.url,
-          status: falData.image?.url ? 'completed' : 'in_queue'
-        }
-      }),
+      JSON.stringify({ data: jobData }),
       { 
         headers: { 
           ...corsHeaders,

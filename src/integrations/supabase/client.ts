@@ -4,7 +4,7 @@ import type { Database } from './types';
 
 // Supabase project URL and anon key
 export const SUPABASE_URL = "https://avdwgvjhufslhqrrmxgo.supabase.co";
-export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5ODM4NTAsImV4cCI6MjA1MzU1OTg1MH0.wzh0gNTwGWgw-vDwxHcSdBZdiOdbABCXfQV_NuHvqzY";
+export const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3MDQ5ODM4NTAsImV4cCI6MjAyMDU1OTg1MH0.D0Eju8IBr12Ggy3NwFHxonYxXHY2kBp3XGCvYJr5_RU";
 
 // Create a single supabase client for interacting with your database
 export const supabase = createClient<Database>(

@@ -7,21 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Map Fal.ai status to our database enum values
-const mapFalStatus = (falStatus: string): 'in_queue' | 'processing' | 'completed' | 'failed' => {
-  switch (falStatus.toLowerCase()) {
-    case 'completed':
-      return 'completed';
-    case 'failed':
-      return 'failed';
-    case 'in_progress':
-    case 'processing':
-      return 'processing';
-    default:
-      return 'in_queue';
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -106,8 +91,29 @@ serve(async (req) => {
       throw updateError
     }
 
-    // Do an immediate status check before scheduling future checks
-    const initialCheckResponse = await fetch(
+    // Do an immediate status check
+    try {
+      const initialStatusResponse = await fetch(
+        `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${data.request_id}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Key ${falApiKey}`,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+
+      if (initialStatusResponse.ok) {
+        const statusData = await initialStatusResponse.json()
+        console.log('Initial status check:', statusData)
+      }
+    } catch (error) {
+      console.error('Initial status check error:', error)
+    }
+
+    // Schedule future status checks
+    await fetch(
       `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
       {
         method: 'POST',
@@ -121,10 +127,6 @@ serve(async (req) => {
         })
       }
     )
-
-    if (!initialCheckResponse.ok) {
-      console.error('Initial status check failed:', await initialCheckResponse.text())
-    }
 
     return new Response(
       JSON.stringify({ 

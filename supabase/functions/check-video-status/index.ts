@@ -10,21 +10,6 @@ const corsHeaders = {
 const MAX_RETRIES = 90; // 15 minutes with 10-second intervals
 const CHECK_INTERVAL = 10000; // 10 seconds
 
-// Map Fal.ai status to our database enum values
-const mapFalStatus = (falStatus: string): 'in_queue' | 'processing' | 'completed' | 'failed' => {
-  switch (falStatus.toLowerCase()) {
-    case 'completed':
-      return 'completed';
-    case 'failed':
-      return 'failed';
-    case 'in_progress':
-    case 'processing':
-      return 'processing';
-    default:
-      return 'in_queue';
-  }
-}
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -77,7 +62,7 @@ serve(async (req) => {
       throw new Error('Generation timed out')
     }
 
-    // Check status from Fal.ai using the correct endpoint with explicit GET method
+    // Check status from Fal.ai using the correct endpoint
     console.log('Checking status with Fal.ai')
     const statusResponse = await fetch(
       `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}`,
@@ -99,22 +84,20 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log('Status check result:', statusData)
 
-    // Map the Fal.ai status to our database enum
-    const mappedStatus = mapFalStatus(statusData.status || '')
-    console.log('Mapped status:', mappedStatus)
-
     // Update job status and progress
     const updates: any = {
-      status: mappedStatus,
+      status: statusData.status === 'IN_QUEUE' ? 'in_queue' :
+             statusData.status === 'COMPLETED' ? 'completed' :
+             statusData.status === 'FAILED' ? 'failed' : 'processing',
       progress: Math.round((statusData.progress || 0) * 100),
       retry_count: retryCount,
       last_checked_at: new Date().toISOString()
     }
 
-    if (mappedStatus === 'completed' && statusData.video?.url) {
+    if (updates.status === 'completed' && statusData.video?.url) {
       updates.result_url = statusData.video.url
       updates.file_size = statusData.video.file_size || 0
-    } else if (mappedStatus === 'failed') {
+    } else if (updates.status === 'failed') {
       updates.error_message = statusData.error || 'Generation failed'
     }
 
@@ -129,7 +112,7 @@ serve(async (req) => {
     }
 
     // If the video is not yet complete, schedule another check
-    if (mappedStatus === 'processing' || mappedStatus === 'in_queue') {
+    if (updates.status === 'processing' || updates.status === 'in_queue') {
       // Wait for the specified interval
       await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
       
@@ -149,7 +132,7 @@ serve(async (req) => {
 
     return new Response(
       JSON.stringify({ 
-        status: mappedStatus,
+        status: updates.status,
         progress: updates.progress,
         result_url: updates.result_url 
       }),

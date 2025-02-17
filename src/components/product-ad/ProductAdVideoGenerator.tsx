@@ -21,22 +21,23 @@ interface ProjectScript {
   scenes: Scene[];
 }
 
+// Updated interface to match database schema
 interface VideoJobData {
   id: string;
   status: string;
-  progress: number;
+  progress: number | null;
   result_url: string | null;
   shot_index: number;
   project_id: string;
-  aspect_ratio: string;
-  content_type: string;
+  aspect_ratio: string | null;
+  content_type: string | null;
   created_at: string;
-  duration: string;
-  error_message: string;
-  file_name: string;
-  file_size: number;
-  last_checked_at: string;
-  negative_prompt: string;
+  duration: string | null;
+  error_message: string | null;
+  file_name: string | null;
+  file_size: number | null;
+  last_checked_at: string | null;
+  negative_prompt: string | null;
   user_id: string;
 }
 
@@ -69,7 +70,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
     },
   });
 
-  const { data: videoJobs, isLoading: jobsLoading } = useQuery<VideoJobData[]>({
+  const { data: videoJobs = [], isLoading: jobsLoading } = useQuery({
     queryKey: ["video-generation-jobs", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -79,7 +80,8 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
         .order("created_at");
 
       if (error) throw error;
-      return data || [];
+      // Cast the response to match our interface
+      return (data || []) as VideoJobData[];
     },
   });
 
@@ -98,7 +100,8 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
           prompt: scene.description,
           duration: "5",
           aspect_ratio: "16:9",
-          shot_index: shotIndex
+          shot_index: shotIndex,
+          project_id: projectId
         },
       });
 
@@ -124,7 +127,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
         .update({ 
           status: "completed",
           metadata: {
-            video_urls: videoJobs?.map(job => job.result_url).filter(Boolean)
+            video_urls: videoJobs.map(job => job.result_url).filter(Boolean)
           }
         })
         .eq("id", projectId);
@@ -146,8 +149,8 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
     );
   }
 
-  const allVideosCompleted = videoJobs?.every(job => job.status === 'completed');
-  const hasFailedJobs = videoJobs?.some(job => job.status === 'failed');
+  const allVideosCompleted = videoJobs.every(job => job.status === 'completed');
+  const hasFailedJobs = videoJobs.some(job => job.status === 'failed');
 
   return (
     <Card className="p-6 bg-gray-900 border-gray-800">
@@ -161,7 +164,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
 
         <div className="space-y-4">
           {shots?.map((shot, index) => {
-            const videoJob = videoJobs?.find(job => job.shot_index === index);
+            const videoJob = videoJobs.find(job => job.shot_index === index);
             
             return (
               <div key={index} className="p-4 bg-gray-800 rounded-lg">

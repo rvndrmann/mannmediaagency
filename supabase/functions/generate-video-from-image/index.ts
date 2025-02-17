@@ -21,35 +21,6 @@ serve(async (req) => {
       throw new Error('FAL_AI_API_KEY is not configured')
     }
 
-    // Initialize video generation with Fal.ai
-    console.log('Initializing video generation with Fal.ai')
-    const response = await fetch(
-      'https://rest.fal.ai/fal-ai/kling-video',
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Key ${falApiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          image_url: image_url,
-          prompt: prompt,
-          negative_prompt: "",
-          duration: duration,
-          aspect_ratio: aspect_ratio
-        })
-      }
-    )
-
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('Fal.ai API error:', errorText)
-      throw new Error(`Failed to generate video: ${errorText}`)
-    }
-
-    const data = await response.json()
-    console.log('Fal.ai response:', data)
-
     // Create Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
@@ -62,12 +33,58 @@ serve(async (req) => {
       }
     )
 
+    // Initialize video generation with Fal.ai using the correct endpoint
+    console.log('Initializing video generation with Fal.ai')
+    const response = await fetch(
+      'https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video',
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Key ${falApiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          image_url: image_url,
+          prompt: prompt,
+          negative_prompt: "",
+          num_frames: 24,
+          duration: parseInt(duration),
+          aspect_ratio: aspect_ratio
+        })
+      }
+    )
+
+    if (!response.ok) {
+      const errorText = await response.text()
+      console.error('Fal.ai API error:', errorText)
+      
+      // Update job status to failed if the API call fails
+      await supabaseAdmin
+        .from('video_generation_jobs')
+        .update({
+          status: 'failed',
+          error_message: `Failed to initiate video generation: ${errorText}`,
+          last_checked_at: new Date().toISOString()
+        })
+        .eq('id', job_id)
+      
+      throw new Error(`Failed to generate video: ${errorText}`)
+    }
+
+    const data = await response.json()
+    console.log('Fal.ai response:', data)
+
+    if (!data.request_id) {
+      throw new Error('No request_id received from Fal.ai')
+    }
+
     // Update the job with the request_id from Fal.ai
     const { error: updateError } = await supabaseAdmin
       .from('video_generation_jobs')
       .update({
         request_id: data.request_id,
-        status: 'processing'
+        status: 'processing',
+        last_checked_at: new Date().toISOString()
       })
       .eq('id', job_id)
 
@@ -75,24 +92,21 @@ serve(async (req) => {
       throw updateError
     }
 
-    // Schedule initial status check
-    setTimeout(async () => {
-      try {
-        await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ request_id: data.request_id })
-          }
-        )
-      } catch (error) {
-        console.error('Error scheduling status check:', error)
+    // Initiate first status check
+    await fetch(
+      `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
+      {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
+          request_id: data.request_id,
+          job_id: job_id
+        })
       }
-    }, 5000)
+    )
 
     return new Response(
       JSON.stringify({ 

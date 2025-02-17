@@ -7,15 +7,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+const MAX_RETRIES = 30; // 5 minutes with 10-second intervals
+const CHECK_INTERVAL = 10000; // 10 seconds
+
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { request_id } = await req.json()
-    console.log('Checking status for request:', request_id)
+    const { request_id, job_id } = await req.json()
+    console.log('Checking status for request:', request_id, 'job:', job_id)
 
     if (!request_id) {
       throw new Error('Missing request_id parameter')
@@ -26,10 +28,44 @@ serve(async (req) => {
       throw new Error('FAL_AI_API_KEY is not configured')
     }
 
-    // Check status from Fal.ai
+    // Create Supabase client
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false,
+        },
+      }
+    )
+
+    // Get current retry count
+    const { data: jobData } = await supabaseAdmin
+      .from('video_generation_jobs')
+      .select('retry_count')
+      .eq('id', job_id)
+      .single()
+
+    const retryCount = (jobData?.retry_count || 0) + 1
+
+    if (retryCount > MAX_RETRIES) {
+      await supabaseAdmin
+        .from('video_generation_jobs')
+        .update({
+          status: 'failed',
+          error_message: 'Generation timed out after 5 minutes',
+          last_checked_at: new Date().toISOString()
+        })
+        .eq('id', job_id)
+
+      throw new Error('Generation timed out')
+    }
+
+    // Check status from Fal.ai using the correct endpoint
     console.log('Checking status with Fal.ai')
     const statusResponse = await fetch(
-      `https://rest.fal.ai/fal-ai/kling-video/requests/${request_id}/status`,
+      `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}/status`,
       {
         headers: {
           'Authorization': `Key ${falApiKey}`,
@@ -45,30 +81,19 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log('Status check result:', statusData)
 
-    // Create Supabase client
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      {
-        auth: {
-          persistSession: false,
-          autoRefreshToken: false,
-        },
-      }
-    )
-
     // Update job status and progress
     const updates: any = {
       status: statusData.status === 'completed' ? 'completed' : 
              statusData.status === 'failed' ? 'failed' : 'processing',
-      progress: statusData.progress || 0,
+      progress: Math.round((statusData.progress || 0) * 100),
+      retry_count: retryCount,
       last_checked_at: new Date().toISOString()
     }
 
     if (statusData.status === 'completed') {
       // Fetch the final result
       const resultResponse = await fetch(
-        `https://rest.fal.ai/fal-ai/kling-video/requests/${request_id}`,
+        `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}`,
         {
           headers: {
             'Authorization': `Key ${falApiKey}`,
@@ -96,10 +121,29 @@ serve(async (req) => {
     const { error: updateError } = await supabaseAdmin
       .from('video_generation_jobs')
       .update(updates)
-      .eq('request_id', request_id)
+      .eq('id', job_id)
 
     if (updateError) {
       throw updateError
+    }
+
+    // If the video is not yet complete, schedule another check
+    if (updates.status === 'processing') {
+      // Wait for the specified interval
+      await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
+      
+      // Make another status check request
+      await fetch(
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ request_id, job_id })
+        }
+      )
     }
 
     return new Response(

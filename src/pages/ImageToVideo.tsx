@@ -95,14 +95,45 @@ const ImageToVideo = () => {
       return data as VideoGenerationJob[];
     },
     enabled: !!session,
-    refetchInterval: (data) => {
-      if (!Array.isArray(data)) return false;
-      const hasPendingVideos = data.some(video => 
-        video.status === 'pending' || video.status === 'processing'
-      );
-      return hasPendingVideos ? 10000 : false;
-    },
   });
+
+  // Subscribe to real-time updates
+  useEffect(() => {
+    const channel = supabase
+      .channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'video_generation_jobs'
+        },
+        (payload) => {
+          console.log('Real-time update received:', payload);
+          refetchVideos();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [refetchVideos]);
+
+  // Poll for updates on pending/processing videos
+  useEffect(() => {
+    const hasPendingVideos = videos.some(
+      video => video.status === 'pending' || video.status === 'processing'
+    );
+
+    if (hasPendingVideos) {
+      const interval = setInterval(() => {
+        refetchVideos();
+      }, 10000); // Poll every 10 seconds
+
+      return () => clearInterval(interval);
+    }
+  }, [videos, refetchVideos]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

@@ -6,6 +6,7 @@ import { VideoPlayer } from "./VideoPlayer";
 import { MetadataInputForm } from "./MetadataInputForm";
 import { MetadataDisplay } from "./MetadataDisplay";
 import { VideoJob, VideoMetadata, MetadataDisplay as MetadataDisplayType } from "./types";
+import { useEffect } from "react";
 
 interface VideoMetadataManagerProps {
   videoJobId: string;
@@ -40,9 +41,33 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
       if (error) throw error;
       return data as VideoMetadata;
     },
-    refetchOnMount: true,
-    refetchOnWindowFocus: true,
+    staleTime: 0, // Always fetch fresh data
+    retry: 3, // Retry failed requests 3 times
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff
   });
+
+  // Set up real-time subscription for metadata changes
+  useEffect(() => {
+    const channel = supabase
+      .channel('video_metadata_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'video_metadata',
+          filter: `video_job_id=eq.${videoJobId}`
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey: ["video-metadata", videoJobId] });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [videoJobId, queryClient]);
 
   const generateMetadata = useMutation({
     mutationFn: async (params: { additionalContext: string; customTitleTwist: string }) => {
@@ -68,7 +93,9 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
 
       return data;
     },
-    onSuccess: () => {
+    onSuccess: async () => {
+      // Add a small delay before invalidating to ensure DB write is complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
       queryClient.invalidateQueries({ queryKey: ["video-metadata", videoJobId] });
       toast.success("Metadata generated successfully");
     },

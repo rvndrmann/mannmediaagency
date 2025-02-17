@@ -1,4 +1,3 @@
-
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0';
@@ -157,8 +156,7 @@ VERIFY all length requirements before responding.`
     }
 
     const completion = await response.json();
-    console.log('Raw OpenAI response:', completion);
-    console.log('Message content:', completion.choices[0].message.content);
+    console.log('OpenAI response:', completion);
     
     let metadata: VideoMetadata;
     try {
@@ -166,16 +164,16 @@ VERIFY all length requirements before responding.`
       validateMetadata(metadata);
     } catch (error) {
       console.error('Failed to parse or validate OpenAI response:', error);
-      console.error('Raw content:', completion.choices[0].message.content);
       throw new Error(`Invalid metadata format: ${error.message}`);
     }
 
     console.log('Successfully validated metadata:', metadata);
 
-    // First, try to update existing record
-    const { error: updateError } = await supabase
+    // Upsert metadata and return the complete record
+    const { data: updatedMetadata, error: upsertError } = await supabase
       .from('video_metadata')
-      .update({
+      .upsert({
+        video_job_id: videoJobId,
         seo_title: metadata.seo_title,
         seo_description: metadata.seo_description,
         keywords: metadata.keywords,
@@ -183,38 +181,20 @@ VERIFY all length requirements before responding.`
         video_context: metadata.video_context,
         additional_context: additionalContext,
         custom_title_twist: customTitleTwist,
-        metadata_regeneration_count: (regenerationCount || 0) + 1,
+        metadata_regeneration_count: regenerationCount + 1,
         updated_at: new Date().toISOString()
       })
-      .eq('video_job_id', videoJobId);
+      .select('*')
+      .single();
 
-    // If no record exists, insert a new one
-    if (updateError) {
-      const { error: insertError } = await supabase
-        .from('video_metadata')
-        .insert({
-          video_job_id: videoJobId,
-          seo_title: metadata.seo_title,
-          seo_description: metadata.seo_description,
-          keywords: metadata.keywords,
-          instagram_hashtags: metadata.instagram_hashtags,
-          video_context: metadata.video_context,
-          additional_context: additionalContext,
-          custom_title_twist: customTitleTwist,
-          metadata_regeneration_count: 1,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
-        });
-
-      if (insertError) {
-        console.error('Database insert error:', insertError);
-        throw insertError;
-      }
+    if (upsertError) {
+      console.error('Database upsert error:', upsertError);
+      throw upsertError;
     }
 
     console.log('Video metadata generation completed successfully');
 
-    return new Response(JSON.stringify(metadata), {
+    return new Response(JSON.stringify(updatedMetadata), {
       headers: { ...corsHeaders, 'Content-Type': 'application/json' },
     });
   } catch (error) {

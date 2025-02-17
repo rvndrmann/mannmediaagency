@@ -167,8 +167,9 @@ const ImageToVideo = () => {
 
       let publicUrl = selectedImageUrl;
 
+      // Only upload to Supabase if it's a new file upload
       if (selectedFile) {
-        console.log("Uploading file to Supabase storage...");
+        console.log("New file upload detected, uploading to Supabase storage...");
         const fileExt = selectedFile.name.split('.').pop();
         const filePath = `${Date.now()}.${fileExt}`;
         
@@ -189,6 +190,9 @@ const ImageToVideo = () => {
 
         console.log("Generated public URL:", uploadedUrl);
         publicUrl = uploadedUrl;
+      } else if (selectedImageUrl?.startsWith('https://fal.media')) {
+        console.log("Using Fal.ai image URL directly:", selectedImageUrl);
+        publicUrl = selectedImageUrl;
       }
 
       if (!publicUrl) {

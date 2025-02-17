@@ -21,14 +21,9 @@ serve(async (req) => {
       throw new Error('Missing required parameters: prompt and image_url are required')
     }
 
-    // Log environment and URL details for debugging
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    console.log('SUPABASE_URL:', supabaseUrl)
-    console.log('Full image URL:', image_url)
-
     // Create Supabase client
     const supabaseAdmin = createClient(
-      supabaseUrl ?? '',
+      Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
       {
         auth: {
@@ -49,28 +44,41 @@ serve(async (req) => {
       throw new Error('Invalid token')
     }
 
-    // Verify if the image URL is accessible with proper error handling
+    // Verify if the image URL is accessible with proper error handling and URL type detection
     try {
       console.log('Attempting to verify image URL:', image_url)
-      const response = await fetch(image_url, { method: 'HEAD' })
-      console.log('Image URL verification status:', response.status)
+      
+      // Determine URL type for appropriate handling
+      const isFalUrl = image_url.startsWith('https://fal.media');
+      const isSupabaseUrl = image_url.includes(Deno.env.get('SUPABASE_URL') || '');
+      
+      console.log('URL type:', { isFalUrl, isSupabaseUrl });
+
+      // For Fal.ai URLs, we'll do a simple GET request since HEAD might not be supported
+      const response = isFalUrl 
+        ? await fetch(image_url)
+        : await fetch(image_url, { method: 'HEAD' });
+
+      console.log('Image URL verification status:', response.status);
       
       if (!response.ok) {
-        throw new Error(`Image URL is not accessible (Status: ${response.status})`)
+        throw new Error(`Image URL is not accessible (Status: ${response.status})`);
+      }
+
+      // For Fal.ai URLs, we trust the content type
+      if (!isFalUrl) {
+        const contentType = response.headers.get('content-type');
+        console.log('Content-Type:', contentType);
+        
+        if (!contentType?.startsWith('image/')) {
+          throw new Error('URL does not point to a valid image');
+        }
       }
       
-      // Additional check for content type
-      const contentType = response.headers.get('content-type')
-      console.log('Content-Type:', contentType)
-      
-      if (!contentType?.startsWith('image/')) {
-        throw new Error('URL does not point to a valid image')
-      }
-      
-      console.log('Image URL is valid and accessible')
+      console.log('Image URL is valid and accessible');
     } catch (error) {
-      console.error('Error checking image URL:', error)
-      throw new Error(`Source image is not accessible: ${error.message}`)
+      console.error('Error checking image URL:', error);
+      throw new Error(`Source image is not accessible: ${error.message}`);
     }
 
     // Call the video generation API with your implementation
@@ -93,7 +101,7 @@ serve(async (req) => {
         content_type: "mp4",
         duration: duration || "5",
         file_name: `video_${Date.now()}.mp4`,
-        file_size: 0, // Will be updated when video is generated
+        file_size: 0,
         negative_prompt: "",
       })
       .select()

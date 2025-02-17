@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -50,6 +49,8 @@ const ImageToVideo = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const POLLING_INTERVAL = 20000; // 20 seconds
+  const MAX_POLLING_TIME = 7 * 60 * 1000; // 7 minutes in milliseconds
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -97,7 +98,6 @@ const ImageToVideo = () => {
     enabled: !!session,
   });
 
-  // Subscribe to real-time updates
   useEffect(() => {
     const channel = supabase
       .channel('schema-db-changes')
@@ -120,20 +120,56 @@ const ImageToVideo = () => {
     };
   }, [refetchVideos]);
 
-  // Poll for updates on pending/processing videos
   useEffect(() => {
-    const hasPendingVideos = videos.some(
+    const pendingVideos = videos.filter(
       video => video.status === 'pending' || video.status === 'processing'
     );
 
-    if (hasPendingVideos) {
-      const interval = setInterval(() => {
-        refetchVideos();
-      }, 10000); // Poll every 10 seconds
+    if (pendingVideos.length === 0) return;
 
-      return () => clearInterval(interval);
-    }
-  }, [videos, refetchVideos]);
+    const pollResults = async () => {
+      for (const video of pendingVideos) {
+        if (!video.request_id) continue;
+
+        const startTime = video.created_at ? new Date(video.created_at).getTime() : Date.now();
+        const currentTime = Date.now();
+        const elapsedTime = currentTime - startTime;
+
+        if (elapsedTime > MAX_POLLING_TIME) {
+          console.log(`Stopping poll for video ${video.id} - exceeded 7 minutes`);
+          
+          await supabase
+            .from('video_generation_jobs')
+            .update({
+              status: 'failed',
+              updated_at: new Date().toISOString()
+            })
+            .eq('id', video.id);
+            
+          continue;
+        }
+
+        try {
+          const response = await supabase.functions.invoke('fetch-video-result', {
+            body: { request_id: video.request_id }
+          });
+
+          if (response.error) {
+            console.error(`Error polling video ${video.id}:`, response.error);
+            continue;
+          }
+
+          console.log(`Poll response for video ${video.id}:`, response.data);
+        } catch (error) {
+          console.error(`Failed to poll video ${video.id}:`, error);
+        }
+      }
+    };
+
+    const pollInterval = setInterval(pollResults, POLLING_INTERVAL);
+
+    return () => clearInterval(pollInterval);
+  }, [videos]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

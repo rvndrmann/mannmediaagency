@@ -1,84 +1,121 @@
 
 import { useState } from "react";
-import { useMutation } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { ImageUploader } from "@/components/product-shoot/ImageUploader";
-import { Loader2 } from "lucide-react";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Loader2, Wand2 } from "lucide-react";
 
 interface ProductAdScriptGeneratorProps {
-  onComplete: (projectId: string) => void;
+  activeProjectId: string | null;
+  onProjectCreated: (id: string) => void;
 }
 
-export const ProductAdScriptGenerator = ({ onComplete }: ProductAdScriptGeneratorProps) => {
-  const [productTitle, setProductTitle] = useState("");
+export const ProductAdScriptGenerator = ({
+  activeProjectId,
+  onProjectCreated,
+}: ProductAdScriptGeneratorProps) => {
+  const queryClient = useQueryClient();
+  const [title, setTitle] = useState("");
   const [productDescription, setProductDescription] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
-  const generateScriptMutation = useMutation({
+  const { data: currentProject } = useQuery({
+    queryKey: ["product-ad-project", activeProjectId],
+    queryFn: async () => {
+      if (!activeProjectId) return null;
+      const { data, error } = await supabase
+        .from("product_ad_projects")
+        .select("*")
+        .eq("id", activeProjectId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!activeProjectId,
+  });
+
+  const generateScript = useMutation({
     mutationFn: async () => {
-      if (!selectedFile) {
+      if (!selectedFile && !previewUrl) {
         throw new Error("Please upload a product image");
       }
 
-      // First, upload the image
-      const fileExt = selectedFile.name.split('.').pop();
-      const filePath = `${crypto.randomUUID()}.${fileExt}`;
-      
-      const { error: uploadError } = await supabase.storage
-        .from('product-images')
-        .upload(filePath, selectedFile);
+      let publicUrl = previewUrl;
 
-      if (uploadError) {
-        throw uploadError;
+      // Upload image if it's a new file
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split('.').pop();
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
+        
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('source-images')
+          .upload(fileName, selectedFile);
+
+        if (uploadError) throw uploadError;
+
+        const { data: { publicUrl: uploadedUrl } } = supabase.storage
+          .from('source-images')
+          .getPublicUrl(fileName);
+
+        publicUrl = uploadedUrl;
       }
 
-      const { data: { publicUrl } } = supabase.storage
-        .from('product-images')
-        .getPublicUrl(filePath);
-
-      // Generate script using edge function
-      const response = await supabase.functions.invoke("generate-product-ad-script", {
+      const { data, error } = await supabase.functions.invoke('generate-product-ad-script', {
         body: {
-          productTitle,
+          title,
           productDescription,
+          targetAudience,
           imageUrl: publicUrl,
         },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
+      if (error) throw error;
+
+      // Create or update project
+      const projectData = {
+        title,
+        product_image_url: publicUrl,
+        script: data.script,
+        status: 'script_generated',
+      };
+
+      if (activeProjectId) {
+        const { error: updateError } = await supabase
+          .from('product_ad_projects')
+          .update(projectData)
+          .eq('id', activeProjectId);
+
+        if (updateError) throw updateError;
+      } else {
+        const { data: newProject, error: insertError } = await supabase
+          .from('product_ad_projects')
+          .insert({
+            ...projectData,
+            user_id: (await supabase.auth.getUser()).data.user?.id,
+          })
+          .select()
+          .single();
+
+        if (insertError) throw insertError;
+        if (newProject) onProjectCreated(newProject.id);
       }
 
-      // Create project in database
-      const { data: project, error: projectError } = await supabase
-        .from("product_ad_projects")
-        .insert({
-          title: productTitle,
-          product_image_url: publicUrl,
-          script: response.data,
-          status: 'script_generated'
-        })
-        .select()
-        .single();
-
-      if (projectError) {
-        throw projectError;
-      }
-
-      return project;
+      return data;
     },
-    onSuccess: (data) => {
-      toast.success("Script generated successfully!");
-      onComplete(data.id);
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["product-ad-project"] });
+      toast.success("Script generated successfully");
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to generate script");
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
@@ -87,84 +124,92 @@ export const ProductAdScriptGenerator = ({ onComplete }: ProductAdScriptGenerato
     if (file) {
       if (file.type.startsWith('image/')) {
         setSelectedFile(file);
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
+        setPreviewUrl(URL.createObjectURL(file));
       } else {
         toast.error("Please select an image file");
       }
     }
   };
 
-  const clearSelectedFile = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
+  const clearFile = () => {
+    if (previewUrl) URL.revokeObjectURL(previewUrl);
     setSelectedFile(null);
     setPreviewUrl(null);
   };
 
   return (
-    <Card className="p-6 bg-gray-900 border-gray-800">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Create Product Ad Script</h2>
-          <p className="text-gray-400 mb-6">
-            Upload your product image and provide details to generate a professional ad script.
-          </p>
-        </div>
-
+    <div className="space-y-6">
+      <div className="grid gap-6 md:grid-cols-2">
         <div className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Product Image
-            </label>
-            <ImageUploader
-              previewUrl={previewUrl}
-              onFileSelect={handleFileSelect}
-              onClear={clearSelectedFile}
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Product Title
-            </label>
+            <Label className="text-white">Project Title</Label>
             <Input
-              value={productTitle}
-              onChange={(e) => setProductTitle(e.target.value)}
-              placeholder="Enter product title"
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Enter your project title"
               className="bg-gray-800 border-gray-700 text-white"
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-200 mb-2">
-              Product Description
-            </label>
+            <Label className="text-white">Product Description</Label>
             <Textarea
               value={productDescription}
               onChange={(e) => setProductDescription(e.target.value)}
-              placeholder="Describe your product and its key features..."
+              placeholder="Describe your product in detail..."
+              className="min-h-[100px] bg-gray-800 border-gray-700 text-white"
+            />
+          </div>
+
+          <div>
+            <Label className="text-white">Target Audience</Label>
+            <Textarea
+              value={targetAudience}
+              onChange={(e) => setTargetAudience(e.target.value)}
+              placeholder="Describe your target audience..."
               className="min-h-[100px] bg-gray-800 border-gray-700 text-white"
             />
           </div>
         </div>
 
-        <Button
-          onClick={() => generateScriptMutation.mutate()}
-          disabled={generateScriptMutation.isPending || !productTitle || !productDescription || !selectedFile}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-        >
-          {generateScriptMutation.isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating Script...
-            </>
-          ) : (
-            "Generate Ad Script"
-          )}
-        </Button>
+        <div className="space-y-4">
+          <Label className="text-white">Product Image</Label>
+          <ImageUploader
+            previewUrl={previewUrl}
+            onFileSelect={handleFileSelect}
+            onClear={clearFile}
+            aspectRatio={1}
+            helpText="Upload your product image"
+          />
+        </div>
       </div>
-    </Card>
+
+      <Button
+        onClick={() => generateScript.mutate()}
+        disabled={generateScript.isPending || !title || !productDescription || !targetAudience || (!selectedFile && !previewUrl)}
+        className="w-full bg-purple-600 hover:bg-purple-700"
+      >
+        {generateScript.isPending ? (
+          <>
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            Generating Script...
+          </>
+        ) : (
+          <>
+            <Wand2 className="mr-2 h-4 w-4" />
+            Generate Script
+          </>
+        )}
+      </Button>
+
+      {currentProject?.script && (
+        <div className="mt-6 p-4 bg-gray-800 rounded-lg">
+          <Label className="text-white mb-2">Generated Script</Label>
+          <pre className="whitespace-pre-wrap text-white/90 text-sm">
+            {JSON.stringify(currentProject.script, null, 2)}
+          </pre>
+        </div>
+      )}
+    </div>
   );
-};
+}

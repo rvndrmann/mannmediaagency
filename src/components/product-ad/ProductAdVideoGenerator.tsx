@@ -1,21 +1,28 @@
 
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
+import { Loader2, Play, Download } from "lucide-react";
 import { Progress } from "@/components/ui/progress";
-import { Loader2, CheckCircle, XCircle } from "lucide-react";
 
 interface ProductAdVideoGeneratorProps {
-  projectId: string;
+  projectId: string | null;
   onComplete: () => void;
 }
 
-export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVideoGeneratorProps) => {
+export const ProductAdVideoGenerator = ({
+  projectId,
+  onComplete,
+}: ProductAdVideoGeneratorProps) => {
+  const queryClient = useQueryClient();
+  const [generatedVideoUrl, setGeneratedVideoUrl] = useState<string | null>(null);
+
   const { data: project } = useQuery({
     queryKey: ["product-ad-project", projectId],
     queryFn: async () => {
+      if (!projectId) return null;
       const { data, error } = await supabase
         .from("product_ad_projects")
         .select("*")
@@ -25,162 +32,142 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
       if (error) throw error;
       return data;
     },
+    enabled: !!projectId,
   });
 
-  const { data: shots } = useQuery({
-    queryKey: ["product-ad-shots", projectId],
+  const { data: approvedShots } = useQuery({
+    queryKey: ["approved-shots", projectId],
     queryFn: async () => {
+      if (!projectId) return [];
       const { data, error } = await supabase
         .from("product_ad_shots")
         .select("*")
         .eq("project_id", projectId)
-        .order("order_index");
+        .eq("status", "approved")
+        .order("order_index", { ascending: true });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!projectId,
   });
 
-  const { data: videoJobs, isLoading: jobsLoading } = useQuery({
-    queryKey: ["video-generation-jobs", projectId],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("video_generation_jobs")
-        .select("*")
-        .eq("project_id", projectId)
-        .order("created_at");
+  const generateVideo = useMutation({
+    mutationFn: async () => {
+      if (!project?.script || approvedShots?.length === 0) {
+        throw new Error("Missing approved shots");
+      }
 
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const generateVideoMutation = useMutation({
-    mutationFn: async (shotIndex: number) => {
-      const shot = shots[shotIndex];
-      const scene = project.script.scenes[shotIndex];
-      
-      const response = await supabase.functions.invoke("generate-video-from-image", {
+      const { data, error } = await supabase.functions.invoke('generate-video-from-image', {
         body: {
-          image_url: shot.image_url,
-          prompt: scene.description,
-          duration: "5",
-          aspect_ratio: "16:9"
+          projectId,
+          shots: approvedShots,
+          script: project.script,
         },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
+      if (error) throw error;
 
-      return response.data;
+      // Update project status
+      await supabase
+        .from('product_ad_projects')
+        .update({
+          status: 'video_generated',
+          settings: {
+            ...project.settings,
+            videoUrl: data.videoUrl,
+          },
+        })
+        .eq('id', projectId);
+
+      setGeneratedVideoUrl(data.videoUrl);
+      return data;
     },
     onSuccess: () => {
-      toast.success("Video generation started");
+      queryClient.invalidateQueries({ queryKey: ["product-ad-project"] });
+      toast.success("Video generated successfully");
     },
-    onError: (error) => {
-      toast.error(error instanceof Error ? error.message : "Failed to start video generation");
+    onError: (error: Error) => {
+      toast.error(error.message);
     },
   });
 
-  const allVideosCompleted = videoJobs?.every(job => job.status === 'completed');
-  const hasFailedJobs = videoJobs?.some(job => job.status === 'failed');
-  const totalProgress = videoJobs?.reduce((acc, job) => acc + (job.progress || 0), 0) / (videoJobs?.length || 1);
-
-  const getStatusIcon = (status: string) => {
-    if (status === 'completed') return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (status === 'failed') return <XCircle className="h-4 w-4 text-red-500" />;
-    return <Loader2 className="h-4 w-4 animate-spin text-purple-500" />;
-  };
-
-  const handleGenerateVideo = async (shotIndex: number) => {
-    if (!shots?.[shotIndex]) return;
-    await generateVideoMutation.mutateAsync(shotIndex);
-  };
-
-  const handleComplete = async () => {
-    const { error } = await supabase
-      .from("product_ad_projects")
-      .update({ 
-        status: 'completed',
-        metadata: {
-          video_urls: videoJobs?.map(job => job.result_url).filter(Boolean)
-        }
-      })
-      .eq("id", projectId);
-
-    if (error) {
-      toast.error("Failed to update project status");
-      return;
-    }
-
-    onComplete();
-  };
-
-  if (jobsLoading) {
+  if (!projectId || !project) {
     return (
-      <Card className="p-6 bg-gray-900 border-gray-800">
-        <div className="flex items-center justify-center">
-          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
-        </div>
-      </Card>
+      <div className="text-center text-gray-500 py-8">
+        Please generate shots first
+      </div>
     );
   }
 
+  const handleDownload = async () => {
+    if (!generatedVideoUrl) return;
+    
+    try {
+      const response = await fetch(generatedVideoUrl);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${project.title}-video.mp4`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(url);
+    } catch (error) {
+      toast.error("Failed to download video");
+    }
+  };
+
   return (
-    <Card className="p-6 bg-gray-900 border-gray-800">
-      <div className="space-y-6">
-        <div>
-          <h2 className="text-xl font-semibold text-white mb-4">Generate Scene Videos</h2>
-          <p className="text-gray-400 mb-6">
-            Transform your product shots into dynamic video scenes.
-          </p>
-        </div>
-
-        <div className="space-y-4">
-          {shots?.map((shot, index) => {
-            const videoJob = videoJobs?.find(job => job.shot_index === index);
-            
-            return (
-              <div key={index} className="p-4 bg-gray-800 rounded-lg">
-                <div className="flex items-start justify-between">
-                  <div className="flex-1">
-                    <h3 className="text-white font-medium mb-2">Scene {index + 1}</h3>
-                    <p className="text-gray-400 text-sm mb-2">
-                      Status: {videoJob?.status || 'pending'}
-                    </p>
-                    {videoJob && (
-                      <Progress value={videoJob.progress || 0} className="mb-2" />
-                    )}
-                  </div>
-                  
-                  <div className="ml-4 flex items-center">
-                    {videoJob ? (
-                      getStatusIcon(videoJob.status)
-                    ) : (
-                      <Button
-                        onClick={() => handleGenerateVideo(index)}
-                        disabled={generateVideoMutation.isPending}
-                        className="bg-purple-600 hover:bg-purple-700"
-                      >
-                        Generate Video
-                      </Button>
-                    )}
-                  </div>
-                </div>
-              </div>
-            );
-          })}
-        </div>
-
+    <div className="space-y-6">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-bold text-white">{project.title}</h2>
         <Button
-          onClick={handleComplete}
-          disabled={!allVideosCompleted || hasFailedJobs}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+          onClick={() => generateVideo.mutate()}
+          disabled={generateVideo.isPending || !approvedShots?.length}
+          className="bg-purple-600 hover:bg-purple-700"
         >
-          Complete Project
+          {generateVideo.isPending ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating Video...
+            </>
+          ) : (
+            <>
+              <Play className="mr-2 h-4 w-4" />
+              Generate Video
+            </>
+          )}
         </Button>
       </div>
-    </Card>
+
+      {generatedVideoUrl && (
+        <div className="space-y-4">
+          <video
+            src={generatedVideoUrl}
+            controls
+            className="w-full rounded-lg"
+            poster={project.product_image_url}
+          />
+          <Button
+            onClick={handleDownload}
+            className="w-full bg-green-600 hover:bg-green-700"
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Download Video
+          </Button>
+        </div>
+      )}
+
+      {generateVideo.isPending && (
+        <div className="space-y-2">
+          <Progress value={45} />
+          <p className="text-sm text-gray-400 text-center">
+            Generating your video... This may take a few minutes
+          </p>
+        </div>
+      )}
+    </div>
   );
 };

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,19 +29,6 @@ interface SupabaseVideoJob {
   retry_count?: number;
   error_message?: string;
   last_checked_at?: string;
-}
-
-interface VideoGenerationJob {
-  id: string;
-  status: 'in_queue' | 'processing' | 'completed' | 'failed';
-  created_at: string;
-  request_id: string;
-  result_url?: string;
-  prompt: string;
-  progress?: number;
-  user_id: string;
-  retry_count?: number;
-  error_message?: string;
 }
 
 const ImageToVideo = () => {
@@ -171,11 +159,11 @@ const ImageToVideo = () => {
       if (selectedFile) {
         console.log("New file upload detected, uploading to Supabase storage...");
         const fileExt = selectedFile.name.split('.').pop();
-        const filePath = `${Date.now()}.${fileExt}`;
+        const fileName = `${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`;
         
         const { data: uploadData, error: uploadError } = await supabase.storage
           .from('source-images')
-          .upload(filePath, selectedFile);
+          .upload(fileName, selectedFile);
 
         if (uploadError) {
           console.error("Upload error:", uploadError);
@@ -186,13 +174,10 @@ const ImageToVideo = () => {
 
         const { data: { publicUrl: uploadedUrl } } = supabase.storage
           .from('source-images')
-          .getPublicUrl(filePath);
+          .getPublicUrl(fileName);
 
         console.log("Generated public URL:", uploadedUrl);
         publicUrl = uploadedUrl;
-      } else if (selectedImageUrl?.startsWith('https://fal.media')) {
-        console.log("Using Fal.ai image URL directly:", selectedImageUrl);
-        publicUrl = selectedImageUrl;
       }
 
       if (!publicUrl) {
@@ -200,12 +185,33 @@ const ImageToVideo = () => {
       }
 
       console.log("Starting video generation with URL:", publicUrl);
-      toast.info("Starting video generation. This may take up to 15 minutes.", {
-        duration: 5000,
-      });
+      
+      // First, create the job record in the database
+      const { data: jobData, error: jobError } = await supabase
+        .from('video_generation_jobs')
+        .insert({
+          prompt: prompt.trim(),
+          source_image_url: publicUrl,
+          duration: "5",
+          aspect_ratio: aspectRatio,
+          status: 'in_queue',
+          user_id: session.user.id,
+          file_name: selectedFile?.name || 'image.jpg',
+          content_type: selectedFile?.type || 'image/jpeg',
+        })
+        .select()
+        .single();
 
+      if (jobError) {
+        throw jobError;
+      }
+
+      console.log("Created job record:", jobData);
+
+      // Then call the edge function
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
+          job_id: jobData.id,
           prompt: prompt.trim(),
           image_url: publicUrl,
           duration: "5",
@@ -221,15 +227,9 @@ const ImageToVideo = () => {
 
       await refetchVideos();
       
-      if (response.data?.data?.status === 'completed') {
-        toast.success("Video generation completed successfully!");
-      } else if (response.data?.data?.status === 'failed') {
-        toast.error(response.data?.data?.error_message || "Failed to generate video");
-      } else {
-        toast.info("Video generation in progress. You can check the status in the gallery.", {
-          duration: 5000,
-        });
-      }
+      toast.info("Video generation in progress. You can check the status in the gallery.", {
+        duration: 5000,
+      });
 
       clearSelectedFile();
       setPrompt("");

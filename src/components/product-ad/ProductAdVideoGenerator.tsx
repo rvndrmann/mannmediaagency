@@ -12,6 +12,23 @@ interface ProductAdVideoGeneratorProps {
   onComplete: () => void;
 }
 
+interface Scene {
+  description: string;
+  shot_type: string;
+}
+
+interface ProjectScript {
+  scenes: Scene[];
+}
+
+interface VideoJob {
+  id: string;
+  status: string;
+  progress: number;
+  result_url: string | null;
+  shot_index?: number;
+}
+
 export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVideoGeneratorProps) => {
   const { data: project } = useQuery({
     queryKey: ["product-ad-project", projectId],
@@ -51,21 +68,23 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
         .order("created_at");
 
       if (error) throw error;
-      return data;
+      return data as VideoJob[];
     },
   });
 
   const generateVideoMutation = useMutation({
     mutationFn: async (shotIndex: number) => {
+      if (!shots?.[shotIndex]) return;
       const shot = shots[shotIndex];
-      const scene = project.script.scenes[shotIndex];
+      const scene = (project?.script as ProjectScript)?.scenes?.[shotIndex];
       
       const response = await supabase.functions.invoke("generate-video-from-image", {
         body: {
           image_url: shot.image_url,
           prompt: scene.description,
           duration: "5",
-          aspect_ratio: "16:9"
+          aspect_ratio: "16:9",
+          shot_index: shotIndex
         },
       });
 
@@ -83,38 +102,27 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
     },
   });
 
-  const allVideosCompleted = videoJobs?.every(job => job.status === 'completed');
-  const hasFailedJobs = videoJobs?.some(job => job.status === 'failed');
-  const totalProgress = videoJobs?.reduce((acc, job) => acc + (job.progress || 0), 0) / (videoJobs?.length || 1);
-
-  const getStatusIcon = (status: string) => {
-    if (status === 'completed') return <CheckCircle className="h-4 w-4 text-green-500" />;
-    if (status === 'failed') return <XCircle className="h-4 w-4 text-red-500" />;
-    return <Loader2 className="h-4 w-4 animate-spin text-purple-500" />;
-  };
-
   const handleGenerateVideo = async (shotIndex: number) => {
-    if (!shots?.[shotIndex]) return;
     await generateVideoMutation.mutateAsync(shotIndex);
   };
 
   const handleComplete = async () => {
-    const { error } = await supabase
-      .from("product_ad_projects")
-      .update({ 
-        status: 'completed',
-        metadata: {
-          video_urls: videoJobs?.map(job => job.result_url).filter(Boolean)
-        }
-      })
-      .eq("id", projectId);
+    try {
+      const { error } = await supabase
+        .from("product_ad_projects")
+        .update({ 
+          status: "completed",
+          metadata: {
+            video_urls: videoJobs?.map(job => job.result_url).filter(Boolean)
+          }
+        })
+        .eq("id", projectId);
 
-    if (error) {
+      if (error) throw error;
+      onComplete();
+    } catch (error) {
       toast.error("Failed to update project status");
-      return;
     }
-
-    onComplete();
   };
 
   if (jobsLoading) {
@@ -126,6 +134,10 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
       </Card>
     );
   }
+
+  const allVideosCompleted = videoJobs?.every(job => job.status === 'completed');
+  const hasFailedJobs = videoJobs?.some(job => job.status === 'failed');
+  const totalProgress = videoJobs?.reduce((acc, job) => acc + (job.progress || 0), 0) / (videoJobs?.length || 1);
 
   return (
     <Card className="p-6 bg-gray-900 border-gray-800">
@@ -143,7 +155,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
             
             return (
               <div key={index} className="p-4 bg-gray-800 rounded-lg">
-                <div className="flex items-start justify-between">
+                <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className="text-white font-medium mb-2">Scene {index + 1}</h3>
                     <p className="text-gray-400 text-sm mb-2">
@@ -154,9 +166,15 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
                     )}
                   </div>
                   
-                  <div className="ml-4 flex items-center">
+                  <div className="ml-4">
                     {videoJob ? (
-                      getStatusIcon(videoJob.status)
+                      videoJob.status === 'completed' ? (
+                        <CheckCircle className="h-6 w-6 text-green-500" />
+                      ) : videoJob.status === 'failed' ? (
+                        <XCircle className="h-6 w-6 text-red-500" />
+                      ) : (
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-500" />
+                      )
                     ) : (
                       <Button
                         onClick={() => handleGenerateVideo(index)}

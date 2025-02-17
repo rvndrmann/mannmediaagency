@@ -118,7 +118,7 @@ export function GalleryPanel({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((video) => (
             <div key={video.id} className="relative group space-y-2">
-              {(video.status === 'in_queue' || video.status === 'processing') ? (
+              {(video.status === 'in_queue') ? (
                 <div className="aspect-video bg-gray-800 rounded-lg flex flex-col items-center justify-center p-4">
                   <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-4" />
                   <div className="w-full max-w-xs space-y-2">
@@ -127,7 +127,7 @@ export function GalleryPanel({
                       className="h-2 bg-gray-700"
                     />
                     <p className="text-sm text-center text-gray-400">
-                      {video.status === 'in_queue' ? 'Initializing...' : 'Processing video...'}
+                      Generating your video...
                       <br />
                       <span className="text-xs">
                         {video.progress || 0}% complete

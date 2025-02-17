@@ -929,7 +929,7 @@ export type Database = {
           retry_count: number | null
           settings: Json
           source_image_url: string
-          status: Database["public"]["Enums"]["video_generation_status"]
+          status: Database["public"]["Enums"]["video_generation_status_new"]
           updated_at: string
           user_id: string
         }
@@ -951,7 +951,7 @@ export type Database = {
           retry_count?: number | null
           settings?: Json
           source_image_url: string
-          status?: Database["public"]["Enums"]["video_generation_status"]
+          status?: Database["public"]["Enums"]["video_generation_status_new"]
           updated_at?: string
           user_id: string
         }
@@ -973,7 +973,7 @@ export type Database = {
           retry_count?: number | null
           settings?: Json
           source_image_url?: string
-          status?: Database["public"]["Enums"]["video_generation_status"]
+          status?: Database["public"]["Enums"]["video_generation_status_new"]
           updated_at?: string
           user_id?: string
         }
@@ -1153,6 +1153,7 @@ export type Database = {
         | "processing"
         | "completed"
         | "failed"
+      video_generation_status_new: "in_queue" | "completed"
     }
     CompositeTypes: {
       [_ in never]: never

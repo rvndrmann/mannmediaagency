@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,7 +43,13 @@ interface VideoGenerationJob {
   error_message?: string;
 }
 
-const getPollingInterval = (elapsedMinutes: number): number => {
+const getPollingInterval = (elapsedMinutes: number, status: 'in_queue' | 'processing'): number => {
+  // More frequent polling for processing status
+  if (status === 'processing') {
+    return 30000; // 30 seconds for processing status
+  }
+  
+  // Regular intervals for in_queue status
   if (elapsedMinutes < 2) return 30000; // 30 seconds for first 2 minutes
   if (elapsedMinutes < 5) return 45000; // 45 seconds for 2-5 minutes
   return 60000; // 60 seconds for 5-7 minutes
@@ -129,7 +136,7 @@ const ImageToVideo = () => {
 
   useEffect(() => {
     const pendingVideos = videos.filter(
-      video => video.status === 'in_queue'
+      video => video.status === 'in_queue' || video.status === 'processing'
     );
 
     if (pendingVideos.length === 0) return;
@@ -148,6 +155,7 @@ const ImageToVideo = () => {
         await supabase
           .from('video_generation_jobs')
           .update({
+            status: 'failed',
             error_message: 'Generation timed out after 7 minutes',
             updated_at: new Date().toISOString()
           })
@@ -157,6 +165,7 @@ const ImageToVideo = () => {
       }
 
       try {
+        console.log(`Polling video ${video.id} (${video.status})`);
         const response = await supabase.functions.invoke('check-video-status', {
           body: { request_id: video.request_id }
         });
@@ -168,10 +177,15 @@ const ImageToVideo = () => {
 
         console.log(`Poll response for video ${video.id}:`, response.data);
         
-        if (response.data?.status === 'completed') {
+        const result = Array.isArray(response.data) ? response.data[0] : response.data;
+        
+        if (result?.status === 'completed') {
           toast.success("Your video is ready!");
-        } else if (response.data?.error_message) {
-          toast.error(response.data.error_message || "Failed to generate video");
+        } else if (result?.error_message) {
+          toast.error(result.error_message || "Failed to generate video");
+        } else if (result?.status === 'processing' && video.status === 'in_queue') {
+          // Notify user when video moves to processing state
+          toast.info("Your video is now processing...");
         }
       } catch (error) {
         console.error(`Failed to poll video ${video.id}:`, error);
@@ -192,10 +206,10 @@ const ImageToVideo = () => {
 
       const startTime = oldestPendingVideo.created_at ? new Date(oldestPendingVideo.created_at).getTime() : Date.now();
       const elapsedMinutes = (Date.now() - startTime) / (60 * 1000);
-      const interval = getPollingInterval(elapsedMinutes);
+      const interval = getPollingInterval(elapsedMinutes, oldestPendingVideo.status);
 
       pollResults();
-    }, getPollingInterval(0));
+    }, 30000); // Start with 30 second interval
 
     return () => clearInterval(intervalId);
   }, [videos]);

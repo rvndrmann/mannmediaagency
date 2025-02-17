@@ -29,29 +29,31 @@ serve(async (req) => {
       // Single job check
       const { data, error } = await supabaseClient
         .from('video_generation_jobs')
-        .select('request_id')
-        .eq('request_id', body.request_id)
-        .eq('status', 'in_queue');
+        .select('request_id, id, status, created_at')
+        .or('status.eq.in_queue,status.eq.processing')
+        .eq('request_id', body.request_id);
 
       if (error) throw error;
       jobsToCheck = data;
+      console.log(`Checking single job with request_id: ${body.request_id}`);
     } else {
       // Batch check all pending jobs
       const { data, error } = await supabaseClient
         .from('video_generation_jobs')
-        .select('request_id')
-        .eq('status', 'in_queue')
+        .select('request_id, id, status, created_at')
+        .or('status.eq.in_queue,status.eq.processing')
         .not('request_id', 'is', null);
 
       if (error) throw error;
       jobsToCheck = data;
+      console.log(`Checking ${jobsToCheck.length} pending jobs`);
     }
-
-    console.log(`Checking status for ${jobsToCheck.length} jobs`);
 
     const results = await Promise.all(
       jobsToCheck.map(async (job) => {
         try {
+          console.log(`Checking status for job ${job.id} (${job.request_id})`);
+          
           // Check status from FAL API
           const statusResponse = await fetch(
             `https://queue.fal.run/fal-ai/kling-video/requests/${job.request_id}/status`,
@@ -66,17 +68,14 @@ serve(async (req) => {
 
           if (!statusResponse.ok) {
             console.error(`FAL API error for ${job.request_id}: ${statusResponse.statusText}`);
-            return {
-              request_id: job.request_id,
-              error: `Failed to check status: ${statusResponse.statusText}`
-            };
+            throw new Error(`Failed to check status: ${statusResponse.statusText}`);
           }
 
           const statusData = await statusResponse.json();
           console.log(`FAL API status response for ${job.request_id}:`, statusData);
 
-          // Map FAL API status to our simplified status enum
-          let newStatus = 'in_queue';
+          // Map FAL API status to our status enum
+          let newStatus = job.status;
           let errorMessage = null;
           let progress = 0;
           let resultUrl = null;
@@ -86,14 +85,19 @@ serve(async (req) => {
               newStatus = 'completed';
               progress = 100;
               resultUrl = statusData.result?.url;
+              console.log(`Job ${job.id} completed with URL: ${resultUrl}`);
               break;
             case 'FAILED':
               newStatus = 'failed';
               errorMessage = statusData.error || 'Video generation failed';
+              console.log(`Job ${job.id} failed: ${errorMessage}`);
               break;
             case 'IN_QUEUE':
+              progress = 25;
+              break;
             case 'PROCESSING':
-              progress = statusData.status === 'PROCESSING' ? 50 : 25;
+              newStatus = 'processing';
+              progress = 50;
               break;
             default:
               console.log(`Unknown status from FAL API: ${statusData.status}`);
@@ -109,14 +113,11 @@ serve(async (req) => {
               result_url: resultUrl,
               last_checked_at: new Date().toISOString()
             })
-            .eq('request_id', job.request_id);
+            .eq('id', job.id);
 
           if (updateError) {
-            console.error(`Error updating job ${job.request_id}:`, updateError);
-            return {
-              request_id: job.request_id,
-              error: updateError.message
-            };
+            console.error(`Error updating job ${job.id}:`, updateError);
+            throw updateError;
           }
 
           return {
@@ -127,7 +128,7 @@ serve(async (req) => {
             result_url: resultUrl
           };
         } catch (error) {
-          console.error(`Error processing job ${job.request_id}:`, error);
+          console.error(`Error processing job ${job.id}:`, error);
           return {
             request_id: job.request_id,
             error: error instanceof Error ? error.message : 'An unknown error occurred'

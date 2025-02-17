@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface VideoGenerationStatus {
-  status: 'pending' | 'processing' | 'completed' | 'failed';
+  status: 'in_queue' | 'processing' | 'completed' | 'failed';
   message: string;
   progress: number;
   timeRemaining?: string;
@@ -12,7 +12,7 @@ interface VideoGenerationStatus {
 
 export const useVideoGenerationStatus = (jobId: string | null) => {
   const [status, setStatus] = useState<VideoGenerationStatus>({
-    status: 'pending',
+    status: 'in_queue',
     message: 'Initializing...',
     progress: 0,
   });
@@ -46,7 +46,7 @@ export const useVideoGenerationStatus = (jobId: string | null) => {
       // Update status based on job status and elapsed time
       let message = '';
       switch (job.status) {
-        case 'pending':
+        case 'in_queue':
           message = 'Initializing video generation...';
           break;
         case 'processing':
@@ -62,7 +62,7 @@ export const useVideoGenerationStatus = (jobId: string | null) => {
           message = 'Video generation completed!';
           break;
         case 'failed':
-          message = 'Video generation failed';
+          message = job.error_message || 'Video generation failed';
           break;
       }
 
@@ -74,7 +74,7 @@ export const useVideoGenerationStatus = (jobId: string | null) => {
       });
 
       // Return true if the status check should continue
-      return job.status === 'pending' || job.status === 'processing';
+      return job.status === 'in_queue' || job.status === 'processing';
     } catch (error) {
       console.error('Error checking video status:', error);
       toast.error('Failed to check video status');

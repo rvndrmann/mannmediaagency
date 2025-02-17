@@ -14,6 +14,7 @@ import {
   Mail,
   Shield,
   FileText,
+  CreditCard,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -62,6 +63,11 @@ export const Navigation = () => {
       logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
       to: "/metadata",
       icon: Database,
+    },
+    {
+      name: "Plans & Billing",
+      to: "/plans",
+      icon: CreditCard,
     },
     {
       name: "Integrations",

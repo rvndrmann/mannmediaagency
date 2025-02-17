@@ -1,6 +1,6 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,6 +8,7 @@ const corsHeaders = {
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -25,6 +26,26 @@ serve(async (req) => {
       throw new Error('FAL_AI_API_KEY is not configured')
     }
 
+    // Check status from Fal.ai
+    console.log('Checking status with Fal.ai')
+    const statusResponse = await fetch(
+      `https://rest.fal.ai/fal-ai/kling-video/requests/${request_id}/status`,
+      {
+        headers: {
+          'Authorization': `Key ${falApiKey}`,
+          'Content-Type': 'application/json'
+        },
+      }
+    )
+
+    if (!statusResponse.ok) {
+      throw new Error(`Failed to check status: ${await statusResponse.text()}`)
+    }
+
+    const statusData = await statusResponse.json()
+    console.log('Status check result:', statusData)
+
+    // Create Supabase client
     const supabaseAdmin = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
@@ -36,54 +57,23 @@ serve(async (req) => {
       }
     )
 
-    // Get the job from database
-    const { data: job, error: jobError } = await supabaseAdmin
-      .from('video_generation_jobs')
-      .select('*')
-      .eq('request_id', request_id)
-      .maybeSingle()
-
-    if (jobError || !job) {
-      throw new Error('Job not found')
-    }
-
-    // Check status from Fal.ai
-    console.log('Checking status with Fal.ai')
-    const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
-      {
-        headers: {
-          'Authorization': `Key ${falApiKey}`,
-        },
-      }
-    )
-
-    if (!statusResponse.ok) {
-      throw new Error('Failed to check status')
-    }
-
-    const statusData = await statusResponse.json()
-    console.log('Status check result:', statusData)
-
     // Update job status and progress
     const updates: any = {
-      status: statusData.status,
-      progress: statusData.progress || job.progress || 0,
-      last_checked_at: new Date().toISOString(),
-      retry_count: (job.retry_count || 0) + 1
+      status: statusData.status === 'completed' ? 'completed' : 
+             statusData.status === 'failed' ? 'failed' : 'processing',
+      progress: statusData.progress || 0,
+      last_checked_at: new Date().toISOString()
     }
 
     if (statusData.status === 'completed') {
-      // Fetch the final result using the new endpoint
+      // Fetch the final result
       const resultResponse = await fetch(
-        `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-video-result`,
+        `https://rest.fal.ai/fal-ai/kling-video/requests/${request_id}`,
         {
-          method: 'POST',
           headers: {
-            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Authorization': `Key ${falApiKey}`,
             'Content-Type': 'application/json'
           },
-          body: JSON.stringify({ request_id })
         }
       )
 
@@ -92,12 +82,13 @@ serve(async (req) => {
       }
 
       const resultData = await resultResponse.json()
-      return new Response(
-        JSON.stringify(resultData),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
+      console.log('Result data:', resultData)
+
+      if (resultData.video?.url) {
+        updates.result_url = resultData.video.url
+        updates.file_size = resultData.video.file_size || 0
+      }
     } else if (statusData.status === 'failed') {
-      updates.status = 'failed'
       updates.error_message = statusData.error || 'Generation failed'
     }
 
@@ -105,39 +96,21 @@ serve(async (req) => {
     const { error: updateError } = await supabaseAdmin
       .from('video_generation_jobs')
       .update(updates)
-      .eq('id', job.id)
+      .eq('request_id', request_id)
 
     if (updateError) {
       throw updateError
     }
 
-    // Schedule next check if still processing
-    if (statusData.status === 'processing' || statusData.status === 'in_queue') {
-      setTimeout(async () => {
-        try {
-          await fetch(
-            `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
-            {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({ request_id })
-            }
-          )
-        } catch (error) {
-          console.error('Error scheduling next check:', error)
-        }
-      }, 30000) // Check every 30 seconds
-    }
-
     return new Response(
       JSON.stringify({ 
-        status: statusData.status,
-        progress: updates.progress
+        status: updates.status,
+        progress: updates.progress,
+        result_url: updates.result_url 
       }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     )
   } catch (err) {
     console.error('Error:', err)

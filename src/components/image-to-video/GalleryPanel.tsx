@@ -118,7 +118,7 @@ export function GalleryPanel({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {videos.map((video) => (
             <div key={video.id} className="relative group space-y-2">
-              {video.status === 'pending' || video.status === 'processing' ? (
+              {(video.status === 'in_queue' || video.status === 'processing') ? (
                 <div className="aspect-video bg-gray-800 rounded-lg flex flex-col items-center justify-center p-4">
                   <Loader2 className="h-8 w-8 animate-spin text-purple-500 mb-4" />
                   <div className="w-full max-w-xs space-y-2">
@@ -127,7 +127,7 @@ export function GalleryPanel({
                       className="h-2 bg-gray-700"
                     />
                     <p className="text-sm text-center text-gray-400">
-                      {video.status === 'pending' ? 'Initializing...' : 'Processing video...'}
+                      {video.status === 'in_queue' ? 'Initializing...' : 'Processing video...'}
                       <br />
                       <span className="text-xs">
                         {video.progress || 0}% complete
@@ -135,7 +135,7 @@ export function GalleryPanel({
                     </p>
                   </div>
                 </div>
-              ) : video.status === 'completed' && video.result_url ? (
+              ) : video.result_url ? (
                 <div className="space-y-2">
                   <div className="relative aspect-video bg-gray-800 rounded-lg overflow-hidden">
                     <video
@@ -160,7 +160,7 @@ export function GalleryPanel({
                         variant="ghost"
                         size="icon"
                         className="text-white hover:text-purple-400"
-                        onClick={() => onDownload(video.result_url)}
+                        onClick={() => onDownload(video.result_url!)}
                       >
                         <Download className="h-6 w-6" />
                       </Button>
@@ -179,8 +179,8 @@ export function GalleryPanel({
                   />
                 </div>
               ) : (
-                <div className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center text-red-500">
-                  Generation failed
+                <div className="aspect-video bg-gray-800 rounded-lg flex items-center justify-center text-red-500 p-4 text-center">
+                  {video.error_message || "Generation failed"}
                 </div>
               )}
               <div className="mt-2 text-sm text-gray-400 truncate">{video.prompt}</div>
@@ -189,5 +189,6 @@ export function GalleryPanel({
         </div>
       )}
     </div>
+  </div>
   );
 }

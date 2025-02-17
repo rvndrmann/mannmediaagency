@@ -21,10 +21,32 @@ const POLL_INTERVAL = 60000; // 1 minute in milliseconds
 
 const checkImageExists = async (url: string): Promise<boolean> => {
   try {
-    const response = await fetch(url, { method: 'HEAD' });
-    return response.ok;
+    logWithTimestamp(`Checking image accessibility for URL: ${url}`);
+    
+    // Encode the URL properly
+    const encodedUrl = encodeURI(url);
+    
+    const response = await fetch(encodedUrl, {
+      method: 'HEAD',
+      headers: {
+        'Accept': 'image/*'
+      }
+    });
+
+    if (!response.ok) {
+      logWithTimestamp(`Image accessibility check failed with status: ${response.status}`);
+      return false;
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (!contentType?.startsWith('image/')) {
+      logWithTimestamp(`Invalid content type: ${contentType}`);
+      return false;
+    }
+
+    return true;
   } catch (error) {
-    console.error('Error checking image existence:', error);
+    logWithTimestamp(`Error checking image existence:`, error);
     return false;
   }
 };
@@ -73,10 +95,20 @@ serve(async (req) => {
     );
 
     const requestData = await req.json();
-    const validatedBody = validateBody(requestData);
+    logWithTimestamp('Request data:', requestData);
 
-    if (!(await checkImageExists(validatedBody.image_url))) {
-      throw new Error('Source image is not accessible');
+    const validatedBody = validateBody(requestData);
+    logWithTimestamp('Validated body:', validatedBody);
+
+    // Check if the image URL is from Supabase storage
+    if (validatedBody.image_url.includes('supabase.co/storage/v1/object/public')) {
+      // For Supabase storage URLs, we skip the accessibility check as they're already validated
+      logWithTimestamp('Supabase storage URL detected, skipping accessibility check');
+    } else {
+      // For external URLs, we perform the accessibility check
+      if (!(await checkImageExists(validatedBody.image_url))) {
+        throw new Error('Source image is not accessible. Please ensure the image URL is valid and publicly accessible.');
+      }
     }
 
     const FAL_API_KEY = Deno.env.get('FAL_AI_API_KEY');
@@ -101,6 +133,7 @@ serve(async (req) => {
 
     if (!initialResponse.ok) {
       const errorText = await initialResponse.text();
+      logWithTimestamp('FAL AI API error:', errorText);
       throw new Error(`FAL AI API error: ${errorText}`);
     }
 

@@ -10,26 +10,23 @@ const corsHeaders = {
 };
 
 interface FalVideoResponse {
+  status: 'completed' | 'processing' | 'failed';
   video?: {
     url: string;
   };
+  progress?: number;
 }
 
 serve(async (req) => {
-  // Log the start of function execution with timestamp
-  const startTime = new Date().toISOString();
-  console.log(`[${startTime}] fetch-video-result function started`);
-  console.log('Request method:', req.method);
+  console.log(`[${new Date().toISOString()}] fetch-video-result function started`);
   
   if (req.method === 'OPTIONS') {
-    console.log('Handling OPTIONS request');
     return new Response(null, {
       status: 204,
       headers: corsHeaders
     });
   }
 
-  // Only allow GET requests
   if (req.method !== 'GET') {
     return new Response(
       JSON.stringify({ error: 'Method not allowed' }),
@@ -44,51 +41,49 @@ serve(async (req) => {
   }
 
   try {
-    console.log('Initializing Supabase client...');
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    // Get request_id from URL parameters
     const url = new URL(req.url);
     const request_id = url.searchParams.get('request_id');
     
     if (!request_id) {
-      console.error('No request_id provided in URL parameters');
       throw new Error('No request_id provided');
     }
 
-    console.log(`[${new Date().toISOString()}] Fetching result for request_id: ${request_id}`);
-    const falApiKey = Deno.env.get('FAL_AI_API_KEY');
-    console.log('FAL API Key available:', !!falApiKey, 'Length:', falApiKey?.length);
+    console.log(`Fetching result for request_id: ${request_id}`);
 
-    const falApiUrl = `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`;
-    console.log('Calling FAL API URL:', falApiUrl);
+    const falApiUrl = `https://api.kling.ai/api/v1/direct/status/${request_id}`;
+    const falApiKey = Deno.env.get('FAL_AI_API_KEY');
+
+    if (!falApiKey) {
+      throw new Error('FAL_AI_API_KEY is not configured');
+    }
 
     const resultResponse = await fetch(falApiUrl, {
       method: 'GET',
       headers: {
-        'Authorization': `Key ${falApiKey}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Bearer ${falApiKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
     });
 
-    console.log('FAL API Response status:', resultResponse.status);
-    console.log('FAL API Response headers:', Object.fromEntries(resultResponse.headers.entries()));
+    console.log('API Response status:', resultResponse.status);
 
     if (!resultResponse.ok) {
       const errorText = await resultResponse.text();
-      console.error('Failed to fetch result, response:', errorText);
+      console.error('Failed to fetch result:', errorText);
       throw new Error(`Failed to fetch result: ${errorText}`);
     }
 
     const result: FalVideoResponse = await resultResponse.json();
-    console.log('FAL API Response body:', JSON.stringify(result, null, 2));
+    console.log('API Response:', JSON.stringify(result, null, 2));
 
-    if (result.video?.url) {
+    if (result.status === 'completed' && result.video?.url) {
       console.log('Video URL found:', result.video.url);
-      console.log('Updating job with result URL...');
       
       const { error: updateError } = await supabaseClient
         .from('video_generation_jobs')
@@ -105,31 +100,89 @@ serve(async (req) => {
         throw updateError;
       }
 
-      console.log('Successfully updated job with result URL');
       return new Response(
         JSON.stringify({ 
           status: 'completed', 
           video_url: result.video.url 
         }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
       );
     }
 
-    console.log('No video URL found in response, still processing');
+    if (result.status === 'failed') {
+      const { error: updateError } = await supabaseClient
+        .from('video_generation_jobs')
+        .update({ 
+          status: 'failed',
+          updated_at: new Date().toISOString()
+        })
+        .eq('request_id', request_id);
+
+      if (updateError) {
+        console.error('Error updating job status to failed:', updateError);
+        throw updateError;
+      }
+
+      return new Response(
+        JSON.stringify({ 
+          status: 'failed',
+          error: 'Video generation failed'
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
+          } 
+        }
+      );
+    }
+
+    // If still processing, update the progress
+    if (result.status === 'processing' && typeof result.progress === 'number') {
+      const { error: updateError } = await supabaseClient
+        .from('video_generation_jobs')
+        .update({ 
+          progress: result.progress,
+          updated_at: new Date().toISOString()
+        })
+        .eq('request_id', request_id);
+
+      if (updateError) {
+        console.error('Error updating progress:', updateError);
+      }
+    }
+
     return new Response(
-      JSON.stringify({ status: 'processing' }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify({ 
+        status: 'processing',
+        progress: result.progress
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        } 
+      }
     );
+
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'An unknown error occurred';
-    console.error(`[${new Date().toISOString()}] Function error:`, errorMessage);
-    console.error('Error stack:', error instanceof Error ? error.stack : 'No stack trace available');
+    console.error(`Function error:`, error);
     
     return new Response(
-      JSON.stringify({ error: errorMessage }),
+      JSON.stringify({ 
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
+      }),
       { 
-        status: 400, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        status: 400,
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        }
       }
     );
   }

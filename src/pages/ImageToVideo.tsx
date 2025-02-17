@@ -129,7 +129,7 @@ const ImageToVideo = () => {
 
   useEffect(() => {
     const pendingVideos = videos.filter(
-      video => video.status === 'in_queue' || video.status === 'processing'
+      video => video.status === 'in_queue'
     );
 
     if (pendingVideos.length === 0) return;
@@ -148,7 +148,7 @@ const ImageToVideo = () => {
         await supabase
           .from('video_generation_jobs')
           .update({
-            status: 'failed',
+            error_message: 'Generation timed out after 7 minutes',
             updated_at: new Date().toISOString()
           })
           .eq('id', video.id);
@@ -170,7 +170,7 @@ const ImageToVideo = () => {
         
         if (response.data?.status === 'completed') {
           toast.success("Your video is ready!");
-        } else if (response.data?.status === 'failed') {
+        } else if (response.data?.error_message) {
           toast.error(response.data.error_message || "Failed to generate video");
         }
       } catch (error) {

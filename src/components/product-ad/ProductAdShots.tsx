@@ -1,25 +1,23 @@
 
 import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, RefreshCw, Check, X } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Loader2, ChevronRight } from "lucide-react";
 
 interface ProductAdShotsProps {
-  projectId: string | null;
+  projectId: string;
   onComplete: () => void;
 }
 
 export const ProductAdShots = ({ projectId, onComplete }: ProductAdShotsProps) => {
-  const queryClient = useQueryClient();
-  const [selectedShotId, setSelectedShotId] = useState<string | null>(null);
+  const [generatingShot, setGeneratingShot] = useState<number | null>(null);
 
-  const { data: project } = useQuery({
+  const { data: project, isLoading: projectLoading } = useQuery({
     queryKey: ["product-ad-project", projectId],
     queryFn: async () => {
-      if (!projectId) return null;
       const { data, error } = await supabase
         .from("product_ad_projects")
         .select("*")
@@ -29,168 +27,161 @@ export const ProductAdShots = ({ projectId, onComplete }: ProductAdShotsProps) =
       if (error) throw error;
       return data;
     },
-    enabled: !!projectId,
   });
 
-  const { data: shots } = useQuery({
+  const { data: shots, isLoading: shotsLoading } = useQuery({
     queryKey: ["product-ad-shots", projectId],
     queryFn: async () => {
-      if (!projectId) return [];
       const { data, error } = await supabase
         .from("product_ad_shots")
         .select("*")
         .eq("project_id", projectId)
-        .order("order_index", { ascending: true });
+        .order("order_index");
 
       if (error) throw error;
       return data;
     },
-    enabled: !!projectId,
   });
 
-  const generateShots = useMutation({
-    mutationFn: async () => {
-      if (!project?.script || !project.product_image_url) {
-        throw new Error("Missing script or product image");
-      }
-
-      // Generate shots using edge function
-      const { data, error } = await supabase.functions.invoke('generate-product-shot', {
+  const generateShotMutation = useMutation({
+    mutationFn: async (sceneIndex: number) => {
+      const scene = project.script.scenes[sceneIndex];
+      
+      const response = await supabase.functions.invoke("generate-product-shot", {
         body: {
           projectId,
-          script: project.script,
-          productImageUrl: project.product_image_url,
+          originalImageUrl: project.product_image_url,
+          sceneDescription: scene.description,
+          shotType: scene.shot_type,
         },
       });
 
-      if (error) throw error;
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
 
-      // Update project status
-      await supabase
-        .from('product_ad_projects')
-        .update({ status: 'shots_generated' })
-        .eq('id', projectId);
+      const { data: shot, error: shotError } = await supabase
+        .from("product_ad_shots")
+        .insert({
+          project_id: projectId,
+          image_url: response.data.imageUrl,
+          shot_type: scene.shot_type,
+          scene_description: scene.description,
+          order_index: sceneIndex,
+          status: 'completed'
+        })
+        .select()
+        .single();
 
-      return data;
+      if (shotError) {
+        throw shotError;
+      }
+
+      return shot;
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["product-ad-shots"] });
-      toast.success("Shots generated successfully");
+      setGeneratingShot(null);
     },
-    onError: (error: Error) => {
-      toast.error(error.message);
+    onError: (error) => {
+      setGeneratingShot(null);
+      toast.error(error instanceof Error ? error.message : "Failed to generate shot");
     },
   });
 
-  const approveShot = useMutation({
-    mutationFn: async (shotId: string) => {
-      const { error } = await supabase
-        .from('product_ad_shots')
-        .update({ status: 'approved' })
-        .eq('id', shotId);
+  const handleGenerateShot = async (sceneIndex: number) => {
+    setGeneratingShot(sceneIndex);
+    await generateShotMutation.mutateAsync(sceneIndex);
+  };
 
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["product-ad-shots"] });
-      toast.success("Shot approved");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
+  const handleContinue = async () => {
+    const { error } = await supabase
+      .from("product_ad_projects")
+      .update({ status: 'shots_generated' })
+      .eq("id", projectId);
 
-  const rejectShot = useMutation({
-    mutationFn: async (shotId: string) => {
-      const { error } = await supabase
-        .from('product_ad_shots')
-        .update({ status: 'rejected' })
-        .eq('id', shotId);
+    if (error) {
+      toast.error("Failed to update project status");
+      return;
+    }
 
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["product-ad-shots"] });
-      toast.success("Shot rejected");
-    },
-    onError: (error: Error) => {
-      toast.error(error.message);
-    },
-  });
+    onComplete();
+  };
 
-  if (!projectId || !project) {
+  if (projectLoading || shotsLoading) {
     return (
-      <div className="text-center text-gray-500 py-8">
-        Please generate a script first
-      </div>
+      <Card className="p-6 bg-gray-900 border-gray-800">
+        <div className="flex items-center justify-center">
+          <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+        </div>
+      </Card>
     );
   }
 
-  return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-xl font-bold text-white">{project.title}</h2>
-        <Button
-          onClick={() => generateShots.mutate()}
-          disabled={generateShots.isPending || !project.script}
-          className="bg-purple-600 hover:bg-purple-700"
-        >
-          {generateShots.isPending ? (
-            <>
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              Generating Shots...
-            </>
-          ) : (
-            <>
-              <RefreshCw className="mr-2 h-4 w-4" />
-              Generate Shots
-            </>
-          )}
-        </Button>
-      </div>
+  const scenes = project.script.scenes || [];
+  const allShotsGenerated = shots?.length === scenes.length;
 
-      {shots && shots.length > 0 && (
-        <ScrollArea className="h-[500px]">
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {shots.map((shot) => (
-              <div
-                key={shot.id}
-                className={`relative group rounded-lg overflow-hidden border-2 ${
-                  shot.status === 'approved'
-                    ? 'border-green-500'
-                    : shot.status === 'rejected'
-                    ? 'border-red-500'
-                    : 'border-gray-700'
-                }`}
-              >
-                <img
-                  src={shot.image_url}
-                  alt={`Shot ${shot.order_index}`}
-                  className="w-full h-48 object-cover"
-                />
-                <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                  <Button
-                    size="sm"
-                    onClick={() => approveShot.mutate(shot.id)}
-                    className="bg-green-600 hover:bg-green-700"
-                    disabled={shot.status === 'approved'}
-                  >
-                    <Check className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    size="sm"
-                    variant="destructive"
-                    onClick={() => rejectShot.mutate(shot.id)}
-                    disabled={shot.status === 'rejected'}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+  return (
+    <Card className="p-6 bg-gray-900 border-gray-800">
+      <div className="space-y-6">
+        <div>
+          <h2 className="text-xl font-semibold text-white mb-4">Generate Scene Shots</h2>
+          <p className="text-gray-400 mb-6">
+            Generate enhanced product shots for each scene in your ad.
+          </p>
+        </div>
+
+        <div className="space-y-4">
+          {scenes.map((scene, index) => {
+            const shot = shots?.find(s => s.order_index === index);
+            
+            return (
+              <div key={index} className="p-4 bg-gray-800 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-white font-medium mb-2">Scene {index + 1}</h3>
+                    <p className="text-gray-400 text-sm mb-2">{scene.description}</p>
+                    <p className="text-purple-400 text-sm">Shot: {scene.shot_type}</p>
+                  </div>
+                  
+                  {shot ? (
+                    <div className="ml-4">
+                      <img 
+                        src={shot.image_url} 
+                        alt={`Scene ${index + 1}`}
+                        className="w-32 h-32 object-cover rounded-lg"
+                      />
+                    </div>
+                  ) : (
+                    <Button
+                      onClick={() => handleGenerateShot(index)}
+                      disabled={generatingShot !== null}
+                      className="ml-4 bg-purple-600 hover:bg-purple-700"
+                    >
+                      {generatingShot === index ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Generating...
+                        </>
+                      ) : (
+                        "Generate Shot"
+                      )}
+                    </Button>
+                  )}
                 </div>
               </div>
-            ))}
-          </div>
-        </ScrollArea>
-      )}
-    </div>
+            );
+          })}
+        </div>
+
+        <Button
+          onClick={handleContinue}
+          disabled={!allShotsGenerated}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          Continue to Video Generation
+          <ChevronRight className="ml-2 h-4 w-4" />
+        </Button>
+      </div>
+    </Card>
   );
 };

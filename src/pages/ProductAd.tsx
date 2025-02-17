@@ -1,18 +1,20 @@
 
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { ProductAdScriptGenerator } from "@/components/product-ad/ProductAdScriptGenerator";
 import { ProductAdShots } from "@/components/product-ad/ProductAdShots";
 import { ProductAdVideoGenerator } from "@/components/product-ad/ProductAdVideoGenerator";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
-export default function ProductAd() {
+const ProductAd = () => {
   const navigate = useNavigate();
-  const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-
+  const [currentStep, setCurrentStep] = useState<'script' | 'shots' | 'video'>('script');
+  const [projectId, setProjectId] = useState<string | null>(null);
+  
   const { data: session } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
@@ -39,41 +41,88 @@ export default function ProductAd() {
     enabled: !!session,
   });
 
+  const { data: project } = useQuery({
+    queryKey: ["product-ad-project", projectId],
+    queryFn: async () => {
+      if (!projectId) return null;
+      const { data, error } = await supabase
+        .from("product_ad_projects")
+        .select("*")
+        .eq("id", projectId)
+        .single();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!projectId && !!session,
+  });
+
+  const handleStepComplete = (step: 'script' | 'shots' | 'video', newProjectId?: string) => {
+    if (newProjectId) {
+      setProjectId(newProjectId);
+    }
+    
+    switch (step) {
+      case 'script':
+        setCurrentStep('shots');
+        break;
+      case 'shots':
+        setCurrentStep('video');
+        break;
+      case 'video':
+        navigate("/");
+        break;
+    }
+  };
+
+  if (!session) {
+    return null;
+  }
+
   return (
-    <div className="container mx-auto p-6">
-      <h1 className="text-2xl font-bold text-white mb-6">Product Ad Generator</h1>
-      <div className="bg-gray-900 rounded-lg p-6">
-        <Tabs defaultValue="script" className="w-full">
-          <TabsList className="grid w-full grid-cols-3 mb-6">
-            <TabsTrigger value="script">1. Generate Script</TabsTrigger>
-            <TabsTrigger value="shots">2. Generate Shots</TabsTrigger>
-            <TabsTrigger value="video">3. Create Video</TabsTrigger>
-          </TabsList>
+    <div className="flex-1 p-8 bg-background">
+      <div className="max-w-4xl mx-auto">
+        <div className="flex items-center justify-between mb-8">
+          <div className="flex items-center">
+            <Button 
+              variant="ghost" 
+              onClick={() => navigate("/")}
+              className="mr-4 text-white hover:bg-white/10"
+            >
+              <ArrowLeft className="w-4 h-4 mr-2" />
+              Back
+            </Button>
+            <h1 className="text-3xl font-bold text-white">Product Ad Creator</h1>
+          </div>
+          <div className="text-sm text-gray-400">
+            Credits: {userCredits?.credits_remaining || 0}
+          </div>
+        </div>
 
-          <ScrollArea className="h-[calc(100vh-16rem)]">
-            <TabsContent value="script">
-              <ProductAdScriptGenerator
-                activeProjectId={activeProjectId}
-                onProjectCreated={setActiveProjectId}
-              />
-            </TabsContent>
+        <div className="space-y-8">
+          {currentStep === 'script' && (
+            <ProductAdScriptGenerator
+              onComplete={(projectId) => handleStepComplete('script', projectId)}
+            />
+          )}
 
-            <TabsContent value="shots">
-              <ProductAdShots
-                projectId={activeProjectId}
-                onComplete={() => {}}
-              />
-            </TabsContent>
+          {currentStep === 'shots' && projectId && (
+            <ProductAdShots
+              projectId={projectId}
+              onComplete={() => handleStepComplete('shots')}
+            />
+          )}
 
-            <TabsContent value="video">
-              <ProductAdVideoGenerator
-                projectId={activeProjectId}
-                onComplete={() => {}}
-              />
-            </TabsContent>
-          </ScrollArea>
-        </Tabs>
+          {currentStep === 'video' && projectId && (
+            <ProductAdVideoGenerator
+              projectId={projectId}
+              onComplete={() => handleStepComplete('video')}
+            />
+          )}
+        </div>
       </div>
     </div>
   );
-}
+};
+
+export default ProductAd;

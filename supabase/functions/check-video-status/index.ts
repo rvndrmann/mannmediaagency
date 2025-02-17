@@ -7,7 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const MAX_RETRIES = 90; // 15 minutes with 10-second intervals
+// Increased to handle longer generation times
+const MAX_RETRIES = 180; // 30 minutes with 10-second intervals
 const CHECK_INTERVAL = 10000; // 10 seconds
 
 serve(async (req) => {
@@ -17,7 +18,7 @@ serve(async (req) => {
 
   try {
     const { request_id, job_id } = await req.json()
-    console.log('Checking status for request:', request_id, 'job:', job_id)
+    console.log(`[${new Date().toISOString()}] Checking status for request:`, request_id, 'job:', job_id)
 
     if (!request_id) {
       throw new Error('Missing request_id parameter')
@@ -40,21 +41,26 @@ serve(async (req) => {
       }
     )
 
-    // Get current retry count
-    const { data: jobData } = await supabaseAdmin
+    // Get current job data
+    const { data: jobData, error: jobError } = await supabaseAdmin
       .from('video_generation_jobs')
-      .select('retry_count, status')
+      .select('retry_count, status, progress')
       .eq('id', job_id)
       .single()
 
+    if (jobError) {
+      throw new Error(`Failed to fetch job data: ${jobError.message}`)
+    }
+
     const retryCount = (jobData?.retry_count || 0) + 1
+    console.log(`Current retry count: ${retryCount}/${MAX_RETRIES}`)
 
     if (retryCount > MAX_RETRIES) {
       await supabaseAdmin
         .from('video_generation_jobs')
         .update({
           status: 'failed',
-          error_message: 'Generation timed out after 15 minutes',
+          error_message: 'Generation timed out after 30 minutes',
           last_checked_at: new Date().toISOString()
         })
         .eq('id', job_id)
@@ -62,8 +68,8 @@ serve(async (req) => {
       throw new Error('Generation timed out')
     }
 
-    // Check status from Fal.ai using the correct endpoint
-    console.log('Checking status with Fal.ai using correct endpoint')
+    // Check status from Fal.ai
+    console.log('Fetching status from Fal.ai API')
     const statusResponse = await fetch(
       `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
       {
@@ -78,26 +84,45 @@ serve(async (req) => {
     if (!statusResponse.ok) {
       const errorText = await statusResponse.text()
       console.error('Status check error:', errorText)
+      
+      // Update retry count even on error
+      await supabaseAdmin
+        .from('video_generation_jobs')
+        .update({
+          retry_count: retryCount,
+          last_checked_at: new Date().toISOString()
+        })
+        .eq('id', job_id)
+
       throw new Error(`Failed to check status: ${errorText}`)
     }
 
     const statusData = await statusResponse.json()
-    console.log('Status check result:', statusData)
+    console.log('Status response:', JSON.stringify(statusData, null, 2))
 
-    // Update job status and progress based on the status response
+    // Calculate progress based on status
+    let progress = jobData?.progress || 0
+    if (statusData.status === 'PROCESSING') {
+      // If processing, increment progress by ~3% each check (30 steps total)
+      progress = Math.min(95, progress + 3)
+    } else if (statusData.status === 'COMPLETED') {
+      progress = 100
+    }
+
+    // Prepare updates
     const updates: any = {
       status: statusData.status === 'PROCESSING' ? 'processing' :
              statusData.status === 'COMPLETED' ? 'completed' :
              statusData.status === 'FAILED' ? 'failed' : 'in_queue',
-      progress: Math.round((statusData.progress || 0) * 100),
+      progress,
       retry_count: retryCount,
       last_checked_at: new Date().toISOString()
     }
 
-    // If status is completed, fetch the final video result
+    // If completed, fetch the final result
     if (statusData.status === 'COMPLETED') {
+      console.log('Generation completed, fetching final result')
       try {
-        // Get the result from the main request endpoint
         const resultResponse = await fetch(
           `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`,
           {
@@ -114,7 +139,7 @@ serve(async (req) => {
         }
 
         const resultData = await resultResponse.json()
-        console.log('Video result data:', resultData)
+        console.log('Final result data:', JSON.stringify(resultData, null, 2))
 
         if (resultData.video?.url) {
           updates.result_url = resultData.video.url
@@ -123,7 +148,7 @@ serve(async (req) => {
           throw new Error('No video URL in completed result')
         }
       } catch (error) {
-        console.error('Error fetching video result:', error)
+        console.error('Error fetching final result:', error)
         updates.error_message = 'Failed to fetch final video result'
         updates.status = 'failed'
       }
@@ -141,23 +166,35 @@ serve(async (req) => {
       throw updateError
     }
 
-    // Schedule another check if still processing or in queue
+    // Schedule next check if still in progress
     if (updates.status === 'processing' || updates.status === 'in_queue') {
-      EdgeRuntime.waitUntil((async () => {
-        await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
-        
-        await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-              'Content-Type': 'application/json'
-            },
-            body: JSON.stringify({ request_id, job_id })
-          }
-        )
-      })())
+      console.log('Scheduling next check in', CHECK_INTERVAL/1000, 'seconds')
+      
+      // Use Promise.race to ensure the background task doesn't hang
+      EdgeRuntime.waitUntil(
+        Promise.race([
+          (async () => {
+            await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
+            
+            const response = await fetch(
+              `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
+              {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ request_id, job_id })
+              }
+            )
+            
+            if (!response.ok) {
+              console.error('Failed to schedule next check:', await response.text())
+            }
+          })(),
+          new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL + 5000)) // 5s timeout buffer
+        ])
+      )
     }
 
     return new Response(

@@ -7,10 +7,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const TIMEOUT_MINUTES = 15;
-const CHECK_INTERVAL_MS = 30000; // 30 seconds
-const MAX_RETRIES = Math.ceil((TIMEOUT_MINUTES * 60 * 1000) / CHECK_INTERVAL_MS);
-
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -22,6 +18,11 @@ serve(async (req) => {
 
     if (!request_id) {
       throw new Error('Missing request_id parameter')
+    }
+
+    const falApiKey = Deno.env.get('FAL_AI_API_KEY')
+    if (!falApiKey) {
+      throw new Error('FAL_AI_API_KEY is not configured')
     }
 
     const supabaseAdmin = createClient(
@@ -40,40 +41,13 @@ serve(async (req) => {
       .from('video_generation_jobs')
       .select('*')
       .eq('request_id', request_id)
-      .single()
+      .maybeSingle()
 
     if (jobError || !job) {
       throw new Error('Job not found')
     }
 
-    const falApiKey = Deno.env.get('FAL_AI_API_KEY')
-    if (!falApiKey) {
-      throw new Error('FAL_AI_API_KEY is not configured')
-    }
-
-    // Check if we've exceeded the timeout
-    const createdAt = new Date(job.created_at)
-    const now = new Date()
-    const minutesSinceCreation = (now.getTime() - createdAt.getTime()) / (1000 * 60)
-
-    if (minutesSinceCreation > TIMEOUT_MINUTES) {
-      console.log('Job timed out after', TIMEOUT_MINUTES, 'minutes')
-      await supabaseAdmin
-        .from('video_generation_jobs')
-        .update({
-          status: 'failed',
-          error_message: `Generation timed out after ${TIMEOUT_MINUTES} minutes`,
-          updated_at: now.toISOString()
-        })
-        .eq('id', job.id)
-
-      return new Response(
-        JSON.stringify({ status: 'timeout' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      )
-    }
-
-    // Check the status
+    // Check status from Fal.ai
     console.log('Checking status with Fal.ai')
     const statusResponse = await fetch(
       `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
@@ -91,71 +65,54 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log('Status check result:', statusData)
 
+    // Update job status and progress
+    const updates: any = {
+      status: statusData.status,
+      progress: statusData.progress || job.progress || 0,
+      last_checked_at: new Date().toISOString(),
+      retry_count: (job.retry_count || 0) + 1
+    }
+
     if (statusData.status === 'completed') {
-      // Fetch the final result
+      // Fetch the final result using the new endpoint
       const resultResponse = await fetch(
-        `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`,
+        `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-video-result`,
         {
+          method: 'POST',
           headers: {
-            'Authorization': `Key ${falApiKey}`,
+            'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+            'Content-Type': 'application/json'
           },
+          body: JSON.stringify({ request_id })
         }
       )
 
       if (!resultResponse.ok) {
-        throw new Error('Failed to fetch result')
+        throw new Error('Failed to fetch video result')
       }
 
       const resultData = await resultResponse.json()
-      console.log('Completed result data:', resultData)
-
-      if (resultData.video?.url) {
-        await supabaseAdmin
-          .from('video_generation_jobs')
-          .update({
-            status: 'completed',
-            result_url: resultData.video.url,
-            updated_at: now.toISOString(),
-            last_checked_at: now.toISOString()
-          })
-          .eq('id', job.id)
-
-        return new Response(
-          JSON.stringify({ status: 'completed', url: resultData.video.url }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        )
-      }
-    } else if (statusData.status === 'failed') {
-      await supabaseAdmin
-        .from('video_generation_jobs')
-        .update({
-          status: 'failed',
-          error_message: statusData.error || 'Generation failed',
-          updated_at: now.toISOString(),
-          last_checked_at: now.toISOString()
-        })
-        .eq('id', job.id)
-
       return new Response(
-        JSON.stringify({ status: 'failed', error: statusData.error }),
+        JSON.stringify(resultData),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       )
+    } else if (statusData.status === 'failed') {
+      updates.status = 'failed'
+      updates.error_message = statusData.error || 'Generation failed'
     }
 
-    // If still processing, update job and schedule next check
-    await supabaseAdmin
+    // Update the database
+    const { error: updateError } = await supabaseAdmin
       .from('video_generation_jobs')
-      .update({
-        retry_count: job.retry_count + 1,
-        last_checked_at: now.toISOString(),
-        updated_at: now.toISOString(),
-        progress: statusData.progress || job.progress || 0
-      })
+      .update(updates)
       .eq('id', job.id)
 
-    // Schedule next check if we haven't exceeded max retries
-    if (job.retry_count < MAX_RETRIES) {
-      // Schedule next check after CHECK_INTERVAL_MS
+    if (updateError) {
+      throw updateError
+    }
+
+    // Schedule next check if still processing
+    if (statusData.status === 'processing' || statusData.status === 'in_queue') {
       setTimeout(async () => {
         try {
           await fetch(
@@ -172,17 +129,16 @@ serve(async (req) => {
         } catch (error) {
           console.error('Error scheduling next check:', error)
         }
-      }, CHECK_INTERVAL_MS)
+      }, 30000) // Check every 30 seconds
     }
 
     return new Response(
       JSON.stringify({ 
-        status: 'processing',
-        progress: statusData.progress || job.progress || 0
+        status: statusData.status,
+        progress: updates.progress
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
-
   } catch (err) {
     console.error('Error:', err)
     return new Response(

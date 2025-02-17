@@ -43,7 +43,7 @@ serve(async (req) => {
     // Get current retry count
     const { data: jobData } = await supabaseAdmin
       .from('video_generation_jobs')
-      .select('retry_count')
+      .select('retry_count, status')
       .eq('id', job_id)
       .single()
 
@@ -62,7 +62,7 @@ serve(async (req) => {
       throw new Error('Generation timed out')
     }
 
-    // Check status from Fal.ai using the correct endpoint
+    // Check status from Fal.ai
     console.log('Checking status with Fal.ai')
     const statusResponse = await fetch(
       `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}`,
@@ -94,9 +94,35 @@ serve(async (req) => {
       last_checked_at: new Date().toISOString()
     }
 
-    if (updates.status === 'completed' && statusData.video?.url) {
-      updates.result_url = statusData.video.url
-      updates.file_size = statusData.video.file_size || 0
+    // If status is completed, fetch the final video result
+    if (updates.status === 'completed') {
+      try {
+        const resultResponse = await fetch(
+          `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-video-result`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({ request_id, job_id })
+          }
+        )
+
+        if (!resultResponse.ok) {
+          throw new Error('Failed to fetch video result')
+        }
+
+        const resultData = await resultResponse.json()
+        if (resultData.video_url) {
+          updates.result_url = resultData.video_url
+          updates.file_size = resultData.file_size || 0
+        }
+      } catch (error) {
+        console.error('Error fetching video result:', error)
+        updates.error_message = 'Failed to fetch final video result'
+        updates.status = 'failed'
+      }
     } else if (updates.status === 'failed') {
       updates.error_message = statusData.error || 'Generation failed'
     }
@@ -111,14 +137,11 @@ serve(async (req) => {
       throw updateError
     }
 
-    // Schedule another check only if the video is still being processed
+    // Schedule another check if still processing or in queue
     if (updates.status === 'processing' || updates.status === 'in_queue') {
-      // Use Edge Runtime to handle background task
       EdgeRuntime.waitUntil((async () => {
-        // Wait for the specified interval
         await new Promise(resolve => setTimeout(resolve, CHECK_INTERVAL))
         
-        // Make another status check request
         await fetch(
           `${Deno.env.get('SUPABASE_URL')}/functions/v1/check-video-status`,
           {

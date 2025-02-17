@@ -1,4 +1,6 @@
 
+import { VideoMetadataManager } from "./VideoMetadataManager";
+
 interface VideoData {
   id: string;
   result_url: string;

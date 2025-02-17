@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -20,12 +21,23 @@ interface ProjectScript {
   scenes: Scene[];
 }
 
-interface VideoJob {
+interface VideoJobData {
   id: string;
   status: string;
   progress: number;
   result_url: string | null;
   shot_index: number;
+  project_id: string;
+  aspect_ratio: string;
+  content_type: string;
+  created_at: string;
+  duration: string;
+  error_message: string;
+  file_name: string;
+  file_size: number;
+  last_checked_at: string;
+  negative_prompt: string;
+  user_id: string;
 }
 
 export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVideoGeneratorProps) => {
@@ -57,7 +69,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
     },
   });
 
-  const { data: videoJobs, isLoading: jobsLoading } = useQuery({
+  const { data: videoJobs, isLoading: jobsLoading } = useQuery<VideoJobData[]>({
     queryKey: ["video-generation-jobs", projectId],
     queryFn: async () => {
       const { data, error } = await supabase
@@ -67,7 +79,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
         .order("created_at");
 
       if (error) throw error;
-      return data as VideoJob[];
+      return data || [];
     },
   });
 
@@ -78,6 +90,8 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
       const script = project?.script as unknown as ProjectScript;
       const scene = script?.scenes?.[shotIndex];
       
+      if (!scene) throw new Error("Scene not found");
+
       const response = await supabase.functions.invoke("generate-video-from-image", {
         body: {
           image_url: shot.image_url,

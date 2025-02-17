@@ -168,24 +168,34 @@ const ImageToVideo = () => {
       let publicUrl = selectedImageUrl;
 
       if (selectedFile) {
+        console.log("Uploading file to Supabase storage...");
         const fileExt = selectedFile.name.split('.').pop();
         const filePath = `${Date.now()}.${fileExt}`;
         
-        const { error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('source-images')
           .upload(filePath, selectedFile);
 
         if (uploadError) {
+          console.error("Upload error:", uploadError);
           throw uploadError;
         }
+
+        console.log("File uploaded successfully:", uploadData);
 
         const { data: { publicUrl: uploadedUrl } } = supabase.storage
           .from('source-images')
           .getPublicUrl(filePath);
 
+        console.log("Generated public URL:", uploadedUrl);
         publicUrl = uploadedUrl;
       }
 
+      if (!publicUrl) {
+        throw new Error("Failed to get public URL for the image");
+      }
+
+      console.log("Starting video generation with URL:", publicUrl);
       toast.info("Starting video generation. This may take up to 20 minutes.");
 
       const response = await supabase.functions.invoke('generate-video-from-image', {
@@ -196,6 +206,8 @@ const ImageToVideo = () => {
           aspect_ratio: aspectRatio,
         },
       });
+
+      console.log("Video generation response:", response);
 
       if (response.error) {
         throw new Error(response.error.message);
@@ -212,6 +224,7 @@ const ImageToVideo = () => {
       clearSelectedFile();
       setPrompt("");
     } catch (error) {
+      console.error("Error in video generation:", error);
       const message = error instanceof Error ? error.message : "Failed to generate video";
       const isCreditsError = message.toLowerCase().includes('credits');
       

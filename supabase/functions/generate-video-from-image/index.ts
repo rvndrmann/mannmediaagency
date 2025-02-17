@@ -55,7 +55,6 @@ const validateRequestBody = (body: any): RequestBody => {
 };
 
 serve(async (req) => {
-  // Log function invocation
   logWithTimestamp('generate-video-from-image function called');
 
   if (req.method === 'OPTIONS') {
@@ -140,7 +139,7 @@ serve(async (req) => {
         prompt: validatedBody.prompt,
         source_image_url: validatedBody.image_url,
         request_id: validatedResponse.request_id,
-        status: 'pending',
+        status: 'in_queue',
         duration: validatedBody.duration || "5",
         aspect_ratio: validatedBody.aspect_ratio || "16:9",
         file_name: `video_${Date.now()}.mp4`,
@@ -151,9 +150,9 @@ serve(async (req) => {
           tail_image_url: validatedBody.tail_image_url,
           static_mask_url: validatedBody.static_mask_url,
           dynamic_masks: validatedBody.dynamic_masks,
-        },
+        }
       })
-      .select()
+      .select('*')
       .single();
 
     if (insertError) {

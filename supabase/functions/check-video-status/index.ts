@@ -62,10 +62,10 @@ serve(async (req) => {
       throw new Error('Generation timed out')
     }
 
-    // Check status from Fal.ai
-    console.log('Checking status with Fal.ai')
+    // Check status from Fal.ai using the correct endpoint
+    console.log('Checking status with Fal.ai using correct endpoint')
     const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video/${request_id}`,
+      `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
       {
         method: 'GET',
         headers: {
@@ -84,28 +84,28 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log('Status check result:', statusData)
 
-    // Update job status and progress
+    // Update job status and progress based on the status response
     const updates: any = {
-      status: statusData.status === 'IN_QUEUE' ? 'in_queue' :
+      status: statusData.status === 'PROCESSING' ? 'processing' :
              statusData.status === 'COMPLETED' ? 'completed' :
-             statusData.status === 'FAILED' ? 'failed' : 'processing',
+             statusData.status === 'FAILED' ? 'failed' : 'in_queue',
       progress: Math.round((statusData.progress || 0) * 100),
       retry_count: retryCount,
       last_checked_at: new Date().toISOString()
     }
 
     // If status is completed, fetch the final video result
-    if (updates.status === 'completed') {
+    if (statusData.status === 'COMPLETED') {
       try {
+        // Get the result from the main request endpoint
         const resultResponse = await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/fetch-video-result`,
+          `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}`,
           {
-            method: 'POST',
+            method: 'GET',
             headers: {
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
+              'Authorization': `Key ${falApiKey}`,
               'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ request_id, job_id })
           }
         )
 
@@ -114,16 +114,20 @@ serve(async (req) => {
         }
 
         const resultData = await resultResponse.json()
-        if (resultData.video_url) {
-          updates.result_url = resultData.video_url
-          updates.file_size = resultData.file_size || 0
+        console.log('Video result data:', resultData)
+
+        if (resultData.video?.url) {
+          updates.result_url = resultData.video.url
+          updates.file_size = resultData.video.file_size || 0
+        } else {
+          throw new Error('No video URL in completed result')
         }
       } catch (error) {
         console.error('Error fetching video result:', error)
         updates.error_message = 'Failed to fetch final video result'
         updates.status = 'failed'
       }
-    } else if (updates.status === 'failed') {
+    } else if (statusData.status === 'FAILED') {
       updates.error_message = statusData.error || 'Generation failed'
     }
 

@@ -103,7 +103,6 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
       .from("product_ad_projects")
       .update({ 
         status: 'completed',
-        // Add video URLs to metadata
         metadata: {
           video_urls: videoJobs?.map(job => job.result_url).filter(Boolean)
         }
@@ -140,4 +139,48 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
 
         <div className="space-y-4">
           {shots?.map((shot, index) => {
-            const videoJob = videoJobs
+            const videoJob = videoJobs?.find(job => job.shot_index === index);
+            
+            return (
+              <div key={index} className="p-4 bg-gray-800 rounded-lg">
+                <div className="flex items-start justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-white font-medium mb-2">Scene {index + 1}</h3>
+                    <p className="text-gray-400 text-sm mb-2">
+                      Status: {videoJob?.status || 'pending'}
+                    </p>
+                    {videoJob && (
+                      <Progress value={videoJob.progress || 0} className="mb-2" />
+                    )}
+                  </div>
+                  
+                  <div className="ml-4 flex items-center">
+                    {videoJob ? (
+                      getStatusIcon(videoJob.status)
+                    ) : (
+                      <Button
+                        onClick={() => handleGenerateVideo(index)}
+                        disabled={generateVideoMutation.isPending}
+                        className="bg-purple-600 hover:bg-purple-700"
+                      >
+                        Generate Video
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <Button
+          onClick={handleComplete}
+          disabled={!allVideosCompleted || hasFailedJobs}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+        >
+          Complete Project
+        </Button>
+      </div>
+    </Card>
+  );
+};

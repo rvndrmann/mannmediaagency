@@ -16,6 +16,9 @@ const logWithTimestamp = (message: string, data?: any) => {
   }
 };
 
+const MAX_POLLS = 20;
+const POLL_INTERVAL = 60000; // 1 minute in milliseconds
+
 const checkImageExists = async (url: string): Promise<boolean> => {
   try {
     const response = await fetch(url, { method: 'HEAD' });
@@ -33,32 +36,27 @@ const validateBody = (body: any) => {
     duration: z.string().optional(),
     aspect_ratio: z.string().optional(),
     negative_prompt: z.string().optional(),
-    static_mask_url: z.string().url().optional(),
-    tail_image_url: z.string().url().optional(),
-    dynamic_masks: z.array(z.object({
-      prompt: z.string(),
-      url: z.string().url()
-    })).optional()
   });
 
   return schema.parse(body);
 };
 
-const validateApiResponse = (response: any) => {
-  const schema = z.object({
-    request_id: z.string(),
-    status: z.string()
-  });
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
 
-  return schema.parse(response);
+const checkVideoStatus = async (requestId: string, falApiKey: string) => {
+  const statusUrl = `https://queue.fal.run/fal-ai/kling-video/requests/${requestId}/status`;
+  const response = await fetch(statusUrl, {
+    headers: { 'Authorization': `Key ${falApiKey}` }
+  });
+  return response.json();
 };
 
-const getErrorMessage = (error: unknown): string => {
-  if (error instanceof Error) return error.message;
-  if (error && typeof error === 'object' && 'message' in error) 
-    return String(error.message);
-  if (typeof error === 'string') return error;
-  return 'An unknown error occurred';
+const getVideoResult = async (requestId: string, falApiKey: string) => {
+  const resultUrl = `https://queue.fal.run/fal-ai/kling-video/requests/${requestId}`;
+  const response = await fetch(resultUrl, {
+    headers: { 'Authorization': `Key ${falApiKey}` }
+  });
+  return response.json();
 };
 
 serve(async (req) => {
@@ -77,25 +75,8 @@ serve(async (req) => {
     const requestData = await req.json();
     const validatedBody = validateBody(requestData);
 
-    // Verify the image exists and is accessible
     if (!(await checkImageExists(validatedBody.image_url))) {
       throw new Error('Source image is not accessible');
-    }
-
-    if (validatedBody.tail_image_url && !(await checkImageExists(validatedBody.tail_image_url))) {
-      throw new Error('Tail image is not accessible');
-    }
-
-    if (validatedBody.static_mask_url && !(await checkImageExists(validatedBody.static_mask_url))) {
-      throw new Error('Static mask image is not accessible');
-    }
-
-    if (validatedBody.dynamic_masks) {
-      for (const mask of validatedBody.dynamic_masks) {
-        if (!(await checkImageExists(mask.url))) {
-          throw new Error(`Dynamic mask image is not accessible: ${mask.url}`);
-        }
-      }
     }
 
     const FAL_API_KEY = Deno.env.get('FAL_AI_API_KEY');
@@ -103,53 +84,45 @@ serve(async (req) => {
       throw new Error('FAL AI API key not configured');
     }
 
-    logWithTimestamp('Making request to FAL AI API');
-    const response = await fetch('https://110602490-video-to-video-stable.gateway.alpha.fal.ai/video_to_video', {
+    // Initial request to start video generation
+    logWithTimestamp('Making initial request to FAL AI API');
+    const initialResponse = await fetch('https://queue.fal.run/fal-ai/kling-video/v1.6/standard/image-to-video', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${FAL_API_KEY}`,
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        image_url: validatedBody.image_url,
         prompt: validatedBody.prompt,
+        image_url: validatedBody.image_url,
         negative_prompt: validatedBody.negative_prompt,
-        duration: validatedBody.duration || "5",
-        aspect_ratio: validatedBody.aspect_ratio || "16:9",
-        static_mask_url: validatedBody.static_mask_url,
-        tail_image_url: validatedBody.tail_image_url,
-        dynamic_masks: validatedBody.dynamic_masks
       })
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
+    if (!initialResponse.ok) {
+      const errorText = await initialResponse.text();
       throw new Error(`FAL AI API error: ${errorText}`);
     }
 
-    const responseData = await response.json();
-    logWithTimestamp('FAL AI API response:', responseData);
+    const initialData = await initialResponse.json();
+    const requestId = initialData.request_id;
 
-    const validatedResponse = validateApiResponse(responseData);
-    
-    // Insert the job into the database
+    if (!requestId) {
+      throw new Error('No request ID received from FAL AI');
+    }
+
+    // Create initial job record
     const { data: videoData, error: insertError } = await supabaseClient
       .from('video_generation_jobs')
       .insert({
         prompt: validatedBody.prompt,
         source_image_url: validatedBody.image_url,
-        request_id: validatedResponse.request_id,
-        status: 'in_queue',
+        request_id: requestId,
+        status: 'processing',
         duration: validatedBody.duration || "5",
         aspect_ratio: validatedBody.aspect_ratio || "16:9",
         file_name: `video_${Date.now()}.mp4`,
         negative_prompt: validatedBody.negative_prompt,
-        settings: {
-          negative_prompt: validatedBody.negative_prompt,
-          static_mask_url: validatedBody.static_mask_url,
-          tail_image_url: validatedBody.tail_image_url,
-          dynamic_masks: validatedBody.dynamic_masks,
-        }
       })
       .select('*')
       .single();
@@ -158,10 +131,64 @@ serve(async (req) => {
       throw insertError;
     }
 
+    // Active polling loop
+    let resultUrl: string | undefined;
+    let errorMessage: string | undefined;
+    
+    for (let i = 0; i < MAX_POLLS; i++) {
+      logWithTimestamp(`Polling attempt ${i + 1} of ${MAX_POLLS}`);
+      
+      const statusResponse = await checkVideoStatus(requestId, FAL_API_KEY);
+      console.log('Status response:', statusResponse);
+
+      if (statusResponse.status === 'failed') {
+        errorMessage = statusResponse.error || 'Video generation failed';
+        break;
+      }
+
+      if (statusResponse.status === 'completed') {
+        const result = await getVideoResult(requestId, FAL_API_KEY);
+        resultUrl = result.video_url;
+        break;
+      }
+
+      // Update progress in database
+      const progress = Math.min(95, Math.round((i / MAX_POLLS) * 100));
+      await supabaseClient
+        .from('video_generation_jobs')
+        .update({ 
+          progress,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', videoData.id);
+
+      if (i < MAX_POLLS - 1) {
+        await sleep(POLL_INTERVAL);
+      }
+    }
+
+    // Final status update
+    const finalStatus = resultUrl ? 'completed' : 'failed';
+    const finalUpdate = {
+      status: finalStatus,
+      result_url: resultUrl,
+      error_message: errorMessage,
+      progress: finalStatus === 'completed' ? 100 : undefined,
+      updated_at: new Date().toISOString()
+    };
+
+    await supabaseClient
+      .from('video_generation_jobs')
+      .update(finalUpdate)
+      .eq('id', videoData.id);
+
     return new Response(
       JSON.stringify({ 
-        message: 'Video generation started',
-        data: videoData
+        message: finalStatus === 'completed' ? 'Video generation completed' : 'Video generation failed',
+        data: {
+          ...videoData,
+          ...finalUpdate
+        }
       }),
       {
         headers: { 
@@ -176,7 +203,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({
-        error: getErrorMessage(error)
+        error: error instanceof Error ? error.message : 'An unknown error occurred'
       }),
       { 
         status: 400,
@@ -188,4 +215,3 @@ serve(async (req) => {
     );
   }
 });
-

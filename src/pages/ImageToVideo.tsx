@@ -43,18 +43,6 @@ interface VideoGenerationJob {
   error_message?: string;
 }
 
-const getPollingInterval = (elapsedMinutes: number, status: 'in_queue' | 'processing'): number => {
-  // More frequent polling for processing status
-  if (status === 'processing') {
-    return 30000; // 30 seconds for processing status
-  }
-  
-  // Regular intervals for in_queue status
-  if (elapsedMinutes < 2) return 30000; // 30 seconds for first 2 minutes
-  if (elapsedMinutes < 5) return 45000; // 45 seconds for 2-5 minutes
-  return 60000; // 60 seconds for 5-7 minutes
-};
-
 const ImageToVideo = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
@@ -64,7 +52,6 @@ const ImageToVideo = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
-  const MAX_POLLING_TIME = 7 * 60 * 1000; // 7 minutes in milliseconds
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -134,90 +121,6 @@ const ImageToVideo = () => {
     };
   }, [refetchVideos]);
 
-  useEffect(() => {
-    const pendingVideos = videos.filter(
-      video => video.status === 'in_queue' || video.status === 'processing'
-    );
-
-    if (pendingVideos.length === 0) return;
-
-    const pollVideo = async (video: VideoGenerationJob) => {
-      if (!video.request_id) return;
-
-      const startTime = video.created_at ? new Date(video.created_at).getTime() : Date.now();
-      const currentTime = Date.now();
-      const elapsedTime = currentTime - startTime;
-      const elapsedMinutes = elapsedTime / (60 * 1000);
-
-      if (elapsedTime > MAX_POLLING_TIME) {
-        console.log(`Stopping poll for video ${video.id} - exceeded 7 minutes`);
-        
-        await supabase
-          .from('video_generation_jobs')
-          .update({
-            status: 'failed',
-            error_message: 'Generation timed out after 7 minutes',
-            updated_at: new Date().toISOString()
-          })
-          .eq('id', video.id);
-          
-        return;
-      }
-
-      try {
-        console.log(`Polling video ${video.id} (${video.status})`);
-        const response = await supabase.functions.invoke('check-video-status', {
-          body: { request_id: video.request_id }
-        });
-
-        if (response.error) {
-          console.error(`Error polling video ${video.id}:`, response.error);
-          return;
-        }
-
-        console.log(`Poll response for video ${video.id}:`, response.data);
-        
-        const result = Array.isArray(response.data) ? response.data[0] : response.data;
-        
-        if (result?.status === 'completed') {
-          toast.success("Your video is ready!");
-        } else if (result?.error_message) {
-          toast.error(result.error_message || "Failed to generate video");
-        } else if (result?.status === 'processing' && video.status === 'in_queue') {
-          // Notify user when video moves to processing state
-          toast.info("Your video is now processing...");
-        }
-      } catch (error) {
-        console.error(`Failed to poll video ${video.id}:`, error);
-      }
-    };
-
-    const pollResults = async () => {
-      for (const video of pendingVideos) {
-        await pollVideo(video);
-      }
-    };
-
-    pollResults();
-
-    const intervalId = setInterval(() => {
-      const oldestPendingVideo = pendingVideos[0];
-      if (!oldestPendingVideo) return;
-
-      const startTime = oldestPendingVideo.created_at ? new Date(oldestPendingVideo.created_at).getTime() : Date.now();
-      const elapsedMinutes = (Date.now() - startTime) / (60 * 1000);
-      
-      // Only get polling interval if status is pending or processing
-      const interval = oldestPendingVideo.status === 'in_queue' || oldestPendingVideo.status === 'processing'
-        ? getPollingInterval(elapsedMinutes, oldestPendingVideo.status)
-        : 60000; // Default to 60 seconds for other states
-
-      pollResults();
-    }, 30000); // Start with 30 second interval
-
-    return () => clearInterval(intervalId);
-  }, [videos]);
-
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
@@ -283,6 +186,8 @@ const ImageToVideo = () => {
         publicUrl = uploadedUrl;
       }
 
+      toast.info("Starting video generation. This may take up to 20 minutes.");
+
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           prompt: prompt.trim(),
@@ -298,7 +203,12 @@ const ImageToVideo = () => {
 
       await refetchVideos();
       
-      toast.success("Video generation started! This typically takes about 7 minutes.");
+      if (response.data?.data?.status === 'completed') {
+        toast.success("Video generation completed successfully!");
+      } else if (response.data?.data?.status === 'failed') {
+        toast.error(response.data?.data?.error_message || "Failed to generate video");
+      }
+
       clearSelectedFile();
       setPrompt("");
     } catch (error) {

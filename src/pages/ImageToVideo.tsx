@@ -206,7 +206,11 @@ const ImageToVideo = () => {
 
       const startTime = oldestPendingVideo.created_at ? new Date(oldestPendingVideo.created_at).getTime() : Date.now();
       const elapsedMinutes = (Date.now() - startTime) / (60 * 1000);
-      const interval = getPollingInterval(elapsedMinutes, oldestPendingVideo.status);
+      
+      // Only get polling interval if status is pending or processing
+      const interval = oldestPendingVideo.status === 'in_queue' || oldestPendingVideo.status === 'processing'
+        ? getPollingInterval(elapsedMinutes, oldestPendingVideo.status)
+        : 60000; // Default to 60 seconds for other states
 
       pollResults();
     }, 30000); // Start with 30 second interval

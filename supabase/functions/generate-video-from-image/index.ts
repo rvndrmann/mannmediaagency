@@ -85,11 +85,42 @@ serve(async (req) => {
       throw new Error(`Source image is not accessible: ${error.message}`)
     }
 
-    // Call the video generation API with your implementation
-    const apiResponse = {
-      status: 'in_queue',
-      request_id: crypto.randomUUID(),
+    // Initialize video generation with Fal.ai
+    console.log('Initializing video generation with Fal.ai')
+    const falApiKey = Deno.env.get('FAL_AI_API_KEY')
+    if (!falApiKey) {
+      throw new Error('FAL_AI_API_KEY is not configured')
     }
+
+    // Prepare the request to Fal.ai
+    const falResponse = await fetch('https://110602490-svd.fal.ai/sdxl-turbo-animation', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Key ${falApiKey}`,
+      },
+      body: JSON.stringify({
+        prompt: prompt,
+        image_url: image_url,
+        negative_prompt: "",
+        num_inference_steps: 2,
+        guidance_scale: 0,
+        width: aspect_ratio === "16:9" ? 1024 : aspect_ratio === "9:16" ? 576 : 768,
+        height: aspect_ratio === "16:9" ? 576 : aspect_ratio === "9:16" ? 1024 : 768,
+        num_frames: 14,
+        loop: true,
+        scheduler: "euler_ancestral"
+      })
+    })
+
+    if (!falResponse.ok) {
+      const errorText = await falResponse.text()
+      console.error('Fal.ai API error:', errorText)
+      throw new Error('Failed to initialize video generation')
+    }
+
+    const falData = await falResponse.json()
+    console.log('Fal.ai response:', falData)
 
     // Store the job in the database
     const { data: jobData, error: jobError } = await supabaseAdmin
@@ -99,7 +130,8 @@ serve(async (req) => {
         status: 'in_queue',
         prompt,
         source_image_url: image_url,
-        request_id: apiResponse.request_id,
+        request_id: falData.request_id || crypto.randomUUID(),
+        result_url: falData.image?.url,
         aspect_ratio: aspect_ratio || "16:9",
         content_type: "mp4",
         duration: duration || "5",
@@ -115,10 +147,32 @@ serve(async (req) => {
       throw jobError
     }
 
+    // If we got an immediate result, update the job status
+    if (falData.image?.url) {
+      const { error: updateError } = await supabaseAdmin
+        .from('video_generation_jobs')
+        .update({
+          status: 'completed',
+          result_url: falData.image.url,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', jobData.id)
+
+      if (updateError) {
+        console.error('Error updating job status:', updateError)
+      }
+    }
+
     console.log('Job created successfully:', jobData)
 
     return new Response(
-      JSON.stringify({ data: jobData }),
+      JSON.stringify({ 
+        data: {
+          ...jobData,
+          result_url: falData.image?.url,
+          status: falData.image?.url ? 'completed' : 'in_queue'
+        }
+      }),
       { 
         headers: { 
           ...corsHeaders,

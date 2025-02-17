@@ -1,6 +1,6 @@
 
 import { cn } from "@/lib/utils";
-import { Download, Loader2, Play, Pause, Volume2, VolumeX } from "lucide-react";
+import { Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { useState, useRef } from "react";

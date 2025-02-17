@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
 
@@ -8,88 +9,135 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const { request_id } = await req.json();
-
-    if (!request_id) {
-      throw new Error('request_id is required');
-    }
-
-    console.log(`Checking status for request_id: ${request_id}`);
-
-    const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/kling-video/requests/${request_id}/status`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
-          'Content-Type': 'application/json'
-        }
-      }
-    );
-
-    if (!statusResponse.ok) {
-      console.error(`FAL API error: ${statusResponse.statusText}`);
-      throw new Error(`Failed to check status: ${statusResponse.statusText}`);
-    }
-
-    const statusData = await statusResponse.json();
-    console.log('FAL API status response:', statusData);
-
+    // Initialize Supabase client
     const supabaseClient = createClient(
       Deno.env.get('SUPABASE_URL') ?? '',
       Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
     );
 
-    let newStatus = 'in_queue';
-    let errorMessage = null;
-    let progress = 0;
-    let resultUrl = null;
+    // Get request_id from body if provided
+    const body = await req.json();
+    let jobsToCheck;
 
-    switch (statusData.status) {
-      case 'COMPLETED':
-        newStatus = 'completed';
-        progress = 100;
-        resultUrl = statusData.result?.url;
-        break;
-      case 'FAILED':
-        errorMessage = statusData.error || 'Video generation failed';
-        break;
-      case 'IN_QUEUE':
-      case 'PROCESSING':
-        progress = statusData.status === 'PROCESSING' ? 50 : 25;
-        break;
-      default:
-        console.log(`Unknown status from FAL API: ${statusData.status}`);
+    if (body.request_id) {
+      // Single job check
+      const { data, error } = await supabaseClient
+        .from('video_generation_jobs')
+        .select('request_id')
+        .eq('request_id', body.request_id)
+        .eq('status', 'in_queue');
+
+      if (error) throw error;
+      jobsToCheck = data;
+    } else {
+      // Batch check all pending jobs
+      const { data, error } = await supabaseClient
+        .from('video_generation_jobs')
+        .select('request_id')
+        .eq('status', 'in_queue')
+        .not('request_id', 'is', null);
+
+      if (error) throw error;
+      jobsToCheck = data;
     }
 
-    const { error: updateError } = await supabaseClient
-      .from('video_generation_jobs')
-      .update({
-        status: newStatus,
-        progress,
-        error_message: errorMessage,
-        result_url: resultUrl,
-        last_checked_at: new Date().toISOString()
+    console.log(`Checking status for ${jobsToCheck.length} jobs`);
+
+    const results = await Promise.all(
+      jobsToCheck.map(async (job) => {
+        try {
+          // Check status from FAL API
+          const statusResponse = await fetch(
+            `https://queue.fal.run/fal-ai/kling-video/requests/${job.request_id}/status`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Key ${Deno.env.get('FAL_AI_API_KEY')}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (!statusResponse.ok) {
+            console.error(`FAL API error for ${job.request_id}: ${statusResponse.statusText}`);
+            return {
+              request_id: job.request_id,
+              error: `Failed to check status: ${statusResponse.statusText}`
+            };
+          }
+
+          const statusData = await statusResponse.json();
+          console.log(`FAL API status response for ${job.request_id}:`, statusData);
+
+          // Map FAL API status to our simplified status enum
+          let newStatus = 'in_queue';
+          let errorMessage = null;
+          let progress = 0;
+          let resultUrl = null;
+
+          switch (statusData.status) {
+            case 'COMPLETED':
+              newStatus = 'completed';
+              progress = 100;
+              resultUrl = statusData.result?.url;
+              break;
+            case 'FAILED':
+              newStatus = 'failed';
+              errorMessage = statusData.error || 'Video generation failed';
+              break;
+            case 'IN_QUEUE':
+            case 'PROCESSING':
+              progress = statusData.status === 'PROCESSING' ? 50 : 25;
+              break;
+            default:
+              console.log(`Unknown status from FAL API: ${statusData.status}`);
+          }
+
+          // Update the job in database
+          const { error: updateError } = await supabaseClient
+            .from('video_generation_jobs')
+            .update({
+              status: newStatus,
+              progress,
+              error_message: errorMessage,
+              result_url: resultUrl,
+              last_checked_at: new Date().toISOString()
+            })
+            .eq('request_id', job.request_id);
+
+          if (updateError) {
+            console.error(`Error updating job ${job.request_id}:`, updateError);
+            return {
+              request_id: job.request_id,
+              error: updateError.message
+            };
+          }
+
+          return {
+            request_id: job.request_id,
+            status: newStatus,
+            progress,
+            error_message: errorMessage,
+            result_url: resultUrl
+          };
+        } catch (error) {
+          console.error(`Error processing job ${job.request_id}:`, error);
+          return {
+            request_id: job.request_id,
+            error: error instanceof Error ? error.message : 'An unknown error occurred'
+          };
+        }
       })
-      .eq('request_id', request_id);
-
-    if (updateError) {
-      console.error('Error updating job:', updateError);
-      throw updateError;
-    }
+    );
 
     return new Response(
-      JSON.stringify({
-        status: newStatus,
-        progress,
-        error_message: errorMessage,
-        result_url: resultUrl
-      }),
+      JSON.stringify(results),
       { 
         headers: { 
           ...corsHeaders,

@@ -3,8 +3,8 @@ import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
-interface VideoGenerationStatus {
-  status: 'in_queue' | 'completed';
+export interface VideoGenerationStatus {
+  status: 'in_queue' | 'processing' | 'completed' | 'failed';
   message: string;
   progress: number;
   timeRemaining?: string;
@@ -47,8 +47,10 @@ export const useVideoGenerationStatus = (jobId: string | null) => {
       let message = '';
       if (job.status === 'completed') {
         message = 'Video generation completed!';
+      } else if (job.status === 'failed') {
+        message = job.error_message || 'Video generation failed';
       } else {
-        // For in_queue status
+        // For 'in_queue' or 'processing' status
         if (elapsedMinutes < 2) {
           message = 'Initializing video generation...';
         } else if (elapsedMinutes < 4) {
@@ -66,7 +68,7 @@ export const useVideoGenerationStatus = (jobId: string | null) => {
       });
 
       // Return true if the status check should continue
-      return job.status === 'in_queue';
+      return job.status === 'in_queue' || job.status === 'processing';
     } catch (error) {
       console.error('Error checking video status:', error);
       toast.error('Failed to check video status');

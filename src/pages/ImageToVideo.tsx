@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -28,6 +27,7 @@ interface SupabaseVideoJob {
   source_image_url: string;
   retry_count?: number;
   error_message?: string;
+  last_checked_at?: string;
 }
 
 interface VideoGenerationJob {
@@ -94,7 +94,7 @@ const ImageToVideo = () => {
       }
       
       console.log("Fetched videos:", data);
-      return data as VideoGenerationJob[];
+      return data as SupabaseVideoJob[];
     },
     enabled: !!session,
   });
@@ -200,7 +200,9 @@ const ImageToVideo = () => {
       }
 
       console.log("Starting video generation with URL:", publicUrl);
-      toast.info("Starting video generation. This may take up to 20 minutes.");
+      toast.info("Starting video generation. This may take up to 15 minutes.", {
+        duration: 5000,
+      });
 
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
@@ -223,6 +225,10 @@ const ImageToVideo = () => {
         toast.success("Video generation completed successfully!");
       } else if (response.data?.data?.status === 'failed') {
         toast.error(response.data?.data?.error_message || "Failed to generate video");
+      } else {
+        toast.info("Video generation in progress. You can check the status in the gallery.", {
+          duration: 5000,
+        });
       }
 
       clearSelectedFile();

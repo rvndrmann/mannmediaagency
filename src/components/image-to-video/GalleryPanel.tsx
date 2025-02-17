@@ -189,6 +189,5 @@ export function GalleryPanel({
         </div>
       )}
     </div>
-  </div>
   );
 }

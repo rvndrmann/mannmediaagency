@@ -19,7 +19,6 @@ export const supabase = createClient<Database>(
   }
 );
 
-// Add type declarations for our new tables
 declare module './types' {
   interface Database {
     public: {
@@ -1144,3 +1143,76 @@ declare module './types' {
             updated_at: string;
           };
           Insert: {
+            id?: string;
+            user_id: string;
+            title: string;
+            product_image_url?: string | null;
+            status?: 'draft' | 'script_generated' | 'shots_generated' | 'video_generated' | 'completed' | 'failed';
+            script?: Json | null;
+            settings?: Json;
+            metadata?: Json;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Update: {
+            id?: string;
+            user_id?: string;
+            title?: string;
+            product_image_url?: string | null;
+            status?: 'draft' | 'script_generated' | 'shots_generated' | 'video_generated' | 'completed' | 'failed';
+            script?: Json | null;
+            settings?: Json;
+            metadata?: Json;
+            created_at?: string;
+            updated_at?: string;
+          };
+          Relationships: [];
+        };
+        product_ad_shots: {
+          Row: {
+            id: string;
+            project_id: string;
+            image_url: string;
+            shot_type: string;
+            scene_description: string | null;
+            order_index: number | null;
+            status: string;
+            created_at: string;
+          };
+          Insert: {
+            id?: string;
+            project_id: string;
+            image_url: string;
+            shot_type: string;
+            scene_description?: string | null;
+            order_index?: number | null;
+            status?: string;
+            created_at?: string;
+          };
+          Update: {
+            id?: string;
+            project_id?: string;
+            image_url?: string;
+            shot_type?: string;
+            scene_description?: string | null;
+            order_index?: number | null;
+            status?: string;
+            created_at?: string;
+          };
+          Relationships: [
+            {
+              foreignKeyName: "product_ad_shots_project_id_fkey";
+              columns: ["project_id"];
+              isOneToOne: false;
+              referencedRelation: "product_ad_projects";
+              referencedColumns: ["id"];
+            }
+          ];
+        };
+      };
+      Enums: {
+        product_ad_status: 'draft' | 'script_generated' | 'shots_generated' | 'video_generated' | 'completed' | 'failed';
+      };
+    };
+  }
+}

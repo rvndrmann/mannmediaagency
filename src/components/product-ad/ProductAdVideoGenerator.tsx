@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -26,7 +25,7 @@ interface VideoJob {
   status: string;
   progress: number;
   result_url: string | null;
-  shot_index?: number;
+  shot_index: number;
 }
 
 export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVideoGeneratorProps) => {
@@ -76,7 +75,8 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
     mutationFn: async (shotIndex: number) => {
       if (!shots?.[shotIndex]) return;
       const shot = shots[shotIndex];
-      const scene = (project?.script as ProjectScript)?.scenes?.[shotIndex];
+      const script = project?.script as unknown as ProjectScript;
+      const scene = script?.scenes?.[shotIndex];
       
       const response = await supabase.functions.invoke("generate-video-from-image", {
         body: {
@@ -88,10 +88,7 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
         },
       });
 
-      if (response.error) {
-        throw new Error(response.error.message);
-      }
-
+      if (response.error) throw new Error(response.error.message);
       return response.data;
     },
     onSuccess: () => {
@@ -137,7 +134,6 @@ export const ProductAdVideoGenerator = ({ projectId, onComplete }: ProductAdVide
 
   const allVideosCompleted = videoJobs?.every(job => job.status === 'completed');
   const hasFailedJobs = videoJobs?.some(job => job.status === 'failed');
-  const totalProgress = videoJobs?.reduce((acc, job) => acc + (job.progress || 0), 0) / (videoJobs?.length || 1);
 
   return (
     <Card className="p-6 bg-gray-900 border-gray-800">

@@ -90,7 +90,7 @@ export const ProductAdShots = ({ projectId, onComplete }: ProductAdShotsProps) =
 
   if (!project?.script) return null;
 
-  const script = project.script as ProjectScript;
+  const script = project.script as unknown as ProjectScript;
   const allShotsGenerated = shots?.length === script.scenes.length;
 
   return (

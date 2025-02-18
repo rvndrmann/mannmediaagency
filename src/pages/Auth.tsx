@@ -13,7 +13,12 @@ const Auth = () => {
       <SplashCursor />
       {/* Navigation Bar */}
       <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
-        <div className="flex items-center gap-2 w-full sm:w-auto text-center sm:text-left">
+        <div className="flex items-center gap-4 w-full sm:w-auto text-center sm:text-left">
+          <img
+            src="/lovable-uploads/dcaf0d85-758b-4188-b88e-73f268a054f1.png"
+            alt="MANNMEDIAAGENCY Logo"
+            className="h-12 w-12 object-contain"
+          />
           <div>
             <div className="text-2xl font-bold text-white">
               MANNMEDIAAGENCY
@@ -93,7 +98,7 @@ const Auth = () => {
           </div>
         </div>
 
-        {/* Video Showcase - Full Width */}
+        {/* Video Showcase */}
         <div className="w-full max-w-[1400px] mx-auto relative z-10">
           <VideoShowcase />
         </div>

@@ -2,7 +2,7 @@
 import { createContext, useContext, useEffect, useState } from 'react';
 import { Session } from '@supabase/supabase-js';
 import { supabase } from '@/integrations/supabase/client';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { toast } from 'sonner';
 
 interface AuthContextType {
@@ -30,6 +30,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
     // Get initial session
@@ -53,9 +54,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       
       if (event === 'SIGNED_IN') {
         toast.success('Successfully signed in!');
+        // Only redirect if we're on an auth page
+        if (location.pathname.startsWith('/auth')) {
+          navigate('/');
+        }
       } else if (event === 'SIGNED_OUT') {
         toast.info('Signed out');
-        navigate('/auth/login');
+        // Only redirect to login if we're not already on an auth page
+        if (!location.pathname.startsWith('/auth')) {
+          navigate('/auth/login');
+        }
       } else if (event === 'TOKEN_REFRESHED') {
         console.log('Token refreshed successfully');
       }
@@ -65,7 +73,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => {
       subscription.unsubscribe();
     };
-  }, [navigate]);
+  }, [navigate, location.pathname]);
 
   return (
     <AuthContext.Provider value={{ session, isLoading, error }}>

@@ -20,9 +20,9 @@ export const ProtectedRoute = ({ children }: ProtectedRouteProps) => {
   }
 
   if (!session) {
+    // Store the attempted location for redirect after login
     return <Navigate to="/auth/login" state={{ from: location }} replace />;
   }
 
   return children;
 };
-

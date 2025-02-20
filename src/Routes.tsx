@@ -1,7 +1,6 @@
 
 import { Routes as RouterRoutes, Route, Navigate } from 'react-router-dom';
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute';
-import { useAuth } from '@/components/auth/AuthProvider';
 
 // Import your page components
 import Index from '@/pages/Index';
@@ -22,17 +21,19 @@ import Contact from '@/pages/Contact';
 import AboutUs from '@/pages/AboutUs';
 
 const Routes = () => {
-  const { isLoading } = useAuth();
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
   return (
     <RouterRoutes>
-      <Route path="/" element={<Index />} />
+      {/* Protected Index Route */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute>
+            <Index />
+          </ProtectedRoute>
+        }
+      />
       
-      {/* Auth Routes */}
+      {/* Auth Routes - Public */}
       <Route path="/auth" element={<Auth />}>
         <Route path="login" element={<LoginForm />} />
         <Route path="signup" element={<SignupForm />} />

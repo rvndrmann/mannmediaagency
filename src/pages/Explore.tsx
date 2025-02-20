@@ -6,15 +6,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Switch } from "@/components/ui/switch";
-import { Loader2, Eye, EyeOff, Download, ArrowLeft } from "lucide-react";
+import { Loader2, Download, ArrowLeft, Copy, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Explore = () => {
-  const [showPublicOnly, setShowPublicOnly] = useState(true);
   const navigate = useNavigate();
+  const [copiedPrompts, setCopiedPrompts] = useState<Record<string, boolean>>({});
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -25,18 +24,14 @@ export const Explore = () => {
   });
 
   const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["public-images", showPublicOnly],
+    queryKey: ["public-images"],
     queryFn: async () => {
-      const query = supabase
+      const { data, error } = await supabase
         .from("image_generation_jobs")
         .select("*")
-        .eq("status", "completed");
+        .eq("status", "completed")
+        .eq("visibility", "public");
 
-      if (showPublicOnly) {
-        query.eq("visibility", "public");
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
@@ -44,37 +39,30 @@ export const Explore = () => {
   });
 
   const { data: videos, isLoading: videosLoading } = useQuery({
-    queryKey: ["public-videos", showPublicOnly],
+    queryKey: ["public-videos"],
     queryFn: async () => {
-      const query = supabase
+      const { data, error } = await supabase
         .from("video_generation_jobs")
         .select("*")
-        .eq("status", "completed");
+        .eq("status", "completed")
+        .eq("visibility", "public");
 
-      if (showPublicOnly) {
-        query.eq("visibility", "public");
-      }
-
-      const { data, error } = await query;
       if (error) throw error;
       return data;
     },
     enabled: !!session
   });
 
-  const toggleVisibility = async (type: 'image' | 'video', id: string, currentVisibility: string) => {
-    const newVisibility = currentVisibility === 'public' ? 'private' : 'public';
-    const table = type === 'image' ? 'image_generation_jobs' : 'video_generation_jobs';
-    
-    const { error } = await supabase
-      .from(table)
-      .update({ visibility: newVisibility })
-      .eq('id', id);
-
-    if (error) {
-      toast.error(`Failed to update visibility: ${error.message}`);
-    } else {
-      toast.success(`Content is now ${newVisibility}`);
+  const handleCopyPrompt = async (id: string, prompt: string) => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+      setCopiedPrompts(prev => ({ ...prev, [id]: true }));
+      toast.success("Prompt copied to clipboard");
+      setTimeout(() => {
+        setCopiedPrompts(prev => ({ ...prev, [id]: false }));
+      }, 2000);
+    } catch (error) {
+      toast.error("Failed to copy prompt");
     }
   };
 
@@ -100,26 +88,17 @@ export const Explore = () => {
 
   return (
     <div className="flex-1 p-4 md:p-8">
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center gap-4">
-          <SidebarTrigger className="md:hidden" />
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="mr-2"
-          >
-            <ArrowLeft className="h-5 w-5" />
-          </Button>
-          <h1 className="text-xl md:text-2xl font-bold">Explore</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-500">Show Public Only</span>
-          <Switch
-            checked={showPublicOnly}
-            onCheckedChange={setShowPublicOnly}
-          />
-        </div>
+      <div className="flex items-center gap-4 mb-6">
+        <SidebarTrigger className="md:hidden" />
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => navigate(-1)}
+          className="mr-2"
+        >
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
+        <h1 className="text-xl md:text-2xl font-bold">Explore</h1>
       </div>
 
       {isLoading ? (
@@ -128,9 +107,7 @@ export const Explore = () => {
         </div>
       ) : !hasContent ? (
         <div className="text-center py-12 text-gray-500">
-          {showPublicOnly 
-            ? "No public content available yet"
-            : "No content available yet"}
+          No public content available yet
         </div>
       ) : (
         <ScrollArea className="h-[calc(100vh-8rem)]">
@@ -144,20 +121,18 @@ export const Explore = () => {
                     className="w-full h-full object-cover"
                   />
                   <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    {session?.user.id === image.user_id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleVisibility('image', image.id, image.visibility)}
-                        className="text-white hover:text-purple-400"
-                      >
-                        {image.visibility === 'public' ? (
-                          <Eye className="h-5 w-5" />
-                        ) : (
-                          <EyeOff className="h-5 w-5" />
-                        )}
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCopyPrompt(image.id, image.prompt)}
+                      className="text-white hover:text-purple-400"
+                    >
+                      {copiedPrompts[image.id] ? (
+                        <Check className="h-5 w-5" />
+                      ) : (
+                        <Copy className="h-5 w-5" />
+                      )}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"
@@ -183,20 +158,18 @@ export const Explore = () => {
                     controls
                   />
                   <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    {session?.user.id === video.user_id && (
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => toggleVisibility('video', video.id, video.visibility)}
-                        className="text-white hover:text-purple-400"
-                      >
-                        {video.visibility === 'public' ? (
-                          <Eye className="h-5 w-5" />
-                        ) : (
-                          <EyeOff className="h-5 w-5" />
-                        )}
-                      </Button>
-                    )}
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleCopyPrompt(video.id, video.prompt)}
+                      className="text-white hover:text-purple-400"
+                    >
+                      {copiedPrompts[video.id] ? (
+                        <Check className="h-5 w-5" />
+                      ) : (
+                        <Copy className="h-5 w-5" />
+                      )}
+                    </Button>
                     <Button
                       variant="ghost"
                       size="icon"

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -37,12 +38,13 @@ const LoginForm = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      const hostname = window.location.hostname;
-      const origin = window.location.origin;
+      // Use the current origin for local development and production
+      const redirectTo = window.location.origin + '/auth/callback';
       
-      const redirectTo = `${origin}/auth/callback`;
+      console.log('Initiating Google sign-in with redirect:', redirectTo);
       
-      console.log('Using redirect URL:', redirectTo);
+      // Clear any existing auth state
+      await supabase.auth.signOut();
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
@@ -52,18 +54,16 @@ const LoginForm = () => {
             access_type: 'offline',
             prompt: 'consent',
           },
-          skipBrowserRedirect: false,
         },
       });
-      
+
       if (error) {
-        console.error('OAuth error details:', error);
+        console.error('OAuth error:', error);
         toast.error(error.message);
-        throw error;
       }
     } catch (error: any) {
-      console.error('Google login error:', error);
-      toast.error('Failed to login with Google. Please try again.');
+      console.error('Google sign-in error:', error);
+      toast.error('Failed to login with Google');
     } finally {
       setIsGoogleLoading(false);
     }

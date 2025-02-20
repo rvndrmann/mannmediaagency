@@ -10,33 +10,43 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Get the session from the URL
-        const { data: { session }, error } = await supabase.auth.getSession();
-        
-        if (error) {
-          console.error("Session error:", error);
-          throw error;
-        }
-        
-        if (!session) {
-          console.error("No session found");
-          throw new Error("No session found");
+        // First check if we have a session directly from the URL
+        const {
+          data: { session },
+          error: sessionError
+        } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          console.error("Failed to get session:", sessionError);
+          throw sessionError;
         }
 
-        // Log successful login details for debugging
-        console.log("Login successful, user:", session.user?.email);
+        if (!session) {
+          // If no session, try to exchange the code for a session
+          const params = new URLSearchParams(window.location.hash.substring(1));
+          if (!params.get('access_token')) {
+            console.error("No access token found in URL");
+            throw new Error("Authentication failed. Please try again.");
+          }
+        }
+
+        // At this point we should have a valid session
+        const { data: { user } } = await supabase.auth.getUser();
         
-        // Successful login, redirect to home
-        toast.success("Successfully logged in!");
-        navigate("/");
+        if (user) {
+          console.log("Authentication successful for:", user.email);
+          toast.success("Successfully logged in!");
+          navigate("/", { replace: true });
+        } else {
+          throw new Error("No user found after authentication");
+        }
       } catch (error: any) {
         console.error("Auth callback error:", error);
-        toast.error("Login failed. Please try again.");
-        navigate("/auth/login");
+        toast.error(error.message || "Authentication failed");
+        navigate("/auth/login", { replace: true });
       }
     };
 
-    // Execute callback handler
     handleCallback();
   }, [navigate]);
 

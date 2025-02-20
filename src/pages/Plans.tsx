@@ -11,6 +11,7 @@ import { DiscountSection } from "@/components/plans/DiscountSection";
 import { PlanList } from "@/components/plans/PlanList";
 import { usePlans } from "@/hooks/usePlans";
 import { useToast } from "@/hooks/use-toast";
+import { Sidebar } from "@/components/Sidebar";
 
 interface Transaction {
   created_at: string;
@@ -77,52 +78,55 @@ const Plans = () => {
   }, [session?.user]);
 
   return (
-    <>
-      <PromotionalBanner />
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center mb-8">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate("/")}
-              className="mr-4 text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-bold text-white">Choose Your Plan</h1>
-          </div>
-          
-          <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-8">
-            <Button 
-              variant="default" 
-              className="rounded-full bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
-            >
-              One-time
-            </Button>
-          </div>
+    <div className="flex h-screen">
+      <Sidebar />
+      <div className="flex-1 overflow-auto">
+        <PromotionalBanner />
+        <div className="min-h-screen bg-background p-6">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center mb-8">
+              <Button 
+                variant="ghost" 
+                onClick={() => navigate("/")}
+                className="mr-4 text-white hover:bg-white/10"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <h1 className="text-2xl font-bold text-white">Choose Your Plan</h1>
+            </div>
+            
+            <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-8">
+              <Button 
+                variant="default" 
+                className="rounded-full bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
+              >
+                One-time
+              </Button>
+            </div>
 
-          <DiscountSection
-            discountCode={discountCode}
-            setDiscountCode={setDiscountCode}
-            handleApplyDiscount={handleApplyDiscount}
-            isValidatingCode={isValidatingCode}
-            activeDiscount={activeDiscount}
-          />
-          
-          <PlanList
-            calculateDiscountedPrice={calculateDiscountedPrice}
-            handleSubscribe={handleSubscribe}
-            hasActiveDiscount={!!activeDiscount}
-          />
+            <DiscountSection
+              discountCode={discountCode}
+              setDiscountCode={setDiscountCode}
+              handleApplyDiscount={handleApplyDiscount}
+              isValidatingCode={isValidatingCode}
+              activeDiscount={activeDiscount}
+            />
+            
+            <PlanList
+              calculateDiscountedPrice={calculateDiscountedPrice}
+              handleSubscribe={handleSubscribe}
+              hasActiveDiscount={!!activeDiscount}
+            />
 
-          <TransactionHistory 
-            transactions={transactions}
-            isLoading={isLoading}
-          />
+            <TransactionHistory 
+              transactions={transactions}
+              isLoading={isLoading}
+            />
+          </div>
         </div>
       </div>
-    </>
+    </div>
   );
 };
 

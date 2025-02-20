@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +8,8 @@ import { InputPanel } from "@/components/image-to-video/InputPanel";
 import { GalleryPanel } from "@/components/image-to-video/GalleryPanel";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SupabaseVideoJob {
   id: string;
@@ -41,30 +42,36 @@ const ImageToVideo = () => {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
 
-  const { data: session } = useQuery({
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
+      if (error) throw error;
+      if (!session) {
         navigate("/auth/login");
         return null;
       }
       return session;
     },
+    retry: false,
+    staleTime: 30000,
   });
 
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
+  const { data: userCredits, error: creditsError } = useQuery({
+    queryKey: ["userCredits", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return null;
+      
       const { data, error } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq('user_id', session.user.id)
         .maybeSingle();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
   });
 
   const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery({
@@ -91,27 +98,16 @@ const ImageToVideo = () => {
   });
 
   useEffect(() => {
-    const channel = supabase
-      .channel('schema-db-changes')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'video_generation_jobs',
-          filter: `user_id=eq.${session?.user?.id}`
-        },
-        (payload) => {
-          console.log('Real-time update received:', payload);
-          refetchVideos();
-        }
-      )
-      .subscribe();
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, currentSession) => {
+      if (event === 'SIGNED_OUT') {
+        navigate("/auth/login");
+      }
+    });
 
     return () => {
-      supabase.removeChannel(channel);
+      subscription.unsubscribe();
     };
-  }, [refetchVideos, session?.user?.id]);
+  }, [navigate]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -159,7 +155,6 @@ const ImageToVideo = () => {
 
       let publicUrl = selectedImageUrl;
 
-      // Only upload to Supabase if it's a new file upload
       if (selectedFile) {
         console.log("New file upload detected, uploading to Supabase storage...");
         const fileExt = selectedFile.name.split('.').pop();
@@ -190,7 +185,6 @@ const ImageToVideo = () => {
 
       console.log("Starting video generation with URL:", publicUrl);
       
-      // First, create the job record in the database
       const { data: jobData, error: jobError } = await supabase
         .from('video_generation_jobs')
         .insert({
@@ -212,7 +206,6 @@ const ImageToVideo = () => {
 
       console.log("Created job record:", jobData);
 
-      // Then call the edge function
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           job_id: jobData.id,
@@ -254,8 +247,38 @@ const ImageToVideo = () => {
     }
   };
 
-  if (!session) {
-    return null;
+  if (sessionLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      </div>
+    );
+  }
+
+  if (sessionError || !session) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <p className="text-red-500">Please sign in to access this page</p>
+          <Button onClick={() => navigate("/auth/login")}>
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (creditsError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <p className="text-red-500">Failed to load user data. Please try again.</p>
+          <Button onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

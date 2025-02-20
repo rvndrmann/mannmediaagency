@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ const ProductShoot = () => {
   const [outputFormat, setOutputFormat] = useState("png");
   const queryClient = useQueryClient();
 
+  // Enhanced session query with proper error handling
   const { data: session, isLoading: sessionLoading, error: sessionError } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
@@ -35,10 +37,12 @@ const ProductShoot = () => {
       return session;
     },
     retry: false,
+    staleTime: 30000,
   });
 
+  // Enhanced user credits query with proper user filtering
   const { data: userCredits, error: creditsError } = useQuery({
-    queryKey: ["userCredits"],
+    queryKey: ["userCredits", session?.user?.id],
     queryFn: async () => {
       if (!session?.user?.id) return null;
       
@@ -54,6 +58,7 @@ const ProductShoot = () => {
     enabled: !!session?.user?.id,
   });
 
+  // Enhanced images query
   const { data: images, isLoading: imagesLoading, error: imagesError } = useQuery({
     queryKey: ["product-images", session?.user?.id],
     queryFn: async () => {

@@ -4,16 +4,18 @@ import { Button } from "@/components/ui/button";
 import { Download, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
+export interface ExploreImageData {
+  id: string;
+  prompt: string;
+  result_url: string | null;
+  settings?: {
+    guidanceScale: number;
+    numInferenceSteps: number;
+  };
+}
+
 interface ImageGridProps {
-  items: Array<{
-    id: string;
-    prompt: string;
-    result_url: string | null;
-    settings?: {
-      guidanceScale: number;
-      numInferenceSteps: number;
-    };
-  }>;
+  items: ExploreImageData[];
   onCopyPrompt: (id: string, prompt: string) => void;
   onCopyValue: (id: string, value: number, field: string) => void;
   onDownload: (url: string, filename: string) => void;
@@ -36,24 +38,28 @@ export const ImageGrid = ({
       {items.map((image) => (
         <Card key={image.id} className="overflow-hidden bg-gray-900 border-gray-800">
           <div className="relative aspect-square">
-            <img
-              src={image.result_url!}
-              alt={image.prompt}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-              decoding="async"
-            />
-            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => image.result_url && onDownload(image.result_url, `image-${image.id}.png`)}
-                className="text-white hover:text-purple-400"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
-            </div>
+            {image.result_url && (
+              <>
+                <img
+                  src={image.result_url}
+                  alt={image.prompt}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
+                  decoding="async"
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDownload(image.result_url!, `image-${image.id}.png`)}
+                    className="text-white hover:text-purple-400"
+                  >
+                    <Download className="h-5 w-5" />
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
           <div className="p-3 md:p-4">
             {image.settings && !isMobile && (

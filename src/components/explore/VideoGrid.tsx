@@ -3,12 +3,14 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Download, Copy, Check } from "lucide-react";
 
+export interface ExploreVideoData {
+  id: string;
+  prompt: string;
+  result_url: string | null;
+}
+
 interface VideoGridProps {
-  items: Array<{
-    id: string;
-    prompt: string;
-    result_url: string | null;
-  }>;
+  items: ExploreVideoData[];
   onCopyPrompt: (id: string, prompt: string) => void;
   onDownload: (url: string, filename: string) => void;
   copiedPrompts: Record<string, boolean>;
@@ -25,24 +27,28 @@ const VideoGrid = ({
       {items.map((video) => (
         <Card key={video.id} className="overflow-hidden bg-gray-900 border-gray-800">
           <div className="relative">
-            <video
-              src={video.result_url!}
-              className="w-full h-auto"
-              controls
-              preload="metadata"
-              controlsList="nodownload"
-              playsInline
-            />
-            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => video.result_url && onDownload(video.result_url, `video-${video.id}.mp4`)}
-                className="text-white hover:text-purple-400"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
-            </div>
+            {video.result_url && (
+              <>
+                <video
+                  src={video.result_url}
+                  className="w-full h-auto"
+                  controls
+                  preload="metadata"
+                  controlsList="nodownload"
+                  playsInline
+                />
+                <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => onDownload(video.result_url!, `video-${video.id}.mp4`)}
+                    className="text-white hover:text-purple-400"
+                  >
+                    <Download className="h-5 w-5" />
+                  </Button>
+                </div>
+              </>
+            )}
           </div>
           <div className="p-3 md:p-4">
             <div className="flex items-start justify-between gap-2">

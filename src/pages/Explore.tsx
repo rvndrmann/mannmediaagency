@@ -6,8 +6,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Loader2, Download, ArrowLeft, Copy, Check } from "lucide-react";
+import { Loader2, Download, ArrowLeft, Copy, Check, Image as ImageIcon, Video } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -84,7 +85,16 @@ export const Explore = () => {
   };
 
   const isLoading = imagesLoading || videosLoading;
-  const hasContent = (images?.length || 0) + (videos?.length || 0) > 0;
+  const hasImages = (images?.length || 0) > 0;
+  const hasVideos = (videos?.length || 0) > 0;
+  const hasContent = hasImages || hasVideos;
+
+  const SectionHeader = ({ icon: Icon, title }: { icon: any; title: string }) => (
+    <div className="flex items-center gap-2 mb-4">
+      <Icon className="h-5 w-5 text-purple-500" />
+      <h2 className="text-lg font-semibold">{title}</h2>
+    </div>
+  );
 
   return (
     <div className="flex-1 p-4 md:p-8">
@@ -111,80 +121,103 @@ export const Explore = () => {
         </div>
       ) : (
         <ScrollArea className="h-[calc(100vh-8rem)]">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-            {images?.map((image) => (
-              <Card key={image.id} className="overflow-hidden bg-gray-900 border-gray-800">
-                <div className="aspect-square relative">
-                  <img
-                    src={image.result_url!}
-                    alt={image.prompt}
-                    className="w-full h-full object-cover"
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCopyPrompt(image.id, image.prompt)}
-                      className="text-white hover:text-purple-400"
-                    >
-                      {copiedPrompts[image.id] ? (
-                        <Check className="h-5 w-5" />
-                      ) : (
-                        <Copy className="h-5 w-5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDownload(image.result_url!, `image-${image.id}.png`)}
-                      className="text-white hover:text-purple-400"
-                    >
-                      <Download className="h-5 w-5" />
-                    </Button>
-                  </div>
+          <div className="space-y-8">
+            {/* Images Section */}
+            {hasImages && (
+              <section>
+                <SectionHeader icon={ImageIcon} title="Images" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {images?.map((image) => (
+                    <Card key={image.id} className="overflow-hidden bg-gray-900 border-gray-800">
+                      <div className="aspect-square relative">
+                        <img
+                          src={image.result_url!}
+                          alt={image.prompt}
+                          className="w-full h-full object-cover"
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownload(image.result_url!, `image-${image.id}.png`)}
+                            className="text-white hover:text-purple-400"
+                          >
+                            <Download className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm text-gray-300 flex-1">{image.prompt}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyPrompt(image.id, image.prompt)}
+                            className="shrink-0"
+                          >
+                            {copiedPrompts[image.id] ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-                <div className="p-4">
-                  <p className="text-sm text-gray-300 line-clamp-2">{image.prompt}</p>
+              </section>
+            )}
+
+            {/* Separator between sections if both exist */}
+            {hasImages && hasVideos && <Separator className="my-8" />}
+
+            {/* Videos Section */}
+            {hasVideos && (
+              <section>
+                <SectionHeader icon={Video} title="Videos" />
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+                  {videos?.map((video) => (
+                    <Card key={video.id} className="overflow-hidden bg-gray-900 border-gray-800">
+                      <div className="aspect-video relative">
+                        <video
+                          src={video.result_url!}
+                          className="w-full h-full object-cover"
+                          controls
+                        />
+                        <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownload(video.result_url!, `video-${video.id}.mp4`)}
+                            className="text-white hover:text-purple-400"
+                          >
+                            <Download className="h-5 w-5" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="p-4">
+                        <div className="flex items-start justify-between gap-2">
+                          <p className="text-sm text-gray-300 flex-1">{video.prompt}</p>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleCopyPrompt(video.id, video.prompt)}
+                            className="shrink-0"
+                          >
+                            {copiedPrompts[video.id] ? (
+                              <Check className="h-4 w-4 text-green-500" />
+                            ) : (
+                              <Copy className="h-4 w-4" />
+                            )}
+                          </Button>
+                        </div>
+                      </div>
+                    </Card>
+                  ))}
                 </div>
-              </Card>
-            ))}
-            
-            {videos?.map((video) => (
-              <Card key={video.id} className="overflow-hidden bg-gray-900 border-gray-800">
-                <div className="aspect-video relative">
-                  <video
-                    src={video.result_url!}
-                    className="w-full h-full object-cover"
-                    controls
-                  />
-                  <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleCopyPrompt(video.id, video.prompt)}
-                      className="text-white hover:text-purple-400"
-                    >
-                      {copiedPrompts[video.id] ? (
-                        <Check className="h-5 w-5" />
-                      ) : (
-                        <Copy className="h-5 w-5" />
-                      )}
-                    </Button>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => handleDownload(video.result_url!, `video-${video.id}.mp4`)}
-                      className="text-white hover:text-purple-400"
-                    >
-                      <Download className="h-5 w-5" />
-                    </Button>
-                  </div>
-                </div>
-                <div className="p-4">
-                  <p className="text-sm text-gray-300 line-clamp-2">{video.prompt}</p>
-                </div>
-              </Card>
-            ))}
+              </section>
+            )}
           </div>
         </ScrollArea>
       )}

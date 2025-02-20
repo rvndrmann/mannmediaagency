@@ -1,11 +1,13 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Eye, EyeOff } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { Switch } from "@/components/ui/switch";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ImageCardProps {
   image: any;
@@ -14,6 +16,7 @@ interface ImageCardProps {
 export const ImageCard = ({ image }: ImageCardProps) => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isPublic, setIsPublic] = useState(image.visibility === 'public');
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -29,6 +32,29 @@ export const ImageCard = ({ image }: ImageCardProps) => {
         title: "Failed to copy",
         description: "Please try again",
         variant: "destructive",
+      });
+    }
+  };
+
+  const toggleVisibility = async () => {
+    const newVisibility = !isPublic ? 'public' : 'private';
+    
+    const { error } = await supabase
+      .from('image_generation_jobs')
+      .update({ visibility: newVisibility })
+      .eq('id', image.id);
+
+    if (error) {
+      toast({
+        title: "Error",
+        description: "Failed to update visibility",
+        variant: "destructive",
+      });
+    } else {
+      setIsPublic(!isPublic);
+      toast({
+        title: "Success",
+        description: `Image is now ${newVisibility}`,
       });
     }
   };
@@ -51,6 +77,13 @@ export const ImageCard = ({ image }: ImageCardProps) => {
       <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
           <Badge variant="secondary">{image.status}</Badge>
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-500">Public</span>
+            <Switch
+              checked={isPublic}
+              onCheckedChange={toggleVisibility}
+            />
+          </div>
           {image.product_image_metadata?.seo_title && (
             <Button
               variant="ghost"

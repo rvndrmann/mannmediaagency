@@ -1,3 +1,4 @@
+
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -27,11 +28,13 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
   const { data: videoJob, isLoading: videoLoading } = useQuery({
     queryKey: ["video-job", videoJobId],
     queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user session");
+      
       const { data, error } = await supabase
         .from("video_generation_jobs")
         .select("*")
         .eq("id", videoJobId)
-        .eq("user_id", session?.user.id)
+        .eq("user_id", session.user.id)
         .maybeSingle();
 
       if (error) throw error;
@@ -43,6 +46,8 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
   const { data: metadata, isLoading: metadataLoading } = useQuery({
     queryKey: ["video-metadata", videoJobId],
     queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user session");
+      
       const { data, error } = await supabase
         .from("video_metadata")
         .select("*")
@@ -52,13 +57,16 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
       if (error) throw error;
       return data as VideoMetadata;
     },
-    staleTime: 0, // Always fetch fresh data
-    retry: 3, // Retry failed requests 3 times
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff
+    staleTime: 0,
+    retry: 3,
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000),
+    enabled: !!session?.user.id && !!videoJob,
   });
 
   // Set up real-time subscription for metadata changes
   useEffect(() => {
+    if (!session?.user.id) return;
+
     const channel = supabase
       .channel('video_metadata_changes')
       .on(
@@ -78,11 +86,12 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [videoJobId, queryClient]);
+  }, [videoJobId, queryClient, session?.user.id]);
 
   const generateMetadata = useMutation({
     mutationFn: async (params: { additionalContext: string; customTitleTwist: string }) => {
       if (!videoJob?.prompt) throw new Error("No prompt found for video");
+      if (!session?.user.id) throw new Error("No user session");
       
       const { data, error } = await supabase.functions.invoke('generate-video-metadata', {
         body: {
@@ -105,7 +114,6 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
       return data;
     },
     onSuccess: async () => {
-      // Add a small delay before invalidating to ensure DB write is complete
       await new Promise(resolve => setTimeout(resolve, 1000));
       queryClient.invalidateQueries({ queryKey: ["video-metadata", videoJobId] });
       toast.success("Metadata generated successfully");

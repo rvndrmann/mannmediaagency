@@ -1,18 +1,20 @@
 
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
-import { Loader2, Eye, EyeOff, Download } from "lucide-react";
+import { Loader2, Eye, EyeOff, Download, ArrowLeft } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 export const Explore = () => {
   const [showPublicOnly, setShowPublicOnly] = useState(true);
+  const navigate = useNavigate();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -101,6 +103,14 @@ export const Explore = () => {
       <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => navigate(-1)}
+            className="mr-2"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <h1 className="text-xl md:text-2xl font-bold">Explore</h1>
         </div>
         <div className="flex items-center gap-2">

@@ -1,3 +1,4 @@
+
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -41,17 +42,18 @@ export const Dashboard = () => {
       const { data, error } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq('user_id', session?.user.id)
         .maybeSingle();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!session,
+    enabled: !!session?.user.id,
   });
 
   // Fetch stories
   const { data: stories, isLoading: isLoadingStories } = useQuery({
-    queryKey: ["userStories"],
+    queryKey: ["userStories", session?.user.id],
     queryFn: async () => {
       if (!session?.user.id) throw new Error("No user ID");
       
@@ -75,7 +77,7 @@ export const Dashboard = () => {
 
   // Fetch images
   const { data: images, isLoading: isLoadingImages } = useQuery({
-    queryKey: ["userImages"],
+    queryKey: ["userImages", session?.user.id],
     queryFn: async () => {
       if (!session?.user.id) throw new Error("No user ID");
 
@@ -96,7 +98,7 @@ export const Dashboard = () => {
 
   // Fetch videos
   const { data: videos, isLoading: isLoadingVideos } = useQuery({
-    queryKey: ["userVideos"],
+    queryKey: ["userVideos", session?.user.id],
     queryFn: async () => {
       if (!session?.user.id) throw new Error("No user ID");
 

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -13,25 +14,29 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
+interface ImageSettings {
+  guidanceScale: number;
+  numInferenceSteps: number;
+}
+
 interface BaseItem {
   id: string;
   prompt: string;
   result_url: string;
+  created_at: string;
+  visibility: 'public' | 'private';
 }
 
 interface ImageData extends BaseItem {
-  settings: {
-    guidanceScale: number;
-    numInferenceSteps: number;
-  };
+  settings: ImageSettings;
 }
 
 interface VideoData extends BaseItem {}
 
-type QueryFnResponse<T> = {
-  pages: T[][];
-  pageParams: number[];
-};
+interface QueryResult {
+  data: ImageData[] | VideoData[];
+  error: Error | null;
+}
 
 export const Explore = () => {
   const navigate = useNavigate();
@@ -62,7 +67,7 @@ export const Explore = () => {
   } = useInfiniteQuery<ImageData[]>({
     queryKey: ["public-images"],
     queryFn: async ({ pageParam = 0 }) => {
-      const start = pageParam * PAGE_SIZE;
+      const start = Number(pageParam) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -71,6 +76,8 @@ export const Explore = () => {
           id,
           prompt,
           result_url,
+          created_at,
+          visibility,
           settings->guidanceScale,
           settings->numInferenceSteps
         `)
@@ -84,6 +91,8 @@ export const Explore = () => {
         id: item.id,
         prompt: item.prompt,
         result_url: item.result_url,
+        created_at: item.created_at,
+        visibility: item.visibility,
         settings: {
           guidanceScale: item.guidanceScale,
           numInferenceSteps: item.numInferenceSteps
@@ -101,15 +110,15 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery({
-    queryKey: ["public-videos"] as const,
+  } = useInfiniteQuery<VideoData[]>({
+    queryKey: ["public-videos"],
     queryFn: async ({ pageParam = 0 }) => {
-      const start = pageParam * PAGE_SIZE;
+      const start = Number(pageParam) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
         .from("video_generation_jobs")
-        .select("id, prompt, result_url")
+        .select("id, prompt, result_url, created_at, visibility")
         .eq("status", "completed")
         .eq("visibility", "public")
         .range(start, end)

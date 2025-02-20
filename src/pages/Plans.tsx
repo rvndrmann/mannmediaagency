@@ -9,6 +9,7 @@ import { PlanCard } from "@/components/plans/PlanCard";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
 import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
+import { useAuth } from "@/components/auth/AuthProvider";
 
 interface Transaction {
   created_at: string;
@@ -28,6 +29,7 @@ interface DiscountCode {
 const Plans = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { user } = useAuth();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [discountCode, setDiscountCode] = useState("");
@@ -67,6 +69,16 @@ const Plans = () => {
   ];
 
   const validateDiscountCode = async (code: string) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Please log in to apply discount codes."
+      });
+      navigate("/auth/login");
+      return;
+    }
+
     setIsValidatingCode(true);
     try {
       const { data: discountData, error } = await supabase
@@ -87,17 +99,6 @@ const Plans = () => {
       }
 
       // Check if user has already used this code
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        toast({
-          variant: "destructive",
-          title: "Authentication Required",
-          description: "Please log in to apply discount codes."
-        });
-        return;
-      }
-
-      // Changed from .single() to .maybeSingle() here
       const { data: usageData } = await supabase
         .from('discount_usage')
         .select('*')
@@ -149,25 +150,63 @@ const Plans = () => {
     return Math.round(originalPrice - discountAmount);
   };
 
-  const handleSubscribe = (plan: typeof plans[0]) => {
-    const finalAmount = calculateDiscountedPrice(plan.price);
-    navigate("/payment", { 
-      state: { 
-        planName: plan.name,
-        amount: finalAmount,
-        originalAmount: plan.price,
-        discountCode: activeDiscount?.code,
-        discountId: activeDiscount?.id
-      } 
-    });
+  const handleSubscribe = async (plan: typeof plans[0]) => {
+    if (!user) {
+      toast({
+        variant: "destructive",
+        title: "Authentication Required",
+        description: "Please log in to purchase a plan."
+      });
+      navigate("/auth/login");
+      return;
+    }
+
+    try {
+      const finalAmount = calculateDiscountedPrice(plan.price);
+      
+      const { data, error } = await supabase.functions.invoke('initiate-payu-payment', {
+        body: { 
+          userId: user.id,
+          planName: plan.name,
+          amount: finalAmount,
+          discountCode: activeDiscount?.code,
+          discountId: activeDiscount?.id
+        }
+      });
+
+      if (error) throw error;
+
+      // Create a temporary div to hold the form
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = data.html;
+      document.body.appendChild(tempDiv);
+
+      // Submit the form
+      const form = tempDiv.querySelector('form');
+      if (form) {
+        form.submit();
+      } else {
+        throw new Error('Payment form not received');
+      }
+    } catch (error) {
+      console.error('Payment error:', error);
+      toast({
+        variant: "destructive",
+        title: "Payment Error",
+        description: "Failed to initiate payment. Please try again."
+      });
+    }
   };
 
   useEffect(() => {
     const fetchTransactions = async () => {
+      if (!user) return;
+      
       try {
         const { data, error } = await supabase
           .from('payment_transactions')
           .select('*')
+          .eq('user_id', user.id)
           .order('created_at', { ascending: false });
 
         if (error) {
@@ -184,7 +223,7 @@ const Plans = () => {
     };
 
     fetchTransactions();
-  }, []);
+  }, [user]);
 
   return (
     <>

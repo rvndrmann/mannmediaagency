@@ -1,48 +1,49 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.38.0'
-import { PaymentRequest } from './types.ts'
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 export class DatabaseService {
   private supabase;
 
   constructor() {
-    this.supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
-    )
+    const supabaseUrl = Deno.env.get('SUPABASE_URL');
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!supabaseUrl || !supabaseKey) {
+      throw new Error('Missing Supabase configuration');
+    }
+
+    this.supabase = createClient(supabaseUrl, supabaseKey);
   }
 
   async createPaymentTransaction(userId: string, txnId: string, amount: number) {
-    console.log('Creating payment transaction:', { userId, txnId, amount });
-    
-    const { error: txnError } = await this.supabase
+    const { error } = await this.supabase
       .from('payment_transactions')
       .insert({
         user_id: userId,
         transaction_id: txnId,
         amount: amount,
         status: 'pending',
-        payment_method: 'payu'
-      })
+        payment_status: 'pending'
+      });
 
-    if (txnError) {
-      console.error('Transaction creation error:', txnError);
-      throw new Error(`Failed to create transaction: ${txnError.message}`);
+    if (error) {
+      console.error('DB Error - Create Transaction:', error);
+      throw error;
     }
-
-    console.log('Payment transaction created successfully');
   }
 
-  async getUserEmail(userId: string): Promise<string> {
-    console.log('Fetching email for user:', userId);
-    
-    const { data: { user }, error: userError } = await this.supabase.auth.admin.getUserById(userId)
-    if (userError || !user) {
-      console.error('User fetch error:', userError);
-      throw new Error('Failed to get user details');
+  async getUserEmail(userId: string): Promise<string | null> {
+    const { data, error } = await this.supabase
+      .from('auth.users')
+      .select('email')
+      .eq('id', userId)
+      .single();
+
+    if (error) {
+      console.error('DB Error - Get User Email:', error);
+      throw error;
     }
-    
-    console.log('User email fetched successfully');
-    return user.email || '';
+
+    return data?.email || null;
   }
 }

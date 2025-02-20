@@ -37,25 +37,6 @@ const Metadata = () => {
     },
   });
 
-  const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["product-images"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("image_generation_jobs")
-        .select(`
-          *,
-          product_image_metadata (
-            id
-          )
-        `)
-        .eq('status', 'completed')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
   const { data: videos, isLoading: videosLoading } = useQuery({
     queryKey: ["video-jobs"],
     queryFn: async () => {
@@ -87,7 +68,7 @@ const Metadata = () => {
     navigate(`/metadata/${id}`);
   };
 
-  if (storiesLoading || imagesLoading || videosLoading) {
+  if (storiesLoading || videosLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
@@ -141,7 +122,6 @@ const Metadata = () => {
 
                 <TabsContent value="images">
                   <ImagesTabContent 
-                    images={images || []}
                     selectedId={storyId}
                     onImageSelect={handleImageSelect}
                     showMetadata={isUUID && !!storyId && !videos?.some(v => v.id === storyId)}
@@ -150,7 +130,6 @@ const Metadata = () => {
 
                 <TabsContent value="videos">
                   <VideosTabContent 
-                    videos={videos || []}
                     selectedId={storyId}
                     onVideoSelect={handleVideoSelect}
                     showMetadata={isUUID && !!storyId && videos?.some(v => v.id === storyId)}

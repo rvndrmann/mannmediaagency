@@ -1,5 +1,7 @@
 
 import { ProductMetadataManager } from "@/components/product/ProductMetadataManager";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ImageData {
   id: string;
@@ -16,7 +18,45 @@ interface ImagesTabContentProps {
   showMetadata: boolean;
 }
 
-export const ImagesTabContent = ({ images, selectedId, onImageSelect, showMetadata }: ImagesTabContentProps) => {
+export const ImagesTabContent = ({ selectedId, onImageSelect, showMetadata }: ImagesTabContentProps) => {
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
+
+  const { data: images, isLoading } = useQuery({
+    queryKey: ["product-images", session?.user.id],
+    queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user session");
+
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select(`
+          id,
+          result_url,
+          prompt,
+          created_at,
+          product_image_metadata (
+            id
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user.id,
+  });
+
+  if (isLoading) {
+    return <div className="text-center text-white/70 py-8">Loading images...</div>;
+  }
+
   return (
     <div className="flex gap-6">
       <div className="w-1/3">

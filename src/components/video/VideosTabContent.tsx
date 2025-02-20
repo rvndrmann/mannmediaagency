@@ -1,5 +1,7 @@
 
 import { VideoMetadataManager } from "./VideoMetadataManager";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VideoData {
   id: string;
@@ -10,13 +12,51 @@ interface VideoData {
 }
 
 interface VideosTabContentProps {
-  videos: VideoData[];
   selectedId?: string;
   onVideoSelect: (id: string) => void;
   showMetadata: boolean;
 }
 
-export const VideosTabContent = ({ videos, selectedId, onVideoSelect, showMetadata }: VideosTabContentProps) => {
+export const VideosTabContent = ({ selectedId, onVideoSelect, showMetadata }: VideosTabContentProps) => {
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
+
+  const { data: videos, isLoading } = useQuery({
+    queryKey: ["video-jobs", session?.user.id],
+    queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user session");
+
+      const { data, error } = await supabase
+        .from("video_generation_jobs")
+        .select(`
+          id,
+          result_url,
+          prompt,
+          created_at,
+          video_metadata (
+            id
+          )
+        `)
+        .eq('user_id', session.user.id)
+        .eq('status', 'completed')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user.id,
+  });
+
+  if (isLoading) {
+    return <div className="text-center text-white/70 py-8">Loading videos...</div>;
+  }
+
   return (
     <div className="flex gap-6">
       <div className="w-1/3">

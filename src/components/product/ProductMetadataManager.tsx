@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +10,12 @@ import { Input } from "@/components/ui/input";
 
 interface ProductMetadataManagerProps {
   imageJobId: string;
+}
+
+interface MetadataDisplay {
+  label: string;
+  value: string | null;
+  isMultiline?: boolean;
 }
 
 export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerProps) => {

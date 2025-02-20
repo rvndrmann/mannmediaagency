@@ -97,6 +97,10 @@ const fetchVideos = async (page: number): Promise<PageData<ExploreVideoData>> =>
   };
 };
 
+type QueryFnParams = {
+  pageParam: number;
+};
+
 export const useExploreData = (session: any) => {
   const { 
     data: imagesData,
@@ -105,7 +109,7 @@ export const useExploreData = (session: any) => {
     hasNextPage: hasMoreImages,
   } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: ({ pageParam }) => fetchImages(pageParam as number),
+    queryFn: ({ pageParam }: QueryFnParams) => fetchImages(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
@@ -118,7 +122,7 @@ export const useExploreData = (session: any) => {
     hasNextPage: hasMoreVideos,
   } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: ({ pageParam }) => fetchVideos(pageParam as number),
+    queryFn: ({ pageParam }: QueryFnParams) => fetchVideos(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,

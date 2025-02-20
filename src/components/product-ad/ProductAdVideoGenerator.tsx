@@ -10,10 +10,10 @@ interface VideoJobData {
   status: string;
   result_url: string | null;
   created_at: string;
-  project_id: string;
   user_id: string;
   prompt: string;
   error_message: string | null;
+  visibility?: string;
 }
 
 export const ProductAdVideoGenerator = () => {

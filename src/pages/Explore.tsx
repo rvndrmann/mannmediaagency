@@ -92,11 +92,12 @@ export const Explore = () => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {items.map((image) => (
         <Card key={image.id} className="overflow-hidden bg-gray-900 border-gray-800">
-          <div className="aspect-square relative">
+          <div className="relative">
             <img
               src={image.result_url!}
               alt={image.prompt}
-              className="w-full h-full object-cover"
+              className="w-full h-auto"
+              loading="lazy"
             />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
               <Button
@@ -135,11 +136,14 @@ export const Explore = () => {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {items.map((video) => (
         <Card key={video.id} className="overflow-hidden bg-gray-900 border-gray-800">
-          <div className="aspect-video relative">
+          <div className="relative">
             <video
               src={video.result_url!}
-              className="w-full h-full object-cover"
+              className="w-full h-auto"
               controls
+              preload="metadata"
+              controlsList="nodownload"
+              playsInline
             />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
               <Button

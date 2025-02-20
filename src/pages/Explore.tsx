@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
@@ -14,6 +14,9 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
+const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
+
 export const Explore = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -22,7 +25,10 @@ export const Explore = () => {
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const PAGE_SIZE = 12;
 
-  const { ref: loadMoreRef, inView } = useInView();
+  const { ref: loadMoreRef, inView } = useInView({
+    threshold: 0.1,
+    rootMargin: "100px",
+  });
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -151,155 +157,6 @@ export const Explore = () => {
   const videos = videosData?.pages.flat() || [];
   const hasContent = images.length > 0 || videos.length > 0;
 
-  const ImageGrid = ({ items = [] }) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-      {items.map((image) => (
-        <Card key={image.id} className="overflow-hidden bg-gray-900 border-gray-800">
-          <div className="relative aspect-square">
-            <img
-              src={image.result_url!}
-              alt={image.prompt}
-              className="w-full h-full object-cover"
-              loading="lazy"
-              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
-            />
-            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDownload(image.result_url!, `image-${image.id}.png`)}
-                className="text-white hover:text-purple-400"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-3 md:p-4">
-            {image.settings && !isMobile && (
-              <div className="flex items-center gap-4 mb-4 text-sm text-gray-400">
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1">
-                        <span>Guidance: {image.settings.guidanceScale}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleCopyValue(image.id, image.settings.guidanceScale, 'guidance')}
-                          className="h-6 w-6"
-                        >
-                          {copiedField === `${image.id}-guidance` ? (
-                            <Check className="h-3 w-3 text-green-500" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    {image.settings.guidanceScale !== 3.5 && (
-                      <TooltipContent>
-                        <p>Default guidance scale is 3.5, don't forget to adjust for this image</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-
-                <TooltipProvider>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <div className="flex items-center gap-1">
-                        <span>Steps: {image.settings.numInferenceSteps}</span>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleCopyValue(image.id, image.settings.numInferenceSteps, 'steps')}
-                          className="h-6 w-6"
-                        >
-                          {copiedField === `${image.id}-steps` ? (
-                            <Check className="h-3 w-3 text-green-500" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </Button>
-                      </div>
-                    </TooltipTrigger>
-                    {image.settings.numInferenceSteps !== 8 && (
-                      <TooltipContent>
-                        <p>Default steps value is 8, don't forget to adjust for this image</p>
-                      </TooltipContent>
-                    )}
-                  </Tooltip>
-                </TooltipProvider>
-              </div>
-            )}
-            
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-gray-300 flex-1 line-clamp-2">{image.prompt}</p>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleCopyPrompt(image.id, image.prompt)}
-                className="shrink-0"
-              >
-                {copiedPrompts[image.id] ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-
-  const VideoGrid = ({ items = [] }) => (
-    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
-      {items.map((video) => (
-        <Card key={video.id} className="overflow-hidden bg-gray-900 border-gray-800">
-          <div className="relative">
-            <video
-              src={video.result_url!}
-              className="w-full h-auto"
-              controls
-              preload="metadata"
-              controlsList="nodownload"
-              playsInline
-            />
-            <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleDownload(video.result_url!, `video-${video.id}.mp4`)}
-                className="text-white hover:text-purple-400"
-              >
-                <Download className="h-5 w-5" />
-              </Button>
-            </div>
-          </div>
-          <div className="p-3 md:p-4">
-            <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-gray-300 flex-1 line-clamp-2">{video.prompt}</p>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={() => handleCopyPrompt(video.id, video.prompt)}
-                className="shrink-0"
-              >
-                {copiedPrompts[video.id] ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
-            </div>
-          </div>
-        </Card>
-      ))}
-    </div>
-  );
-
   return (
     <div className="flex-1 p-3 md:p-8">
       <div className="flex items-center gap-4 mb-6">
@@ -332,36 +189,38 @@ export const Explore = () => {
           </TabsList>
 
           <div className="min-h-[calc(100vh-12rem)] mt-6">
-            <TabsContent value="all" className="m-0">
-              <div className="space-y-8">
-                {images?.length ? <ImageGrid items={images} /> : null}
-                {videos?.length ? (
-                  <div className="mt-8">
-                    <VideoGrid items={videos} />
+            <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin text-purple-600" />}>
+              <TabsContent value="all" className="m-0">
+                <div className="space-y-8">
+                  {images?.length ? <ImageGrid items={images} onCopyPrompt={handleCopyPrompt} onCopyValue={handleCopyValue} onDownload={handleDownload} copiedField={copiedField} copiedPrompts={copiedPrompts} isMobile={isMobile} /> : null}
+                  {videos?.length ? (
+                    <div className="mt-8">
+                      <VideoGrid items={videos} onCopyPrompt={handleCopyPrompt} onDownload={handleDownload} copiedPrompts={copiedPrompts} />
+                    </div>
+                  ) : null}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="images" className="m-0">
+                {images?.length ? (
+                  <ImageGrid items={images} onCopyPrompt={handleCopyPrompt} onCopyValue={handleCopyValue} onDownload={handleDownload} copiedField={copiedField} copiedPrompts={copiedPrompts} isMobile={isMobile} />
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    No public images available
                   </div>
-                ) : null}
-              </div>
-            </TabsContent>
+                )}
+              </TabsContent>
 
-            <TabsContent value="images" className="m-0">
-              {images?.length ? (
-                <ImageGrid items={images} />
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  No public images available
-                </div>
-              )}
-            </TabsContent>
-
-            <TabsContent value="videos" className="m-0">
-              {videos?.length ? (
-                <VideoGrid items={videos} />
-              ) : (
-                <div className="text-center py-12 text-gray-500">
-                  No public videos available
-                </div>
-              )}
-            </TabsContent>
+              <TabsContent value="videos" className="m-0">
+                {videos?.length ? (
+                  <VideoGrid items={videos} onCopyPrompt={handleCopyPrompt} onDownload={handleDownload} copiedPrompts={copiedPrompts} />
+                ) : (
+                  <div className="text-center py-12 text-gray-500">
+                    No public videos available
+                  </div>
+                )}
+              </TabsContent>
+            </Suspense>
 
             {(hasMoreImages || hasMoreVideos) && (
               <div 

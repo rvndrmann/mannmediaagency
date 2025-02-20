@@ -1,4 +1,3 @@
-
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -10,33 +9,21 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ImageGenerationJob, VideoGenerationJob } from "@/types/supabase";
 
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
-interface ImageSettings {
-  guidanceScale: number;
-  numInferenceSteps: number;
+interface ImageData extends Omit<ImageGenerationJob, 'user_id'> {
+  settings: {
+    guidanceScale: number;
+    numInferenceSteps: number;
+  };
 }
 
-interface BaseItem {
-  id: string;
-  prompt: string;
-  result_url: string;
-  created_at: string;
-  visibility: "public" | "private";
-}
+interface VideoData extends Omit<VideoGenerationJob, 'user_id'> {}
 
-interface ImageData extends BaseItem {
-  settings: ImageSettings;
-}
-
-interface VideoData extends BaseItem {}
-
-interface QueryResult {
-  data: ImageData[] | VideoData[];
-  error: Error | null;
-}
+const PAGE_SIZE = 12;
 
 export const Explore = () => {
   const navigate = useNavigate();
@@ -44,7 +31,6 @@ export const Explore = () => {
   const [copiedPrompts, setCopiedPrompts] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"all" | "images" | "videos">("all");
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const PAGE_SIZE = 12;
 
   const { ref: loadMoreRef, inView } = useInView({
     threshold: 0.1,
@@ -95,9 +81,10 @@ export const Explore = () => {
         result_url: item.result_url,
         created_at: item.created_at,
         visibility: item.visibility as "public" | "private",
+        status: "completed",
         settings: {
-          guidanceScale: item.guidanceScale,
-          numInferenceSteps: item.numInferenceSteps
+          guidanceScale: item.guidanceScale || 3.5,
+          numInferenceSteps: item.numInferenceSteps || 8
         }
       }));
     },
@@ -127,9 +114,14 @@ export const Explore = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
       return data.map(item => ({
-        ...item,
-        visibility: item.visibility as "public" | "private"
+        id: item.id,
+        prompt: item.prompt,
+        result_url: item.result_url,
+        created_at: item.created_at,
+        visibility: item.visibility as "public" | "private",
+        status: "completed"
       }));
     },
     getNextPageParam: (lastPage, allPages) => 

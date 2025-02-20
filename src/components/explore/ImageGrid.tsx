@@ -5,7 +5,15 @@ import { Download, Copy, Check } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ImageGridProps {
-  items: any[];
+  items: Array<{
+    id: string;
+    prompt: string;
+    result_url: string | null;
+    settings?: {
+      guidanceScale: number;
+      numInferenceSteps: number;
+    };
+  }>;
   onCopyPrompt: (id: string, prompt: string) => void;
   onCopyValue: (id: string, value: number, field: string) => void;
   onDownload: (url: string, filename: string) => void;
@@ -14,7 +22,7 @@ interface ImageGridProps {
   isMobile: boolean;
 }
 
-const ImageGrid = ({ 
+export const ImageGrid = ({ 
   items,
   onCopyPrompt,
   onCopyValue,
@@ -40,7 +48,7 @@ const ImageGrid = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onDownload(image.result_url!, `image-${image.id}.png`)}
+                onClick={() => image.result_url && onDownload(image.result_url, `image-${image.id}.png`)}
                 className="text-white hover:text-purple-400"
               >
                 <Download className="h-5 w-5" />
@@ -58,7 +66,7 @@ const ImageGrid = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => onCopyValue(image.id, image.settings.guidanceScale, 'guidance')}
+                          onClick={() => onCopyValue(image.id, image.settings!.guidanceScale, 'guidance')}
                           className="h-6 w-6"
                         >
                           {copiedField === `${image.id}-guidance` ? (
@@ -85,7 +93,7 @@ const ImageGrid = ({
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => onCopyValue(image.id, image.settings.numInferenceSteps, 'steps')}
+                          onClick={() => onCopyValue(image.id, image.settings!.numInferenceSteps, 'steps')}
                           className="h-6 w-6"
                         >
                           {copiedField === `${image.id}-steps` ? (

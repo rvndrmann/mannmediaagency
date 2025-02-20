@@ -4,7 +4,11 @@ import { Button } from "@/components/ui/button";
 import { Download, Copy, Check } from "lucide-react";
 
 interface VideoGridProps {
-  items: any[];
+  items: Array<{
+    id: string;
+    prompt: string;
+    result_url: string | null;
+  }>;
   onCopyPrompt: (id: string, prompt: string) => void;
   onDownload: (url: string, filename: string) => void;
   copiedPrompts: Record<string, boolean>;
@@ -33,7 +37,7 @@ const VideoGrid = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => onDownload(video.result_url!, `video-${video.id}.mp4`)}
+                onClick={() => video.result_url && onDownload(video.result_url, `video-${video.id}.mp4`)}
                 className="text-white hover:text-purple-400"
               >
                 <Download className="h-5 w-5" />

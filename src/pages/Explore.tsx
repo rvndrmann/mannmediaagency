@@ -1,7 +1,7 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
+import { useInView } from "react-intersection-observer";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Card } from "@/components/ui/card";
@@ -12,12 +12,18 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 export const Explore = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [copiedPrompts, setCopiedPrompts] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"all" | "images" | "videos">("all");
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 12;
+
+  const { ref: loadMoreRef, inView } = useInView();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -27,35 +33,57 @@ export const Explore = () => {
     },
   });
 
-  const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["public-images"],
+  const { data: images = [], isLoading: imagesLoading, fetchNextPage: fetchMoreImages, hasNextPage: hasMoreImages } = useQuery({
+    queryKey: ["public-images", page],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("image_generation_jobs")
-        .select("*")
+        .select(`
+          id,
+          prompt,
+          result_url,
+          settings->guidanceScale,
+          settings->numInferenceSteps
+        `)
         .eq("status", "completed")
-        .eq("visibility", "public");
+        .eq("visibility", "public")
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data;
     },
-    enabled: !!session
+    enabled: !!session,
+    keepPreviousData: true
   });
 
-  const { data: videos, isLoading: videosLoading } = useQuery({
-    queryKey: ["public-videos"],
+  const { data: videos = [], isLoading: videosLoading, fetchNextPage: fetchMoreVideos, hasNextPage: hasMoreVideos } = useQuery({
+    queryKey: ["public-videos", page],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("video_generation_jobs")
-        .select("*")
+        .select(`
+          id,
+          prompt,
+          result_url
+        `)
         .eq("status", "completed")
-        .eq("visibility", "public");
+        .eq("visibility", "public")
+        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data;
     },
-    enabled: !!session
+    enabled: !!session,
+    keepPreviousData: true
   });
+
+  useEffect(() => {
+    if (inView && (hasMoreImages || hasMoreVideos)) {
+      setPage(prev => prev + 1);
+    }
+  }, [inView, hasMoreImages, hasMoreVideos]);
 
   const handleCopyPrompt = async (id: string, prompt: string) => {
     try {
@@ -99,18 +127,19 @@ export const Explore = () => {
   };
 
   const isLoading = imagesLoading || videosLoading;
-  const hasContent = (images?.length || 0) + (videos?.length || 0) > 0;
+  const hasContent = images.length > 0 || videos.length > 0;
 
   const ImageGrid = ({ items = [] }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
       {items.map((image) => (
         <Card key={image.id} className="overflow-hidden bg-gray-900 border-gray-800">
-          <div className="relative">
+          <div className="relative aspect-square">
             <img
               src={image.result_url!}
               alt={image.prompt}
-              className="w-full h-auto"
+              className="w-full h-full object-cover"
               loading="lazy"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 25vw"
             />
             <div className="absolute inset-0 bg-black/50 opacity-0 hover:opacity-100 transition-opacity flex items-center justify-center">
               <Button
@@ -123,8 +152,8 @@ export const Explore = () => {
               </Button>
             </div>
           </div>
-          <div className="p-4">
-            {image.settings && (
+          <div className="p-3 md:p-4">
+            {image.settings && !isMobile && (
               <div className="flex items-center gap-4 mb-4 text-sm text-gray-400">
                 <TooltipProvider>
                   <Tooltip>
@@ -183,7 +212,7 @@ export const Explore = () => {
             )}
             
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-gray-300 flex-1">{image.prompt}</p>
+              <p className="text-sm text-gray-300 flex-1 line-clamp-2">{image.prompt}</p>
               <Button
                 variant="ghost"
                 size="icon"
@@ -204,7 +233,7 @@ export const Explore = () => {
   );
 
   const VideoGrid = ({ items = [] }) => (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+    <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
       {items.map((video) => (
         <Card key={video.id} className="overflow-hidden bg-gray-900 border-gray-800">
           <div className="relative">
@@ -227,9 +256,9 @@ export const Explore = () => {
               </Button>
             </div>
           </div>
-          <div className="p-4">
+          <div className="p-3 md:p-4">
             <div className="flex items-start justify-between gap-2">
-              <p className="text-sm text-gray-300 flex-1">{video.prompt}</p>
+              <p className="text-sm text-gray-300 flex-1 line-clamp-2">{video.prompt}</p>
               <Button
                 variant="ghost"
                 size="icon"
@@ -250,7 +279,7 @@ export const Explore = () => {
   );
 
   return (
-    <div className="flex-1 p-4 md:p-8">
+    <div className="flex-1 p-3 md:p-8">
       <div className="flex items-center gap-4 mb-6">
         <SidebarTrigger className="md:hidden" />
         <Button
@@ -264,7 +293,7 @@ export const Explore = () => {
         <h1 className="text-xl md:text-2xl font-bold">Explore</h1>
       </div>
 
-      {isLoading ? (
+      {isLoading && page === 0 ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
         </div>
@@ -274,13 +303,13 @@ export const Explore = () => {
         </div>
       ) : (
         <Tabs value={activeTab} onValueChange={(value: "all" | "images" | "videos") => setActiveTab(value)}>
-          <TabsList>
-            <TabsTrigger value="all">All Content</TabsTrigger>
-            <TabsTrigger value="images">Images</TabsTrigger>
-            <TabsTrigger value="videos">Videos</TabsTrigger>
+          <TabsList className="w-full sm:w-auto">
+            <TabsTrigger value="all" className="flex-1 sm:flex-none">All Content</TabsTrigger>
+            <TabsTrigger value="images" className="flex-1 sm:flex-none">Images</TabsTrigger>
+            <TabsTrigger value="videos" className="flex-1 sm:flex-none">Videos</TabsTrigger>
           </TabsList>
 
-          <ScrollArea className="h-[calc(100vh-12rem)] mt-6">
+          <div className="min-h-[calc(100vh-12rem)] mt-6">
             <TabsContent value="all" className="m-0">
               <div className="space-y-8">
                 {images?.length ? <ImageGrid items={images} /> : null}
@@ -311,7 +340,16 @@ export const Explore = () => {
                 </div>
               )}
             </TabsContent>
-          </ScrollArea>
+
+            {(hasMoreImages || hasMoreVideos) && (
+              <div 
+                ref={loadMoreRef}
+                className="flex justify-center py-8"
+              >
+                <Loader2 className="h-6 w-6 animate-spin text-purple-600" />
+              </div>
+            )}
+          </div>
         </Tabs>
       )}
     </div>

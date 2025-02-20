@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,6 +8,7 @@ import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle"
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { useNavigate } from "react-router-dom";
+import { Loader2, Button } from "@/components/ui";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
@@ -22,17 +22,53 @@ const ProductShoot = () => {
   const [outputFormat, setOutputFormat] = useState("png");
   const queryClient = useQueryClient();
 
-  // Check authentication status and redirect if not authenticated
-  const { data: session, isLoading: sessionLoading } = useQuery({
+  const { data: session, isLoading: sessionLoading, error: sessionError } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
-      if (error || !session) {
+      if (error) throw error;
+      if (!session) {
         navigate("/auth/login");
         return null;
       }
       return session;
     },
+    retry: false,
+  });
+
+  const { data: userCredits, error: creditsError } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      if (!session?.user?.id) return null;
+      
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq('user_id', session.user.id)
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user?.id,
+  });
+
+  const { data: images, isLoading: imagesLoading, error: imagesError } = useQuery({
+    queryKey: ["product-images", session?.user?.id],
+    queryFn: async () => {
+      if (!session?.user?.id) return [];
+      
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .eq('user_id', session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user?.id,
+    refetchInterval: 5000,
   });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,41 +91,6 @@ const ProductShoot = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
   };
-
-  // Query user credits with proper auth check
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .eq('user_id', session?.user?.id)
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session?.user?.id,
-  });
-
-  // Query user's images with proper auth check
-  const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["product-images", session?.user?.id],
-    queryFn: async () => {
-      if (!session?.user?.id) return [];
-      
-      const { data, error } = await supabase
-        .from("image_generation_jobs")
-        .select("*")
-        .eq('user_id', session.user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session?.user?.id,
-    refetchInterval: 5000,
-  });
 
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -159,6 +160,7 @@ const ProductShoot = () => {
       const message = error instanceof Error ? error.message : "Failed to generate image";
       const isCreditsError = message.toLowerCase().includes('credits');
       
+      console.error("Image generation error:", error);
       toast.error(message, {
         duration: 5000,
         action: isCreditsError ? {
@@ -189,13 +191,35 @@ const ProductShoot = () => {
   if (sessionLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
-        <div className="text-white">Loading...</div>
+        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
       </div>
     );
   }
 
-  if (!session) {
-    return null;
+  if (sessionError || !session) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <p className="text-red-500">Please sign in to access this page</p>
+          <Button onClick={() => navigate("/auth/login")}>
+            Go to Login
+          </Button>
+        </div>
+      </div>
+    );
+  }
+
+  if (creditsError || imagesError) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center space-y-4">
+          <p className="text-red-500">Failed to load data. Please try again.</p>
+          <Button onClick={() => window.location.reload()}>
+            Retry
+          </Button>
+        </div>
+      </div>
+    );
   }
 
   return (

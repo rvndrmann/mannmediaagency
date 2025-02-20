@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +21,6 @@ const ProductShoot = () => {
   const [outputFormat, setOutputFormat] = useState("png");
   const queryClient = useQueryClient();
 
-  // Check authentication status
   const { data: session } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
@@ -33,6 +31,24 @@ const ProductShoot = () => {
       }
       return session;
     },
+  });
+
+  const { data: images, isLoading: imagesLoading } = useQuery({
+    queryKey: ["product-images"],
+    queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user ID");
+
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .eq('user_id', session.user.id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session?.user.id,
+    refetchInterval: 5000,
   });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -55,35 +71,6 @@ const ProductShoot = () => {
     setSelectedFile(null);
     setPreviewUrl(null);
   };
-
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session,
-  });
-
-  const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["product-images"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("image_generation_jobs")
-        .select("*")
-        .order("created_at", { ascending: false });
-
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session,
-    refetchInterval: 5000,
-  });
 
   const convertFileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {

@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -23,6 +22,19 @@ export const Dashboard = () => {
     to: undefined,
   });
 
+  // Get the current session
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error || !session) {
+        navigate("/auth/login");
+        return null;
+      }
+      return session;
+    },
+  });
+
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -34,12 +46,15 @@ export const Dashboard = () => {
       if (error) throw error;
       return data;
     },
+    enabled: !!session,
   });
 
   // Fetch stories
   const { data: stories, isLoading: isLoadingStories } = useQuery({
     queryKey: ["userStories"],
     queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user ID");
+      
       const { data, error } = await supabase
         .from("stories")
         .select(`
@@ -49,45 +64,55 @@ export const Dashboard = () => {
             instagram_hashtags
           )
         `)
+        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user.id,
   });
 
   // Fetch images
   const { data: images, isLoading: isLoadingImages } = useQuery({
     queryKey: ["userImages"],
     queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user ID");
+
       const { data, error } = await supabase
         .from("image_generation_jobs")
         .select(`
           *,
           product_image_metadata (*)
         `)
+        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user.id,
   });
 
   // Fetch videos
   const { data: videos, isLoading: isLoadingVideos } = useQuery({
     queryKey: ["userVideos"],
     queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user ID");
+
       const { data, error } = await supabase
         .from("video_generation_jobs")
         .select(`
           *,
           video_metadata (*)
         `)
+        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user.id,
   });
 
   return (

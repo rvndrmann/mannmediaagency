@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -70,10 +69,13 @@ const ImageToVideo = () => {
   const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery({
     queryKey: ["videos"],
     queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user ID");
+      
       console.log("Fetching videos...");
       const { data, error } = await supabase
         .from("video_generation_jobs")
         .select("*")
+        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -84,7 +86,7 @@ const ImageToVideo = () => {
       console.log("Fetched videos:", data);
       return data as SupabaseVideoJob[];
     },
-    enabled: !!session,
+    enabled: !!session?.user.id,
   });
 
   useEffect(() => {

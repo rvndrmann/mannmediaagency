@@ -8,7 +8,7 @@ import { cn } from "@/lib/utils";
 interface Video {
   id: string;
   prompt: string;
-  result_url: string | null;
+  result_url?: string | null;  // Made optional to match SupabaseVideoJob type
   status: string;
 }
 

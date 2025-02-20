@@ -27,12 +27,12 @@ export function GalleryPanel({
 }: GalleryPanelProps) {
   return (
     <div className={cn(
-      "bg-background",
+      "bg-background w-full",
       isMobile ? "flex-1 min-h-0" : "flex-1"
     )}>
       <ScrollArea className={cn(
-        "h-full",
-        isMobile ? "max-h-[calc(100vh-16rem)]" : "h-[calc(100vh-3rem)]"
+        "w-full",
+        isMobile ? "h-[calc(100vh-16rem)]" : "h-[calc(100vh-3rem)]"
       )}>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 p-2">
           {isLoading ? (
@@ -48,7 +48,7 @@ export function GalleryPanel({
             images.map((image) => (
               <Card 
                 key={image.id}
-                className="p-2 bg-gray-900 border-gray-700 animate-fade-in"
+                className="p-2 bg-gray-900 border-gray-700 animate-fade-in w-full"
               >
                 <div className="space-y-2">
                   {image.status === 'processing' ? (

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -38,18 +37,11 @@ const LoginForm = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      // More flexible production domain check
       const hostname = window.location.hostname;
-      const isProd = hostname === 'mannmediaagency.com' || hostname === 'www.mannmediaagency.com';
+      const origin = window.location.origin;
       
-      console.log('Current hostname:', hostname);
-      console.log('Is production environment:', isProd);
+      const redirectTo = `${origin}/auth/callback`;
       
-      // Set the appropriate redirect URL based on environment
-      const redirectTo = isProd 
-        ? 'https://mannmediaagency.com/auth/callback'
-        : `${window.location.origin}/auth/callback`;
-
       console.log('Using redirect URL:', redirectTo);
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -60,21 +52,18 @@ const LoginForm = () => {
             access_type: 'offline',
             prompt: 'consent',
           },
-          scopes: 'email profile',
+          skipBrowserRedirect: false,
         },
       });
       
       if (error) {
         console.error('OAuth error details:', error);
-        if (error.message.includes('popup_closed_by_user')) {
-          toast.error('Login cancelled. Please try again.');
-        } else {
-          toast.error('Failed to login with Google. Please try again.');
-        }
+        toast.error(error.message);
         throw error;
       }
     } catch (error: any) {
       console.error('Google login error:', error);
+      toast.error('Failed to login with Google. Please try again.');
     } finally {
       setIsGoogleLoading(false);
     }

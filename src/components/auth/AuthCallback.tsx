@@ -10,8 +10,21 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        const { error } = await supabase.auth.getSession();
-        if (error) throw error;
+        // Get the session from the URL
+        const { data: { session }, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error("Session error:", error);
+          throw error;
+        }
+        
+        if (!session) {
+          console.error("No session found");
+          throw new Error("No session found");
+        }
+
+        // Log successful login details for debugging
+        console.log("Login successful, user:", session.user?.email);
         
         // Successful login, redirect to home
         toast.success("Successfully logged in!");
@@ -23,6 +36,7 @@ const AuthCallback = () => {
       }
     };
 
+    // Execute callback handler
     handleCallback();
   }, [navigate]);
 

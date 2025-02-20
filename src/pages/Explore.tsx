@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +20,6 @@ export const Explore = () => {
   const [copiedPrompts, setCopiedPrompts] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"all" | "images" | "videos">("all");
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [page, setPage] = useState(0);
   const PAGE_SIZE = 12;
 
   const { ref: loadMoreRef, inView } = useInView();
@@ -33,9 +32,17 @@ export const Explore = () => {
     },
   });
 
-  const { data: images = [], isLoading: imagesLoading, fetchNextPage: fetchMoreImages, hasNextPage: hasMoreImages } = useQuery({
-    queryKey: ["public-images", page],
-    queryFn: async () => {
+  const { 
+    data: imagesData,
+    isLoading: imagesLoading,
+    fetchNextPage: fetchMoreImages,
+    hasNextPage: hasMoreImages,
+  } = useInfiniteQuery({
+    queryKey: ["public-images"],
+    queryFn: async ({ pageParam = 0 }) => {
+      const start = pageParam * PAGE_SIZE;
+      const end = start + PAGE_SIZE - 1;
+
       const { data, error } = await supabase
         .from("image_generation_jobs")
         .select(`
@@ -47,19 +54,29 @@ export const Explore = () => {
         `)
         .eq("status", "completed")
         .eq("visibility", "public")
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        .range(start, end)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage?.length === PAGE_SIZE ? allPages.length : undefined;
+    },
     enabled: !!session,
-    keepPreviousData: true
   });
 
-  const { data: videos = [], isLoading: videosLoading, fetchNextPage: fetchMoreVideos, hasNextPage: hasMoreVideos } = useQuery({
-    queryKey: ["public-videos", page],
-    queryFn: async () => {
+  const {
+    data: videosData,
+    isLoading: videosLoading,
+    fetchNextPage: fetchMoreVideos,
+    hasNextPage: hasMoreVideos,
+  } = useInfiniteQuery({
+    queryKey: ["public-videos"],
+    queryFn: async ({ pageParam = 0 }) => {
+      const start = pageParam * PAGE_SIZE;
+      const end = start + PAGE_SIZE - 1;
+
       const { data, error } = await supabase
         .from("video_generation_jobs")
         .select(`
@@ -69,21 +86,24 @@ export const Explore = () => {
         `)
         .eq("status", "completed")
         .eq("visibility", "public")
-        .range(page * PAGE_SIZE, (page + 1) * PAGE_SIZE - 1)
+        .range(start, end)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    getNextPageParam: (lastPage, allPages) => {
+      return lastPage?.length === PAGE_SIZE ? allPages.length : undefined;
+    },
     enabled: !!session,
-    keepPreviousData: true
   });
 
   useEffect(() => {
-    if (inView && (hasMoreImages || hasMoreVideos)) {
-      setPage(prev => prev + 1);
+    if (inView) {
+      if (hasMoreImages) fetchMoreImages();
+      if (hasMoreVideos) fetchMoreVideos();
     }
-  }, [inView, hasMoreImages, hasMoreVideos]);
+  }, [inView, hasMoreImages, hasMoreVideos, fetchMoreImages, fetchMoreVideos]);
 
   const handleCopyPrompt = async (id: string, prompt: string) => {
     try {
@@ -127,6 +147,8 @@ export const Explore = () => {
   };
 
   const isLoading = imagesLoading || videosLoading;
+  const images = imagesData?.pages.flat() || [];
+  const videos = videosData?.pages.flat() || [];
   const hasContent = images.length > 0 || videos.length > 0;
 
   const ImageGrid = ({ items = [] }) => (
@@ -293,7 +315,7 @@ export const Explore = () => {
         <h1 className="text-xl md:text-2xl font-bold">Explore</h1>
       </div>
 
-      {isLoading && page === 0 ? (
+      {isLoading && !hasContent ? (
         <div className="flex items-center justify-center py-12">
           <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
         </div>

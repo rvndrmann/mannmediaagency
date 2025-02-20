@@ -1,18 +1,17 @@
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { ProductAdScriptGenerator } from "@/components/product-ad/ProductAdScriptGenerator";
 import { ProductAdShots } from "@/components/product-ad/ProductAdShots";
-import { ProductAdVideoGenerator } from "@/components/product-ad/ProductAdVideoGenerator";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 
 const ProductAd = () => {
   const navigate = useNavigate();
-  const [currentStep, setCurrentStep] = useState<'script' | 'shots' | 'video'>('script');
+  const [currentStep, setCurrentStep] = useState<'script' | 'shots'>('script');
   const [projectId, setProjectId] = useState<string | null>(null);
   
   const { data: session } = useQuery({
@@ -57,7 +56,7 @@ const ProductAd = () => {
     enabled: !!projectId && !!session,
   });
 
-  const handleStepComplete = (step: 'script' | 'shots' | 'video', newProjectId?: string) => {
+  const handleStepComplete = (step: 'script' | 'shots', newProjectId?: string) => {
     if (newProjectId) {
       setProjectId(newProjectId);
     }
@@ -67,9 +66,6 @@ const ProductAd = () => {
         setCurrentStep('shots');
         break;
       case 'shots':
-        setCurrentStep('video');
-        break;
-      case 'video':
         navigate("/");
         break;
     }
@@ -110,13 +106,6 @@ const ProductAd = () => {
             <ProductAdShots
               projectId={projectId}
               onComplete={() => handleStepComplete('shots')}
-            />
-          )}
-
-          {currentStep === 'video' && projectId && (
-            <ProductAdVideoGenerator
-              projectId={projectId}
-              onComplete={() => handleStepComplete('video')}
             />
           )}
         </div>

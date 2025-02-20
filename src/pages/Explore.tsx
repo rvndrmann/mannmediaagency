@@ -1,3 +1,4 @@
+
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -9,19 +10,30 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { ImageGenerationJob, VideoGenerationJob } from "@/types/supabase";
 
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
-interface ImageData extends Omit<ImageGenerationJob, 'user_id'> {
+// Define the exact structure we need for the grids
+interface ExploreImageData {
+  id: string;
+  prompt: string;
+  result_url: string | null;
+  created_at: string;
+  visibility: "public" | "private";
   settings: {
     guidanceScale: number;
     numInferenceSteps: number;
   };
 }
 
-interface VideoData extends Omit<VideoGenerationJob, 'user_id'> {}
+interface ExploreVideoData {
+  id: string;
+  prompt: string;
+  result_url: string | null;
+  created_at: string;
+  visibility: "public" | "private";
+}
 
 const PAGE_SIZE = 12;
 
@@ -50,7 +62,7 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<ImageData[]>({
+  } = useInfiniteQuery<ExploreImageData[]>({
     queryKey: ["public-images"],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
@@ -81,7 +93,6 @@ export const Explore = () => {
         result_url: item.result_url,
         created_at: item.created_at,
         visibility: item.visibility as "public" | "private",
-        status: "completed",
         settings: {
           guidanceScale: item.guidanceScale || 3.5,
           numInferenceSteps: item.numInferenceSteps || 8
@@ -98,7 +109,7 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<VideoData[]>({
+  } = useInfiniteQuery<ExploreVideoData[]>({
     queryKey: ["public-videos"],
     initialPageParam: 0,
     queryFn: async ({ pageParam }) => {
@@ -120,8 +131,7 @@ export const Explore = () => {
         prompt: item.prompt,
         result_url: item.result_url,
         created_at: item.created_at,
-        visibility: item.visibility as "public" | "private",
-        status: "completed"
+        visibility: item.visibility as "public" | "private"
       }));
     },
     getNextPageParam: (lastPage, allPages) => 
@@ -217,17 +227,17 @@ export const Explore = () => {
             <Suspense fallback={<Loader2 className="h-8 w-8 animate-spin text-purple-600" />}>
               <TabsContent value="all" className="m-0">
                 <div className="space-y-8">
-                  {images?.length ? <ImageGrid items={images} onCopyPrompt={handleCopyPrompt} onCopyValue={handleCopyValue} onDownload={handleDownload} copiedField={copiedField} copiedPrompts={copiedPrompts} isMobile={isMobile} /> : null}
-                  {videos?.length ? (
+                  {images?.length > 0 && <ImageGrid items={images} onCopyPrompt={handleCopyPrompt} onCopyValue={handleCopyValue} onDownload={handleDownload} copiedField={copiedField} copiedPrompts={copiedPrompts} isMobile={isMobile} />}
+                  {videos?.length > 0 && (
                     <div className="mt-8">
                       <VideoGrid items={videos} onCopyPrompt={handleCopyPrompt} onDownload={handleDownload} copiedPrompts={copiedPrompts} />
                     </div>
-                  ) : null}
+                  )}
                 </div>
               </TabsContent>
 
               <TabsContent value="images" className="m-0">
-                {images?.length ? (
+                {images?.length > 0 ? (
                   <ImageGrid items={images} onCopyPrompt={handleCopyPrompt} onCopyValue={handleCopyValue} onDownload={handleDownload} copiedField={copiedField} copiedPrompts={copiedPrompts} isMobile={isMobile} />
                 ) : (
                   <div className="text-center py-12 text-gray-500">
@@ -237,7 +247,7 @@ export const Explore = () => {
               </TabsContent>
 
               <TabsContent value="videos" className="m-0">
-                {videos?.length ? (
+                {videos?.length > 0 ? (
                   <VideoGrid items={videos} onCopyPrompt={handleCopyPrompt} onDownload={handleDownload} copiedPrompts={copiedPrompts} />
                 ) : (
                   <div className="text-center py-12 text-gray-500">

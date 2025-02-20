@@ -1,16 +1,22 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Eye, EyeOff } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { ImageGenerationJob } from "@/types/supabase";
 
 interface ImageCardProps {
-  image: any;
+  image: ImageGenerationJob & {
+    visibility?: 'public' | 'private';
+    product_image_metadata?: {
+      seo_title: string | null;
+    } | null;
+  };
 }
 
 export const ImageCard = ({ image }: ImageCardProps) => {
@@ -88,7 +94,7 @@ export const ImageCard = ({ image }: ImageCardProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleCopy(image.product_image_metadata.seo_title, "Title")}
+              onClick={() => handleCopy(image.product_image_metadata.seo_title!, "Title")}
             >
               {copiedField === "Title" ? (
                 <Check className="h-4 w-4 text-green-500" />

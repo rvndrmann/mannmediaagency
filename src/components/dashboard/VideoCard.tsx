@@ -1,16 +1,22 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Video, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { Copy, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
 import { Switch } from "@/components/ui/switch";
 import { supabase } from "@/integrations/supabase/client";
+import { VideoGenerationJob } from "@/types/supabase";
 
 interface VideoCardProps {
-  video: any;
+  video: VideoGenerationJob & {
+    visibility?: 'public' | 'private';
+    video_metadata?: {
+      seo_title: string | null;
+    } | null;
+  };
 }
 
 export const VideoCard = ({ video }: VideoCardProps) => {
@@ -88,7 +94,7 @@ export const VideoCard = ({ video }: VideoCardProps) => {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => handleCopy(video.video_metadata.seo_title, "Title")}
+              onClick={() => handleCopy(video.video_metadata.seo_title!, "Title")}
             >
               {copiedField === "Title" ? (
                 <Check className="h-4 w-4 text-green-500" />

@@ -1,5 +1,12 @@
 
-import { createHash } from "https://deno.land/std@0.177.0/hash/mod.ts";
+// Using crypto module instead of hash module
+const generateSHA512Hash = async (text: string): Promise<string> => {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(text);
+  const hashBuffer = await crypto.subtle.digest('SHA-512', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+};
 
 // Production URL for payments
 const PAYU_PRODUCTION_URL = "https://secure.payu.in/_payment";
@@ -31,10 +38,7 @@ export class PayUService {
     try {
       // PayU hash sequence: key|txnid|amount|productinfo|firstname|email|||||||||||SALT
       const hashString = `${merchantKey}|${txnId}|${amount}|${productInfo}|${firstname}|${email}|||||||||||${merchantSalt}`;
-      
-      // Generate SHA512 hash
-      const hash = createHash("sha512").update(hashString).toString();
-      return hash;
+      return await generateSHA512Hash(hashString);
     } catch (error) {
       console.error('Hash Generation Error:', error);
       throw error;

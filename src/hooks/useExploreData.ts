@@ -24,13 +24,13 @@ export interface ExploreVideoData {
   visibility: "public" | "private";
 }
 
-interface PageResult<T> {
-  pageParam: number;
-  data: T[];
-}
+type FetchResult<T> = {
+  items: T[];
+  nextPage: number | null;
+};
 
-const fetchImages = async (pageParam: number): Promise<ExploreImageData[]> => {
-  const start = pageParam * PAGE_SIZE;
+const fetchImages = async (page: number): Promise<FetchResult<ExploreImageData>> => {
+  const start = page * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
 
   const { data, error } = await supabase
@@ -51,7 +51,7 @@ const fetchImages = async (pageParam: number): Promise<ExploreImageData[]> => {
 
   if (error) throw error;
   
-  return data.map(item => ({
+  const items = data.map(item => ({
     id: item.id,
     prompt: item.prompt,
     result_url: item.result_url,
@@ -62,10 +62,15 @@ const fetchImages = async (pageParam: number): Promise<ExploreImageData[]> => {
       numInferenceSteps: item.numInferenceSteps || 8
     }
   }));
+
+  return {
+    items,
+    nextPage: items.length === PAGE_SIZE ? page + 1 : null
+  };
 };
 
-const fetchVideos = async (pageParam: number): Promise<ExploreVideoData[]> => {
-  const start = pageParam * PAGE_SIZE;
+const fetchVideos = async (page: number): Promise<FetchResult<ExploreVideoData>> => {
+  const start = page * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
 
   const { data, error } = await supabase
@@ -78,13 +83,18 @@ const fetchVideos = async (pageParam: number): Promise<ExploreVideoData[]> => {
 
   if (error) throw error;
   
-  return data.map(item => ({
+  const items = data.map(item => ({
     id: item.id,
     prompt: item.prompt,
     result_url: item.result_url,
     created_at: item.created_at,
     visibility: item.visibility as "public" | "private"
   }));
+
+  return {
+    items,
+    nextPage: items.length === PAGE_SIZE ? page + 1 : null
+  };
 };
 
 export const useExploreData = (session: any) => {
@@ -95,16 +105,15 @@ export const useExploreData = (session: any) => {
     hasNextPage: hasMoreImages,
   } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: ({ pageParam = 0 }) => {
-      const page = Number(pageParam);
-      return fetchImages(page).then(data => ({
-        pageParam: page,
-        data
-      }));
+    queryFn: async ({ pageParam = 0 }) => {
+      const result = await fetchImages(pageParam);
+      return {
+        items: result.items,
+        nextCursor: result.nextPage,
+      };
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage: PageResult<ExploreImageData>) => 
-      lastPage.data.length === PAGE_SIZE ? lastPage.pageParam + 1 : undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
   });
 
@@ -115,22 +124,21 @@ export const useExploreData = (session: any) => {
     hasNextPage: hasMoreVideos,
   } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: ({ pageParam = 0 }) => {
-      const page = Number(pageParam);
-      return fetchVideos(page).then(data => ({
-        pageParam: page,
-        data
-      }));
+    queryFn: async ({ pageParam = 0 }) => {
+      const result = await fetchVideos(pageParam);
+      return {
+        items: result.items,
+        nextCursor: result.nextPage,
+      };
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage: PageResult<ExploreVideoData>) => 
-      lastPage.data.length === PAGE_SIZE ? lastPage.pageParam + 1 : undefined,
+    getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
   });
 
   return {
-    images: imagesData?.pages.flatMap(page => page.data) || [],
-    videos: videosData?.pages.flatMap(page => page.data) || [],
+    images: imagesData?.pages.flatMap(page => page.items) || [],
+    videos: videosData?.pages.flatMap(page => page.items) || [],
     isLoading: imagesLoading || videosLoading,
     hasMoreImages,
     hasMoreVideos,

@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Eye, EyeOff, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 interface VideoDisplayProps {
   video: {

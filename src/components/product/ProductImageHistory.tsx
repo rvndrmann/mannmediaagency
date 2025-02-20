@@ -27,9 +27,21 @@ export function ProductImageHistory({
   selectedImageId,
   onBackToGallery 
 }: ProductImageHistoryProps) {
-  const { data: generationHistory, isLoading } = useQuery({
-    queryKey: ["product-image-history"],
+  // Get current session
+  const { data: session } = useQuery({
+    queryKey: ["session"],
     queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
+
+  const { data: generationHistory, isLoading } = useQuery({
+    queryKey: ["product-image-history", session?.user.id],
+    queryFn: async () => {
+      if (!session?.user.id) throw new Error("No user session");
+
       const { data: jobs, error } = await supabase
         .from("image_generation_jobs")
         .select(`
@@ -42,6 +54,7 @@ export function ProductImageHistory({
             instagram_hashtags
           )
         `)
+        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -51,6 +64,7 @@ export function ProductImageHistory({
 
       return (jobs || []) as ImageGenerationJob[];
     },
+    enabled: !!session?.user.id,
   });
 
   if (isLoading) {

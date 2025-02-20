@@ -71,8 +71,9 @@ export const Navigation = () => {
     },
     {
       name: "Integrations",
-      to: "/integrations",
       icon: Settings,
+      disabled: true,
+      comingSoon: true,
     },
   ];
 
@@ -103,34 +104,68 @@ export const Navigation = () => {
     <nav className="space-y-2">
       <div className="space-y-2">
         {mainNavigation.map((item) => (
-          <Link key={item.name} to={item.to}>
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800",
-                location.pathname === item.to && "bg-gray-800 text-white"
-              )}
-            >
-              <div className="flex items-center w-full">
-                <item.icon className="mr-2 h-4 w-4" />
-                <div className="flex-1">
-                  <div>{item.name}</div>
-                  <div className="flex items-center gap-2">
-                    {item.logo && (
-                      <img 
-                        src={item.logo} 
-                        alt={`${item.name} provider logo`} 
-                        className="h-5 w-5 object-contain"
-                      />
-                    )}
-                    {item.subtext && (
-                      <div className="text-xs text-gray-500">{item.subtext}</div>
-                    )}
+          <div key={item.name} className="relative">
+            {item.disabled ? (
+              <Button
+                variant="ghost"
+                className="w-full justify-start text-gray-500 cursor-not-allowed"
+                disabled
+              >
+                <div className="flex items-center w-full">
+                  <item.icon className="mr-2 h-4 w-4" />
+                  <div className="flex-1">
+                    <div>{item.name}</div>
+                    <div className="flex items-center gap-2">
+                      {item.logo && (
+                        <img 
+                          src={item.logo} 
+                          alt={`${item.name} provider logo`} 
+                          className="h-5 w-5 object-contain"
+                        />
+                      )}
+                      {item.subtext && (
+                        <div className="text-xs text-gray-500">{item.subtext}</div>
+                      )}
+                    </div>
                   </div>
                 </div>
+              </Button>
+            ) : (
+              <Link to={item.to}>
+                <Button
+                  variant="ghost"
+                  className={cn(
+                    "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800",
+                    location.pathname === item.to && "bg-gray-800 text-white"
+                  )}
+                >
+                  <div className="flex items-center w-full">
+                    <item.icon className="mr-2 h-4 w-4" />
+                    <div className="flex-1">
+                      <div>{item.name}</div>
+                      <div className="flex items-center gap-2">
+                        {item.logo && (
+                          <img 
+                            src={item.logo} 
+                            alt={`${item.name} provider logo`} 
+                            className="h-5 w-5 object-contain"
+                          />
+                        )}
+                        {item.subtext && (
+                          <div className="text-xs text-gray-500">{item.subtext}</div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                </Button>
+              </Link>
+            )}
+            {item.comingSoon && (
+              <div className="text-xs text-purple-400 absolute -bottom-4 left-8">
+                Coming Soon
               </div>
-            </Button>
-          </Link>
+            )}
+          </div>
         ))}
       </div>
       

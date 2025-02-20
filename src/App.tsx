@@ -17,7 +17,6 @@ import Payment from "@/pages/Payment";
 import PaymentSuccess from "@/pages/PaymentSuccess";
 import PaymentFailure from "@/pages/PaymentFailure";
 import PaymentCancel from "@/pages/PaymentCancel";
-import ProductAd from "@/pages/ProductAd";
 import Explore from "@/pages/Explore";
 import { Toaster } from "@/components/ui/toaster";
 import "./App.css";
@@ -43,7 +42,6 @@ function App() {
         <Route path="/payment/success" element={<PaymentSuccess />} />
         <Route path="/payment/failure" element={<PaymentFailure />} />
         <Route path="/payment/cancel" element={<PaymentCancel />} />
-        <Route path="/product-ad" element={<ProductAd />} />
         <Route path="/explore" element={<Explore />} />
       </Routes>
       <Toaster />

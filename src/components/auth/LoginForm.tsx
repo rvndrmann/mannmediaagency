@@ -7,9 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import { Separator } from "@/components/ui/separator";
 
 const LoginForm = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
@@ -33,12 +35,57 @@ const LoginForm = () => {
     }
   };
 
+  const handleGoogleSignIn = async () => {
+    setIsGoogleLoading(true);
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/`,
+        },
+      });
+      if (error) throw error;
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setIsGoogleLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
           <p className="text-gray-400">Sign in to your account</p>
+        </div>
+
+        <Button
+          onClick={handleGoogleSignIn}
+          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2"
+          disabled={isGoogleLoading}
+        >
+          {isGoogleLoading ? (
+            "Loading..."
+          ) : (
+            <>
+              <img
+                src="https://www.google.com/favicon.ico"
+                alt="Google"
+                className="w-5 h-5"
+              />
+              Continue with Google
+            </>
+          )}
+        </Button>
+
+        <div className="relative">
+          <Separator className="my-4" />
+          <div className="absolute inset-0 flex items-center justify-center">
+            <span className="bg-gray-800 px-2 text-sm text-gray-400">
+              Or continue with email
+            </span>
+          </div>
         </div>
 
         <form onSubmit={handleLogin} className="space-y-4">

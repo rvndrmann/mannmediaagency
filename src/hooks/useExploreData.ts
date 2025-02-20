@@ -29,6 +29,11 @@ interface PageData<T> {
   nextCursor: number | null;
 }
 
+interface ImageSettings {
+  guidanceScale?: number;
+  numInferenceSteps?: number;
+}
+
 const fetchImages = async (pageParam: number): Promise<PageData<ExploreImageData>> => {
   const start = pageParam * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
@@ -50,17 +55,20 @@ const fetchImages = async (pageParam: number): Promise<PageData<ExploreImageData
 
   if (error) throw error;
   
-  const items = (data || []).map(item => ({
-    id: item.id,
-    prompt: item.prompt,
-    result_url: item.result_url,
-    created_at: item.created_at,
-    visibility: item.visibility as "public" | "private",
-    settings: {
-      guidanceScale: item.settings?.guidanceScale || 3.5,
-      numInferenceSteps: item.settings?.numInferenceSteps || 8
-    }
-  }));
+  const items = (data || []).map(item => {
+    const settings = item.settings as ImageSettings;
+    return {
+      id: item.id,
+      prompt: item.prompt,
+      result_url: item.result_url,
+      created_at: item.created_at,
+      visibility: item.visibility as "public" | "private",
+      settings: {
+        guidanceScale: settings?.guidanceScale ?? 3.5,
+        numInferenceSteps: settings?.numInferenceSteps ?? 8
+      }
+    };
+  });
 
   return {
     items,

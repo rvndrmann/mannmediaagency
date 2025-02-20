@@ -93,14 +93,17 @@ export const useExploreData = (session: any) => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<PageResult<ExploreImageData>>({
+  } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: async ({ pageParam = 0 }) => ({
-      pageParam,
-      data: await fetchImages(pageParam)
-    }),
+    queryFn: ({ pageParam = 0 }) => {
+      const page = Number(pageParam);
+      return fetchImages(page).then(data => ({
+        pageParam: page,
+        data
+      }));
+    },
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => 
+    getNextPageParam: (lastPage: PageResult<ExploreImageData>) => 
       lastPage.data.length === PAGE_SIZE ? lastPage.pageParam + 1 : undefined,
     enabled: !!session,
   });
@@ -110,14 +113,17 @@ export const useExploreData = (session: any) => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<PageResult<ExploreVideoData>>({
+  } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: async ({ pageParam = 0 }) => ({
-      pageParam,
-      data: await fetchVideos(pageParam)
-    }),
+    queryFn: ({ pageParam = 0 }) => {
+      const page = Number(pageParam);
+      return fetchVideos(page).then(data => ({
+        pageParam: page,
+        data
+      }));
+    },
     initialPageParam: 0,
-    getNextPageParam: (lastPage) => 
+    getNextPageParam: (lastPage: PageResult<ExploreVideoData>) => 
       lastPage.data.length === PAGE_SIZE ? lastPage.pageParam + 1 : undefined,
     enabled: !!session,
   });

@@ -24,7 +24,7 @@ interface BaseItem {
   prompt: string;
   result_url: string;
   created_at: string;
-  visibility: 'public' | 'private';
+  visibility: "public" | "private";
 }
 
 interface ImageData extends BaseItem {
@@ -64,10 +64,10 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<ImageData[]>({
+  } = useInfiniteQuery({
     queryKey: ["public-images"],
     queryFn: async ({ pageParam = 0 }) => {
-      const start = Number(pageParam) * PAGE_SIZE;
+      const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -87,19 +87,19 @@ export const Explore = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
+      
       return data.map(item => ({
         id: item.id,
         prompt: item.prompt,
         result_url: item.result_url,
         created_at: item.created_at,
-        visibility: item.visibility,
+        visibility: item.visibility as "public" | "private",
         settings: {
           guidanceScale: item.guidanceScale,
           numInferenceSteps: item.numInferenceSteps
         }
       }));
     },
-    initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length === PAGE_SIZE ? allPages.length : undefined,
     enabled: !!session,
@@ -110,10 +110,10 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<VideoData[]>({
+  } = useInfiniteQuery({
     queryKey: ["public-videos"],
     queryFn: async ({ pageParam = 0 }) => {
-      const start = Number(pageParam) * PAGE_SIZE;
+      const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -125,9 +125,11 @@ export const Explore = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data;
+      return data.map(item => ({
+        ...item,
+        visibility: item.visibility as "public" | "private"
+      }));
     },
-    initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length === PAGE_SIZE ? allPages.length : undefined,
     enabled: !!session,

@@ -13,6 +13,7 @@ import Contact from "@/pages/Contact";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import Auth from "@/pages/Auth";
+import LoginForm from "@/components/auth/LoginForm";
 import Payment from "@/pages/Payment";
 import PaymentSuccess from "@/pages/PaymentSuccess";
 import PaymentFailure from "@/pages/PaymentFailure";
@@ -41,6 +42,7 @@ function App() {
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/terms" element={<Terms />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/login" element={<LoginForm />} />
             <Route path="/payment" element={<Payment />} />
             <Route path="/payment/success" element={<PaymentSuccess />} />
             <Route path="/payment/failure" element={<PaymentFailure />} />

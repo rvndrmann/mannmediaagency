@@ -1,4 +1,3 @@
-
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -14,7 +13,6 @@ import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
-// Lazy load grid components
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
@@ -68,10 +66,10 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<ImageData[]>({
+  } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: async ({ pageParam }) => {
-      const start = (pageParam as number) * PAGE_SIZE;
+    queryFn: async ({ pageParam = 0 }) => {
+      const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -90,7 +88,6 @@ export const Explore = () => {
 
       if (error) throw error;
 
-      // Transform the data to match our ImageData interface
       return (data as SupabaseImageResponse[]).map(item => ({
         id: item.id,
         prompt: item.prompt,
@@ -114,10 +111,10 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<VideoData[]>({
+  } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: async ({ pageParam }) => {
-      const start = (pageParam as number) * PAGE_SIZE;
+    queryFn: async ({ pageParam = 0 }) => {
+      const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase

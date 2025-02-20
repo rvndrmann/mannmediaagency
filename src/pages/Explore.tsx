@@ -28,6 +28,11 @@ interface ImageData extends BaseItem {
 
 interface VideoData extends BaseItem {}
 
+type QueryFnResponse<T> = {
+  pages: T[][];
+  pageParams: number[];
+};
+
 export const Explore = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -54,8 +59,8 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery({
-    queryKey: ["public-images"] as const,
+  } = useInfiniteQuery<ImageData[]>({
+    queryKey: ["public-images"],
     queryFn: async ({ pageParam = 0 }) => {
       const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
@@ -75,7 +80,6 @@ export const Explore = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-
       return data.map(item => ({
         id: item.id,
         prompt: item.prompt,

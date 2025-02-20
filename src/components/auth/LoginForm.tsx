@@ -28,7 +28,7 @@ const LoginForm = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
+    <div className="fixed inset-0 bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center p-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>

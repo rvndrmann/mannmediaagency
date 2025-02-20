@@ -25,18 +25,23 @@ export const Navigation = () => {
 
   const mainNavigation = [
     {
-      name: "AI Agent",
-      subtext: "Powered by ChatGPT-4o",
-      logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
-      to: "/ai-agent",
-      icon: GalleryHorizontalEnd,
-    },
-    {
       name: "Dashboard",
       subtext: "Powered by Kling AI",
       logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/",
       icon: ScrollText,
+    },
+    {
+      name: "Explore",
+      to: "/explore",
+      icon: Compass,
+    },
+    {
+      name: "AI Agent",
+      subtext: "Powered by ChatGPT-4o",
+      logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
+      to: "/ai-agent",
+      icon: GalleryHorizontalEnd,
     },
     {
       name: "Product Shoot",
@@ -57,11 +62,6 @@ export const Navigation = () => {
       logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/create-video",
       icon: Video,
-    },
-    {
-      name: "Explore",
-      to: "/explore",
-      icon: Compass,
     },
     {
       name: "Metadata Manager",

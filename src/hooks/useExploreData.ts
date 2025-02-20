@@ -24,6 +24,11 @@ export interface ExploreVideoData {
   visibility: "public" | "private";
 }
 
+interface PageResult<T> {
+  pageParam: number;
+  data: T[];
+}
+
 const fetchImages = async (pageParam: number): Promise<ExploreImageData[]> => {
   const start = pageParam * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
@@ -88,11 +93,11 @@ export const useExploreData = (session: any) => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<PageResult<ExploreImageData>>({
     queryKey: ["public-images"],
-    queryFn: async ({ pageParam }) => ({
+    queryFn: async ({ pageParam = 0 }) => ({
       pageParam,
-      data: await fetchImages(pageParam as number)
+      data: await fetchImages(pageParam)
     }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => 
@@ -105,11 +110,11 @@ export const useExploreData = (session: any) => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<PageResult<ExploreVideoData>>({
     queryKey: ["public-videos"],
-    queryFn: async ({ pageParam }) => ({
+    queryFn: async ({ pageParam = 0 }) => ({
       pageParam,
-      data: await fetchVideos(pageParam as number)
+      data: await fetchVideos(pageParam)
     }),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => 

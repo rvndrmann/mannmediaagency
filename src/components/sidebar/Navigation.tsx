@@ -31,7 +31,7 @@ export const Navigation = () => {
       icon: GalleryHorizontalEnd,
     },
     {
-      name: "Stories",
+      name: "Dashboard",
       subtext: "Powered by Kling AI",
       logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/",

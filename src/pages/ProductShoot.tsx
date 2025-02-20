@@ -184,11 +184,11 @@ const ProductShoot = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="flex flex-col min-h-screen bg-background">
       <MobilePanelToggle title="Product Shoot" />
       <div className={cn(
-        "flex-1 flex min-h-0",
-        isMobile ? "flex-col" : "flex"
+        "flex flex-1",
+        isMobile ? "flex-col" : "flex-row"
       )}>
         <InputPanel
           isMobile={isMobile}

@@ -1,8 +1,7 @@
 
 import { memo, Suspense } from "react";
-import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ContentGrid } from "./ContentGrid";
-import { TabNavigation } from "./TabNavigation";
 import { Button } from "@/components/ui/button";
 import { useContentQuery } from "./useContentQuery";
 
@@ -52,7 +51,12 @@ export const DashboardContent = memo(({
 
   return (
     <Tabs value={activeTab} onValueChange={(value) => onTabChange(value as ContentType)} className="mt-6">
-      <TabNavigation activeTab={activeTab} onTabChange={onTabChange} />
+      <TabsList className="inline-flex h-10 items-center justify-center rounded-md bg-muted p-1 text-muted-foreground">
+        <TabsTrigger value="all">All Content</TabsTrigger>
+        <TabsTrigger value="stories">Stories</TabsTrigger>
+        <TabsTrigger value="images">Images</TabsTrigger>
+        <TabsTrigger value="videos">Videos</TabsTrigger>
+      </TabsList>
 
       <Suspense fallback={<div>Loading...</div>}>
         <TabsContent value="all">

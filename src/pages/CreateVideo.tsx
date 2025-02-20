@@ -1,74 +1,51 @@
 
-import { useState } from "react";
+import { SidebarProvider } from "@/components/ui/sidebar";
+import { Sidebar } from "@/components/Sidebar";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft } from "lucide-react";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
-import { useNavigate } from "react-router-dom";
+import { Upload, Video } from "lucide-react";
 
 const CreateVideo = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const navigate = useNavigate();
-
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 10);
-
   return (
-    <div className="flex-1 p-8 bg-background">
-      <div className="max-w-4xl mx-auto">
-        <div className="flex items-center mb-8">
-          <Button 
-            variant="ghost" 
-            onClick={() => navigate("/")}
-            className="mr-4 text-white hover:bg-white/10"
-          >
-            <ArrowLeft className="w-4 h-4 mr-2" />
-            Back
-          </Button>
-          <h1 className="text-3xl font-bold text-white">Faceless Video</h1>
-        </div>
-        
-        <Card className="p-6 glass-card">
-          <div className="text-center space-y-4">
-            <div className="p-3 rounded-full bg-white/10 inline-block">
-              <Plus className="w-6 h-6 text-white" />
-            </div>
-            <h2 className="text-xl font-semibold text-white">Start Creating</h2>
-            <p className="text-gray-400">
-              You have {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
-            </p>
-            <Button 
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-white/10 hover:bg-white/20 text-white"
-            >
-              <Plus className="w-4 h-4 mr-2" />
-              Create New Video
-            </Button>
+    <SidebarProvider>
+      <div className="flex">
+        <Sidebar />
+        <main className="flex-1 p-6">
+          <div className="mb-8">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">Create Faceless Video</h1>
+            <p className="text-gray-500">Transform your content into professional faceless videos</p>
           </div>
-        </Card>
 
-        <CreateVideoDialog
-          isOpen={isDialogOpen}
-          onClose={() => setIsDialogOpen(false)}
-          availableVideos={availableVideos}
-          creditsRemaining={userCredits?.credits_remaining || 0}
-        />
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            <Card className="p-6">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="p-3 bg-purple-100 rounded-full">
+                  <Upload className="w-6 h-6 text-purple-600" />
+                </div>
+                <h3 className="font-semibold">Upload Content</h3>
+                <p className="text-sm text-gray-500">Upload your script or content to get started</p>
+                <Button className="w-full">
+                  Upload Content
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="flex flex-col items-center text-center space-y-4">
+                <div className="p-3 bg-blue-100 rounded-full">
+                  <Video className="w-6 h-6 text-blue-600" />
+                </div>
+                <h3 className="font-semibold">Customize Video</h3>
+                <p className="text-sm text-gray-500">Choose style, voice, and background</p>
+                <Button variant="outline" className="w-full">
+                  Customize
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </main>
       </div>
-    </div>
+    </SidebarProvider>
   );
 };
 

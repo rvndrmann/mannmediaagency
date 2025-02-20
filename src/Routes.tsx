@@ -16,6 +16,10 @@ import Terms from '@/pages/Terms';
 import ProductShoot from '@/pages/ProductShoot';
 import LoginForm from '@/components/auth/LoginForm';
 import SignupForm from '@/components/auth/SignupForm';
+import CreateVideo from '@/pages/CreateVideo';
+import Integrations from '@/pages/Integrations';
+import Contact from '@/pages/Contact';
+import AboutUs from '@/pages/AboutUs';
 
 const Routes = () => {
   const { isLoading } = useAuth();
@@ -38,6 +42,8 @@ const Routes = () => {
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
       <Route path="/plans" element={<Plans />} />
+      <Route path="/about" element={<AboutUs />} />
+      <Route path="/contact" element={<Contact />} />
       
       {/* Protected Routes */}
       <Route
@@ -77,6 +83,22 @@ const Routes = () => {
         element={
           <ProtectedRoute>
             <ProductShoot />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/create-video"
+        element={
+          <ProtectedRoute>
+            <CreateVideo />
+          </ProtectedRoute>
+        }
+      />
+      <Route
+        path="/integrations"
+        element={
+          <ProtectedRoute>
+            <Integrations />
           </ProtectedRoute>
         }
       />

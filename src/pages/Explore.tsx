@@ -1,3 +1,4 @@
+
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -38,8 +39,6 @@ interface VideoData {
   result_url: string;
 }
 
-type PageParam = number;
-
 export const Explore = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -66,10 +65,10 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<ImageData[], Error, ImageData[], [string, PageParam]>({
-    queryKey: ["public-images"],
+  } = useInfiniteQuery<ImageData[], Error>({
+    queryKey: ["public-images", 0],
     queryFn: async ({ pageParam = 0 }) => {
-      const start = pageParam * PAGE_SIZE;
+      const start = Number(pageParam) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -110,10 +109,10 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<VideoData[], Error, VideoData[], [string, PageParam]>({
-    queryKey: ["public-videos"],
+  } = useInfiniteQuery<VideoData[], Error>({
+    queryKey: ["public-videos", 0],
     queryFn: async ({ pageParam = 0 }) => {
-      const start = pageParam * PAGE_SIZE;
+      const start = Number(pageParam) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -187,8 +186,8 @@ export const Explore = () => {
   };
 
   const isLoading = imagesLoading || videosLoading;
-  const images = imagesData?.pages.flat() || [];
-  const videos = videosData?.pages.flat() || [];
+  const images = imagesData?.pages?.flatMap(page => page) || [];
+  const videos = videosData?.pages?.flatMap(page => page) || [];
   const hasContent = images.length > 0 || videos.length > 0;
 
   return (

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +32,20 @@ const ProductShoot = () => {
       }
       return session;
     },
+  });
+
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+    enabled: !!session,
   });
 
   const { data: images, isLoading: imagesLoading } = useQuery({

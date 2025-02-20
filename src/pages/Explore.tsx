@@ -64,10 +64,11 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<ImageData[]>({
     queryKey: ["public-images"],
-    queryFn: async ({ pageParam = 0 }) => {
-      const start = pageParam * PAGE_SIZE;
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const start = Number(pageParam) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -110,10 +111,11 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<VideoData[]>({
     queryKey: ["public-videos"],
-    queryFn: async ({ pageParam = 0 }) => {
-      const start = pageParam * PAGE_SIZE;
+    initialPageParam: 0,
+    queryFn: async ({ pageParam }) => {
+      const start = Number(pageParam) * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase

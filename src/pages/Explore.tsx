@@ -1,14 +1,12 @@
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/integrations/supabase/client";
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
-import { Loader2, Download, ArrowLeft, Copy, Check } from "lucide-react";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -40,6 +38,8 @@ interface VideoData {
   result_url: string;
 }
 
+type PageParam = number;
+
 export const Explore = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -66,7 +66,7 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<ImageData[], Error, ImageData[], [string, PageParam]>({
     queryKey: ["public-images"],
     queryFn: async ({ pageParam = 0 }) => {
       const start = pageParam * PAGE_SIZE;
@@ -100,8 +100,7 @@ export const Explore = () => {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
-      return allPages.length;
+      return lastPage.length === PAGE_SIZE ? allPages.length : undefined;
     },
     enabled: !!session,
   });
@@ -111,7 +110,7 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<VideoData[], Error, VideoData[], [string, PageParam]>({
     queryKey: ["public-videos"],
     queryFn: async ({ pageParam = 0 }) => {
       const start = pageParam * PAGE_SIZE;
@@ -134,8 +133,7 @@ export const Explore = () => {
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
-      if (!lastPage || lastPage.length < PAGE_SIZE) return undefined;
-      return allPages.length;
+      return lastPage.length === PAGE_SIZE ? allPages.length : undefined;
     },
     enabled: !!session,
   });

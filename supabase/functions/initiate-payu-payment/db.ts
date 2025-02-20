@@ -2,7 +2,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 export class DatabaseService {
-  private supabase;
+  public supabase;
 
   constructor() {
     const supabaseUrl = Deno.env.get('SUPABASE_URL');
@@ -30,20 +30,5 @@ export class DatabaseService {
       console.error('DB Error - Create Transaction:', error);
       throw error;
     }
-  }
-
-  async getUserEmail(userId: string): Promise<string | null> {
-    const { data, error } = await this.supabase
-      .from('auth.users')
-      .select('email')
-      .eq('id', userId)
-      .single();
-
-    if (error) {
-      console.error('DB Error - Get User Email:', error);
-      throw error;
-    }
-
-    return data?.email || null;
   }
 }

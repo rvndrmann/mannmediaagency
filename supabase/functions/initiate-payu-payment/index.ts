@@ -44,21 +44,29 @@ serve(async (req) => {
       throw new Error('PayU credentials are not properly configured');
     }
 
-    // Initialize database and create payment transaction
+    // Initialize database service
     const db = new DatabaseService();
     
     // Generate unique transaction ID
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `LIVE${timestamp}${random}`;
+
+    // Get user profile and email
+    const { data: userData, error: userError } = await db.supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('id', userId)
+      .single();
+
+    if (userError || !userData) {
+      console.error('DB Error - Get User Profile:', userError);
+      throw new Error('Failed to retrieve user information');
+    }
+
+    const email = userData.email || 'customer@example.com'; // Fallback email if not found
     
     await db.createPaymentTransaction(userId, txnId, amount);
-
-    // Get user email
-    const email = await db.getUserEmail(userId);
-    if (!email) {
-      throw new Error('User email not found');
-    }
 
     // Initialize PayU service
     const payuService = new PayUService(merchantKey, merchantSalt);

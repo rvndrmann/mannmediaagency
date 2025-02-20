@@ -71,17 +71,20 @@ const ProductShoot = () => {
   });
 
   const { data: images, isLoading: imagesLoading } = useQuery({
-    queryKey: ["product-images"],
+    queryKey: ["product-images", session?.user?.id],
     queryFn: async () => {
+      if (!session?.user?.id) return [];
+      
       const { data, error } = await supabase
         .from("image_generation_jobs")
         .select("*")
+        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
     refetchInterval: 5000,
   });
 
@@ -139,7 +142,7 @@ const ProductShoot = () => {
       }
     },
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["product-images"] });
+      queryClient.invalidateQueries({ queryKey: ["product-images", session?.user?.id] });
       queryClient.invalidateQueries({ queryKey: ["userCredits"] });
       setPrompt("");
       clearSelectedFile();

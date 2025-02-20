@@ -16,6 +16,7 @@ export const Explore = () => {
   const navigate = useNavigate();
   const [copiedPrompts, setCopiedPrompts] = useState<Record<string, boolean>>({});
   const [activeTab, setActiveTab] = useState<"all" | "images" | "videos">("all");
+  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -65,6 +66,17 @@ export const Explore = () => {
       }, 2000);
     } catch (error) {
       toast.error("Failed to copy prompt");
+    }
+  };
+
+  const handleCopyValue = async (id: string, value: number, field: string) => {
+    try {
+      await navigator.clipboard.writeText(value.toString());
+      setCopiedField(`${id}-${field}`);
+      toast.success(`${field} value copied`);
+      setTimeout(() => setCopiedField(null), 2000);
+    } catch (error) {
+      toast.error("Failed to copy value");
     }
   };
 
@@ -126,6 +138,40 @@ export const Explore = () => {
                 )}
               </Button>
             </div>
+            {image.settings && (
+              <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
+                <div className="flex items-center gap-1">
+                  <span>Guidance: {image.settings.guidanceScale}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopyValue(image.id, image.settings.guidanceScale, 'guidance')}
+                    className="h-6 w-6"
+                  >
+                    {copiedField === `${image.id}-guidance` ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+                <div className="flex items-center gap-1">
+                  <span>Steps: {image.settings.numInferenceSteps}</span>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => handleCopyValue(image.id, image.settings.numInferenceSteps, 'steps')}
+                    className="h-6 w-6"
+                  >
+                    {copiedField === `${image.id}-steps` ? (
+                      <Check className="h-3 w-3 text-green-500" />
+                    ) : (
+                      <Copy className="h-3 w-3" />
+                    )}
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </Card>
       ))}

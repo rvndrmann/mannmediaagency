@@ -7,8 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-const POLL_INTERVAL = 1000; // 1 second
-const MAX_POLLS = 60; // Maximum number of status checks
+const POLL_INTERVAL = 15000; // 15 seconds
+const MAX_POLLS = 20; // Maximum number of status checks (5 minutes total)
 
 serve(async (req) => {
   // Handle CORS preflight requests

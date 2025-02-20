@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -32,6 +31,16 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
+  // Get current session
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
+
   const { data: story } = useQuery({
     queryKey: ["story", storyId],
     queryFn: async () => {
@@ -39,11 +48,13 @@ export const StoryMetadataManager = ({ storyId }: StoryMetadataManagerProps) => 
         .from("stories")
         .select("final_video_with_music")
         .eq("stories id", storyId)
+        .eq("user_id", session?.user.id)
         .single();
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user.id,
   });
 
   const handleCopy = async (text: string, fieldName: string) => {

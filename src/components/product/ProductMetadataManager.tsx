@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,17 +11,20 @@ interface ProductMetadataManagerProps {
   imageJobId: string;
 }
 
-interface MetadataDisplay {
-  label: string;
-  value: string | null;
-  isMultiline?: boolean;
-}
-
 export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerProps) => {
   const [additionalContext, setAdditionalContext] = useState("");
   const [customTitleTwist, setCustomTitleTwist] = useState("");
   const [copiedField, setCopiedField] = useState<string | null>(null);
   const queryClient = useQueryClient();
+
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
 
   const { data: imageJob, isLoading: imageLoading } = useQuery({
     queryKey: ["image-job", imageJobId],
@@ -31,11 +33,13 @@ export const ProductMetadataManager = ({ imageJobId }: ProductMetadataManagerPro
         .from("image_generation_jobs")
         .select("*")
         .eq("id", imageJobId)
+        .eq("user_id", session?.user.id)
         .maybeSingle();
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user.id,
   });
 
   const { data: metadata, isLoading: metadataLoading } = useQuery({

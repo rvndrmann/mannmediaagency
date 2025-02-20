@@ -1,4 +1,3 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -15,6 +14,16 @@ interface VideoMetadataManagerProps {
 export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) => {
   const queryClient = useQueryClient();
 
+  // Get current session
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    },
+  });
+
   const { data: videoJob, isLoading: videoLoading } = useQuery({
     queryKey: ["video-job", videoJobId],
     queryFn: async () => {
@@ -22,11 +31,13 @@ export const VideoMetadataManager = ({ videoJobId }: VideoMetadataManagerProps) 
         .from("video_generation_jobs")
         .select("*")
         .eq("id", videoJobId)
+        .eq("user_id", session?.user.id)
         .maybeSingle();
 
       if (error) throw error;
       return data as VideoJob;
     },
+    enabled: !!session?.user.id,
   });
 
   const { data: metadata, isLoading: metadataLoading } = useQuery({

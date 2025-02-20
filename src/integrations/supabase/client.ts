@@ -11,10 +11,29 @@ export const supabase = createClient<Database>(
   {
     auth: {
       persistSession: true,
-      detectSessionInUrl: false,
+      detectSessionInUrl: true,
       autoRefreshToken: true,
       flowType: 'pkce',
-      storage: typeof window !== 'undefined' ? window.localStorage : undefined
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+      storageKey: 'mann-media-auth-token',
+      cookieOptions: {
+        name: 'mann-media-auth-token',
+        lifetime: 60 * 60 * 24 * 7, // 1 week
+        domain: typeof window !== 'undefined' ? window.location.hostname : undefined,
+        path: '/',
+        sameSite: 'lax'
+      }
     }
   }
 );
+
+// Add session persistence check helper
+export const checkAuthSession = async () => {
+  const { data: { session }, error } = await supabase.auth.getSession();
+  if (error) {
+    console.error('Error checking auth session:', error);
+    return null;
+  }
+  return session;
+};
+

@@ -65,8 +65,10 @@ export function GalleryPanel({
                     <div className="relative group">
                       <video
                         src={video.result_url}
-                        className="w-full rounded-lg"
+                        className="w-full aspect-video rounded-lg object-cover"
                         controls
+                        playsInline
+                        preload="metadata"
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
                         <Button

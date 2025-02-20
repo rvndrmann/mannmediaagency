@@ -1,4 +1,3 @@
-
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -34,9 +33,6 @@ interface ExploreVideoData {
   visibility: "public" | "private";
 }
 
-type ImageQueryKey = ["public-images"];
-type VideoQueryKey = ["public-videos"];
-
 const PAGE_SIZE = 12;
 
 export const Explore = () => {
@@ -59,7 +55,7 @@ export const Explore = () => {
     },
   });
 
-  const fetchImages = async ({ pageParam = 0 }: { pageParam: number }) => {
+  const fetchImages = async (pageParam: number) => {
     const start = pageParam * PAGE_SIZE;
     const end = start + PAGE_SIZE - 1;
 
@@ -94,7 +90,7 @@ export const Explore = () => {
     }));
   };
 
-  const fetchVideos = async ({ pageParam = 0 }: { pageParam: number }) => {
+  const fetchVideos = async (pageParam: number) => {
     const start = pageParam * PAGE_SIZE;
     const end = start + PAGE_SIZE - 1;
 
@@ -123,8 +119,8 @@ export const Explore = () => {
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
   } = useInfiniteQuery({
-    queryKey: ["public-images"] as const,
-    queryFn: fetchImages,
+    queryKey: ["public-images"],
+    queryFn: ({ pageParam = 0 }) => fetchImages(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length === PAGE_SIZE ? allPages.length : undefined,
@@ -137,8 +133,8 @@ export const Explore = () => {
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
   } = useInfiniteQuery({
-    queryKey: ["public-videos"] as const,
-    queryFn: fetchVideos,
+    queryKey: ["public-videos"],
+    queryFn: ({ pageParam = 0 }) => fetchVideos(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length === PAGE_SIZE ? allPages.length : undefined,

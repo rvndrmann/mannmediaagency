@@ -26,9 +26,9 @@ export const VideoCard = ({ video }: VideoCardProps) => {
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
       toast({
+        variant: "destructive",
         title: "Failed to copy",
         description: "Please try again",
-        variant: "destructive",
       });
     }
   };
@@ -40,7 +40,9 @@ export const VideoCard = ({ video }: VideoCardProps) => {
           <video
             src={video.result_url}
             controls
-            className="w-full h-full object-cover"
+            playsInline
+            preload="metadata"
+            className="w-full h-full object-contain bg-gray-900"
           />
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">

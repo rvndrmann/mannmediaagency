@@ -40,7 +40,7 @@ export const ImageCard = ({ image }: ImageCardProps) => {
           <img
             src={image.result_url}
             alt={image.prompt}
-            className="w-full h-full object-cover"
+            className="w-full h-full object-contain bg-gray-900"
           />
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">

@@ -15,7 +15,15 @@ export const useContentQuery = (type: string, userId: string | undefined, page =
         case "stories":
           const { data: stories, error: storiesError } = await supabase
             .from("stories")
-            .select('id, created_at, ready_to_go')
+            .select(`
+              id, 
+              created_at, 
+              ready_to_go,
+              story_metadata (
+                seo_title,
+                instagram_hashtags
+              )
+            `)
             .eq('user_id', userId)
             .order('created_at', { ascending: false })
             .range(start, end);
@@ -51,6 +59,6 @@ export const useContentQuery = (type: string, userId: string | undefined, page =
     },
     enabled: !!userId,
     staleTime: 30000, // Cache data for 30 seconds
-    keepPreviousData: true
+    gcTime: 300000 // Keep unused data in cache for 5 minutes
   });
 };

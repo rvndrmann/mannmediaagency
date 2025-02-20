@@ -13,6 +13,7 @@ import Plans from "./pages/Plans";
 import Auth from "./pages/Auth";
 import LoginForm from "./components/auth/LoginForm";
 import SignupForm from "./components/auth/SignupForm";
+import AuthCallback from "./components/auth/AuthCallback";
 import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
@@ -109,6 +110,7 @@ const App = () => (
                   <SignupForm />
                 </>
               } />
+              <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/plans" element={<Plans />} />
               <Route path="/about" element={<AboutUs />} />
               <Route path="/contact" element={<Contact />} />

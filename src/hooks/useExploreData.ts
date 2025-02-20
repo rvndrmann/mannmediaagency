@@ -103,9 +103,9 @@ export const useExploreData = (session: any) => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<PageData<ExploreImageData>, Error>({
+  } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: async ({ pageParam = 0 }) => fetchImages(pageParam),
+    queryFn: ({ pageParam }) => fetchImages(pageParam as number),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
@@ -116,9 +116,9 @@ export const useExploreData = (session: any) => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<PageData<ExploreVideoData>, Error>({
+  } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: async ({ pageParam = 0 }) => fetchVideos(pageParam),
+    queryFn: ({ pageParam }) => fetchVideos(pageParam as number),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,

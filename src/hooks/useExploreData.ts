@@ -29,8 +29,8 @@ interface PageData<T> {
   nextCursor: number | null;
 }
 
-const fetchImages = async (page: number): Promise<PageData<ExploreImageData>> => {
-  const start = page * PAGE_SIZE;
+const fetchImages = async (pageParam: number): Promise<PageData<ExploreImageData>> => {
+  const start = pageParam * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
 
   const { data, error } = await supabase
@@ -41,8 +41,7 @@ const fetchImages = async (page: number): Promise<PageData<ExploreImageData>> =>
       result_url,
       created_at,
       visibility,
-      settings->guidanceScale,
-      settings->numInferenceSteps
+      settings
     `)
     .eq("status", "completed")
     .eq("visibility", "public")
@@ -51,26 +50,26 @@ const fetchImages = async (page: number): Promise<PageData<ExploreImageData>> =>
 
   if (error) throw error;
   
-  const items = data.map(item => ({
+  const items = (data || []).map(item => ({
     id: item.id,
     prompt: item.prompt,
     result_url: item.result_url,
     created_at: item.created_at,
     visibility: item.visibility as "public" | "private",
     settings: {
-      guidanceScale: item.guidanceScale || 3.5,
-      numInferenceSteps: item.numInferenceSteps || 8
+      guidanceScale: item.settings?.guidanceScale || 3.5,
+      numInferenceSteps: item.settings?.numInferenceSteps || 8
     }
   }));
 
   return {
     items,
-    nextCursor: items.length === PAGE_SIZE ? page + 1 : null
+    nextCursor: items.length === PAGE_SIZE ? pageParam + 1 : null
   };
 };
 
-const fetchVideos = async (page: number): Promise<PageData<ExploreVideoData>> => {
-  const start = page * PAGE_SIZE;
+const fetchVideos = async (pageParam: number): Promise<PageData<ExploreVideoData>> => {
+  const start = pageParam * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
 
   const { data, error } = await supabase
@@ -83,7 +82,7 @@ const fetchVideos = async (page: number): Promise<PageData<ExploreVideoData>> =>
 
   if (error) throw error;
   
-  const items = data.map(item => ({
+  const items = (data || []).map(item => ({
     id: item.id,
     prompt: item.prompt,
     result_url: item.result_url,
@@ -93,12 +92,8 @@ const fetchVideos = async (page: number): Promise<PageData<ExploreVideoData>> =>
 
   return {
     items,
-    nextCursor: items.length === PAGE_SIZE ? page + 1 : null
+    nextCursor: items.length === PAGE_SIZE ? pageParam + 1 : null
   };
-};
-
-type QueryFnParams = {
-  pageParam: number;
 };
 
 export const useExploreData = (session: any) => {
@@ -109,7 +104,7 @@ export const useExploreData = (session: any) => {
     hasNextPage: hasMoreImages,
   } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: ({ pageParam }: QueryFnParams) => fetchImages(pageParam),
+    queryFn: ({ pageParam }) => fetchImages(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
@@ -122,7 +117,7 @@ export const useExploreData = (session: any) => {
     hasNextPage: hasMoreVideos,
   } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: ({ pageParam }: QueryFnParams) => fetchVideos(pageParam),
+    queryFn: ({ pageParam }) => fetchVideos(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
@@ -143,8 +138,15 @@ export const useSession = () => {
   return useQuery({
     queryKey: ["session"],
     queryFn: async () => {
-      const { data: { session } } = await supabase.auth.getSession();
-      return session;
+      try {
+        const { data: { session }, error } = await supabase.auth.getSession();
+        if (error) throw error;
+        return session;
+      } catch (error) {
+        console.error("Session error:", error);
+        return null;
+      }
     },
+    retry: false
   });
 };

@@ -1,7 +1,7 @@
 
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
@@ -14,7 +14,6 @@ type ContentType = "all" | "stories" | "images" | "videos";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
   const { toast } = useToast();
   const [activeTab, setActiveTab] = useState<ContentType>("all");
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,22 +22,17 @@ export const Dashboard = () => {
     to: undefined,
   });
 
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
+  const { data: session } = useQuery({
+    queryKey: ["session"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
-
-      if (error) throw error;
-      return data;
+      const { data: { session } } = await supabase.auth.getSession();
+      return session;
     },
   });
 
-  // Fetch stories
+  // Fetch stories for the current user
   const { data: stories, isLoading: isLoadingStories } = useQuery({
-    queryKey: ["userStories"],
+    queryKey: ["userStories", session?.user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("stories")
@@ -49,16 +43,18 @@ export const Dashboard = () => {
             instagram_hashtags
           )
         `)
+        .eq('user_id', session?.user?.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user?.id
   });
 
-  // Fetch images
+  // Fetch images for the current user
   const { data: images, isLoading: isLoadingImages } = useQuery({
-    queryKey: ["userImages"],
+    queryKey: ["userImages", session?.user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("image_generation_jobs")
@@ -66,16 +62,18 @@ export const Dashboard = () => {
           *,
           product_image_metadata (*)
         `)
+        .eq('user_id', session?.user?.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user?.id
   });
 
-  // Fetch videos
+  // Fetch videos for the current user
   const { data: videos, isLoading: isLoadingVideos } = useQuery({
-    queryKey: ["userVideos"],
+    queryKey: ["userVideos", session?.user?.id],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("video_generation_jobs")
@@ -83,11 +81,13 @@ export const Dashboard = () => {
           *,
           video_metadata (*)
         `)
+        .eq('user_id', session?.user?.id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data;
     },
+    enabled: !!session?.user?.id
   });
 
   return (

@@ -34,19 +34,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   useEffect(() => {
     // Get initial session
     supabase.auth.getSession().then(({ data: { session }, error }) => {
-      setSession(session);
-      setIsLoading(false);
       if (error) {
         console.error('Error fetching session:', error);
         setError(error);
         toast.error('Authentication error. Please try logging in again.');
+      } else {
+        setSession(session);
       }
+      setIsLoading(false);
     });
 
     // Listen for auth changes
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event, session) => {
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
       console.log('Auth state changed:', event);
       setSession(session);
       
@@ -72,4 +73,3 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     </AuthContext.Provider>
   );
 };
-

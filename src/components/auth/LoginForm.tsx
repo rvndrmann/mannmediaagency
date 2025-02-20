@@ -16,12 +16,20 @@ const LoginForm = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
           redirectTo: `${window.location.origin}/auth/callback`
         }
       });
-      if (error) throw error;
+      if (error) {
+        console.error("Google Sign In Error:", error);
+        toast.error(error.message);
+      }
     } catch (error: any) {
-      toast.error(error.message);
+      console.error("Sign In Error:", error);
+      toast.error(error.message || "Failed to sign in");
     } finally {
       setIsLoading(false);
     }

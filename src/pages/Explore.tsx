@@ -1,4 +1,3 @@
-
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -9,35 +8,25 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
-interface SupabaseImageResponse {
+interface BaseItem {
   id: string;
   prompt: string;
   result_url: string;
-  guidanceScale: number;
-  numInferenceSteps: number;
 }
 
-interface ImageData {
-  id: string;
-  prompt: string;
-  result_url: string;
+interface ImageData extends BaseItem {
   settings: {
     guidanceScale: number;
     numInferenceSteps: number;
   };
 }
 
-interface VideoData {
-  id: string;
-  prompt: string;
-  result_url: string;
-}
+interface VideoData extends BaseItem {}
 
 export const Explore = () => {
   const navigate = useNavigate();
@@ -65,10 +54,10 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<ImageData[], Error>({
-    queryKey: ["public-images", 0],
+  } = useInfiniteQuery({
+    queryKey: ["public-images"] as const,
     queryFn: async ({ pageParam = 0 }) => {
-      const start = Number(pageParam) * PAGE_SIZE;
+      const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
@@ -87,7 +76,7 @@ export const Explore = () => {
 
       if (error) throw error;
 
-      return (data as SupabaseImageResponse[]).map(item => ({
+      return data.map(item => ({
         id: item.id,
         prompt: item.prompt,
         result_url: item.result_url,
@@ -98,9 +87,8 @@ export const Explore = () => {
       }));
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === PAGE_SIZE ? allPages.length : undefined;
-    },
+    getNextPageParam: (lastPage, allPages) => 
+      lastPage.length === PAGE_SIZE ? allPages.length : undefined,
     enabled: !!session,
   });
 
@@ -109,31 +97,26 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<VideoData[], Error>({
-    queryKey: ["public-videos", 0],
+  } = useInfiniteQuery({
+    queryKey: ["public-videos"] as const,
     queryFn: async ({ pageParam = 0 }) => {
-      const start = Number(pageParam) * PAGE_SIZE;
+      const start = pageParam * PAGE_SIZE;
       const end = start + PAGE_SIZE - 1;
 
       const { data, error } = await supabase
         .from("video_generation_jobs")
-        .select(`
-          id,
-          prompt,
-          result_url
-        `)
+        .select("id, prompt, result_url")
         .eq("status", "completed")
         .eq("visibility", "public")
         .range(start, end)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as VideoData[];
+      return data;
     },
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => {
-      return lastPage.length === PAGE_SIZE ? allPages.length : undefined;
-    },
+    getNextPageParam: (lastPage, allPages) => 
+      lastPage.length === PAGE_SIZE ? allPages.length : undefined,
     enabled: !!session,
   });
 

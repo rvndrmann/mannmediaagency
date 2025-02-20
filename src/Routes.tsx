@@ -14,8 +14,8 @@ import Plans from '@/pages/Plans';
 import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms';
 import ProductShoot from '@/pages/ProductShoot';
-import { LoginForm } from '@/components/auth/LoginForm';
-import { SignupForm } from '@/components/auth/SignupForm';
+import LoginForm from '@/components/auth/LoginForm';
+import SignupForm from '@/components/auth/SignupForm';
 
 const Routes = () => {
   const { isLoading } = useAuth();

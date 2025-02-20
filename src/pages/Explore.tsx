@@ -1,5 +1,6 @@
+
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useInfiniteQuery, useQuery, QueryFunctionContext } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,11 +34,10 @@ interface ExploreVideoData {
   visibility: "public" | "private";
 }
 
-const PAGE_SIZE = 12;
+type ImageQueryKey = ["public-images"];
+type VideoQueryKey = ["public-videos"];
 
-type QueryParams = {
-  pageParam: number;
-};
+const PAGE_SIZE = 12;
 
 export const Explore = () => {
   const navigate = useNavigate();
@@ -59,7 +59,7 @@ export const Explore = () => {
     },
   });
 
-  const fetchImages = async ({ pageParam }: QueryFunctionContext<["public-images"], number>) => {
+  const fetchImages = async ({ pageParam = 0 }: { pageParam: number }) => {
     const start = pageParam * PAGE_SIZE;
     const end = start + PAGE_SIZE - 1;
 
@@ -94,7 +94,7 @@ export const Explore = () => {
     }));
   };
 
-  const fetchVideos = async ({ pageParam }: QueryFunctionContext<["public-videos"], number>) => {
+  const fetchVideos = async ({ pageParam = 0 }: { pageParam: number }) => {
     const start = pageParam * PAGE_SIZE;
     const end = start + PAGE_SIZE - 1;
 

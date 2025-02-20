@@ -1,4 +1,7 @@
 
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+
 interface PlanProps {
   name: string;
   credits: string;
@@ -6,7 +9,7 @@ interface PlanProps {
   price: string;
   originalPrice?: string;
   billing: string;
-  features: readonly string[];
+  features: string[];
   onSubscribe: () => void;
 }
 
@@ -21,7 +24,7 @@ export const PlanCard = ({
   onSubscribe,
 }: PlanProps) => {
   return (
-    <div className="p-6 glass-card">
+    <Card className="p-6 glass-card">
       <div className="space-y-4">
         <div>
           <h3 className="text-xl font-bold text-white">{name}</h3>
@@ -41,12 +44,12 @@ export const PlanCard = ({
           <div className="text-sm text-white/70">{billing}</div>
         </div>
 
-        <button 
+        <Button 
           onClick={onSubscribe}
           className="w-[135px] bg-[#1065b7] hover:bg-[#1065b7]/90 font-extrabold text-xs py-[11px] px-0 rounded-[3.229px] text-white"
         >
           Buy Now
-        </button>
+        </Button>
 
         <div className="space-y-2">
           <p className="text-sm font-medium text-white">This includes:</p>
@@ -60,6 +63,6 @@ export const PlanCard = ({
           </ul>
         </div>
       </div>
-    </div>
+    </Card>
   );
 };

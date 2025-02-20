@@ -1,16 +1,10 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { PayUService } from "./payu.ts";
-import { DatabaseService } from "./db.ts";
-import { corsHeaders } from "./cors.ts";
-
-interface PaymentRequest {
-  userId: string;
-  planName: string;
-  amount: number;
-  discountCode?: string;
-  discountId?: string;
-}
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { corsHeaders } from "./cors.ts"
+import { DatabaseService } from "./db.ts"
+import { PayUService } from "./payu.ts"
+import { generateHash } from "./hash.ts"
+import { PaymentRequest } from "./types.ts"
 
 serve(async (req) => {
   console.log('Payment Initiation - Starting');
@@ -27,12 +21,21 @@ serve(async (req) => {
   }
 
   try {
-    // Get and validate request
-    const { userId, planName, amount, discountCode, discountId } = await req.json() as PaymentRequest;
-    console.log('Payment Request:', { userId, planName, amount, discountCode });
+    // Get and validate origin
+    const origin = req.headers.get('origin');
+    if (!origin) {
+      console.error('Origin Validation Error: Missing origin header');
+      throw new Error('Origin header is required');
+    }
+    console.log('Request origin:', origin);
+
+    // Parse and validate request body
+    const { userId, planName, amount } = await req.json() as PaymentRequest;
+    console.log('Payment Request:', { userId, planName, amount });
     
-    if (!userId || !planName || !amount) {
-      throw new Error('Missing required parameters');
+    if (!userId) {
+      console.error('Validation Error: Missing userId');
+      throw new Error('User ID is required');
     }
 
     // Verify PayU credentials are set
@@ -44,68 +47,87 @@ serve(async (req) => {
       throw new Error('PayU credentials are not properly configured');
     }
 
-    // Initialize database service
+    console.log('PayU Configuration: Valid credentials found');
+
+    // Initialize database and create payment transaction
     const db = new DatabaseService();
     
-    // Generate unique transaction ID
+    // Generate unique transaction ID with timestamp and random string
     const timestamp = Date.now();
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `LIVE${timestamp}${random}`;
-
-    // Get user profile and email
-    const { data: userData, error: userError } = await db.supabase
-      .from('profiles')
-      .select('id, email')
-      .eq('id', userId)
-      .single();
-
-    if (userError || !userData) {
-      console.error('DB Error - Get User Profile:', userError);
-      throw new Error('Failed to retrieve user information');
-    }
-
-    const email = userData.email || 'customer@example.com'; // Fallback email if not found
     
     await db.createPaymentTransaction(userId, txnId, amount);
 
-    // Initialize PayU service
-    const payuService = new PayUService(merchantKey, merchantSalt);
+    // Get user email and prepare payment parameters
+    const email = await db.getUserEmail(userId);
+    if (!email) {
+      throw new Error('User email not found');
+    }
+
+    const cleanAmount = Number(amount).toFixed(2);
+    const productInfo = `${planName} Plan`;
+    const successUrl = new URL('/payment/success', origin).toString();
+    const failureUrl = new URL('/payment/failure', origin).toString();
+    const cancelUrl = new URL('/payment/cancel', origin).toString();
+    const firstname = "User";
+    const phone = "9999999999";
     
-    // Generate PayU form
-    const htmlForm = payuService.generateHtmlForm({
-      txnId,
-      amount: amount.toFixed(2),
-      productInfo: `${planName} Plan`,
-      firstname: "User",
-      email,
-      phone: "9999999999",  // Default phone number as required by PayU
-      successUrl: new URL('/payment/success', req.headers.get('origin') || '').toString(),
-      failureUrl: new URL('/payment/failure', req.headers.get('origin') || '').toString(),
-      cancelUrl: new URL('/payment/cancel', req.headers.get('origin') || '').toString(),
-      hash: await payuService.generateHash(
-        merchantKey,
-        txnId,
-        amount.toFixed(2),
-        `${planName} Plan`,
-        "User",
-        email,
-        merchantSalt
-      )
+    console.log('Payment Parameters:', {
+      email: email.substring(0, 4) + '...',
+      amount: cleanAmount,
+      productInfo,
+      successUrl,
+      failureUrl,
+      cancelUrl,
+      txnId
     });
 
-    console.log('Payment Initiation - Form generated successfully');
+    // Generate hash using PayU's specified format
+    const hash = await generateHash(
+      merchantKey,
+      txnId,
+      cleanAmount,
+      productInfo,
+      firstname,
+      email,
+      merchantSalt
+    );
 
-    return new Response(
-      JSON.stringify({ html: htmlForm }),
-      { 
+    try {
+      // Initialize PayU service and generate HTML form
+      const payuService = new PayUService(merchantKey, merchantSalt);
+      const htmlForm = payuService.generateHtmlForm({
+        txnId,
+        amount: cleanAmount,
+        productInfo,
+        firstname,
+        email,
+        phone,
+        successUrl,
+        failureUrl,
+        cancelUrl,
+        hash
+      });
+
+      console.log('Payment Initiation - Complete');
+
+      return new Response(htmlForm, { 
         headers: { 
           ...corsHeaders,
-          'Content-Type': 'application/json'
+          'Content-Type': 'text/html',
+          'Cache-Control': 'no-store'
         } 
-      }
-    );
+      });
+    } catch (error) {
+      console.error('PayU Service Error:', error);
+      throw new Error(`Failed to initialize PayU service: ${error.message}`);
+    }
   } catch (error) {
-    console.error('Payment Error:', error);
+    console.error('Payment Error:', {
+      message: error.message,
+      stack: error.stack
+    });
     
     return new Response(
       JSON.stringify({ 

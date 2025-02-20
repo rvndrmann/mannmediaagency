@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
-import { Mail, Lock, Github } from "lucide-react";
-import { FcGoogle } from 'react-icons/fc';
+import { Mail, Lock } from "lucide-react";
 
 const SignupForm = () => {
   const [isLoading, setIsLoading] = useState(false);
@@ -34,45 +33,12 @@ const SignupForm = () => {
     }
   };
 
-  const handleGoogleSignup = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`
-        }
-      });
-      if (error) throw error;
-    } catch (error: any) {
-      toast.error("Error signing in with Google");
-      console.error(error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white mb-2">Create an Account</h2>
           <p className="text-gray-400">Sign up to start creating videos</p>
-        </div>
-
-        <Button
-          onClick={handleGoogleSignup}
-          variant="outline"
-          className="w-full bg-white text-gray-900 hover:bg-gray-100 flex items-center justify-center gap-2"
-        >
-          <FcGoogle className="h-5 w-5" />
-          Sign up with Google
-        </Button>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <span className="w-full border-t border-gray-600"></span>
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="px-2 bg-gray-800/50 text-gray-400">Or continue with</span>
-          </div>
         </div>
 
         <form onSubmit={handleSignup} className="space-y-4">

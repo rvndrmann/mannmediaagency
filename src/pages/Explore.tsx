@@ -1,6 +1,5 @@
-
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, QueryFunctionContext } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,7 +13,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
-// Define the exact structure we need for the grids
 interface ExploreImageData {
   id: string;
   prompt: string;
@@ -37,6 +35,10 @@ interface ExploreVideoData {
 
 const PAGE_SIZE = 12;
 
+type QueryParams = {
+  pageParam: number;
+};
+
 export const Explore = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -57,48 +59,73 @@ export const Explore = () => {
     },
   });
 
+  const fetchImages = async ({ pageParam }: QueryFunctionContext<["public-images"], number>) => {
+    const start = pageParam * PAGE_SIZE;
+    const end = start + PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from("image_generation_jobs")
+      .select(`
+        id,
+        prompt,
+        result_url,
+        created_at,
+        visibility,
+        settings->guidanceScale,
+        settings->numInferenceSteps
+      `)
+      .eq("status", "completed")
+      .eq("visibility", "public")
+      .range(start, end)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    return data.map(item => ({
+      id: item.id,
+      prompt: item.prompt,
+      result_url: item.result_url,
+      created_at: item.created_at,
+      visibility: item.visibility as "public" | "private",
+      settings: {
+        guidanceScale: item.guidanceScale || 3.5,
+        numInferenceSteps: item.numInferenceSteps || 8
+      }
+    }));
+  };
+
+  const fetchVideos = async ({ pageParam }: QueryFunctionContext<["public-videos"], number>) => {
+    const start = pageParam * PAGE_SIZE;
+    const end = start + PAGE_SIZE - 1;
+
+    const { data, error } = await supabase
+      .from("video_generation_jobs")
+      .select("id, prompt, result_url, created_at, visibility")
+      .eq("status", "completed")
+      .eq("visibility", "public")
+      .range(start, end)
+      .order('created_at', { ascending: false });
+
+    if (error) throw error;
+    
+    return data.map(item => ({
+      id: item.id,
+      prompt: item.prompt,
+      result_url: item.result_url,
+      created_at: item.created_at,
+      visibility: item.visibility as "public" | "private"
+    }));
+  };
+
   const { 
     data: imagesData,
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery<ExploreImageData[]>({
-    queryKey: ["public-images"],
+  } = useInfiniteQuery({
+    queryKey: ["public-images"] as const,
+    queryFn: fetchImages,
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const start = Number(pageParam) * PAGE_SIZE;
-      const end = start + PAGE_SIZE - 1;
-
-      const { data, error } = await supabase
-        .from("image_generation_jobs")
-        .select(`
-          id,
-          prompt,
-          result_url,
-          created_at,
-          visibility,
-          settings->guidanceScale,
-          settings->numInferenceSteps
-        `)
-        .eq("status", "completed")
-        .eq("visibility", "public")
-        .range(start, end)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      return data.map(item => ({
-        id: item.id,
-        prompt: item.prompt,
-        result_url: item.result_url,
-        created_at: item.created_at,
-        visibility: item.visibility as "public" | "private",
-        settings: {
-          guidanceScale: item.guidanceScale || 3.5,
-          numInferenceSteps: item.numInferenceSteps || 8
-        }
-      }));
-    },
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length === PAGE_SIZE ? allPages.length : undefined,
     enabled: !!session,
@@ -109,31 +136,10 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery<ExploreVideoData[]>({
-    queryKey: ["public-videos"],
+  } = useInfiniteQuery({
+    queryKey: ["public-videos"] as const,
+    queryFn: fetchVideos,
     initialPageParam: 0,
-    queryFn: async ({ pageParam }) => {
-      const start = Number(pageParam) * PAGE_SIZE;
-      const end = start + PAGE_SIZE - 1;
-
-      const { data, error } = await supabase
-        .from("video_generation_jobs")
-        .select("id, prompt, result_url, created_at, visibility")
-        .eq("status", "completed")
-        .eq("visibility", "public")
-        .range(start, end)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      
-      return data.map(item => ({
-        id: item.id,
-        prompt: item.prompt,
-        result_url: item.result_url,
-        created_at: item.created_at,
-        visibility: item.visibility as "public" | "private"
-      }));
-    },
     getNextPageParam: (lastPage, allPages) => 
       lastPage.length === PAGE_SIZE ? allPages.length : undefined,
     enabled: !!session,

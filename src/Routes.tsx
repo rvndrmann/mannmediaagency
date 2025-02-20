@@ -14,6 +14,8 @@ import Plans from '@/pages/Plans';
 import Privacy from '@/pages/Privacy';
 import Terms from '@/pages/Terms';
 import ProductShoot from '@/pages/ProductShoot';
+import { LoginForm } from '@/components/auth/LoginForm';
+import { SignupForm } from '@/components/auth/SignupForm';
 
 const Routes = () => {
   const { isLoading } = useAuth();
@@ -25,9 +27,17 @@ const Routes = () => {
   return (
     <RouterRoutes>
       <Route path="/" element={<Index />} />
-      <Route path="/auth/*" element={<Auth />} />
+      
+      {/* Auth Routes */}
+      <Route path="/auth" element={<Auth />}>
+        <Route path="login" element={<LoginForm />} />
+        <Route path="signup" element={<SignupForm />} />
+      </Route>
+      
+      {/* Public Routes */}
       <Route path="/privacy" element={<Privacy />} />
       <Route path="/terms" element={<Terms />} />
+      <Route path="/plans" element={<Plans />} />
       
       {/* Protected Routes */}
       <Route
@@ -59,14 +69,6 @@ const Routes = () => {
         element={
           <ProtectedRoute>
             <Metadata />
-          </ProtectedRoute>
-        }
-      />
-      <Route
-        path="/plans"
-        element={
-          <ProtectedRoute>
-            <Plans />
           </ProtectedRoute>
         }
       />

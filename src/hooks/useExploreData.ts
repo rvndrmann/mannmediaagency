@@ -24,12 +24,12 @@ export interface ExploreVideoData {
   visibility: "public" | "private";
 }
 
-type FetchResult<T> = {
+interface PageData<T> {
   items: T[];
-  nextPage: number | null;
-};
+  nextCursor: number | null;
+}
 
-const fetchImages = async (page: number): Promise<FetchResult<ExploreImageData>> => {
+const fetchImages = async (page: number): Promise<PageData<ExploreImageData>> => {
   const start = page * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
 
@@ -65,11 +65,11 @@ const fetchImages = async (page: number): Promise<FetchResult<ExploreImageData>>
 
   return {
     items,
-    nextPage: items.length === PAGE_SIZE ? page + 1 : null
+    nextCursor: items.length === PAGE_SIZE ? page + 1 : null
   };
 };
 
-const fetchVideos = async (page: number): Promise<FetchResult<ExploreVideoData>> => {
+const fetchVideos = async (page: number): Promise<PageData<ExploreVideoData>> => {
   const start = page * PAGE_SIZE;
   const end = start + PAGE_SIZE - 1;
 
@@ -93,7 +93,7 @@ const fetchVideos = async (page: number): Promise<FetchResult<ExploreVideoData>>
 
   return {
     items,
-    nextPage: items.length === PAGE_SIZE ? page + 1 : null
+    nextCursor: items.length === PAGE_SIZE ? page + 1 : null
   };
 };
 
@@ -103,15 +103,9 @@ export const useExploreData = (session: any) => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<PageData<ExploreImageData>, Error>({
     queryKey: ["public-images"],
-    queryFn: async ({ pageParam = 0 }) => {
-      const result = await fetchImages(pageParam);
-      return {
-        items: result.items,
-        nextCursor: result.nextPage,
-      };
-    },
+    queryFn: async ({ pageParam = 0 }) => fetchImages(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,
@@ -122,15 +116,9 @@ export const useExploreData = (session: any) => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<PageData<ExploreVideoData>, Error>({
     queryKey: ["public-videos"],
-    queryFn: async ({ pageParam = 0 }) => {
-      const result = await fetchVideos(pageParam);
-      return {
-        items: result.items,
-        nextCursor: result.nextPage,
-      };
-    },
+    queryFn: async ({ pageParam = 0 }) => fetchVideos(pageParam),
     initialPageParam: 0,
     getNextPageParam: (lastPage) => lastPage.nextCursor,
     enabled: !!session,

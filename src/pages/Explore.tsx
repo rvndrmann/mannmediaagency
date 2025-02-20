@@ -18,6 +18,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 const ImageGrid = lazy(() => import("@/components/explore/ImageGrid"));
 const VideoGrid = lazy(() => import("@/components/explore/VideoGrid"));
 
+interface SupabaseImageResponse {
+  id: string;
+  prompt: string;
+  result_url: string;
+  guidanceScale: number;
+  numInferenceSteps: number;
+}
+
 interface ImageData {
   id: string;
   prompt: string;
@@ -81,7 +89,17 @@ export const Explore = () => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      return data as ImageData[];
+
+      // Transform the data to match our ImageData interface
+      return (data as SupabaseImageResponse[]).map(item => ({
+        id: item.id,
+        prompt: item.prompt,
+        result_url: item.result_url,
+        settings: {
+          guidanceScale: item.guidanceScale,
+          numInferenceSteps: item.numInferenceSteps
+        }
+      }));
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {

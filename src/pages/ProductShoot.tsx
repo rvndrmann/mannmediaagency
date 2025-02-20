@@ -22,8 +22,8 @@ const ProductShoot = () => {
   const [outputFormat, setOutputFormat] = useState("png");
   const queryClient = useQueryClient();
 
-  // Check authentication status
-  const { data: session } = useQuery({
+  // Check authentication status and redirect if not authenticated
+  const { data: session, isLoading: sessionLoading } = useQuery({
     queryKey: ["session"],
     queryFn: async () => {
       const { data: { session }, error } = await supabase.auth.getSession();
@@ -56,20 +56,23 @@ const ProductShoot = () => {
     setPreviewUrl(null);
   };
 
+  // Query user credits with proper auth check
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_credits")
         .select("credits_remaining")
+        .eq('user_id', session?.user?.id)
         .maybeSingle();
 
       if (error) throw error;
       return data;
     },
-    enabled: !!session,
+    enabled: !!session?.user?.id,
   });
 
+  // Query user's images with proper auth check
   const { data: images, isLoading: imagesLoading } = useQuery({
     queryKey: ["product-images", session?.user?.id],
     queryFn: async () => {
@@ -99,6 +102,10 @@ const ProductShoot = () => {
 
   const generateImage = useMutation({
     mutationFn: async () => {
+      if (!session?.user?.id) {
+        throw new Error("Please sign in to generate images");
+      }
+
       if (!prompt.trim()) {
         throw new Error("Please enter a prompt");
       }
@@ -178,6 +185,14 @@ const ProductShoot = () => {
       toast.error("Failed to download image");
     }
   };
+
+  if (sessionLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-white">Loading...</div>
+      </div>
+    );
+  }
 
   if (!session) {
     return null;

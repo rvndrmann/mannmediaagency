@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { Loader2, Download, ArrowLeft, Copy, Check } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -123,6 +124,64 @@ export const Explore = () => {
             </div>
           </div>
           <div className="p-4">
+            {image.settings && (
+              <div className="flex items-center gap-4 mb-4 text-sm text-gray-400">
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <span>Guidance: {image.settings.guidanceScale}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleCopyValue(image.id, image.settings.guidanceScale, 'guidance')}
+                          className="h-6 w-6"
+                        >
+                          {copiedField === `${image.id}-guidance` ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {image.settings.guidanceScale !== 3.5 && (
+                      <TooltipContent>
+                        <p>Default guidance scale is 3.5, don't forget to adjust for this image</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div className="flex items-center gap-1">
+                        <span>Steps: {image.settings.numInferenceSteps}</span>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() => handleCopyValue(image.id, image.settings.numInferenceSteps, 'steps')}
+                          className="h-6 w-6"
+                        >
+                          {copiedField === `${image.id}-steps` ? (
+                            <Check className="h-3 w-3 text-green-500" />
+                          ) : (
+                            <Copy className="h-3 w-3" />
+                          )}
+                        </Button>
+                      </div>
+                    </TooltipTrigger>
+                    {image.settings.numInferenceSteps !== 8 && (
+                      <TooltipContent>
+                        <p>Default steps value is 8, don't forget to adjust for this image</p>
+                      </TooltipContent>
+                    )}
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
+            )}
+            
             <div className="flex items-start justify-between gap-2">
               <p className="text-sm text-gray-300 flex-1">{image.prompt}</p>
               <Button
@@ -138,40 +197,6 @@ export const Explore = () => {
                 )}
               </Button>
             </div>
-            {image.settings && (
-              <div className="flex items-center gap-4 mt-2 text-sm text-gray-400">
-                <div className="flex items-center gap-1">
-                  <span>Guidance: {image.settings.guidanceScale}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopyValue(image.id, image.settings.guidanceScale, 'guidance')}
-                    className="h-6 w-6"
-                  >
-                    {copiedField === `${image.id}-guidance` ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-                <div className="flex items-center gap-1">
-                  <span>Steps: {image.settings.numInferenceSteps}</span>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => handleCopyValue(image.id, image.settings.numInferenceSteps, 'steps')}
-                    className="h-6 w-6"
-                  >
-                    {copiedField === `${image.id}-steps` ? (
-                      <Check className="h-3 w-3 text-green-500" />
-                    ) : (
-                      <Copy className="h-3 w-3" />
-                    )}
-                  </Button>
-                </div>
-              </div>
-            )}
           </div>
         </Card>
       ))}

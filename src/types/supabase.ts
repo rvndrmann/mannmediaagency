@@ -5,19 +5,6 @@ export type TableRow<T extends keyof Database['public']['Tables']> = Database['p
 export type InsertRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Insert'];
 export type UpdateRow<T extends keyof Database['public']['Tables']> = Database['public']['Tables'][T]['Update'];
 
-// Type guard for Supabase errors
-export function isSupabaseError<T>(result: T | { error: true } & String): result is { error: true } & String {
-  return (result as any).error === true;
-}
-
-// Type assertion helper for Supabase results
-export function assertSupabaseValue<T, E = { error: true } & String>(value: T | E): T {
-  if (isSupabaseError(value)) {
-    throw new Error('Unexpected Supabase error');
-  }
-  return value;
-}
-
 // Helper to safely access Supabase data
 export function safeGetData<T>(result: { data: T | null, error: Error | null }): T | null {
   if (result.error) {
@@ -70,4 +57,3 @@ export interface Story extends TableRow<'stories'> {
   ready_to_go: boolean | null;
   created_at: string;
 }
-

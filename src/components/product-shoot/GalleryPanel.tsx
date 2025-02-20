@@ -62,11 +62,11 @@ export function GalleryPanel({
                       <p className="text-xs text-red-400">Failed</p>
                     </div>
                   ) : image.result_url ? (
-                    <div className="relative group aspect-square">
+                    <div className="relative group">
                       <img
                         src={image.result_url}
                         alt={image.prompt}
-                        className="w-full h-full object-cover rounded-lg"
+                        className="w-full rounded-lg"
                       />
                       <div className="absolute inset-0 bg-black/50 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-lg">
                         <Button

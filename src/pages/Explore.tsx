@@ -1,3 +1,4 @@
+
 import { useState, useEffect, lazy, Suspense } from "react";
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
@@ -33,6 +34,11 @@ interface ExploreVideoData {
   visibility: "public" | "private";
 }
 
+interface FetchResult<T> {
+  pageParam: number;
+  data: T[];
+}
+
 const PAGE_SIZE = 12;
 
 export const Explore = () => {
@@ -55,7 +61,7 @@ export const Explore = () => {
     },
   });
 
-  const fetchImages = async (pageParam: number) => {
+  const fetchImages = async (pageParam: number): Promise<ExploreImageData[]> => {
     const start = pageParam * PAGE_SIZE;
     const end = start + PAGE_SIZE - 1;
 
@@ -90,7 +96,7 @@ export const Explore = () => {
     }));
   };
 
-  const fetchVideos = async (pageParam: number) => {
+  const fetchVideos = async (pageParam: number): Promise<ExploreVideoData[]> => {
     const start = pageParam * PAGE_SIZE;
     const end = start + PAGE_SIZE - 1;
 
@@ -120,10 +126,13 @@ export const Explore = () => {
     hasNextPage: hasMoreImages,
   } = useInfiniteQuery({
     queryKey: ["public-images"],
-    queryFn: ({ pageParam = 0 }) => fetchImages(pageParam),
+    queryFn: async ({ pageParam }) => ({
+      pageParam,
+      data: await fetchImages(pageParam as number)
+    }),
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => 
-      lastPage.length === PAGE_SIZE ? allPages.length : undefined,
+    getNextPageParam: (lastPage) => 
+      lastPage.data.length === PAGE_SIZE ? lastPage.pageParam + 1 : undefined,
     enabled: !!session,
   });
 
@@ -134,10 +143,13 @@ export const Explore = () => {
     hasNextPage: hasMoreVideos,
   } = useInfiniteQuery({
     queryKey: ["public-videos"],
-    queryFn: ({ pageParam = 0 }) => fetchVideos(pageParam),
+    queryFn: async ({ pageParam }) => ({
+      pageParam,
+      data: await fetchVideos(pageParam as number)
+    }),
     initialPageParam: 0,
-    getNextPageParam: (lastPage, allPages) => 
-      lastPage.length === PAGE_SIZE ? allPages.length : undefined,
+    getNextPageParam: (lastPage) => 
+      lastPage.data.length === PAGE_SIZE ? lastPage.pageParam + 1 : undefined,
     enabled: !!session,
   });
 
@@ -190,8 +202,8 @@ export const Explore = () => {
   };
 
   const isLoading = imagesLoading || videosLoading;
-  const images = imagesData?.pages?.flatMap(page => page) || [];
-  const videos = videosData?.pages?.flatMap(page => page) || [];
+  const images = imagesData?.pages.flatMap(page => page.data) || [];
+  const videos = videosData?.pages.flatMap(page => page.data) || [];
   const hasContent = images.length > 0 || videos.length > 0;
 
   return (

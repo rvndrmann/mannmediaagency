@@ -240,7 +240,6 @@ export type Database = {
           status: Database["public"]["Enums"]["image_generation_status"]
           updated_at: string
           user_id: string
-          visibility: string
         }
         Insert: {
           created_at?: string
@@ -253,7 +252,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["image_generation_status"]
           updated_at?: string
           user_id: string
-          visibility?: string
         }
         Update: {
           created_at?: string
@@ -266,7 +264,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["image_generation_status"]
           updated_at?: string
           user_id?: string
-          visibility?: string
         }
         Relationships: []
       }
@@ -949,33 +946,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_pro_subscriptions: {
-        Row: {
-          created_at: string | null
-          end_date: string
-          id: string
-          start_date: string | null
-          updated_at: string | null
-          user_id: string
-        }
-        Insert: {
-          created_at?: string | null
-          end_date: string
-          id?: string
-          start_date?: string | null
-          updated_at?: string | null
-          user_id: string
-        }
-        Update: {
-          created_at?: string | null
-          end_date?: string
-          id?: string
-          start_date?: string | null
-          updated_at?: string | null
-          user_id?: string
-        }
-        Relationships: []
-      }
       video_audio_tracks: {
         Row: {
           audio_url: string
@@ -1042,7 +1012,6 @@ export type Database = {
           status: Database["public"]["Enums"]["video_generation_status_new"]
           updated_at: string
           user_id: string
-          visibility: string
         }
         Insert: {
           aspect_ratio?: string | null
@@ -1065,7 +1034,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["video_generation_status_new"]
           updated_at?: string
           user_id: string
-          visibility?: string
         }
         Update: {
           aspect_ratio?: string | null
@@ -1088,7 +1056,6 @@ export type Database = {
           status?: Database["public"]["Enums"]["video_generation_status_new"]
           updated_at?: string
           user_id?: string
-          visibility?: string
         }
         Relationships: []
       }

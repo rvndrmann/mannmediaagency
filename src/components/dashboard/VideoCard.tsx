@@ -1,13 +1,11 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Video, Copy, Check, Eye, EyeOff } from "lucide-react";
+import { Video, Copy, Check } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Switch } from "@/components/ui/switch";
-import { supabase } from "@/integrations/supabase/client";
 
 interface VideoCardProps {
   video: any;
@@ -16,7 +14,6 @@ interface VideoCardProps {
 export const VideoCard = ({ video }: VideoCardProps) => {
   const { toast } = useToast();
   const [copiedField, setCopiedField] = useState<string | null>(null);
-  const [isPublic, setIsPublic] = useState(video.visibility === 'public');
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -32,29 +29,6 @@ export const VideoCard = ({ video }: VideoCardProps) => {
         title: "Failed to copy",
         description: "Please try again",
         variant: "destructive",
-      });
-    }
-  };
-
-  const toggleVisibility = async () => {
-    const newVisibility = !isPublic ? 'public' : 'private';
-    
-    const { error } = await supabase
-      .from('video_generation_jobs')
-      .update({ visibility: newVisibility })
-      .eq('id', video.id);
-
-    if (error) {
-      toast({
-        title: "Error",
-        description: "Failed to update visibility",
-        variant: "destructive",
-      });
-    } else {
-      setIsPublic(!isPublic);
-      toast({
-        title: "Success",
-        description: `Video is now ${newVisibility}`,
       });
     }
   };
@@ -77,13 +51,6 @@ export const VideoCard = ({ video }: VideoCardProps) => {
       <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
           <Badge variant="secondary">{video.status}</Badge>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-gray-500">Public</span>
-            <Switch
-              checked={isPublic}
-              onCheckedChange={toggleVisibility}
-            />
-          </div>
           {video.video_metadata?.seo_title && (
             <Button
               variant="ghost"

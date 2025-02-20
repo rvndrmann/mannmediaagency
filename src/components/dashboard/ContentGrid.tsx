@@ -1,5 +1,4 @@
 
-import { memo } from "react";
 import { StoryCard } from "./StoryCard";
 import { ImageCard } from "./ImageCard";
 import { VideoCard } from "./VideoCard";
@@ -19,7 +18,7 @@ interface ContentGridProps {
   type: "all" | "stories" | "images" | "videos";
 }
 
-export const ContentGrid = memo(({
+export const ContentGrid = ({
   stories = [],
   images = [],
   videos = [],
@@ -43,6 +42,7 @@ export const ContentGrid = memo(({
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
     
+    // Search in different fields based on content type
     if ('story' in content) {
       return content.story?.toLowerCase().includes(query) ||
              content.story_metadata?.seo_title?.toLowerCase().includes(query);
@@ -57,12 +57,23 @@ export const ContentGrid = memo(({
   const filteredImages = images.filter(i => filterByDate(i.created_at) && filterBySearch(i));
   const filteredVideos = videos.filter(v => filterByDate(v.created_at) && filterBySearch(v));
 
-  const content = type === "all" 
-    ? [...filteredStories, ...filteredImages, ...filteredVideos]
-        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-    : type === "stories" ? filteredStories
-    : type === "images" ? filteredImages
-    : filteredVideos;
+  const getContent = () => {
+    switch (type) {
+      case "all":
+        return [...filteredStories, ...filteredImages, ...filteredVideos]
+          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+      case "stories":
+        return filteredStories;
+      case "images":
+        return filteredImages;
+      case "videos":
+        return filteredVideos;
+      default:
+        return [];
+    }
+  };
+
+  const content = getContent();
 
   if (isLoading) {
     return <div>Loading...</div>;
@@ -76,7 +87,7 @@ export const ContentGrid = memo(({
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
       {content.map((item) => {
         if ('story' in item) {
-          return <StoryCard key={item.id} story={item} />;
+          return <StoryCard key={item["stories id"]} story={item} />;
         }
         if ('prompt' in item && 'result_url' in item && !item.source_image_url) {
           return <ImageCard key={item.id} image={item} />;
@@ -88,6 +99,4 @@ export const ContentGrid = memo(({
       })}
     </div>
   );
-});
-
-ContentGrid.displayName = "ContentGrid";
+};

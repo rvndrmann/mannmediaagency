@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -67,15 +68,12 @@ const ImageToVideo = () => {
   });
 
   const { data: videos = [], isLoading: videosLoading, refetch: refetchVideos } = useQuery({
-    queryKey: ["videos", session?.user?.id],
+    queryKey: ["videos"],
     queryFn: async () => {
-      if (!session?.user?.id) return [];
-
       console.log("Fetching videos...");
       const { data, error } = await supabase
         .from("video_generation_jobs")
         .select("*")
-        .eq('user_id', session.user.id)
         .order("created_at", { ascending: false });
 
       if (error) {
@@ -86,7 +84,7 @@ const ImageToVideo = () => {
       console.log("Fetched videos:", data);
       return data as SupabaseVideoJob[];
     },
-    enabled: !!session?.user?.id,
+    enabled: !!session,
   });
 
   useEffect(() => {
@@ -97,8 +95,7 @@ const ImageToVideo = () => {
         {
           event: '*',
           schema: 'public',
-          table: 'video_generation_jobs',
-          filter: `user_id=eq.${session?.user?.id}`
+          table: 'video_generation_jobs'
         },
         (payload) => {
           console.log('Real-time update received:', payload);
@@ -110,7 +107,7 @@ const ImageToVideo = () => {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [refetchVideos, session?.user?.id]);
+  }, [refetchVideos]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

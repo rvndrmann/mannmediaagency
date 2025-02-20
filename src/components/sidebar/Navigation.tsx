@@ -15,7 +15,6 @@ import {
   Shield,
   FileText,
   CreditCard,
-  Compass,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -57,11 +56,6 @@ export const Navigation = () => {
       logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/create-video",
       icon: Video,
-    },
-    {
-      name: "Explore",
-      to: "/explore",
-      icon: Compass,
     },
     {
       name: "Metadata Manager",

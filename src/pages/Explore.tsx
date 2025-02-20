@@ -1,6 +1,6 @@
 
 import { useState, useEffect, lazy, Suspense } from "react";
-import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
+import { useInfiniteQuery, useQuery, InfiniteData } from "@tanstack/react-query";
 import { useNavigate } from "react-router-dom";
 import { useInView } from "react-intersection-observer";
 import { supabase } from "@/integrations/supabase/client";
@@ -68,7 +68,7 @@ export const Explore = () => {
     isLoading: imagesLoading,
     fetchNextPage: fetchMoreImages,
     hasNextPage: hasMoreImages,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<ImageData[]>({
     queryKey: ["public-images"],
     queryFn: async ({ pageParam }) => {
       const start = (pageParam as number) * PAGE_SIZE;
@@ -114,7 +114,7 @@ export const Explore = () => {
     isLoading: videosLoading,
     fetchNextPage: fetchMoreVideos,
     hasNextPage: hasMoreVideos,
-  } = useInfiniteQuery({
+  } = useInfiniteQuery<VideoData[]>({
     queryKey: ["public-videos"],
     queryFn: async ({ pageParam }) => {
       const start = (pageParam as number) * PAGE_SIZE;

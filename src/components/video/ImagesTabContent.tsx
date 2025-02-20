@@ -12,7 +12,6 @@ interface ImageData {
 }
 
 interface ImagesTabContentProps {
-  images: ImageData[];
   selectedId?: string;
   onImageSelect: (id: string) => void;
   showMetadata: boolean;

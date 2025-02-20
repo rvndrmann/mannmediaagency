@@ -41,12 +41,24 @@ const SignupForm = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/`,
+          redirectTo: `${window.location.origin}/auth/callback`,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
+          scopes: 'email profile',
         },
       });
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes('popup_closed_by_user')) {
+          toast.error('Login cancelled. Please try again.');
+        } else {
+          toast.error('Failed to login with Google. Please try again.');
+        }
+        throw error;
+      }
     } catch (error: any) {
-      toast.error(error.message);
+      console.error('Google login error:', error);
     } finally {
       setIsGoogleLoading(false);
     }
@@ -62,11 +74,14 @@ const SignupForm = () => {
 
         <Button
           onClick={handleGoogleSignIn}
-          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2"
+          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
           disabled={isGoogleLoading}
         >
           {isGoogleLoading ? (
-            "Loading..."
+            <>
+              <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+              Connecting to Google...
+            </>
           ) : (
             <>
               <img
@@ -122,7 +137,14 @@ const SignupForm = () => {
             className="w-full bg-purple-600 hover:bg-purple-700"
             disabled={isLoading}
           >
-            {isLoading ? "Loading..." : "Create Account"}
+            {isLoading ? (
+              <>
+                <span className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                Creating Account...
+              </>
+            ) : (
+              "Create Account"
+            )}
           </Button>
         </form>
 

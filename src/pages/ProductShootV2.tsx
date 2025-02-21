@@ -62,6 +62,12 @@ const ProductShootV2 = () => {
     setGeneratedImages([]);
 
     try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("Please sign in to continue");
+        return;
+      }
+
       // First upload the image to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
@@ -69,7 +75,10 @@ const ProductShootV2 = () => {
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('source_images')
-        .upload(filePath, selectedFile);
+        .upload(filePath, selectedFile, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
       if (uploadError) {
         console.error('Upload error:', uploadError);
@@ -83,14 +92,15 @@ const ProductShootV2 = () => {
 
       console.log('Image uploaded successfully:', publicUrl);
 
-      // Call generate-product-shot function using Supabase client with proper configuration
+      // Call generate-product-shot function with proper error handling
       const { data, error } = await supabase.functions.invoke<GenerationResult>(
         'generate-product-shot',
         {
-          body: { 
+          body: JSON.stringify({ 
             image_url: publicUrl,
-            scene_description: sceneDescription
-          },
+            scene_description: sceneDescription,
+            placement_type: placementType
+          }),
           headers: {
             'Content-Type': 'application/json'
           }
@@ -100,7 +110,6 @@ const ProductShootV2 = () => {
       console.log('Edge function response:', data, error);
 
       if (error) {
-        console.error('Generation API error:', error);
         throw new Error(error.message || 'Failed to generate image');
       }
 
@@ -112,7 +121,14 @@ const ProductShootV2 = () => {
       toast.success("Image generated successfully!");
     } catch (error: any) {
       console.error('Generation error:', error);
-      toast.error(error.message || "Failed to generate image. Please try again.");
+      const errorMessage = error.message || "Failed to generate image. Please try again.";
+      
+      // Check if error is related to FAL.AI key
+      if (errorMessage.toLowerCase().includes('fal_key')) {
+        toast.error("There was an issue with the AI service configuration. Please try again later or contact support.");
+      } else {
+        toast.error(errorMessage);
+      }
     } finally {
       setIsGenerating(false);
     }

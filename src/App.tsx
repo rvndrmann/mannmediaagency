@@ -20,6 +20,7 @@ import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
 import AIAgent from "./pages/AIAgent";
 import ProductShoot from "./pages/ProductShoot";
+import ProductShootV2 from "./pages/ProductShootV2";
 import Metadata from "./pages/Metadata";
 import ImageToVideo from "./pages/ImageToVideo";
 import AboutUs from "./pages/AboutUs";
@@ -100,6 +101,7 @@ const App = () => (
               <Route path="/terms" element={<Terms />} />
               <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
               <Route path="/product-shoot" element={<ProtectedRoute><ProductShoot /></ProtectedRoute>} />
+              <Route path="/product-shoot-v2" element={<ProtectedRoute><ProductShootV2 /></ProtectedRoute>} />
               <Route path="/image-to-video" element={<ProtectedRoute><ImageToVideo /></ProtectedRoute>} />
               <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />

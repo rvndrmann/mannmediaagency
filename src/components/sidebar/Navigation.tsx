@@ -9,6 +9,7 @@ import {
   Settings,
   FileVideo,
   Image,
+  Camera,
   Database,
   Info,
   Mail,
@@ -45,6 +46,12 @@ export const Navigation = () => {
       logo: "/lovable-uploads/6339ca58-18ce-4e6a-9e56-116de738e55b.png",
       to: "/product-shoot",
       icon: Image,
+    },
+    {
+      name: "Product Shoot V2",
+      subtext: "Enhanced AI Product Shots",
+      to: "/product-shoot-v2",
+      icon: Camera,
     },
     {
       name: "Image to Video",

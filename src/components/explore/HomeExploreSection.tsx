@@ -90,8 +90,8 @@ export const HomeExploreSection = () => {
   });
 
   return (
-    <div className="py-16 px-4">
-      <div className="max-w-[1400px] mx-auto">
+    <div className="py-8">
+      <div className="max-w-[1400px] mx-auto px-4">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold">Explore Recent Creations</h2>
           <Button onClick={() => navigate('/explore')} variant="outline">

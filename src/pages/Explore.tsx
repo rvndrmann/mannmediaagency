@@ -39,7 +39,10 @@ const Explore = () => {
         .eq('visibility', 'public')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching public images:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!session,
@@ -58,7 +61,10 @@ const Explore = () => {
         .eq('visibility', 'public')
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Error fetching public videos:', error);
+        throw error;
+      }
       return data;
     },
     enabled: !!session,

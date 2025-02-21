@@ -42,15 +42,15 @@ export const ExploreGrid = ({
   const content = getContent();
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return <div className="text-center text-muted-foreground py-8">Loading...</div>;
   }
 
   if (content.length === 0) {
     return (
       <Card className="p-12 text-center">
-        <ImageIcon className="w-12 h-12 mx-auto text-gray-400 mb-4" />
-        <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100">No content found</h3>
-        <p className="text-gray-500 mt-2">Try adjusting your search or filters</p>
+        <ImageIcon className="w-12 h-12 mx-auto text-muted-foreground mb-4" />
+        <h3 className="text-lg font-medium">No content found</h3>
+        <p className="text-muted-foreground mt-2">Try adjusting your search or filters</p>
       </Card>
     );
   }
@@ -62,7 +62,7 @@ export const ExploreGrid = ({
           return (
             <div key={item.id} className="space-y-2">
               <VideoCard video={item} />
-              <div className="px-4 text-sm text-gray-500">
+              <div className="px-4 text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
@@ -71,7 +71,7 @@ export const ExploreGrid = ({
           return (
             <div key={item.id} className="space-y-2">
               <ImageCard image={item} />
-              <div className="px-4 text-sm text-gray-500">
+              <div className="px-4 text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>

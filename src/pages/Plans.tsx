@@ -41,10 +41,7 @@ const Plans = () => {
       billing: "One-time payment",
       features: [
         "Create 1 video (10 credits)",
-        "AI Agent: 1 credit per 1000 words",
-        "Background Music",
-        "No Watermark",
-        "HD Video Resolution"
+        "AI Agent: 1 credit per 1000 words"
       ]
     },
     {
@@ -56,9 +53,6 @@ const Plans = () => {
       features: [
         "Create 10 videos (10 credits each)",
         "AI Agent: 1 credit per 1000 words",
-        "Background Music",
-        "No Watermark",
-        "HD Video Resolution",
         "Priority Support"
       ]
     }

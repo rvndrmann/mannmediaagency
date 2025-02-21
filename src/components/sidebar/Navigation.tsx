@@ -17,12 +17,15 @@ import {
   CreditCard,
   Compass,
   User,
+  Menu,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/ui/sidebar/context";
 
 export const Navigation = () => {
   const location = useLocation();
+  const { toggleSidebar } = useSidebar();
 
   const mainNavigation = [
     {
@@ -107,82 +110,92 @@ export const Navigation = () => {
   ];
 
   return (
-    <nav className="space-y-6 px-2">
-      <div className="space-y-1">
-        {mainNavigation.map((item) => (
-          <Button
-            key={item.name}
-            variant="ghost"
-            className={cn(
-              "w-full justify-start gap-2",
-              location.pathname === item.to
-                ? "bg-accent text-accent-foreground"
-                : "hover:bg-accent hover:text-accent-foreground",
-              item.disabled && "opacity-50 cursor-not-allowed"
-            )}
-            asChild={!item.disabled}
-            disabled={item.disabled}
-          >
-            {!item.disabled ? (
-              <Link to={item.to} className="flex items-center gap-2">
-                {item.logo ? (
-                  <img src={item.logo} alt="" className="w-4 h-4" />
-                ) : (
-                  <item.icon className="h-4 w-4" />
-                )}
-                <div className="flex-1 text-left">
-                  <div>{item.name}</div>
-                  {item.subtext && (
-                    <div className="text-xs text-muted-foreground">
-                      {item.subtext}
-                    </div>
-                  )}
-                </div>
-                {item.comingSoon && (
-                  <span className="text-xs text-muted-foreground">Coming soon</span>
-                )}
-              </Link>
-            ) : (
-              <div className="flex items-center gap-2">
-                <item.icon className="h-4 w-4" />
-                <div className="flex-1 text-left">
-                  <div>{item.name}</div>
-                  {item.subtext && (
-                    <div className="text-xs text-muted-foreground">
-                      {item.subtext}
-                    </div>
-                  )}
-                </div>
-                {item.comingSoon && (
-                  <span className="text-xs text-muted-foreground">Coming soon</span>
-                )}
-              </div>
-            )}
-          </Button>
-        ))}
-      </div>
-
-      <Separator />
-
-      <div className="space-y-1">
-        <div className="px-2 py-1">
-          <h3 className="text-xs font-semibold text-gray-400">Information</h3>
-        </div>
-        {legalNavigation.map((item) => (
-          <Link key={item.name} to={item.to}>
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed top-4 left-4 z-50 md:hidden"
+        onClick={toggleSidebar}
+      >
+        <Menu className="h-6 w-6" />
+      </Button>
+      <nav className="space-y-6 px-2">
+        <div className="space-y-1">
+          {mainNavigation.map((item) => (
             <Button
+              key={item.name}
               variant="ghost"
               className={cn(
-                "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 text-sm",
-                location.pathname === item.to && "bg-gray-800 text-white"
+                "w-full justify-start gap-2",
+                location.pathname === item.to
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground",
+                item.disabled && "opacity-50 cursor-not-allowed"
               )}
+              asChild={!item.disabled}
+              disabled={item.disabled}
             >
-              <item.icon className="mr-2 h-4 w-4" />
-              {item.name}
+              {!item.disabled ? (
+                <Link to={item.to} className="flex items-center gap-2">
+                  {item.logo ? (
+                    <img src={item.logo} alt="" className="w-4 h-4" />
+                  ) : (
+                    <item.icon className="h-4 w-4" />
+                  )}
+                  <div className="flex-1 text-left">
+                    <div>{item.name}</div>
+                    {item.subtext && (
+                      <div className="text-xs text-muted-foreground">
+                        {item.subtext}
+                      </div>
+                    )}
+                  </div>
+                  {item.comingSoon && (
+                    <span className="text-xs text-muted-foreground">Coming soon</span>
+                  )}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4" />
+                  <div className="flex-1 text-left">
+                    <div>{item.name}</div>
+                    {item.subtext && (
+                      <div className="text-xs text-muted-foreground">
+                        {item.subtext}
+                      </div>
+                    )}
+                  </div>
+                  {item.comingSoon && (
+                    <span className="text-xs text-muted-foreground">Coming soon</span>
+                  )}
+                </div>
+              )}
             </Button>
-          </Link>
-        ))}
-      </div>
-    </nav>
+          ))}
+        </div>
+
+        <Separator />
+
+        <div className="space-y-1">
+          <div className="px-2 py-1">
+            <h3 className="text-xs font-semibold text-gray-400">Information</h3>
+          </div>
+          {legalNavigation.map((item) => (
+            <Link key={item.name} to={item.to}>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 text-sm",
+                  location.pathname === item.to && "bg-gray-800 text-white"
+                )}
+              >
+                <item.icon className="mr-2 h-4 w-4" />
+                {item.name}
+              </Button>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 };

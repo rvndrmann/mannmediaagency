@@ -31,7 +31,7 @@ serve(async (req) => {
       throw new Error('Invalid JSON in request body')
     }
 
-    const { image_url, scene_description } = requestBody
+    const { image_url, scene_description, placement_type } = requestBody
     if (!image_url) {
       throw new Error('Missing required parameter: image_url')
     }
@@ -51,32 +51,18 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         image_url,
-        // Only include scene_description if provided
-        ...(scene_description && { scene_description })
+        scene_description,
+        placement_type
       })
-    }).catch(error => {
-      console.error('Submit request failed:', error);
-      throw new Error('Failed to submit generation request')
     });
 
-    const submitResponseText = await submitResponse.text();
-    console.log('Raw submit response:', submitResponseText);
-
     if (!submitResponse.ok) {
-      console.error('Submit response not OK:', submitResponse.status, submitResponseText);
+      console.error('Submit response not OK:', submitResponse.status);
       throw new Error(`API request failed with status ${submitResponse.status}`)
     }
 
-    // Parse the response text as JSON
-    let submitData;
-    try {
-      submitData = JSON.parse(submitResponseText);
-    } catch (e) {
-      console.error('Failed to parse submit response as JSON:', e);
-      throw new Error('Invalid JSON in API response')
-    }
-
-    console.log('Parsed submit response:', submitData);
+    const submitData = await submitResponse.json();
+    console.log('Submit response:', submitData);
 
     const requestId = submitData.request_id
     if (!requestId) {
@@ -84,72 +70,52 @@ serve(async (req) => {
     }
     console.log('Request ID:', requestId);
 
-    // 3. Poll for completion
-    let attempts = 0
-    while (attempts < 30) {
+    // 2. Poll for completion
+    let attempts = 0;
+    const maxAttempts = 30; // 30 seconds timeout
+    
+    while (attempts < maxAttempts) {
       console.log(`Checking status attempt ${attempts + 1}`);
       
-      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Key ${falKey}`
-        }
-      }).catch(error => {
-        console.error('Status check failed:', error);
-        throw new Error('Failed to check generation status')
-      });
-
-      const statusResponseText = await statusResponse.text();
-      console.log('Raw status response:', statusResponseText);
-
-      if (!statusResponse.ok) {
-        console.error('Status response not OK:', statusResponse.status, statusResponseText);
-        throw new Error(`Status check failed with status ${statusResponse.status}`)
-      }
-
-      let statusData;
-      try {
-        statusData = JSON.parse(statusResponseText);
-      } catch (e) {
-        console.error('Failed to parse status response as JSON:', e);
-        throw new Error('Invalid JSON in status response')
-      }
-
-      console.log('Parsed status data:', statusData);
-      
-      if (statusData.status === 'completed') {
-        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
-          method: 'GET',
+      const statusResponse = await fetch(
+        `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
+        {
           headers: {
             'Authorization': `Key ${falKey}`
           }
-        }).catch(error => {
-          console.error('Result fetch failed:', error);
-          throw new Error('Failed to fetch generation result')
-        });
+        }
+      );
 
-        const resultResponseText = await resultResponse.text();
-        console.log('Raw result response:', resultResponseText);
+      if (!statusResponse.ok) {
+        throw new Error(`Status check failed with status ${statusResponse.status}`);
+      }
+
+      const statusData = await statusResponse.json();
+      console.log('Status response:', statusData);
+      
+      if (statusData.status === 'completed') {
+        // 3. Get the final result
+        const resultResponse = await fetch(
+          `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+          {
+            headers: {
+              'Authorization': `Key ${falKey}`
+            }
+          }
+        );
 
         if (!resultResponse.ok) {
-          console.error('Result response not OK:', resultResponse.status, resultResponseText);
-          throw new Error(`Failed to fetch result with status ${resultResponse.status}`)
+          throw new Error(`Failed to fetch result with status ${resultResponse.status}`);
         }
 
-        let result;
-        try {
-          result = JSON.parse(resultResponseText);
-        } catch (e) {
-          console.error('Failed to parse result response as JSON:', e);
-          throw new Error('Invalid JSON in result response')
-        }
-
-        console.log('Parsed result:', result);
+        const result = await resultResponse.json();
+        console.log('Result:', result);
 
         if (!result.images || !result.images[0]) {
           throw new Error('No image URL in response')
         }
 
+        // Transform the result to match our expected format
         const transformedResult = {
           images: [{
             url: result.images[0],
@@ -173,6 +139,7 @@ serve(async (req) => {
         throw new Error(`Generation failed: ${JSON.stringify(statusData)}`)
       }
       
+      // Wait 1 second before next attempt
       await new Promise(resolve => setTimeout(resolve, 1000))
       attempts++
     }

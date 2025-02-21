@@ -1,6 +1,5 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -19,8 +18,19 @@ serve(async (req) => {
       throw new Error('FAL_KEY is not set')
     }
 
-    // Get request parameters
-    const { image_url, scene_description } = await req.json()
+    let requestBody;
+    try {
+      requestBody = await req.json()
+    } catch (e) {
+      console.error('JSON parsing error:', e);
+      throw new Error('Invalid JSON in request body')
+    }
+
+    const { image_url, scene_description } = requestBody
+    if (!image_url || !scene_description) {
+      throw new Error('Missing required parameters: image_url and scene_description')
+    }
+
     console.log('Processing request for image:', image_url);
     console.log('Scene description:', scene_description);
 
@@ -35,15 +45,20 @@ serve(async (req) => {
         image_url,
         scene_description
       })
-    })
+    }).catch(error => {
+      console.error('Submit request failed:', error);
+      throw new Error('Failed to submit generation request')
+    });
+
+    if (!submitResponse.ok) {
+      const errorData = await submitResponse.text();
+      console.error('Submit response not OK:', submitResponse.status, errorData);
+      throw new Error(`API request failed with status ${submitResponse.status}`)
+    }
 
     // 2. Get request ID from response
-    const submitData = await submitResponse.json()
+    const submitData = await submitResponse.json();
     console.log('Initial response:', submitData);
-    
-    if (!submitResponse.ok) {
-      throw new Error(`Request failed: ${JSON.stringify(submitData)}`)
-    }
 
     const requestId = submitData.request_id
     if (!requestId) {
@@ -53,31 +68,50 @@ serve(async (req) => {
 
     // 3. Poll for completion
     let attempts = 0
-    let result = null
     while (attempts < 30) {
       console.log(`Checking status attempt ${attempts + 1}`);
       
       const statusResponse = await fetch(`https://queue.fal.ai/fal-ai/bria/requests/${requestId}/status`, {
         headers: {
-          'Authorization': `Key ${falKey}`,
+          'Authorization': `Key ${falKey}`
         }
-      })
+      }).catch(error => {
+        console.error('Status check failed:', error);
+        throw new Error('Failed to check generation status')
+      });
+
+      if (!statusResponse.ok) {
+        const errorData = await statusResponse.text();
+        console.error('Status response not OK:', statusResponse.status, errorData);
+        throw new Error(`Status check failed with status ${statusResponse.status}`)
+      }
       
       const statusData = await statusResponse.json()
       console.log('Status:', statusData);
       
       if (statusData.status === 'completed') {
-        // 4. Get final result
         const resultResponse = await fetch(`https://queue.fal.ai/fal-ai/bria/requests/${requestId}`, {
           headers: {
-            'Authorization': `Key ${falKey}`,
+            'Authorization': `Key ${falKey}`
           }
-        })
+        }).catch(error => {
+          console.error('Result fetch failed:', error);
+          throw new Error('Failed to fetch generation result')
+        });
+
+        if (!resultResponse.ok) {
+          const errorData = await resultResponse.text();
+          console.error('Result response not OK:', resultResponse.status, errorData);
+          throw new Error(`Failed to fetch result with status ${resultResponse.status}`)
+        }
         
-        result = await resultResponse.json()
+        const result = await resultResponse.json()
         console.log('Success! Final result:', result);
 
-        // Transform the response to match our expected format
+        if (!result.images || !result.images[0]) {
+          throw new Error('No image URL in response')
+        }
+
         const transformedResult = {
           images: [{
             url: result.images[0],
@@ -87,7 +121,13 @@ serve(async (req) => {
         
         return new Response(
           JSON.stringify(transformedResult),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          { 
+            headers: { 
+              ...corsHeaders, 
+              'Content-Type': 'application/json' 
+            },
+            status: 200
+          }
         )
       }
       
@@ -103,8 +143,16 @@ serve(async (req) => {
   } catch (error) {
     console.error('Error:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ 
+        error: error.message || 'An unexpected error occurred'
+      }),
+      { 
+        headers: { 
+          ...corsHeaders, 
+          'Content-Type': 'application/json' 
+        }, 
+        status: 500 
+      }
     )
   }
 })

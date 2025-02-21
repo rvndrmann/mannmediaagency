@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -25,16 +26,17 @@ export const Navigation = () => {
 
   const mainNavigation = [
     {
+      name: "Explore",
+      subtext: "Discover Amazing Content",
+      to: "/explore",
+      icon: Compass,
+    },
+    {
       name: "Dashboard",
       subtext: "Powered by Kling AI",
       logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
       to: "/",
       icon: ScrollText,
-    },
-    {
-      name: "Explore",
-      to: "/explore",
-      icon: Compass,
     },
     {
       name: "Product Shoot",

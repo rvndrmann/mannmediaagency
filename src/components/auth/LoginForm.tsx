@@ -10,13 +10,24 @@ const LoginForm = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
 
+  const isMobileDevice = () => {
+    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+  };
+
+  const getRedirectUrl = () => {
+    const baseUrl = window.location.origin;
+    // Ensure we're using https for production and handle local development
+    const secureUrl = baseUrl.replace(/^http:/, 'https:');
+    return `${secureUrl}/auth/callback`;
+  };
+
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      const redirectTo = window.location.origin + '/auth/callback';
+      const redirectTo = getRedirectUrl();
+      console.log('Starting Google sign-in with redirect:', redirectTo);
       
-      console.log('Initiating Google sign-in with redirect:', redirectTo);
-      
+      // Clear any existing sessions first
       await supabase.auth.signOut();
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -27,16 +38,26 @@ const LoginForm = () => {
             access_type: 'offline',
             prompt: 'consent',
           },
+          skipBrowserRedirect: false, // Ensure redirect happens properly on mobile
         },
       });
 
       if (error) {
         console.error('OAuth error:', error);
-        toast.error(error.message);
+        if (error.message.includes('popup_closed_by_user')) {
+          toast.error('Login cancelled. Please try again.');
+        } else if (isMobileDevice()) {
+          toast.error('Mobile login failed. Please ensure pop-ups are allowed.');
+        } else {
+          toast.error(error.message);
+        }
       }
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      toast.error('Failed to login with Google');
+      toast.error(isMobileDevice() 
+        ? 'Mobile login failed. Please try again.' 
+        : 'Failed to login with Google'
+      );
     } finally {
       setIsGoogleLoading(false);
     }

@@ -11,6 +11,7 @@ import { toast } from "sonner";
 
 const LoginForm = () => {
   const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const navigate = useNavigate();
@@ -48,6 +49,9 @@ const LoginForm = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    if (isGoogleLoading) return; // Prevent multiple clicks
+    
+    setIsGoogleLoading(true);
     try {
       console.log("Initiating Google sign in...");
       const { error } = await supabase.auth.signInWithOAuth({
@@ -61,13 +65,15 @@ const LoginForm = () => {
       if (error) {
         console.error('OAuth error:', error);
         toast.error(error.message || 'Failed to initiate Google login');
+        setIsGoogleLoading(false); // Reset loading state on error
       }
+      // Note: Don't reset loading state on success as we're redirecting
     } catch (error: any) {
       // This should only run if there's an error initiating the OAuth flow
       console.error('Google sign-in error:', error);
       toast.error('Failed to initiate Google login');
+      setIsGoogleLoading(false);
     }
-    // No finally block needed since successful case redirects
   };
 
   return (
@@ -133,13 +139,23 @@ const LoginForm = () => {
         <Button
           onClick={handleGoogleSignIn}
           className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2"
+          disabled={isGoogleLoading}
         >
-          <img
-            src="https://www.google.com/favicon.ico"
-            alt="Google"
-            className="w-5 h-5"
-          />
-          Continue with Google
+          {isGoogleLoading ? (
+            <>
+              <span className="size-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+              Connecting to Google...
+            </>
+          ) : (
+            <>
+              <img
+                src="https://www.google.com/favicon.ico"
+                alt="Google"
+                className="w-5 h-5"
+              />
+              Continue with Google
+            </>
+          )}
         </Button>
 
         <div className="text-center">

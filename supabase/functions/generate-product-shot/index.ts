@@ -20,7 +20,6 @@ interface StatusResponse {
 interface ProductShotRequest {
   image_url: string;
   scene_description?: string;
-  ref_image_url?: string;
   optimize_description?: boolean;
   num_results?: number;
   fast?: boolean;
@@ -45,19 +44,26 @@ serve(async (req) => {
       throw new Error('FAL_KEY environment variable is not set')
     }
 
-    // Parse request body
-    const requestBody: ProductShotRequest = await req.json()
+    // Parse request body with error handling
+    let requestBody: ProductShotRequest;
+    try {
+      const text = await req.text();
+      console.log('Raw request body:', text);
+      requestBody = JSON.parse(text);
+    } catch (error) {
+      console.error('JSON parsing error:', error);
+      throw new Error(`Invalid JSON in request body: ${error.message}`);
+    }
 
     // Validate required fields
     if (!requestBody.image_url) {
-      throw new Error('image_url is required')
+      throw new Error('image_url is required');
     }
 
     // Prepare request payload with default values
     const requestPayload = {
       image_url: requestBody.image_url,
       scene_description: requestBody.scene_description || '',
-      ref_image_url: requestBody.ref_image_url || '',
       optimize_description: requestBody.optimize_description ?? true,
       num_results: requestBody.num_results ?? 1,
       fast: requestBody.fast ?? true,

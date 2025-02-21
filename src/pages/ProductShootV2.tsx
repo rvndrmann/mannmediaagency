@@ -98,7 +98,10 @@ const ProductShootV2 = () => {
       // Upload the image to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      const filePath = `product-shots/${fileName}`;
+      // Store in root of bucket instead of subfolder
+      const filePath = fileName;
+
+      console.log('Uploading file:', filePath);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('source_images')
@@ -119,8 +122,8 @@ const ProductShootV2 = () => {
 
       console.log('Image uploaded successfully:', publicUrl);
 
-      // Prepare the request body based on placement type
-      const requestBody: any = {
+      // Prepare the request body
+      const requestBody = {
         image_url: publicUrl,
         scene_description: sceneDescription,
         optimize_description: optimizeDescription,
@@ -131,22 +134,22 @@ const ProductShootV2 = () => {
         sync_mode: syncMode
       };
 
+      // Add conditional parameters
       if (placementType === 'manual_placement') {
-        requestBody.manual_placement_selection = manualPlacement;
+        requestBody['manual_placement_selection'] = manualPlacement;
       } else if (placementType === 'manual_padding') {
-        requestBody.padding_values = [padding.left, padding.right, padding.top, padding.bottom];
+        requestBody['padding_values'] = [padding.left, padding.right, padding.top, padding.bottom];
       } else if (placementType === 'original') {
-        requestBody.original_quality = originalQuality;
+        requestBody['original_quality'] = originalQuality;
       }
+
+      console.log('Sending request to edge function:', requestBody);
 
       // Call generate-product-shot function
       const { data, error } = await supabase.functions.invoke<GenerationResult>(
         'generate-product-shot',
         {
-          body: JSON.stringify(requestBody),
-          headers: {
-            'Content-Type': 'application/json'
-          }
+          body: JSON.stringify(requestBody)
         }
       );
 

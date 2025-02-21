@@ -31,9 +31,13 @@ const ProfileSettings = () => {
 
       if (error) throw error;
       
-      // Set initial values
-      setUsername(data.username || "");
-      setAvatarUrl(data.avatar_url);
+      // Set initial values only if they haven't been modified by user
+      if (!username) {
+        setUsername(data.username || "");
+      }
+      if (!avatarUrl) {
+        setAvatarUrl(data.avatar_url);
+      }
       
       return data;
     },
@@ -43,6 +47,17 @@ const ProfileSettings = () => {
     mutationFn: async ({ newUsername, newAvatarUrl }: { newUsername: string, newAvatarUrl?: string | null }) => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("No user found");
+
+      // First check if username is unique (excluding current user)
+      const { data: existingUser, error: checkError } = await supabase
+        .from("profiles")
+        .select("id")
+        .eq("username", newUsername)
+        .neq("id", user.id)
+        .maybeSingle();
+
+      if (checkError) throw checkError;
+      if (existingUser) throw new Error("Username is already taken");
 
       const updates = {
         username: newUsername,
@@ -55,7 +70,12 @@ const ProfileSettings = () => {
         .update(updates)
         .eq("id", user.id);
 
-      if (error) throw error;
+      if (error) {
+        if (error.message.includes("username")) {
+          throw new Error("Username is invalid or already taken");
+        }
+        throw error;
+      }
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["profile"] });
@@ -63,19 +83,38 @@ const ProfileSettings = () => {
       setIsSubmitting(false);
     },
     onError: (error: Error) => {
-      toast.error(error.message);
+      if (error.message.includes("taken")) {
+        toast.error("This username is already taken. Please choose another one.");
+      } else if (error.message.includes("invalid")) {
+        toast.error("Please enter a valid username");
+      } else {
+        toast.error("Failed to update profile. Please try again.");
+      }
       setIsSubmitting(false);
     },
   });
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!username.trim()) {
+    const trimmedUsername = username.trim();
+    
+    if (!trimmedUsername) {
       toast.error("Username cannot be empty");
       return;
     }
+
+    if (trimmedUsername.length < 3) {
+      toast.error("Username must be at least 3 characters long");
+      return;
+    }
+
+    if (trimmedUsername === profile?.username) {
+      toast.info("No changes to save");
+      return;
+    }
+
     setIsSubmitting(true);
-    updateProfile.mutate({ newUsername: username, newAvatarUrl: avatarUrl });
+    updateProfile.mutate({ newUsername: trimmedUsername, newAvatarUrl: avatarUrl });
   };
 
   const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -160,7 +199,7 @@ const ProfileSettings = () => {
                 <div>
                   <h2 className="text-lg font-medium">Your Profile</h2>
                   <p className="text-sm text-gray-500">
-                    Current username: {profile?.username}
+                    Current username: {profile?.username || "No username set"}
                   </p>
                 </div>
               </div>
@@ -175,6 +214,8 @@ const ProfileSettings = () => {
                     placeholder="Enter new username"
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
+                    minLength={3}
+                    required
                   />
                 </div>
                 <Button type="submit" disabled={isSubmitting || uploading}>

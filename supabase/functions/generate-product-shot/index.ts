@@ -1,84 +1,93 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1';
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts"
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.7.1'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+}
 
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response(null, { headers: corsHeaders })
   }
 
   try {
-    const { projectId, originalImageUrl, sceneDescription, shotType } = await req.json();
-
-    if (!projectId || !originalImageUrl || !sceneDescription || !shotType) {
-      throw new Error('Missing required parameters');
+    const falKey = Deno.env.get('FAL_KEY')
+    if (!falKey) {
+      throw new Error('FAL_KEY is not set')
     }
 
-    // Create enhanced prompt for the image generation
-    const enhancedPrompt = `Create a professional product shot for an advertisement with these specifications:
-    Original product: ${originalImageUrl}
-    Scene description: ${sceneDescription}
-    Shot type: ${shotType}
-    
-    Make it look professional, high-quality, and suitable for a commercial advertisement.`;
+    const { image_url, scene_description, placement_type, manual_placement_selection } = await req.json()
 
-    // Use Runware API for image generation
-    const runwareApiKey = Deno.env.get('RUNWARE_API_KEY');
-    if (!runwareApiKey) {
-      throw new Error('Runware API key not configured');
-    }
-
-    const response = await fetch('https://api.runware.ai/v1', {
+    // Submit the initial request to FAL AI
+    const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
-        'Content-Type': 'application/json',
+        'Authorization': `Key ${falKey}`,
+        'Content-Type': 'application/json'
       },
-      body: JSON.stringify([
-        {
-          taskType: 'authentication',
-          apiKey: runwareApiKey,
-        },
-        {
-          taskType: 'imageInference',
-          taskUUID: crypto.randomUUID(),
-          positivePrompt: enhancedPrompt,
-          model: 'runware:100@1',
-          width: 1024,
-          height: 1024,
-          numberResults: 1,
-          outputFormat: 'WEBP',
-        },
-      ]),
-    });
+      body: JSON.stringify({
+        image_url,
+        scene_description,
+        placement_type,
+        manual_placement_selection,
+        optimize_description: true,
+        num_results: 1,
+        fast: true,
+        shot_size: [1000, 1000]
+      })
+    })
 
-    if (!response.ok) {
-      throw new Error('Failed to generate image');
+    const submitData = await submitResponse.json()
+    const requestId = submitData.request_id
+
+    if (!requestId) {
+      throw new Error('No request ID received from FAL AI')
     }
 
-    const data = await response.json();
-    const generatedImage = data.data.find(item => item.taskType === 'imageInference');
+    // Poll for the result
+    let attempts = 0
+    let result = null
+    while (attempts < 30) { // Maximum 30 attempts (30 seconds)
+      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
+        headers: {
+          'Authorization': `Key ${falKey}`,
+        }
+      })
+      
+      const statusData = await statusResponse.json()
+      
+      if (statusData.status === 'completed') {
+        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
+          headers: {
+            'Authorization': `Key ${falKey}`,
+          }
+        })
+        result = await resultResponse.json()
+        break
+      }
+      
+      if (statusData.status === 'failed') {
+        throw new Error('Image generation failed')
+      }
+      
+      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before next attempt
+      attempts++
+    }
 
-    if (!generatedImage?.imageURL) {
-      throw new Error('No image URL in response');
+    if (!result) {
+      throw new Error('Timeout waiting for image generation')
     }
 
     return new Response(
-      JSON.stringify({ imageUrl: generatedImage.imageURL }),
+      JSON.stringify(result),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
+    )
   } catch (error) {
-    console.error('Error:', error);
     return new Response(
       JSON.stringify({ error: error.message }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 400
-      }
-    );
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+    )
   }
-});
+})

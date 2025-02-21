@@ -9,6 +9,16 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
+
+interface GeneratedImage {
+  url: string;
+  content_type: string;
+}
+
+interface GenerationResult {
+  images: GeneratedImage[];
+}
 
 const ProductShootV2 = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -16,11 +26,16 @@ const ProductShootV2 = () => {
   const [sceneDescription, setSceneDescription] = useState("");
   const [placementType, setPlacementType] = useState<string>("manual_placement");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type.startsWith('image/')) {
+        if (file.size > 12 * 1024 * 1024) {
+          toast.error("File size must be less than 12MB");
+          return;
+        }
         setSelectedFile(file);
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
@@ -50,9 +65,55 @@ const ProductShootV2 = () => {
     }
 
     setIsGenerating(true);
-    // We'll implement the FAL AI integration in the next step
-    toast.info("Image generation coming soon...");
-    setIsGenerating(false);
+    setGeneratedImages([]);
+
+    try {
+      // First upload the image to Supabase Storage
+      const fileExt = selectedFile.name.split('.').pop();
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
+      const filePath = `product-shots/${fileName}`;
+
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('source_images')
+        .upload(filePath, selectedFile);
+
+      if (uploadError) {
+        throw new uploadError;
+      }
+
+      // Get the public URL of the uploaded image
+      const { data: { publicUrl } } = supabase.storage
+        .from('source_images')
+        .getPublicUrl(filePath);
+
+      // Call our edge function to generate the product shot
+      const response = await fetch('/functions/v1/generate-product-shot', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
+        },
+        body: JSON.stringify({
+          image_url: publicUrl,
+          scene_description: sceneDescription,
+          placement_type: placementType,
+          manual_placement_selection: "bottom_center"
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to generate image');
+      }
+
+      const result: GenerationResult = await response.json();
+      setGeneratedImages(result.images);
+      toast.success("Image generated successfully!");
+    } catch (error) {
+      console.error('Generation error:', error);
+      toast.error("Failed to generate image. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return (
@@ -116,10 +177,26 @@ const ProductShootV2 = () => {
 
                 <div className="space-y-4">
                   <Label>Generated Images</Label>
-                  <div className="bg-gray-900 rounded-lg border-2 border-dashed border-gray-700 p-8 h-[500px] flex items-center justify-center">
-                    <p className="text-gray-500 text-center">
-                      Generated images will appear here...
-                    </p>
+                  <div className="bg-gray-900 rounded-lg border-2 border-dashed border-gray-700 p-4 min-h-[500px]">
+                    {generatedImages.length > 0 ? (
+                      <div className="grid gap-4">
+                        {generatedImages.map((image, index) => (
+                          <div key={index} className="relative aspect-square">
+                            <img
+                              src={image.url}
+                              alt={`Generated product shot ${index + 1}`}
+                              className="w-full h-full object-contain rounded-lg"
+                            />
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="h-full flex items-center justify-center">
+                        <p className="text-gray-500 text-center">
+                          {isGenerating ? "Generating your product shot..." : "Generated images will appear here..."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

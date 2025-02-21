@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -28,16 +29,16 @@ export const Navigation = () => {
 
   const mainNavigation = [
     {
-      name: "Dashboard",
-      subtext: "Your Content Overview",
-      to: "/",
-      icon: ScrollText,
-    },
-    {
       name: "Explore",
       subtext: "Discover Amazing Content",
       to: "/explore",
       icon: Compass,
+    },
+    {
+      name: "Dashboard",
+      subtext: "Your Content Overview",
+      to: "/dashboard",
+      icon: ScrollText,
     },
     {
       name: "Product Shoot",

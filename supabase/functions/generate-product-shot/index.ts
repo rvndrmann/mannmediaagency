@@ -6,6 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface RequestResponse {
+  request_id: string;
+  response_url: string;
+  status_url: string;
+}
+
+interface StatusResponse {
+  status: 'starting' | 'processing' | 'completed' | 'failed';
+  error?: string;
+}
+
 interface ProductShotRequest {
   image_url: string;
   scene_description?: string;
@@ -64,38 +75,109 @@ serve(async (req) => {
       requestPayload['original_quality'] = requestBody.original_quality ?? false;
     }
 
-    console.log('Making request to FAL API with payload:', requestPayload);
+    console.log('Submitting request to queue with payload:', requestPayload);
 
-    // Make the API request
-    const response = await fetch('https://rest.fal.ai/bria/product-shot', {
+    // 1. Submit request to queue
+    const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${FAL_KEY}`,
-        'Content-Type': 'application/json',
-        'Accept': 'application/json'
+        'Content-Type': 'application/json'
       },
       body: JSON.stringify(requestPayload)
     });
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('FAL API error:', errorText);
-      throw new Error(`FAL API request failed: ${errorText}`);
+    if (!submitResponse.ok) {
+      const errorText = await submitResponse.text();
+      console.error('Queue submission error:', errorText);
+      throw new Error(`Failed to submit to queue: ${errorText}`);
     }
 
-    const result = await response.json();
-    console.log('FAL API response:', result);
+    const queueResponse: RequestResponse = await submitResponse.json();
+    console.log('Queue response:', queueResponse);
 
-    return new Response(JSON.stringify(result), {
-      headers: {
-        ...corsHeaders,
-        'Content-Type': 'application/json'
+    if (!queueResponse.request_id) {
+      throw new Error('No request ID received from queue');
+    }
+
+    // For sync mode, wait for completion
+    if (requestPayload.sync_mode) {
+      const startTime = Date.now();
+      const timeout = 60000; // 60 second timeout
+      
+      while (Date.now() - startTime < timeout) {
+        // 2. Check status
+        console.log(`Checking status for request ${queueResponse.request_id}`);
+        const statusResponse = await fetch(
+          `https://queue.fal.run/fal-ai/bria/requests/${queueResponse.request_id}/status`,
+          {
+            headers: {
+              'Authorization': `Key ${FAL_KEY}`
+            }
+          }
+        );
+
+        if (!statusResponse.ok) {
+          throw new Error(`Status check failed: ${await statusResponse.text()}`);
+        }
+
+        const statusData: StatusResponse = await statusResponse.json();
+        console.log('Status response:', statusData);
+
+        if (statusData.status === 'completed') {
+          // 3. Get final result
+          console.log('Request completed, fetching result');
+          const resultResponse = await fetch(
+            `https://queue.fal.run/fal-ai/bria/requests/${queueResponse.request_id}`,
+            {
+              headers: {
+                'Authorization': `Key ${FAL_KEY}`
+              }
+            }
+          );
+
+          if (!resultResponse.ok) {
+            throw new Error(`Failed to fetch result: ${await resultResponse.text()}`);
+          }
+
+          const result = await resultResponse.json();
+          console.log('Final result:', result);
+
+          return new Response(JSON.stringify(result), {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            }
+          });
+        }
+
+        if (statusData.status === 'failed') {
+          throw new Error(`Generation failed: ${statusData.error || 'Unknown error'}`);
+        }
+
+        // Wait 2 seconds before next status check
+        await new Promise(resolve => setTimeout(resolve, 2000));
       }
-    });
+
+      throw new Error('Request timed out after 60 seconds');
+    } else {
+      // For async mode, return the request ID immediately
+      return new Response(
+        JSON.stringify({
+          request_id: queueResponse.request_id,
+          status: 'processing'
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      );
+    }
 
   } catch (error) {
     console.error('Error in generate-product-shot:', error);
-    
     return new Response(
       JSON.stringify({
         error: error.message || 'An unexpected error occurred'

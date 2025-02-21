@@ -78,7 +78,7 @@ const ProductShootV2 = () => {
         .upload(filePath, selectedFile);
 
       if (uploadError) {
-        throw new uploadError;
+        throw uploadError;
       }
 
       // Get the public URL of the uploaded image

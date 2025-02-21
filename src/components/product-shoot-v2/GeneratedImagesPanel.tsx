@@ -2,18 +2,13 @@
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Download, Loader2, ImageIcon } from "lucide-react";
-import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SavedImagesGrid } from "@/components/product-shoot/SavedImagesGrid";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
-
-interface GeneratedImage {
-  url: string;
-  content_type: string;
-}
+import { GeneratedImage } from "@/types/product-shoot";
 
 interface GeneratedImagesPanelProps {
   images: GeneratedImage[];
@@ -120,34 +115,55 @@ export function GeneratedImagesPanel({ images, isGenerating }: GeneratedImagesPa
                 </div>
               ) : (
                 images.map((image, index) => (
-                  <Card 
-                    key={index}
+                  <div 
+                    key={image.id || index}
                     className="group relative overflow-hidden rounded-lg border border-gray-800 bg-gray-950"
                   >
-                    <img
-                      src={image.url}
-                      alt={`Generated product shot ${index + 1}`}
-                      className="w-full aspect-square object-cover rounded-lg transition-transform group-hover:scale-105"
-                    />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDownload(image.url)}
-                        className="text-white hover:text-purple-400"
-                      >
-                        <Download className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleSaveImage(image.url)}
-                        className="text-white hover:text-purple-400"
-                      >
-                        <ImageIcon className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </Card>
+                    {image.status === 'processing' ? (
+                      <div className="flex flex-col items-center justify-center h-32 bg-gray-800 rounded-lg p-4">
+                        <Loader2 className="h-6 w-6 animate-spin text-purple-600 mb-2" />
+                        <p className="text-sm text-gray-400">Processing...</p>
+                      </div>
+                    ) : image.status === 'failed' ? (
+                      <div className="flex flex-col items-center justify-center h-32 bg-gray-800 rounded-lg p-4">
+                        <ImageIcon className="h-6 w-6 text-red-500 mb-2" />
+                        <p className="text-sm text-red-400">Generation failed</p>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="aspect-square">
+                          <img
+                            src={image.url}
+                            alt={image.prompt || `Generated product shot ${index + 1}`}
+                            className="w-full h-full object-cover rounded-lg transition-transform group-hover:scale-105"
+                          />
+                        </div>
+                        <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDownload(image.url)}
+                            className="text-white hover:text-purple-400"
+                          >
+                            <Download className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleSaveImage(image.url)}
+                            className="text-white hover:text-purple-400"
+                          >
+                            <ImageIcon className="h-4 w-4" />
+                          </Button>
+                        </div>
+                        {image.prompt && (
+                          <div className="absolute bottom-0 left-0 right-0 p-2 bg-black/80">
+                            <p className="text-xs text-gray-300 line-clamp-2">{image.prompt}</p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
                 ))
               )}
             </div>

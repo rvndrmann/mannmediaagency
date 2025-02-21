@@ -2,6 +2,9 @@
 export interface GeneratedImage {
   url: string;
   content_type: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  prompt?: string;
+  id: string;
 }
 
 export interface GenerationResult {

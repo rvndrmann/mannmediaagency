@@ -12,7 +12,17 @@ export function useProductShoot() {
 
   const handleGenerate = async (formData: ProductShotFormData) => {
     setIsGenerating(true);
-    setGeneratedImages([]);
+    
+    // Create placeholder images for status tracking
+    const placeholderImages: GeneratedImage[] = Array(formData.numResults).fill(null).map((_, i) => ({
+      id: `temp-${i}`,
+      url: '',
+      content_type: 'image/png',
+      status: 'processing',
+      prompt: formData.sceneDescription
+    }));
+    
+    setGeneratedImages(placeholderImages);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -120,7 +130,17 @@ export function useProductShoot() {
         if (!data?.images?.length) {
           throw new Error('No images received from the generation API');
         }
-        setGeneratedImages(data.images);
+        
+        // Update images with completed status and URLs
+        const completedImages = data.images.map((img, index) => ({
+          id: `generated-${index}`,
+          url: img.url,
+          content_type: img.content_type,
+          status: 'completed' as const,
+          prompt: formData.sceneDescription
+        }));
+        
+        setGeneratedImages(completedImages);
 
         const historyEntry = {
           user_id: session.user.id,
@@ -140,6 +160,14 @@ export function useProductShoot() {
     } catch (error: any) {
       console.error('Generation error:', error);
       const errorMessage = error.message || "Failed to generate image. Please try again.";
+      
+      // Update images with failed status
+      setGeneratedImages(prev => 
+        prev.map(img => ({
+          ...img,
+          status: 'failed' as const
+        }))
+      );
       
       if (errorMessage.toLowerCase().includes('fal_key')) {
         toast.error("There was an issue with the AI service configuration. Please try again later or contact support.");

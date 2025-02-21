@@ -29,17 +29,17 @@ export const Navigation = () => {
 
   const mainNavigation = [
     {
+      name: "Dashboard",
+      subtext: "Powered by Kling AI",
+      logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
+      to: "/",
+      icon: ScrollText,
+    },
+    {
       name: "Explore",
       subtext: "Discover Amazing Content",
       to: "/explore",
       icon: Compass,
-    },
-    {
-      name: "Dashboard",
-      subtext: "Powered by Kling AI",
-      logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
-      to: "/explore",  // Changed from "/" to "/explore"
-      icon: ScrollText,
     },
     {
       name: "Product Shoot",

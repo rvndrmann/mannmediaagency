@@ -4,74 +4,40 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 const LoginForm = () => {
-  const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
-  const handleEmailLogin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !password) {
-      toast.error("Please enter both email and password");
-      return;
-    }
-
-    setIsEmailLoading(true);
-    try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) {
-        console.error("Email login error:", error);
-        toast.error(error.message);
-        return;
-      }
-
-      if (data.user) {
-        toast.success("Successfully logged in!");
-        navigate("/dashboard");
-      }
-    } catch (error: any) {
-      console.error("Email login error:", error);
-      toast.error("Failed to login with email");
-    } finally {
-      setIsEmailLoading(false);
-    }
-  };
-
   const handleGoogleSignIn = async () => {
-    if (isGoogleLoading) return; // Prevent multiple clicks
-    
     setIsGoogleLoading(true);
     try {
-      console.log("Initiating Google sign in...");
+      const redirectTo = window.location.origin + '/auth/callback';
+      
+      console.log('Initiating Google sign-in with redirect:', redirectTo);
+      
+      await supabase.auth.signOut();
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent',
+          },
         },
       });
 
-      // If there's an error before redirect, show it
       if (error) {
         console.error('OAuth error:', error);
-        toast.error(error.message || 'Failed to initiate Google login');
-        setIsGoogleLoading(false); // Reset loading state on error
+        toast.error(error.message);
       }
-      // Note: Don't reset loading state on success as we're redirecting
     } catch (error: any) {
-      // This should only run if there's an error initiating the OAuth flow
       console.error('Google sign-in error:', error);
-      toast.error('Failed to initiate Google login');
+      toast.error('Failed to login with Google');
+    } finally {
       setIsGoogleLoading(false);
     }
   };
@@ -84,66 +50,14 @@ const LoginForm = () => {
           <p className="text-gray-400">Sign in to your account</p>
         </div>
 
-        <form onSubmit={handleEmailLogin} className="space-y-4">
-          <div className="space-y-2">
-            <Label htmlFor="email" className="text-white">Email</Label>
-            <Input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-              required
-            />
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="password" className="text-white">Password</Label>
-            <Input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
-              required
-            />
-          </div>
-
-          <Button
-            type="submit"
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-            disabled={isEmailLoading}
-          >
-            {isEmailLoading ? (
-              <>
-                <span className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
-                Signing in...
-              </>
-            ) : (
-              "Sign in with Email"
-            )}
-          </Button>
-        </form>
-
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <Separator className="w-full" />
-          </div>
-          <div className="relative flex justify-center text-xs uppercase">
-            <span className="bg-gray-800 px-2 text-gray-400">Or continue with</span>
-          </div>
-        </div>
-
         <Button
           onClick={handleGoogleSignIn}
-          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2"
+          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
           disabled={isGoogleLoading}
         >
           {isGoogleLoading ? (
             <>
-              <span className="size-4 border-2 border-gray-900 border-t-transparent rounded-full animate-spin" />
+              <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
               Connecting to Google...
             </>
           ) : (

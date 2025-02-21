@@ -10,7 +10,6 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 const LoginForm = () => {
-  const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -49,31 +48,26 @@ const LoginForm = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    if (isGoogleLoading) return;
-    
-    setIsGoogleLoading(true);
     try {
+      console.log("Initiating Google sign in...");
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
-          },
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
 
+      // If there's an error before redirect, show it
       if (error) {
         console.error('OAuth error:', error);
-        toast.error(error.message || 'Failed to login with Google');
+        toast.error(error.message || 'Failed to initiate Google login');
       }
     } catch (error: any) {
+      // This should only run if there's an error initiating the OAuth flow
       console.error('Google sign-in error:', error);
-      toast.error('Failed to login with Google');
-    } finally {
-      setIsGoogleLoading(false);
+      toast.error('Failed to initiate Google login');
     }
+    // No finally block needed since successful case redirects
   };
 
   return (
@@ -138,24 +132,14 @@ const LoginForm = () => {
 
         <Button
           onClick={handleGoogleSignIn}
-          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
-          disabled={isGoogleLoading}
+          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2"
         >
-          {isGoogleLoading ? (
-            <>
-              <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-              Connecting to Google...
-            </>
-          ) : (
-            <>
-              <img
-                src="https://www.google.com/favicon.ico"
-                alt="Google"
-                className="w-5 h-5"
-              />
-              Continue with Google
-            </>
-          )}
+          <img
+            src="https://www.google.com/favicon.ico"
+            alt="Google"
+            className="w-5 h-5"
+          />
+          Continue with Google
         </Button>
 
         <div className="text-center">

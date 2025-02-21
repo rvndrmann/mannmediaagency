@@ -15,6 +15,7 @@ import {
   FileText,
   CreditCard,
   Compass,
+  User,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -68,6 +69,11 @@ export const Navigation = () => {
       icon: CreditCard,
     },
     {
+      name: "Profile Settings",
+      to: "/profile",
+      icon: User,
+    },
+    {
       name: "Integrations",
       icon: Settings,
       disabled: true,
@@ -99,76 +105,63 @@ export const Navigation = () => {
   ];
 
   return (
-    <nav className="space-y-2">
-      <div className="space-y-2">
+    <nav className="space-y-6 px-2">
+      <div className="space-y-1">
         {mainNavigation.map((item) => (
-          <div key={item.name} className="relative">
-            {item.disabled ? (
-              <Button
-                variant="ghost"
-                className="w-full justify-start text-gray-500 cursor-not-allowed"
-                disabled
-              >
-                <div className="flex items-center w-full">
-                  <item.icon className="mr-2 h-4 w-4" />
-                  <div className="flex-1">
-                    <div>{item.name}</div>
-                    <div className="flex items-center gap-2">
-                      {item.logo && (
-                        <img 
-                          src={item.logo} 
-                          alt={`${item.name} provider logo`} 
-                          className="h-5 w-5 object-contain"
-                        />
-                      )}
-                      {item.subtext && (
-                        <div className="text-xs text-gray-500">{item.subtext}</div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </Button>
-            ) : (
-              <Link to={item.to}>
-                <Button
-                  variant="ghost"
-                  className={cn(
-                    "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800",
-                    location.pathname === item.to && "bg-gray-800 text-white"
-                  )}
-                >
-                  <div className="flex items-center w-full">
-                    <item.icon className="mr-2 h-4 w-4" />
-                    <div className="flex-1">
-                      <div>{item.name}</div>
-                      <div className="flex items-center gap-2">
-                        {item.logo && (
-                          <img 
-                            src={item.logo} 
-                            alt={`${item.name} provider logo`} 
-                            className="h-5 w-5 object-contain"
-                          />
-                        )}
-                        {item.subtext && (
-                          <div className="text-xs text-gray-500">{item.subtext}</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </Button>
-              </Link>
+          <Button
+            key={item.name}
+            variant="ghost"
+            className={cn(
+              "w-full justify-start gap-2",
+              location.pathname === item.to
+                ? "bg-accent text-accent-foreground"
+                : "hover:bg-accent hover:text-accent-foreground",
+              item.disabled && "opacity-50 cursor-not-allowed"
             )}
-            {item.comingSoon && (
-              <div className="text-xs text-purple-400 absolute -bottom-4 left-8">
-                Coming Soon
+            asChild={!item.disabled}
+            disabled={item.disabled}
+          >
+            {!item.disabled ? (
+              <Link to={item.to} className="flex items-center gap-2">
+                {item.logo ? (
+                  <img src={item.logo} alt="" className="w-4 h-4" />
+                ) : (
+                  <item.icon className="h-4 w-4" />
+                )}
+                <div className="flex-1 text-left">
+                  <div>{item.name}</div>
+                  {item.subtext && (
+                    <div className="text-xs text-muted-foreground">
+                      {item.subtext}
+                    </div>
+                  )}
+                </div>
+                {item.comingSoon && (
+                  <span className="text-xs text-muted-foreground">Coming soon</span>
+                )}
+              </Link>
+            ) : (
+              <div className="flex items-center gap-2">
+                <item.icon className="h-4 w-4" />
+                <div className="flex-1 text-left">
+                  <div>{item.name}</div>
+                  {item.subtext && (
+                    <div className="text-xs text-muted-foreground">
+                      {item.subtext}
+                    </div>
+                  )}
+                </div>
+                {item.comingSoon && (
+                  <span className="text-xs text-muted-foreground">Coming soon</span>
+                )}
               </div>
             )}
-          </div>
+          </Button>
         ))}
       </div>
-      
-      <Separator className="my-4 bg-gray-800" />
-      
+
+      <Separator />
+
       <div className="space-y-1">
         <div className="px-2 py-1">
           <h3 className="text-xs font-semibold text-gray-400">Information</h3>

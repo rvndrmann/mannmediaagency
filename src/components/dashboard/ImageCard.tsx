@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Globe, Lock } from "lucide-react";
@@ -133,8 +134,8 @@ export const ImageCard = ({ image }: ImageCardProps) => {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
                   {typeof image.settings === 'string' 
-                    ? JSON.parse(image.settings).num_inference_steps || 'N/A'
-                    : image.settings.num_inference_steps || 'N/A'}
+                    ? JSON.parse(image.settings).numInferenceSteps || 'N/A'
+                    : image.settings.numInferenceSteps || 'N/A'}
                 </span>
                 <Button
                   variant="ghost"
@@ -144,7 +145,7 @@ export const ImageCard = ({ image }: ImageCardProps) => {
                     const settings = typeof image.settings === 'string' 
                       ? JSON.parse(image.settings)
                       : image.settings;
-                    handleCopy(settings.num_inference_steps?.toString() || '', "Inference Steps")
+                    handleCopy(settings.numInferenceSteps?.toString() || '', "Inference Steps")
                   }}
                 >
                   {copiedField === "Inference Steps" ? (
@@ -160,8 +161,8 @@ export const ImageCard = ({ image }: ImageCardProps) => {
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
                   {typeof image.settings === 'string'
-                    ? JSON.parse(image.settings).guidance_scale || 'N/A'
-                    : image.settings.guidance_scale || 'N/A'}
+                    ? JSON.parse(image.settings).guidanceScale || 'N/A'
+                    : image.settings.guidanceScale || 'N/A'}
                 </span>
                 <Button
                   variant="ghost"
@@ -171,7 +172,7 @@ export const ImageCard = ({ image }: ImageCardProps) => {
                     const settings = typeof image.settings === 'string'
                       ? JSON.parse(image.settings)
                       : image.settings;
-                    handleCopy(settings.guidance_scale?.toString() || '', "Guidance Scale")
+                    handleCopy(settings.guidanceScale?.toString() || '', "Guidance Scale")
                   }}
                 >
                   {copiedField === "Guidance Scale" ? (

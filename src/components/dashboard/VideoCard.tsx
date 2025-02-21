@@ -116,7 +116,21 @@ export const VideoCard = ({ video }: VideoCardProps) => {
             </Button>
           )}
         </div>
-        <p className="text-sm line-clamp-2">{video.prompt}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm line-clamp-2 flex-1">{video.prompt}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-0.5 flex-shrink-0"
+            onClick={() => handleCopy(video.prompt, "Prompt")}
+          >
+            {copiedField === "Prompt" ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
         <p className="text-xs text-gray-500">
           Created: {formatDate(video.created_at)}
         </p>

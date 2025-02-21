@@ -112,7 +112,21 @@ export const ImageCard = ({ image }: ImageCardProps) => {
             </Button>
           )}
         </div>
-        <p className="text-sm line-clamp-2">{image.prompt}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm line-clamp-2 flex-1">{image.prompt}</p>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-0.5 flex-shrink-0"
+            onClick={() => handleCopy(image.prompt, "Prompt")}
+          >
+            {copiedField === "Prompt" ? (
+              <Check className="h-4 w-4 text-green-500" />
+            ) : (
+              <Copy className="h-4 w-4" />
+            )}
+          </Button>
+        </div>
         <p className="text-xs text-gray-500">
           Created: {formatDate(image.created_at)}
         </p>

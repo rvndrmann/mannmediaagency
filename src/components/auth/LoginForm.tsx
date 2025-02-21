@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
@@ -14,16 +14,28 @@ const LoginForm = () => {
   const [isEmailLoading, setIsEmailLoading] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [retryCount, setRetryCount] = useState(0);
+  const [isMobile, setIsMobile] = useState(false);
   const navigate = useNavigate();
 
-  const isMobileDevice = () => {
-    return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
-  };
+  // Enhanced mobile detection
+  useEffect(() => {
+    const checkMobile = () => {
+      const mobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      setIsMobile(mobile);
+    };
+    
+    checkMobile();
+    window.addEventListener('resize', checkMobile);
+    return () => window.removeEventListener('resize', checkMobile);
+  }, []);
 
   const getRedirectUrl = () => {
     const baseUrl = window.location.origin;
-    const secureUrl = baseUrl.replace(/^http:/, 'https:');
-    return `${secureUrl}/auth/callback`;
+    // Handle both HTTP and HTTPS for development and production
+    return baseUrl.includes('localhost') 
+      ? `${baseUrl}/auth/callback`
+      : `${baseUrl.replace(/^http:/, 'https:')}/auth/callback`;
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -59,13 +71,22 @@ const LoginForm = () => {
   };
 
   const handleGoogleSignIn = async () => {
+    if (isGoogleLoading) return;
+    
     setIsGoogleLoading(true);
     try {
       const redirectTo = getRedirectUrl();
-      console.log('Starting Google sign-in with redirect:', redirectTo);
+      console.log('Starting Google sign-in:', {
+        isMobile,
+        redirectTo,
+        retryCount,
+        userAgent: navigator.userAgent
+      });
       
+      // Clear any existing sessions
       await supabase.auth.signOut();
 
+      // Adjust configuration based on device type
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -73,6 +94,12 @@ const LoginForm = () => {
           queryParams: {
             access_type: 'offline',
             prompt: 'consent',
+            // Add mobile-specific parameters
+            ...isMobile && {
+              redirect_uri: redirectTo,
+              response_type: 'code',
+              mobile: '1',
+            }
           },
           skipBrowserRedirect: false,
         },
@@ -80,18 +107,39 @@ const LoginForm = () => {
 
       if (error) {
         console.error('OAuth error:', error);
-        if (error.message.includes('popup_closed_by_user')) {
-          toast.error('Login cancelled. Please try again.');
-        } else if (isMobileDevice()) {
-          toast.error('Mobile login failed. Please ensure pop-ups are allowed.');
+        
+        // Handle specific mobile scenarios
+        if (isMobile) {
+          if (error.message.includes('popup')) {
+            toast.error('Please try again. Popups are not supported on mobile.');
+          } else if (error.message.includes('redirect_uri_mismatch')) {
+            console.error('Redirect URI mismatch:', redirectTo);
+            toast.error('Authentication configuration error. Please try again later.');
+          } else {
+            // Implement retry logic for mobile
+            if (retryCount < 2) {
+              setRetryCount(prev => prev + 1);
+              toast.error('Mobile login failed. Retrying...');
+              // Retry after a short delay
+              setTimeout(() => handleGoogleSignIn(), 1000);
+              return;
+            } else {
+              toast.error('Mobile login failed. Please try email login instead.');
+            }
+          }
         } else {
-          toast.error(error.message);
+          // Desktop specific errors
+          if (error.message.includes('popup_closed_by_user')) {
+            toast.error('Login cancelled. Please try again.');
+          } else {
+            toast.error(error.message);
+          }
         }
       }
     } catch (error: any) {
       console.error('Google sign-in error:', error);
-      toast.error(isMobileDevice() 
-        ? 'Mobile login failed. Please try again.' 
+      toast.error(isMobile 
+        ? 'Mobile login failed. Please try email login instead.' 
         : 'Failed to login with Google'
       );
     } finally {

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { ImageUploader } from "./ImageUploader";
 import { Label } from "@/components/ui/label";
@@ -9,6 +8,7 @@ import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Loader2 } from "lucide-react";
+import { toast } from "sonner";
 
 export type PlacementType = 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
 export type ManualPlacementSelection = 'upper_left' | 'upper_right' | 'bottom_left' | 'bottom_right' | 'right_center' | 'left_center' | 'upper_center' | 'bottom_center' | 'center_vertical' | 'center_horizontal';

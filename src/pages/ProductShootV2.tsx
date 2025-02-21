@@ -137,14 +137,17 @@ const ProductShootV2 = () => {
         }
         setGeneratedImages(data.images);
 
-        await supabase.from('product_shot_history').insert({
-          user_id: session.user.id,
+        // Add the history entry with user_id included
+        const historyEntry = {
+          user_id: session.user.id,  // Include user_id from the session
           source_image_url: publicUrl,
           result_url: data.images[0].url,
           scene_description: requestBody.scene_description || null,
           ref_image_url: referenceUrl || null,
           settings: requestBody
-        });
+        };
+
+        await supabase.from('product_shot_history').insert(historyEntry);
 
         queryClient.invalidateQueries({ queryKey: ["product-shot-history"] });
         

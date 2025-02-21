@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,10 +8,12 @@ interface GenerationQueueItem {
   requestId: string;
   prompt: string;
   retries: number;
+  sourceUrl: string;
+  settings: any;
 }
 
-const POLLING_INTERVAL = 2000; // 2 seconds
-const MAX_RETRIES = 30; // 1 minute maximum waiting time
+const POLLING_INTERVAL = 2000;
+const MAX_RETRIES = 30;
 
 export function useProductShoot() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -20,7 +21,6 @@ export function useProductShoot() {
   const [generationQueue, setGenerationQueue] = useState<GenerationQueueItem[]>([]);
   const queryClient = useQueryClient();
 
-  // Effect to handle polling for results
   useEffect(() => {
     if (generationQueue.length === 0) return;
 
@@ -43,14 +43,12 @@ export function useProductShoot() {
           if (response.error) throw new Error(response.error.message);
           
           if (response.data) {
-            // Image generation completed
             const completedImages = response.data.images.map(img => ({
               ...img,
               status: 'completed' as const,
               prompt: item.prompt
             }));
             
-            // Update generated images
             const imageIndex = newGeneratedImages.findIndex(
               img => img.id === `temp-${item.requestId}`
             );
@@ -61,15 +59,11 @@ export function useProductShoot() {
               newGeneratedImages.push(...completedImages);
             }
 
-            // Remove from queue
             updatedQueue.splice(i, 1);
             queueChanged = true;
-            i--; // Adjust index after removal
-
-            // Save to history if it was successful
-            await saveToHistory(completedImages[0]);
+            i--;
+            await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
           } else if (item.retries >= MAX_RETRIES) {
-            // Max retries reached, mark as failed
             const imageIndex = newGeneratedImages.findIndex(
               img => img.id === `temp-${item.requestId}`
             );
@@ -85,7 +79,6 @@ export function useProductShoot() {
             queueChanged = true;
             i--;
           } else {
-            // Increment retry counter
             updatedQueue[i] = {
               ...item,
               retries: item.retries + 1
@@ -94,7 +87,6 @@ export function useProductShoot() {
           }
         } catch (error) {
           console.error('Polling error:', error);
-          // Don't remove from queue on error, will retry
         }
       }
 
@@ -103,7 +95,6 @@ export function useProductShoot() {
         setGeneratedImages(newGeneratedImages);
       }
 
-      // Clear interval if queue is empty
       if (updatedQueue.length === 0) {
         setIsGenerating(false);
         clearInterval(pollInterval);
@@ -113,7 +104,11 @@ export function useProductShoot() {
     return () => clearInterval(pollInterval);
   }, [generationQueue, generatedImages]);
 
-  const saveToHistory = async (image: GeneratedImage) => {
+  const saveToHistory = async (
+    image: GeneratedImage, 
+    sourceUrl: string,
+    settings: any
+  ) => {
     const { data: { session } } = await supabase.auth.getSession();
     if (!session) return;
 
@@ -121,7 +116,9 @@ export function useProductShoot() {
       const historyEntry = {
         user_id: session.user.id,
         result_url: image.url,
+        source_image_url: sourceUrl,
         scene_description: image.prompt || null,
+        settings: settings || {}
       };
 
       await supabase.from('product_shot_history').insert(historyEntry);
@@ -134,7 +131,6 @@ export function useProductShoot() {
   const handleGenerate = async (formData: ProductShotFormData) => {
     setIsGenerating(true);
     
-    // Create placeholder images for status tracking
     const tempRequestId = crypto.randomUUID();
     const placeholderImage: GeneratedImage = {
       id: `temp-${tempRequestId}`,
@@ -153,7 +149,6 @@ export function useProductShoot() {
         return;
       }
 
-      // Upload source file
       const sourceFileExt = formData.sourceFile!.name.split('.').pop();
       const sourceFileName = `${crypto.randomUUID()}.${sourceFileExt}`;
 
@@ -201,7 +196,7 @@ export function useProductShoot() {
         num_results: formData.numResults,
         fast: formData.fastMode,
         placement_type: formData.placementType,
-        sync_mode: false // Always use async mode with polling
+        sync_mode: false
       };
 
       if (formData.generationType === 'description') {
@@ -234,11 +229,12 @@ export function useProductShoot() {
       if (error) throw new Error(error.message);
       if (!data?.requestId) throw new Error('No request ID received');
 
-      // Add to generation queue for polling
       setGenerationQueue(prev => [...prev, {
         requestId: data.requestId,
         prompt: formData.sceneDescription,
-        retries: 0
+        retries: 0,
+        sourceUrl: publicUrl,
+        settings: requestBody
       }]);
 
       toast.success("Image generation started! Please wait...");
@@ -247,7 +243,6 @@ export function useProductShoot() {
       console.error('Generation error:', error);
       const errorMessage = error.message || "Failed to generate image. Please try again.";
       
-      // Update images with failed status
       setGeneratedImages(prev => 
         prev.map(img => 
           img.id === `temp-${tempRequestId}`

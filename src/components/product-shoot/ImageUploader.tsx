@@ -119,8 +119,6 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
             } as unknown as React.ChangeEvent<HTMLInputElement>;
             
             onFileSelect(mockEvent);
-            const url = URL.createObjectURL(blob);
-            window.dispatchEvent(new CustomEvent('set-preview-url', { detail: url }));
           }
         }, 'image/jpeg');
       }

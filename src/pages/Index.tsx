@@ -27,9 +27,13 @@ const Index = () => {
             <Dashboard />
           </div>
         ) : (
-          <div className="flex-1 max-w-[1400px] mx-auto w-full">
-            <VideoShowcase />
-            <HomeExploreSection />
+          <div className="flex-1">
+            <div className="w-full">
+              <VideoShowcase />
+            </div>
+            <div className="w-full">
+              <HomeExploreSection />
+            </div>
           </div>
         )}
       </div>

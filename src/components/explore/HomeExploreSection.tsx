@@ -26,7 +26,6 @@ export const HomeExploreSection = () => {
         throw imagesError;
       }
 
-      // Fetch the corresponding profiles
       if (images && images.length > 0) {
         const userIds = [...new Set(images.map(img => img.user_id))];
         const { data: profiles, error: profilesError } = await supabase
@@ -90,8 +89,8 @@ export const HomeExploreSection = () => {
   });
 
   return (
-    <div className="py-8">
-      <div className="max-w-[1400px] mx-auto px-4">
+    <div className="w-full bg-background py-16">
+      <div className="container mx-auto px-4 max-w-[1400px]">
         <div className="flex justify-between items-center mb-8">
           <h2 className="text-3xl font-bold">Explore Recent Creations</h2>
           <Button onClick={() => navigate('/explore')} variant="outline">

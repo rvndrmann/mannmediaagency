@@ -1,7 +1,7 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check, Globe, Lock } from "lucide-react";
+import { Copy, Check, Globe, Lock, Download } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
@@ -32,6 +32,34 @@ export const ImageCard = ({ image }: ImageCardProps) => {
       toast({
         variant: "destructive",
         title: "Failed to copy",
+        description: "Please try again",
+      });
+    }
+  };
+
+  const handleDownload = async () => {
+    try {
+      if (!image.result_url) return;
+
+      const response = await fetch(image.result_url);
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `image-${image.id}.png`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+
+      toast({
+        title: "Success!",
+        description: "Image downloaded successfully",
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Download failed",
         description: "Please try again",
       });
     }
@@ -70,11 +98,24 @@ export const ImageCard = ({ image }: ImageCardProps) => {
     <Card className="overflow-hidden">
       <div className="aspect-square relative">
         {image.result_url ? (
-          <img
-            src={image.result_url}
-            alt={image.prompt}
-            className="w-full h-full object-contain bg-gray-900"
-          />
+          <div className="relative group">
+            <img
+              src={image.result_url}
+              alt={image.prompt}
+              className="w-full h-full object-contain bg-gray-900"
+            />
+            <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all flex items-center justify-center">
+              <Button
+                variant="secondary"
+                size="sm"
+                onClick={handleDownload}
+                className="transform translate-y-4 group-hover:translate-y-0 transition-transform"
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Download
+              </Button>
+            </div>
+          </div>
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">
             Processing...

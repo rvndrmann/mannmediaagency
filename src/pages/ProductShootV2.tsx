@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Sidebar } from "@/components/Sidebar";
@@ -13,6 +12,8 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useQueryClient } from "@tanstack/react-query";
+import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
 
 interface GeneratedImage {
   url: string;
@@ -52,6 +53,7 @@ const ProductShootV2 = () => {
     top: 0,
     bottom: 0
   });
+  const queryClient = useQueryClient();
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -129,7 +131,6 @@ const ProductShootV2 = () => {
         return;
       }
 
-      // Upload the source image to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = fileName;
@@ -148,14 +149,12 @@ const ProductShootV2 = () => {
         throw new Error(`Failed to upload image: ${uploadError.message}`);
       }
 
-      // Get the public URL of the uploaded image
       const { data: { publicUrl } } = supabase.storage
         .from('source_images')
         .getPublicUrl(filePath);
 
       console.log('Source image uploaded successfully:', publicUrl);
 
-      // If using reference image, upload it too
       let referenceUrl = '';
       if (generationType === 'reference' && referenceFile) {
         const refFileExt = referenceFile.name.split('.').pop();
@@ -183,7 +182,6 @@ const ProductShootV2 = () => {
         referenceUrl = refPublicUrl;
       }
 
-      // Prepare the request body
       const requestBody: any = {
         image_url: publicUrl,
         shot_size: [shotWidth, shotHeight],
@@ -193,7 +191,6 @@ const ProductShootV2 = () => {
         sync_mode: syncMode
       };
 
-      // Add either scene description or reference image URL
       if (generationType === 'description') {
         requestBody.scene_description = sceneDescription;
         requestBody.optimize_description = optimizeDescription;
@@ -201,7 +198,6 @@ const ProductShootV2 = () => {
         requestBody.ref_image_url = referenceUrl;
       }
 
-      // Add conditional parameters
       if (placementType === 'manual_placement') {
         requestBody.manual_placement_selection = manualPlacement;
       } else if (placementType === 'manual_padding') {
@@ -212,7 +208,6 @@ const ProductShootV2 = () => {
 
       console.log('Sending request to edge function:', requestBody);
 
-      // Call generate-product-shot function
       const { data, error } = await supabase.functions.invoke<GenerationResult>(
         'generate-product-shot',
         {
@@ -231,6 +226,17 @@ const ProductShootV2 = () => {
           throw new Error('No images received from the generation API');
         }
         setGeneratedImages(data.images);
+
+        await supabase.from('product_shot_history').insert({
+          source_image_url: publicUrl,
+          result_url: data.images[0].url,
+          scene_description: requestBody.scene_description || null,
+          ref_image_url: referenceUrl || null,
+          settings: requestBody
+        });
+
+        queryClient.invalidateQueries({ queryKey: ["product-shot-history"] });
+        
         toast.success("Image generated successfully!");
       } else {
         toast.success("Image generation started! Please wait...");
@@ -471,7 +477,7 @@ const ProductShootV2 = () => {
 
                 <div className="space-y-4">
                   <Label>Generated Images</Label>
-                  <div className="bg-gray-900 rounded-lg border-2 border-dashed border-gray-700 p-4 min-h-[500px]">
+                  <div className="bg-gray-900 rounded-lg border-2 border-dashed border-gray-700 p-4">
                     {generatedImages.length > 0 ? (
                       <div className="grid gap-4">
                         {generatedImages.map((image, index) => (
@@ -485,12 +491,19 @@ const ProductShootV2 = () => {
                         ))}
                       </div>
                     ) : (
-                      <div className="h-full flex items-center justify-center">
+                      <div className="h-[300px] flex items-center justify-center">
                         <p className="text-gray-500 text-center">
                           {isGenerating ? "Generating your product shot..." : "Generated images will appear here..."}
                         </p>
                       </div>
                     )}
+                  </div>
+
+                  <div className="bg-gray-900 rounded-lg border border-gray-800">
+                    <div className="p-4 border-b border-gray-800">
+                      <h2 className="text-lg font-semibold">Generation History</h2>
+                    </div>
+                    <HistoryPanel />
                   </div>
                 </div>
               </div>

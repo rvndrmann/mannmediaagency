@@ -489,6 +489,39 @@ export type Database = {
           },
         ]
       }
+      product_shot_history: {
+        Row: {
+          created_at: string
+          id: string
+          ref_image_url: string | null
+          result_url: string
+          scene_description: string | null
+          settings: Json
+          source_image_url: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          ref_image_url?: string | null
+          result_url: string
+          scene_description?: string | null
+          settings?: Json
+          source_image_url: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          ref_image_url?: string | null
+          result_url?: string
+          scene_description?: string | null
+          settings?: Json
+          source_image_url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       profiles: {
         Row: {
           avatar_url: string | null

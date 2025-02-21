@@ -35,17 +35,19 @@ export const VideoCard = ({ video }: VideoCardProps) => {
 
   return (
     <Card className="overflow-hidden">
-      <div className="aspect-video relative">
+      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "300px" }}>
         {video.result_url ? (
-          <video
-            src={video.result_url}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full h-full object-contain bg-gray-900"
-          />
+          <div className="w-full h-full flex items-center justify-center">
+            <video
+              src={video.result_url}
+              controls
+              playsInline
+              preload="metadata"
+              className="max-w-full max-h-[300px] h-auto w-auto object-contain"
+            />
+          </div>
         ) : (
-          <div className="w-full h-full bg-gray-100 flex items-center justify-center">
+          <div className="w-full h-full min-h-[300px] bg-gray-100 flex items-center justify-center">
             Processing...
           </div>
         )}

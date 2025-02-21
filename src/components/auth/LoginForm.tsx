@@ -4,10 +4,16 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 
 const LoginForm = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isEmailLoading, setIsEmailLoading] = useState(false);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const navigate = useNavigate();
 
   const isMobileDevice = () => {
@@ -16,9 +22,40 @@ const LoginForm = () => {
 
   const getRedirectUrl = () => {
     const baseUrl = window.location.origin;
-    // Ensure we're using https for production and handle local development
     const secureUrl = baseUrl.replace(/^http:/, 'https:');
     return `${secureUrl}/auth/callback`;
+  };
+
+  const handleEmailLogin = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!email || !password) {
+      toast.error("Please enter both email and password");
+      return;
+    }
+
+    setIsEmailLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) {
+        console.error("Email login error:", error);
+        toast.error(error.message);
+        return;
+      }
+
+      if (data.user) {
+        toast.success("Successfully logged in!");
+        navigate("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("Email login error:", error);
+      toast.error("Failed to login with email");
+    } finally {
+      setIsEmailLoading(false);
+    }
   };
 
   const handleGoogleSignIn = async () => {
@@ -27,7 +64,6 @@ const LoginForm = () => {
       const redirectTo = getRedirectUrl();
       console.log('Starting Google sign-in with redirect:', redirectTo);
       
-      // Clear any existing sessions first
       await supabase.auth.signOut();
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -38,7 +74,7 @@ const LoginForm = () => {
             access_type: 'offline',
             prompt: 'consent',
           },
-          skipBrowserRedirect: false, // Ensure redirect happens properly on mobile
+          skipBrowserRedirect: false,
         },
       });
 
@@ -69,6 +105,58 @@ const LoginForm = () => {
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
           <p className="text-gray-400">Sign in to your account</p>
+        </div>
+
+        <form onSubmit={handleEmailLogin} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email" className="text-white">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+              required
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="password" className="text-white">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+              required
+            />
+          </div>
+
+          <Button
+            type="submit"
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={isEmailLoading}
+          >
+            {isEmailLoading ? (
+              <>
+                <span className="size-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                Signing in...
+              </>
+            ) : (
+              "Sign in with Email"
+            )}
+          </Button>
+        </form>
+
+        <div className="relative">
+          <div className="absolute inset-0 flex items-center">
+            <Separator className="w-full" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-gray-800 px-2 text-gray-400">Or continue with</span>
+          </div>
         </div>
 
         <Button

@@ -1,11 +1,13 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Copy, Check } from "lucide-react";
+import { Copy, Check, Globe, Lock } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface ImageCardProps {
   image: any;
@@ -13,7 +15,9 @@ interface ImageCardProps {
 
 export const ImageCard = ({ image }: ImageCardProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -26,10 +30,39 @@ export const ImageCard = ({ image }: ImageCardProps) => {
       setTimeout(() => setCopiedField(null), 2000);
     } catch (err) {
       toast({
+        variant: "destructive",
         title: "Failed to copy",
         description: "Please try again",
-        variant: "destructive",
       });
+    }
+  };
+
+  const toggleVisibility = async () => {
+    try {
+      setIsUpdating(true);
+      const newVisibility = image.visibility === 'public' ? 'private' : 'public';
+      
+      const { error } = await supabase
+        .from('image_generation_jobs')
+        .update({ visibility: newVisibility })
+        .eq('id', image.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['publicImages'] });
+      
+      toast({
+        title: "Visibility updated",
+        description: `Image is now ${newVisibility}`,
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to update visibility",
+        description: "Please try again",
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -50,7 +83,21 @@ export const ImageCard = ({ image }: ImageCardProps) => {
       </div>
       <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <Badge variant="secondary">{image.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{image.status}</Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleVisibility}
+              disabled={isUpdating}
+            >
+              {image.visibility === 'public' ? (
+                <Globe className="h-4 w-4 text-green-500" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
           {image.product_image_metadata?.seo_title && (
             <Button
               variant="ghost"

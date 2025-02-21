@@ -1,11 +1,13 @@
 
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Video, Copy, Check } from "lucide-react";
+import { Video, Copy, Check, Globe, Lock } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
+import { supabase } from "@/integrations/supabase/client";
+import { useQueryClient } from "@tanstack/react-query";
 
 interface VideoCardProps {
   video: any;
@@ -13,7 +15,9 @@ interface VideoCardProps {
 
 export const VideoCard = ({ video }: VideoCardProps) => {
   const { toast } = useToast();
+  const queryClient = useQueryClient();
   const [copiedField, setCopiedField] = useState<string | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
 
   const handleCopy = async (text: string, field: string) => {
     try {
@@ -30,6 +34,35 @@ export const VideoCard = ({ video }: VideoCardProps) => {
         title: "Failed to copy",
         description: "Please try again",
       });
+    }
+  };
+
+  const toggleVisibility = async () => {
+    try {
+      setIsUpdating(true);
+      const newVisibility = video.visibility === 'public' ? 'private' : 'public';
+      
+      const { error } = await supabase
+        .from('video_generation_jobs')
+        .update({ visibility: newVisibility })
+        .eq('id', video.id);
+
+      if (error) throw error;
+
+      queryClient.invalidateQueries({ queryKey: ['publicVideos'] });
+      
+      toast({
+        title: "Visibility updated",
+        description: `Video is now ${newVisibility}`,
+      });
+    } catch (err) {
+      toast({
+        variant: "destructive",
+        title: "Failed to update visibility",
+        description: "Please try again",
+      });
+    } finally {
+      setIsUpdating(false);
     }
   };
 
@@ -54,7 +87,21 @@ export const VideoCard = ({ video }: VideoCardProps) => {
       </div>
       <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <Badge variant="secondary">{video.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{video.status}</Badge>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleVisibility}
+              disabled={isUpdating}
+            >
+              {video.visibility === 'public' ? (
+                <Globe className="h-4 w-4 text-green-500" />
+              ) : (
+                <Lock className="h-4 w-4" />
+              )}
+            </Button>
+          </div>
           {video.video_metadata?.seo_title && (
             <Button
               variant="ghost"

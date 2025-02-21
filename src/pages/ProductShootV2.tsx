@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Loader2 } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface GeneratedImage {
   url: string;
@@ -30,6 +31,8 @@ type ManualPlacementSelection = 'upper_left' | 'upper_right' | 'bottom_left' | '
 const ProductShootV2 = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
   const [sceneDescription, setSceneDescription] = useState("");
   const [placementType, setPlacementType] = useState<PlacementType>("manual_placement");
   const [manualPlacement, setManualPlacement] = useState<ManualPlacementSelection>("bottom_center");
@@ -42,6 +45,7 @@ const ProductShootV2 = () => {
   const [shotWidth, setShotWidth] = useState(1000);
   const [shotHeight, setShotHeight] = useState(1000);
   const [syncMode, setSyncMode] = useState(true);
+  const [generationType, setGenerationType] = useState<'description' | 'reference'>('description');
   const [padding, setPadding] = useState({
     left: 0,
     right: 0,
@@ -66,6 +70,23 @@ const ProductShootV2 = () => {
     }
   };
 
+  const handleReferenceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        if (file.size > 12 * 1024 * 1024) {
+          toast.error("File size must be less than 12MB");
+          return;
+        }
+        setReferenceFile(file);
+        const url = URL.createObjectURL(file);
+        setReferencePreviewUrl(url);
+      } else {
+        toast.error("Please select an image file");
+      }
+    }
+  };
+
   const clearSelectedFile = () => {
     if (previewUrl) {
       URL.revokeObjectURL(previewUrl);
@@ -74,14 +95,27 @@ const ProductShootV2 = () => {
     setPreviewUrl(null);
   };
 
+  const clearReferenceFile = () => {
+    if (referencePreviewUrl) {
+      URL.revokeObjectURL(referencePreviewUrl);
+    }
+    setReferenceFile(null);
+    setReferencePreviewUrl(null);
+  };
+
   const handleGenerate = async () => {
     if (!selectedFile) {
       toast.error("Please upload an image first");
       return;
     }
 
-    if (!sceneDescription) {
+    if (generationType === 'description' && !sceneDescription) {
       toast.error("Please provide a scene description");
+      return;
+    }
+
+    if (generationType === 'reference' && !referenceFile) {
+      toast.error("Please upload a reference image");
       return;
     }
 
@@ -95,13 +129,12 @@ const ProductShootV2 = () => {
         return;
       }
 
-      // Upload the image to Supabase Storage
+      // Upload the source image to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
-      // Store in root of bucket instead of subfolder
       const filePath = fileName;
 
-      console.log('Uploading file:', filePath);
+      console.log('Uploading source file:', filePath);
 
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('source_images')
@@ -120,27 +153,61 @@ const ProductShootV2 = () => {
         .from('source_images')
         .getPublicUrl(filePath);
 
-      console.log('Image uploaded successfully:', publicUrl);
+      console.log('Source image uploaded successfully:', publicUrl);
+
+      // If using reference image, upload it too
+      let referenceUrl = '';
+      if (generationType === 'reference' && referenceFile) {
+        const refFileExt = referenceFile.name.split('.').pop();
+        const refFileName = `ref_${crypto.randomUUID()}.${refFileExt}`;
+        
+        console.log('Uploading reference file:', refFileName);
+
+        const { error: refUploadError } = await supabase.storage
+          .from('source_images')
+          .upload(refFileName, referenceFile, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (refUploadError) {
+          console.error('Reference upload error:', refUploadError);
+          throw new Error(`Failed to upload reference image: ${refUploadError.message}`);
+        }
+
+        const { data: { publicUrl: refPublicUrl } } = supabase.storage
+          .from('source_images')
+          .getPublicUrl(refFileName);
+
+        console.log('Reference image uploaded successfully:', refPublicUrl);
+        referenceUrl = refPublicUrl;
+      }
 
       // Prepare the request body
-      const requestBody = {
+      const requestBody: any = {
         image_url: publicUrl,
-        scene_description: sceneDescription,
-        optimize_description: optimizeDescription,
+        shot_size: [shotWidth, shotHeight],
         num_results: numResults,
         fast: fastMode,
         placement_type: placementType,
-        shot_size: [shotWidth, shotHeight],
         sync_mode: syncMode
       };
 
+      // Add either scene description or reference image URL
+      if (generationType === 'description') {
+        requestBody.scene_description = sceneDescription;
+        requestBody.optimize_description = optimizeDescription;
+      } else {
+        requestBody.ref_image_url = referenceUrl;
+      }
+
       // Add conditional parameters
       if (placementType === 'manual_placement') {
-        requestBody['manual_placement_selection'] = manualPlacement;
+        requestBody.manual_placement_selection = manualPlacement;
       } else if (placementType === 'manual_padding') {
-        requestBody['padding_values'] = [padding.left, padding.right, padding.top, padding.bottom];
+        requestBody.padding_values = [padding.left, padding.right, padding.top, padding.bottom];
       } else if (placementType === 'original') {
-        requestBody['original_quality'] = originalQuality;
+        requestBody.original_quality = originalQuality;
       }
 
       console.log('Sending request to edge function:', requestBody);
@@ -166,9 +233,7 @@ const ProductShootV2 = () => {
         setGeneratedImages(data.images);
         toast.success("Image generated successfully!");
       } else {
-        // Handle async mode
         toast.success("Image generation started! Please wait...");
-        // You would implement a polling mechanism here to check the status
       }
     } catch (error: any) {
       console.error('Generation error:', error);
@@ -205,16 +270,43 @@ const ProductShootV2 = () => {
                     />
                   </div>
 
-                  <div className="space-y-4">
-                    <Label htmlFor="sceneDescription">Scene Description</Label>
-                    <Textarea
-                      id="sceneDescription"
-                      placeholder="Describe the scene or background you want for your product..."
-                      value={sceneDescription}
-                      onChange={(e) => setSceneDescription(e.target.value)}
-                      className="min-h-[100px]"
-                    />
-                  </div>
+                  <Tabs value={generationType} onValueChange={(value: 'description' | 'reference') => setGenerationType(value)}>
+                    <TabsList className="grid w-full grid-cols-2">
+                      <TabsTrigger value="description">Scene Description</TabsTrigger>
+                      <TabsTrigger value="reference">Reference Image</TabsTrigger>
+                    </TabsList>
+                    <TabsContent value="description">
+                      <div className="space-y-4">
+                        <Label htmlFor="sceneDescription">Scene Description</Label>
+                        <Textarea
+                          id="sceneDescription"
+                          placeholder="Describe the scene or background you want for your product..."
+                          value={sceneDescription}
+                          onChange={(e) => setSceneDescription(e.target.value)}
+                          className="min-h-[100px]"
+                        />
+                        <div className="flex items-center justify-between">
+                          <Label htmlFor="optimizeDescription">Optimize Description</Label>
+                          <Switch
+                            id="optimizeDescription"
+                            checked={optimizeDescription}
+                            onCheckedChange={setOptimizeDescription}
+                          />
+                        </div>
+                      </div>
+                    </TabsContent>
+                    <TabsContent value="reference">
+                      <div className="space-y-4">
+                        <Label>Reference Image</Label>
+                        <ImageUploader
+                          previewUrl={referencePreviewUrl}
+                          onFileSelect={handleReferenceFileSelect}
+                          onClear={clearReferenceFile}
+                          helpText="Upload a reference image (max 12MB)"
+                        />
+                      </div>
+                    </TabsContent>
+                  </Tabs>
 
                   <div className="space-y-4">
                     <Label htmlFor="placementType">Placement Type</Label>
@@ -299,15 +391,6 @@ const ProductShootV2 = () => {
 
                   <div className="space-y-4">
                     <div className="flex items-center justify-between">
-                      <Label htmlFor="optimizeDescription">Optimize Description</Label>
-                      <Switch
-                        id="optimizeDescription"
-                        checked={optimizeDescription}
-                        onCheckedChange={setOptimizeDescription}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between">
                       <Label htmlFor="fastMode">Fast Mode</Label>
                       <Switch
                         id="fastMode"
@@ -372,7 +455,7 @@ const ProductShootV2 = () => {
 
                   <Button 
                     onClick={handleGenerate} 
-                    disabled={isGenerating || !selectedFile || !sceneDescription}
+                    disabled={isGenerating || !selectedFile || (generationType === 'description' && !sceneDescription) || (generationType === 'reference' && !referenceFile)}
                     className="w-full"
                   >
                     {isGenerating ? (

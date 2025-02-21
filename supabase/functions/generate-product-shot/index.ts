@@ -20,6 +20,7 @@ interface StatusResponse {
 interface ProductShotRequest {
   image_url: string;
   scene_description?: string;
+  ref_image_url?: string;
   optimize_description?: boolean;
   num_results?: number;
   fast?: boolean;
@@ -60,11 +61,17 @@ serve(async (req) => {
       throw new Error('image_url is required');
     }
 
+    if (!requestBody.scene_description && !requestBody.ref_image_url) {
+      throw new Error('Either scene_description or ref_image_url must be provided');
+    }
+
+    if (requestBody.scene_description && requestBody.ref_image_url) {
+      throw new Error('Cannot provide both scene_description and ref_image_url');
+    }
+
     // Prepare request payload with default values
-    const requestPayload = {
+    const requestPayload: any = {
       image_url: requestBody.image_url,
-      scene_description: requestBody.scene_description || '',
-      optimize_description: requestBody.optimize_description ?? true,
       num_results: requestBody.num_results ?? 1,
       fast: requestBody.fast ?? true,
       placement_type: requestBody.placement_type || 'manual_placement',
@@ -72,13 +79,21 @@ serve(async (req) => {
       sync_mode: requestBody.sync_mode ?? true
     };
 
+    // Add either scene description or reference image
+    if (requestBody.scene_description) {
+      requestPayload.scene_description = requestBody.scene_description;
+      requestPayload.optimize_description = requestBody.optimize_description ?? true;
+    } else if (requestBody.ref_image_url) {
+      requestPayload.ref_image_url = requestBody.ref_image_url;
+    }
+
     // Add conditional parameters
     if (requestPayload.placement_type === 'manual_placement') {
-      requestPayload['manual_placement_selection'] = requestBody.manual_placement_selection || 'bottom_center';
+      requestPayload.manual_placement_selection = requestBody.manual_placement_selection || 'bottom_center';
     } else if (requestPayload.placement_type === 'manual_padding' && requestBody.padding_values) {
-      requestPayload['padding_values'] = requestBody.padding_values;
+      requestPayload.padding_values = requestBody.padding_values;
     } else if (requestPayload.placement_type === 'original') {
-      requestPayload['original_quality'] = requestBody.original_quality ?? false;
+      requestPayload.original_quality = requestBody.original_quality ?? false;
     }
 
     console.log('Submitting request to queue with payload:', requestPayload);

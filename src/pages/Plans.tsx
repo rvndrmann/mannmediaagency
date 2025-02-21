@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -41,7 +42,9 @@ const Plans = () => {
       billing: "One-time payment",
       features: [
         "Create 1 video (10 credits)",
-        "AI Agent: 1 credit per 1000 words"
+        "AI Agent: 1 credit per 1000 words",
+        "Product Image: 0.2 credits per image",
+        "Image to Video: 1 credit per video"
       ]
     },
     {
@@ -53,6 +56,8 @@ const Plans = () => {
       features: [
         "Create 10 videos (10 credits each)",
         "AI Agent: 1 credit per 1000 words",
+        "Product Image: 0.2 credits per image",
+        "Image to Video: 1 credit per video",
         "Priority Support"
       ]
     }

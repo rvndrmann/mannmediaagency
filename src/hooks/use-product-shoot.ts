@@ -1,28 +1,150 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { GeneratedImage, GenerationResult, ProductShotFormData } from "@/types/product-shoot";
 
+interface GenerationQueueItem {
+  requestId: string;
+  prompt: string;
+  retries: number;
+}
+
+const POLLING_INTERVAL = 2000; // 2 seconds
+const MAX_RETRIES = 30; // 1 minute maximum waiting time
+
 export function useProductShoot() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [generationQueue, setGenerationQueue] = useState<GenerationQueueItem[]>([]);
   const queryClient = useQueryClient();
+
+  // Effect to handle polling for results
+  useEffect(() => {
+    if (generationQueue.length === 0) return;
+
+    const pollInterval = setInterval(async () => {
+      const updatedQueue = [...generationQueue];
+      const newGeneratedImages = [...generatedImages];
+      let queueChanged = false;
+
+      for (let i = 0; i < updatedQueue.length; i++) {
+        const item = updatedQueue[i];
+        
+        try {
+          const response = await supabase.functions.invoke<GenerationResult>(
+            'check-generation-status',
+            {
+              body: JSON.stringify({ requestId: item.requestId })
+            }
+          );
+
+          if (response.error) throw new Error(response.error.message);
+          
+          if (response.data) {
+            // Image generation completed
+            const completedImages = response.data.images.map(img => ({
+              ...img,
+              status: 'completed' as const,
+              prompt: item.prompt
+            }));
+            
+            // Update generated images
+            const imageIndex = newGeneratedImages.findIndex(
+              img => img.id === `temp-${item.requestId}`
+            );
+            
+            if (imageIndex !== -1) {
+              newGeneratedImages[imageIndex] = completedImages[0];
+            } else {
+              newGeneratedImages.push(...completedImages);
+            }
+
+            // Remove from queue
+            updatedQueue.splice(i, 1);
+            queueChanged = true;
+            i--; // Adjust index after removal
+
+            // Save to history if it was successful
+            await saveToHistory(completedImages[0]);
+          } else if (item.retries >= MAX_RETRIES) {
+            // Max retries reached, mark as failed
+            const imageIndex = newGeneratedImages.findIndex(
+              img => img.id === `temp-${item.requestId}`
+            );
+            
+            if (imageIndex !== -1) {
+              newGeneratedImages[imageIndex] = {
+                ...newGeneratedImages[imageIndex],
+                status: 'failed'
+              };
+            }
+
+            updatedQueue.splice(i, 1);
+            queueChanged = true;
+            i--;
+          } else {
+            // Increment retry counter
+            updatedQueue[i] = {
+              ...item,
+              retries: item.retries + 1
+            };
+            queueChanged = true;
+          }
+        } catch (error) {
+          console.error('Polling error:', error);
+          // Don't remove from queue on error, will retry
+        }
+      }
+
+      if (queueChanged) {
+        setGenerationQueue(updatedQueue);
+        setGeneratedImages(newGeneratedImages);
+      }
+
+      // Clear interval if queue is empty
+      if (updatedQueue.length === 0) {
+        setIsGenerating(false);
+        clearInterval(pollInterval);
+      }
+    }, POLLING_INTERVAL);
+
+    return () => clearInterval(pollInterval);
+  }, [generationQueue, generatedImages]);
+
+  const saveToHistory = async (image: GeneratedImage) => {
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) return;
+
+    try {
+      const historyEntry = {
+        user_id: session.user.id,
+        result_url: image.url,
+        scene_description: image.prompt || null,
+      };
+
+      await supabase.from('product_shot_history').insert(historyEntry);
+      queryClient.invalidateQueries({ queryKey: ["product-shot-history"] });
+    } catch (error) {
+      console.error('Error saving to history:', error);
+    }
+  };
 
   const handleGenerate = async (formData: ProductShotFormData) => {
     setIsGenerating(true);
     
     // Create placeholder images for status tracking
-    const placeholderImages: GeneratedImage[] = Array(formData.numResults).fill(null).map((_, i) => ({
-      id: `temp-${i}`,
+    const tempRequestId = crypto.randomUUID();
+    const placeholderImage: GeneratedImage = {
+      id: `temp-${tempRequestId}`,
       url: '',
       content_type: 'image/png',
       status: 'processing',
       prompt: formData.sceneDescription
-    }));
+    };
     
-    setGeneratedImages(placeholderImages);
+    setGeneratedImages(prev => [...prev, placeholderImage]);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -35,8 +157,6 @@ export function useProductShoot() {
       const sourceFileExt = formData.sourceFile!.name.split('.').pop();
       const sourceFileName = `${crypto.randomUUID()}.${sourceFileExt}`;
 
-      console.log('Uploading source file:', sourceFileName);
-
       const { data: uploadData, error: uploadError } = await supabase.storage
         .from('source_images')
         .upload(sourceFileName, formData.sourceFile!, {
@@ -45,7 +165,6 @@ export function useProductShoot() {
         });
 
       if (uploadError) {
-        console.error('Upload error:', uploadError);
         throw new Error(`Failed to upload image: ${uploadError.message}`);
       }
 
@@ -53,15 +172,11 @@ export function useProductShoot() {
         .from('source_images')
         .getPublicUrl(sourceFileName);
 
-      console.log('Source image uploaded successfully:', publicUrl);
-
       let referenceUrl = '';
       if (formData.generationType === 'reference' && formData.referenceFile) {
         const refFileExt = formData.referenceFile.name.split('.').pop();
         const refFileName = `ref_${crypto.randomUUID()}.${refFileExt}`;
         
-        console.log('Uploading reference file:', refFileName);
-
         const { error: refUploadError } = await supabase.storage
           .from('source_images')
           .upload(refFileName, formData.referenceFile, {
@@ -70,7 +185,6 @@ export function useProductShoot() {
           });
 
         if (refUploadError) {
-          console.error('Reference upload error:', refUploadError);
           throw new Error(`Failed to upload reference image: ${refUploadError.message}`);
         }
 
@@ -78,7 +192,6 @@ export function useProductShoot() {
           .from('source_images')
           .getPublicUrl(refFileName);
 
-        console.log('Reference image uploaded successfully:', refPublicUrl);
         referenceUrl = refPublicUrl;
       }
 
@@ -88,7 +201,7 @@ export function useProductShoot() {
         num_results: formData.numResults,
         fast: formData.fastMode,
         placement_type: formData.placementType,
-        sync_mode: formData.syncMode
+        sync_mode: false // Always use async mode with polling
       };
 
       if (formData.generationType === 'description') {
@@ -111,62 +224,36 @@ export function useProductShoot() {
         requestBody.original_quality = formData.originalQuality;
       }
 
-      console.log('Sending request to edge function:', requestBody);
-
-      const { data, error } = await supabase.functions.invoke<GenerationResult>(
+      const { data, error } = await supabase.functions.invoke<{ requestId: string }>(
         'generate-product-shot',
         {
           body: JSON.stringify(requestBody)
         }
       );
 
-      console.log('Edge function response:', data, error);
+      if (error) throw new Error(error.message);
+      if (!data?.requestId) throw new Error('No request ID received');
 
-      if (error) {
-        throw new Error(error.message || 'Failed to generate image');
-      }
+      // Add to generation queue for polling
+      setGenerationQueue(prev => [...prev, {
+        requestId: data.requestId,
+        prompt: formData.sceneDescription,
+        retries: 0
+      }]);
 
-      if (formData.syncMode) {
-        if (!data?.images?.length) {
-          throw new Error('No images received from the generation API');
-        }
-        
-        // Update images with completed status and URLs
-        const completedImages = data.images.map((img, index) => ({
-          id: `generated-${index}`,
-          url: img.url,
-          content_type: img.content_type,
-          status: 'completed' as const,
-          prompt: formData.sceneDescription
-        }));
-        
-        setGeneratedImages(completedImages);
+      toast.success("Image generation started! Please wait...");
 
-        const historyEntry = {
-          user_id: session.user.id,
-          source_image_url: publicUrl,
-          result_url: data.images[0].url,
-          scene_description: requestBody.scene_description || null,
-          ref_image_url: referenceUrl || null,
-          settings: requestBody
-        };
-
-        await supabase.from('product_shot_history').insert(historyEntry);
-        queryClient.invalidateQueries({ queryKey: ["product-shot-history"] });
-        toast.success("Image generated successfully!");
-      } else {
-        toast.success("Image generation started! Please wait...");
-      }
     } catch (error: any) {
       console.error('Generation error:', error);
       const errorMessage = error.message || "Failed to generate image. Please try again.";
       
       // Update images with failed status
       setGeneratedImages(prev => 
-        prev.map(img => ({
-          ...img,
-          status: 'failed' as const
-        }))
+        prev.map(img => 
+          img.id === `temp-${tempRequestId}`
+            ? { ...img, status: 'failed' as const }
+            : img
+        )
       );
       
       if (errorMessage.toLowerCase().includes('fal_key')) {
@@ -174,7 +261,6 @@ export function useProductShoot() {
       } else {
         toast.error(errorMessage);
       }
-    } finally {
       setIsGenerating(false);
     }
   };

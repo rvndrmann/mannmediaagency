@@ -130,38 +130,44 @@ export const ImageCard = ({ image }: ImageCardProps) => {
         {image.settings && (
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm text-gray-500">
-                Inference Steps: {image.settings.num_inference_steps || 'N/A'}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex-shrink-0"
-                onClick={() => handleCopy(image.settings.num_inference_steps?.toString() || '', "Inference Steps")}
-              >
-                {copiedField === "Inference Steps" ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
+              <p className="text-sm text-gray-500">Inference Steps:</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {image.settings.num_inference_steps || 'N/A'}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={() => handleCopy(image.settings.num_inference_steps?.toString() || '', "Inference Steps")}
+                >
+                  {copiedField === "Inference Steps" ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
             <div className="flex items-center justify-between gap-2">
-              <p className="text-sm text-gray-500">
-                Guidance Scale: {image.settings.guidance_scale || 'N/A'}
-              </p>
-              <Button
-                variant="ghost"
-                size="sm"
-                className="flex-shrink-0"
-                onClick={() => handleCopy(image.settings.guidance_scale?.toString() || '', "Guidance Scale")}
-              >
-                {copiedField === "Guidance Scale" ? (
-                  <Check className="h-4 w-4 text-green-500" />
-                ) : (
-                  <Copy className="h-4 w-4" />
-                )}
-              </Button>
+              <p className="text-sm text-gray-500">Guidance Scale:</p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-medium">
+                  {image.settings.guidance_scale || 'N/A'}
+                </span>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="flex-shrink-0"
+                  onClick={() => handleCopy(image.settings.guidance_scale?.toString() || '', "Guidance Scale")}
+                >
+                  {copiedField === "Guidance Scale" ? (
+                    <Check className="h-4 w-4 text-green-500" />
+                  ) : (
+                    <Copy className="h-4 w-4" />
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         )}

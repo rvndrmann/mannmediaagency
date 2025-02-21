@@ -29,21 +29,42 @@ const Explore = () => {
   const { data: publicImages, isLoading: imagesLoading } = useQuery({
     queryKey: ["publicImages"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First fetch the image generation jobs
+      const { data: images, error: imagesError } = await supabase
         .from("image_generation_jobs")
         .select(`
           *,
-          product_image_metadata (*),
-          profiles:user_id (username, avatar_url)
+          product_image_metadata (*)
         `)
         .eq('visibility', 'public')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching public images:', error);
-        throw error;
+      if (imagesError) {
+        console.error('Error fetching public images:', imagesError);
+        throw imagesError;
       }
-      return data;
+
+      // Then fetch the corresponding profiles
+      if (images && images.length > 0) {
+        const userIds = [...new Set(images.map(img => img.user_id))];
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          throw profilesError;
+        }
+
+        // Merge the profile data with the images
+        return images.map(img => ({
+          ...img,
+          profiles: profiles?.find(p => p.id === img.user_id)
+        }));
+      }
+
+      return images || [];
     },
     enabled: !!session,
   });
@@ -51,21 +72,42 @@ const Explore = () => {
   const { data: publicVideos, isLoading: videosLoading } = useQuery({
     queryKey: ["publicVideos"],
     queryFn: async () => {
-      const { data, error } = await supabase
+      // First fetch the video generation jobs
+      const { data: videos, error: videosError } = await supabase
         .from("video_generation_jobs")
         .select(`
           *,
-          video_metadata (*),
-          profiles:user_id (username, avatar_url)
+          video_metadata (*)
         `)
         .eq('visibility', 'public')
         .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error('Error fetching public videos:', error);
-        throw error;
+      if (videosError) {
+        console.error('Error fetching public videos:', videosError);
+        throw videosError;
       }
-      return data;
+
+      // Then fetch the corresponding profiles
+      if (videos && videos.length > 0) {
+        const userIds = [...new Set(videos.map(vid => vid.user_id))];
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          throw profilesError;
+        }
+
+        // Merge the profile data with the videos
+        return videos.map(vid => ({
+          ...vid,
+          profiles: profiles?.find(p => p.id === vid.user_id)
+        }));
+      }
+
+      return videos || [];
     },
     enabled: !!session,
   });

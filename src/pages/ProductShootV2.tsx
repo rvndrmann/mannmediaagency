@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Sidebar } from "@/components/Sidebar";
@@ -14,13 +13,7 @@ interface GeneratedImage {
   content_type: string;
 }
 
-interface GenerationResult {
-  images: GeneratedImage[];
-  request_id?: string;
-  status?: string;
-}
-
-const ProductShootV2 = () => {
+export default function ProductShootV2() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const queryClient = useQueryClient();
@@ -178,13 +171,15 @@ const ProductShootV2 = () => {
             <div className="p-8">
               <h1 className="text-2xl font-bold mb-6">Product Shoot V2</h1>
               
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                <ProductShotForm 
-                  onSubmit={handleGenerate}
-                  isGenerating={isGenerating}
-                />
+              <div className="flex flex-col lg:flex-row gap-8">
+                <div className="w-full lg:w-[400px] shrink-0">
+                  <ProductShotForm 
+                    onSubmit={handleGenerate}
+                    isGenerating={isGenerating}
+                  />
+                </div>
 
-                <div className="space-y-4">
+                <div className="flex-1 space-y-6">
                   <GeneratedImagesPanel 
                     images={generatedImages}
                     isGenerating={isGenerating}
@@ -204,6 +199,4 @@ const ProductShootV2 = () => {
       </div>
     </SidebarProvider>
   );
-};
-
-export default ProductShootV2;
+}

@@ -1,6 +1,5 @@
 
 import { Loader2 } from "lucide-react";
-import { VideoPlayer } from "@/components/video/VideoPlayer";
 
 interface GeneratedImage {
   url: string;
@@ -13,25 +12,17 @@ interface GeneratedImagesPanelProps {
 }
 
 export function GeneratedImagesPanel({ images, isGenerating }: GeneratedImagesPanelProps) {
-  const isVideo = (contentType: string) => contentType.startsWith('video/');
-
   return (
     <div className="bg-gray-900 rounded-lg border-2 border-dashed border-gray-700 p-4">
       {images.length > 0 ? (
         <div className="grid gap-4">
           {images.map((image, index) => (
-            <div key={index} className="relative">
-              {isVideo(image.content_type) ? (
-                <VideoPlayer videoUrl={image.url} videoJobId={`generated-${index}`} />
-              ) : (
-                <div className="aspect-square">
-                  <img
-                    src={image.url}
-                    alt={`Generated product shot ${index + 1}`}
-                    className="w-full h-full object-contain rounded-lg"
-                  />
-                </div>
-              )}
+            <div key={index} className="relative aspect-square">
+              <img
+                src={image.url}
+                alt={`Generated product shot ${index + 1}`}
+                className="w-full h-full object-contain rounded-lg"
+              />
             </div>
           ))}
         </div>

@@ -7,8 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Loader2 } from "lucide-react";
 
 interface GeneratedImage {
   url: string;
@@ -17,15 +20,34 @@ interface GeneratedImage {
 
 interface GenerationResult {
   images: GeneratedImage[];
+  request_id?: string;
+  status?: string;
 }
+
+type PlacementType = 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
+type ManualPlacementSelection = 'upper_left' | 'upper_right' | 'bottom_left' | 'bottom_right' | 'right_center' | 'left_center' | 'upper_center' | 'bottom_center' | 'center_vertical' | 'center_horizontal';
 
 const ProductShootV2 = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [sceneDescription, setSceneDescription] = useState("");
-  const [placementType, setPlacementType] = useState<string>("manual_placement");
+  const [placementType, setPlacementType] = useState<PlacementType>("manual_placement");
+  const [manualPlacement, setManualPlacement] = useState<ManualPlacementSelection>("bottom_center");
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [optimizeDescription, setOptimizeDescription] = useState(true);
+  const [numResults, setNumResults] = useState(1);
+  const [fastMode, setFastMode] = useState(true);
+  const [originalQuality, setOriginalQuality] = useState(false);
+  const [shotWidth, setShotWidth] = useState(1000);
+  const [shotHeight, setShotHeight] = useState(1000);
+  const [syncMode, setSyncMode] = useState(true);
+  const [padding, setPadding] = useState({
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0
+  });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -58,6 +80,11 @@ const ProductShootV2 = () => {
       return;
     }
 
+    if (!sceneDescription) {
+      toast.error("Please provide a scene description");
+      return;
+    }
+
     setIsGenerating(true);
     setGeneratedImages([]);
 
@@ -68,7 +95,7 @@ const ProductShootV2 = () => {
         return;
       }
 
-      // First upload the image to Supabase Storage
+      // Upload the image to Supabase Storage
       const fileExt = selectedFile.name.split('.').pop();
       const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const filePath = `product-shots/${fileName}`;
@@ -92,15 +119,31 @@ const ProductShootV2 = () => {
 
       console.log('Image uploaded successfully:', publicUrl);
 
-      // Call generate-product-shot function with proper error handling
+      // Prepare the request body based on placement type
+      const requestBody: any = {
+        image_url: publicUrl,
+        scene_description: sceneDescription,
+        optimize_description: optimizeDescription,
+        num_results: numResults,
+        fast: fastMode,
+        placement_type: placementType,
+        shot_size: [shotWidth, shotHeight],
+        sync_mode: syncMode
+      };
+
+      if (placementType === 'manual_placement') {
+        requestBody.manual_placement_selection = manualPlacement;
+      } else if (placementType === 'manual_padding') {
+        requestBody.padding_values = [padding.left, padding.right, padding.top, padding.bottom];
+      } else if (placementType === 'original') {
+        requestBody.original_quality = originalQuality;
+      }
+
+      // Call generate-product-shot function
       const { data, error } = await supabase.functions.invoke<GenerationResult>(
         'generate-product-shot',
         {
-          body: JSON.stringify({ 
-            image_url: publicUrl,
-            scene_description: sceneDescription,
-            placement_type: placementType
-          }),
+          body: JSON.stringify(requestBody),
           headers: {
             'Content-Type': 'application/json'
           }
@@ -113,17 +156,21 @@ const ProductShootV2 = () => {
         throw new Error(error.message || 'Failed to generate image');
       }
 
-      if (!data || !data.images || !data.images.length) {
-        throw new Error('No images received from the generation API');
+      if (syncMode) {
+        if (!data?.images?.length) {
+          throw new Error('No images received from the generation API');
+        }
+        setGeneratedImages(data.images);
+        toast.success("Image generated successfully!");
+      } else {
+        // Handle async mode
+        toast.success("Image generation started! Please wait...");
+        // You would implement a polling mechanism here to check the status
       }
-
-      setGeneratedImages(data.images);
-      toast.success("Image generated successfully!");
     } catch (error: any) {
       console.error('Generation error:', error);
       const errorMessage = error.message || "Failed to generate image. Please try again.";
       
-      // Check if error is related to FAL.AI key
       if (errorMessage.toLowerCase().includes('fal_key')) {
         toast.error("There was an issue with the AI service configuration. Please try again later or contact support.");
       } else {
@@ -170,7 +217,7 @@ const ProductShootV2 = () => {
                     <Label htmlFor="placementType">Placement Type</Label>
                     <Select
                       value={placementType}
-                      onValueChange={setPlacementType}
+                      onValueChange={(value: PlacementType) => setPlacementType(value)}
                     >
                       <SelectTrigger id="placementType">
                         <SelectValue placeholder="Select placement type" />
@@ -184,12 +231,155 @@ const ProductShootV2 = () => {
                     </Select>
                   </div>
 
+                  {placementType === 'manual_placement' && (
+                    <div className="space-y-4">
+                      <Label htmlFor="manualPlacement">Manual Placement Position</Label>
+                      <Select
+                        value={manualPlacement}
+                        onValueChange={(value: ManualPlacementSelection) => setManualPlacement(value)}
+                      >
+                        <SelectTrigger id="manualPlacement">
+                          <SelectValue placeholder="Select position" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="upper_left">Upper Left</SelectItem>
+                          <SelectItem value="upper_right">Upper Right</SelectItem>
+                          <SelectItem value="bottom_left">Bottom Left</SelectItem>
+                          <SelectItem value="bottom_right">Bottom Right</SelectItem>
+                          <SelectItem value="right_center">Right Center</SelectItem>
+                          <SelectItem value="left_center">Left Center</SelectItem>
+                          <SelectItem value="upper_center">Upper Center</SelectItem>
+                          <SelectItem value="bottom_center">Bottom Center</SelectItem>
+                          <SelectItem value="center_vertical">Center Vertical</SelectItem>
+                          <SelectItem value="center_horizontal">Center Horizontal</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
+
+                  {placementType === 'manual_padding' && (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Left Padding</Label>
+                        <Input
+                          type="number"
+                          value={padding.left}
+                          onChange={(e) => setPadding(prev => ({ ...prev, left: parseInt(e.target.value) || 0 }))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Right Padding</Label>
+                        <Input
+                          type="number"
+                          value={padding.right}
+                          onChange={(e) => setPadding(prev => ({ ...prev, right: parseInt(e.target.value) || 0 }))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Top Padding</Label>
+                        <Input
+                          type="number"
+                          value={padding.top}
+                          onChange={(e) => setPadding(prev => ({ ...prev, top: parseInt(e.target.value) || 0 }))}
+                        />
+                      </div>
+                      <div>
+                        <Label>Bottom Padding</Label>
+                        <Input
+                          type="number"
+                          value={padding.bottom}
+                          onChange={(e) => setPadding(prev => ({ ...prev, bottom: parseInt(e.target.value) || 0 }))}
+                        />
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-4">
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="optimizeDescription">Optimize Description</Label>
+                      <Switch
+                        id="optimizeDescription"
+                        checked={optimizeDescription}
+                        onCheckedChange={setOptimizeDescription}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="fastMode">Fast Mode</Label>
+                      <Switch
+                        id="fastMode"
+                        checked={fastMode}
+                        onCheckedChange={setFastMode}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <Label htmlFor="syncMode">Sync Mode</Label>
+                      <Switch
+                        id="syncMode"
+                        checked={syncMode}
+                        onCheckedChange={setSyncMode}
+                      />
+                    </div>
+
+                    {placementType === 'original' && (
+                      <div className="flex items-center justify-between">
+                        <Label htmlFor="originalQuality">Original Quality</Label>
+                        <Switch
+                          id="originalQuality"
+                          checked={originalQuality}
+                          onCheckedChange={setOriginalQuality}
+                        />
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label>Image Size</Label>
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>Width</Label>
+                        <Input
+                          type="number"
+                          value={shotWidth}
+                          onChange={(e) => setShotWidth(parseInt(e.target.value) || 1000)}
+                        />
+                      </div>
+                      <div>
+                        <Label>Height</Label>
+                        <Input
+                          type="number"
+                          value={shotHeight}
+                          onChange={(e) => setShotHeight(parseInt(e.target.value) || 1000)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <Label>Number of Results</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      max="10"
+                      value={numResults}
+                      onChange={(e) => setNumResults(parseInt(e.target.value) || 1)}
+                    />
+                  </div>
+
                   <Button 
                     onClick={handleGenerate} 
                     disabled={isGenerating || !selectedFile || !sceneDescription}
                     className="w-full"
                   >
-                    {isGenerating ? "Generating..." : "Generate Product Shot"}
+                    {isGenerating ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Generating...
+                      </>
+                    ) : (
+                      "Generate Product Shot"
+                    )}
                   </Button>
                 </div>
 

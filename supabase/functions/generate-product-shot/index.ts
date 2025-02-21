@@ -6,6 +6,21 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface ProductShotRequest {
+  image_url: string;
+  scene_description?: string;
+  ref_image_url?: string;
+  optimize_description?: boolean;
+  num_results?: number;
+  fast?: boolean;
+  placement_type?: 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
+  original_quality?: boolean;
+  shot_size?: [number, number];
+  manual_placement_selection?: 'upper_left' | 'upper_right' | 'bottom_left' | 'bottom_right' | 'right_center' | 'left_center' | 'upper_center' | 'bottom_center' | 'center_vertical' | 'center_horizontal';
+  padding_values?: [number, number, number, number];
+  sync_mode?: boolean;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -18,12 +33,7 @@ serve(async (req) => {
       throw new Error('FAL_KEY is not set')
     }
 
-    // Validate FAL_KEY format
-    if (!falKey.startsWith('fal_')) {
-      throw new Error('Invalid FAL_KEY format. Key should start with "fal_"')
-    }
-
-    let requestBody;
+    let requestBody: ProductShotRequest;
     try {
       requestBody = await req.json()
     } catch (e) {
@@ -31,34 +41,50 @@ serve(async (req) => {
       throw new Error('Invalid JSON in request body')
     }
 
-    const { image_url, scene_description, placement_type } = requestBody
-    if (!image_url) {
+    // Validate required parameters
+    if (!requestBody.image_url) {
       throw new Error('Missing required parameter: image_url')
     }
 
-    console.log('Processing request for image:', image_url);
-    if (scene_description) {
-      console.log('Scene description:', scene_description);
+    // Set default values according to API documentation
+    const apiRequest = {
+      image_url: requestBody.image_url,
+      scene_description: requestBody.scene_description || "",
+      ref_image_url: requestBody.ref_image_url || "",
+      optimize_description: requestBody.optimize_description ?? true,
+      num_results: requestBody.num_results ?? 1,
+      fast: requestBody.fast ?? true,
+      placement_type: requestBody.placement_type || "manual_placement",
+      shot_size: requestBody.shot_size || [1000, 1000],
+      manual_placement_selection: requestBody.manual_placement_selection || "bottom_center",
+      sync_mode: requestBody.sync_mode ?? false
+    };
+
+    // Validate scene description or ref_image_url
+    if (!apiRequest.scene_description && !apiRequest.ref_image_url) {
+      throw new Error('Either scene_description or ref_image_url must be provided')
     }
 
+    if (apiRequest.scene_description && apiRequest.ref_image_url) {
+      throw new Error('Cannot provide both scene_description and ref_image_url')
+    }
+
+    console.log('Submitting request to FAL API with parameters:', apiRequest);
+
     // 1. Submit initial request
-    console.log('Submitting initial request to FAL API...');
     const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        image_url,
-        scene_description,
-        placement_type
-      })
+      body: JSON.stringify(apiRequest)
     });
 
     if (!submitResponse.ok) {
       console.error('Submit response not OK:', submitResponse.status);
-      throw new Error(`API request failed with status ${submitResponse.status}`)
+      const errorText = await submitResponse.text();
+      throw new Error(`API request failed with status ${submitResponse.status}: ${errorText}`)
     }
 
     const submitData = await submitResponse.json();
@@ -68,35 +94,18 @@ serve(async (req) => {
     if (!requestId) {
       throw new Error('No request ID received')
     }
-    console.log('Request ID:', requestId);
 
-    // 2. Poll for completion
-    let attempts = 0;
-    const maxAttempts = 30; // 30 seconds timeout
-    
-    while (attempts < maxAttempts) {
-      console.log(`Checking status attempt ${attempts + 1}`);
+    // If sync_mode is true, wait for completion
+    if (apiRequest.sync_mode) {
+      // 2. Poll for completion with timeout
+      const startTime = Date.now();
+      const timeout = 30000; // 30 seconds timeout
       
-      const statusResponse = await fetch(
-        `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
-        {
-          headers: {
-            'Authorization': `Key ${falKey}`
-          }
-        }
-      );
-
-      if (!statusResponse.ok) {
-        throw new Error(`Status check failed with status ${statusResponse.status}`);
-      }
-
-      const statusData = await statusResponse.json();
-      console.log('Status response:', statusData);
-      
-      if (statusData.status === 'completed') {
-        // 3. Get the final result
-        const resultResponse = await fetch(
-          `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+      while (Date.now() - startTime < timeout) {
+        console.log('Checking status...');
+        
+        const statusResponse = await fetch(
+          `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
           {
             headers: {
               'Authorization': `Key ${falKey}`
@@ -104,47 +113,66 @@ serve(async (req) => {
           }
         );
 
-        if (!resultResponse.ok) {
-          throw new Error(`Failed to fetch result with status ${resultResponse.status}`);
+        if (!statusResponse.ok) {
+          throw new Error(`Status check failed with status ${statusResponse.status}`);
         }
 
-        const result = await resultResponse.json();
-        console.log('Result:', result);
+        const statusData = await statusResponse.json();
+        console.log('Status response:', statusData);
+        
+        if (statusData.status === 'completed') {
+          // 3. Get the final result
+          const resultResponse = await fetch(
+            `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+            {
+              headers: {
+                'Authorization': `Key ${falKey}`
+              }
+            }
+          );
 
-        if (!result.images || !result.images[0]) {
-          throw new Error('No image URL in response')
-        }
+          if (!resultResponse.ok) {
+            throw new Error(`Failed to fetch result with status ${resultResponse.status}`);
+          }
 
-        // Transform the result to match our expected format
-        const transformedResult = {
-          images: [{
-            url: result.images[0],
-            content_type: 'image/png'
-          }]
+          const result = await resultResponse.json();
+          console.log('Result:', result);
+
+          return new Response(
+            JSON.stringify(result),
+            { 
+              headers: { 
+                ...corsHeaders, 
+                'Content-Type': 'application/json' 
+              }
+            }
+          )
         }
         
-        return new Response(
-          JSON.stringify(transformedResult),
-          { 
-            headers: { 
-              ...corsHeaders, 
-              'Content-Type': 'application/json' 
-            },
-            status: 200
+        if (statusData.status === 'failed') {
+          throw new Error(`Generation failed: ${JSON.stringify(statusData)}`)
+        }
+        
+        // Wait 1 second before next check
+        await new Promise(resolve => setTimeout(resolve, 1000))
+      }
+      
+      throw new Error('Timeout waiting for completion')
+    } else {
+      // For async mode, just return the request ID
+      return new Response(
+        JSON.stringify({ 
+          request_id: requestId,
+          status: 'processing'
+        }),
+        { 
+          headers: { 
+            ...corsHeaders, 
+            'Content-Type': 'application/json' 
           }
-        )
-      }
-      
-      if (statusData.status === 'failed') {
-        throw new Error(`Generation failed: ${JSON.stringify(statusData)}`)
-      }
-      
-      // Wait 1 second before next attempt
-      await new Promise(resolve => setTimeout(resolve, 1000))
-      attempts++
+        }
+      )
     }
-
-    throw new Error('Timeout waiting for completion')
   } catch (error) {
     console.error('Error:', error);
     return new Response(

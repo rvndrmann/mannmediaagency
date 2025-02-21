@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Copy, Check, Globe, Lock } from "lucide-react";
@@ -133,13 +132,20 @@ export const ImageCard = ({ image }: ImageCardProps) => {
               <p className="text-sm text-gray-500">Inference Steps:</p>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
-                  {image.settings.num_inference_steps || 'N/A'}
+                  {typeof image.settings === 'string' 
+                    ? JSON.parse(image.settings).num_inference_steps || 'N/A'
+                    : image.settings.num_inference_steps || 'N/A'}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="flex-shrink-0"
-                  onClick={() => handleCopy(image.settings.num_inference_steps?.toString() || '', "Inference Steps")}
+                  onClick={() => {
+                    const settings = typeof image.settings === 'string' 
+                      ? JSON.parse(image.settings)
+                      : image.settings;
+                    handleCopy(settings.num_inference_steps?.toString() || '', "Inference Steps")
+                  }}
                 >
                   {copiedField === "Inference Steps" ? (
                     <Check className="h-4 w-4 text-green-500" />
@@ -153,13 +159,20 @@ export const ImageCard = ({ image }: ImageCardProps) => {
               <p className="text-sm text-gray-500">Guidance Scale:</p>
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium">
-                  {image.settings.guidance_scale || 'N/A'}
+                  {typeof image.settings === 'string'
+                    ? JSON.parse(image.settings).guidance_scale || 'N/A'
+                    : image.settings.guidance_scale || 'N/A'}
                 </span>
                 <Button
                   variant="ghost"
                   size="sm"
                   className="flex-shrink-0"
-                  onClick={() => handleCopy(image.settings.guidance_scale?.toString() || '', "Guidance Scale")}
+                  onClick={() => {
+                    const settings = typeof image.settings === 'string'
+                      ? JSON.parse(image.settings)
+                      : image.settings;
+                    handleCopy(settings.guidance_scale?.toString() || '', "Guidance Scale")
+                  }}
                 >
                   {copiedField === "Guidance Scale" ? (
                     <Check className="h-4 w-4 text-green-500" />

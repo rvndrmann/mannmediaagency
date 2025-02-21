@@ -8,7 +8,8 @@ export interface GeneratedImage {
 }
 
 export interface GenerationResult {
-  images: GeneratedImage[];
+  status: 'processing' | 'completed' | 'failed';
+  images?: GeneratedImage[];
   error?: string;
 }
 

@@ -44,8 +44,10 @@ export function useProductShoot() {
           if (response.error) throw new Error(response.error.message);
           
           if (response.data) {
+            // Map the received images to our GeneratedImage type
             const completedImages = response.data.images?.map(img => ({
               ...img,
+              id: `${item.requestId}-${crypto.randomUUID()}`,
               status: 'completed' as const,
               prompt: item.prompt
             })) || [];
@@ -67,9 +69,9 @@ export function useProductShoot() {
               queueChanged = true;
               i--;
               
-              if (response.data.status === 'completed') {
+              if (response.data.status === 'completed' && completedImages.length > 0) {
                 await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
-              } else {
+              } else if (response.data.status === 'failed') {
                 toast.error("Generation failed. Please try again.");
               }
             } else if (item.retries >= MAX_RETRIES) {

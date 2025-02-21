@@ -1,9 +1,8 @@
 
-import { useState } from "react";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Loader2, X } from "lucide-react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Button } from "@/components/ui/button";
+import { Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -28,14 +27,11 @@ export function SavedImagesGrid({ onSelect }: SavedImagesGridProps) {
   });
 
   const deleteImage = useMutation({
-    mutationFn: async (id: string) => {
-      const imageToDelete = savedImages?.find(img => img.id === id);
-      if (!imageToDelete) throw new Error("Image not found");
-
+    mutationFn: async (image: { storage_path: string; id: string }) => {
       // Delete from storage
       const { error: storageError } = await supabase.storage
         .from("saved_product_images")
-        .remove([imageToDelete.storage_path]);
+        .remove([image.storage_path]);
 
       if (storageError) throw storageError;
 
@@ -43,7 +39,7 @@ export function SavedImagesGrid({ onSelect }: SavedImagesGridProps) {
       const { error: dbError } = await supabase
         .from("saved_product_images")
         .delete()
-        .eq("id", id);
+        .eq("id", image.id);
 
       if (dbError) throw dbError;
     },
@@ -87,7 +83,7 @@ export function SavedImagesGrid({ onSelect }: SavedImagesGridProps) {
               variant="ghost"
               size="icon"
               className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 invisible group-hover:visible"
-              onClick={() => deleteImage.mutate(image.id)}
+              onClick={() => deleteImage.mutate(image)}
             >
               <X className="h-4 w-4 text-white" />
             </Button>

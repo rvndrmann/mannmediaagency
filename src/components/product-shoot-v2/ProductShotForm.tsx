@@ -1,60 +1,34 @@
 import { useState } from "react";
-import { ImageUploader } from "./ImageUploader";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Switch } from "@/components/ui/switch";
 import { Input } from "@/components/ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2 } from "lucide-react";
-import { toast } from "sonner";
-
-export type PlacementType = 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
-export type ManualPlacementSelection = 'upper_left' | 'upper_right' | 'bottom_left' | 'bottom_right' | 'right_center' | 'left_center' | 'upper_center' | 'bottom_center' | 'center_vertical' | 'center_horizontal';
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Switch } from "@/components/ui/switch";
+import { Slider } from "@/components/ui/slider";
+import { ProductShotFormData } from "@/types/product-shoot";
+import { ImageUploader } from "@/components/product-shoot/ImageUploader";
 
 interface ProductShotFormProps {
-  onSubmit: (formData: ProductShotFormData) => Promise<void>;
+  onSubmit: (data: ProductShotFormData) => void;
   isGenerating: boolean;
 }
 
-export interface ProductShotFormData {
-  sourceFile: File | null;
-  referenceFile: File | null;
-  sceneDescription: string;
-  generationType: 'description' | 'reference';
-  placementType: PlacementType;
-  manualPlacement: ManualPlacementSelection;
-  optimizeDescription: boolean;
-  numResults: number;
-  fastMode: boolean;
-  originalQuality: boolean;
-  shotWidth: number;
-  shotHeight: number;
-  syncMode: boolean;
-  padding: {
-    left: number;
-    right: number;
-    top: number;
-    bottom: number;
-  };
-}
-
 export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps) {
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [sourcePreview, setSourcePreview] = useState<string | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [referencePreviewUrl, setReferencePreviewUrl] = useState<string | null>(null);
+  const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [sceneDescription, setSceneDescription] = useState("");
-  const [placementType, setPlacementType] = useState<PlacementType>("manual_placement");
-  const [manualPlacement, setManualPlacement] = useState<ManualPlacementSelection>("bottom_center");
-  const [generationType, setGenerationType] = useState<'description' | 'reference'>('description');
+  const [generationType, setGenerationType] = useState<"description" | "reference">("description");
+  const [placementType, setPlacementType] = useState<"original" | "automatic" | "manual_placement" | "manual_padding">("original");
+  const [manualPlacement, setManualPlacement] = useState("");
   const [optimizeDescription, setOptimizeDescription] = useState(true);
   const [numResults, setNumResults] = useState(1);
-  const [fastMode, setFastMode] = useState(true);
-  const [originalQuality, setOriginalQuality] = useState(false);
-  const [shotWidth, setShotWidth] = useState(1000);
-  const [shotHeight, setShotHeight] = useState(1000);
+  const [fastMode, setFastMode] = useState(false);
+  const [originalQuality, setOriginalQuality] = useState(true);
+  const [shotWidth, setShotWidth] = useState(1024);
+  const [shotHeight, setShotHeight] = useState(1024);
   const [syncMode, setSyncMode] = useState(true);
   const [padding, setPadding] = useState({
     left: 0,
@@ -63,59 +37,60 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
     bottom: 0
   });
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleSourceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type.startsWith('image/')) {
-        if (file.size > 12 * 1024 * 1024) {
-          toast.error("File size must be less than 12MB");
-          return;
-        }
-        setSelectedFile(file);
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-      } else {
-        toast.error("Please select an image file");
-      }
+      setSourceFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setSourcePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
   const handleReferenceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      if (file.type.startsWith('image/')) {
-        if (file.size > 12 * 1024 * 1024) {
-          toast.error("File size must be less than 12MB");
-          return;
-        }
-        setReferenceFile(file);
-        const url = URL.createObjectURL(file);
-        setReferencePreviewUrl(url);
-      } else {
-        toast.error("Please select an image file");
-      }
+      setReferenceFile(file);
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setReferencePreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const clearSelectedFile = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setSelectedFile(null);
-    setPreviewUrl(null);
+  const handleClearSource = () => {
+    setSourceFile(null);
+    setSourcePreview(null);
   };
 
-  const clearReferenceFile = () => {
-    if (referencePreviewUrl) {
-      URL.revokeObjectURL(referencePreviewUrl);
-    }
+  const handleClearReference = () => {
     setReferenceFile(null);
-    setReferencePreviewUrl(null);
+    setReferencePreview(null);
   };
 
-  const handleSubmit = () => {
-    onSubmit({
-      sourceFile: selectedFile,
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    
+    if (!sourceFile) {
+      alert("Please select a source image");
+      return;
+    }
+
+    if (generationType === "description" && !sceneDescription) {
+      alert("Please provide a scene description");
+      return;
+    }
+
+    if (generationType === "reference" && !referenceFile) {
+      alert("Please select a reference image");
+      return;
+    }
+
+    const formData: ProductShotFormData = {
+      sourceFile,
       referenceFile,
       sceneDescription,
       generationType,
@@ -129,218 +104,166 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
       shotHeight,
       syncMode,
       padding
-    });
+    };
+
+    onSubmit(formData);
   };
 
   return (
-    <div className="space-y-6">
-      <div className="space-y-4">
-        <Label>Product Image</Label>
-        <ImageUploader
-          previewUrl={previewUrl}
-          onFileSelect={handleFileSelect}
-          onClear={clearSelectedFile}
-          helpText="Upload your product image (max 12MB)"
-        />
-      </div>
-
-      <Tabs value={generationType} onValueChange={(value: 'description' | 'reference') => setGenerationType(value)}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="description">Scene Description</TabsTrigger>
-          <TabsTrigger value="reference">Reference Image</TabsTrigger>
-        </TabsList>
-        <TabsContent value="description">
-          <div className="space-y-4">
-            <Label htmlFor="sceneDescription">Scene Description</Label>
-            <Textarea
-              id="sceneDescription"
-              placeholder="Describe the scene or background you want for your product..."
-              value={sceneDescription}
-              onChange={(e) => setSceneDescription(e.target.value)}
-              className="min-h-[100px]"
-            />
-            <div className="flex items-center justify-between">
-              <Label htmlFor="optimizeDescription">Optimize Description</Label>
-              <Switch
-                id="optimizeDescription"
-                checked={optimizeDescription}
-                onCheckedChange={setOptimizeDescription}
+    <form onSubmit={handleSubmit} className="space-y-6">
+      <Card className="p-4 bg-gray-900 border-gray-800">
+        <div className="space-y-4">
+          <ImageUploader
+            previewUrl={sourcePreview}
+            onFileSelect={handleSourceFileSelect}
+            onClear={handleClearSource}
+          />
+          
+          {generationType === "reference" && (
+            <div className="mt-4">
+              <Label className="text-white">Reference Image</Label>
+              <ImageUploader
+                previewUrl={referencePreview}
+                onFileSelect={handleReferenceFileSelect}
+                onClear={handleClearReference}
               />
             </div>
-          </div>
-        </TabsContent>
-        <TabsContent value="reference">
-          <div className="space-y-4">
-            <Label>Reference Image</Label>
-            <ImageUploader
-              previewUrl={referencePreviewUrl}
-              onFileSelect={handleReferenceFileSelect}
-              onClear={clearReferenceFile}
-              helpText="Upload a reference image (max 12MB)"
+          )}
+
+          <div className="mt-4">
+            <Label htmlFor="sceneDescription" className="text-white">Scene Description</Label>
+            <Textarea
+              id="sceneDescription"
+              placeholder="A futuristic product shot with neon lights"
+              value={sceneDescription}
+              onChange={(e) => setSceneDescription(e.target.value)}
+              disabled={generationType !== "description"}
             />
           </div>
-        </TabsContent>
-      </Tabs>
 
-      <div className="space-y-4">
-        <Label htmlFor="placementType">Placement Type</Label>
-        <Select
-          value={placementType}
-          onValueChange={(value: PlacementType) => setPlacementType(value)}
-        >
-          <SelectTrigger id="placementType">
-            <SelectValue placeholder="Select placement type" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="original">Original Position</SelectItem>
-            <SelectItem value="automatic">Automatic (10 positions)</SelectItem>
-            <SelectItem value="manual_placement">Manual Placement</SelectItem>
-            <SelectItem value="manual_padding">Manual Padding</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <Label htmlFor="generationType" className="text-white">Generation Type</Label>
+              <select
+                id="generationType"
+                className="w-full bg-gray-800 text-white rounded-md p-2"
+                value={generationType}
+                onChange={(e) => setGenerationType(e.target.value as "description" | "reference")}
+              >
+                <option value="description">Description</option>
+                <option value="reference">Reference Image</option>
+              </select>
+            </div>
 
-      {placementType === 'manual_placement' && (
-        <div className="space-y-4">
-          <Label htmlFor="manualPlacement">Manual Placement Position</Label>
-          <Select
-            value={manualPlacement}
-            onValueChange={(value: ManualPlacementSelection) => setManualPlacement(value)}
-          >
-            <SelectTrigger id="manualPlacement">
-              <SelectValue placeholder="Select position" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="upper_left">Upper Left</SelectItem>
-              <SelectItem value="upper_right">Upper Right</SelectItem>
-              <SelectItem value="bottom_left">Bottom Left</SelectItem>
-              <SelectItem value="bottom_right">Bottom Right</SelectItem>
-              <SelectItem value="right_center">Right Center</SelectItem>
-              <SelectItem value="left_center">Left Center</SelectItem>
-              <SelectItem value="upper_center">Upper Center</SelectItem>
-              <SelectItem value="bottom_center">Bottom Center</SelectItem>
-              <SelectItem value="center_vertical">Center Vertical</SelectItem>
-              <SelectItem value="center_horizontal">Center Horizontal</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-      )}
+            <div>
+              <Label htmlFor="placementType" className="text-white">Placement Type</Label>
+              <select
+                id="placementType"
+                className="w-full bg-gray-800 text-white rounded-md p-2"
+                value={placementType}
+                onChange={(e) => setPlacementType(e.target.value as "original" | "automatic" | "manual_placement" | "manual_padding")}
+              >
+                <option value="original">Original</option>
+                <option value="automatic">Automatic</option>
+                <option value="manual_placement">Manual Placement</option>
+                <option value="manual_padding">Manual Padding</option>
+              </select>
+            </div>
+          </div>
 
-      {placementType === 'manual_padding' && (
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Left Padding</Label>
-            <Input
-              type="number"
-              value={padding.left}
-              onChange={(e) => setPadding(prev => ({ ...prev, left: parseInt(e.target.value) || 0 }))}
+          {placementType === "manual_placement" && (
+            <div className="mt-4">
+              <Label htmlFor="manualPlacement" className="text-white">Manual Placement</Label>
+              <Input
+                type="text"
+                id="manualPlacement"
+                placeholder="X, Y coordinates"
+                value={manualPlacement}
+                onChange={(e) => setManualPlacement(e.target.value)}
+              />
+            </div>
+          )}
+
+          <div className="flex items-center justify-between mt-4">
+            <Label htmlFor="optimizeDescription" className="text-white">Optimize Description</Label>
+            <Switch
+              id="optimizeDescription"
+              checked={optimizeDescription}
+              onCheckedChange={(checked) => setOptimizeDescription(checked)}
             />
           </div>
-          <div>
-            <Label>Right Padding</Label>
-            <Input
-              type="number"
-              value={padding.right}
-              onChange={(e) => setPadding(prev => ({ ...prev, right: parseInt(e.target.value) || 0 }))}
+
+          <div className="mt-4">
+            <Label htmlFor="numResults" className="text-white">Number of Results</Label>
+            <Slider
+              id="numResults"
+              defaultValue={[numResults]}
+              max={4}
+              min={1}
+              step={1}
+              onValueChange={(value) => setNumResults(value[0])}
+            />
+            <p className="text-sm text-gray-400 mt-1">Selected: {numResults}</p>
+          </div>
+
+          <div className="flex items-center justify-between mt-4">
+            <Label htmlFor="fastMode" className="text-white">Fast Mode</Label>
+            <Switch
+              id="fastMode"
+              checked={fastMode}
+              onCheckedChange={(checked) => setFastMode(checked)}
             />
           </div>
-          <div>
-            <Label>Top Padding</Label>
-            <Input
-              type="number"
-              value={padding.top}
-              onChange={(e) => setPadding(prev => ({ ...prev, top: parseInt(e.target.value) || 0 }))}
-            />
-          </div>
-          <div>
-            <Label>Bottom Padding</Label>
-            <Input
-              type="number"
-              value={padding.bottom}
-              onChange={(e) => setPadding(prev => ({ ...prev, bottom: parseInt(e.target.value) || 0 }))}
-            />
-          </div>
-        </div>
-      )}
 
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="fastMode">Fast Mode</Label>
-          <Switch
-            id="fastMode"
-            checked={fastMode}
-            onCheckedChange={setFastMode}
-          />
-        </div>
-
-        <div className="flex items-center justify-between">
-          <Label htmlFor="syncMode">Sync Mode</Label>
-          <Switch
-            id="syncMode"
-            checked={syncMode}
-            onCheckedChange={setSyncMode}
-          />
-        </div>
-
-        {placementType === 'original' && (
-          <div className="flex items-center justify-between">
-            <Label htmlFor="originalQuality">Original Quality</Label>
+          <div className="flex items-center justify-between mt-4">
+            <Label htmlFor="originalQuality" className="text-white">Original Quality</Label>
             <Switch
               id="originalQuality"
               checked={originalQuality}
-              onCheckedChange={setOriginalQuality}
+              onCheckedChange={(checked) => setOriginalQuality(checked)}
             />
           </div>
-        )}
-      </div>
 
-      <div className="space-y-4">
-        <Label>Image Size</Label>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <Label>Width</Label>
-            <Input
-              type="number"
-              value={shotWidth}
-              onChange={(e) => setShotWidth(parseInt(e.target.value) || 1000)}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            <div>
+              <Label htmlFor="shotWidth" className="text-white">Shot Width</Label>
+              <Input
+                type="number"
+                id="shotWidth"
+                value={shotWidth}
+                onChange={(e) => setShotWidth(Number(e.target.value))}
+              />
+            </div>
+
+            <div>
+              <Label htmlFor="shotHeight" className="text-white">Shot Height</Label>
+              <Input
+                type="number"
+                id="shotHeight"
+                value={shotHeight}
+                onChange={(e) => setShotHeight(Number(e.target.value))}
+              />
+            </div>
+          </div>
+
+          <div className="flex items-center justify-between mt-4">
+            <Label htmlFor="syncMode" className="text-white">Sync Mode</Label>
+            <Switch
+              id="syncMode"
+              checked={syncMode}
+              onCheckedChange={(checked) => setSyncMode(checked)}
             />
           </div>
-          <div>
-            <Label>Height</Label>
-            <Input
-              type="number"
-              value={shotHeight}
-              onChange={(e) => setShotHeight(parseInt(e.target.value) || 1000)}
-            />
-          </div>
+          
+          <Button 
+            type="submit" 
+            className="w-full" 
+            disabled={isGenerating}
+          >
+            {isGenerating ? "Generating..." : "Generate"}
+          </Button>
         </div>
-      </div>
-
-      <div className="space-y-4">
-        <Label>Number of Results</Label>
-        <Input
-          type="number"
-          min="1"
-          max="10"
-          value={numResults}
-          onChange={(e) => setNumResults(parseInt(e.target.value) || 1)}
-        />
-      </div>
-
-      <Button 
-        onClick={handleSubmit} 
-        disabled={isGenerating || !selectedFile || (generationType === 'description' && !sceneDescription) || (generationType === 'reference' && !referenceFile)}
-        className="w-full"
-      >
-        {isGenerating ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            Generating...
-          </>
-        ) : (
-          "Generate Product Shot"
-        )}
-      </Button>
-    </div>
+      </Card>
+    </form>
   );
 }

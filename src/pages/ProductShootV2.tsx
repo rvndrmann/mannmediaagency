@@ -83,13 +83,21 @@ const ProductShootV2 = () => {
 
       console.log('Image uploaded successfully:', publicUrl);
 
-      // Call generate-product-shot function using Supabase client
-      const { data, error } = await supabase.functions.invoke('generate-product-shot', {
-        body: {
-          image_url: publicUrl,
-          scene_description: sceneDescription
+      // Call generate-product-shot function using Supabase client with proper configuration
+      const { data, error } = await supabase.functions.invoke<GenerationResult>(
+        'generate-product-shot',
+        {
+          body: { 
+            image_url: publicUrl,
+            scene_description: sceneDescription
+          },
+          headers: {
+            'Content-Type': 'application/json'
+          }
         }
-      });
+      );
+
+      console.log('Edge function response:', data, error);
 
       if (error) {
         console.error('Generation API error:', error);
@@ -102,7 +110,7 @@ const ProductShootV2 = () => {
 
       setGeneratedImages(data.images);
       toast.success("Image generated successfully!");
-    } catch (error) {
+    } catch (error: any) {
       console.error('Generation error:', error);
       toast.error(error.message || "Failed to generate image. Please try again.");
     } finally {

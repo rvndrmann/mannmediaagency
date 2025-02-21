@@ -17,28 +17,46 @@ interface ImageUploaderProps {
 
 export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUploaderProps) {
   const [activeTab, setActiveTab] = useState("upload");
+  const [isUploading, setIsUploading] = useState(false);
   const queryClient = useQueryClient();
 
   const saveImage = useMutation({
     mutationFn: async () => {
-      if (!previewUrl) throw new Error("No image to save");
+      if (!previewUrl) {
+        throw new Error("No image to save");
+      }
 
+      setIsUploading(true);
       try {
         // Get the user
-        const { data: { user } } = await supabase.auth.getUser();
+        const { data: { user }, error: userError } = await supabase.auth.getUser();
+        if (userError) throw new Error("Authentication error: " + userError.message);
         if (!user) throw new Error("User not authenticated");
 
         // Fetch the blob from the preview URL
         const response = await fetch(previewUrl);
+        if (!response.ok) throw new Error("Failed to fetch image data");
+        
         const blob = await response.blob();
-        const filename = `${crypto.randomUUID()}.${blob.type.split('/')[1]}`;
+        if (!blob.type.startsWith('image/')) {
+          throw new Error("Invalid file type - must be an image");
+        }
+
+        const fileExt = blob.type.split('/')[1] || 'png';
+        const filename = `${crypto.randomUUID()}.${fileExt}`;
 
         // Upload to storage
-        const { data: storageData, error: storageError } = await supabase.storage
+        const { error: storageError } = await supabase.storage
           .from("saved_product_images")
-          .upload(filename, blob);
+          .upload(filename, blob, {
+            contentType: blob.type,
+            upsert: false
+          });
 
-        if (storageError) throw storageError;
+        if (storageError) {
+          console.error("Storage error:", storageError);
+          throw new Error("Failed to upload image to storage");
+        }
 
         // Get the public URL
         const { data: { publicUrl } } = supabase.storage
@@ -55,28 +73,35 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
             image_url: publicUrl
           });
 
-        if (dbError) throw dbError;
+        if (dbError) {
+          console.error("Database error:", dbError);
+          throw new Error("Failed to save image metadata");
+        }
 
         return publicUrl;
       } catch (error) {
+        console.error("Save image error:", error);
         throw error;
+      } finally {
+        setIsUploading(false);
       }
     },
     onSuccess: () => {
       toast.success("Image saved successfully");
       queryClient.invalidateQueries({ queryKey: ["saved-product-images"] });
-      setActiveTab("saved"); // Switch to saved images tab after saving
+      setActiveTab("saved");
+      onClear(); // Clear the preview after successful save
     },
-    onError: () => {
-      toast.error("Failed to save image");
+    onError: (error: Error) => {
+      toast.error(error.message || "Failed to save image");
     },
   });
 
   const handleImageSelect = (imageUrl: string) => {
-    // Create a new Image to load it
     const img = new Image();
-    img.crossOrigin = "anonymous"; // Add this to handle CORS
+    img.crossOrigin = "anonymous";
     img.src = imageUrl;
+
     img.onload = () => {
       const canvas = document.createElement('canvas');
       canvas.width = img.width;
@@ -86,7 +111,6 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
         ctx.drawImage(img, 0, 0);
         canvas.toBlob((blob) => {
           if (blob) {
-            // Create a mock file and event
             const file = new File([blob], "selected-image.jpg", { type: "image/jpeg" });
             const mockEvent = {
               target: {
@@ -101,6 +125,11 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
         }, 'image/jpeg');
       }
     };
+
+    img.onerror = () => {
+      toast.error("Failed to load image");
+    };
+
     setActiveTab("upload");
   };
 
@@ -138,6 +167,7 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
                     size="icon"
                     className="bg-black/50 hover:bg-black/70"
                     onClick={() => saveImage.mutate()}
+                    disabled={isUploading}
                   >
                     <Save className="h-4 w-4 text-white" />
                   </Button>
@@ -146,6 +176,7 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
                     size="icon"
                     className="bg-black/50 hover:bg-black/70"
                     onClick={onClear}
+                    disabled={isUploading}
                   >
                     <X className="h-4 w-4 text-white" />
                   </Button>

@@ -3,7 +3,6 @@ import { useState } from "react";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Sidebar } from "@/components/Sidebar";
 import { ImageUploader } from "@/components/product-shoot-v2/ImageUploader";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
@@ -59,11 +58,6 @@ const ProductShootV2 = () => {
       return;
     }
 
-    if (!sceneDescription) {
-      toast.error("Please provide a scene description");
-      return;
-    }
-
     setIsGenerating(true);
     setGeneratedImages([]);
 
@@ -89,33 +83,24 @@ const ProductShootV2 = () => {
 
       console.log('Image uploaded successfully:', publicUrl);
 
-      // Call our edge function to generate the product shot
-      const response = await fetch('/functions/v1/generate-product-shot', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`
-        },
-        body: JSON.stringify({
+      // Call generate-product-shot function using Supabase client
+      const { data, error } = await supabase.functions.invoke('generate-product-shot', {
+        body: {
           image_url: publicUrl,
-          scene_description: sceneDescription,
-          placement_type: placementType,
-          manual_placement_selection: "bottom_center"
-        })
+          scene_description: sceneDescription
+        }
       });
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error('Generation API error:', responseData);
-        throw new Error(responseData.error || 'Failed to generate image');
+      if (error) {
+        console.error('Generation API error:', error);
+        throw new Error(error.message || 'Failed to generate image');
       }
 
-      if (!responseData.images || !responseData.images.length) {
+      if (!data || !data.images || !data.images.length) {
         throw new Error('No images received from the generation API');
       }
 
-      setGeneratedImages(responseData.images);
+      setGeneratedImages(data.images);
       toast.success("Image generated successfully!");
     } catch (error) {
       console.error('Generation error:', error);

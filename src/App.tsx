@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -19,7 +20,6 @@ import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
 import AIAgent from "./pages/AIAgent";
 import ProductShoot from "./pages/ProductShoot";
-import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 import Metadata from "./pages/Metadata";
 import ImageToVideo from "./pages/ImageToVideo";
 import AboutUs from "./pages/AboutUs";
@@ -73,12 +73,7 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
   }
 
   if (!isAuthenticated) {
-    return (
-      <>
-        <PromotionalBanner />
-        <Auth />
-      </>
-    );
+    return <Auth />;
   }
 
   return <>{children}</>;
@@ -94,18 +89,8 @@ const App = () => (
               <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
               <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
               <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/auth/login" element={
-                <>
-                  <PromotionalBanner />
-                  <LoginForm />
-                </>
-              } />
-              <Route path="/auth/signup" element={
-                <>
-                  <PromotionalBanner />
-                  <SignupForm />
-                </>
-              } />
+              <Route path="/auth/login" element={<LoginForm />} />
+              <Route path="/auth/signup" element={<SignupForm />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route path="/plans" element={<Plans />} />
               <Route path="/about" element={<AboutUs />} />

@@ -78,13 +78,16 @@ const ProductShootV2 = () => {
         .upload(filePath, selectedFile);
 
       if (uploadError) {
-        throw uploadError;
+        console.error('Upload error:', uploadError);
+        throw new Error(`Failed to upload image: ${uploadError.message}`);
       }
 
       // Get the public URL of the uploaded image
       const { data: { publicUrl } } = supabase.storage
         .from('source_images')
         .getPublicUrl(filePath);
+
+      console.log('Image uploaded successfully:', publicUrl);
 
       // Call our edge function to generate the product shot
       const response = await fetch('/functions/v1/generate-product-shot', {
@@ -101,16 +104,22 @@ const ProductShootV2 = () => {
         })
       });
 
+      const responseData = await response.json();
+
       if (!response.ok) {
-        throw new Error('Failed to generate image');
+        console.error('Generation API error:', responseData);
+        throw new Error(responseData.error || 'Failed to generate image');
       }
 
-      const result: GenerationResult = await response.json();
-      setGeneratedImages(result.images);
+      if (!responseData.images || !responseData.images.length) {
+        throw new Error('No images received from the generation API');
+      }
+
+      setGeneratedImages(responseData.images);
       toast.success("Image generated successfully!");
     } catch (error) {
       console.error('Generation error:', error);
-      toast.error("Failed to generate image. Please try again.");
+      toast.error(error.message || "Failed to generate image. Please try again.");
     } finally {
       setIsGenerating(false);
     }

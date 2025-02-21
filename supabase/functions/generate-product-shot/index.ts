@@ -19,6 +19,8 @@ serve(async (req) => {
     }
 
     const { image_url, scene_description, placement_type, manual_placement_selection } = await req.json()
+    
+    console.log('Received request:', { image_url, scene_description, placement_type, manual_placement_selection });
 
     // Submit the initial request to FAL AI
     const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
@@ -40,8 +42,13 @@ serve(async (req) => {
     })
 
     const submitData = await submitResponse.json()
-    const requestId = submitData.request_id
+    console.log('FAL AI submit response:', submitData);
 
+    if (!submitResponse.ok) {
+      throw new Error(`FAL AI submit failed: ${JSON.stringify(submitData)}`)
+    }
+
+    const requestId = submitData.request_id
     if (!requestId) {
       throw new Error('No request ID received from FAL AI')
     }
@@ -50,6 +57,8 @@ serve(async (req) => {
     let attempts = 0
     let result = null
     while (attempts < 30) { // Maximum 30 attempts (30 seconds)
+      console.log(`Polling attempt ${attempts + 1} for request ${requestId}`);
+      
       const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
         headers: {
           'Authorization': `Key ${falKey}`,
@@ -57,6 +66,7 @@ serve(async (req) => {
       })
       
       const statusData = await statusResponse.json()
+      console.log(`Status response for attempt ${attempts + 1}:`, statusData);
       
       if (statusData.status === 'completed') {
         const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
@@ -65,11 +75,12 @@ serve(async (req) => {
           }
         })
         result = await resultResponse.json()
+        console.log('Final result:', result);
         break
       }
       
       if (statusData.status === 'failed') {
-        throw new Error('Image generation failed')
+        throw new Error(`Image generation failed: ${JSON.stringify(statusData)}`)
       }
       
       await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before next attempt
@@ -85,8 +96,12 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
+    console.error('Error in generate-product-shot function:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        details: error.stack
+      }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }

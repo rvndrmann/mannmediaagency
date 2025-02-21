@@ -7,6 +7,16 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+async function parseResponse(response: Response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    return await response.json();
+  }
+  // If not JSON, get the text content for error reporting
+  const text = await response.text();
+  throw new Error(`Unexpected response format. Status: ${response.status}, Content: ${text.substring(0, 200)}...`);
+}
+
 serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
@@ -41,8 +51,14 @@ serve(async (req) => {
       })
     })
 
-    const submitData = await submitResponse.json()
-    console.log('FAL AI submit response:', submitData);
+    let submitData;
+    try {
+      submitData = await parseResponse(submitResponse);
+      console.log('FAL AI submit response:', submitData);
+    } catch (error) {
+      console.error('Error parsing submit response:', error);
+      throw new Error(`Failed to parse FAL AI response: ${error.message}`);
+    }
 
     if (!submitResponse.ok) {
       throw new Error(`FAL AI submit failed: ${JSON.stringify(submitData)}`)
@@ -65,8 +81,14 @@ serve(async (req) => {
         }
       })
       
-      const statusData = await statusResponse.json()
-      console.log(`Status response for attempt ${attempts + 1}:`, statusData);
+      let statusData;
+      try {
+        statusData = await parseResponse(statusResponse);
+        console.log(`Status response for attempt ${attempts + 1}:`, statusData);
+      } catch (error) {
+        console.error(`Error parsing status response on attempt ${attempts + 1}:`, error);
+        throw new Error(`Failed to parse status response: ${error.message}`);
+      }
       
       if (statusData.status === 'completed') {
         const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
@@ -74,9 +96,15 @@ serve(async (req) => {
             'Authorization': `Key ${falKey}`,
           }
         })
-        result = await resultResponse.json()
-        console.log('Final result:', result);
-        break
+        
+        try {
+          result = await parseResponse(resultResponse);
+          console.log('Final result:', result);
+          break;
+        } catch (error) {
+          console.error('Error parsing result response:', error);
+          throw new Error(`Failed to parse result response: ${error.message}`);
+        }
       }
       
       if (statusData.status === 'failed') {

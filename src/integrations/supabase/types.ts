@@ -597,6 +597,36 @@ export type Database = {
         }
         Relationships: []
       }
+      saved_product_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          original_filename: string | null
+          storage_path: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          original_filename?: string | null
+          storage_path: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          original_filename?: string | null
+          storage_path?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       scheduled_posts: {
         Row: {
           caption: string | null

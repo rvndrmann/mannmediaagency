@@ -1,5 +1,4 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -65,6 +64,18 @@ const ProductShoot = () => {
     enabled: !!session?.user.id,
     refetchInterval: 5000,
   });
+
+  useEffect(() => {
+    const handleSetPreviewUrl = (event: CustomEvent) => {
+      setPreviewUrl(event.detail);
+    };
+
+    window.addEventListener('set-preview-url', handleSetPreviewUrl as EventListener);
+
+    return () => {
+      window.removeEventListener('set-preview-url', handleSetPreviewUrl as EventListener);
+    };
+  }, []);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];

@@ -6,7 +6,7 @@ import { Upload, X, Save } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SavedImagesGrid } from "./SavedImagesGrid";
 import { supabase } from "@/integrations/supabase/client";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 
 interface ImageUploaderProps {
@@ -17,6 +17,7 @@ interface ImageUploaderProps {
 
 export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUploaderProps) {
   const [activeTab, setActiveTab] = useState("upload");
+  const queryClient = useQueryClient();
 
   const saveImage = useMutation({
     mutationFn: async () => {
@@ -63,6 +64,8 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
     },
     onSuccess: () => {
       toast.success("Image saved successfully");
+      queryClient.invalidateQueries({ queryKey: ["saved-product-images"] });
+      setActiveTab("saved"); // Switch to saved images tab after saving
     },
     onError: () => {
       toast.error("Failed to save image");
@@ -70,14 +73,9 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
   });
 
   const handleImageSelect = (imageUrl: string) => {
-    const event = {
-      target: {
-        files: [new File([], "saved-image")]
-      }
-    } as React.ChangeEvent<HTMLInputElement>;
-    onFileSelect(event);
-    // We're manually setting the preview URL here
+    // Create a new Image to load it
     const img = new Image();
+    img.crossOrigin = "anonymous"; // Add this to handle CORS
     img.src = imageUrl;
     img.onload = () => {
       const canvas = document.createElement('canvas');
@@ -88,12 +86,19 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
         ctx.drawImage(img, 0, 0);
         canvas.toBlob((blob) => {
           if (blob) {
+            // Create a mock file and event
+            const file = new File([blob], "selected-image.jpg", { type: "image/jpeg" });
+            const mockEvent = {
+              target: {
+                files: [file]
+              }
+            } as unknown as React.ChangeEvent<HTMLInputElement>;
+            
+            onFileSelect(mockEvent);
             const url = URL.createObjectURL(blob);
-            // This assumes the parent component has a way to set the preview URL
-            // You might need to modify the parent component to handle this
             window.dispatchEvent(new CustomEvent('set-preview-url', { detail: url }));
           }
-        });
+        }, 'image/jpeg');
       }
     };
     setActiveTab("upload");

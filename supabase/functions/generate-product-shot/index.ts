@@ -18,6 +18,11 @@ serve(async (req) => {
       throw new Error('FAL_KEY is not set')
     }
 
+    // Validate FAL_KEY format
+    if (!falKey.startsWith('fal_')) {
+      throw new Error('Invalid FAL_KEY format. Key should start with "fal_"')
+    }
+
     let requestBody;
     try {
       requestBody = await req.json()
@@ -27,15 +32,18 @@ serve(async (req) => {
     }
 
     const { image_url, scene_description } = requestBody
-    if (!image_url || !scene_description) {
-      throw new Error('Missing required parameters: image_url and scene_description')
+    if (!image_url) {
+      throw new Error('Missing required parameter: image_url')
     }
 
     console.log('Processing request for image:', image_url);
-    console.log('Scene description:', scene_description);
+    if (scene_description) {
+      console.log('Scene description:', scene_description);
+    }
 
     // 1. Submit initial request
-    const submitResponse = await fetch('https://queue.fal.ai/fal-ai/bria/product-shot', {
+    console.log('Submitting initial request to FAL API...');
+    const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
@@ -43,22 +51,32 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         image_url,
-        scene_description
+        // Only include scene_description if provided
+        ...(scene_description && { scene_description })
       })
     }).catch(error => {
       console.error('Submit request failed:', error);
       throw new Error('Failed to submit generation request')
     });
 
+    const submitResponseText = await submitResponse.text();
+    console.log('Raw submit response:', submitResponseText);
+
     if (!submitResponse.ok) {
-      const errorData = await submitResponse.text();
-      console.error('Submit response not OK:', submitResponse.status, errorData);
+      console.error('Submit response not OK:', submitResponse.status, submitResponseText);
       throw new Error(`API request failed with status ${submitResponse.status}`)
     }
 
-    // 2. Get request ID from response
-    const submitData = await submitResponse.json();
-    console.log('Initial response:', submitData);
+    // Parse the response text as JSON
+    let submitData;
+    try {
+      submitData = JSON.parse(submitResponseText);
+    } catch (e) {
+      console.error('Failed to parse submit response as JSON:', e);
+      throw new Error('Invalid JSON in API response')
+    }
+
+    console.log('Parsed submit response:', submitData);
 
     const requestId = submitData.request_id
     if (!requestId) {
@@ -71,7 +89,8 @@ serve(async (req) => {
     while (attempts < 30) {
       console.log(`Checking status attempt ${attempts + 1}`);
       
-      const statusResponse = await fetch(`https://queue.fal.ai/fal-ai/bria/requests/${requestId}/status`, {
+      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
+        method: 'GET',
         headers: {
           'Authorization': `Key ${falKey}`
         }
@@ -80,17 +99,27 @@ serve(async (req) => {
         throw new Error('Failed to check generation status')
       });
 
+      const statusResponseText = await statusResponse.text();
+      console.log('Raw status response:', statusResponseText);
+
       if (!statusResponse.ok) {
-        const errorData = await statusResponse.text();
-        console.error('Status response not OK:', statusResponse.status, errorData);
+        console.error('Status response not OK:', statusResponse.status, statusResponseText);
         throw new Error(`Status check failed with status ${statusResponse.status}`)
       }
-      
-      const statusData = await statusResponse.json()
-      console.log('Status:', statusData);
+
+      let statusData;
+      try {
+        statusData = JSON.parse(statusResponseText);
+      } catch (e) {
+        console.error('Failed to parse status response as JSON:', e);
+        throw new Error('Invalid JSON in status response')
+      }
+
+      console.log('Parsed status data:', statusData);
       
       if (statusData.status === 'completed') {
-        const resultResponse = await fetch(`https://queue.fal.ai/fal-ai/bria/requests/${requestId}`, {
+        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
+          method: 'GET',
           headers: {
             'Authorization': `Key ${falKey}`
           }
@@ -99,14 +128,23 @@ serve(async (req) => {
           throw new Error('Failed to fetch generation result')
         });
 
+        const resultResponseText = await resultResponse.text();
+        console.log('Raw result response:', resultResponseText);
+
         if (!resultResponse.ok) {
-          const errorData = await resultResponse.text();
-          console.error('Result response not OK:', resultResponse.status, errorData);
+          console.error('Result response not OK:', resultResponse.status, resultResponseText);
           throw new Error(`Failed to fetch result with status ${resultResponse.status}`)
         }
-        
-        const result = await resultResponse.json()
-        console.log('Success! Final result:', result);
+
+        let result;
+        try {
+          result = JSON.parse(resultResponseText);
+        } catch (e) {
+          console.error('Failed to parse result response as JSON:', e);
+          throw new Error('Invalid JSON in result response')
+        }
+
+        console.log('Parsed result:', result);
 
         if (!result.images || !result.images[0]) {
           throw new Error('No image URL in response')

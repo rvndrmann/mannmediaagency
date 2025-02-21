@@ -7,17 +7,8 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-async function parseResponse(response: Response) {
-  const contentType = response.headers.get('content-type') || '';
-  if (contentType.includes('application/json')) {
-    return await response.json();
-  }
-  // If not JSON, get the text content for error reporting
-  const text = await response.text();
-  throw new Error(`Unexpected response format. Status: ${response.status}, Content: ${text.substring(0, 200)}...`);
-}
-
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders })
   }
@@ -28,52 +19,39 @@ serve(async (req) => {
       throw new Error('FAL_KEY is not set')
     }
 
-    const { image_url, scene_description, placement_type, manual_placement_selection } = await req.json()
-    
-    console.log('Received request:', { image_url, scene_description, placement_type, manual_placement_selection });
+    // Get request parameters
+    const { image_url, scene_description } = await req.json()
+    console.log('Processing request for image:', image_url);
 
-    // Submit the initial request to FAL AI
+    // 1. Submit initial request
     const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        image_url,
-        scene_description,
-        placement_type,
-        manual_placement_selection,
-        optimize_description: true,
-        num_results: 1,
-        fast: true,
-        shot_size: [1000, 1000]
-      })
+      body: JSON.stringify({ image_url })
     })
 
-    let submitData;
-    try {
-      submitData = await parseResponse(submitResponse);
-      console.log('FAL AI submit response:', submitData);
-    } catch (error) {
-      console.error('Error parsing submit response:', error);
-      throw new Error(`Failed to parse FAL AI response: ${error.message}`);
-    }
-
+    // 2. Get request ID from response
+    const submitData = await submitResponse.json()
+    console.log('Initial response:', submitData);
+    
     if (!submitResponse.ok) {
-      throw new Error(`FAL AI submit failed: ${JSON.stringify(submitData)}`)
+      throw new Error(`Request failed: ${JSON.stringify(submitData)}`)
     }
 
     const requestId = submitData.request_id
     if (!requestId) {
-      throw new Error('No request ID received from FAL AI')
+      throw new Error('No request ID received')
     }
+    console.log('Request ID:', requestId);
 
-    // Poll for the result
+    // 3. Poll for completion
     let attempts = 0
     let result = null
-    while (attempts < 30) { // Maximum 30 attempts (30 seconds)
-      console.log(`Polling attempt ${attempts + 1} for request ${requestId}`);
+    while (attempts < 30) {
+      console.log(`Checking status attempt ${attempts + 1}`);
       
       const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
         headers: {
@@ -81,42 +59,32 @@ serve(async (req) => {
         }
       })
       
-      let statusData;
-      try {
-        statusData = await parseResponse(statusResponse);
-        console.log(`Status response for attempt ${attempts + 1}:`, statusData);
-      } catch (error) {
-        console.error(`Error parsing status response on attempt ${attempts + 1}:`, error);
-        throw new Error(`Failed to parse status response: ${error.message}`);
-      }
+      const statusData = await statusResponse.json()
+      console.log('Status:', statusData);
       
       if (statusData.status === 'completed') {
+        // 4. Get final result
         const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
           headers: {
             'Authorization': `Key ${falKey}`,
           }
         })
         
-        try {
-          result = await parseResponse(resultResponse);
-          console.log('Final result:', result);
-          break;
-        } catch (error) {
-          console.error('Error parsing result response:', error);
-          throw new Error(`Failed to parse result response: ${error.message}`);
-        }
+        result = await resultResponse.json()
+        console.log('Success! Final result:', result);
+        break
       }
       
       if (statusData.status === 'failed') {
-        throw new Error(`Image generation failed: ${JSON.stringify(statusData)}`)
+        throw new Error(`Generation failed: ${JSON.stringify(statusData)}`)
       }
       
-      await new Promise(resolve => setTimeout(resolve, 1000)) // Wait 1 second before next attempt
+      await new Promise(resolve => setTimeout(resolve, 1000))
       attempts++
     }
 
     if (!result) {
-      throw new Error('Timeout waiting for image generation')
+      throw new Error('Timeout waiting for completion')
     }
 
     return new Response(
@@ -124,12 +92,9 @@ serve(async (req) => {
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )
   } catch (error) {
-    console.error('Error in generate-product-shot function:', error);
+    console.error('Error:', error);
     return new Response(
-      JSON.stringify({ 
-        error: error.message,
-        details: error.stack
-      }),
+      JSON.stringify({ error: error.message }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     )
   }

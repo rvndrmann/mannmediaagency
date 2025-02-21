@@ -34,6 +34,7 @@ export function useProductShoot() {
         const item = updatedQueue[i];
         
         try {
+          console.log(`Checking status for request: ${item.requestId}`);
           const response = await supabase.functions.invoke<GenerationResult>(
             'check-generation-status',
             {
@@ -41,9 +42,14 @@ export function useProductShoot() {
             }
           );
 
-          if (response.error) throw new Error(response.error.message);
+          if (response.error) {
+            console.error('Status check error:', response.error);
+            throw new Error(response.error.message);
+          }
           
           if (response.data) {
+            console.log('Status check response:', response.data);
+            
             // Map the received images to our GeneratedImage type
             const completedImages = response.data.images?.map(img => ({
               ...img,
@@ -70,9 +76,16 @@ export function useProductShoot() {
               i--;
               
               if (response.data.status === 'completed' && completedImages.length > 0) {
-                await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
+                try {
+                  await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
+                  console.log('Successfully saved to history:', completedImages[0]);
+                } catch (saveError) {
+                  console.error('Error saving to history:', saveError);
+                  toast.error("Failed to save generation history");
+                }
               } else if (response.data.status === 'failed') {
-                toast.error("Generation failed. Please try again.");
+                console.error('Generation failed:', response.data.error);
+                toast.error(response.data.error || "Generation failed. Please try again.");
               }
             } else if (item.retries >= MAX_RETRIES) {
               const imageIndex = newGeneratedImages.findIndex(
@@ -123,7 +136,10 @@ export function useProductShoot() {
     settings: any
   ) => {
     const { data: { session } } = await supabase.auth.getSession();
-    if (!session) return;
+    if (!session) {
+      console.error('No session found when trying to save to history');
+      return;
+    }
 
     try {
       const historyEntry = {
@@ -134,10 +150,21 @@ export function useProductShoot() {
         settings: settings || {}
       };
 
-      await supabase.from('product_shot_history').insert(historyEntry);
+      console.log('Saving history entry:', historyEntry);
+
+      const { error: dbError } = await supabase
+        .from('product_shot_history')
+        .insert(historyEntry);
+
+      if (dbError) {
+        console.error('Error saving to history:', dbError);
+        throw dbError;
+      }
+
       queryClient.invalidateQueries({ queryKey: ["product-shot-history"] });
     } catch (error) {
       console.error('Error saving to history:', error);
+      throw error;
     }
   };
 
@@ -232,6 +259,8 @@ export function useProductShoot() {
         requestBody.original_quality = formData.originalQuality;
       }
 
+      console.log('Sending generation request:', requestBody);
+
       const { data, error } = await supabase.functions.invoke<{ requestId: string }>(
         'generate-product-shot',
         {
@@ -241,6 +270,8 @@ export function useProductShoot() {
 
       if (error) throw new Error(error.message);
       if (!data?.requestId) throw new Error('No request ID received from the server');
+
+      console.log('Generation started with request ID:', data.requestId);
 
       setGenerationQueue(prev => [...prev, {
         requestId: data.requestId,

@@ -46,17 +46,17 @@ Deno.serve(async (req) => {
 
     // Map fal.ai status to our format
     const result: GenerationStatusResponse = {
-      status: data.status === 'completed' ? 'completed' : 'processing',
+      status: data.status === 'COMPLETED' ? 'completed' : 'processing',
     };
 
     // If generation is complete, include the image URLs
-    if (data.status === 'completed' && data.result?.images) {
+    if (data.status === 'COMPLETED' && data.result?.images) {
       result.images = data.result.images.map((img: any) => ({
         url: img.url,
         content_type: 'image/png',
         status: 'completed'
       }));
-    } else if (data.status === 'failed') {
+    } else if (data.status === 'FAILED') {
       result.status = 'failed';
       result.error = data.error || 'Generation failed';
     }

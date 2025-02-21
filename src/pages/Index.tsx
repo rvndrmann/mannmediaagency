@@ -4,7 +4,6 @@ import { Dashboard } from "@/components/Dashboard";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 import { VideoShowcase } from "@/components/auth/VideoShowcase";
-import { HomeExploreSection } from "@/components/explore/HomeExploreSection";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,9 +29,6 @@ const Index = () => {
           <div className="flex-1">
             <div className="w-full">
               <VideoShowcase />
-            </div>
-            <div className="w-full">
-              <HomeExploreSection />
             </div>
           </div>
         )}

@@ -22,15 +22,19 @@ serve(async (req) => {
     // Get request parameters
     const { image_url, scene_description } = await req.json()
     console.log('Processing request for image:', image_url);
+    console.log('Scene description:', scene_description);
 
     // 1. Submit initial request
-    const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
+    const submitResponse = await fetch('https://queue.fal.ai/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
         'Authorization': `Key ${falKey}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({ image_url })
+      body: JSON.stringify({
+        image_url,
+        scene_description
+      })
     })
 
     // 2. Get request ID from response
@@ -53,7 +57,7 @@ serve(async (req) => {
     while (attempts < 30) {
       console.log(`Checking status attempt ${attempts + 1}`);
       
-      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
+      const statusResponse = await fetch(`https://queue.fal.ai/fal-ai/bria/requests/${requestId}/status`, {
         headers: {
           'Authorization': `Key ${falKey}`,
         }
@@ -64,7 +68,7 @@ serve(async (req) => {
       
       if (statusData.status === 'completed') {
         // 4. Get final result
-        const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}`, {
+        const resultResponse = await fetch(`https://queue.fal.ai/fal-ai/bria/requests/${requestId}`, {
           headers: {
             'Authorization': `Key ${falKey}`,
           }
@@ -72,7 +76,19 @@ serve(async (req) => {
         
         result = await resultResponse.json()
         console.log('Success! Final result:', result);
-        break
+
+        // Transform the response to match our expected format
+        const transformedResult = {
+          images: [{
+            url: result.images[0],
+            content_type: 'image/png'
+          }]
+        }
+        
+        return new Response(
+          JSON.stringify(transformedResult),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        )
       }
       
       if (statusData.status === 'failed') {
@@ -83,14 +99,7 @@ serve(async (req) => {
       attempts++
     }
 
-    if (!result) {
-      throw new Error('Timeout waiting for completion')
-    }
-
-    return new Response(
-      JSON.stringify(result),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    throw new Error('Timeout waiting for completion')
   } catch (error) {
     console.error('Error:', error);
     return new Response(

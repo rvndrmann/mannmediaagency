@@ -32,6 +32,59 @@ interface ProductShotRequest {
   sync_mode?: boolean;
 }
 
+const MAX_RETRIES = 3;
+const INITIAL_INTERVAL = 15000; // 15 seconds
+const MAX_TIMEOUT = 300000; // 5 minutes
+const MAX_INTERVAL = 30000; // 30 seconds
+
+async function checkStatus(requestId: string, falKey: string): Promise<{ status: string; result?: any }> {
+  const statusResponse = await fetch(
+    `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
+    {
+      headers: {
+        'Authorization': `Key ${falKey}`
+      }
+    }
+  );
+
+  if (!statusResponse.ok) {
+    throw new Error(`Status check failed: ${await statusResponse.text()}`);
+  }
+
+  const statusData: StatusResponse = await statusResponse.json();
+  console.log(`Status for request ${requestId}:`, statusData);
+
+  if (statusData.status === 'failed') {
+    throw new Error(`Generation failed: ${statusData.error || 'Unknown error'}`);
+  }
+
+  return statusData;
+}
+
+async function fetchResult(requestId: string, falKey: string): Promise<any> {
+  const resultResponse = await fetch(
+    `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+    {
+      headers: {
+        'Authorization': `Key ${falKey}`
+      }
+    }
+  );
+
+  if (!resultResponse.ok) {
+    throw new Error(`Failed to fetch result: ${await resultResponse.text()}`);
+  }
+
+  const result = await resultResponse.json();
+  console.log(`Result for request ${requestId}:`, result);
+
+  if (!result.images || !Array.isArray(result.images) || result.images.length === 0) {
+    throw new Error('No images found in the result');
+  }
+
+  return result;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -98,94 +151,97 @@ serve(async (req) => {
 
     console.log('Submitting request to queue with payload:', requestPayload);
 
-    // 1. Submit request to queue
-    const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Key ${FAL_KEY}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify(requestPayload)
-    });
+    // Submit request to queue with retry mechanism
+    let queueResponse: RequestResponse | null = null;
+    let retryCount = 0;
 
-    if (!submitResponse.ok) {
-      const errorText = await submitResponse.text();
-      console.error('Queue submission error:', errorText);
-      throw new Error(`Failed to submit to queue: ${errorText}`);
+    while (retryCount < MAX_RETRIES && !queueResponse) {
+      try {
+        const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Key ${FAL_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(requestPayload)
+        });
+
+        if (!submitResponse.ok) {
+          const errorText = await submitResponse.text();
+          throw new Error(`Failed to submit to queue: ${errorText}`);
+        }
+
+        queueResponse = await submitResponse.json();
+        console.log('Queue response:', queueResponse);
+      } catch (error) {
+        retryCount++;
+        if (retryCount === MAX_RETRIES) {
+          throw error;
+        }
+        console.log(`Retry ${retryCount}/${MAX_RETRIES} after error:`, error);
+        await new Promise(resolve => setTimeout(resolve, 2000 * retryCount));
+      }
     }
 
-    const queueResponse: RequestResponse = await submitResponse.json();
-    console.log('Queue response:', queueResponse);
-
-    if (!queueResponse.request_id) {
+    if (!queueResponse?.request_id) {
       throw new Error('No request ID received from queue');
     }
 
-    // For sync mode, wait for completion
+    const requestId = queueResponse.request_id;
+
+    // For sync mode, wait for completion with progressive intervals
     if (requestPayload.sync_mode) {
       const startTime = Date.now();
-      const timeout = 60000; // 60 second timeout
-      
-      while (Date.now() - startTime < timeout) {
-        // 2. Check status
-        console.log(`Checking status for request ${queueResponse.request_id}`);
-        const statusResponse = await fetch(
-          `https://queue.fal.run/fal-ai/bria/requests/${queueResponse.request_id}/status`,
-          {
-            headers: {
-              'Authorization': `Key ${FAL_KEY}`
-            }
-          }
-        );
+      let currentInterval = INITIAL_INTERVAL;
+      let lastStatusUpdate = '';
 
-        if (!statusResponse.ok) {
-          throw new Error(`Status check failed: ${await statusResponse.text()}`);
-        }
+      while (Date.now() - startTime < MAX_TIMEOUT) {
+        try {
+          const statusData = await checkStatus(requestId, FAL_KEY);
 
-        const statusData: StatusResponse = await statusResponse.json();
-        console.log('Status response:', statusData);
-
-        if (statusData.status === 'completed') {
-          // 3. Get final result
-          console.log('Request completed, fetching result');
-          const resultResponse = await fetch(
-            `https://queue.fal.run/fal-ai/bria/requests/${queueResponse.request_id}`,
-            {
-              headers: {
-                'Authorization': `Key ${FAL_KEY}`
-              }
-            }
-          );
-
-          if (!resultResponse.ok) {
-            throw new Error(`Failed to fetch result: ${await resultResponse.text()}`);
+          // If status changed, log it
+          if (statusData.status !== lastStatusUpdate) {
+            console.log(`Status updated for request ${requestId}: ${statusData.status}`);
+            lastStatusUpdate = statusData.status;
           }
 
-          const result = await resultResponse.json();
-          console.log('Final result:', result);
-
-          return new Response(JSON.stringify(result), {
-            headers: {
-              ...corsHeaders,
-              'Content-Type': 'application/json'
+          if (statusData.status === 'completed') {
+            try {
+              const result = await fetchResult(requestId, FAL_KEY);
+              return new Response(JSON.stringify(result), {
+                headers: {
+                  ...corsHeaders,
+                  'Content-Type': 'application/json'
+                }
+              });
+            } catch (error) {
+              throw new Error(`Failed to process completed result: ${error.message}`);
             }
-          });
-        }
+          }
 
-        if (statusData.status === 'failed') {
-          throw new Error(`Generation failed: ${statusData.error || 'Unknown error'}`);
+          // Progressive interval increase
+          currentInterval = Math.min(currentInterval * 1.5, MAX_INTERVAL);
+          await new Promise(resolve => setTimeout(resolve, currentInterval));
+        } catch (error) {
+          console.error(`Error checking status for request ${requestId}:`, error);
+          
+          // If it's a temporary error, retry after a short delay
+          if (error.message.includes('429') || error.message.includes('503')) {
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            continue;
+          }
+          
+          throw error;
         }
-
-        // Wait 2 seconds before next status check
-        await new Promise(resolve => setTimeout(resolve, 2000));
       }
 
-      throw new Error('Request timed out after 60 seconds');
+      // If we reach here, we've timed out
+      throw new Error(`Request timed out after 5 minutes. You can check the status later using request ID: ${requestId}`);
     } else {
       // For async mode, return the request ID immediately
       return new Response(
         JSON.stringify({
-          request_id: queueResponse.request_id,
+          request_id: requestId,
           status: 'processing'
         }),
         {

@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { ArrowLeft } from "lucide-react";
@@ -8,7 +7,6 @@ import { TransactionHistory } from "@/components/plans/TransactionHistory";
 import { PlanCard } from "@/components/plans/PlanCard";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
-import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 
 interface Transaction {
   created_at: string;
@@ -86,7 +84,6 @@ const Plans = () => {
         return;
       }
 
-      // Check if user has already used this code
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         toast({
@@ -97,7 +94,6 @@ const Plans = () => {
         return;
       }
 
-      // Changed from .single() to .maybeSingle() here
       const { data: usageData } = await supabase
         .from('discount_usage')
         .select('*')
@@ -187,73 +183,70 @@ const Plans = () => {
   }, []);
 
   return (
-    <>
-      <PromotionalBanner />
-      <div className="min-h-screen bg-background p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="flex items-center mb-8">
-            <Button 
-              variant="ghost" 
-              onClick={() => navigate("/")}
-              className="mr-4 text-white hover:bg-white/10"
-            >
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
-            </Button>
-            <h1 className="text-2xl font-bold text-white">Choose Your Plan</h1>
-          </div>
-          
-          <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-8">
-            <Button 
-              variant="default" 
-              className="rounded-full bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
-            >
-              One-time
-            </Button>
-          </div>
-
-          <div className="mb-8">
-            <div className="flex gap-4 max-w-md">
-              <Input
-                placeholder="Enter discount code"
-                value={discountCode}
-                onChange={(e) => setDiscountCode(e.target.value)}
-                className="bg-white/10 border-white/20 text-white"
-              />
-              <Button
-                onClick={handleApplyDiscount}
-                disabled={isValidatingCode}
-                className="bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
-              >
-                Apply
-              </Button>
-            </div>
-            {activeDiscount && (
-              <p className="text-green-400 text-sm mt-2">
-                {activeDiscount.discount_percentage}% discount applied!
-              </p>
-            )}
-          </div>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-12">
-            {plans.map((plan) => (
-              <PlanCard
-                key={plan.name}
-                {...plan}
-                price={`₹${calculateDiscountedPrice(plan.price)}`}
-                originalPrice={activeDiscount ? `₹${plan.price}` : undefined}
-                onSubscribe={() => handleSubscribe(plan)}
-              />
-            ))}
-          </div>
-
-          <TransactionHistory 
-            transactions={transactions}
-            isLoading={isLoading}
-          />
+    <div className="min-h-screen bg-background p-6">
+      <div className="max-w-7xl mx-auto">
+        <div className="flex items-center mb-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/")}
+            className="mr-4 text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-2xl font-bold text-white">Choose Your Plan</h1>
         </div>
+        
+        <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-8">
+          <Button 
+            variant="default" 
+            className="rounded-full bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
+          >
+            One-time
+          </Button>
+        </div>
+
+        <div className="mb-8">
+          <div className="flex gap-4 max-w-md">
+            <Input
+              placeholder="Enter discount code"
+              value={discountCode}
+              onChange={(e) => setDiscountCode(e.target.value)}
+              className="bg-white/10 border-white/20 text-white"
+            />
+            <Button
+              onClick={handleApplyDiscount}
+              disabled={isValidatingCode}
+              className="bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
+            >
+              Apply
+            </Button>
+          </div>
+          {activeDiscount && (
+            <p className="text-green-400 text-sm mt-2">
+              {activeDiscount.discount_percentage}% discount applied!
+            </p>
+          )}
+        </div>
+        
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-12">
+          {plans.map((plan) => (
+            <PlanCard
+              key={plan.name}
+              {...plan}
+              price={`₹${calculateDiscountedPrice(plan.price)}`}
+              originalPrice={activeDiscount ? `₹${plan.price}` : undefined}
+              onSubscribe={() => handleSubscribe(plan)}
+            />
+          ))}
+        </div>
+
+        <TransactionHistory 
+          transactions={transactions}
+          isLoading={isLoading}
+        />
       </div>
-    </>
+    </div>
   );
 };
 

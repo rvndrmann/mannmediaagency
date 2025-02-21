@@ -2,7 +2,6 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { PromotionalBanner } from "@/components/plans/PromotionalBanner";
 import { VideoShowcase } from "@/components/auth/VideoShowcase";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -20,7 +19,6 @@ const Index = () => {
   return (
     <SidebarProvider>
       <div className="flex flex-col min-h-screen w-full bg-background">
-        <PromotionalBanner />
         {session ? (
           <Navigate to="/explore" replace />
         ) : (

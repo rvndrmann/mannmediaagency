@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -36,54 +37,64 @@ export function useProductShoot() {
           const response = await supabase.functions.invoke<GenerationResult>(
             'check-generation-status',
             {
-              body: JSON.stringify({ requestId: item.requestId })
+              body: { requestId: item.requestId }
             }
           );
 
           if (response.error) throw new Error(response.error.message);
           
           if (response.data) {
-            const completedImages = response.data.images.map(img => ({
+            const completedImages = response.data.images?.map(img => ({
               ...img,
               status: 'completed' as const,
               prompt: item.prompt
-            }));
+            })) || [];
             
             const imageIndex = newGeneratedImages.findIndex(
               img => img.id === `temp-${item.requestId}`
             );
             
             if (imageIndex !== -1) {
-              newGeneratedImages[imageIndex] = completedImages[0];
-            } else {
+              if (completedImages.length > 0) {
+                newGeneratedImages[imageIndex] = completedImages[0];
+              }
+            } else if (completedImages.length > 0) {
               newGeneratedImages.push(...completedImages);
             }
 
-            updatedQueue.splice(i, 1);
-            queueChanged = true;
-            i--;
-            await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
-          } else if (item.retries >= MAX_RETRIES) {
-            const imageIndex = newGeneratedImages.findIndex(
-              img => img.id === `temp-${item.requestId}`
-            );
-            
-            if (imageIndex !== -1) {
-              newGeneratedImages[imageIndex] = {
-                ...newGeneratedImages[imageIndex],
-                status: 'failed'
-              };
-            }
+            if (response.data.status === 'completed' || response.data.status === 'failed') {
+              updatedQueue.splice(i, 1);
+              queueChanged = true;
+              i--;
+              
+              if (response.data.status === 'completed') {
+                await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
+              } else {
+                toast.error("Generation failed. Please try again.");
+              }
+            } else if (item.retries >= MAX_RETRIES) {
+              const imageIndex = newGeneratedImages.findIndex(
+                img => img.id === `temp-${item.requestId}`
+              );
+              
+              if (imageIndex !== -1) {
+                newGeneratedImages[imageIndex] = {
+                  ...newGeneratedImages[imageIndex],
+                  status: 'failed'
+                };
+              }
 
-            updatedQueue.splice(i, 1);
-            queueChanged = true;
-            i--;
-          } else {
-            updatedQueue[i] = {
-              ...item,
-              retries: item.retries + 1
-            };
-            queueChanged = true;
+              updatedQueue.splice(i, 1);
+              queueChanged = true;
+              i--;
+              toast.error("Generation timed out. Please try again.");
+            } else {
+              updatedQueue[i] = {
+                ...item,
+                retries: item.retries + 1
+              };
+              queueChanged = true;
+            }
           }
         } catch (error) {
           console.error('Polling error:', error);
@@ -227,11 +238,11 @@ export function useProductShoot() {
       );
 
       if (error) throw new Error(error.message);
-      if (!data?.requestId) throw new Error('No request ID received');
+      if (!data?.requestId) throw new Error('No request ID received from the server');
 
       setGenerationQueue(prev => [...prev, {
         requestId: data.requestId,
-        prompt: formData.sceneDescription,
+        prompt: formData.sceneDescription || '',
         retries: 0,
         sourceUrl: publicUrl,
         settings: requestBody

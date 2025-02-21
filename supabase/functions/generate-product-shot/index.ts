@@ -28,164 +28,85 @@ serve(async (req) => {
   }
 
   try {
-    const falKey = Deno.env.get('FAL_KEY')
-    if (!falKey) {
-      throw new Error('FAL_KEY is not set')
+    // Get the FAL_KEY from environment
+    const FAL_KEY = Deno.env.get('FAL_KEY')
+    if (!FAL_KEY) {
+      throw new Error('FAL_KEY environment variable is not set')
     }
 
-    let requestBody: ProductShotRequest;
-    try {
-      requestBody = await req.json()
-    } catch (e) {
-      console.error('JSON parsing error:', e);
-      throw new Error('Invalid JSON in request body')
-    }
+    // Parse request body
+    const requestBody: ProductShotRequest = await req.json()
 
-    // Validate required parameters
+    // Validate required fields
     if (!requestBody.image_url) {
-      throw new Error('Missing required parameter: image_url')
+      throw new Error('image_url is required')
     }
 
-    // Set default values according to API documentation
-    const apiRequest = {
+    // Prepare request payload with default values
+    const requestPayload = {
       image_url: requestBody.image_url,
-      scene_description: requestBody.scene_description || "",
-      ref_image_url: requestBody.ref_image_url || "",
+      scene_description: requestBody.scene_description || '',
+      ref_image_url: requestBody.ref_image_url || '',
       optimize_description: requestBody.optimize_description ?? true,
       num_results: requestBody.num_results ?? 1,
       fast: requestBody.fast ?? true,
-      placement_type: requestBody.placement_type || "manual_placement",
+      placement_type: requestBody.placement_type || 'manual_placement',
       shot_size: requestBody.shot_size || [1000, 1000],
-      manual_placement_selection: requestBody.manual_placement_selection || "bottom_center",
-      sync_mode: requestBody.sync_mode ?? false
+      sync_mode: requestBody.sync_mode ?? true
     };
 
-    // Validate scene description or ref_image_url
-    if (!apiRequest.scene_description && !apiRequest.ref_image_url) {
-      throw new Error('Either scene_description or ref_image_url must be provided')
+    // Add conditional parameters
+    if (requestPayload.placement_type === 'manual_placement') {
+      requestPayload['manual_placement_selection'] = requestBody.manual_placement_selection || 'bottom_center';
+    } else if (requestPayload.placement_type === 'manual_padding' && requestBody.padding_values) {
+      requestPayload['padding_values'] = requestBody.padding_values;
+    } else if (requestPayload.placement_type === 'original') {
+      requestPayload['original_quality'] = requestBody.original_quality ?? false;
     }
 
-    if (apiRequest.scene_description && apiRequest.ref_image_url) {
-      throw new Error('Cannot provide both scene_description and ref_image_url')
-    }
+    console.log('Making request to FAL API with payload:', requestPayload);
 
-    console.log('Submitting request to FAL API with parameters:', apiRequest);
-
-    // 1. Submit initial request
-    const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
+    // Make the API request
+    const response = await fetch('https://rest.fal.ai/bria/product-shot', {
       method: 'POST',
       headers: {
-        'Authorization': `Key ${falKey}`,
-        'Content-Type': 'application/json'
+        'Authorization': `Key ${FAL_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
       },
-      body: JSON.stringify(apiRequest)
+      body: JSON.stringify(requestPayload)
     });
 
-    if (!submitResponse.ok) {
-      console.error('Submit response not OK:', submitResponse.status);
-      const errorText = await submitResponse.text();
-      throw new Error(`API request failed with status ${submitResponse.status}: ${errorText}`)
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('FAL API error:', errorText);
+      throw new Error(`FAL API request failed: ${errorText}`);
     }
 
-    const submitData = await submitResponse.json();
-    console.log('Submit response:', submitData);
+    const result = await response.json();
+    console.log('FAL API response:', result);
 
-    const requestId = submitData.request_id
-    if (!requestId) {
-      throw new Error('No request ID received')
-    }
-
-    // If sync_mode is true, wait for completion
-    if (apiRequest.sync_mode) {
-      // 2. Poll for completion with timeout
-      const startTime = Date.now();
-      const timeout = 30000; // 30 seconds timeout
-      
-      while (Date.now() - startTime < timeout) {
-        console.log('Checking status...');
-        
-        const statusResponse = await fetch(
-          `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
-          {
-            headers: {
-              'Authorization': `Key ${falKey}`
-            }
-          }
-        );
-
-        if (!statusResponse.ok) {
-          throw new Error(`Status check failed with status ${statusResponse.status}`);
-        }
-
-        const statusData = await statusResponse.json();
-        console.log('Status response:', statusData);
-        
-        if (statusData.status === 'completed') {
-          // 3. Get the final result
-          const resultResponse = await fetch(
-            `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
-            {
-              headers: {
-                'Authorization': `Key ${falKey}`
-              }
-            }
-          );
-
-          if (!resultResponse.ok) {
-            throw new Error(`Failed to fetch result with status ${resultResponse.status}`);
-          }
-
-          const result = await resultResponse.json();
-          console.log('Result:', result);
-
-          return new Response(
-            JSON.stringify(result),
-            { 
-              headers: { 
-                ...corsHeaders, 
-                'Content-Type': 'application/json' 
-              }
-            }
-          )
-        }
-        
-        if (statusData.status === 'failed') {
-          throw new Error(`Generation failed: ${JSON.stringify(statusData)}`)
-        }
-        
-        // Wait 1 second before next check
-        await new Promise(resolve => setTimeout(resolve, 1000))
+    return new Response(JSON.stringify(result), {
+      headers: {
+        ...corsHeaders,
+        'Content-Type': 'application/json'
       }
-      
-      throw new Error('Timeout waiting for completion')
-    } else {
-      // For async mode, just return the request ID
-      return new Response(
-        JSON.stringify({ 
-          request_id: requestId,
-          status: 'processing'
-        }),
-        { 
-          headers: { 
-            ...corsHeaders, 
-            'Content-Type': 'application/json' 
-          }
-        }
-      )
-    }
+    });
+
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in generate-product-shot:', error);
+    
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         error: error.message || 'An unexpected error occurred'
       }),
-      { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        }, 
-        status: 500 
+      {
+        headers: {
+          ...corsHeaders,
+          'Content-Type': 'application/json'
+        },
+        status: 500
       }
-    )
+    );
   }
 })

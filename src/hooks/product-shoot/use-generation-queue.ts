@@ -56,7 +56,7 @@ export function useGenerationQueue() {
         const item = updatedQueue[i];
         
         try {
-          console.log(`Checking status for request: ${item.requestId}`);
+          console.log(`[Queue] Checking status for request: ${item.requestId}`);
           const response = await supabase.functions.invoke<GenerationResult>(
             'check-generation-status',
             {
@@ -65,21 +65,23 @@ export function useGenerationQueue() {
           );
 
           if (response.error) {
-            console.error('Status check error:', response.error);
+            console.error('[Queue] Status check error:', response.error);
             throw new Error(response.error.message);
           }
           
           if (response.data) {
-            console.log('Status check response:', response.data);
+            console.log('[Queue] Status check response:', response.data);
             
             // Find placeholder image index
             const placeholderIndex = newGeneratedImages.findIndex(
               img => img.id === `temp-${item.requestId}`
             );
 
-            if (response.data.status === 'completed' && response.data.images?.length) {
+            if (response.data.status === 'completed' && response.data.images?.[0]) {
               const completedImage = response.data.images[0];
               
+              console.log('[Queue] Generation completed:', completedImage);
+
               if (placeholderIndex !== -1) {
                 // Replace placeholder with completed image
                 newGeneratedImages[placeholderIndex] = completedImage;
@@ -88,13 +90,11 @@ export function useGenerationQueue() {
                 newGeneratedImages.push(completedImage);
               }
               
-              await updateImageJobStatus(item.requestId, 'completed', completedImage.url);
-              
               try {
                 await saveToHistory(completedImage, item.sourceUrl, item.settings);
-                console.log('Successfully saved to history:', completedImage);
+                console.log('[Queue] Successfully saved to history:', completedImage);
               } catch (saveError) {
-                console.error('Error saving to history:', saveError);
+                console.error('[Queue] Error saving to history:', saveError);
                 toast.error("Failed to save generation history");
               }
 
@@ -103,7 +103,7 @@ export function useGenerationQueue() {
               queueChanged = true;
               i--;
             } else if (response.data.status === 'failed') {
-              console.error('Generation failed:', response.data.error);
+              console.error('[Queue] Generation failed:', response.data.error);
               
               if (placeholderIndex !== -1) {
                 // Update placeholder to show failure
@@ -113,7 +113,6 @@ export function useGenerationQueue() {
                 };
               }
               
-              await updateImageJobStatus(item.requestId, 'failed');
               toast.error(response.data.error || "Generation failed. Please try again.");
               
               // Remove from queue
@@ -121,6 +120,7 @@ export function useGenerationQueue() {
               queueChanged = true;
               i--;
             } else if (item.retries >= MAX_RETRIES) {
+              console.log('[Queue] Max retries reached for request:', item.requestId);
               if (placeholderIndex !== -1) {
                 // Update placeholder to show failure after max retries
                 newGeneratedImages[placeholderIndex] = {
@@ -129,7 +129,6 @@ export function useGenerationQueue() {
                 };
               }
 
-              await updateImageJobStatus(item.requestId, 'failed');
               updatedQueue.splice(i, 1);
               queueChanged = true;
               i--;
@@ -141,10 +140,12 @@ export function useGenerationQueue() {
                 retries: item.retries + 1
               };
               queueChanged = true;
+              console.log(`[Queue] Still processing, retry ${item.retries + 1}/${MAX_RETRIES}`);
             }
           }
         } catch (error) {
-          console.error('Polling error:', error);
+          console.error('[Queue] Polling error:', error);
+          // Don't remove from queue on error, will retry next interval
         }
       }
 
@@ -172,6 +173,9 @@ export function useGenerationQueue() {
       prompt: item.prompt
     };
     
+    console.log('[Queue] Adding to queue:', item);
+    console.log('[Queue] Creating placeholder:', placeholderImage);
+
     setGeneratedImages(prev => [...prev, placeholderImage]);
     setGenerationQueue(prev => [...prev, { ...item, retries: 0 }]);
     setIsGenerating(true);

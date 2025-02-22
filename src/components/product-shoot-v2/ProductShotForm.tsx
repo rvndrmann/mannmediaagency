@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -101,7 +102,7 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
       originalQuality,
       shotWidth,
       shotHeight,
-      syncMode: false,
+      syncMode: false, // Always false now
       padding
     };
 
@@ -245,15 +246,6 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
             </div>
           </div>
 
-          <div className="flex items-center justify-between mt-4">
-            <Label htmlFor="syncMode" className="text-white">Sync Mode</Label>
-            <Switch
-              id="syncMode"
-              checked={syncMode}
-              onCheckedChange={(checked) => setSyncMode(checked)}
-            />
-          </div>
-          
           <Button 
             type="submit" 
             className="w-full" 

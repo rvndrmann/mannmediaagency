@@ -13,20 +13,20 @@ const SignupForm = () => {
   const handleGoogleSignIn = async () => {
     setIsGoogleLoading(true);
     try {
-      // More flexible production domain check
+      // Get the current domain
       const hostname = window.location.hostname;
       const isProd = hostname === 'mannmediaagency.com' || hostname === 'www.mannmediaagency.com';
       
-      console.log('Current hostname:', hostname);
-      console.log('Is production environment:', isProd);
-      
-      // Set the appropriate redirect URL based on environment
+      // Set redirect URL based on environment
       const redirectTo = isProd 
         ? 'https://mannmediaagency.com/auth/callback'
         : `${window.location.origin}/auth/callback`;
 
       console.log('Using redirect URL:', redirectTo);
 
+      // Sign out any existing session
+      await supabase.auth.signOut();
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -43,6 +43,8 @@ const SignupForm = () => {
         console.error('OAuth error details:', error);
         if (error.message.includes('popup_closed_by_user')) {
           toast.error('Login cancelled. Please try again.');
+        } else if (error.message.includes('redirect_uri_mismatch')) {
+          toast.error('Authentication configuration error. Please contact support.');
         } else {
           toast.error('Failed to login with Google. Please try again.');
         }

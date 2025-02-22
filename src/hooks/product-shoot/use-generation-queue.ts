@@ -13,8 +13,8 @@ interface GenerationQueueItem {
   settings: any;
 }
 
-const POLLING_INTERVAL = 2000;
-const MAX_RETRIES = 30;
+const POLLING_INTERVAL = 15000; // Changed from 2000 to 15000 (15 seconds)
+const MAX_RETRIES = 8; // Changed from 30 to 8 to maintain similar total wait time
 
 export function useGenerationQueue() {
   const [isGenerating, setIsGenerating] = useState(false);

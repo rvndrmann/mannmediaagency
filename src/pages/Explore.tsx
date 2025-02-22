@@ -165,8 +165,8 @@ const Explore = () => {
               <Tabs value={contentType} onValueChange={(value) => setContentType(value as typeof contentType)} className="mt-6">
                 <TabsList>
                   <TabsTrigger value="all">All Content</TabsTrigger>
-                  <TabsTrigger value="product-shots">Product Shots</TabsTrigger>
-                  <TabsTrigger value="images">Images</TabsTrigger>
+                  <TabsTrigger value="product-shots">Product Shot V2</TabsTrigger>
+                  <TabsTrigger value="images">Product Shot V1</TabsTrigger>
                   <TabsTrigger value="videos">Videos</TabsTrigger>
                 </TabsList>
               </Tabs>

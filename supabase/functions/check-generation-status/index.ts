@@ -8,6 +8,18 @@ interface GenerationStatusResponse {
   error?: string;
 }
 
+interface FalResponse {
+  status?: string;
+  result?: {
+    images?: { url: string }[];
+  };
+  error?: string;
+  request_id?: string;
+  response_url?: string;
+  status_url?: string;
+  logs?: any;
+}
+
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
 const TIMEOUT = 8000; // 8 seconds
@@ -48,7 +60,7 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_R
   }
 }
 
-async function fetchGenerationStatus(requestId: string, falKey: string): Promise<any> {
+async function fetchGenerationStatus(requestId: string, falKey: string): Promise<FalResponse> {
   // First try to get the status
   const statusResponse = await fetchWithRetry(
     `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
@@ -62,26 +74,51 @@ async function fetchGenerationStatus(requestId: string, falKey: string): Promise
     }
   );
 
-  const statusData = await statusResponse.json();
+  const statusData: FalResponse = await statusResponse.json();
+  console.log('Raw status response:', JSON.stringify(statusData, null, 2));
   
   // If the status is completed, fetch the full result
   if (statusData.status === 'COMPLETED') {
-    const resultResponse = await fetchWithRetry(
-      `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Key ${falKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      }
-    );
-    
-    return await resultResponse.json();
+    try {
+      const resultResponse = await fetchWithRetry(
+        `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': `Key ${falKey}`,
+            'Content-Type': 'application/json',
+            'Accept': 'application/json'
+          },
+        }
+      );
+      
+      const resultData: FalResponse = await resultResponse.json();
+      console.log('Raw result response:', JSON.stringify(resultData, null, 2));
+      return resultData;
+    } catch (error) {
+      console.error('Error fetching full result:', error);
+      // If we fail to fetch the full result, return the status data
+      return statusData;
+    }
   }
   
   return statusData;
+}
+
+function mapFalStatusToInternal(falStatus?: string): 'processing' | 'completed' | 'failed' {
+  if (!falStatus) return 'processing';
+  
+  switch (falStatus.toUpperCase()) {
+    case 'COMPLETED':
+      return 'completed';
+    case 'FAILED':
+      return 'failed';
+    case 'IN_PROGRESS':
+    case 'PENDING':
+    case 'PROCESSING':
+    default:
+      return 'processing';
+  }
 }
 
 Deno.serve(async (req) => {
@@ -105,29 +142,24 @@ Deno.serve(async (req) => {
     }
 
     const data = await fetchGenerationStatus(requestId, falKey);
-    console.log(`Status check response for ${requestId}:`, JSON.stringify(data, null, 2));
+    console.log(`Processed status check response for ${requestId}:`, JSON.stringify(data, null, 2));
 
     // Map fal.ai status to our format with better error handling
     const result: GenerationStatusResponse = {
-      status: 'processing', // Default status
+      status: mapFalStatusToInternal(data.status),
     };
 
-    if (data.status === 'COMPLETED' && data.result?.images) {
-      result.status = 'completed';
+    if (result.status === 'completed' && data.result?.images) {
       result.images = data.result.images.map((img: any) => ({
         url: img.url,
         content_type: 'image/png',
         status: 'completed'
       }));
-    } else if (data.status === 'FAILED') {
-      result.status = 'failed';
+    } else if (result.status === 'failed') {
       result.error = data.error || 'Generation failed unexpectedly';
-    } else if (data.status === 'PROCESSING' || data.status === 'PENDING') {
-      result.status = 'processing';
-    } else {
-      console.warn(`Unexpected status from fal.ai for request ${requestId}: ${data.status}`);
-      result.status = 'processing'; // Fallback to processing for unknown states
     }
+
+    console.log('Returning response:', JSON.stringify(result, null, 2));
 
     return new Response(
       JSON.stringify(result),

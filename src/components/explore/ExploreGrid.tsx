@@ -50,23 +50,16 @@ export const ExploreGrid = ({
     }
   };
 
-  const shouldShowV2Badge = (item: any) => {
-    // In Product Shot V2 tab, always show V2
-    if (contentType === "product-shots") return true;
-    // In Product Shot V1 tab, always show V1
-    if (contentType === "images") return false;
-    // In All Content tab, check the item's actual version
-    if (contentType === "all") {
-      if (item.settings && typeof item.settings === 'string') {
-        try {
-          const settings = JSON.parse(item.settings);
-          return !!settings.aspectRatio || !!settings.optimizeDescription;
-        } catch {
-          return false;
-        }
-      } else if (item.settings) {
-        return !!item.settings.aspectRatio || !!item.settings.optimizeDescription;
+  const isV2Image = (item: any) => {
+    if (item.settings && typeof item.settings === 'string') {
+      try {
+        const settings = JSON.parse(item.settings);
+        return !!settings.optimize_description;
+      } catch {
+        return false;
       }
+    } else if (item.settings) {
+      return !!item.settings.optimize_description;
     }
     return false;
   };
@@ -106,7 +99,9 @@ export const ExploreGrid = ({
       {content.map((item: any) => {
         if ('source_image_url' in item && 'scene_description' in item) {
           // This is a product shot
-          const isV2 = shouldShowV2Badge(item);
+          const isV2 = contentType === "product-shots" ? true : 
+                      contentType === "images" ? false :
+                      isV2Image(item);
           const aspectRatio = getAspectRatio(item);
           
           return (

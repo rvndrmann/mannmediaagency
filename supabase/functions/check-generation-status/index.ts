@@ -10,20 +10,40 @@ interface GenerationStatusResponse {
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000; // 1 second
+const TIMEOUT = 8000; // 8 seconds
 
 async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_RETRIES): Promise<Response> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT);
+  
   try {
-    const response = await fetch(url, options);
+    const fetchOptions = {
+      ...options,
+      signal: controller.signal,
+    };
+
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
+
     if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
+      const errorText = await response.text();
+      throw new Error(`HTTP error! status: ${response.status}, details: ${errorText}`);
     }
+    
     return response;
   } catch (error) {
+    clearTimeout(timeoutId);
+    
+    if (error.name === 'AbortError') {
+      throw new Error(`Request timed out after ${TIMEOUT}ms`);
+    }
+
     if (retries > 0) {
-      console.log(`Retrying... ${retries} attempts remaining`);
+      console.log(`Request failed, retrying... ${retries} attempts remaining. Error: ${error.message}`);
       await new Promise(resolve => setTimeout(resolve, RETRY_DELAY));
       return fetchWithRetry(url, options, retries - 1);
     }
+    
     throw error;
   }
 }
@@ -56,12 +76,13 @@ Deno.serve(async (req) => {
         headers: {
           'Authorization': `Key ${falKey}`,
           'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
       }
     );
 
     const data = await response.json();
-    console.log('Fal.ai response:', JSON.stringify(data, null, 2));
+    console.log(`Status check response for ${requestId}:`, JSON.stringify(data, null, 2));
 
     // Map fal.ai status to our format with better error handling
     const result: GenerationStatusResponse = {
@@ -81,7 +102,7 @@ Deno.serve(async (req) => {
     } else if (data.status === 'PROCESSING' || data.status === 'PENDING') {
       result.status = 'processing';
     } else {
-      console.warn(`Unexpected status from fal.ai: ${data.status}`);
+      console.warn(`Unexpected status from fal.ai for request ${requestId}: ${data.status}`);
       result.status = 'processing'; // Fallback to processing for unknown states
     }
 
@@ -96,10 +117,15 @@ Deno.serve(async (req) => {
   } catch (error) {
     console.error('Error in check-generation-status:', error);
     
-    // Structured error response
+    // Structured error response with more details
     const errorResponse = {
       status: 'error',
-      error: error instanceof Error ? error.message : 'Unknown error occurred'
+      error: error instanceof Error ? error.message : 'Unknown error occurred',
+      timestamp: new Date().toISOString(),
+      details: error instanceof Error ? {
+        name: error.name,
+        stack: error.stack,
+      } : undefined
     };
 
     return new Response(

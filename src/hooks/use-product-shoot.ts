@@ -4,9 +4,43 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useGenerationQueue } from "./product-shoot/use-generation-queue";
 import { uploadSourceImage, uploadReferenceImage } from "./product-shoot/upload-service";
+import { useQuery } from "@tanstack/react-query";
 
 export function useProductShoot() {
   const { isGenerating, generatedImages, addToQueue, setGeneratedImages } = useGenerationQueue();
+
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session }, error } = await supabase.auth.getSession();
+      if (error) throw error;
+      return session;
+    }
+  });
+
+  const createImageGenerationJob = async (
+    requestId: string, 
+    prompt: string, 
+    settings: any
+  ) => {
+    try {
+      const { error } = await supabase
+        .from('image_generation_jobs')
+        .insert({
+          user_id: session?.user.id,
+          request_id: requestId,
+          status: 'pending',
+          prompt: prompt,
+          settings: settings,
+          visibility: 'public'
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Error creating image generation job:', error);
+      throw error;
+    }
+  };
 
   const handleGenerate = async (formData: ProductShotFormData) => {
     const tempRequestId = crypto.randomUUID();
@@ -21,7 +55,6 @@ export function useProductShoot() {
     setGeneratedImages(prev => [...prev, placeholderImage]);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
       if (!session) {
         toast.error("Please sign in to continue");
         return;
@@ -76,6 +109,13 @@ export function useProductShoot() {
       if (!data?.requestId) throw new Error('No request ID received from the server');
 
       console.log('Generation started with request ID:', data.requestId);
+
+      // Create the image generation job in the database
+      await createImageGenerationJob(
+        data.requestId,
+        formData.sceneDescription || '',
+        requestBody
+      );
 
       addToQueue({
         requestId: data.requestId,

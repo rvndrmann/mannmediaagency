@@ -21,6 +21,29 @@ export function useGenerationQueue() {
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [generationQueue, setGenerationQueue] = useState<GenerationQueueItem[]>([]);
 
+  const updateImageJobStatus = async (requestId: string, status: string, resultUrl?: string) => {
+    try {
+      const updateData: any = {
+        status: status
+      };
+      
+      if (resultUrl) {
+        updateData.result_url = resultUrl;
+      }
+
+      const { error } = await supabase
+        .from('image_generation_jobs')
+        .update(updateData)
+        .eq('request_id', requestId);
+
+      if (error) {
+        console.error('Error updating image job status:', error);
+      }
+    } catch (err) {
+      console.error('Error in updateImageJobStatus:', err);
+    }
+  };
+
   useEffect(() => {
     if (generationQueue.length === 0) return;
 
@@ -63,9 +86,11 @@ export function useGenerationQueue() {
             if (imageIndex !== -1) {
               if (completedImages.length > 0) {
                 newGeneratedImages[imageIndex] = completedImages[0];
+                await updateImageJobStatus(item.requestId, 'completed', completedImages[0].url);
               }
             } else if (completedImages.length > 0) {
               newGeneratedImages.push(...completedImages);
+              await updateImageJobStatus(item.requestId, 'completed', completedImages[0].url);
             }
 
             if (response.data.status === 'completed' || response.data.status === 'failed') {
@@ -83,6 +108,7 @@ export function useGenerationQueue() {
                 }
               } else if (response.data.status === 'failed') {
                 console.error('Generation failed:', response.data.error);
+                await updateImageJobStatus(item.requestId, 'failed');
                 toast.error(response.data.error || "Generation failed. Please try again.");
               }
             } else if (item.retries >= MAX_RETRIES) {
@@ -97,6 +123,7 @@ export function useGenerationQueue() {
                 };
               }
 
+              await updateImageJobStatus(item.requestId, 'failed');
               updatedQueue.splice(i, 1);
               queueChanged = true;
               i--;

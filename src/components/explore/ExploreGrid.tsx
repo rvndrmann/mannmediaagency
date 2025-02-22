@@ -51,6 +51,15 @@ export const ExploreGrid = ({
   };
 
   const isV2Image = (item: any) => {
+    // If it's in the productShots array, it's a V2 image
+    if (productShots?.some(shot => shot.id === item.id)) {
+      return true;
+    }
+    // If it's in the images array, it's a V1 image
+    if (images?.some(img => img.id === item.id)) {
+      return false;
+    }
+    // For other cases, check the settings
     if (item.settings && typeof item.settings === 'string') {
       try {
         const settings = JSON.parse(item.settings);

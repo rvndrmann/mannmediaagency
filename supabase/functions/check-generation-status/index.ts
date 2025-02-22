@@ -68,9 +68,9 @@ Deno.serve(async (req) => {
       throw new Error('FAL_KEY is not configured');
     }
 
-    // Call fal.ai status endpoint with retry logic
+    // Call fal.ai status endpoint with retry logic - Updated URL to use correct endpoint
     const response = await fetchWithRetry(
-      `https://queue.fal.ai/fal-ai/bria/requests/${requestId}/status`,
+      `https://fal.ai/api/queue/requests/${requestId}/status`,
       {
         method: 'GET',
         headers: {

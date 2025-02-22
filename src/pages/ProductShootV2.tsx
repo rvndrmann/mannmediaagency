@@ -4,9 +4,24 @@ import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
 import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
 import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
 import { useProductShoot } from "@/hooks/use-product-shoot";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function ProductShootV2() {
   const { isGenerating, isSubmitting, generatedImages, handleGenerate } = useProductShoot();
+
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data;
+    },
+  });
 
   return (
     <ProductShootLayout>
@@ -18,6 +33,7 @@ export default function ProductShootV2() {
             onSubmit={handleGenerate}
             isGenerating={isGenerating}
             isSubmitting={isSubmitting}
+            availableCredits={userCredits?.credits_remaining}
           />
         </div>
 

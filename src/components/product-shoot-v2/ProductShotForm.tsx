@@ -8,14 +8,16 @@ import { Switch } from "@/components/ui/switch";
 import { Slider } from "@/components/ui/slider";
 import { ProductShotFormData } from "@/types/product-shoot";
 import { ImageUploader } from "@/components/product-shoot/ImageUploader";
+import { toast } from "sonner";
 
 interface ProductShotFormProps {
   onSubmit: (data: ProductShotFormData) => void;
   isGenerating: boolean;
   isSubmitting?: boolean;
+  availableCredits?: number;
 }
 
-export function ProductShotForm({ onSubmit, isGenerating, isSubmitting }: ProductShotFormProps) {
+export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availableCredits = 0 }: ProductShotFormProps) {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
@@ -36,6 +38,15 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting }: Produc
     top: 0,
     bottom: 0
   });
+
+  const calculateCreditCost = () => {
+    return numResults * 0.2;
+  };
+
+  const hasEnoughCredits = () => {
+    const requiredCredits = calculateCreditCost();
+    return availableCredits >= requiredCredits;
+  };
 
   const handleSourceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -80,6 +91,11 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting }: Produc
     
     if (!sourceFile) {
       toast.error("Please select a source image");
+      return;
+    }
+
+    if (!hasEnoughCredits()) {
+      toast.error(`Insufficient credits. You need ${calculateCreditCost()} credits for this generation.`);
       return;
     }
 
@@ -253,9 +269,20 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting }: Produc
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isGenerating || isSubmitting}
+            disabled={isGenerating || isSubmitting || !hasEnoughCredits()}
           >
-            {isGenerating || isSubmitting ? "Generating..." : "Generate"}
+            {isGenerating || isSubmitting ? (
+              "Generating..."
+            ) : (
+              <>
+                Generate ({calculateCreditCost()} credits)
+                {availableCredits < calculateCreditCost() && (
+                  <span className="ml-2 text-xs text-red-400">
+                    (Insufficient credits)
+                  </span>
+                )}
+              </>
+            )}
           </Button>
         </div>
       </Card>

@@ -2,7 +2,7 @@
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { Card } from "@/components/ui/card";
-import { ImageIcon, BadgeCheck, Badge2, ArrowUpDown } from "lucide-react";
+import { ImageIcon, BadgeCheck, Sparkles, ArrowUpDown } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 interface ExploreGridProps {
@@ -114,7 +114,7 @@ export const ExploreGrid = ({
                 <div className="absolute top-2 right-2 flex gap-2">
                   {isV2 ? (
                     <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0">
-                      <Badge2 className="w-3 h-3 mr-1" />
+                      <Sparkles className="w-3 h-3 mr-1" />
                       V2
                     </Badge>
                   ) : (

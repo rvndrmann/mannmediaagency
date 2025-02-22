@@ -26,25 +26,43 @@ interface FalResponse {
 
 async function fetchGenerationStatus(requestId: string, falKey: string): Promise<FalResponse> {
   console.log(`[Status] Fetching generation status for request ID: ${requestId}`);
+  console.log(`[Status] API URL: https://queue.fal.run/fal-ai/bria/requests/${requestId}`);
 
-  const response = await fetch(
-    `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
-    {
-      method: 'GET',
-      headers: {
-        'Authorization': `Key ${falKey}`,
-        'Content-Type': 'application/json',
-      },
+  try {
+    const response = await fetch(
+      `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${falKey}`,
+          'Content-Type': 'application/json',
+        },
+      }
+    );
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[Status] Error Response:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
     }
-  );
 
-  if (!response.ok) {
-    throw new Error(`HTTP error! status: ${response.status}`);
+    const data = await response.json();
+    console.log('[Status] Raw response:', JSON.stringify(data, null, 2));
+    return data;
+  } catch (error) {
+    console.error('[Status] Fetch error:', error);
+    throw error;
   }
+}
 
-  const data = await response.json();
-  console.log('[Status] Raw response:', JSON.stringify(data, null, 2));
-  return data;
+function validateRequestId(requestId: string): boolean {
+  // Basic UUID v4 format validation
+  const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidV4Regex.test(requestId);
 }
 
 function mapFalStatusToInternal(falResponse: FalResponse): 'pending' | 'processing' | 'completed' | 'failed' {
@@ -101,26 +119,41 @@ async function updateImageJobStatus(requestId: string, status: string, resultUrl
     updateData.result_url = resultUrl;
   }
 
-  const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/image_generation_jobs?request_id=eq.${requestId}`,
-    {
-      method: 'PATCH',
-      headers: {
-        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
-        'apikey': SUPABASE_SERVICE_ROLE_KEY,
-        'Content-Type': 'application/json',
-        'Prefer': 'return=minimal'
-      },
-      body: JSON.stringify(updateData)
-    }
-  );
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/image_generation_jobs?request_id=eq.${requestId}`,
+      {
+        method: 'PATCH',
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': SUPABASE_SERVICE_ROLE_KEY,
+          'Content-Type': 'application/json',
+          'Prefer': 'return=minimal'
+        },
+        body: JSON.stringify(updateData)
+      }
+    );
 
-  if (!response.ok) {
-    throw new Error(`Failed to update job status: ${response.status}`);
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[DB] Update error:', {
+        status: response.status,
+        statusText: response.statusText,
+        body: errorText
+      });
+      throw new Error(`Failed to update job status: ${response.status}, ${errorText}`);
+    }
+  } catch (error) {
+    console.error('[DB] Error updating job status:', error);
+    throw error;
   }
 }
 
 Deno.serve(async (req) => {
+  // Add request debugging
+  console.log('[Request] Method:', req.method);
+  console.log('[Request] Headers:', Object.fromEntries(req.headers.entries()));
+
   if (req.method === 'OPTIONS') {
     return new Response('ok', { headers: corsHeaders });
   }
@@ -133,10 +166,17 @@ Deno.serve(async (req) => {
       throw new Error('Missing request ID');
     }
 
+    if (!validateRequestId(requestId)) {
+      throw new Error('Invalid request ID format');
+    }
+
     const falKey = Deno.env.get('FAL_KEY');
     if (!falKey) {
+      console.error('[Config] FAL_KEY is not configured');
       throw new Error('FAL_KEY is not configured');
     }
+
+    console.log('[Config] FAL key length:', falKey.length);  // Log key length for debugging
 
     const falResponse = await fetchGenerationStatus(requestId, falKey);
     const internalStatus = mapFalStatusToInternal(falResponse);
@@ -185,7 +225,11 @@ Deno.serve(async (req) => {
       JSON.stringify({
         status: 'error',
         error: error.message,
-        timestamp: new Date().toISOString()
+        debug_info: {
+          timestamp: new Date().toISOString(),
+          error_type: error.name,
+          error_stack: error.stack
+        }
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

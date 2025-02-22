@@ -25,7 +25,7 @@ export default function ProductShootV2() {
 
   return (
     <ProductShootLayout>
-      <h1 className="text-2xl font-bold mb-6 text-white">Product Shoot V2</h1>
+      <h1 className="text-2xl font-bold mb-6 text-white">Product Shot V2</h1>
       
       <div className="flex flex-col lg:flex-row gap-8">
         <div className="w-full lg:w-[400px] shrink-0">

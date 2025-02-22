@@ -4,7 +4,6 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Slider } from "@/components/ui/slider";
 import { ImageUploader } from "@/components/product-shoot/ImageUploader";
 import { ProductShotFormProps } from "./types";
 import { useProductShotForm } from "./hooks/useProductShotForm";
@@ -19,7 +18,6 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
     placementType,
     manualPlacement,
     optimizeDescription,
-    numResults,
     fastMode,
     originalQuality,
     shotWidth,
@@ -34,7 +32,6 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
     setPlacementType,
     setManualPlacement,
     setOptimizeDescription,
-    setNumResults,
     setFastMode,
     setOriginalQuality,
     setShotWidth,
@@ -125,19 +122,6 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
             />
           </div>
 
-          <div className="mt-4">
-            <Label htmlFor="numResults" className="text-white">Number of Results</Label>
-            <Slider
-              id="numResults"
-              defaultValue={[numResults]}
-              max={4}
-              min={1}
-              step={1}
-              onValueChange={(value) => setNumResults(value[0])}
-            />
-            <p className="text-sm text-gray-400 mt-1">Selected: {numResults}</p>
-          </div>
-
           <div className="flex items-center justify-between mt-4">
             <Label htmlFor="fastMode" className="text-white">Fast Mode</Label>
             <Switch
@@ -179,7 +163,7 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
           </div>
 
           <GenerateButton
-            numResults={numResults}
+            numResults={1}
             availableCredits={availableCredits}
             isGenerating={isGenerating}
             isSubmitting={isSubmitting}

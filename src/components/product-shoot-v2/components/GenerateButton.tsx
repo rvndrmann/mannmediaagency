@@ -2,8 +2,8 @@
 import { Button } from "@/components/ui/button";
 import { CreditInfoProps } from "../types";
 
-export const GenerateButton = ({ numResults, availableCredits, isGenerating, isSubmitting }: CreditInfoProps) => {
-  const calculateCreditCost = () => numResults * 0.2;
+export const GenerateButton = ({ availableCredits, isGenerating, isSubmitting }: CreditInfoProps) => {
+  const calculateCreditCost = () => 0.2;
   const hasEnoughCredits = () => availableCredits >= calculateCreditCost();
 
   return (
@@ -16,7 +16,7 @@ export const GenerateButton = ({ numResults, availableCredits, isGenerating, isS
         "Generating..."
       ) : (
         <>
-          Generate ({calculateCreditCost()} credits)
+          Generate (0.2 credits)
           {availableCredits < calculateCreditCost() && (
             <span className="ml-2 text-xs text-red-400">
               (Insufficient credits)

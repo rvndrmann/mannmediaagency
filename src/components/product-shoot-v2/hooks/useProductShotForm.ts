@@ -18,7 +18,6 @@ export const useProductShotForm = (
   const [placementType, setPlacementType] = useState<"original" | "automatic" | "manual_placement" | "manual_padding">("original");
   const [manualPlacement, setManualPlacement] = useState("");
   const [optimizeDescription, setOptimizeDescription] = useState(true);
-  const [numResults, setNumResults] = useState(1);
   const [fastMode, setFastMode] = useState(false);
   const [originalQuality, setOriginalQuality] = useState(true);
   const [shotWidth, setShotWidth] = useState(1024);
@@ -31,7 +30,7 @@ export const useProductShotForm = (
   });
 
   const calculateCreditCost = () => {
-    return numResults * 0.2;
+    return 0.2; // Fixed cost for 1 result
   };
 
   const hasEnoughCredits = () => {
@@ -108,7 +107,7 @@ export const useProductShotForm = (
       placementType,
       manualPlacement,
       optimizeDescription,
-      numResults,
+      numResults: 1,
       fastMode,
       originalQuality,
       shotWidth,
@@ -128,7 +127,6 @@ export const useProductShotForm = (
     placementType,
     manualPlacement,
     optimizeDescription,
-    numResults,
     fastMode,
     originalQuality,
     shotWidth,
@@ -144,7 +142,6 @@ export const useProductShotForm = (
     setPlacementType,
     setManualPlacement,
     setOptimizeDescription,
-    setNumResults,
     setFastMode,
     setOriginalQuality,
     setShotWidth,

@@ -22,18 +22,22 @@ export const ExploreGrid = ({
   const filterBySearch = (content: any) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    return content.prompt.toLowerCase().includes(query);
+    return content.prompt?.toLowerCase().includes(query);
   };
 
   const getContent = () => {
+    // Filter out any items without result_url for extra safety
+    const validImages = images?.filter(img => img.result_url && filterBySearch(img)) || [];
+    const validVideos = videos?.filter(vid => vid.result_url && filterBySearch(vid)) || [];
+
     switch (contentType) {
       case "all":
-        return [...(images?.filter(filterBySearch) || []), ...(videos?.filter(filterBySearch) || [])]
+        return [...validImages, ...validVideos]
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       case "images":
-        return images?.filter(filterBySearch) || [];
+        return validImages;
       case "videos":
-        return videos?.filter(filterBySearch) || [];
+        return validVideos;
       default:
         return [];
     }

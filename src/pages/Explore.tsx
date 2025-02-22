@@ -29,7 +29,6 @@ const Explore = () => {
   const { data: publicImages, isLoading: imagesLoading } = useQuery({
     queryKey: ["publicImages"],
     queryFn: async () => {
-      // First fetch the image generation jobs
       const { data: images, error: imagesError } = await supabase
         .from("image_generation_jobs")
         .select(`
@@ -37,6 +36,8 @@ const Explore = () => {
           product_image_metadata (*)
         `)
         .eq('visibility', 'public')
+        .eq('status', 'completed')
+        .not('result_url', 'is', null)
         .order('created_at', { ascending: false });
 
       if (imagesError) {
@@ -44,7 +45,6 @@ const Explore = () => {
         throw imagesError;
       }
 
-      // Then fetch the corresponding profiles
       if (images && images.length > 0) {
         const userIds = [...new Set(images.map(img => img.user_id))];
         const { data: profiles, error: profilesError } = await supabase
@@ -57,7 +57,6 @@ const Explore = () => {
           throw profilesError;
         }
 
-        // Merge the profile data with the images
         return images.map(img => ({
           ...img,
           profiles: profiles?.find(p => p.id === img.user_id)
@@ -72,7 +71,6 @@ const Explore = () => {
   const { data: publicVideos, isLoading: videosLoading } = useQuery({
     queryKey: ["publicVideos"],
     queryFn: async () => {
-      // First fetch the video generation jobs
       const { data: videos, error: videosError } = await supabase
         .from("video_generation_jobs")
         .select(`
@@ -80,6 +78,8 @@ const Explore = () => {
           video_metadata (*)
         `)
         .eq('visibility', 'public')
+        .eq('status', 'completed')
+        .not('result_url', 'is', null)
         .order('created_at', { ascending: false });
 
       if (videosError) {
@@ -87,7 +87,6 @@ const Explore = () => {
         throw videosError;
       }
 
-      // Then fetch the corresponding profiles
       if (videos && videos.length > 0) {
         const userIds = [...new Set(videos.map(vid => vid.user_id))];
         const { data: profiles, error: profilesError } = await supabase
@@ -100,7 +99,6 @@ const Explore = () => {
           throw profilesError;
         }
 
-        // Merge the profile data with the videos
         return videos.map(vid => ({
           ...vid,
           profiles: profiles?.find(p => p.id === vid.user_id)

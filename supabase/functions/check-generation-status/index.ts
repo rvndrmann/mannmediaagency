@@ -24,13 +24,59 @@ interface FalResponse {
   error?: string;
 }
 
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY = 1000; // 1 second
+const MAX_JOB_AGE = 1800000; // 30 minutes in milliseconds
+
+async function sleep(ms: number) {
+  return new Promise(resolve => setTimeout(resolve, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  options: RequestInit,
+  retries = MAX_RETRIES,
+  delay = INITIAL_RETRY_DELAY
+): Promise<Response> {
+  try {
+    const response = await fetch(url, options);
+    
+    // If the request is successful, return the response
+    if (response.ok) {
+      return response;
+    }
+
+    // If we have no more retries, throw the error
+    if (retries === 0) {
+      const errorText = await response.text();
+      throw new Error(`Failed after ${MAX_RETRIES} retries. Status: ${response.status}, Body: ${errorText}`);
+    }
+
+    // Log retry attempt
+    console.log(`[Retry] Attempt ${MAX_RETRIES - retries + 1} of ${MAX_RETRIES}. Status: ${response.status}`);
+    
+    // Wait before retrying with exponential backoff
+    await sleep(delay);
+    
+    // Retry with increased delay
+    return fetchWithRetry(url, options, retries - 1, delay * 2);
+  } catch (error) {
+    if (retries === 0) throw error;
+    
+    console.log(`[Retry] Network error, attempting retry. ${retries} retries remaining`);
+    await sleep(delay);
+    return fetchWithRetry(url, options, retries - 1, delay * 2);
+  }
+}
+
 async function fetchGenerationStatus(requestId: string, falKey: string): Promise<FalResponse> {
   console.log(`[Status] Fetching generation status for request ID: ${requestId}`);
-  console.log(`[Status] API URL: https://queue.fal.run/fal-ai/bria/requests/${requestId}`);
+  const apiUrl = `https://queue.fal.run/fal-ai/bria/requests/${requestId}`;
+  console.log(`[Status] API URL: ${apiUrl}`);
 
   try {
-    const response = await fetch(
-      `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+    const response = await fetchWithRetry(
+      apiUrl,
       {
         method: 'GET',
         headers: {
@@ -39,16 +85,6 @@ async function fetchGenerationStatus(requestId: string, falKey: string): Promise
         },
       }
     );
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('[Status] Error Response:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
-      throw new Error(`HTTP error! status: ${response.status}, body: ${errorText}`);
-    }
 
     const data = await response.json();
     console.log('[Status] Raw response:', JSON.stringify(data, null, 2));
@@ -60,9 +96,44 @@ async function fetchGenerationStatus(requestId: string, falKey: string): Promise
 }
 
 function validateRequestId(requestId: string): boolean {
-  // Basic UUID v4 format validation
   const uuidV4Regex = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   return uuidV4Regex.test(requestId);
+}
+
+function isJobStuck(createdAt: string): boolean {
+  const jobAge = Date.now() - new Date(createdAt).getTime();
+  return jobAge > MAX_JOB_AGE;
+}
+
+async function getJobCreationTime(requestId: string): Promise<string | null> {
+  const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+  const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+  if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+    throw new Error('Missing Supabase configuration');
+  }
+
+  try {
+    const response = await fetch(
+      `${SUPABASE_URL}/rest/v1/image_generation_jobs?request_id=eq.${requestId}&select=created_at`,
+      {
+        headers: {
+          'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+          'apikey': SUPABASE_SERVICE_ROLE_KEY
+        }
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Failed to fetch job creation time: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data[0]?.created_at || null;
+  } catch (error) {
+    console.error('[Job] Error fetching job creation time:', error);
+    return null;
+  }
 }
 
 function mapFalStatusToInternal(falResponse: FalResponse): 'pending' | 'processing' | 'completed' | 'failed' {
@@ -89,12 +160,10 @@ function mapFalStatusToInternal(falResponse: FalResponse): 'pending' | 'processi
     }
   }
 
-  // Default to processing if we can't determine status
   return 'processing';
 }
 
 function extractImageUrl(data: FalResponse): string | undefined {
-  // Check both possible locations for image URL
   const imageUrl = data.result?.images?.[0]?.url || data.images?.[0]?.url;
   console.log('[URL] Extracted image URL:', imageUrl);
   return imageUrl;
@@ -120,7 +189,7 @@ async function updateImageJobStatus(requestId: string, status: string, resultUrl
   }
 
   try {
-    const response = await fetch(
+    const response = await fetchWithRetry(
       `${SUPABASE_URL}/rest/v1/image_generation_jobs?request_id=eq.${requestId}`,
       {
         method: 'PATCH',
@@ -136,11 +205,6 @@ async function updateImageJobStatus(requestId: string, status: string, resultUrl
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('[DB] Update error:', {
-        status: response.status,
-        statusText: response.statusText,
-        body: errorText
-      });
       throw new Error(`Failed to update job status: ${response.status}, ${errorText}`);
     }
   } catch (error) {
@@ -150,7 +214,6 @@ async function updateImageJobStatus(requestId: string, status: string, resultUrl
 }
 
 Deno.serve(async (req) => {
-  // Add request debugging
   console.log('[Request] Method:', req.method);
   console.log('[Request] Headers:', Object.fromEntries(req.headers.entries()));
 
@@ -170,13 +233,21 @@ Deno.serve(async (req) => {
       throw new Error('Invalid request ID format');
     }
 
+    // Check job age
+    const createdAt = await getJobCreationTime(requestId);
+    if (createdAt && isJobStuck(createdAt)) {
+      console.log(`[Job] Job ${requestId} is stuck (created at ${createdAt})`);
+      await updateImageJobStatus(requestId, 'failed');
+      throw new Error('Job timeout exceeded');
+    }
+
     const falKey = Deno.env.get('FAL_KEY');
     if (!falKey) {
       console.error('[Config] FAL_KEY is not configured');
       throw new Error('FAL_KEY is not configured');
     }
 
-    console.log('[Config] FAL key length:', falKey.length);  // Log key length for debugging
+    console.log('[Config] FAL key length:', falKey.length);
 
     const falResponse = await fetchGenerationStatus(requestId, falKey);
     const internalStatus = mapFalStatusToInternal(falResponse);
@@ -193,11 +264,11 @@ Deno.serve(async (req) => {
       debug_info: {
         timestamp: new Date().toISOString(),
         request_id: requestId,
-        raw_status: falResponse.status
+        raw_status: falResponse.status,
+        job_age: createdAt ? Date.now() - new Date(createdAt).getTime() : null
       }
     };
 
-    // Add image to response if available
     if (imageUrl && internalStatus === 'completed') {
       response.images = [{
         id: `${requestId}-0`,
@@ -207,7 +278,6 @@ Deno.serve(async (req) => {
       }];
     }
 
-    // Add error information if available
     if (falResponse.error) {
       response.error = falResponse.error;
     }

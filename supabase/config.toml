@@ -26,3 +26,5 @@ verify_jwt = true
 verify_jwt = true
 [functions.generate-product-shot]
 verify_jwt = false
+[functions.check-generation-status]
+verify_jwt = false

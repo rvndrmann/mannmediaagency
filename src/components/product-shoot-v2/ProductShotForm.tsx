@@ -4,10 +4,18 @@ import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { ImageUploader } from "@/components/product-shoot/ImageUploader";
 import { ProductShotFormProps } from "./types";
 import { useProductShotForm } from "./hooks/useProductShotForm";
 import { GenerateButton } from "./components/GenerateButton";
+import { AspectRatio } from "@/types/product-shoot";
 
 export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availableCredits = 0 }: ProductShotFormProps) {
   const {
@@ -20,8 +28,7 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
     optimizeDescription,
     fastMode,
     originalQuality,
-    shotWidth,
-    shotHeight,
+    aspectRatio,
     handleSourceFileSelect,
     handleReferenceFileSelect,
     handleClearSource,
@@ -34,8 +41,7 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
     setOptimizeDescription,
     setFastMode,
     setOriginalQuality,
-    setShotWidth,
-    setShotHeight
+    handleAspectRatioChange
   } = useProductShotForm(onSubmit, isGenerating, isSubmitting, availableCredits);
 
   return (
@@ -68,6 +74,25 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
               onChange={(e) => setSceneDescription(e.target.value)}
               disabled={generationType !== "description"}
             />
+          </div>
+
+          <div className="mt-4">
+            <Label htmlFor="aspectRatio" className="text-white">Aspect Ratio</Label>
+            <Select value={aspectRatio} onValueChange={(value: AspectRatio) => handleAspectRatioChange(value)}>
+              <SelectTrigger id="aspectRatio">
+                <SelectValue placeholder="Select aspect ratio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                <SelectItem value="9:16">9:16 (Reels/Stories)</SelectItem>
+                <SelectItem value="1:1">1:1 (Square)</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-sm text-gray-400 mt-1">
+              {aspectRatio === "16:9" && "1920×1080 - Best for landscape videos"}
+              {aspectRatio === "9:16" && "1080×1920 - Best for reels and stories"}
+              {aspectRatio === "1:1" && "1024×1024 - Perfect square format"}
+            </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
@@ -138,28 +163,6 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
               checked={originalQuality}
               onCheckedChange={setOriginalQuality}
             />
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <Label htmlFor="shotWidth" className="text-white">Shot Width</Label>
-              <Input
-                type="number"
-                id="shotWidth"
-                value={shotWidth}
-                onChange={(e) => setShotWidth(Number(e.target.value))}
-              />
-            </div>
-
-            <div>
-              <Label htmlFor="shotHeight" className="text-white">Shot Height</Label>
-              <Input
-                type="number"
-                id="shotHeight"
-                value={shotHeight}
-                onChange={(e) => setShotHeight(Number(e.target.value))}
-              />
-            </div>
           </div>
 
           <GenerateButton

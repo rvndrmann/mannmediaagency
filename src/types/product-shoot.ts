@@ -13,6 +13,8 @@ export interface GenerationResult {
   error?: string;
 }
 
+export type AspectRatio = "16:9" | "9:16" | "1:1";
+
 export interface ProductShotFormData {
   sourceFile: File | null;
   referenceFile: File | null;
@@ -27,6 +29,7 @@ export interface ProductShotFormData {
   shotWidth: number;
   shotHeight: number;
   syncMode: boolean;
+  aspectRatio: AspectRatio;
   padding: {
     left: number;
     right: number;

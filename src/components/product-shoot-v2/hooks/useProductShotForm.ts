@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { ProductShotFormData } from "@/types/product-shoot";
+import { ProductShotFormData, AspectRatio } from "@/types/product-shoot";
 import { toast } from "sonner";
 
 export const useProductShotForm = (
@@ -20,8 +20,9 @@ export const useProductShotForm = (
   const [optimizeDescription, setOptimizeDescription] = useState(true);
   const [fastMode, setFastMode] = useState(false);
   const [originalQuality, setOriginalQuality] = useState(true);
-  const [shotWidth, setShotWidth] = useState(1024);
-  const [shotHeight, setShotHeight] = useState(1024);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  const [shotWidth, setShotWidth] = useState(1920);
+  const [shotHeight, setShotHeight] = useState(1080);
   const [padding, setPadding] = useState({
     left: 0,
     right: 0,
@@ -36,6 +37,28 @@ export const useProductShotForm = (
   const hasEnoughCredits = () => {
     const requiredCredits = calculateCreditCost();
     return availableCredits >= requiredCredits;
+  };
+
+  const updateDimensions = (newAspectRatio: AspectRatio) => {
+    switch (newAspectRatio) {
+      case "16:9":
+        setShotWidth(1920);
+        setShotHeight(1080);
+        break;
+      case "9:16":
+        setShotWidth(1080);
+        setShotHeight(1920);
+        break;
+      case "1:1":
+        setShotWidth(1024);
+        setShotHeight(1024);
+        break;
+    }
+  };
+
+  const handleAspectRatioChange = (value: AspectRatio) => {
+    setAspectRatio(value);
+    updateDimensions(value);
   };
 
   const handleSourceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -113,6 +136,7 @@ export const useProductShotForm = (
       shotWidth,
       shotHeight,
       syncMode: false,
+      aspectRatio,
       padding
     };
 
@@ -131,6 +155,7 @@ export const useProductShotForm = (
     originalQuality,
     shotWidth,
     shotHeight,
+    aspectRatio,
     padding,
     handleSourceFileSelect,
     handleReferenceFileSelect,
@@ -144,8 +169,7 @@ export const useProductShotForm = (
     setOptimizeDescription,
     setFastMode,
     setOriginalQuality,
-    setShotWidth,
-    setShotHeight,
+    handleAspectRatioChange,
     calculateCreditCost,
     hasEnoughCredits
   };

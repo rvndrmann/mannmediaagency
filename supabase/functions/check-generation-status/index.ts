@@ -48,6 +48,42 @@ async function fetchWithRetry(url: string, options: RequestInit, retries = MAX_R
   }
 }
 
+async function fetchGenerationStatus(requestId: string, falKey: string): Promise<any> {
+  // First try to get the status
+  const statusResponse = await fetchWithRetry(
+    `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`,
+    {
+      method: 'GET',
+      headers: {
+        'Authorization': `Key ${falKey}`,
+        'Content-Type': 'application/json',
+        'Accept': 'application/json'
+      },
+    }
+  );
+
+  const statusData = await statusResponse.json();
+  
+  // If the status is completed, fetch the full result
+  if (statusData.status === 'COMPLETED') {
+    const resultResponse = await fetchWithRetry(
+      `https://queue.fal.run/fal-ai/bria/requests/${requestId}`,
+      {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${falKey}`,
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+      }
+    );
+    
+    return await resultResponse.json();
+  }
+  
+  return statusData;
+}
+
 Deno.serve(async (req) => {
   // Handle CORS
   if (req.method === 'OPTIONS') {
@@ -68,20 +104,7 @@ Deno.serve(async (req) => {
       throw new Error('FAL_KEY is not configured');
     }
 
-    // Call fal.ai status endpoint with retry logic - Updated URL to use correct endpoint
-    const response = await fetchWithRetry(
-      `https://fal.ai/api/queue/requests/${requestId}/status`,
-      {
-        method: 'GET',
-        headers: {
-          'Authorization': `Key ${falKey}`,
-          'Content-Type': 'application/json',
-          'Accept': 'application/json'
-        },
-      }
-    );
-
-    const data = await response.json();
+    const data = await fetchGenerationStatus(requestId, falKey);
     console.log(`Status check response for ${requestId}:`, JSON.stringify(data, null, 2));
 
     // Map fal.ai status to our format with better error handling

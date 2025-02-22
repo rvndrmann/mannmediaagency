@@ -7,14 +7,16 @@ import { ImageIcon } from "lucide-react";
 interface ExploreGridProps {
   images?: any[];
   videos?: any[];
+  productShots?: any[];
   isLoading: boolean;
-  contentType: "all" | "images" | "videos";
+  contentType: "all" | "images" | "videos" | "product-shots";
   searchQuery: string;
 }
 
 export const ExploreGrid = ({
   images = [],
   videos = [],
+  productShots = [],
   isLoading,
   contentType,
   searchQuery,
@@ -22,22 +24,26 @@ export const ExploreGrid = ({
   const filterBySearch = (content: any) => {
     if (!searchQuery) return true;
     const query = searchQuery.toLowerCase();
-    return content.prompt?.toLowerCase().includes(query);
+    return (content.prompt?.toLowerCase().includes(query) || 
+            content.scene_description?.toLowerCase().includes(query));
   };
 
   const getContent = () => {
     // Filter out any items without result_url for extra safety
     const validImages = images?.filter(img => img.result_url && filterBySearch(img)) || [];
     const validVideos = videos?.filter(vid => vid.result_url && filterBySearch(vid)) || [];
+    const validProductShots = productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || [];
 
     switch (contentType) {
       case "all":
-        return [...validImages, ...validVideos]
+        return [...validImages, ...validVideos, ...validProductShots]
           .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
       case "images":
         return validImages;
       case "videos":
         return validVideos;
+      case "product-shots":
+        return validProductShots;
       default:
         return [];
     }
@@ -62,7 +68,21 @@ export const ExploreGrid = ({
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
       {content.map((item: any) => {
-        if ('source_image_url' in item) {
+        if ('source_image_url' in item && 'scene_description' in item) {
+          // This is a product shot
+          return (
+            <div key={item.id} className="space-y-2">
+              <ImageCard image={{
+                id: item.id,
+                result_url: item.result_url,
+                prompt: item.scene_description
+              }} />
+              <div className="px-4 text-sm text-muted-foreground">
+                by {item.profiles?.username || 'Anonymous'}
+              </div>
+            </div>
+          );
+        } else if ('source_image_url' in item) {
           return (
             <div key={item.id} className="space-y-2">
               <VideoCard video={item} />

@@ -11,7 +11,7 @@ import { Sidebar } from "@/components/Sidebar";
 
 const Explore = () => {
   const navigate = useNavigate();
-  const [contentType, setContentType] = useState<"all" | "images" | "videos">("all");
+  const [contentType, setContentType] = useState<"all" | "images" | "videos" | "product-shots">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
   const { data: session } = useQuery({
@@ -110,6 +110,42 @@ const Explore = () => {
     enabled: !!session,
   });
 
+  const { data: productShots, isLoading: productShotsLoading } = useQuery({
+    queryKey: ["publicProductShots"],
+    queryFn: async () => {
+      const { data: shots, error: shotsError } = await supabase
+        .from("product_shot_history")
+        .select("*")
+        .order('created_at', { ascending: false });
+
+      if (shotsError) {
+        console.error('Error fetching product shots:', shotsError);
+        throw shotsError;
+      }
+
+      if (shots && shots.length > 0) {
+        const userIds = [...new Set(shots.map(shot => shot.user_id))];
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          throw profilesError;
+        }
+
+        return shots.map(shot => ({
+          ...shot,
+          profiles: profiles?.find(p => p.id === shot.user_id)
+        }));
+      }
+
+      return shots || [];
+    },
+    enabled: !!session,
+  });
+
   if (!session) return null;
 
   return (
@@ -129,6 +165,7 @@ const Explore = () => {
               <Tabs value={contentType} onValueChange={(value) => setContentType(value as typeof contentType)} className="mt-6">
                 <TabsList>
                   <TabsTrigger value="all">All Content</TabsTrigger>
+                  <TabsTrigger value="product-shots">Product Shots</TabsTrigger>
                   <TabsTrigger value="images">Images</TabsTrigger>
                   <TabsTrigger value="videos">Videos</TabsTrigger>
                 </TabsList>
@@ -137,7 +174,8 @@ const Explore = () => {
               <ExploreGrid
                 images={publicImages}
                 videos={publicVideos}
-                isLoading={imagesLoading || videosLoading}
+                productShots={productShots}
+                isLoading={imagesLoading || videosLoading || productShotsLoading}
                 contentType={contentType}
                 searchQuery={searchQuery}
               />

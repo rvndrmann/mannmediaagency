@@ -4,7 +4,13 @@ import { corsHeaders } from "../_shared/cors.ts";
 
 interface GenerationStatusResponse {
   status: string;
-  images?: { url: string; content_type: string }[];
+  images?: {
+    id: string;
+    url: string;
+    content_type: string;
+    status: 'pending' | 'processing' | 'completed' | 'failed';
+    prompt?: string;
+  }[];
   error?: string;
 }
 
@@ -105,7 +111,7 @@ async function fetchGenerationStatus(requestId: string, falKey: string): Promise
   return statusData;
 }
 
-function mapFalStatusToInternal(falStatus?: string): 'processing' | 'completed' | 'failed' {
+function mapFalStatusToInternal(falStatus?: string): 'pending' | 'processing' | 'completed' | 'failed' {
   if (!falStatus) return 'processing';
   
   switch (falStatus.toUpperCase()) {
@@ -115,9 +121,40 @@ function mapFalStatusToInternal(falStatus?: string): 'processing' | 'completed' 
       return 'failed';
     case 'IN_PROGRESS':
     case 'PENDING':
+      return 'pending';
     case 'PROCESSING':
     default:
       return 'processing';
+  }
+}
+
+// Get prompt from database for a given request ID
+async function getPromptFromDB(requestId: string): Promise<string | undefined> {
+  try {
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      console.error('Missing Supabase configuration');
+      return undefined;
+    }
+
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/image_generation_jobs?request_id=eq.${requestId}&select=prompt`, {
+      headers: {
+        'Authorization': `Bearer ${SUPABASE_SERVICE_ROLE_KEY}`,
+        'apikey': SUPABASE_SERVICE_ROLE_KEY,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error(`HTTP error! status: ${response.status}`);
+    }
+
+    const data = await response.json();
+    return data[0]?.prompt;
+  } catch (error) {
+    console.error('Error fetching prompt:', error);
+    return undefined;
   }
 }
 
@@ -141,21 +178,28 @@ Deno.serve(async (req) => {
       throw new Error('FAL_KEY is not configured');
     }
 
-    const data = await fetchGenerationStatus(requestId, falKey);
+    const [data, prompt] = await Promise.all([
+      fetchGenerationStatus(requestId, falKey),
+      getPromptFromDB(requestId)
+    ]);
+
     console.log(`Processed status check response for ${requestId}:`, JSON.stringify(data, null, 2));
 
     // Map fal.ai status to our format with better error handling
+    const internalStatus = mapFalStatusToInternal(data.status);
     const result: GenerationStatusResponse = {
-      status: mapFalStatusToInternal(data.status),
+      status: internalStatus,
     };
 
-    if (result.status === 'completed' && data.result?.images) {
-      result.images = data.result.images.map((img: any) => ({
+    if (internalStatus === 'completed' && data.result?.images) {
+      result.images = data.result.images.map((img: any, index: number) => ({
+        id: `${requestId}-${index}`,
         url: img.url,
         content_type: 'image/png',
-        status: 'completed'
+        status: 'completed',
+        prompt: prompt
       }));
-    } else if (result.status === 'failed') {
+    } else if (internalStatus === 'failed') {
       result.error = data.error || 'Generation failed unexpectedly';
     }
 

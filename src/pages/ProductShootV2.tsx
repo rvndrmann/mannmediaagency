@@ -6,7 +6,7 @@ import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 
 export default function ProductShootV2() {
-  const { isGenerating, generatedImages, handleGenerate } = useProductShoot();
+  const { isGenerating, isSubmitting, generatedImages, handleGenerate } = useProductShoot();
 
   return (
     <ProductShootLayout>
@@ -17,6 +17,7 @@ export default function ProductShootV2() {
           <ProductShotForm 
             onSubmit={handleGenerate}
             isGenerating={isGenerating}
+            isSubmitting={isSubmitting}
           />
         </div>
 

@@ -5,9 +5,11 @@ import { toast } from "sonner";
 import { useGenerationQueue } from "./product-shoot/use-generation-queue";
 import { uploadSourceImage, uploadReferenceImage } from "./product-shoot/upload-service";
 import { useQuery } from "@tanstack/react-query";
+import { useState } from "react";
 
 export function useProductShoot() {
   const { isGenerating, generatedImages, addToQueue, setGeneratedImages } = useGenerationQueue();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -43,6 +45,13 @@ export function useProductShoot() {
   };
 
   const handleGenerate = async (formData: ProductShotFormData) => {
+    // Prevent multiple submissions
+    if (isSubmitting || isGenerating) {
+      console.log('Generation already in progress');
+      return;
+    }
+
+    setIsSubmitting(true);
     const tempRequestId = crypto.randomUUID();
     const placeholderImage: GeneratedImage = {
       id: `temp-${tempRequestId}`,
@@ -110,7 +119,6 @@ export function useProductShoot() {
 
       console.log('Generation started with request ID:', data.requestId);
 
-      // Create the image generation job in the database
       await createImageGenerationJob(
         data.requestId,
         formData.sceneDescription || '',
@@ -143,11 +151,14 @@ export function useProductShoot() {
       } else {
         toast.error(errorMessage);
       }
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
   return {
     isGenerating,
+    isSubmitting,
     generatedImages,
     handleGenerate
   };

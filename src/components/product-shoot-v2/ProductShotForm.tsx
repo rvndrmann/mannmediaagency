@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -13,9 +12,10 @@ import { ImageUploader } from "@/components/product-shoot/ImageUploader";
 interface ProductShotFormProps {
   onSubmit: (data: ProductShotFormData) => void;
   isGenerating: boolean;
+  isSubmitting?: boolean;
 }
 
-export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps) {
+export function ProductShotForm({ onSubmit, isGenerating, isSubmitting }: ProductShotFormProps) {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
@@ -74,18 +74,22 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     
+    if (isGenerating || isSubmitting) {
+      return;
+    }
+    
     if (!sourceFile) {
-      alert("Please select a source image");
+      toast.error("Please select a source image");
       return;
     }
 
     if (generationType === "description" && !sceneDescription) {
-      alert("Please provide a scene description");
+      toast.error("Please provide a scene description");
       return;
     }
 
     if (generationType === "reference" && !referenceFile) {
-      alert("Please select a reference image");
+      toast.error("Please select a reference image");
       return;
     }
 
@@ -102,7 +106,7 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
       originalQuality,
       shotWidth,
       shotHeight,
-      syncMode: false, // Always false now
+      syncMode: false,
       padding
     };
 
@@ -249,9 +253,9 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
           <Button 
             type="submit" 
             className="w-full" 
-            disabled={isGenerating}
+            disabled={isGenerating || isSubmitting}
           >
-            {isGenerating ? "Generating..." : "Generate"}
+            {isGenerating || isSubmitting ? "Generating..." : "Generate"}
           </Button>
         </div>
       </Card>

@@ -2,7 +2,8 @@
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { Card } from "@/components/ui/card";
-import { ImageIcon } from "lucide-react";
+import { ImageIcon, BadgeCheck, Badge2, ArrowUpDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 interface ExploreGridProps {
   images?: any[];
@@ -49,6 +50,35 @@ export const ExploreGrid = ({
     }
   };
 
+  const isProductShootV2 = (item: any) => {
+    // Check for V2-specific properties in settings
+    if (item.settings && typeof item.settings === 'string') {
+      try {
+        const settings = JSON.parse(item.settings);
+        return !!settings.aspectRatio || !!settings.optimizeDescription;
+      } catch {
+        return false;
+      }
+    } else if (item.settings) {
+      return !!item.settings.aspectRatio || !!item.settings.optimizeDescription;
+    }
+    return false;
+  };
+
+  const getAspectRatio = (item: any) => {
+    if (item.settings && typeof item.settings === 'string') {
+      try {
+        const settings = JSON.parse(item.settings);
+        return settings.aspectRatio;
+      } catch {
+        return null;
+      }
+    } else if (item.settings) {
+      return item.settings.aspectRatio;
+    }
+    return null;
+  };
+
   const content = getContent();
 
   if (isLoading) {
@@ -70,13 +100,37 @@ export const ExploreGrid = ({
       {content.map((item: any) => {
         if ('source_image_url' in item && 'scene_description' in item) {
           // This is a product shot
+          const isV2 = isProductShootV2(item);
+          const aspectRatio = getAspectRatio(item);
+          
           return (
             <div key={item.id} className="space-y-2">
-              <ImageCard image={{
-                id: item.id,
-                result_url: item.result_url,
-                prompt: item.scene_description
-              }} />
+              <div className="relative">
+                <ImageCard image={{
+                  id: item.id,
+                  result_url: item.result_url,
+                  prompt: item.scene_description
+                }} />
+                <div className="absolute top-2 right-2 flex gap-2">
+                  {isV2 ? (
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0">
+                      <Badge2 className="w-3 h-3 mr-1" />
+                      V2
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0">
+                      <BadgeCheck className="w-3 h-3 mr-1" />
+                      V1
+                    </Badge>
+                  )}
+                  {aspectRatio && (
+                    <Badge variant="outline" className="bg-background/80">
+                      <ArrowUpDown className="w-3 h-3 mr-1" />
+                      {aspectRatio}
+                    </Badge>
+                  )}
+                </div>
+              </div>
               <div className="px-4 text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>

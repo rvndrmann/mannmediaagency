@@ -72,53 +72,59 @@ export function useGenerationQueue() {
           if (response.data) {
             console.log('Status check response:', response.data);
             
-            const completedImages = response.data.images?.map(img => ({
-              ...img,
-              id: `${item.requestId}-${crypto.randomUUID()}`,
-              status: 'completed' as const,
-              prompt: item.prompt
-            })) || [];
-            
-            const imageIndex = newGeneratedImages.findIndex(
+            // Find placeholder image index
+            const placeholderIndex = newGeneratedImages.findIndex(
               img => img.id === `temp-${item.requestId}`
             );
-            
-            if (imageIndex !== -1) {
-              if (completedImages.length > 0) {
-                newGeneratedImages[imageIndex] = completedImages[0];
-                await updateImageJobStatus(item.requestId, 'completed', completedImages[0].url);
-              }
-            } else if (completedImages.length > 0) {
-              newGeneratedImages.push(...completedImages);
-              await updateImageJobStatus(item.requestId, 'completed', completedImages[0].url);
-            }
 
-            if (response.data.status === 'completed' || response.data.status === 'failed') {
+            if (response.data.status === 'completed' && response.data.images?.length) {
+              const completedImage = response.data.images[0];
+              
+              if (placeholderIndex !== -1) {
+                // Replace placeholder with completed image
+                newGeneratedImages[placeholderIndex] = completedImage;
+              } else {
+                // Add new completed image
+                newGeneratedImages.push(completedImage);
+              }
+              
+              await updateImageJobStatus(item.requestId, 'completed', completedImage.url);
+              
+              try {
+                await saveToHistory(completedImage, item.sourceUrl, item.settings);
+                console.log('Successfully saved to history:', completedImage);
+              } catch (saveError) {
+                console.error('Error saving to history:', saveError);
+                toast.error("Failed to save generation history");
+              }
+
+              // Remove from queue
               updatedQueue.splice(i, 1);
               queueChanged = true;
               i--;
+            } else if (response.data.status === 'failed') {
+              console.error('Generation failed:', response.data.error);
               
-              if (response.data.status === 'completed' && completedImages.length > 0) {
-                try {
-                  await saveToHistory(completedImages[0], item.sourceUrl, item.settings);
-                  console.log('Successfully saved to history:', completedImages[0]);
-                } catch (saveError) {
-                  console.error('Error saving to history:', saveError);
-                  toast.error("Failed to save generation history");
-                }
-              } else if (response.data.status === 'failed') {
-                console.error('Generation failed:', response.data.error);
-                await updateImageJobStatus(item.requestId, 'failed');
-                toast.error(response.data.error || "Generation failed. Please try again.");
+              if (placeholderIndex !== -1) {
+                // Update placeholder to show failure
+                newGeneratedImages[placeholderIndex] = {
+                  ...newGeneratedImages[placeholderIndex],
+                  status: 'failed'
+                };
               }
-            } else if (item.retries >= MAX_RETRIES) {
-              const imageIndex = newGeneratedImages.findIndex(
-                img => img.id === `temp-${item.requestId}`
-              );
               
-              if (imageIndex !== -1) {
-                newGeneratedImages[imageIndex] = {
-                  ...newGeneratedImages[imageIndex],
+              await updateImageJobStatus(item.requestId, 'failed');
+              toast.error(response.data.error || "Generation failed. Please try again.");
+              
+              // Remove from queue
+              updatedQueue.splice(i, 1);
+              queueChanged = true;
+              i--;
+            } else if (item.retries >= MAX_RETRIES) {
+              if (placeholderIndex !== -1) {
+                // Update placeholder to show failure after max retries
+                newGeneratedImages[placeholderIndex] = {
+                  ...newGeneratedImages[placeholderIndex],
                   status: 'failed'
                 };
               }
@@ -129,6 +135,7 @@ export function useGenerationQueue() {
               i--;
               toast.error("Generation timed out. Please try again.");
             } else {
+              // Update retry count and continue polling
               updatedQueue[i] = {
                 ...item,
                 retries: item.retries + 1
@@ -156,6 +163,16 @@ export function useGenerationQueue() {
   }, [generationQueue, generatedImages]);
 
   const addToQueue = (item: Omit<GenerationQueueItem, 'retries'>) => {
+    // Create placeholder image
+    const placeholderImage: GeneratedImage = {
+      id: `temp-${item.requestId}`,
+      url: '',
+      content_type: 'image/png',
+      status: 'processing',
+      prompt: item.prompt
+    };
+    
+    setGeneratedImages(prev => [...prev, placeholderImage]);
     setGenerationQueue(prev => [...prev, { ...item, retries: 0 }]);
     setIsGenerating(true);
   };

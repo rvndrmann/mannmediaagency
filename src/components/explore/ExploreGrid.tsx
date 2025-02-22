@@ -100,7 +100,7 @@ export const ExploreGrid = ({
       {content.map((item: any) => {
         if ('source_image_url' in item && 'scene_description' in item) {
           // This is a product shot
-          const isV2 = isProductShootV2(item);
+          const isV2 = contentType === "product-shots" || (contentType === "all" && isProductShootV2(item));
           const aspectRatio = getAspectRatio(item);
           
           return (

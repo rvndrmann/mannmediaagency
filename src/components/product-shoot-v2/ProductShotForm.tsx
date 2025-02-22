@@ -29,7 +29,6 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
   const [originalQuality, setOriginalQuality] = useState(true);
   const [shotWidth, setShotWidth] = useState(1024);
   const [shotHeight, setShotHeight] = useState(1024);
-  const [syncMode, setSyncMode] = useState(true);
   const [padding, setPadding] = useState({
     left: 0,
     right: 0,
@@ -102,7 +101,7 @@ export function ProductShotForm({ onSubmit, isGenerating }: ProductShotFormProps
       originalQuality,
       shotWidth,
       shotHeight,
-      syncMode,
+      syncMode: false,
       padding
     };
 

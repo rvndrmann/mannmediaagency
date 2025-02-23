@@ -4,6 +4,7 @@ import { corsHeaders } from '../_shared/cors.ts';
 const LANGFLOW_API_TOKEN = Deno.env.get('LANGFLOW_API_TOKEN');
 const LANGFLOW_BASE_URL = Deno.env.get('LANGFLOW_BASE_URL');
 const LANGFLOW_FLOW_ID = Deno.env.get('LANGFLOW_FLOW_ID');
+const LANGFLOW_RUN_ID = Deno.env.get('LANGFLOW_RUN_ID');
 
 interface ChatMessage {
   role: 'user' | 'assistant';
@@ -16,14 +17,23 @@ Deno.serve(async (req) => {
   }
 
   try {
+    // Validate all required environment variables
+    const missingVars = [];
+    if (!LANGFLOW_API_TOKEN) missingVars.push('LANGFLOW_API_TOKEN');
+    if (!LANGFLOW_BASE_URL) missingVars.push('LANGFLOW_BASE_URL');
+    if (!LANGFLOW_FLOW_ID) missingVars.push('LANGFLOW_FLOW_ID');
+    if (!LANGFLOW_RUN_ID) missingVars.push('LANGFLOW_RUN_ID');
+
+    if (missingVars.length > 0) {
+      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    }
+
     const { messages } = await req.json();
     const lastMessage = messages[messages.length - 1];
 
-    if (!LANGFLOW_API_TOKEN || !LANGFLOW_BASE_URL || !LANGFLOW_FLOW_ID) {
-      throw new Error('Langflow configuration is incomplete');
-    }
-
-    const apiUrl = `${LANGFLOW_BASE_URL}/lf/${LANGFLOW_FLOW_ID}/api/v1/run/09a9ff6c-a145-40ca-b270-7107ad0d68ca?stream=true`;
+    // Construct the API URL using all environment variables
+    const apiUrl = `${LANGFLOW_BASE_URL}/lf/${LANGFLOW_FLOW_ID}/api/v1/run/${LANGFLOW_RUN_ID}?stream=true`;
+    console.log('Requesting Langflow API:', apiUrl); // Debug log
 
     // Create Langflow request with the correct format
     const langflowResponse = await fetch(apiUrl, {
@@ -48,8 +58,13 @@ Deno.serve(async (req) => {
     });
 
     if (!langflowResponse.ok) {
-      console.error('Langflow API error:', langflowResponse.status, await langflowResponse.text());
-      throw new Error(`Langflow API error: ${langflowResponse.statusText}`);
+      const errorText = await langflowResponse.text();
+      console.error('Langflow API error:', {
+        status: langflowResponse.status,
+        statusText: langflowResponse.statusText,
+        body: errorText
+      });
+      throw new Error(`Langflow API error (${langflowResponse.status}): ${errorText}`);
     }
 
     // Set up streaming response
@@ -68,7 +83,7 @@ Deno.serve(async (req) => {
 
     // Process the streaming response
     const reader = langflowResponse.body?.getReader();
-    if (!reader) throw new Error('No response body');
+    if (!reader) throw new Error('No response body received from Langflow API');
 
     (async () => {
       try {
@@ -100,12 +115,16 @@ Deno.serve(async (req) => {
               await writer.write(encoder.encode(`data: ${formattedChunk}\n\n`));
             } catch (e) {
               console.error('Error processing chunk:', e);
+              throw new Error(`Error processing response chunk: ${e.message}`);
             }
           }
         }
       } catch (error) {
         console.error('Streaming error:', error);
-        const errorMessage = JSON.stringify({ error: 'Streaming error occurred' });
+        const errorMessage = JSON.stringify({ 
+          error: 'Streaming error occurred', 
+          details: error.message 
+        });
         await writer.write(encoder.encode(`data: ${errorMessage}\n\n`));
         await writer.close();
       }

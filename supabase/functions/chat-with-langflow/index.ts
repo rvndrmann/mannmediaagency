@@ -12,149 +12,108 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Default tweaks matching Python example
-const DEFAULT_TWEAKS = {
-  "Agent-swaq6": {},
-  "ChatInput-SylqI": {},
-  "ChatOutput-E57mu": {},
-  "Agent-Hpbdi": {},
-  "Agent-JogPZ": {}
-};
+class LangflowClient {
+  private baseURL: string;
+  private applicationToken: string;
+
+  constructor(baseURL: string, applicationToken: string) {
+    this.baseURL = baseURL;
+    this.applicationToken = applicationToken;
+  }
+
+  private async post(endpoint: string, body: any) {
+    console.log('Making request to:', `${this.baseURL}${endpoint}`);
+    console.log('Request body:', JSON.stringify(body, null, 2));
+
+    const headers = {
+      "Authorization": `Bearer ${this.applicationToken}`,
+      "Content-Type": "application/json"
+    };
+
+    const response = await fetch(`${this.baseURL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(body)
+    });
+
+    console.log('Response status:', response.status);
+    const responseText = await response.text();
+    console.log('Raw response:', responseText);
+
+    if (!response.ok) {
+      throw new Error(`Langflow API error: ${response.status} - ${responseText}`);
+    }
+
+    return JSON.parse(responseText);
+  }
+
+  async chat(message: string) {
+    if (!LANGFLOW_ID || !FLOW_ID) {
+      throw new Error('Missing required configuration');
+    }
+
+    const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
+    const tweaks = {
+      "Agent-swaq6": {},
+      "ChatInput-SylqI": {},
+      "ChatOutput-E57mu": {},
+      "Agent-Hpbdi": {},
+      "Agent-JogPZ": {}
+    };
+
+    const payload = {
+      input_value: message,
+      input_type: "chat",
+      output_type: "chat",
+      tweaks
+    };
+
+    const response = await this.post(endpoint, payload);
+    
+    if (!response.outputs?.[0]?.outputs?.[0]?.outputs?.message?.text) {
+      console.error('Invalid response format:', JSON.stringify(response, null, 2));
+      throw new Error('Invalid response format from Langflow');
+    }
+
+    return response.outputs[0].outputs[0].outputs.message.text;
+  }
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Validate environment variables
-    const missingVars = [];
-    if (!LANGFLOW_ID) missingVars.push('LANGFLOW_ID');
-    if (!FLOW_ID) missingVars.push('FLOW_ID');
-    if (!APPLICATION_TOKEN) missingVars.push('APPLICATION_TOKEN');
-
-    if (missingVars.length > 0) {
-      console.error('Missing environment variables:', missingVars);
-      throw new Error(`Missing required environment variables: ${missingVars.join(', ')}`);
+    if (!APPLICATION_TOKEN || !BASE_API_URL) {
+      throw new Error('Missing required environment variables');
     }
 
-    let requestData;
-    try {
-      requestData = await req.json();
-      console.log('Received request data:', JSON.stringify(requestData));
-    } catch (e) {
-      console.error('Error parsing request JSON:', e);
-      throw new Error('Invalid JSON in request body');
-    }
+    const client = new LangflowClient(BASE_API_URL, APPLICATION_TOKEN);
+    const { messages } = await req.json();
     
-    if (!requestData.messages || !Array.isArray(requestData.messages)) {
-      console.error('Invalid request format:', requestData);
-      throw new Error('Invalid request format: messages array is required');
+    if (!messages || !Array.isArray(messages)) {
+      throw new Error('Invalid request: messages array is required');
     }
 
-    // Get the last user message
-    const lastMessage = requestData.messages[requestData.messages.length - 1];
-    if (!lastMessage || !lastMessage.content) {
-      console.error('No valid message found in:', requestData.messages);
-      throw new Error('No valid message content found');
+    const lastMessage = messages[messages.length - 1];
+    if (!lastMessage?.content) {
+      throw new Error('Invalid request: no message content found');
     }
 
     console.log('Processing message:', lastMessage.content);
+    const response = await client.chat(lastMessage.content);
 
-    // Prepare payload exactly as in Python example
-    const payload = {
-      input_value: lastMessage.content,
-      output_type: "chat",
-      input_type: "chat",
-      tweaks: DEFAULT_TWEAKS
-    };
-
-    // Construct API URL
-    const apiUrl = `${BASE_API_URL}/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
-    
-    // Prepare headers exactly as in Python example
-    const headers = {
-      "Authorization": `Bearer ${APPLICATION_TOKEN}`,
-      "Content-Type": "application/json"
-    };
-
-    console.log('Calling Langflow API:', {
-      url: apiUrl,
-      payload: JSON.stringify(payload, null, 2),
-      headers: {
-        ...headers,
-        "Authorization": "Bearer [REDACTED]" // Don't log the actual token
-      }
-    });
-
-    try {
-      const langflowResponse = await fetch(apiUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload)
-      });
-
-      console.log('Response status:', langflowResponse.status);
-      const responseText = await langflowResponse.text();
-      console.log('Raw response:', responseText);
-
-      if (!langflowResponse.ok) {
-        console.error('API Error:', {
-          status: langflowResponse.status,
-          statusText: langflowResponse.statusText,
-          response: responseText
-        });
-        throw new Error(`Langflow API error: ${langflowResponse.status} - ${responseText}`);
-      }
-
-      let responseData;
-      try {
-        responseData = JSON.parse(responseText);
-        console.log('Parsed response:', JSON.stringify(responseData, null, 2));
-      } catch (e) {
-        console.error('Error parsing Langflow response:', e);
-        throw new Error('Invalid JSON response from Langflow');
-      }
-
-      // Extract message from response based on different possible structures
-      let responseMessage;
-
-      if (typeof responseData === 'string') {
-        responseMessage = responseData;
-      } else if (responseData.message) {
-        responseMessage = responseData.message;
-      } else if (responseData.response) {
-        responseMessage = responseData.response;
-      } else if (responseData.result) {
-        responseMessage = responseData.result;
-      } else if (responseData.outputs?.[0]?.outputs?.[0]?.results?.response) {
-        responseMessage = responseData.outputs[0].outputs[0].results.response;
-      } else if (responseData.outputs?.[0]?.outputs?.[0]?.outputs?.response) {
-        responseMessage = responseData.outputs[0].outputs[0].outputs.response;
-      } else {
-        console.error('Unable to extract response from data:', JSON.stringify(responseData, null, 2));
-        throw new Error('Could not find response in Langflow output');
-      }
-
-      return new Response(
-        JSON.stringify({ message: responseMessage }),
-        { 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        }
-      );
-
-    } catch (apiError) {
-      console.error('API call error:', apiError);
-      throw apiError;
-    }
+    return new Response(
+      JSON.stringify({ message: response }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
 
   } catch (error) {
     console.error('Error:', error);
     return new Response(
       JSON.stringify({ 
         error: error.message,
-        details: error.stack,
         timestamp: new Date().toISOString()
       }),
       { 

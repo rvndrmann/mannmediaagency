@@ -43,7 +43,8 @@ export const useAIChat = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isLoading) return;
+    const trimmedInput = input.trim();
+    if (!trimmedInput || isLoading) return;
 
     if (!userCredits || userCredits.credits_remaining < 1) {
       toast({
@@ -56,7 +57,7 @@ export const useAIChat = () => {
 
     const userMessage: Message = { 
       role: "user", 
-      content: input.trim()
+      content: trimmedInput
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -64,14 +65,14 @@ export const useAIChat = () => {
     setIsLoading(true);
 
     try {
-      console.log('Sending chat request with messages:', [...messages, userMessage]);
+      console.log('Sending chat request:', {
+        messages: [...messages, userMessage],
+        lastMessage: userMessage.content
+      });
       
       const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
         body: { 
           messages: [...messages, userMessage]
-        },
-        headers: {
-          'Content-Type': 'application/json'
         }
       });
 

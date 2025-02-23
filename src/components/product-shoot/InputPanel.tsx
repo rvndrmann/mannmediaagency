@@ -54,16 +54,17 @@ export function InputPanel({
 }: InputPanelProps) {
   return (
     <div className={cn(
-      "space-y-6 p-6 border-r border-gray-800",
-      isMobile ? "w-full border-r-0 border-b" : "w-1/3 overflow-y-auto"
+      "bg-[#1a1a1a] space-y-6 p-6",
+      isMobile ? "w-full border-b border-gray-800" : "w-1/3 border-r border-gray-800 h-screen overflow-y-auto"
     )}>
       <div className="space-y-6">
         {!isMobile && (
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-2">Product Image Generator</h1>
-            <p className="text-gray-400">
-              Credits remaining: {creditsRemaining?.toFixed(2) || "0.00"}
-            </p>
+          <div className="space-y-2">
+            <h1 className="text-2xl font-bold text-white">Product Shot V1</h1>
+            <div className="flex items-center space-x-2 text-gray-400">
+              <CreditCard className="w-4 h-4" />
+              <span>Credits remaining: {creditsRemaining?.toFixed(2) || "0.00"}</span>
+            </div>
           </div>
         )}
 
@@ -79,17 +80,17 @@ export function InputPanel({
             placeholder="Describe the product image you want to generate..."
             value={prompt}
             onChange={(e) => onPromptChange(e.target.value)}
-            className="min-h-[100px] bg-gray-900 border-gray-700 text-white"
+            className="min-h-[100px] bg-[#2a2a2a] border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500"
           />
         </div>
 
         <div className="space-y-2">
           <Label className="text-white">Image Size</Label>
           <Select value={imageSize} onValueChange={onImageSizeChange}>
-            <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
+            <SelectTrigger className="bg-[#2a2a2a] border-gray-700 text-white">
               <SelectValue placeholder="Select size" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-[#2a2a2a] border-gray-700">
               <SelectItem value="square_hd">Square HD</SelectItem>
               <SelectItem value="square">Square</SelectItem>
               <SelectItem value="portrait_4_3">Portrait 4:3</SelectItem>
@@ -108,7 +109,7 @@ export function InputPanel({
             max="20"
             value={inferenceSteps}
             onChange={(e) => onInferenceStepsChange(Number(e.target.value))}
-            className="w-full"
+            className="w-full bg-purple-500/20 h-2 rounded-lg appearance-none cursor-pointer accent-purple-500"
           />
         </div>
 
@@ -121,17 +122,17 @@ export function InputPanel({
             step="0.1"
             value={guidanceScale}
             onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
-            className="w-full"
+            className="w-full bg-purple-500/20 h-2 rounded-lg appearance-none cursor-pointer accent-purple-500"
           />
         </div>
 
         <div className="space-y-2">
           <Label className="text-white">Output Format</Label>
           <Select value={outputFormat} onValueChange={onOutputFormatChange}>
-            <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
+            <SelectTrigger className="bg-[#2a2a2a] border-gray-700 text-white">
               <SelectValue placeholder="Select format" />
             </SelectTrigger>
-            <SelectContent>
+            <SelectContent className="bg-[#2a2a2a] border-gray-700">
               <SelectItem value="png">PNG</SelectItem>
               <SelectItem value="jpg">JPG</SelectItem>
             </SelectContent>
@@ -151,7 +152,6 @@ export function InputPanel({
           ) : (
             <>
               <Video className="mr-2 h-4 w-4" />
-              <CreditCard className="mr-2 h-4 w-4" />
               Generate Image (0.2 credits)
             </>
           )}

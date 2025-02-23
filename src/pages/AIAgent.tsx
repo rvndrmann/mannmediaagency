@@ -7,6 +7,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
 import { ChatPanel } from "@/components/ai-agent/ChatPanel";
 import { useAIChat } from "@/hooks/use-ai-chat";
+import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
+import { useProductShoot } from "@/hooks/use-product-shoot";
+import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -18,6 +23,26 @@ const AIAgent = () => {
     handleSubmit,
     userCredits
   } = useAIChat();
+
+  const { 
+    isGenerating, 
+    isSubmitting, 
+    generatedImages, 
+    handleGenerate 
+  } = useProductShoot();
+
+  const { data: availableCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .maybeSingle();
+
+      if (error) throw error;
+      return data?.credits_remaining || 0;
+    },
+  });
 
   return (
     <div className="min-h-screen bg-[#1A1F2C]">
@@ -59,7 +84,55 @@ const AIAgent = () => {
           </Card>
 
           <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)]">
-            <ScriptBuilderTab messages={messages} />
+            <Tabs defaultValue="script" className="flex-1 h-full">
+              <TabsList className="w-full bg-[#333333] mb-4">
+                <TabsTrigger 
+                  value="script" 
+                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
+                >
+                  Video Script
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="product-shot-v2" 
+                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
+                >
+                  Product Shot V2
+                </TabsTrigger>
+                <TabsTrigger 
+                  value="product-shot-v1" 
+                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
+                >
+                  Product Shot V1
+                </TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="script" className="h-full">
+                <ScriptBuilderTab messages={messages} />
+              </TabsContent>
+
+              <TabsContent value="product-shot-v2" className="h-full">
+                <div className="space-y-6">
+                  <ProductShotForm 
+                    onSubmit={handleGenerate}
+                    isGenerating={isGenerating}
+                    isSubmitting={isSubmitting}
+                    availableCredits={availableCredits}
+                  />
+                  {generatedImages.length > 0 && (
+                    <GeneratedImagesPanel 
+                      images={generatedImages}
+                      isGenerating={isGenerating}
+                    />
+                  )}
+                </div>
+              </TabsContent>
+
+              <TabsContent value="product-shot-v1" className="h-full">
+                <div className="flex items-center justify-center h-full text-white/60">
+                  Coming soon...
+                </div>
+              </TabsContent>
+            </Tabs>
           </Card>
         </div>
       </div>

@@ -64,33 +64,17 @@ export const useAIChat = () => {
     setIsLoading(true);
 
     try {
-      const { data: { url: functionUrl } } = await supabase.functions.createInvocation(
-        'chat-with-langflow',
-        { body: { messages: [...messages, userMessage] } }
-      );
-
-      if (!functionUrl) {
-        throw new Error('Failed to get function URL');
-      }
-
-      const response = await fetch(functionUrl, {
-        method: 'POST',
+      const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
+        body: { messages: [...messages, userMessage] },
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${supabase.auth.session()?.access_token}`,
         },
-        body: JSON.stringify({ messages: [...messages, userMessage] }),
+        responseType: 'stream',
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (error) throw error;
 
-      if (!response.body) {
-        throw new Error('No response body received');
-      }
-
-      const reader = response.body.getReader();
+      const reader = data.getReader();
       const decoder = new TextDecoder();
       let assistantMessage = "";
 

@@ -12,6 +12,47 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+interface LangflowMessage {
+  timestamp: string;
+  sender: string;
+  sender_name: string;
+  session_id: string;
+  text: string;
+  files: any[];
+  error: boolean;
+  edit: boolean;
+  properties: {
+    text_color: string;
+    background_color: string;
+    edited: boolean;
+    source: {
+      id: string;
+      display_name: string;
+      source: string;
+    };
+    icon: string;
+    allow_markdown: boolean;
+    state: string;
+    targets: string[];
+  };
+  category: string;
+  content_blocks: any[];
+}
+
+interface LangflowResponse {
+  session_id: string;
+  outputs: Array<{
+    inputs: {
+      input_value: string;
+    };
+    outputs: Array<{
+      results: {
+        message: LangflowMessage;
+      };
+    }>;
+  }>;
+}
+
 class LangflowClient {
   private baseURL: string;
   private applicationToken: string;
@@ -44,7 +85,14 @@ class LangflowClient {
       throw new Error(`Langflow API error: ${response.status} - ${responseText}`);
     }
 
-    return JSON.parse(responseText);
+    try {
+      const responseData = JSON.parse(responseText);
+      console.log('Parsed response data:', JSON.stringify(responseData, null, 2));
+      return responseData;
+    } catch (error) {
+      console.error('Error parsing response:', error);
+      throw new Error(`Failed to parse Langflow response: ${error.message}`);
+    }
   }
 
   async chat(message: string) {
@@ -68,14 +116,16 @@ class LangflowClient {
       tweaks
     };
 
-    const response = await this.post(endpoint, payload);
+    const response = await this.post(endpoint, payload) as LangflowResponse;
     
-    if (!response.outputs?.[0]?.outputs?.[0]?.outputs?.message?.text) {
+    if (!response?.outputs?.[0]?.outputs?.[0]?.results?.message?.text) {
       console.error('Invalid response format:', JSON.stringify(response, null, 2));
       throw new Error('Invalid response format from Langflow');
     }
 
-    return response.outputs[0].outputs[0].outputs.message.text;
+    const messageText = response.outputs[0].outputs[0].results.message.text;
+    console.log('Extracted message text:', messageText);
+    return messageText;
   }
 }
 

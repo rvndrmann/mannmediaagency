@@ -2,6 +2,28 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
+// Define interfaces for the Langflow response structure
+interface LangflowOutput {
+  results?: Record<string, any>;
+  artifacts?: Record<string, any>;
+  outputs?: Record<string, any>;
+  logs?: Record<string, any>;
+  messages: any[];
+  component_display_name: string;
+  component_id: string;
+  used_frozen_result: boolean;
+}
+
+interface LangflowResponse {
+  session_id: string;
+  outputs: Array<{
+    inputs: {
+      input_value: string;
+    };
+    outputs: LangflowOutput[];
+  }>;
+}
+
 const BASE_API_URL = Deno.env.get("BASE_API_URL") || "https://api.langflow.astra.datastax.com";
 const LANGFLOW_ID = Deno.env.get("LANGFLOW_ID");
 const FLOW_ID = Deno.env.get("FLOW_ID");
@@ -53,26 +75,21 @@ serve(async (req) => {
 
     console.log('Processing message:', lastMessage.content);
 
-    // Prepare Langflow request exactly as in Python example
+    // Prepare Langflow request
     const langflowRequest = {
       input_value: lastMessage.content,
       output_type: "chat",
       input_type: "chat"
     };
 
-    // Construct API URL exactly as in Python example
+    // Construct API URL
     const apiUrl = `${BASE_API_URL}/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
     
     console.log('Calling Langflow API:', {
       url: apiUrl,
-      request: langflowRequest,
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${APPLICATION_TOKEN}`
-      }
+      request: langflowRequest
     });
 
-    // Call Langflow API with exact same structure as Python
     try {
       const langflowResponse = await fetch(apiUrl, {
         method: 'POST',
@@ -96,28 +113,45 @@ serve(async (req) => {
         throw new Error(`Langflow API error: ${langflowResponse.status} - ${responseText}`);
       }
 
-      let langflowData;
+      let langflowData: LangflowResponse;
       try {
         langflowData = JSON.parse(responseText);
-        console.log('Parsed response data:', langflowData);
+        console.log('Full parsed response:', JSON.stringify(langflowData, null, 2));
       } catch (e) {
         console.error('Error parsing Langflow response:', e);
         throw new Error('Invalid JSON response from Langflow');
       }
 
-      // Extract the response based on the actual structure
-      let responseMessage;
-      if (typeof langflowData === 'string') {
-        responseMessage = langflowData;
-      } else if (langflowData.result) {
-        responseMessage = langflowData.result;
-      } else if (langflowData.message) {
-        responseMessage = langflowData.message;
-      } else if (langflowData.response) {
-        responseMessage = langflowData.response;
+      // Extract the chat output from the nested structure
+      let responseMessage: string;
+      
+      if (!langflowData.outputs?.[0]?.outputs?.[0]) {
+        console.error('Unexpected response structure - missing outputs:', langflowData);
+        throw new Error('Invalid response structure from Langflow');
+      }
+
+      const chatOutput = langflowData.outputs[0].outputs.find(
+        output => output.component_id === "ChatOutput-E57mu"
+      );
+
+      if (!chatOutput) {
+        console.error('ChatOutput component not found in response:', langflowData.outputs[0].outputs);
+        throw new Error('ChatOutput component not found in response');
+      }
+
+      // Log the full structure of the chat output for debugging
+      console.log('Chat output component:', JSON.stringify(chatOutput, null, 2));
+
+      // Try to extract the message from various possible locations
+      if (chatOutput.results && typeof chatOutput.results === 'object') {
+        responseMessage = chatOutput.results.response || chatOutput.results.message || JSON.stringify(chatOutput.results);
+      } else if (chatOutput.outputs && typeof chatOutput.outputs === 'object') {
+        responseMessage = chatOutput.outputs.response || chatOutput.outputs.message || JSON.stringify(chatOutput.outputs);
+      } else if (Array.isArray(chatOutput.messages) && chatOutput.messages.length > 0) {
+        responseMessage = chatOutput.messages[chatOutput.messages.length - 1];
       } else {
-        console.error('Unexpected response structure:', langflowData);
-        throw new Error('Unexpected response structure from Langflow');
+        console.error('Unable to find response in chat output:', chatOutput);
+        throw new Error('Could not find response in chat output');
       }
 
       return new Response(

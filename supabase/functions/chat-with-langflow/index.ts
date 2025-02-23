@@ -2,9 +2,10 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-const LANGFLOW_API_URL = Deno.env.get("LANGFLOW_API_URL");
-const LANGFLOW_API_TOKEN = Deno.env.get("LANGFLOW_API_TOKEN");
-const LANGFLOW_FLOW_ID = Deno.env.get("LANGFLOW_FLOW_ID");
+const BASE_API_URL = Deno.env.get("LANGFLOW_API_URL");
+const LANGFLOW_ID = Deno.env.get("LANGFLOW_ID");
+const FLOW_ID = Deno.env.get("FLOW_ID");
+const APPLICATION_TOKEN = Deno.env.get("LANGFLOW_API_TOKEN");
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -18,7 +19,7 @@ serve(async (req) => {
   }
 
   try {
-    if (!LANGFLOW_API_URL || !LANGFLOW_API_TOKEN || !LANGFLOW_FLOW_ID) {
+    if (!BASE_API_URL || !LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN) {
       throw new Error("Missing required environment variables for Langflow");
     }
 
@@ -36,23 +37,32 @@ serve(async (req) => {
 
     console.log('Processing message:', lastMessage.content);
 
-    // Prepare Langflow request
+    // Prepare Langflow request following the Python example structure
     const langflowRequest = {
       input_value: lastMessage.content,
-      tweaks: {}
+      output_type: "chat",
+      input_type: "chat",
+      tweaks: {
+        "Agent-swaq6": {},
+        "ChatInput-SylqI": {},
+        "ChatOutput-E57mu": {},
+        "Agent-Hpbdi": {},
+        "Agent-JogPZ": {}
+      }
     };
 
+    const apiUrl = `${BASE_API_URL}/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
     console.log('Sending request to Langflow:', {
-      url: `${LANGFLOW_API_URL}/api/v1/process/${LANGFLOW_FLOW_ID}`,
+      url: apiUrl,
       body: langflowRequest
     });
 
-    // Call Langflow API
-    const langflowResponse = await fetch(`${LANGFLOW_API_URL}/api/v1/process/${LANGFLOW_FLOW_ID}`, {
+    // Call Langflow API with proper authentication
+    const langflowResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${LANGFLOW_API_TOKEN}`
+        'Authorization': `Bearer ${APPLICATION_TOKEN}`
       },
       body: JSON.stringify(langflowRequest)
     });

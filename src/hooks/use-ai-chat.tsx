@@ -20,7 +20,6 @@ export const useAIChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  // Query user credits
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -49,7 +48,7 @@ export const useAIChat = () => {
     if (!userCredits || userCredits.credits_remaining < 1) {
       toast({
         title: "Insufficient Credits",
-        description: "You need at least 1 credit to continue chatting. Each 1000 words costs 1 credit.",
+        description: "You need at least 1 credit to continue chatting.",
         variant: "destructive",
       });
       return;
@@ -65,25 +64,15 @@ export const useAIChat = () => {
     setIsLoading(true);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      const response = await fetch(
-        `${(supabase.functions as any).url}/chat-with-ai`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${session?.access_token}`,
-          },
-          body: JSON.stringify({ messages: [...messages, userMessage] }),
-        }
-      );
+      const response = await supabase.functions.invoke('chat-with-langflow', {
+        body: { messages: [...messages, userMessage] }
+      });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || 'Failed to get response from AI');
+      if (response.error) {
+        throw new Error(response.error.message || 'Failed to get response from AI');
       }
 
-      const reader = response.body?.getReader();
+      const reader = response.data?.getReader();
       if (!reader) throw new Error('Failed to get response reader');
 
       const decoder = new TextDecoder();

@@ -53,32 +53,26 @@ serve(async (req) => {
 
     console.log('Processing message:', lastMessage.content);
 
-    // Construct message history for context
-    const messageHistory = requestData.messages
-      .map(msg => `${msg.role}: ${msg.content}`)
-      .join('\n');
-
-    // Prepare Langflow request
+    // Prepare Langflow request exactly as in Python example
     const langflowRequest = {
-      input_value: messageHistory, // Send full message history for context
+      input_value: lastMessage.content,
       output_type: "chat",
-      input_type: "chat",
-      tweaks: {
-        "Agent-swaq6": {},
-        "ChatInput-SylqI": {},
-        "ChatOutput-E57mu": {},
-        "Agent-Hpbdi": {},
-        "Agent-JogPZ": {}
-      }
+      input_type: "chat"
     };
 
+    // Construct API URL exactly as in Python example
     const apiUrl = `${BASE_API_URL}/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
-    console.log('Sending request to Langflow:', {
+    
+    console.log('Calling Langflow API:', {
       url: apiUrl,
-      request: langflowRequest
+      request: langflowRequest,
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${APPLICATION_TOKEN}`
+      }
     });
 
-    // Call Langflow API with proper authentication
+    // Call Langflow API with exact same structure as Python
     try {
       const langflowResponse = await fetch(apiUrl, {
         method: 'POST',
@@ -94,21 +88,37 @@ serve(async (req) => {
       console.log('Raw response:', responseText);
 
       if (!langflowResponse.ok) {
+        console.error('API Error:', {
+          status: langflowResponse.status,
+          statusText: langflowResponse.statusText,
+          response: responseText
+        });
         throw new Error(`Langflow API error: ${langflowResponse.status} - ${responseText}`);
       }
 
       let langflowData;
       try {
         langflowData = JSON.parse(responseText);
+        console.log('Parsed response data:', langflowData);
       } catch (e) {
         console.error('Error parsing Langflow response:', e);
         throw new Error('Invalid JSON response from Langflow');
       }
 
-      console.log('Parsed Langflow response:', langflowData);
-
-      // Extract the response message
-      const responseMessage = langflowData.result || langflowData.message || "I apologize, but I couldn't process that request.";
+      // Extract the response based on the actual structure
+      let responseMessage;
+      if (typeof langflowData === 'string') {
+        responseMessage = langflowData;
+      } else if (langflowData.result) {
+        responseMessage = langflowData.result;
+      } else if (langflowData.message) {
+        responseMessage = langflowData.message;
+      } else if (langflowData.response) {
+        responseMessage = langflowData.response;
+      } else {
+        console.error('Unexpected response structure:', langflowData);
+        throw new Error('Unexpected response structure from Langflow');
+      }
 
       return new Response(
         JSON.stringify({ message: responseMessage }),

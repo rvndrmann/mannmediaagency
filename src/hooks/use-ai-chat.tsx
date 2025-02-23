@@ -56,7 +56,7 @@ export const useAIChat = () => {
 
     const userMessage: Message = { 
       role: "user", 
-      content: input
+      content: input.trim()
     };
 
     setMessages(prev => [...prev, userMessage]);
@@ -64,16 +64,24 @@ export const useAIChat = () => {
     setIsLoading(true);
 
     try {
+      console.log('Sending chat request with messages:', [...messages, userMessage]);
+      
       const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
-        body: { messages: [...messages, userMessage] },
+        body: { 
+          messages: [...messages, userMessage]
+        },
         headers: {
           'Content-Type': 'application/json'
         }
       });
 
-      if (error) throw error;
+      console.log('Received response:', data);
 
-      // Handle the response from Langflow
+      if (error) {
+        console.error('Chat error:', error);
+        throw error;
+      }
+
       if (data && data.message) {
         const assistantMessage: Message = {
           role: 'assistant',

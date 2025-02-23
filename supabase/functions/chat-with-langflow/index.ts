@@ -2,7 +2,6 @@
 import { corsHeaders } from '../_shared/cors.ts';
 
 const LANGFLOW_API_TOKEN = Deno.env.get('LANGFLOW_API_TOKEN');
-const LANGFLOW_BASE_URL = Deno.env.get('LANGFLOW_BASE_URL');
 const LANGFLOW_FLOW_ID = Deno.env.get('LANGFLOW_FLOW_ID');
 const LANGFLOW_RUN_ID = Deno.env.get('LANGFLOW_RUN_ID');
 
@@ -21,7 +20,6 @@ Deno.serve(async (req) => {
     // Validate all required environment variables
     const missingVars = [];
     if (!LANGFLOW_API_TOKEN) missingVars.push('LANGFLOW_API_TOKEN');
-    if (!LANGFLOW_BASE_URL) missingVars.push('LANGFLOW_BASE_URL');
     if (!LANGFLOW_FLOW_ID) missingVars.push('LANGFLOW_FLOW_ID');
     if (!LANGFLOW_RUN_ID) missingVars.push('LANGFLOW_RUN_ID');
 
@@ -32,11 +30,11 @@ Deno.serve(async (req) => {
     const { messages } = await req.json();
     const lastMessage = messages[messages.length - 1] as ChatMessage;
     
-    // Construct the API URL using all environment variables
-    const apiUrl = `${LANGFLOW_BASE_URL}/lf/${LANGFLOW_FLOW_ID}/api/v1/run/${LANGFLOW_RUN_ID}?stream=true`;
-    console.log('Requesting Langflow API:', apiUrl); // Debug log
+    // Construct the API URL matching the curl example
+    const apiUrl = `https://api.langflow.astra.datastax.com/lf/${LANGFLOW_FLOW_ID}/api/v1/run/${LANGFLOW_RUN_ID}?stream=false`;
+    console.log('Requesting Langflow API:', apiUrl);
 
-    // Create Langflow request with the correct format
+    // Create Langflow request with the exact same format as the curl example
     const langflowRequest = {
       input_value: lastMessage.content,
       output_type: "chat",
@@ -52,7 +50,7 @@ Deno.serve(async (req) => {
 
     console.log('Sending request to Langflow:', JSON.stringify(langflowRequest, null, 2));
 
-    const langflowResponse = await fetch(apiUrl, {
+    const response = await fetch(apiUrl, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -62,81 +60,26 @@ Deno.serve(async (req) => {
       body: JSON.stringify(langflowRequest)
     });
 
-    if (!langflowResponse.ok) {
-      const errorText = await langflowResponse.text();
+    if (!response.ok) {
+      const errorText = await response.text();
       console.error('Langflow API error:', {
-        status: langflowResponse.status,
-        statusText: langflowResponse.statusText,
+        status: response.status,
+        statusText: response.statusText,
         body: errorText
       });
-      throw new Error(`Langflow API error (${langflowResponse.status}): ${errorText}`);
+      throw new Error(`Langflow API error (${response.status}): ${errorText}`);
     }
 
-    // Set up streaming response
-    const responseStream = new TransformStream();
-    const writer = responseStream.writable.getWriter();
-    const encoder = new TextEncoder();
-
-    const streamResponse = new Response(responseStream.readable, {
+    // Since we're not streaming, we can just return the response directly
+    const data = await response.json();
+    
+    return new Response(JSON.stringify(data), {
       headers: {
         ...corsHeaders,
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-      },
+        'Content-Type': 'application/json'
+      }
     });
 
-    // Process the streaming response
-    const reader = langflowResponse.body?.getReader();
-    if (!reader) throw new Error('No response body received from Langflow API');
-
-    (async () => {
-      try {
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) {
-            await writer.write(encoder.encode('data: [DONE]\n\n'));
-            await writer.close();
-            break;
-          }
-
-          const chunk = new TextDecoder().decode(value);
-          console.log('Received chunk:', chunk); // Debug log
-          
-          // Process each line in the chunk
-          const lines = chunk.split('\n');
-          for (const line of lines) {
-            if (line.trim() === '') continue;
-            
-            try {
-              // Format the chunk as expected by the frontend
-              const formattedChunk = JSON.stringify({
-                choices: [{
-                  delta: {
-                    content: line
-                  }
-                }]
-              });
-              
-              await writer.write(encoder.encode(`data: ${formattedChunk}\n\n`));
-            } catch (e) {
-              console.error('Error processing chunk:', e, 'Raw line:', line);
-              throw new Error(`Error processing response chunk: ${e.message}`);
-            }
-          }
-        }
-      } catch (error) {
-        console.error('Streaming error:', error);
-        const errorMessage = JSON.stringify({ 
-          error: 'Streaming error occurred', 
-          details: error.message 
-        });
-        await writer.write(encoder.encode(`data: ${errorMessage}\n\n`));
-        await writer.close();
-      }
-    })();
-
-    return streamResponse;
   } catch (error) {
     console.error('Error:', error);
     return new Response(

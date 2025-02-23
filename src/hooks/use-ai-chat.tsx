@@ -67,53 +67,21 @@ export const useAIChat = () => {
       const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
         body: { messages: [...messages, userMessage] },
         headers: {
-          'Content-Type': 'application/json',
-        },
-        responseType: 'stream',
+          'Content-Type': 'application/json'
+        }
       });
 
       if (error) throw error;
 
-      const reader = data.getReader();
-      const decoder = new TextDecoder();
-      let assistantMessage = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices?.[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  if (newMessages[newMessages.length - 1]?.role === 'assistant') {
-                    newMessages[newMessages.length - 1].content = assistantMessage;
-                  } else {
-                    newMessages.push({ role: 'assistant', content: assistantMessage });
-                  }
-                  return newMessages;
-                });
-              }
-            } catch (e) {
-              console.error('Error parsing chunk:', e, 'Raw data:', data);
-            }
-          }
-        }
-      }
-
-      if (!assistantMessage) {
-        throw new Error('No valid response received from AI');
+      // Handle the response from Langflow
+      if (data && data.message) {
+        const assistantMessage: Message = {
+          role: 'assistant',
+          content: data.message
+        };
+        setMessages(prev => [...prev, assistantMessage]);
+      } else {
+        throw new Error('Invalid response format from AI');
       }
 
     } catch (error) {

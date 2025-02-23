@@ -17,6 +17,11 @@ import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 
+interface UserCredits {
+  user_id: string;
+  credits_remaining: number;
+}
+
 const AIAgent = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
@@ -44,34 +49,36 @@ const AIAgent = () => {
     handleGenerate: handleGenerateV2
   } = useProductShoot();
 
-  const { data: availableCredits } = useQuery({
+  const { data: userCreditData } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
+      const { data: userData } = await supabase.auth.getUser();
       const { data, error } = await supabase
         .from("user_credits")
-        .select("credits_remaining")
+        .select("credits_remaining, user_id")
+        .eq('user_id', userData.user?.id)
         .maybeSingle();
 
       if (error) throw error;
-      return data?.credits_remaining || 0;
+      return data as UserCredits;
     },
   });
 
   const { data: productImages, isLoading: imagesLoading } = useQuery({
     queryKey: ["product-images"],
     queryFn: async () => {
-      if (!userCredits?.user_id) return [];
+      if (!userCreditData?.user_id) return [];
 
       const { data, error } = await supabase
         .from("image_generation_jobs")
         .select("*")
-        .eq('user_id', userCredits.user_id)
+        .eq('user_id', userCreditData.user_id)
         .order("created_at", { ascending: false });
 
       if (error) throw error;
       return data || [];
     },
-    enabled: !!userCredits?.user_id,
+    enabled: !!userCreditData?.user_id,
   });
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,7 +194,7 @@ const AIAgent = () => {
                     onSubmit={handleGenerateV2}
                     isGenerating={isGeneratingV2}
                     isSubmitting={isSubmittingV2}
-                    availableCredits={availableCredits}
+                    availableCredits={userCreditData?.credits_remaining ?? 0}
                   />
                   {generatedImagesV2.length > 0 && (
                     <GeneratedImagesPanel 
@@ -217,7 +224,7 @@ const AIAgent = () => {
                     onOutputFormatChange={setOutputFormat}
                     onGenerate={handleGenerateV1}
                     isGenerating={false}
-                    creditsRemaining={availableCredits}
+                    creditsRemaining={userCreditData?.credits_remaining ?? 0}
                   />
                   {productImages && productImages.length > 0 && (
                     <div className="mt-4 flex-1">

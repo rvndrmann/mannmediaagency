@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,6 +19,7 @@ import {
   Compass,
   User,
   Menu,
+  Bot,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -39,6 +41,12 @@ export const Navigation = () => {
       subtext: "Your Content Overview",
       to: "/dashboard",
       icon: ScrollText,
+    },
+    {
+      name: "AI Agent",
+      subtext: "Intelligent Assistant",
+      to: "/ai-agent",
+      icon: Bot,
     },
     {
       name: "Product Shot V1",

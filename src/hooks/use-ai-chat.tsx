@@ -64,56 +64,53 @@ export const useAIChat = () => {
     setIsLoading(true);
 
     try {
-      const response = await supabase.functions.invoke('chat-with-langflow', {
+      const { data: streamData, error } = await supabase.functions.invoke('chat-with-langflow', {
         body: { messages: [...messages, userMessage] }
       });
 
-      if (response.error) {
-        console.error('Function error:', response.error);
-        throw new Error(response.error.message || 'Failed to get response from AI');
+      if (error) {
+        console.error('Function error:', error);
+        throw new Error(error.message || 'Failed to get response from AI');
       }
 
-      const reader = response.data?.getReader();
-      if (!reader) throw new Error('Failed to get response reader');
+      if (!streamData) {
+        throw new Error('No response data received from AI');
+      }
 
-      const decoder = new TextDecoder();
       let assistantMessage = "";
-
-      while (true) {
-        const { value, done } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        console.log('Received chunk:', chunk); // Debug log
-        
-        const lines = chunk.split('\n');
-        
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            const data = line.slice(6);
-            if (data === '[DONE]') continue;
-            
-            try {
-              const parsed = JSON.parse(data);
-              const content = parsed.choices[0]?.delta?.content;
-              if (content) {
-                assistantMessage += content;
-                setMessages(prev => {
-                  const newMessages = [...prev];
-                  if (newMessages[newMessages.length - 1]?.role === 'assistant') {
-                    newMessages[newMessages.length - 1].content = assistantMessage;
-                  } else {
-                    newMessages.push({ role: 'assistant', content: assistantMessage });
-                  }
-                  return newMessages;
-                });
-              }
-            } catch (e) {
-              console.error('Error parsing chunk:', e, 'Raw data:', data);
+      const lines = streamData.split('\n');
+      
+      for (const line of lines) {
+        if (line.startsWith('data: ')) {
+          const data = line.slice(6);
+          if (data === '[DONE]') continue;
+          
+          try {
+            const parsed = JSON.parse(data);
+            const content = parsed.choices?.[0]?.delta?.content;
+            if (content) {
+              assistantMessage += content;
+              setMessages(prev => {
+                const newMessages = [...prev];
+                if (newMessages[newMessages.length - 1]?.role === 'assistant') {
+                  newMessages[newMessages.length - 1].content = assistantMessage;
+                } else {
+                  newMessages.push({ role: 'assistant', content: assistantMessage });
+                }
+                return newMessages;
+              });
             }
+          } catch (e) {
+            console.error('Error parsing response:', e, 'Raw data:', data);
           }
         }
       }
+
+      // If we didn't get any valid response
+      if (!assistantMessage) {
+        throw new Error('No valid response received from AI');
+      }
+
     } catch (error) {
       console.error('Chat error:', error);
       toast({

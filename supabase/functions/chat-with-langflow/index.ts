@@ -1,30 +1,27 @@
 
-import { corsHeaders } from '../_shared/cors.ts';
-
-interface LangflowRequest {
-  input_value: string;
-  tweaks: Record<string, Record<string, unknown>>;
-}
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const LANGFLOW_API_URL = Deno.env.get("LANGFLOW_API_URL");
 const LANGFLOW_API_TOKEN = Deno.env.get("LANGFLOW_API_TOKEN");
-const FLOW_ID = Deno.env.get("LANGFLOW_FLOW_ID");
+const LANGFLOW_FLOW_ID = Deno.env.get("LANGFLOW_FLOW_ID");
 
-if (!LANGFLOW_API_URL || !LANGFLOW_API_TOKEN || !FLOW_ID) {
-  throw new Error("Missing required environment variables for Langflow");
-}
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+};
 
-Deno.serve(async (req) => {
+serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (req.method !== 'POST') {
-      throw new Error(`Method ${req.method} not allowed`);
+    if (!LANGFLOW_API_URL || !LANGFLOW_API_TOKEN || !LANGFLOW_FLOW_ID) {
+      throw new Error("Missing required environment variables for Langflow");
     }
 
-    // Parse request body
     const requestData = await req.json();
     
     if (!requestData.messages || !Array.isArray(requestData.messages)) {
@@ -40,18 +37,18 @@ Deno.serve(async (req) => {
     console.log('Processing message:', lastMessage.content);
 
     // Prepare Langflow request
-    const langflowRequest: LangflowRequest = {
+    const langflowRequest = {
       input_value: lastMessage.content,
-      tweaks: {
-        "ChatInput-kKhri": {},
-        "Prompt-KDSi5": {},
-        "ChatOutput-Vr3Q7": {},
-        "OpenAIModel-4xYtx": {}
-      }
+      tweaks: {}
     };
 
+    console.log('Sending request to Langflow:', {
+      url: `${LANGFLOW_API_URL}/api/v1/process/${LANGFLOW_FLOW_ID}`,
+      body: langflowRequest
+    });
+
     // Call Langflow API
-    const langflowResponse = await fetch(`${LANGFLOW_API_URL}/api/v1/process/${FLOW_ID}`, {
+    const langflowResponse = await fetch(`${LANGFLOW_API_URL}/api/v1/process/${LANGFLOW_FLOW_ID}`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -61,8 +58,8 @@ Deno.serve(async (req) => {
     });
 
     if (!langflowResponse.ok) {
-      const errorData = await langflowResponse.text();
-      console.error('Langflow API error:', errorData);
+      const errorText = await langflowResponse.text();
+      console.error('Langflow API error:', errorText);
       throw new Error(`Langflow API error: ${langflowResponse.status}`);
     }
 
@@ -87,7 +84,7 @@ Deno.serve(async (req) => {
         details: error.stack 
       }),
       { 
-        status: 400,
+        status: 500,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

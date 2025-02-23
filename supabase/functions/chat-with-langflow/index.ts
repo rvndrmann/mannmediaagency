@@ -53,9 +53,14 @@ serve(async (req) => {
 
     console.log('Processing message:', lastMessage.content);
 
-    // Prepare Langflow request following the Python example structure
+    // Construct message history for context
+    const messageHistory = requestData.messages
+      .map(msg => `${msg.role}: ${msg.content}`)
+      .join('\n');
+
+    // Prepare Langflow request
     const langflowRequest = {
-      input_value: lastMessage.content,
+      input_value: messageHistory, // Send full message history for context
       output_type: "chat",
       input_type: "chat",
       tweaks: {

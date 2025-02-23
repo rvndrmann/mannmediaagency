@@ -69,6 +69,7 @@ export const useAIChat = () => {
       });
 
       if (response.error) {
+        console.error('Function error:', response.error);
         throw new Error(response.error.message || 'Failed to get response from AI');
       }
 
@@ -83,6 +84,8 @@ export const useAIChat = () => {
         if (done) break;
 
         const chunk = decoder.decode(value);
+        console.log('Received chunk:', chunk); // Debug log
+        
         const lines = chunk.split('\n');
         
         for (const line of lines) {
@@ -106,13 +109,13 @@ export const useAIChat = () => {
                 });
               }
             } catch (e) {
-              console.error('Error parsing chunk:', e);
+              console.error('Error parsing chunk:', e, 'Raw data:', data);
             }
           }
         }
       }
     } catch (error) {
-      console.error('Error:', error);
+      console.error('Chat error:', error);
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to get response from AI",

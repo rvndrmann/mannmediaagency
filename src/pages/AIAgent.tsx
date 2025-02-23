@@ -10,11 +10,24 @@ import { useAIChat } from "@/hooks/use-ai-chat";
 import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
+import { InputPanel } from "@/components/product-shoot/InputPanel";
+import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const AIAgent = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
+  const [prompt, setPrompt] = useState("");
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [imageSize, setImageSize] = useState("square_hd");
+  const [inferenceSteps, setInferenceSteps] = useState(8);
+  const [guidanceScale, setGuidanceScale] = useState(3.5);
+  const [outputFormat, setOutputFormat] = useState("png");
+
   const {
     messages,
     input,
@@ -25,10 +38,10 @@ const AIAgent = () => {
   } = useAIChat();
 
   const { 
-    isGenerating, 
-    isSubmitting, 
-    generatedImages, 
-    handleGenerate 
+    isGenerating: isGeneratingV2, 
+    isSubmitting: isSubmittingV2, 
+    generatedImages: generatedImagesV2, 
+    handleGenerate: handleGenerateV2
   } = useProductShoot();
 
   const { data: availableCredits } = useQuery({
@@ -43,6 +56,64 @@ const AIAgent = () => {
       return data?.credits_remaining || 0;
     },
   });
+
+  const { data: productImages, isLoading: imagesLoading } = useQuery({
+    queryKey: ["product-images"],
+    queryFn: async () => {
+      if (!userCredits?.user_id) return [];
+
+      const { data, error } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .eq('user_id', userCredits.user_id)
+        .order("created_at", { ascending: false });
+
+      if (error) throw error;
+      return data || [];
+    },
+    enabled: !!userCredits?.user_id,
+  });
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.type.startsWith('image/')) {
+        setSelectedFile(file);
+        const url = URL.createObjectURL(file);
+        setPreviewUrl(url);
+      }
+    }
+  };
+
+  const clearSelectedFile = () => {
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setPreviewUrl(null);
+  };
+
+  const handleGenerateV1 = async () => {
+    // Implementation will be added in the next iteration
+    console.log("Generate V1 clicked");
+  };
+
+  const handleDownload = async (url: string) => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const downloadUrl = window.URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = downloadUrl;
+      link.download = `product-image-${Date.now()}.png`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      window.URL.revokeObjectURL(downloadUrl);
+    } catch (error) {
+      console.error('Download error:', error);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#1A1F2C]">
@@ -113,23 +184,51 @@ const AIAgent = () => {
               <TabsContent value="product-shot-v2" className="h-full">
                 <div className="space-y-6">
                   <ProductShotForm 
-                    onSubmit={handleGenerate}
-                    isGenerating={isGenerating}
-                    isSubmitting={isSubmitting}
+                    onSubmit={handleGenerateV2}
+                    isGenerating={isGeneratingV2}
+                    isSubmitting={isSubmittingV2}
                     availableCredits={availableCredits}
                   />
-                  {generatedImages.length > 0 && (
+                  {generatedImagesV2.length > 0 && (
                     <GeneratedImagesPanel 
-                      images={generatedImages}
-                      isGenerating={isGenerating}
+                      images={generatedImagesV2}
+                      isGenerating={isGeneratingV2}
                     />
                   )}
                 </div>
               </TabsContent>
 
               <TabsContent value="product-shot-v1" className="h-full">
-                <div className="flex items-center justify-center h-full text-white/60">
-                  Coming soon...
+                <div className="flex flex-col h-full">
+                  <InputPanel
+                    isMobile={isMobile}
+                    prompt={prompt}
+                    onPromptChange={setPrompt}
+                    previewUrl={previewUrl}
+                    onFileSelect={handleFileSelect}
+                    onClearFile={clearSelectedFile}
+                    imageSize={imageSize}
+                    onImageSizeChange={setImageSize}
+                    inferenceSteps={inferenceSteps}
+                    onInferenceStepsChange={setInferenceSteps}
+                    guidanceScale={guidanceScale}
+                    onGuidanceScaleChange={setGuidanceScale}
+                    outputFormat={outputFormat}
+                    onOutputFormatChange={setOutputFormat}
+                    onGenerate={handleGenerateV1}
+                    isGenerating={false}
+                    creditsRemaining={availableCredits}
+                  />
+                  {productImages && productImages.length > 0 && (
+                    <div className="mt-4 flex-1">
+                      <GalleryPanel 
+                        isMobile={isMobile}
+                        images={productImages}
+                        isLoading={imagesLoading}
+                        onDownload={handleDownload}
+                      />
+                    </div>
+                  )}
                 </div>
               </TabsContent>
             </Tabs>

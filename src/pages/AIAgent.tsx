@@ -1,21 +1,14 @@
-
 import { useNavigate } from "react-router-dom";
-import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { ChevronLeft } from "lucide-react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
-import { ChatPanel } from "@/components/ai-agent/ChatPanel";
 import { useAIChat } from "@/hooks/use-ai-chat";
-import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
 import { useProductShoot } from "@/hooks/use-product-shoot";
-import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
-import { InputPanel } from "@/components/product-shoot/InputPanel";
-import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { ChatSection } from "@/components/ai-agent/ChatSection";
+import { FeaturePanel } from "@/components/ai-agent/FeaturePanel";
 
 interface UserCredits {
   user_id: string;
@@ -83,12 +76,10 @@ const AIAgent = () => {
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        setSelectedFile(file);
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-      }
+    if (file && file.type.startsWith('image/')) {
+      setSelectedFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewUrl(url);
     }
   };
 
@@ -138,108 +129,46 @@ const AIAgent = () => {
         </div>
         
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)] flex flex-col">
-            <Tabs defaultValue="chat" className="flex-1 flex flex-col">
-              <TabsList className="w-full bg-[#333333] mb-4">
-                <TabsTrigger 
-                  value="chat" 
-                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
-                >
-                  Chat
-                </TabsTrigger>
-              </TabsList>
-              <TabsContent value="chat" className="flex-1 flex flex-col m-0">
-                <ChatPanel
-                  messages={messages}
-                  input={input}
-                  isLoading={isLoading}
-                  userCredits={userCredits}
-                  onInputChange={setInput}
-                  onSubmit={handleSubmit}
-                />
-              </TabsContent>
-            </Tabs>
-          </Card>
+          <ChatSection
+            messages={messages}
+            input={input}
+            isLoading={isLoading}
+            userCredits={userCredits}
+            onInputChange={setInput}
+            onSubmit={handleSubmit}
+          />
 
-          <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4 h-[calc(100vh-8rem)]">
-            <Tabs defaultValue="script" className="flex-1 h-full">
-              <TabsList className="w-full bg-[#333333] mb-4">
-                <TabsTrigger 
-                  value="script" 
-                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
-                >
-                  Video Script
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="product-shot-v2" 
-                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
-                >
-                  Product Shot V2
-                </TabsTrigger>
-                <TabsTrigger 
-                  value="product-shot-v1" 
-                  className="flex-1 text-white data-[state=active]:bg-[#444444]"
-                >
-                  Product Shot V1
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="script" className="h-full">
-                <ScriptBuilderTab messages={messages} />
-              </TabsContent>
-
-              <TabsContent value="product-shot-v2" className="h-full">
-                <div className="space-y-6">
-                  <ProductShotForm 
-                    onSubmit={handleGenerateV2}
-                    isGenerating={isGeneratingV2}
-                    isSubmitting={isSubmittingV2}
-                    availableCredits={userCreditData?.credits_remaining ?? 0}
-                  />
-                  {generatedImagesV2.length > 0 && (
-                    <GeneratedImagesPanel 
-                      images={generatedImagesV2}
-                      isGenerating={isGeneratingV2}
-                    />
-                  )}
-                </div>
-              </TabsContent>
-
-              <TabsContent value="product-shot-v1" className="h-full">
-                <div className="flex flex-col h-full">
-                  <InputPanel
-                    isMobile={isMobile}
-                    prompt={prompt}
-                    onPromptChange={setPrompt}
-                    previewUrl={previewUrl}
-                    onFileSelect={handleFileSelect}
-                    onClearFile={clearSelectedFile}
-                    imageSize={imageSize}
-                    onImageSizeChange={setImageSize}
-                    inferenceSteps={inferenceSteps}
-                    onInferenceStepsChange={setInferenceSteps}
-                    guidanceScale={guidanceScale}
-                    onGuidanceScaleChange={setGuidanceScale}
-                    outputFormat={outputFormat}
-                    onOutputFormatChange={setOutputFormat}
-                    onGenerate={handleGenerateV1}
-                    isGenerating={false}
-                    creditsRemaining={userCreditData?.credits_remaining ?? 0}
-                  />
-                  {productImages && productImages.length > 0 && (
-                    <div className="mt-4 flex-1">
-                      <GalleryPanel 
-                        isMobile={isMobile}
-                        images={productImages}
-                        isLoading={imagesLoading}
-                        onDownload={handleDownload}
-                      />
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-            </Tabs>
-          </Card>
+          <FeaturePanel
+            messages={messages}
+            productShotV2={{
+              onSubmit: handleGenerateV2,
+              isGenerating: isGeneratingV2,
+              isSubmitting: isSubmittingV2,
+              availableCredits: userCreditData?.credits_remaining ?? 0,
+              generatedImages: generatedImagesV2
+            }}
+            productShotV1={{
+              isMobile,
+              prompt,
+              previewUrl,
+              imageSize,
+              inferenceSteps,
+              guidanceScale,
+              outputFormat,
+              productImages: productImages || [],
+              imagesLoading,
+              creditsRemaining: userCreditData?.credits_remaining ?? 0,
+              onPromptChange: setPrompt,
+              onFileSelect: handleFileSelect,
+              onClearFile: clearSelectedFile,
+              onImageSizeChange: setImageSize,
+              onInferenceStepsChange: setInferenceSteps,
+              onGuidanceScaleChange: setGuidanceScale,
+              onOutputFormatChange: setOutputFormat,
+              onGenerate: handleGenerateV1,
+              onDownload: handleDownload
+            }}
+          />
         </div>
       </div>
     </div>

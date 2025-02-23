@@ -12,6 +12,7 @@ interface ChatMessage {
 }
 
 Deno.serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -29,13 +30,28 @@ Deno.serve(async (req) => {
     }
 
     const { messages } = await req.json();
-    const lastMessage = messages[messages.length - 1];
-
+    const lastMessage = messages[messages.length - 1] as ChatMessage;
+    
     // Construct the API URL using all environment variables
     const apiUrl = `${LANGFLOW_BASE_URL}/lf/${LANGFLOW_FLOW_ID}/api/v1/run/${LANGFLOW_RUN_ID}?stream=true`;
     console.log('Requesting Langflow API:', apiUrl); // Debug log
 
     // Create Langflow request with the correct format
+    const langflowRequest = {
+      input_value: lastMessage.content,
+      output_type: "chat",
+      input_type: "chat",
+      tweaks: {
+        "Agent-swaq6": {},
+        "ChatInput-SylqI": {},
+        "ChatOutput-E57mu": {},
+        "Agent-Hpbdi": {},
+        "Agent-JogPZ": {}
+      }
+    };
+
+    console.log('Sending request to Langflow:', JSON.stringify(langflowRequest, null, 2));
+
     const langflowResponse = await fetch(apiUrl, {
       method: 'POST',
       headers: {
@@ -43,18 +59,7 @@ Deno.serve(async (req) => {
         'Authorization': `Bearer ${LANGFLOW_API_TOKEN}`,
         ...corsHeaders
       },
-      body: JSON.stringify({
-        input_value: lastMessage.content,
-        output_type: "chat",
-        input_type: "chat",
-        tweaks: {
-          "Agent-swaq6": {},
-          "ChatInput-SylqI": {},
-          "ChatOutput-E57mu": {},
-          "Agent-Hpbdi": {},
-          "Agent-JogPZ": {}
-        }
-      })
+      body: JSON.stringify(langflowRequest)
     });
 
     if (!langflowResponse.ok) {
@@ -98,6 +103,7 @@ Deno.serve(async (req) => {
           const chunk = new TextDecoder().decode(value);
           console.log('Received chunk:', chunk); // Debug log
           
+          // Process each line in the chunk
           const lines = chunk.split('\n');
           for (const line of lines) {
             if (line.trim() === '') continue;
@@ -114,7 +120,7 @@ Deno.serve(async (req) => {
               
               await writer.write(encoder.encode(`data: ${formattedChunk}\n\n`));
             } catch (e) {
-              console.error('Error processing chunk:', e);
+              console.error('Error processing chunk:', e, 'Raw line:', line);
               throw new Error(`Error processing response chunk: ${e.message}`);
             }
           }

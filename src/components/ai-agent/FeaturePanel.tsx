@@ -128,8 +128,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
 
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-hidden">
           <div className="flex h-full">
-            <div className="w-1/3 min-w-[320px] border-r border-gray-800 bg-[#1A1F2C]">
-              <div className="p-6 space-y-6">
+            <div className="w-1/3 min-w-[320px] flex flex-col border-r border-gray-800 bg-[#1A1F2C]">
+              <div className="p-4 border-b border-gray-800">
                 <Button 
                   onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
@@ -137,6 +137,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                   <PenTool className="h-4 w-4 mr-2" />
                   Use Last AI Response
                 </Button>
+              </div>
+              <div className="flex-1">
                 <InputPanel
                   isMobile={productShotV1.isMobile}
                   prompt={productShotV1.prompt}
@@ -170,30 +172,34 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         </TabsContent>
 
         <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="h-full p-6 space-y-6 bg-[#1A1F2C]">
-            <Button 
-              onClick={() => useLastAIResponse((value) => productShotV2.onSubmit({ prompt: value }))}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-            >
-              <PenTool className="h-4 w-4 mr-2" />
-              Use Last AI Response
-            </Button>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-6">
-                <ProductShotForm 
-                  onSubmit={productShotV2.onSubmit}
-                  isGenerating={productShotV2.isGenerating}
-                  isSubmitting={productShotV2.isSubmitting}
-                  availableCredits={productShotV2.availableCredits}
-                />
-              </div>
-              <div className="space-y-6">
-                {productShotV2.generatedImages.length > 0 && (
-                  <GeneratedImagesPanel 
-                    images={productShotV2.generatedImages}
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-gray-800">
+              <Button 
+                onClick={() => useLastAIResponse((value) => productShotV2.onSubmit({ prompt: value }))}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              >
+                <PenTool className="h-4 w-4 mr-2" />
+                Use Last AI Response
+              </Button>
+            </div>
+            <div className="flex-1 overflow-auto p-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+                <div className="space-y-6">
+                  <ProductShotForm 
+                    onSubmit={productShotV2.onSubmit}
                     isGenerating={productShotV2.isGenerating}
+                    isSubmitting={productShotV2.isSubmitting}
+                    availableCredits={productShotV2.availableCredits}
                   />
-                )}
+                </div>
+                <div className="space-y-6">
+                  {productShotV2.generatedImages.length > 0 && (
+                    <GeneratedImagesPanel 
+                      images={productShotV2.generatedImages}
+                      isGenerating={productShotV2.isGenerating}
+                    />
+                  )}
+                </div>
               </div>
             </div>
           </div>
@@ -201,8 +207,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
           <div className="flex h-full">
-            <div className="w-1/3 min-w-[320px] border-r border-gray-800 bg-[#1A1F2C]">
-              <div className="p-6 space-y-6">
+            <div className="w-1/3 min-w-[320px] flex flex-col border-r border-gray-800 bg-[#1A1F2C]">
+              <div className="p-4 border-b border-gray-800">
                 <Button 
                   onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
                   className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
@@ -210,6 +216,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                   <PenTool className="h-4 w-4 mr-2" />
                   Use Last AI Response
                 </Button>
+              </div>
+              <div className="flex-1">
                 <ImageToVideoInputPanel
                   isMobile={productShotV1.isMobile}
                   prompt={productShotV1.prompt}
@@ -228,8 +236,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
             </div>
             <div className="flex-1 bg-[#1A1F2C]">
               <ScrollArea className="h-full">
-                <div className="p-6 space-y-6">
-                  <h3 className="text-xl font-semibold text-white">
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold text-white mb-6">
                     Select from Generated Product Shots
                   </h3>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">

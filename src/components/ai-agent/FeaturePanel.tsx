@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -177,7 +176,12 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
           <div className="flex flex-col h-full">
             <div className="p-4 border-b border-gray-800">
               <Button 
-                onClick={() => useLastAIResponse((value) => productShotV2.onSubmit({ prompt: value }))}
+                onClick={() => {
+                  const lastResponse = getLastAIResponse();
+                  if (lastResponse) {
+                    productShotV2.onSubmit({ prompt: lastResponse });
+                  }
+                }}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
               >
                 <PenTool className="h-4 w-4 mr-2" />

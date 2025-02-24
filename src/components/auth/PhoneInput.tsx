@@ -43,8 +43,11 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newNumber = e.target.value.replace(/[^\d]/g, ''); // Remove non-digits
-    onChange(`+${selectedCountry.value}${newNumber}`);
+    // Allow the input to show what user types
+    const newNumber = e.target.value;
+    // But only pass cleaned number to parent
+    const cleanNumber = newNumber.replace(/[^\d]/g, '');
+    onChange(`+${selectedCountry.value}${cleanNumber}`);
   };
 
   return (
@@ -63,16 +66,20 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
               <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-0">
-            <Command>
-              <CommandInput placeholder="Search country..." />
-              <CommandEmpty>No country found.</CommandEmpty>
+          <PopoverContent className="w-[200px] p-0 bg-gray-800 border border-gray-700 z-50">
+            <Command className="bg-gray-800">
+              <CommandInput 
+                className="bg-gray-800 text-white placeholder:text-gray-400" 
+                placeholder="Search country..." 
+              />
+              <CommandEmpty className="text-gray-400 p-2">No country found.</CommandEmpty>
               <CommandGroup className="max-h-[300px] overflow-y-auto">
                 {countries.map((country) => (
                   <CommandItem
                     key={country.value}
                     value={country.label}
                     onSelect={() => handleCountrySelect(country)}
+                    className="text-white hover:bg-gray-700"
                   >
                     <Check
                       className={cn(
@@ -91,7 +98,8 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
           id="phone"
           type="tel"
           inputMode="numeric"
-          pattern="[0-9]*"
+          enterKeyHint="done"
+          autoComplete="tel"
           placeholder="Enter your phone number"
           value={numberPart}
           onChange={handleNumberChange}

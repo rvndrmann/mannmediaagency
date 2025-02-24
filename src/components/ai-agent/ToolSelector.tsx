@@ -26,7 +26,7 @@ interface ToolSelectorProps {
 export const ToolSelector = ({ activeTool, onToolSelect }: ToolSelectorProps) => {
   return (
     <div className="w-full bg-[#1A1F2C]/80 backdrop-blur-lg border-b border-white/10">
-      <ScrollArea className="w-full" orientation="horizontal">
+      <ScrollArea className="w-full">
         <div className="flex p-2 gap-2">
           {tools.map((tool) => (
             <Button

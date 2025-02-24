@@ -10,6 +10,7 @@ interface Message {
 }
 
 const STORAGE_KEY = "ai_agent_chat_history";
+const CHAT_CREDIT_COST = 0.07;
 
 export const useAIChat = () => {
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -20,7 +21,7 @@ export const useAIChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
 
-  const { data: userCredits } = useQuery({
+  const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
       const { data: { user } } = await supabase.auth.getUser();
@@ -41,15 +42,41 @@ export const useAIChat = () => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
+  const deductChatCredits = async () => {
+    const { data, error } = await supabase.rpc('safely_decrease_chat_credits', {
+      credit_amount: CHAT_CREDIT_COST
+    });
+
+    if (error || !data) {
+      throw new Error("Failed to deduct credits for chat usage");
+    }
+
+    return data;
+  };
+
+  const logChatUsage = async (messageContent: string) => {
+    const { error } = await supabase
+      .from('chat_usage')
+      .insert({
+        message_content: messageContent,
+        credits_charged: CHAT_CREDIT_COST,
+        words_count: messageContent.trim().split(/\s+/).length
+      });
+
+    if (error) {
+      console.error('Failed to log chat usage:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
     if (!trimmedInput || isLoading) return;
 
-    if (!userCredits || userCredits.credits_remaining < 1) {
+    if (!userCredits || userCredits.credits_remaining < CHAT_CREDIT_COST) {
       toast({
         title: "Insufficient Credits",
-        description: "You need at least 1 credit to continue chatting.",
+        description: `You need at least ${CHAT_CREDIT_COST} credits to send a message.`,
         variant: "destructive",
       });
       return;
@@ -65,6 +92,15 @@ export const useAIChat = () => {
     setIsLoading(true);
 
     try {
+      // Deduct credits first
+      await deductChatCredits();
+      
+      // Log the chat usage
+      await logChatUsage(trimmedInput);
+      
+      // Refetch credits to update UI
+      refetchCredits();
+
       console.log('Sending chat request:', {
         messages: [...messages, userMessage],
         lastMessage: userMessage.content

@@ -7,13 +7,15 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import PhoneInput from "./phone/PhoneInput";
 import VerificationInput from "./phone/VerificationInput";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 type AuthMethod = "google" | "phone";
 
 const SignupForm = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
-  const [authMethod, setAuthMethod] = useState<AuthMethod>("google");
+  const [authMethod, setAuthMethod] = useState<AuthMethod>(isMobile ? "phone" : "google");
   const [verificationStep, setVerificationStep] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
 
@@ -94,7 +96,7 @@ const SignupForm = () => {
           <p className="text-gray-400">Sign up to get started with MANNMEDIAAGENCY</p>
         </div>
 
-        {!verificationStep && (
+        {!verificationStep && !isMobile && (
           <div className="flex gap-2 mb-6">
             <Button
               variant={authMethod === "google" ? "default" : "outline"}
@@ -121,7 +123,9 @@ const SignupForm = () => {
               isLoading={isLoading}
               phoneNumber={phoneNumber}
             />
-          ) : authMethod === "google" ? (
+          ) : isMobile || authMethod === "phone" ? (
+            <PhoneInput onSubmit={handlePhoneSubmit} isLoading={isLoading} />
+          ) : (
             <Button
               onClick={handleGoogleSignup}
               className="w-full bg-white hover:bg-gray-100 text-gray-900"
@@ -138,8 +142,6 @@ const SignupForm = () => {
               )}
               {isLoading ? "Connecting..." : "Sign up with Google"}
             </Button>
-          ) : (
-            <PhoneInput onSubmit={handlePhoneSubmit} isLoading={isLoading} />
           )}
         </div>
 

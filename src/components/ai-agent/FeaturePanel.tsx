@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -8,7 +7,6 @@ import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
 import { UseAIResponseButton } from "./features/UseAIResponseButton";
-import { ProductImageGrid } from "./features/ProductImageGrid";
 import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 
@@ -48,11 +46,19 @@ interface FeaturePanelProps {
     onGenerate: () => void;
     onDownload: (url: string) => void;
   };
+  imageToVideo: {
+    isMobile: boolean;
+    previewUrl: string | null;
+    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onClearFile: () => void;
+    creditsRemaining: number;
+    isGenerating: boolean;
+    onGenerate: () => void;
+  };
   activeTool: string;
 }
 
-export function FeaturePanel({ messages, productShotV2, productShotV1, activeTool }: FeaturePanelProps) {
-  const [sceneDescription, setSceneDescription] = useState("");
+export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
 
@@ -60,7 +66,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, activeToo
     if (activeTool === "product-shot-v1") {
       productShotV1.onPromptChange(response);
     } else if (activeTool === "product-shot-v2") {
-      setSceneDescription(response);
+      // handle product shot v2
     } else if (activeTool === "image-to-video") {
       setImageToVideoPrompt(response);
     }
@@ -118,16 +124,16 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, activeToo
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <ImageToVideoInputPanel
-            isMobile={productShotV1.isMobile}
+            isMobile={imageToVideo.isMobile}
             prompt={imageToVideoPrompt}
             onPromptChange={setImageToVideoPrompt}
-            previewUrl={productShotV1.previewUrl}
-            onFileSelect={productShotV1.onFileSelect}
-            onClearFile={productShotV1.onClearFile}
+            previewUrl={imageToVideo.previewUrl}
+            onFileSelect={imageToVideo.onFileSelect}
+            onClearFile={imageToVideo.onClearFile}
             onSelectFromHistory={() => {}}
-            onGenerate={productShotV1.onGenerate}
-            isGenerating={productShotV1.isGenerating}
-            creditsRemaining={productShotV1.creditsRemaining}
+            onGenerate={imageToVideo.onGenerate}
+            isGenerating={imageToVideo.isGenerating}
+            creditsRemaining={imageToVideo.creditsRemaining}
             aspectRatio={selectedAspectRatio}
             onAspectRatioChange={setSelectedAspectRatio}
           />

@@ -59,8 +59,29 @@ export const SplitScreen = ({
   onSubmit,
 }: SplitScreenProps) => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
+  
+  // Add state for Image to Video section
+  const [imageToVideoPreview, setImageToVideoPreview] = useState<string | null>(null);
+  const [imageToVideoFile, setImageToVideoFile] = useState<File | null>(null);
 
-  // Create a new object that includes all productShotV1 props
+  const handleImageToVideoFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setImageToVideoFile(file);
+      const url = URL.createObjectURL(file);
+      setImageToVideoPreview(url);
+    }
+  };
+
+  const handleImageToVideoClear = () => {
+    if (imageToVideoPreview) {
+      URL.revokeObjectURL(imageToVideoPreview);
+    }
+    setImageToVideoPreview(null);
+    setImageToVideoFile(null);
+  };
+
+  // Create props objects for passing down
   const productShotV1Props = {
     ...productShotV1,
     isMobile,
@@ -83,6 +104,16 @@ export const SplitScreen = ({
     onOutputFormatChange: productShotV1.onOutputFormatChange,
     onGenerate: productShotV1.onGenerate,
     onDownload: productShotV1.onDownload
+  };
+
+  const imageToVideoProps = {
+    isMobile,
+    previewUrl: imageToVideoPreview,
+    onFileSelect: handleImageToVideoFileSelect,
+    onClearFile: handleImageToVideoClear,
+    creditsRemaining: productShotV1.creditsRemaining,
+    isGenerating: false,
+    onGenerate: () => {},
   };
 
   return (
@@ -127,6 +158,7 @@ export const SplitScreen = ({
             messages={messages}
             productShotV2={productShotV2}
             productShotV1={productShotV1Props}
+            imageToVideo={imageToVideoProps}
             activeTool={activeTool}
           />
         </div>

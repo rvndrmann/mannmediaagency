@@ -16,8 +16,9 @@ import { ProductShotFormProps } from "./types";
 import { useProductShotForm } from "./hooks/useProductShotForm";
 import { GenerateButton } from "./components/GenerateButton";
 import { AspectRatio } from "@/types/product-shoot";
+import { useEffect } from "react";
 
-export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availableCredits = 0 }: ProductShotFormProps) {
+export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availableCredits = 0, initialSceneDescription }: ProductShotFormProps) {
   const {
     sourcePreview,
     referencePreview,
@@ -43,6 +44,12 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
     setOriginalQuality,
     handleAspectRatioChange
   } = useProductShotForm(onSubmit, isGenerating, isSubmitting, availableCredits);
+
+  useEffect(() => {
+    if (initialSceneDescription) {
+      setSceneDescription(initialSceneDescription);
+    }
+  }, [initialSceneDescription, setSceneDescription]);
 
   return (
     <form onSubmit={handleSubmit} className="space-y-6">

@@ -11,6 +11,7 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { PenTool } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { useState } from "react";
 
 interface ProductShotV1Props {
   isMobile: boolean;
@@ -48,6 +49,7 @@ interface FeaturePanelProps {
 
 export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
   const { toast } = useToast();
+  const [sceneDescription, setSceneDescription] = useState("");
 
   const allProductImages = [
     ...(productShotV1.productImages || []).map(img => ({
@@ -180,27 +182,10 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                 onClick={() => {
                   const lastResponse = getLastAIResponse();
                   if (lastResponse) {
-                    productShotV2.onSubmit({
-                      sourceFile: null,
-                      referenceFile: null,
-                      sceneDescription: lastResponse,
-                      generationType: "description",
-                      placementType: "automatic",
-                      manualPlacement: "",
-                      optimizeDescription: true,
-                      numResults: 1,
-                      fastMode: false,
-                      originalQuality: true,
-                      shotWidth: 1024,
-                      shotHeight: 1024,
-                      syncMode: false,
-                      aspectRatio: "1:1",
-                      padding: {
-                        left: 0,
-                        right: 0,
-                        top: 0,
-                        bottom: 0
-                      }
+                    setSceneDescription(lastResponse);
+                    toast({
+                      title: "Scene Description Updated",
+                      description: "The last AI response has been copied to the scene description.",
                     });
                   }
                 }}
@@ -218,6 +203,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                     isGenerating={productShotV2.isGenerating}
                     isSubmitting={productShotV2.isSubmitting}
                     availableCredits={productShotV2.availableCredits}
+                    initialSceneDescription={sceneDescription}
                   />
                 </div>
                 <div className="space-y-6">

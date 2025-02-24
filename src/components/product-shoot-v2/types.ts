@@ -6,6 +6,7 @@ export interface ProductShotFormProps {
   isGenerating: boolean;
   isSubmitting?: boolean;
   availableCredits?: number;
+  initialSceneDescription?: string;
 }
 
 export interface ImagePreviewProps {

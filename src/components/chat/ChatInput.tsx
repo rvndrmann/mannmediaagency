@@ -35,9 +35,9 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
           <Textarea
             value={input}
             onChange={(e) => handleChange(e.target.value)}
-            placeholder="Create script..."
+            placeholder="Type your message..."
             disabled={isLoading}
-            className="min-h-[100px] bg-[#333333] border-white/10 text-white placeholder:text-white/50 resize-none"
+            className="min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none"
           />
           <div className="flex justify-between items-center">
             <span className={`text-sm ${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-400'}`}>

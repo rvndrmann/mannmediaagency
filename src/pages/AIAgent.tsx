@@ -1,6 +1,7 @@
+
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft } from "lucide-react";
+import { ChevronLeft, MessageSquare, Settings } from "lucide-react";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { useQuery } from "@tanstack/react-query";
@@ -9,6 +10,8 @@ import { useState } from "react";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ChatSection } from "@/components/ai-agent/ChatSection";
 import { FeaturePanel } from "@/components/ai-agent/FeaturePanel";
+import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
+import { cn } from "@/lib/utils";
 
 interface UserCredits {
   user_id: string;
@@ -18,13 +21,8 @@ interface UserCredits {
 const AIAgent = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const [prompt, setPrompt] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [imageSize, setImageSize] = useState("square_hd");
-  const [inferenceSteps, setInferenceSteps] = useState(8);
-  const [guidanceScale, setGuidanceScale] = useState(3.5);
-  const [outputFormat, setOutputFormat] = useState("png");
+  const [isFeaturePanelOpen, setIsFeaturePanelOpen] = useState(false);
+  const [activeTab, setActiveTab] = useState<'chat' | 'features'>('chat');
 
   const {
     messages,
@@ -74,101 +72,142 @@ const AIAgent = () => {
     enabled: !!userCreditData?.user_id,
   });
 
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file && file.type.startsWith('image/')) {
-      setSelectedFile(file);
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
-  };
-
-  const clearSelectedFile = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setSelectedFile(null);
-    setPreviewUrl(null);
-  };
-
-  const handleGenerateV1 = async () => {
-    // Implementation will be added in the next iteration
-    console.log("Generate V1 clicked");
-  };
-
-  const handleDownload = async (url: string) => {
-    try {
-      const response = await fetch(url);
-      const blob = await response.blob();
-      const downloadUrl = window.URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = downloadUrl;
-      link.download = `product-image-${Date.now()}.png`;
-      document.body.appendChild(link);
-      link.click();
-      document.body.removeChild(link);
-      window.URL.revokeObjectURL(downloadUrl);
-    } catch (error) {
-      console.error('Download error:', error);
-    }
-  };
-
   return (
     <div className="min-h-screen bg-[#1A1F2C]">
-      <div className="container mx-auto p-4 space-y-4">
-        <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => navigate(-1)}
-            className="w-8 h-8 text-white hover:bg-white/10"
-          >
-            <ChevronLeft className="h-4 w-4" />
-          </Button>
-          <h1 className="text-2xl font-bold text-white">AI Agent</h1>
+      {/* Header */}
+      <div className="fixed top-0 left-0 right-0 z-50 bg-[#1A1F2C]/80 backdrop-blur-lg border-b border-white/10">
+        <div className="container mx-auto px-4 py-3 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => navigate(-1)}
+              className="w-8 h-8 text-white hover:bg-white/10"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </Button>
+            <h1 className="text-xl font-bold text-white">AI Agent</h1>
+          </div>
+          {isMobile && (
+            <div className="flex gap-2">
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setActiveTab('chat')}
+                className={cn(
+                  "w-8 h-8 text-white hover:bg-white/10",
+                  activeTab === 'chat' && "bg-white/10"
+                )}
+              >
+                <MessageSquare className="h-4 w-4" />
+              </Button>
+              <Sheet open={isFeaturePanelOpen} onOpenChange={setIsFeaturePanelOpen}>
+                <SheetTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className={cn(
+                      "w-8 h-8 text-white hover:bg-white/10",
+                      activeTab === 'features' && "bg-white/10"
+                    )}
+                  >
+                    <Settings className="h-4 w-4" />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="bottom" className="h-[80vh] bg-[#1A1F2C] border-t border-white/10 p-0">
+                  <div className="h-full overflow-auto">
+                    <FeaturePanel
+                      messages={messages}
+                      productShotV2={{
+                        onSubmit: handleGenerateV2,
+                        isGenerating: isGeneratingV2,
+                        isSubmitting: isSubmittingV2,
+                        availableCredits: userCreditData?.credits_remaining ?? 0,
+                        generatedImages: generatedImagesV2
+                      }}
+                      productShotV1={{
+                        isMobile,
+                        prompt: "",
+                        previewUrl: null,
+                        imageSize: "square_hd",
+                        inferenceSteps: 8,
+                        guidanceScale: 3.5,
+                        outputFormat: "png",
+                        productImages: productImages || [],
+                        imagesLoading,
+                        creditsRemaining: userCreditData?.credits_remaining ?? 0,
+                        onPromptChange: () => {},
+                        onFileSelect: () => {},
+                        onClearFile: () => {},
+                        onImageSizeChange: () => {},
+                        onInferenceStepsChange: () => {},
+                        onGuidanceScaleChange: () => {},
+                        onOutputFormatChange: () => {},
+                        onGenerate: () => {},
+                        onDownload: () => {}
+                      }}
+                    />
+                  </div>
+                </SheetContent>
+              </Sheet>
+            </div>
+          )}
         </div>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <ChatSection
-            messages={messages}
-            input={input}
-            isLoading={isLoading}
-            userCredits={userCredits}
-            onInputChange={setInput}
-            onSubmit={handleSubmit}
-          />
+      </div>
 
-          <FeaturePanel
-            messages={messages}
-            productShotV2={{
-              onSubmit: handleGenerateV2,
-              isGenerating: isGeneratingV2,
-              isSubmitting: isSubmittingV2,
-              availableCredits: userCreditData?.credits_remaining ?? 0,
-              generatedImages: generatedImagesV2
-            }}
-            productShotV1={{
-              isMobile,
-              prompt,
-              previewUrl,
-              imageSize,
-              inferenceSteps,
-              guidanceScale,
-              outputFormat,
-              productImages: productImages || [],
-              imagesLoading,
-              creditsRemaining: userCreditData?.credits_remaining ?? 0,
-              onPromptChange: setPrompt,
-              onFileSelect: handleFileSelect,
-              onClearFile: clearSelectedFile,
-              onImageSizeChange: setImageSize,
-              onInferenceStepsChange: setInferenceSteps,
-              onGuidanceScaleChange: setGuidanceScale,
-              onOutputFormatChange: setOutputFormat,
-              onGenerate: handleGenerateV1,
-              onDownload: handleDownload
-            }}
-          />
+      {/* Main Content */}
+      <div className="container mx-auto pt-16">
+        <div className={cn(
+          "grid gap-6",
+          isMobile ? "grid-cols-1" : "grid-cols-1 md:grid-cols-2"
+        )}>
+          <div className={cn(
+            "transition-opacity duration-300",
+            isMobile && activeTab !== 'chat' && "hidden"
+          )}>
+            <ChatSection
+              messages={messages}
+              input={input}
+              isLoading={isLoading}
+              userCredits={userCredits}
+              onInputChange={setInput}
+              onSubmit={handleSubmit}
+            />
+          </div>
+          
+          {!isMobile && (
+            <FeaturePanel
+              messages={messages}
+              productShotV2={{
+                onSubmit: handleGenerateV2,
+                isGenerating: isGeneratingV2,
+                isSubmitting: isSubmittingV2,
+                availableCredits: userCreditData?.credits_remaining ?? 0,
+                generatedImages: generatedImagesV2
+              }}
+              productShotV1={{
+                isMobile,
+                prompt: "",
+                previewUrl: null,
+                imageSize: "square_hd",
+                inferenceSteps: 8,
+                guidanceScale: 3.5,
+                outputFormat: "png",
+                productImages: productImages || [],
+                imagesLoading,
+                creditsRemaining: userCreditData?.credits_remaining ?? 0,
+                onPromptChange: () => {},
+                onFileSelect: () => {},
+                onClearFile: () => {},
+                onImageSizeChange: () => {},
+                onInferenceStepsChange: () => {},
+                onGuidanceScaleChange: () => {},
+                onOutputFormatChange: () => {},
+                onGenerate: () => {},
+                onDownload: () => {}
+              }}
+            />
+          )}
         </div>
       </div>
     </div>

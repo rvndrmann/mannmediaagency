@@ -7,10 +7,12 @@ import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { useNavigate } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
 
 const CreateVideo = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -26,6 +28,19 @@ const CreateVideo = () => {
   });
 
   const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 10);
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
+
+  const handleCreateVideo = () => {
+    if (!hasEnoughCredits) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 10 credits to create a video.",
+        variant: "destructive",
+      });
+      return;
+    }
+    setIsDialogOpen(true);
+  };
 
   return (
     <div className="flex-1 p-8 bg-background">
@@ -52,8 +67,9 @@ const CreateVideo = () => {
               You have {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
             </p>
             <Button 
-              onClick={() => setIsDialogOpen(true)}
-              className="bg-white/10 hover:bg-white/20 text-white"
+              onClick={handleCreateVideo}
+              disabled={!hasEnoughCredits}
+              className="bg-white/10 hover:bg-white/20 text-white disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <Plus className="w-4 h-4 mr-2" />
               Create New Video

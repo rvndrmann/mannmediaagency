@@ -117,6 +117,15 @@ export const CreateVideoDialog = ({
       return;
     }
 
+    if (creditsRemaining < 10) {
+      toast({
+        title: "Insufficient Credits",
+        description: "You need at least 10 credits to create a video.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     setIsSubmitting(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();

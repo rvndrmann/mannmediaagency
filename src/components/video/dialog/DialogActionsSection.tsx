@@ -27,7 +27,7 @@ export const DialogActionsSection = ({
         disabled={isSubmitting}
         className="px-8 bg-purple-600 hover:bg-purple-700 text-white"
       >
-        {isSubmitting ? "Creating..." : "Create Video"}
+        {isSubmitting ? "Creating..." : "Create Video (10 credits)"}
       </Button>
     </div>
   );

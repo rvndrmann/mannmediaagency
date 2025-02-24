@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -6,8 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { ExternalLink, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "./PhoneInput";
 
 const SignupForm = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
@@ -16,6 +16,8 @@ const SignupForm = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
+
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const handlePhoneSignUp = async () => {
     if (!phoneNumber) {
@@ -118,17 +120,11 @@ const SignupForm = () => {
     <div className="space-y-4">
       {!showVerification ? (
         <>
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-white">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+1234567890"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-            />
-          </div>
+          <PhoneInput
+            value={phoneNumber}
+            onChange={setPhoneNumber}
+            error={undefined}
+          />
           <Button
             onClick={handlePhoneSignUp}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"
@@ -152,7 +148,7 @@ const SignupForm = () => {
               placeholder="Enter verification code"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}
-              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-lg"
             />
           </div>
           <Button
@@ -189,36 +185,40 @@ const SignupForm = () => {
         </div>
 
         <div className="space-y-4">
-          <Button
-            onClick={handleGoogleSignUp}
-            className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
-            disabled={isGoogleLoading}
-          >
-            {isGoogleLoading ? (
-              <>
-                <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                Connecting to Google...
-              </>
-            ) : (
-              <>
-                <img
-                  src="https://www.google.com/favicon.ico"
-                  alt="Google"
-                  className="w-5 h-5"
-                />
-                Continue with Google
-              </>
-            )}
-          </Button>
+          {!isMobile && (
+            <>
+              <Button
+                onClick={handleGoogleSignUp}
+                className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
+                disabled={isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                    Connecting to Google...
+                  </>
+                ) : (
+                  <>
+                    <img
+                      src="https://www.google.com/favicon.ico"
+                      alt="Google"
+                      className="w-5 h-5"
+                    />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-600" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-gray-800/50 px-2 text-gray-400">Or</span>
-            </div>
-          </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-600" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-gray-800/50 px-2 text-gray-400">Or</span>
+                </div>
+              </div>
+            </>
+          )}
 
           {renderPhoneAuth()}
         </div>

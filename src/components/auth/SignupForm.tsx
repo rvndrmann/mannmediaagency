@@ -3,32 +3,30 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Phone } from "lucide-react";
-import { PhoneInput } from "./PhoneInput";
-import { VerificationInput } from "./VerificationInput";
-import { usePhoneAuth } from "@/hooks/usePhoneAuth";
+import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const SignupForm = () => {
   const navigate = useNavigate();
-  const [isPhoneValid, setIsPhoneValid] = useState(false);
-  const {
-    phoneNumber,
-    setPhoneNumber,
-    verificationCode,
-    setVerificationCode,
-    status,
-    step,
-    error,
-    handlePhoneSubmit,
-    handleVerificationSubmit,
-    resetVerification
-  } = usePhoneAuth(true);
+  const [isLoading, setIsLoading] = useState(false);
 
-  const handleSubmit = async () => {
-    if (step === 'phone') {
-      await handlePhoneSubmit();
-    } else {
-      await handleVerificationSubmit();
+  const handleGoogleSignup = async () => {
+    try {
+      setIsLoading(true);
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      });
+
+      if (error) {
+        toast.error(error.message);
+      }
+    } catch (error) {
+      toast.error("Failed to connect to Google. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -37,50 +35,26 @@ const SignupForm = () => {
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
         <div className="text-center">
           <h2 className="text-3xl font-bold text-white mb-2">Create Account</h2>
-          <p className="text-gray-400">Sign up using your phone number</p>
+          <p className="text-gray-400">Sign up to get started with MANNMEDIAAGENCY</p>
         </div>
 
         <div className="space-y-6">
-          {step === 'phone' ? (
-            <PhoneInput
-              value={phoneNumber}
-              onChange={setPhoneNumber}
-              error={error}
-              onValidityChange={setIsPhoneValid}
-            />
-          ) : (
-            <VerificationInput
-              value={verificationCode}
-              onChange={setVerificationCode}
-              error={error}
-            />
-          )}
-
           <Button
-            onClick={handleSubmit}
-            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-            disabled={status === 'loading' || (step === 'phone' && !isPhoneValid)}
+            onClick={handleGoogleSignup}
+            className="w-full bg-white hover:bg-gray-100 text-gray-900"
+            disabled={isLoading}
           >
-            {status === 'loading' ? (
-              <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+            {isLoading ? (
+              <span className="size-5 border-2 border-gray-900 border-t-transparent rounded-full animate-spin mr-2" />
             ) : (
-              <Phone className="w-5 h-5 mr-2" />
+              <img 
+                src="https://www.google.com/favicon.ico"
+                alt=""
+                className="w-4 h-4 mr-2"
+              />
             )}
-            {step === 'phone' 
-              ? (status === 'loading' ? "Sending code..." : "Sign up with Phone")
-              : (status === 'loading' ? "Verifying..." : "Create Account")
-            }
+            {isLoading ? "Connecting..." : "Sign up with Google"}
           </Button>
-
-          {step === 'code' && (
-            <Button
-              variant="link"
-              className="w-full text-purple-400 hover:text-purple-300"
-              onClick={resetVerification}
-            >
-              Change phone number
-            </Button>
-          )}
         </div>
 
         <div className="text-center">

@@ -31,23 +31,39 @@ interface PhoneInputProps {
 export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
   const [open, setOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
+  const [localNumber, setLocalNumber] = useState("");
 
-  // Remove the plus sign and country code from the input value to get just the number
-  const numberPart = value.replace(/^\+\d+/, '');
+  // Initialize local number from prop value if needed
+  useState(() => {
+    if (value) {
+      const numberPart = value.replace(/^\+\d+/, '');
+      setLocalNumber(numberPart);
+    }
+  });
 
   const handleCountrySelect = (country: typeof countries[0]) => {
     setSelectedCountry(country);
-    // Combine the new country code with existing number
-    onChange(`+${country.value}${numberPart}`);
+    // Combine the new country code with existing local number
+    const cleanNumber = localNumber.replace(/[^\d]/g, '');
+    onChange(`+${country.value}${cleanNumber}`);
     setOpen(false);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow the input to show what user types
     const newNumber = e.target.value;
-    // But only pass cleaned number to parent
+    setLocalNumber(newNumber); // Keep the raw input in local state
+    
+    // Clean and combine with country code for the parent
     const cleanNumber = newNumber.replace(/[^\d]/g, '');
     onChange(`+${selectedCountry.value}${cleanNumber}`);
+  };
+
+  const validateNumber = (number: string) => {
+    if (!number) return "Phone number is required";
+    const digits = number.replace(/[^\d]/g, '');
+    if (digits.length < 8) return "Phone number is too short";
+    if (digits.length > 15) return "Phone number is too long";
+    return "";
   };
 
   return (
@@ -99,9 +115,9 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
           type="tel"
           inputMode="numeric"
           enterKeyHint="done"
-          autoComplete="tel"
+          autoComplete="tel-national"
           placeholder="Enter your phone number"
-          value={numberPart}
+          value={localNumber}
           onChange={handleNumberChange}
           className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-lg"
         />

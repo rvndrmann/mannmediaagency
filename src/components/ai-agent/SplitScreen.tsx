@@ -55,32 +55,18 @@ export const SplitScreen = ({
   onSubmit,
 }: SplitScreenProps) => {
   const [splitRatio, setSplitRatio] = useState(50);
-  const [activeTool, setActiveTool] = useState("product-shot-v1");
-
-  const handleDrag = (e: React.MouseEvent | React.TouchEvent) => {
-    if ('touches' in e) {
-      const touch = e.touches[0];
-      const container = e.currentTarget.parentElement;
-      if (container) {
-        const rect = container.getBoundingClientRect();
-        const x = touch.clientX - rect.left;
-        const percentage = (x / rect.width) * 100;
-        setSplitRatio(Math.min(Math.max(percentage, 30), 70));
-      }
-    }
-  };
 
   return (
-    <div 
-      className={cn(
-        "flex flex-row h-[calc(100vh-4rem)]",
-        isMobile && "fixed inset-0 top-16"
-      )}
-    >
+    <div className={cn(
+      "flex h-[calc(100vh-4rem)]",
+      isMobile && "flex-col fixed inset-0 top-16"
+    )}>
       {/* Left Pane (Chat) */}
       <div 
-        className="relative flex-none overflow-hidden border-r border-white/10"
-        style={{ width: `${splitRatio}%` }}
+        className={cn(
+          "relative bg-[#1A1F2C] border-white/10",
+          isMobile ? "h-[50vh] w-full border-b" : "flex-none w-[50%] border-r"
+        )}
       >
         <ChatSection
           messages={messages}
@@ -92,41 +78,21 @@ export const SplitScreen = ({
         />
       </div>
 
-      {/* Draggable Divider */}
-      <div 
-        className="w-1 bg-white/10 cursor-col-resize touch-none hover:bg-purple-500/50 active:bg-purple-500"
-        onTouchMove={handleDrag}
-        onMouseDown={() => {
-          const handleMouseMove = (e: MouseEvent) => {
-            const container = document.querySelector('.split-screen-container');
-            if (container) {
-              const rect = container.getBoundingClientRect();
-              const x = e.clientX - rect.left;
-              const percentage = (x / rect.width) * 100;
-              setSplitRatio(Math.min(Math.max(percentage, 30), 70));
-            }
-          };
-          
-          const handleMouseUp = () => {
-            document.removeEventListener('mousemove', handleMouseMove);
-            document.removeEventListener('mouseup', handleMouseUp);
-          };
-          
-          document.addEventListener('mousemove', handleMouseMove);
-          document.addEventListener('mouseup', handleMouseUp);
-        }}
-      />
-
       {/* Right Pane (Tools) */}
       <div 
-        className="relative flex-none overflow-hidden"
-        style={{ width: `${100 - splitRatio}%` }}
+        className={cn(
+          "relative bg-[#1A1F2C]",
+          isMobile ? "h-[50vh] w-full overflow-auto" : "flex-1"
+        )}
       >
         <ToolSelector 
-          activeTool={activeTool}
-          onToolSelect={setActiveTool}
+          activeTool="product-shot-v1"
+          onToolSelect={() => {}}
         />
-        <div className="h-[calc(100%-3rem)] overflow-auto">
+        <div className={cn(
+          "h-[calc(100%-3rem)] overflow-auto",
+          isMobile && "pb-16" // Add bottom padding on mobile to account for keyboard
+        )}>
           <FeaturePanel
             messages={messages}
             productShotV2={productShotV2}

@@ -68,45 +68,43 @@ const AIAgent = () => {
   return (
     <div className="min-h-screen bg-[#1A1F2C]">
       <Header onBack={() => navigate(-1)} />
-      <div className="pt-16">
-        <SplitScreen
-          isMobile={isMobile}
-          messages={messages}
-          input={input}
-          isLoading={isLoading}
-          userCredits={userCredits}
-          productShotV2={{
-            onSubmit: handleGenerateV2,
-            isGenerating: isGeneratingV2,
-            isSubmitting: isSubmittingV2,
-            availableCredits: userCreditData?.credits_remaining ?? 0,
-            generatedImages: generatedImagesV2
-          }}
-          productShotV1={{
-            isMobile,
-            prompt: "",
-            previewUrl: null,
-            imageSize: "square_hd",
-            inferenceSteps: 8,
-            guidanceScale: 3.5,
-            outputFormat: "png",
-            productImages: productImages || [],
-            imagesLoading,
-            creditsRemaining: userCreditData?.credits_remaining ?? 0,
-            onPromptChange: () => {},
-            onFileSelect: () => {},
-            onClearFile: () => {},
-            onImageSizeChange: () => {},
-            onInferenceStepsChange: () => {},
-            onGuidanceScaleChange: () => {},
-            onOutputFormatChange: () => {},
-            onGenerate: () => {},
-            onDownload: () => {}
-          }}
-          onInputChange={setInput}
-          onSubmit={handleSubmit}
-        />
-      </div>
+      <SplitScreen
+        isMobile={isMobile}
+        messages={messages}
+        input={input}
+        isLoading={isLoading}
+        userCredits={userCredits}
+        productShotV2={{
+          onSubmit: handleGenerateV2,
+          isGenerating: isGeneratingV2,
+          isSubmitting: isSubmittingV2,
+          availableCredits: userCreditData?.credits_remaining ?? 0,
+          generatedImages: generatedImagesV2
+        }}
+        productShotV1={{
+          isMobile,
+          prompt: "",
+          previewUrl: null,
+          imageSize: "square_hd",
+          inferenceSteps: 8,
+          guidanceScale: 3.5,
+          outputFormat: "png",
+          productImages: productImages || [],
+          imagesLoading,
+          creditsRemaining: userCreditData?.credits_remaining ?? 0,
+          onPromptChange: () => {},
+          onFileSelect: () => {},
+          onClearFile: () => {},
+          onImageSizeChange: () => {},
+          onInferenceStepsChange: () => {},
+          onGuidanceScaleChange: () => {},
+          onOutputFormatChange: () => {},
+          onGenerate: () => {},
+          onDownload: () => {}
+        }}
+        onInputChange={setInput}
+        onSubmit={handleSubmit}
+      />
     </div>
   );
 };

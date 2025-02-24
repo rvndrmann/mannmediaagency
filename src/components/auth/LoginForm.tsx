@@ -17,6 +17,8 @@ const LoginForm = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
+  
+  const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
 
   const validatePhoneNumber = (number: string) => {
     if (!number) return "Phone number is required";
@@ -200,36 +202,40 @@ const LoginForm = () => {
         </div>
 
         <div className="space-y-4">
-          <Button
-            onClick={handleGoogleSignIn}
-            className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
-            disabled={isGoogleLoading}
-          >
-            {isGoogleLoading ? (
-              <>
-                <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-                Connecting to Google...
-              </>
-            ) : (
-              <>
-                <img
-                  src="https://www.google.com/favicon.ico"
-                  alt="Google"
-                  className="w-5 h-5"
-                />
-                Continue with Google
-              </>
-            )}
-          </Button>
+          {!isMobile && (
+            <>
+              <Button
+                onClick={handleGoogleSignIn}
+                className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
+                disabled={isGoogleLoading}
+              >
+                {isGoogleLoading ? (
+                  <>
+                    <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                    Connecting to Google...
+                  </>
+                ) : (
+                  <>
+                    <img
+                      src="https://www.google.com/favicon.ico"
+                      alt="Google"
+                      className="w-5 h-5"
+                    />
+                    Continue with Google
+                  </>
+                )}
+              </Button>
 
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <span className="w-full border-t border-gray-600" />
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-gray-800/50 px-2 text-gray-400">Or</span>
-            </div>
-          </div>
+              <div className="relative">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t border-gray-600" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-gray-800/50 px-2 text-gray-400">Or</span>
+                </div>
+              </div>
+            </>
+          )}
 
           {renderPhoneAuth()}
         </div>

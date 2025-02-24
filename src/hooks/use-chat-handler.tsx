@@ -1,5 +1,6 @@
 
 import { useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export interface Message {
   role: "user" | "assistant";
@@ -7,7 +8,7 @@ export interface Message {
 }
 
 export function useChatHandler(messages: Message[], setInput: (value: string) => void) {
-  const handleSubmit = (e: React.FormEvent, input: string) => {
+  const handleSubmit = async (e: React.FormEvent, input: string) => {
     e.preventDefault();
     if (input.trim() === "") return;
 
@@ -19,21 +20,32 @@ export function useChatHandler(messages: Message[], setInput: (value: string) =>
     const assistantMessage: Message = { role: "assistant", content: "Loading..." };
     messages.push(assistantMessage);
 
-    fetch("/api/ai-chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ messages: messages }),
-    })
-      .then((response) => response.json())
-      .then((data) => {
-        assistantMessage.content = data.content;
-      })
-      .catch((error) => {
-        console.error("Error:", error);
-        assistantMessage.content = "Sorry, I encountered an error. Please try again.";
+    try {
+      console.log('Sending chat request:', {
+        messages: [...messages],
+        lastMessage: userMessage.content
       });
+
+      const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
+        body: { messages: messages }
+      });
+
+      console.log('Received response:', data);
+
+      if (error) {
+        console.error('Chat error:', error);
+        throw error;
+      }
+
+      if (data && data.message) {
+        assistantMessage.content = data.message;
+      } else {
+        throw new Error('Invalid response format from AI');
+      }
+    } catch (error) {
+      console.error("Error:", error);
+      assistantMessage.content = "Sorry, I encountered an error. Please try again.";
+    }
   };
 
   return { handleSubmit };

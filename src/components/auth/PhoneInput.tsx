@@ -53,10 +53,7 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
       const match = value.match(/^\+(\d+)/);
       if (match) {
         const countryCode = match[1];
-        const country = countries.find(c => {
-          // Find the longest matching country code prefix
-          return value.startsWith(`+${c.value}`);
-        });
+        const country = countries.find(c => value.startsWith(`+${c.value}`));
         if (country) {
           setSelectedCountry(country);
         }
@@ -73,7 +70,10 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
     }
   }, [value, onValidityChange]);
 
-  const handleCountrySelect = (country: typeof countries[0]) => {
+  const handleCountrySelect = (countryValue: string) => {
+    const country = countries.find(c => c.value === countryValue);
+    if (!country) return;
+    
     setSelectedCountry(country);
     const cleanNumber = localNumber.replace(/[^\d]/g, '');
     const formattedNumber = `+${country.value}${cleanNumber}`;
@@ -120,27 +120,29 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
             sideOffset={8}
             align="start"
           >
-            <Command className="bg-gray-800 rounded-md border border-gray-700">
+            <Command shouldFilter={true}>
               <CommandInput 
-                className="bg-gray-800 text-white placeholder:text-gray-400 border-b border-gray-700" 
                 placeholder="Search country..." 
+                className="h-9"
               />
-              <CommandEmpty className="text-gray-400 p-2">No country found.</CommandEmpty>
-              <CommandGroup>
+              <CommandEmpty>No country found.</CommandEmpty>
+              <CommandGroup className="max-h-[200px] overflow-y-auto">
                 {countries.map((country) => (
                   <CommandItem
                     key={country.value}
-                    value={country.label}
-                    onSelect={() => handleCountrySelect(country)}
-                    className="text-white hover:bg-gray-700 cursor-pointer"
+                    value={country.value}
+                    onSelect={handleCountrySelect}
+                    className="flex items-center gap-2 text-sm"
                   >
                     <Check
                       className={cn(
-                        "mr-2 h-4 w-4",
+                        "h-4 w-4",
                         selectedCountry.value === country.value ? "opacity-100" : "opacity-0"
                       )}
                     />
-                    {country.flag} {country.label} (+{country.value})
+                    <span>{country.flag}</span>
+                    <span>{country.label}</span>
+                    <span className="text-gray-400">+{country.value}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

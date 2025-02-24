@@ -149,13 +149,15 @@ const Explore = () => {
   if (!session) return null;
 
   return (
-    <SidebarProvider defaultOpen>
+    <SidebarProvider defaultOpen={false}>
       <div className="flex flex-col min-h-screen w-full bg-background">
         <div className="flex flex-1">
           <Sidebar />
           <main className="flex-1 relative">
-            <div className="p-8">
-              <h1 className="text-2xl font-bold mb-6">Explore</h1>
+            <div className="p-4 md:p-8">
+              <div className="flex items-center gap-4 mb-6">
+                <h1 className="text-2xl font-bold">Explore</h1>
+              </div>
               
               <FilterBar
                 searchQuery={searchQuery}
@@ -163,7 +165,7 @@ const Explore = () => {
               />
 
               <Tabs value={contentType} onValueChange={(value) => setContentType(value as typeof contentType)} className="mt-6">
-                <TabsList>
+                <TabsList className="w-full md:w-auto overflow-x-auto">
                   <TabsTrigger value="all">All Content</TabsTrigger>
                   <TabsTrigger value="product-shots">Product Shot V2</TabsTrigger>
                   <TabsTrigger value="images">Product Shot V1</TabsTrigger>

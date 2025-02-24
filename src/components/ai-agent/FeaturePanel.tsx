@@ -8,6 +8,7 @@ import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
 import { GalleryPanel as ImageToVideoGalleryPanel } from "@/components/image-to-video/GalleryPanel";
+import { ImageSelector } from "@/components/image-to-video/ImageSelector";
 
 interface ProductShotV1Props {
   isMobile: boolean;
@@ -44,6 +45,27 @@ interface FeaturePanelProps {
 }
 
 export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
+  // Combine images from both Product Shot V1 and V2
+  const allProductImages = [
+    ...(productShotV1.productImages || []).map(img => ({
+      id: img.id,
+      url: img.result_url || img.url,
+      prompt: img.prompt,
+      source: 'v1'
+    })),
+    ...(productShotV2.generatedImages || []).map(img => ({
+      id: img.id,
+      url: img.url,
+      prompt: img.prompt,
+      source: 'v2'
+    }))
+  ];
+
+  const handleSelectFromHistory = (jobId: string, imageUrl: string) => {
+    // Here you would handle selecting an image from the history
+    console.log('Selected image:', { jobId, imageUrl });
+  };
+
   return (
     <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4">
       <Tabs defaultValue="product-shot-v1" className="h-[calc(100vh-8rem)]">
@@ -134,19 +156,37 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
               previewUrl={productShotV1.previewUrl}
               onFileSelect={productShotV1.onFileSelect}
               onClearFile={productShotV1.onClearFile}
-              onSelectFromHistory={(jobId, imageUrl) => console.log(jobId, imageUrl)}
+              onSelectFromHistory={handleSelectFromHistory}
               onGenerate={productShotV1.onGenerate}
               isGenerating={false}
               creditsRemaining={productShotV1.creditsRemaining}
               aspectRatio="16:9"
               onAspectRatioChange={() => {}}
             />
-            <ImageToVideoGalleryPanel 
-              isMobile={productShotV1.isMobile}
-              videos={[]}
-              isLoading={false}
-              onDownload={productShotV1.onDownload}
-            />
+            <div className="flex-1 p-4">
+              <h3 className="text-lg font-semibold mb-4 text-white">Select from Generated Product Shots</h3>
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+                {allProductImages.map((image) => (
+                  <div 
+                    key={image.id} 
+                    className="relative group cursor-pointer rounded-lg overflow-hidden"
+                    onClick={() => handleSelectFromHistory(image.id, image.url)}
+                  >
+                    <img 
+                      src={image.url} 
+                      alt={image.prompt} 
+                      className="w-full h-40 object-cover"
+                    />
+                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                      <p className="text-white text-sm">Select image</p>
+                    </div>
+                    <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                      {image.source === 'v1' ? 'V1' : 'V2'}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
         </TabsContent>
 

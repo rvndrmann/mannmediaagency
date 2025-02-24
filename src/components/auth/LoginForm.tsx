@@ -6,8 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { ExternalLink, Phone } from "lucide-react";
+import { Phone } from "lucide-react";
 import { Label } from "@/components/ui/label";
 
 const LoginForm = () => {
@@ -17,19 +16,6 @@ const LoginForm = () => {
   const [verificationCode, setVerificationCode] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
-
-  // Detect if we're in an in-app browser
-  const isInAppBrowser = () => {
-    const ua = navigator.userAgent;
-    return (
-      ua.includes("Instagram") ||
-      ua.includes("FBAN") || // Facebook
-      ua.includes("FBAV") || // Facebook
-      ua.includes("Line") ||
-      (ua.includes("KAKAOTALK")) ||
-      /\bFB[\w_]+\//.test(ua) // Other Facebook apps
-    );
-  };
 
   const handlePhoneSignIn = async () => {
     if (!phoneNumber) {
@@ -86,11 +72,6 @@ const LoginForm = () => {
   };
 
   const handleGoogleSignIn = async () => {
-    if (isInAppBrowser()) {
-      toast.error("Please open this page in your default browser");
-      return;
-    }
-
     setIsGoogleLoading(true);
     try {
       const hostname = window.location.hostname;
@@ -207,9 +188,7 @@ const LoginForm = () => {
           <p className="text-gray-400">Sign in to your account</p>
         </div>
 
-        {isInAppBrowser() ? (
-          renderPhoneAuth()
-        ) : (
+        <div className="space-y-4">
           <Button
             onClick={handleGoogleSignIn}
             className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
@@ -231,7 +210,18 @@ const LoginForm = () => {
               </>
             )}
           </Button>
-        )}
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <span className="w-full border-t border-gray-600" />
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-gray-800/50 px-2 text-gray-400">Or</span>
+            </div>
+          </div>
+
+          {renderPhoneAuth()}
+        </div>
 
         <div className="text-center">
           <Button

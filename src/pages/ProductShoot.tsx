@@ -195,13 +195,13 @@ const ProductShoot = () => {
   }
 
   return (
-    <div className="h-screen bg-background overflow-hidden">
+    <div className="min-h-screen bg-background">
       <MobilePanelToggle title="Product Shot V1" />
       <div className={cn(
-        "h-[calc(100vh-64px)] flex",
+        "h-[calc(100vh-64px)] flex overflow-hidden",
         isMobile ? "flex-col" : "flex"
       )}>
-        <div className="w-1/3 min-w-[320px] bg-[#1A1F2C] h-full">
+        <div className="w-1/3 min-w-[320px] bg-[#1A1F2C] flex flex-col">
           <InputPanel
             isMobile={isMobile}
             prompt={prompt}
@@ -222,7 +222,7 @@ const ProductShoot = () => {
             creditsRemaining={userCredits?.credits_remaining}
           />
         </div>
-        <div className="flex-1 bg-[#1A1F2C]">
+        <div className="flex-1 bg-[#1A1F2C] overflow-hidden">
           <GalleryPanel
             isMobile={isMobile}
             images={images}

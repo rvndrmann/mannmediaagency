@@ -54,7 +54,7 @@ export function InputPanel({
 }: InputPanelProps) {
   return (
     <div className="flex flex-col h-full">
-      <ScrollArea className="flex-1">
+      <ScrollArea className="flex-1 pr-4">
         <div className="p-6 space-y-4">
           {!isMobile && (
             <div className="space-y-1.5">
@@ -144,8 +144,8 @@ export function InputPanel({
           </div>
         </div>
       </ScrollArea>
-
-      <div className="sticky bottom-0 p-6 bg-[#1A1F2C] border-t border-gray-800 shadow-lg">
+      
+      <div className="p-6 bg-[#1A1F2C] border-t border-gray-800">
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !prompt.trim() || !previewUrl}

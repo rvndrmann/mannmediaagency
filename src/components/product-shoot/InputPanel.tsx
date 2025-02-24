@@ -53,17 +53,14 @@ export function InputPanel({
   creditsRemaining,
 }: InputPanelProps) {
   return (
-    <div className={cn(
-      "bg-[#1a1a1a] space-y-6 p-6",
-      isMobile ? "w-full border-b border-gray-800" : "w-1/3 border-r border-gray-800 h-screen overflow-y-auto"
-    )}>
-      <div className="space-y-6">
+    <div className="h-full overflow-y-auto p-6 space-y-4 bg-[#1A1F2C]">
+      <div className="space-y-4">
         {!isMobile && (
-          <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-white">Product Shot V1</h1>
-            <div className="flex items-center space-x-2 text-gray-400">
+          <div className="space-y-1.5">
+            <h2 className="text-lg font-semibold text-white">Upload Image</h2>
+            <div className="flex items-center space-x-2 text-sm text-gray-400">
               <CreditCard className="w-4 h-4" />
-              <span>Credits remaining: {creditsRemaining?.toFixed(2) || "0.00"}</span>
+              <span>Credits: {creditsRemaining?.toFixed(2) || "0.00"}</span>
             </div>
           </div>
         )}
@@ -74,23 +71,23 @@ export function InputPanel({
           onClear={onClearFile}
         />
 
-        <div className="space-y-2">
-          <Label className="text-white">Prompt</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm text-gray-200">Prompt</Label>
           <Textarea
             placeholder="Describe the product image you want to generate..."
             value={prompt}
             onChange={(e) => onPromptChange(e.target.value)}
-            className="min-h-[100px] bg-[#2a2a2a] border-gray-700 text-white focus:ring-purple-500 focus:border-purple-500"
+            className="min-h-[80px] resize-none bg-[#2A2A2A] border-[#3A3A3A] text-white placeholder:text-gray-500 focus-visible:ring-1 focus-visible:ring-purple-500"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-white">Image Size</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm text-gray-200">Image Size</Label>
           <Select value={imageSize} onValueChange={onImageSizeChange}>
-            <SelectTrigger className="bg-[#2a2a2a] border-gray-700 text-white">
+            <SelectTrigger className="bg-[#2A2A2A] border-[#3A3A3A] text-white">
               <SelectValue placeholder="Select size" />
             </SelectTrigger>
-            <SelectContent className="bg-[#2a2a2a] border-gray-700">
+            <SelectContent className="bg-[#2A2A2A] border-[#3A3A3A]">
               <SelectItem value="square_hd">Square HD</SelectItem>
               <SelectItem value="square">Square</SelectItem>
               <SelectItem value="portrait_4_3">Portrait 4:3</SelectItem>
@@ -101,20 +98,26 @@ export function InputPanel({
           </Select>
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-white">Inference Steps: {inferenceSteps}</Label>
+        <div className="space-y-1.5">
+          <div className="flex justify-between">
+            <Label className="text-sm text-gray-200">Inference Steps</Label>
+            <span className="text-sm text-gray-400">{inferenceSteps}</span>
+          </div>
           <input
             type="range"
             min="1"
             max="20"
             value={inferenceSteps}
             onChange={(e) => onInferenceStepsChange(Number(e.target.value))}
-            className="w-full bg-purple-500/20 h-2 rounded-lg appearance-none cursor-pointer accent-purple-500"
+            className="w-full bg-[#2A2A2A] h-1.5 rounded-lg appearance-none cursor-pointer accent-purple-500"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-white">Guidance Scale: {guidanceScale}</Label>
+        <div className="space-y-1.5">
+          <div className="flex justify-between">
+            <Label className="text-sm text-gray-200">Guidance Scale</Label>
+            <span className="text-sm text-gray-400">{guidanceScale}</span>
+          </div>
           <input
             type="range"
             min="1"
@@ -122,17 +125,17 @@ export function InputPanel({
             step="0.1"
             value={guidanceScale}
             onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
-            className="w-full bg-purple-500/20 h-2 rounded-lg appearance-none cursor-pointer accent-purple-500"
+            className="w-full bg-[#2A2A2A] h-1.5 rounded-lg appearance-none cursor-pointer accent-purple-500"
           />
         </div>
 
-        <div className="space-y-2">
-          <Label className="text-white">Output Format</Label>
+        <div className="space-y-1.5">
+          <Label className="text-sm text-gray-200">Output Format</Label>
           <Select value={outputFormat} onValueChange={onOutputFormatChange}>
-            <SelectTrigger className="bg-[#2a2a2a] border-gray-700 text-white">
+            <SelectTrigger className="bg-[#2A2A2A] border-[#3A3A3A] text-white">
               <SelectValue placeholder="Select format" />
             </SelectTrigger>
-            <SelectContent className="bg-[#2a2a2a] border-gray-700">
+            <SelectContent className="bg-[#2A2A2A] border-[#3A3A3A]">
               <SelectItem value="png">PNG</SelectItem>
               <SelectItem value="jpg">JPG</SelectItem>
             </SelectContent>

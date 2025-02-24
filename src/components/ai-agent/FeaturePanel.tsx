@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -179,7 +180,16 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                 onClick={() => {
                   const lastResponse = getLastAIResponse();
                   if (lastResponse) {
-                    productShotV2.onSubmit({ prompt: lastResponse });
+                    productShotV2.onSubmit({
+                      prompt: lastResponse,
+                      generationType: "description",
+                      placementType: "automatic",
+                      optimizeDescription: true,
+                      fastMode: false,
+                      originalQuality: true,
+                      aspectRatio: "1:1",
+                      manualPlacement: ""
+                    });
                   }
                 }}
                 className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"

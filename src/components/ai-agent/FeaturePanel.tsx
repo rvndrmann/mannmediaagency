@@ -44,13 +44,19 @@ interface FeaturePanelProps {
 export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
   return (
     <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4">
-      <Tabs defaultValue="script" className="h-[calc(100vh-8rem)]">
+      <Tabs defaultValue="faceless-video" className="h-[calc(100vh-8rem)]">
         <TabsList className="w-full bg-[#333333] mb-4">
           <TabsTrigger 
-            value="script" 
+            value="faceless-video" 
             className="flex-1 text-white data-[state=active]:bg-[#444444]"
           >
-            Video Script
+            Faceless Video
+          </TabsTrigger>
+          <TabsTrigger 
+            value="image-to-video" 
+            className="flex-1 text-white data-[state=active]:bg-[#444444]"
+          >
+            Image to Video
           </TabsTrigger>
           <TabsTrigger 
             value="product-shot-v2" 
@@ -66,8 +72,42 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="script" className="h-[calc(100%-3rem)] overflow-hidden">
+        <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-hidden">
           <ScriptBuilderTab messages={messages} />
+        </TabsContent>
+
+        <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
+          <div className="flex h-full gap-4 bg-[#1A1F2C] rounded-lg">
+            <div className="w-1/3 min-w-[320px] border-r border-white/10">
+              <InputPanel
+                isMobile={productShotV1.isMobile}
+                prompt={productShotV1.prompt}
+                onPromptChange={productShotV1.onPromptChange}
+                previewUrl={productShotV1.previewUrl}
+                onFileSelect={productShotV1.onFileSelect}
+                onClearFile={productShotV1.onClearFile}
+                imageSize={productShotV1.imageSize}
+                onImageSizeChange={productShotV1.onImageSizeChange}
+                inferenceSteps={productShotV1.inferenceSteps}
+                onInferenceStepsChange={productShotV1.onInferenceStepsChange}
+                guidanceScale={productShotV1.guidanceScale}
+                onGuidanceScaleChange={productShotV1.onGuidanceScale}
+                outputFormat={productShotV1.outputFormat}
+                onOutputFormatChange={productShotV1.onOutputFormatChange}
+                onGenerate={productShotV1.onGenerate}
+                isGenerating={false}
+                creditsRemaining={productShotV1.creditsRemaining}
+              />
+            </div>
+            <div className="flex-1">
+              <GalleryPanel 
+                isMobile={productShotV1.isMobile}
+                images={productShotV1.productImages}
+                isLoading={productShotV1.imagesLoading}
+                onDownload={productShotV1.onDownload}
+              />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-hidden">

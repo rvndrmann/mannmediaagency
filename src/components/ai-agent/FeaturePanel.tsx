@@ -7,7 +7,7 @@ import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedIma
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
-import { GalleryPanel as ImageToVideoGalleryPanel } from "@/components/image-to-video/GalleryPanel";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { ImageSelector } from "@/components/image-to-video/ImageSelector";
 
 interface ProductShotV1Props {
@@ -45,7 +45,6 @@ interface FeaturePanelProps {
 }
 
 export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
-  // Combine images from both Product Shot V1 and V2
   const allProductImages = [
     ...(productShotV1.productImages || []).map(img => ({
       id: img.id,
@@ -149,43 +148,55 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
           <div className="flex h-full gap-4 bg-[#1A1F2C] rounded-lg">
-            <ImageToVideoInputPanel
-              isMobile={productShotV1.isMobile}
-              prompt={productShotV1.prompt}
-              onPromptChange={productShotV1.onPromptChange}
-              previewUrl={productShotV1.previewUrl}
-              onFileSelect={productShotV1.onFileSelect}
-              onClearFile={productShotV1.onClearFile}
-              onSelectFromHistory={handleSelectFromHistory}
-              onGenerate={productShotV1.onGenerate}
-              isGenerating={false}
-              creditsRemaining={productShotV1.creditsRemaining}
-              aspectRatio="16:9"
-              onAspectRatioChange={() => {}}
-            />
-            <div className="flex-1 p-4">
-              <h3 className="text-lg font-semibold mb-4 text-white">Select from Generated Product Shots</h3>
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                {allProductImages.map((image) => (
-                  <div 
-                    key={image.id} 
-                    className="relative group cursor-pointer rounded-lg overflow-hidden"
-                    onClick={() => handleSelectFromHistory(image.id, image.url)}
-                  >
-                    <img 
-                      src={image.url} 
-                      alt={image.prompt} 
-                      className="w-full h-40 object-cover"
-                    />
-                    <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                      <p className="text-white text-sm">Select image</p>
-                    </div>
-                    <div className="absolute top-2 right-2 bg-purple-600 text-white text-xs px-2 py-1 rounded">
-                      {image.source === 'v1' ? 'V1' : 'V2'}
-                    </div>
+            <div className="w-1/3 min-w-[320px] border-r border-white/10">
+              <ImageToVideoInputPanel
+                isMobile={productShotV1.isMobile}
+                prompt={productShotV1.prompt}
+                onPromptChange={productShotV1.onPromptChange}
+                previewUrl={productShotV1.previewUrl}
+                onFileSelect={productShotV1.onFileSelect}
+                onClearFile={productShotV1.onClearFile}
+                onSelectFromHistory={handleSelectFromHistory}
+                onGenerate={productShotV1.onGenerate}
+                isGenerating={false}
+                creditsRemaining={productShotV1.creditsRemaining}
+                aspectRatio="16:9"
+                onAspectRatioChange={() => {}}
+              />
+            </div>
+            <div className="flex-1">
+              <ScrollArea className="h-full">
+                <div className="p-6">
+                  <h3 className="text-xl font-semibold mb-6 text-white">
+                    Select from Generated Product Shots
+                  </h3>
+                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                    {allProductImages.map((image) => (
+                      <div 
+                        key={image.id} 
+                        className="relative group cursor-pointer rounded-lg overflow-hidden bg-black/20"
+                      >
+                        <img 
+                          src={image.url} 
+                          alt={image.prompt} 
+                          className="w-full aspect-square object-cover group-hover:opacity-75 transition-opacity"
+                          onClick={() => handleSelectFromHistory(image.id, image.url)}
+                        />
+                        <div className="absolute inset-0 flex flex-col justify-between p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <div className="flex justify-end">
+                            <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                              {image.source === 'v1' ? 'V1' : 'V2'}
+                            </span>
+                          </div>
+                          <div className="bg-black/75 p-2 rounded">
+                            <p className="text-white text-sm line-clamp-2">{image.prompt}</p>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
-              </div>
+                </div>
+              </ScrollArea>
             </div>
           </div>
         </TabsContent>

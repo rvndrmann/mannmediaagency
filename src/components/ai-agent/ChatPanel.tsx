@@ -37,21 +37,25 @@ export const ChatPanel = ({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full relative">
+    <div className="flex flex-col h-full">
       <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10">
         <span className="text-sm text-white/80">
           Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
         </span>
       </div>
-      <ScrollArea className="flex-1 pr-4 mb-4">
-        <div className="space-y-4 pb-4">
-          {messages.map((message, index) => (
-            <ChatMessage key={index} message={message} />
-          ))}
-          <div ref={messagesEndRef} />
-        </div>
-      </ScrollArea>
-      <div className="sticky bottom-0 bg-[#1A1F2C]/60 backdrop-blur-xl pt-2">
+      
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea className="h-[calc(100vh-13rem)] pr-4">
+          <div className="space-y-4 pb-4">
+            {messages.map((message, index) => (
+              <ChatMessage key={index} message={message} />
+            ))}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+      </div>
+
+      <div className="sticky bottom-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl pt-2 border-t border-white/10">
         <ChatInput
           input={input}
           isLoading={isLoading}

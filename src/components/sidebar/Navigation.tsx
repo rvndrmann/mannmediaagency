@@ -111,11 +111,7 @@ export const Navigation = () => {
             >
               {!item.disabled ? (
                 <Link to={item.to} className="flex items-center gap-2">
-                  {item.logo ? (
-                    <img src={item.logo} alt="" className="w-4 h-4" />
-                  ) : (
-                    <item.icon className="h-4 w-4" />
-                  )}
+                  <item.icon className="h-4 w-4" />
                   <div className="flex-1 text-left">
                     <div>{item.name}</div>
                     {item.subtext && (

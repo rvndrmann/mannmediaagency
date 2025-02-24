@@ -8,7 +8,7 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Common country codes with flags and validation rules
+// Define countries directly in the component to ensure data is always available
 const countries = [
   { value: "91", label: "India", flag: "🇮🇳", minLength: 10, maxLength: 10 },
   { value: "1", label: "United States", flag: "🇺🇸", minLength: 10, maxLength: 10 },
@@ -83,6 +83,7 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
     const validationError = validatePhoneNumber(cleanNumber, country);
     setLocalError(validationError);
     onValidityChange?.(!validationError);
+    setOpen(false);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -125,15 +126,12 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
                 placeholder="Search country..." 
               />
               <CommandEmpty className="text-gray-400 p-2">No country found.</CommandEmpty>
-              <CommandGroup className="max-h-[300px] overflow-y-auto">
+              <CommandGroup>
                 {countries.map((country) => (
                   <CommandItem
                     key={country.value}
-                    value={country.value}
-                    onSelect={() => {
-                      handleCountrySelect(country);
-                      setTimeout(() => setOpen(false), 100);
-                    }}
+                    value={country.label}
+                    onSelect={() => handleCountrySelect(country)}
                     className="text-white hover:bg-gray-700 cursor-pointer"
                   >
                     <Check

@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -107,7 +108,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
                   isGenerating={productShotV2.isGenerating}
                   isSubmitting={productShotV2.isSubmitting}
                   availableCredits={productShotV2.availableCredits}
-                  initialSceneDescription={sceneDescription}
+                  initialSceneDescription=""
                 />
               </div>
               <div className="space-y-6">

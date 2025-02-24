@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
@@ -12,6 +13,11 @@ import { toast } from "sonner";
 interface UserCredits {
   user_id: string;
   credits_remaining: number;
+}
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
 }
 
 const AIAgent = () => {
@@ -118,15 +124,15 @@ const AIAgent = () => {
     e.preventDefault();
     if (input.trim() === "") return;
 
-    // Append the user's message to the chat
-    const userMessage = { role: "user", content: input };
+    // Append the user's message to the chat with proper typing
+    const userMessage: Message = { role: "user", content: input };
     messages.push(userMessage);
 
     // Clear the input field
     setInput("");
 
-    // Optimistically update the chat interface
-    const assistantMessage = { role: "assistant", content: "Loading..." };
+    // Optimistically update the chat interface with proper typing
+    const assistantMessage: Message = { role: "assistant", content: "Loading..." };
     messages.push(assistantMessage);
 
     // Send the chat history to the API

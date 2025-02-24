@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -33,13 +33,13 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [localNumber, setLocalNumber] = useState("");
 
-  // Initialize local number from prop value if needed
-  useState(() => {
+  // Properly sync the local number state with the parent value
+  useEffect(() => {
     if (value) {
       const numberPart = value.replace(/^\+\d+/, '');
       setLocalNumber(numberPart);
     }
-  });
+  }, [value]);
 
   const handleCountrySelect = (country: typeof countries[0]) => {
     setSelectedCountry(country);
@@ -50,20 +50,9 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newNumber = e.target.value;
-    setLocalNumber(newNumber); // Keep the raw input in local state
-    
-    // Clean and combine with country code for the parent
-    const cleanNumber = newNumber.replace(/[^\d]/g, '');
-    onChange(`+${selectedCountry.value}${cleanNumber}`);
-  };
-
-  const validateNumber = (number: string) => {
-    if (!number) return "Phone number is required";
-    const digits = number.replace(/[^\d]/g, '');
-    if (digits.length < 8) return "Phone number is too short";
-    if (digits.length > 15) return "Phone number is too long";
-    return "";
+    const newNumber = e.target.value.replace(/[^0-9]/g, ''); // Only allow digits
+    setLocalNumber(newNumber);
+    onChange(`+${selectedCountry.value}${newNumber}`);
   };
 
   return (
@@ -114,12 +103,15 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
           id="phone"
           type="tel"
           inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={15}
           enterKeyHint="done"
           autoComplete="tel-national"
           placeholder="Enter your phone number"
           value={localNumber}
           onChange={handleNumberChange}
           className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-lg"
+          aria-label="Phone number"
         />
       </div>
       {error && (

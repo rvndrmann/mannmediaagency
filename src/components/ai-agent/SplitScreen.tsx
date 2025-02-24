@@ -5,6 +5,29 @@ import { ChatSection } from "./ChatSection";
 import { FeaturePanel } from "./FeaturePanel";
 import { ToolSelector } from "./ToolSelector";
 
+interface ProductShotV1Props {
+  isMobile: boolean;
+  prompt: string;
+  previewUrl: string | null;
+  imageSize: string;
+  inferenceSteps: number;
+  guidanceScale: number;
+  outputFormat: string;
+  productImages: any[];
+  imagesLoading: boolean;
+  creditsRemaining: number;
+  isGenerating: boolean;  // Added this property
+  onPromptChange: (value: string) => void;
+  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearFile: () => void;
+  onImageSizeChange: (value: string) => void;
+  onInferenceStepsChange: (value: number) => void;
+  onGuidanceScaleChange: (value: number) => void;
+  onOutputFormatChange: (value: string) => void;
+  onGenerate: () => void;
+  onDownload: (url: string) => void;
+}
+
 interface SplitScreenProps {
   isMobile: boolean;
   messages: any[];
@@ -18,27 +41,7 @@ interface SplitScreenProps {
     availableCredits: number;
     generatedImages: any[];
   };
-  productShotV1: {
-    isMobile: boolean;
-    prompt: string;
-    previewUrl: string | null;
-    imageSize: string;
-    inferenceSteps: number;
-    guidanceScale: number;
-    outputFormat: string;
-    productImages: any[];
-    imagesLoading: boolean;
-    creditsRemaining: number;
-    onPromptChange: (value: string) => void;
-    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onClearFile: () => void;
-    onImageSizeChange: (value: string) => void;
-    onInferenceStepsChange: (value: number) => void;
-    onGuidanceScaleChange: (value: number) => void;
-    onOutputFormatChange: (value: string) => void;
-    onGenerate: () => void;
-    onDownload: (url: string) => void;
-  };
+  productShotV1: ProductShotV1Props;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
 }

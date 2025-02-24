@@ -22,6 +22,7 @@ interface ProductShotV1Props {
   productImages: any[];
   imagesLoading: boolean;
   creditsRemaining: number;
+  isGenerating: boolean; // Added this property
   onPromptChange: (value: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;

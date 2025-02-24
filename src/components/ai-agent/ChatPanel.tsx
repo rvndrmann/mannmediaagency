@@ -26,10 +26,23 @@ export const ChatPanel = ({
   onInputChange,
   onSubmit
 }: ChatPanelProps) => {
-  const messagesEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const lastMessageRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    if (lastMessageRef.current && scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        const scrollHeight = scrollContainer.scrollHeight;
+        const clientHeight = scrollContainer.clientHeight;
+        
+        // Only scroll if we're already near the bottom
+        const isNearBottom = scrollContainer.scrollTop + clientHeight >= scrollHeight - 200;
+        if (isNearBottom) {
+          scrollContainer.scrollTop = scrollHeight;
+        }
+      }
+    }
   };
 
   useEffect(() => {
@@ -37,7 +50,7 @@ export const ChatPanel = ({
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full">
+    <div className="flex flex-col h-full relative">
       <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10">
         <span className="text-sm text-white/80">
           Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
@@ -45,12 +58,12 @@ export const ChatPanel = ({
       </div>
       
       <div className="flex-1 overflow-hidden">
-        <ScrollArea className="h-[calc(100vh-13rem)] pr-4">
+        <ScrollArea ref={scrollAreaRef} className="h-full max-h-[calc(100%-4rem)]">
           <div className="space-y-4 pb-4">
             {messages.map((message, index) => (
               <ChatMessage key={index} message={message} />
             ))}
-            <div ref={messagesEndRef} />
+            <div ref={lastMessageRef} className="h-px" />
           </div>
         </ScrollArea>
       </div>

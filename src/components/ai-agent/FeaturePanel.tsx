@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -52,6 +53,7 @@ interface FeaturePanelProps {
 export function FeaturePanel({ messages, productShotV2, productShotV1, activeTool }: FeaturePanelProps) {
   const [sceneDescription, setSceneDescription] = useState("");
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
 
   const handleUseAIResponse = (response: string) => {
     if (activeTool === "product-shot-v1") {
@@ -81,6 +83,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, activeToo
               onPromptChange={productShotV1.onPromptChange}
             />
             <GalleryPanel
+              isMobile={productShotV1.isMobile}
               images={productShotV1.productImages}
               isLoading={productShotV1.imagesLoading}
               onDownload={productShotV1.onDownload}
@@ -89,19 +92,27 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, activeToo
         </TabsContent>
 
         <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <ProductShotForm
-            onSubmit={productShotV2.onSubmit}
-            isGenerating={productShotV2.isGenerating}
-            isSubmitting={productShotV2.isSubmitting}
-            availableCredits={productShotV2.availableCredits}
-            sceneDescription={sceneDescription}
-            setSceneDescription={setSceneDescription}
-          />
-          <GeneratedImagesPanel generatedImages={productShotV2.generatedImages} />
-        </TabsContent>
-
-        <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <ScriptBuilderTab messages={messages} />
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6 min-h-[calc(100vh-16rem)]">
+                <ProductShotForm
+                  onSubmit={productShotV2.onSubmit}
+                  isGenerating={productShotV2.isGenerating}
+                  isSubmitting={productShotV2.isSubmitting}
+                  availableCredits={productShotV2.availableCredits}
+                  initialSceneDescription={sceneDescription}
+                />
+              </div>
+              <div className="space-y-6">
+                {productShotV2.generatedImages.length > 0 && (
+                  <GeneratedImagesPanel
+                    images={productShotV2.generatedImages}
+                    isGenerating={productShotV2.isGenerating}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-y-auto">
@@ -113,12 +124,16 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, activeToo
             onFileSelect={productShotV1.onFileSelect}
             onClearFile={productShotV1.onClearFile}
             onSelectFromHistory={() => {}}
-            onGenerate={() => {}}
+            onGenerate={productShotV1.onGenerate}
             isGenerating={productShotV1.isGenerating}
             creditsRemaining={productShotV1.creditsRemaining}
-            aspectRatio="16:9"
-            onAspectRatioChange={() => {}}
+            aspectRatio={selectedAspectRatio}
+            onAspectRatioChange={setSelectedAspectRatio}
           />
+        </TabsContent>
+
+        <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <ScriptBuilderTab messages={messages} />
         </TabsContent>
       </Tabs>
     </Card>

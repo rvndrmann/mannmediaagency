@@ -5,12 +5,32 @@ import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { toast } from "sonner";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { ExternalLink } from "lucide-react";
 
 const LoginForm = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const navigate = useNavigate();
 
+  // Detect if we're in an in-app browser
+  const isInAppBrowser = () => {
+    const ua = navigator.userAgent;
+    return (
+      ua.includes("Instagram") ||
+      ua.includes("FBAN") || // Facebook
+      ua.includes("FBAV") || // Facebook
+      ua.includes("Line") ||
+      (ua.includes("KAKAOTALK")) ||
+      /\bFB[\w_]+\//.test(ua) // Other Facebook apps
+    );
+  };
+
   const handleGoogleSignIn = async () => {
+    if (isInAppBrowser()) {
+      toast.error("Please open this page in your default browser");
+      return;
+    }
+
     setIsGoogleLoading(true);
     try {
       // Get the current domain
@@ -64,27 +84,43 @@ const LoginForm = () => {
           <p className="text-gray-400">Sign in to your account</p>
         </div>
 
-        <Button
-          onClick={handleGoogleSignIn}
-          className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
-          disabled={isGoogleLoading}
-        >
-          {isGoogleLoading ? (
-            <>
-              <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
-              Connecting to Google...
-            </>
-          ) : (
-            <>
-              <img
-                src="https://www.google.com/favicon.ico"
-                alt="Google"
-                className="w-5 h-5"
-              />
-              Continue with Google
-            </>
-          )}
-        </Button>
+        {isInAppBrowser() ? (
+          <Alert className="bg-yellow-500/10 border-yellow-500/50 text-yellow-200">
+            <AlertTitle className="text-yellow-200">Please Open in Browser</AlertTitle>
+            <AlertDescription className="mt-2 text-yellow-100/80">
+              For security reasons, please open this page in your default browser (Chrome, Safari, etc.) to login with Google.
+              <Button
+                variant="link"
+                className="mt-2 text-yellow-200 hover:text-yellow-100 p-0 h-auto font-normal flex items-center gap-1"
+                onClick={() => window.open(window.location.href, "_blank")}
+              >
+                Open in browser <ExternalLink className="h-4 w-4" />
+              </Button>
+            </AlertDescription>
+          </Alert>
+        ) : (
+          <Button
+            onClick={handleGoogleSignIn}
+            className="w-full bg-white hover:bg-gray-100 text-gray-900 flex items-center justify-center gap-2 relative"
+            disabled={isGoogleLoading}
+          >
+            {isGoogleLoading ? (
+              <>
+                <span className="absolute left-4 size-5 border-2 border-gray-600 border-t-transparent rounded-full animate-spin" />
+                Connecting to Google...
+              </>
+            ) : (
+              <>
+                <img
+                  src="https://www.google.com/favicon.ico"
+                  alt="Google"
+                  className="w-5 h-5"
+                />
+                Continue with Google
+              </>
+            )}
+          </Button>
+        )}
 
         <div className="text-center">
           <Button

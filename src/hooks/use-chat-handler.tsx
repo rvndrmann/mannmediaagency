@@ -1,6 +1,8 @@
 
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
+import { useUserCredits } from "@/hooks/use-user-credits";
 
 export interface Message {
   role: "user" | "assistant";
@@ -8,16 +10,69 @@ export interface Message {
 }
 
 const STORAGE_KEY = "ai_agent_chat_history";
+const CHAT_CREDIT_COST = 0.07;
 
 export function useChatHandler(setInput: (value: string) => void) {
+  const { toast } = useToast();
+  const { data: userCredits, refetch: refetchCredits } = useUserCredits();
   const [messages, setMessages] = useState<Message[]>(() => {
     const savedMessages = localStorage.getItem(STORAGE_KEY);
     return savedMessages ? JSON.parse(savedMessages) : [];
   });
 
+  const deductCredits = async () => {
+    try {
+      const { data, error } = await supabase.rpc('safely_decrease_chat_credits', {
+        credit_amount: CHAT_CREDIT_COST
+      });
+
+      if (error) throw error;
+      return true;
+    } catch (error) {
+      console.error('Credit deduction error:', error);
+      const message = error instanceof Error ? error.message : 'Failed to deduct credits';
+      toast({
+        title: "Insufficient Credits",
+        description: message,
+        variant: "destructive",
+      });
+      return false;
+    }
+  };
+
+  const logChatUsage = async (messageContent: string) => {
+    try {
+      const { error } = await supabase
+        .from('chat_usage')
+        .insert({
+          message_content: messageContent,
+          credits_charged: CHAT_CREDIT_COST,
+          words_count: messageContent.trim().split(/\s+/).length
+        });
+
+      if (error) throw error;
+    } catch (error) {
+      console.error('Failed to log chat usage:', error);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent, input: string) => {
     e.preventDefault();
     if (input.trim() === "") return;
+
+    // Check credits before proceeding
+    if (!userCredits || userCredits.credits_remaining < CHAT_CREDIT_COST) {
+      toast({
+        title: "Insufficient Credits",
+        description: `You need at least ${CHAT_CREDIT_COST} credits to send a message.`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Try to deduct credits first
+    const deductionSuccessful = await deductCredits();
+    if (!deductionSuccessful) return;
 
     const userMessage: Message = { role: "user", content: input };
     const assistantMessage: Message = { role: "assistant", content: "Loading..." };
@@ -32,6 +87,12 @@ export function useChatHandler(setInput: (value: string) => void) {
     setInput("");
 
     try {
+      // Log the chat usage after successful credit deduction
+      await logChatUsage(input);
+      
+      // Refetch credits to update UI
+      await refetchCredits();
+
       console.log('Sending chat request:', {
         messages: [...messages, userMessage],
         lastMessage: userMessage.content

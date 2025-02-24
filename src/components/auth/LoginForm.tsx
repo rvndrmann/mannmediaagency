@@ -4,12 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
-import { ExternalLink } from "lucide-react";
+import { ExternalLink, Phone } from "lucide-react";
+import { Label } from "@/components/ui/label";
 
 const LoginForm = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
+  const [isPhoneLoading, setIsPhoneLoading] = useState(false);
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [verificationCode, setVerificationCode] = useState("");
+  const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
 
   // Detect if we're in an in-app browser
@@ -25,6 +31,60 @@ const LoginForm = () => {
     );
   };
 
+  const handlePhoneSignIn = async () => {
+    if (!phoneNumber) {
+      toast.error("Please enter your phone number");
+      return;
+    }
+
+    setIsPhoneLoading(true);
+    try {
+      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: formattedPhone,
+        options: {
+          shouldCreateUser: true, // This will create a new user if one doesn't exist
+        }
+      });
+
+      if (error) throw error;
+
+      setShowVerification(true);
+      toast.success("Verification code sent to your phone");
+    } catch (error: any) {
+      console.error('Phone sign-in error:', error);
+      toast.error(error.message || 'Failed to send verification code');
+    } finally {
+      setIsPhoneLoading(false);
+    }
+  };
+
+  const handleVerifyCode = async () => {
+    if (!verificationCode) {
+      toast.error("Please enter the verification code");
+      return;
+    }
+
+    setIsPhoneLoading(true);
+    try {
+      const { error } = await supabase.auth.verifyOtp({
+        phone: phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`,
+        token: verificationCode,
+        type: 'sms'
+      });
+
+      if (error) throw error;
+
+      toast.success("Successfully logged in!");
+      navigate("/");
+    } catch (error: any) {
+      console.error('Verification error:', error);
+      toast.error(error.message || 'Failed to verify code');
+    } finally {
+      setIsPhoneLoading(false);
+    }
+  };
+
   const handleGoogleSignIn = async () => {
     if (isInAppBrowser()) {
       toast.error("Please open this page in your default browser");
@@ -33,18 +93,15 @@ const LoginForm = () => {
 
     setIsGoogleLoading(true);
     try {
-      // Get the current domain
       const hostname = window.location.hostname;
       const isProd = hostname === 'mannmediaagency.com' || hostname === 'www.mannmediaagency.com';
       
-      // Set redirect URL based on environment
       const redirectTo = isProd 
         ? 'https://mannmediaagency.com/auth/callback'
         : `${window.location.origin}/auth/callback`;
 
       console.log('Using redirect URL:', redirectTo);
       
-      // Sign out any existing session
       await supabase.auth.signOut();
 
       const { error } = await supabase.auth.signInWithOAuth({
@@ -76,6 +133,72 @@ const LoginForm = () => {
     }
   };
 
+  const renderPhoneAuth = () => (
+    <div className="space-y-4">
+      {!showVerification ? (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="phone" className="text-white">Phone Number</Label>
+            <Input
+              id="phone"
+              type="tel"
+              placeholder="+1234567890"
+              value={phoneNumber}
+              onChange={(e) => setPhoneNumber(e.target.value)}
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+            />
+          </div>
+          <Button
+            onClick={handlePhoneSignIn}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={isPhoneLoading}
+          >
+            {isPhoneLoading ? (
+              <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+            ) : (
+              <Phone className="w-5 h-5 mr-2" />
+            )}
+            {isPhoneLoading ? "Sending code..." : "Continue with Phone"}
+          </Button>
+        </>
+      ) : (
+        <>
+          <div className="space-y-2">
+            <Label htmlFor="code" className="text-white">Verification Code</Label>
+            <Input
+              id="code"
+              type="text"
+              placeholder="Enter verification code"
+              value={verificationCode}
+              onChange={(e) => setVerificationCode(e.target.value)}
+              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+            />
+          </div>
+          <Button
+            onClick={handleVerifyCode}
+            className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+            disabled={isPhoneLoading}
+          >
+            {isPhoneLoading ? (
+              <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+            ) : null}
+            {isPhoneLoading ? "Verifying..." : "Verify Code"}
+          </Button>
+          <Button
+            variant="link"
+            className="w-full text-purple-400 hover:text-purple-300"
+            onClick={() => {
+              setShowVerification(false);
+              setVerificationCode("");
+            }}
+          >
+            Back to phone number
+          </Button>
+        </>
+      )}
+    </div>
+  );
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-900 via-gray-800 to-purple-900 flex items-center justify-center px-4">
       <Card className="w-full max-w-md p-8 space-y-6 bg-gray-800/50 backdrop-blur-xl border-gray-700">
@@ -85,19 +208,7 @@ const LoginForm = () => {
         </div>
 
         {isInAppBrowser() ? (
-          <Alert className="bg-yellow-500/10 border-yellow-500/50 text-yellow-200">
-            <AlertTitle className="text-yellow-200">Please Open in Browser</AlertTitle>
-            <AlertDescription className="mt-2 text-yellow-100/80">
-              For security reasons, please open this page in your default browser (Chrome, Safari, etc.) to login with Google.
-              <Button
-                variant="link"
-                className="mt-2 text-yellow-200 hover:text-yellow-100 p-0 h-auto font-normal flex items-center gap-1"
-                onClick={() => window.open(window.location.href, "_blank")}
-              >
-                Open in browser <ExternalLink className="h-4 w-4" />
-              </Button>
-            </AlertDescription>
-          </Alert>
+          renderPhoneAuth()
         ) : (
           <Button
             onClick={handleGoogleSignIn}

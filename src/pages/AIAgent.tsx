@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
@@ -11,7 +12,7 @@ import { useChatHandler } from "@/hooks/use-chat-handler";
 const AIAgent = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
-  const userCreditData = useUserCredits();
+  const userCreditsQuery = useUserCredits();
 
   const {
     input,
@@ -27,7 +28,10 @@ const AIAgent = () => {
     handleGenerate: handleGenerateV2
   } = useProductShoot();
 
-  const { state: productShotState, actions: productShotActions } = useProductShotV1(userCreditData);
+  const { state: productShotState, actions: productShotActions } = useProductShotV1({
+    user_id: userCreditsQuery.data?.user_id || '',
+    credits_remaining: userCreditsQuery.data?.credits_remaining || 0
+  });
   const { messages, handleSubmit } = useChatHandler(setInput);
 
   return (
@@ -44,7 +48,7 @@ const AIAgent = () => {
             onSubmit: handleGenerateV2,
             isGenerating: isGeneratingV2,
             isSubmitting: isSubmittingV2,
-            availableCredits: userCreditData?.credits_remaining ?? 0,
+            availableCredits: userCreditsQuery.data?.credits_remaining || 0,
             generatedImages: generatedImagesV2
           }}
           productShotV1={{
@@ -57,7 +61,7 @@ const AIAgent = () => {
             outputFormat: productShotState.outputFormat,
             productImages: productShotState.productImages || [],
             imagesLoading: productShotState.imagesLoading,
-            creditsRemaining: userCreditData?.credits_remaining ?? 0,
+            creditsRemaining: userCreditsQuery.data?.credits_remaining || 0,
             isGenerating: isLoading,
             onPromptChange: productShotActions.setProductShotPrompt,
             onFileSelect: productShotActions.handleFileSelect,

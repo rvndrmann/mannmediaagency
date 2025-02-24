@@ -22,7 +22,7 @@ interface ProductShotV1Props {
   productImages: any[];
   imagesLoading: boolean;
   creditsRemaining: number;
-  isGenerating: boolean; // Added this property
+  isGenerating: boolean;
   onPromptChange: (value: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
@@ -48,6 +48,8 @@ interface FeaturePanelProps {
 
 export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
   const [sceneDescription, setSceneDescription] = useState("");
+  const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
+  const [currentTab, setCurrentTab] = useState("product-shot-v1");
 
   const allProductImages = [
     ...(productShotV1.productImages || []).map(img => ({
@@ -68,9 +70,29 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
     console.log('Selected image:', { jobId, imageUrl });
   };
 
+  const handleUseAIResponse = (response: string) => {
+    switch (currentTab) {
+      case "product-shot-v1":
+        productShotV1.onPromptChange(response);
+        break;
+      case "product-shot-v2":
+        setSceneDescription(response);
+        break;
+      case "image-to-video":
+        setImageToVideoPrompt(response);
+        break;
+      default:
+        break;
+    }
+  };
+
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
-      <Tabs defaultValue="product-shot-v1" className="h-[calc(100vh-8rem)]">
+      <Tabs 
+        defaultValue="product-shot-v1" 
+        className="h-[calc(100vh-8rem)]"
+        onValueChange={(value) => setCurrentTab(value)}
+      >
         <TabsList className="w-full bg-[#222222] border-b border-gray-800 px-4 py-2">
           <TabsTrigger value="product-shot-v1">Product Shot V1</TabsTrigger>
           <TabsTrigger value="product-shot-v2">Product Shot V2</TabsTrigger>
@@ -83,7 +105,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
             <div className="p-4 border-b border-gray-800">
               <UseAIResponseButton 
                 messages={messages}
-                onUseResponse={productShotV1.onPromptChange}
+                onUseResponse={handleUseAIResponse}
               />
             </div>
             <div className="flex-1 overflow-auto">
@@ -109,7 +131,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
             <div className="p-4 border-b border-gray-800">
               <UseAIResponseButton 
                 messages={messages}
-                onUseResponse={setSceneDescription}
+                onUseResponse={handleUseAIResponse}
               />
             </div>
             <div className="flex-1 overflow-auto p-6">
@@ -141,7 +163,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
             <div className="p-4 border-b border-gray-800">
               <UseAIResponseButton 
                 messages={messages}
-                onUseResponse={productShotV1.onPromptChange}
+                onUseResponse={handleUseAIResponse}
               />
             </div>
             <div className="flex-1 overflow-auto">
@@ -149,6 +171,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                 <div className="w-1/3 min-w-[320px] border-r border-gray-800">
                   <ImageToVideoInputPanel
                     {...productShotV1}
+                    prompt={imageToVideoPrompt}
+                    onPromptChange={(value: string) => setImageToVideoPrompt(value)}
                     onSelectFromHistory={handleSelectFromHistory}
                     aspectRatio="16:9"
                     onAspectRatioChange={() => {}}

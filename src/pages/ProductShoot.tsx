@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -198,25 +199,19 @@ const ProductShoot = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1A1F2C] to-[#121418]">
       <MobilePanelToggle title="Product Shot V1" />
-      <div 
-        className={cn(
-          "transition-all duration-300",
+      <div className={cn(
+        "transition-all duration-300 relative",
+        isMobile 
+          ? "flex flex-col h-[calc(100vh-64px)]" 
+          : "flex h-[calc(100vh-64px-3rem)]",
+        chatExpanded && isMobile && "h-[calc(70vh-64px)]"
+      )}>
+        <div className={cn(
+          "bg-[#1A1F2C]/80 backdrop-blur-xl border-white/10",
           isMobile 
-            ? "flex flex-col" 
-            : "flex",
-          chatExpanded 
-            ? "h-[calc(70vh-64px)]" 
-            : "h-[calc(100vh-64px-3rem)]"
-        )}
-      >
-        <div 
-          className={cn(
-            "bg-[#1A1F2C]/80 backdrop-blur-xl border-white/10",
-            isMobile 
-              ? "w-full border-b h-auto overflow-y-auto" 
-              : "w-1/3 min-w-[380px] border-r flex flex-col"
-          )}
-        >
+            ? "w-full border-b max-h-[60vh] overflow-y-auto" 
+            : "w-1/3 min-w-[380px] border-r flex flex-col"
+        )}>
           <InputPanel
             isMobile={isMobile}
             prompt={prompt}
@@ -237,12 +232,12 @@ const ProductShoot = () => {
             creditsRemaining={userCredits?.credits_remaining}
           />
         </div>
-        <div 
-          className={cn(
-            "bg-[#121418] overflow-hidden",
-            isMobile ? "w-full flex-1" : "flex-1"
-          )}
-        >
+        <div className={cn(
+          "bg-[#121418]",
+          isMobile 
+            ? "w-full flex-1 overflow-y-auto" 
+            : "flex-1 overflow-hidden"
+        )}>
           <GalleryPanel
             isMobile={isMobile}
             images={images}

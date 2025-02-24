@@ -94,9 +94,9 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   }
 
   return (
-    <div className="h-full flex flex-col space-y-6">
-      <ScrollArea className="flex-1">
-        <div className="space-y-6">
+    <div className="h-full flex flex-col">
+      <ScrollArea className="flex-1 pb-24">
+        <div className="p-6 space-y-6">
           <ScriptEditor
             script={script}
             setScript={setScript}
@@ -138,14 +138,16 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
         </div>
       </ScrollArea>
 
-      <Button 
-        onClick={handleCreateVideo}
-        disabled={isCreating}
-        className="w-full bg-[#9b87f5] hover:bg-[#7E69AB] text-white h-12 rounded-lg"
-      >
-        <Video className="h-5 w-5 mr-2" />
-        {isCreating ? "Creating Video..." : "Create Video"}
-      </Button>
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-10 lg:sticky">
+        <Button 
+          onClick={handleCreateVideo}
+          disabled={isCreating}
+          className="w-full bg-[#9b87f5] hover:bg-[#7E69AB] text-white h-12 rounded-lg"
+        >
+          <Video className="h-5 w-5 mr-2" />
+          {isCreating ? "Creating Video..." : "Create Video"}
+        </Button>
+      </div>
     </div>
   );
 };

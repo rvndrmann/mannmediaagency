@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -51,8 +52,8 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
   }, [initialSceneDescription, setSceneDescription]);
 
   return (
-    <form onSubmit={handleSubmit} className="relative">
-      <div className="space-y-6 pb-20">
+    <form onSubmit={handleSubmit}>
+      <div className="space-y-6 pb-24">
         <Card className="p-4 bg-gray-900 border-gray-800">
           <div className="space-y-4">
             <ImageUploader
@@ -175,7 +176,7 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
         </Card>
       </div>
       
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:p-0 lg:bg-transparent lg:border-0">
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-10 lg:sticky">
         <GenerateButton
           numResults={1}
           availableCredits={availableCredits}

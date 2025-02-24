@@ -8,9 +8,13 @@ import { useNavigate } from "react-router-dom";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Sidebar } from "@/components/Sidebar";
+import { Button } from "@/components/ui/button";
+import { ChevronLeft } from "lucide-react";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 const Explore = () => {
   const navigate = useNavigate();
+  const isMobile = useIsMobile();
   const [contentType, setContentType] = useState<"all" | "images" | "videos" | "product-shots">("all");
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -154,10 +158,28 @@ const Explore = () => {
         <div className="flex flex-1">
           <Sidebar />
           <main className="flex-1 relative">
-            <div className="p-4 md:p-8">
-              <div className="flex items-center gap-4 mb-6">
-                <h1 className="text-2xl font-bold">Explore</h1>
-              </div>
+            <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
+              {isMobile && (
+                <div className="flex items-center p-4">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => navigate(-1)}
+                    className="mr-2"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </Button>
+                  <h1 className="text-xl font-bold">Explore</h1>
+                </div>
+              )}
+            </div>
+
+            <div className={`p-4 md:p-8 ${isMobile ? 'pt-20' : ''}`}>
+              {!isMobile && (
+                <div className="flex items-center gap-4 mb-6">
+                  <h1 className="text-2xl font-bold">Explore</h1>
+                </div>
+              )}
               
               <FilterBar
                 searchQuery={searchQuery}

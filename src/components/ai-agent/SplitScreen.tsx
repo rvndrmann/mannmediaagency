@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -66,7 +65,6 @@ export const SplitScreen = ({
         isMobile ? "flex-col min-h-screen pb-safe-area-inset-bottom" : "h-[calc(100vh-4rem)]"
       )}
     >
-      {/* Chat Section - Full height on mobile */}
       <div 
         className={cn(
           "relative bg-[#1A1F2C] border-white/10",
@@ -83,7 +81,6 @@ export const SplitScreen = ({
         />
       </div>
 
-      {/* Tools Section - Scrollable on mobile */}
       <div 
         className={cn(
           "relative bg-[#1A1F2C]",
@@ -97,12 +94,13 @@ export const SplitScreen = ({
         
         <div className={cn(
           "h-[calc(100%-3rem)]",
-          isMobile && "mt-4 pb-16" // Add bottom padding on mobile
+          isMobile && "mt-4 pb-16"
         )}>
           <FeaturePanel
             messages={messages}
             productShotV2={productShotV2}
             productShotV1={productShotV1}
+            activeTool={activeTool}
           />
         </div>
       </div>

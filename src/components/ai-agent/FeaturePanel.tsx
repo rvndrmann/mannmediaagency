@@ -1,6 +1,6 @@
 
 import { Card } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
 import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
 import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
@@ -44,12 +44,12 @@ interface FeaturePanelProps {
     generatedImages: any[];
   };
   productShotV1: ProductShotV1Props;
+  activeTool: string;
 }
 
-export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
+export function FeaturePanel({ messages, productShotV2, productShotV1, activeTool }: FeaturePanelProps) {
   const [sceneDescription, setSceneDescription] = useState("");
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
-  const [currentTab, setCurrentTab] = useState("product-shot-v1");
 
   const allProductImages = [
     ...(productShotV1.productImages || []).map(img => ({
@@ -71,7 +71,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
   };
 
   const handleUseAIResponse = (response: string) => {
-    switch (currentTab) {
+    switch (activeTool) {
       case "product-shot-v1":
         productShotV1.onPromptChange(response);
         break;
@@ -89,102 +89,73 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
       <Tabs 
-        defaultValue="product-shot-v1" 
+        value={activeTool} 
         className="h-[calc(100vh-8rem)]"
-        onValueChange={(value) => setCurrentTab(value)}
       >
-        <TabsList className="w-full bg-[#222222] border-b border-gray-800 px-4 py-2">
-          <TabsTrigger value="product-shot-v1">Product Shot V1</TabsTrigger>
-          <TabsTrigger value="product-shot-v2">Product Shot V2</TabsTrigger>
-          <TabsTrigger value="image-to-video">Image to Video</TabsTrigger>
-          <TabsTrigger value="faceless-video">Faceless Video</TabsTrigger>
-        </TabsList>
+        <div className="p-4 border-b border-gray-800">
+          <UseAIResponseButton 
+            messages={messages}
+            onUseResponse={handleUseAIResponse}
+          />
+        </div>
 
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-gray-800">
-              <UseAIResponseButton 
-                messages={messages}
-                onUseResponse={handleUseAIResponse}
-              />
+          <div className="flex h-full">
+            <div className="w-1/3 min-w-[320px] border-r border-gray-800">
+              <InputPanel {...productShotV1} />
             </div>
-            <div className="flex-1 overflow-auto">
-              <div className="flex h-full">
-                <div className="w-1/3 min-w-[320px] border-r border-gray-800">
-                  <InputPanel {...productShotV1} />
-                </div>
-                <div className="flex-1">
-                  <GalleryPanel 
-                    isMobile={productShotV1.isMobile}
-                    images={productShotV1.productImages}
-                    isLoading={productShotV1.imagesLoading}
-                    onDownload={productShotV1.onDownload}
-                  />
-                </div>
-              </div>
+            <div className="flex-1">
+              <GalleryPanel 
+                isMobile={productShotV1.isMobile}
+                images={productShotV1.productImages}
+                isLoading={productShotV1.imagesLoading}
+                onDownload={productShotV1.onDownload}
+              />
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-gray-800">
-              <UseAIResponseButton 
-                messages={messages}
-                onUseResponse={handleUseAIResponse}
-              />
-            </div>
-            <div className="flex-1 overflow-auto p-6">
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <div className="space-y-6">
-                  <ProductShotForm 
-                    onSubmit={productShotV2.onSubmit}
+          <div className="flex-1 overflow-auto p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <ProductShotForm 
+                  onSubmit={productShotV2.onSubmit}
+                  isGenerating={productShotV2.isGenerating}
+                  isSubmitting={productShotV2.isSubmitting}
+                  availableCredits={productShotV2.availableCredits}
+                  initialSceneDescription={sceneDescription}
+                />
+              </div>
+              <div className="space-y-6">
+                {productShotV2.generatedImages.length > 0 && (
+                  <GeneratedImagesPanel 
+                    images={productShotV2.generatedImages}
                     isGenerating={productShotV2.isGenerating}
-                    isSubmitting={productShotV2.isSubmitting}
-                    availableCredits={productShotV2.availableCredits}
-                    initialSceneDescription={sceneDescription}
                   />
-                </div>
-                <div className="space-y-6">
-                  {productShotV2.generatedImages.length > 0 && (
-                    <GeneratedImagesPanel 
-                      images={productShotV2.generatedImages}
-                      isGenerating={productShotV2.isGenerating}
-                    />
-                  )}
-                </div>
+                )}
               </div>
             </div>
           </div>
         </TabsContent>
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex flex-col h-full">
-            <div className="p-4 border-b border-gray-800">
-              <UseAIResponseButton 
-                messages={messages}
-                onUseResponse={handleUseAIResponse}
+          <div className="flex h-full">
+            <div className="w-1/3 min-w-[320px] border-r border-gray-800">
+              <ImageToVideoInputPanel
+                {...productShotV1}
+                prompt={imageToVideoPrompt}
+                onPromptChange={(value: string) => setImageToVideoPrompt(value)}
+                onSelectFromHistory={handleSelectFromHistory}
+                aspectRatio="16:9"
+                onAspectRatioChange={() => {}}
               />
             </div>
-            <div className="flex-1 overflow-auto">
-              <div className="flex h-full">
-                <div className="w-1/3 min-w-[320px] border-r border-gray-800">
-                  <ImageToVideoInputPanel
-                    {...productShotV1}
-                    prompt={imageToVideoPrompt}
-                    onPromptChange={(value: string) => setImageToVideoPrompt(value)}
-                    onSelectFromHistory={handleSelectFromHistory}
-                    aspectRatio="16:9"
-                    onAspectRatioChange={() => {}}
-                  />
-                </div>
-                <div className="flex-1">
-                  <ProductImageGrid 
-                    images={allProductImages}
-                    onSelectImage={handleSelectFromHistory}
-                  />
-                </div>
-              </div>
+            <div className="flex-1">
+              <ProductImageGrid 
+                images={allProductImages}
+                onSelectImage={handleSelectFromHistory}
+              />
             </div>
           </div>
         </TabsContent>

@@ -8,7 +8,7 @@ export interface UserCredits {
 }
 
 export function useUserCredits() {
-  const { data: userCreditData } = useQuery({
+  return useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
       const { data: userData } = await supabase.auth.getUser();
@@ -22,6 +22,4 @@ export function useUserCredits() {
       return data as UserCredits;
     },
   });
-
-  return userCreditData;
 }

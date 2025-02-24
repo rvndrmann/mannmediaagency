@@ -3,6 +3,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { useUserCredits, UserCredits } from "@/hooks/use-user-credits";
+import { UseQueryResult } from "@tanstack/react-query";
 
 export interface Message {
   role: "user" | "assistant";
@@ -65,7 +66,7 @@ export function useChatHandler(setInput: (value: string) => void) {
     if (input.trim() === "") return;
 
     // Check credits before proceeding
-    if (!userCreditData || userCreditData.credits_remaining < CHAT_CREDIT_COST) {
+    if (!userCreditData.data || userCreditData.data.credits_remaining < CHAT_CREDIT_COST) {
       toast({
         title: "Insufficient Credits",
         description: `You need at least ${CHAT_CREDIT_COST} credits to send a message.`,
@@ -95,7 +96,7 @@ export function useChatHandler(setInput: (value: string) => void) {
       await logChatUsage(input);
       
       // Refetch credits to update UI
-      await userCreditData.refetch?.();
+      await userCreditData.refetch();
 
       console.log('Sending chat request:', {
         messages: [...messages, userMessage],

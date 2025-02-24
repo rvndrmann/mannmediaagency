@@ -7,27 +7,38 @@ export interface Message {
   content: string;
 }
 
-export function useChatHandler(messages: Message[], setInput: (value: string) => void) {
+const STORAGE_KEY = "ai_agent_chat_history";
+
+export function useChatHandler(setInput: (value: string) => void) {
+  const [messages, setMessages] = useState<Message[]>(() => {
+    const savedMessages = localStorage.getItem(STORAGE_KEY);
+    return savedMessages ? JSON.parse(savedMessages) : [];
+  });
+
   const handleSubmit = async (e: React.FormEvent, input: string) => {
     e.preventDefault();
     if (input.trim() === "") return;
 
     const userMessage: Message = { role: "user", content: input };
-    messages.push(userMessage);
+    const assistantMessage: Message = { role: "assistant", content: "Loading..." };
+    
+    // Update messages state with new messages
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages, userMessage, assistantMessage];
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
+      return newMessages;
+    });
 
     setInput("");
 
-    const assistantMessage: Message = { role: "assistant", content: "Loading..." };
-    messages.push(assistantMessage);
-
     try {
       console.log('Sending chat request:', {
-        messages: [...messages],
+        messages: [...messages, userMessage],
         lastMessage: userMessage.content
       });
 
       const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
-        body: { messages: messages }
+        body: { messages: [...messages, userMessage] }
       });
 
       console.log('Received response:', data);
@@ -38,15 +49,27 @@ export function useChatHandler(messages: Message[], setInput: (value: string) =>
       }
 
       if (data && data.message) {
-        assistantMessage.content = data.message;
+        // Update assistant message with the response
+        setMessages(prevMessages => {
+          const newMessages = [...prevMessages];
+          newMessages[newMessages.length - 1].content = data.message;
+          localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
+          return newMessages;
+        });
       } else {
         throw new Error('Invalid response format from AI');
       }
     } catch (error) {
       console.error("Error:", error);
-      assistantMessage.content = "Sorry, I encountered an error. Please try again.";
+      // Update assistant message with error
+      setMessages(prevMessages => {
+        const newMessages = [...prevMessages];
+        newMessages[newMessages.length - 1].content = "Sorry, I encountered an error. Please try again.";
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
+        return newMessages;
+      });
     }
   };
 
-  return { handleSubmit };
+  return { messages, handleSubmit };
 }

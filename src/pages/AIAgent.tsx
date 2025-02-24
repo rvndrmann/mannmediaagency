@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
@@ -15,7 +14,6 @@ const AIAgent = () => {
   const userCreditData = useUserCredits();
 
   const {
-    messages,
     input,
     setInput,
     isLoading,
@@ -30,7 +28,7 @@ const AIAgent = () => {
   } = useProductShoot();
 
   const { state: productShotState, actions: productShotActions } = useProductShotV1(userCreditData);
-  const { handleSubmit } = useChatHandler(messages, setInput);
+  const { messages, handleSubmit } = useChatHandler(setInput);
 
   return (
     <div className="min-h-screen bg-[#1A1F2C] relative">

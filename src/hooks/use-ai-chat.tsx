@@ -55,9 +55,13 @@ export const useAIChat = () => {
   };
 
   const logChatUsage = async (messageContent: string) => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+
     const { error } = await supabase
       .from('chat_usage')
       .insert({
+        user_id: user.id,
         message_content: messageContent,
         credits_charged: CHAT_CREDIT_COST,
         words_count: messageContent.trim().split(/\s+/).length

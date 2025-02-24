@@ -1300,6 +1300,12 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: undefined
       }
+      safely_decrease_chat_credits: {
+        Args: {
+          credit_amount: number
+        }
+        Returns: boolean
+      }
       safely_decrease_credits: {
         Args: {
           amount: number

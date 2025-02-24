@@ -13,6 +13,11 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
   const navigate = useNavigate();
 
   const handlePhoneSubmit = async () => {
+    if (!phoneNumber.trim()) {
+      setError("Phone number is required");
+      return;
+    }
+
     try {
       setStatus("loading");
       setError("");
@@ -28,6 +33,11 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
   };
 
   const handleVerificationSubmit = async () => {
+    if (!verificationCode.trim()) {
+      setError("Verification code is required");
+      return;
+    }
+
     try {
       setStatus("loading");
       setError("");
@@ -50,7 +60,10 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
 
   return {
     phoneNumber,
-    setPhoneNumber,
+    setPhoneNumber: (value: string) => {
+      setPhoneNumber(value);
+      setError(""); // Clear error when user types
+    },
     verificationCode,
     setVerificationCode,
     status,

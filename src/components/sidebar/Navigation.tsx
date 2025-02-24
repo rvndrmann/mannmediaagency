@@ -4,13 +4,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import {
   ScrollText,
-  GalleryHorizontalEnd,
-  Video,
   Settings,
-  FileVideo,
-  Image,
-  Camera,
-  Database,
   Info,
   Mail,
   Shield,
@@ -47,39 +41,6 @@ export const Navigation = () => {
       subtext: "Intelligent Assistant",
       to: "/ai-agent",
       icon: Bot,
-    },
-    {
-      name: "Product Shot V1",
-      logo: "/lovable-uploads/6339ca58-18ce-4e6a-9e56-116de738e55b.png",
-      to: "/product-shoot",
-      icon: Image,
-    },
-    {
-      name: "Product Shot V2",
-      subtext: "Enhanced AI Product Shots",
-      to: "/product-shoot-v2",
-      icon: Camera,
-    },
-    {
-      name: "Image to Video",
-      subtext: "Powered by Kling AI",
-      logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
-      to: "/image-to-video",
-      icon: FileVideo,
-    },
-    {
-      name: "Faceless Video",
-      subtext: "Powered by Kling AI",
-      logo: "/lovable-uploads/e22e8141-25e1-46b8-9b6f-139efcb4b84d.png",
-      to: "/create-video",
-      icon: Video,
-    },
-    {
-      name: "Metadata Manager",
-      subtext: "Powered by ChatGPT-4o",
-      logo: "/lovable-uploads/b9716efa-12d6-414b-b000-c32233ecfa73.png",
-      to: "/metadata",
-      icon: Database,
     },
     {
       name: "Plans & Billing",

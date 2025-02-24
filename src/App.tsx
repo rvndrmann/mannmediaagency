@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -30,6 +29,7 @@ import Terms from "./pages/Terms";
 import Explore from "./pages/Explore";
 import { ThemeProvider } from "next-themes";
 import ProfileSettings from "@/pages/ProfileSettings";
+import { BottomNav } from "./components/mobile/BottomNav";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +111,7 @@ const App = () => (
               <Route path="/payment/failure" element={<ProtectedRoute><PaymentFailure /></ProtectedRoute>} />
               <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
             </Routes>
+            <BottomNav />
           </TooltipProvider>
           <Toaster />
           <Sonner />

@@ -35,9 +35,9 @@ const AIAgent = () => {
   const { messages, handleSubmit } = useChatHandler(setInput);
 
   return (
-    <div className="min-h-screen bg-[#1A1F2C] relative">
-      <Header onBack={() => navigate(-1)} />
-      <div className={`${isMobile ? 'pt-16' : ''}`}>
+    <div className="min-h-screen bg-[#1A1F2C] relative pb-16 md:pb-0">
+      {!isMobile && <Header onBack={() => navigate(-1)} />}
+      <div>
         <SplitScreen
           isMobile={isMobile}
           messages={messages}

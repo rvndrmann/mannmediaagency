@@ -195,37 +195,41 @@ const ProductShoot = () => {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="h-screen bg-background overflow-hidden">
       <MobilePanelToggle title="Product Shot V1" />
       <div className={cn(
-        "flex-1 flex min-h-0",
+        "h-[calc(100vh-64px)] flex",
         isMobile ? "flex-col" : "flex"
       )}>
-        <InputPanel
-          isMobile={isMobile}
-          prompt={prompt}
-          onPromptChange={setPrompt}
-          previewUrl={previewUrl}
-          onFileSelect={handleFileSelect}
-          onClearFile={clearSelectedFile}
-          imageSize={imageSize}
-          onImageSizeChange={setImageSize}
-          inferenceSteps={inferenceSteps}
-          onInferenceStepsChange={setInferenceSteps}
-          guidanceScale={guidanceScale}
-          onGuidanceScaleChange={setGuidanceScale}
-          outputFormat={outputFormat}
-          onOutputFormatChange={setOutputFormat}
-          onGenerate={() => generateImage.mutate()}
-          isGenerating={generateImage.isPending}
-          creditsRemaining={userCredits?.credits_remaining}
-        />
-        <GalleryPanel
-          isMobile={isMobile}
-          images={images}
-          isLoading={imagesLoading}
-          onDownload={handleDownload}
-        />
+        <div className="w-1/3 min-w-[320px] bg-[#1A1F2C] h-full">
+          <InputPanel
+            isMobile={isMobile}
+            prompt={prompt}
+            onPromptChange={setPrompt}
+            previewUrl={previewUrl}
+            onFileSelect={handleFileSelect}
+            onClearFile={clearSelectedFile}
+            imageSize={imageSize}
+            onImageSizeChange={setImageSize}
+            inferenceSteps={inferenceSteps}
+            onInferenceStepsChange={setInferenceSteps}
+            guidanceScale={guidanceScale}
+            onGuidanceScaleChange={setGuidanceScale}
+            outputFormat={outputFormat}
+            onOutputFormatChange={setOutputFormat}
+            onGenerate={() => generateImage.mutate()}
+            isGenerating={generateImage.isPending}
+            creditsRemaining={userCredits?.credits_remaining}
+          />
+        </div>
+        <div className="flex-1 bg-[#1A1F2C]">
+          <GalleryPanel
+            isMobile={isMobile}
+            images={images}
+            isLoading={imagesLoading}
+            onDownload={handleDownload}
+          />
+        </div>
       </div>
     </div>
   );

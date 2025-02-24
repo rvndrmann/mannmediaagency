@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
+import { ChatSection } from "@/components/product-shoot/ChatSection";
 import { useNavigate } from "react-router-dom";
 
 const ProductShoot = () => {
@@ -20,6 +20,7 @@ const ProductShoot = () => {
   const [inferenceSteps, setInferenceSteps] = useState(8);
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");
+  const [chatExpanded, setChatExpanded] = useState(true);
   const queryClient = useQueryClient();
 
   const { data: session } = useQuery({
@@ -197,10 +198,14 @@ const ProductShoot = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1A1F2C] to-[#121418]">
       <MobilePanelToggle title="Product Shot V1" />
-      <div className={cn(
-        "h-[calc(100vh-64px)] flex overflow-hidden",
-        isMobile ? "flex-col" : "flex"
-      )}>
+      <div 
+        className={cn(
+          "flex overflow-hidden transition-all duration-300",
+          chatExpanded 
+            ? "h-[calc(70vh-64px)]" 
+            : "h-[calc(100vh-64px-3rem)]"
+        )}
+      >
         <div className="w-1/3 min-w-[380px] bg-[#1A1F2C]/80 backdrop-blur-xl border-r border-white/10 flex flex-col">
           <InputPanel
             isMobile={isMobile}
@@ -231,6 +236,11 @@ const ProductShoot = () => {
           />
         </div>
       </div>
+      
+      <ChatSection 
+        expanded={chatExpanded}
+        onToggle={() => setChatExpanded(!chatExpanded)}
+      />
     </div>
   );
 };

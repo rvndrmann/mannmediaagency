@@ -7,25 +7,25 @@ const tools = [
   {
     id: 'product-shot-v1',
     name: 'Product Shot V1',
-    icon: <Camera className="h-5 w-5" />,
+    icon: <Camera className="h-4 w-4" />,
     gradient: 'from-[#9b87f5] to-[#7E69AB]'
   },
   {
     id: 'product-shot-v2',
     name: 'Product Shot V2',
-    icon: <Sparkles className="h-5 w-5" />,
+    icon: <Sparkles className="h-4 w-4" />,
     gradient: 'from-[#8B5CF6] to-[#6E59A5]'
   },
   {
     id: 'image-to-video',
     name: 'Image to Video',
-    icon: <Video className="h-5 w-5" />,
+    icon: <Video className="h-4 w-4" />,
     gradient: 'from-[#7E69AB] to-[#6E59A5]'
   },
   {
     id: 'faceless-video',
     name: 'Faceless Video',
-    icon: <FileText className="h-5 w-5" />,
+    icon: <FileText className="h-4 w-4" />,
     gradient: 'from-[#6E59A5] to-[#1A1F2C]'
   }
 ];
@@ -39,23 +39,23 @@ export const ToolSelector = ({ activeTool, onToolSelect }: ToolSelectorProps) =>
   return (
     <div className="sticky top-0 z-10 w-full bg-[#1A1F2C]/80 backdrop-blur-lg border-b border-white/10">
       <ScrollArea className="w-full">
-        <div className="p-4 space-y-3">
-          <h2 className="text-white text-lg font-semibold mb-3">Available Tools</h2>
-          <div className="grid grid-cols-2 gap-3">
+        <div className="p-2 md:p-4">
+          <div className="grid grid-cols-2 gap-2">
             {tools.map((tool) => (
               <button
                 key={tool.id}
                 onClick={() => onToolSelect(tool.id)}
                 className={cn(
-                  "flex flex-col items-center justify-center p-4 rounded-lg text-white",
-                  "transition-all duration-200 transform hover:scale-105",
+                  "flex items-center gap-2 p-2 md:p-4 rounded-lg text-white",
+                  "transition-all duration-200 transform hover:scale-[1.02]",
                   "bg-gradient-to-r",
                   tool.gradient,
-                  activeTool === tool.id ? "ring-2 ring-white/50" : ""
+                  activeTool === tool.id ? "ring-1 ring-white/50" : "",
+                  "text-xs md:text-sm"
                 )}
               >
                 {tool.icon}
-                <span className="mt-2 text-sm font-medium">{tool.name}</span>
+                <span className="font-medium truncate">{tool.name}</span>
               </button>
             ))}
           </div>

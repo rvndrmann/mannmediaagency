@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -115,10 +114,10 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, activeToo
           </div>
         </TabsContent>
 
-        <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex-1 overflow-auto p-6">
+        <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <div className="p-6">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="space-y-6">
+              <div className="space-y-6 min-h-[calc(100vh-16rem)]">
                 <ProductShotForm 
                   onSubmit={productShotV2.onSubmit}
                   isGenerating={productShotV2.isGenerating}

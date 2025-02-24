@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -52,134 +51,138 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
   }, [initialSceneDescription, setSceneDescription]);
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
-      <Card className="p-4 bg-gray-900 border-gray-800">
-        <div className="space-y-4">
-          <ImageUploader
-            previewUrl={sourcePreview}
-            onFileSelect={handleSourceFileSelect}
-            onClear={handleClearSource}
-          />
-          
-          {generationType === "reference" && (
+    <form onSubmit={handleSubmit} className="relative">
+      <div className="space-y-6 pb-20">
+        <Card className="p-4 bg-gray-900 border-gray-800">
+          <div className="space-y-4">
+            <ImageUploader
+              previewUrl={sourcePreview}
+              onFileSelect={handleSourceFileSelect}
+              onClear={handleClearSource}
+            />
+            
+            {generationType === "reference" && (
+              <div className="mt-4">
+                <Label className="text-white">Reference Image</Label>
+                <ImageUploader
+                  previewUrl={referencePreview}
+                  onFileSelect={handleReferenceFileSelect}
+                  onClear={handleClearReference}
+                />
+              </div>
+            )}
+
             <div className="mt-4">
-              <Label className="text-white">Reference Image</Label>
-              <ImageUploader
-                previewUrl={referencePreview}
-                onFileSelect={handleReferenceFileSelect}
-                onClear={handleClearReference}
+              <Label htmlFor="sceneDescription" className="text-white">Scene Description</Label>
+              <Textarea
+                id="sceneDescription"
+                placeholder="A futuristic product shot with neon lights"
+                value={sceneDescription}
+                onChange={(e) => setSceneDescription(e.target.value)}
+                disabled={generationType !== "description"}
               />
             </div>
-          )}
 
-          <div className="mt-4">
-            <Label htmlFor="sceneDescription" className="text-white">Scene Description</Label>
-            <Textarea
-              id="sceneDescription"
-              placeholder="A futuristic product shot with neon lights"
-              value={sceneDescription}
-              onChange={(e) => setSceneDescription(e.target.value)}
-              disabled={generationType !== "description"}
-            />
-          </div>
-
-          <div className="mt-4">
-            <Label htmlFor="aspectRatio" className="text-white">Aspect Ratio</Label>
-            <Select value={aspectRatio} onValueChange={(value: AspectRatio) => handleAspectRatioChange(value)}>
-              <SelectTrigger id="aspectRatio">
-                <SelectValue placeholder="Select aspect ratio" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                <SelectItem value="9:16">9:16 (Reels/Stories)</SelectItem>
-                <SelectItem value="1:1">1:1 (Square)</SelectItem>
-              </SelectContent>
-            </Select>
-            <p className="text-sm text-gray-400 mt-1">
-              {aspectRatio === "16:9" && "1920×1080 - Best for landscape videos"}
-              {aspectRatio === "9:16" && "1080×1920 - Best for reels and stories"}
-              {aspectRatio === "1:1" && "1024×1024 - Perfect square format"}
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
-            <div>
-              <Label htmlFor="generationType" className="text-white">Generation Type</Label>
-              <select
-                id="generationType"
-                className="w-full bg-gray-800 text-white rounded-md p-2"
-                value={generationType}
-                onChange={(e) => setGenerationType(e.target.value as "description" | "reference")}
-              >
-                <option value="description">Description</option>
-                <option value="reference">Reference Image</option>
-              </select>
-            </div>
-
-            <div>
-              <Label htmlFor="placementType" className="text-white">Placement Type</Label>
-              <select
-                id="placementType"
-                className="w-full bg-gray-800 text-white rounded-md p-2"
-                value={placementType}
-                onChange={(e) => setPlacementType(e.target.value as "original" | "automatic" | "manual_placement" | "manual_padding")}
-              >
-                <option value="original">Original</option>
-                <option value="automatic">Automatic</option>
-                <option value="manual_placement">Manual Placement</option>
-                <option value="manual_padding">Manual Padding</option>
-              </select>
-            </div>
-          </div>
-
-          {placementType === "manual_placement" && (
             <div className="mt-4">
-              <Label htmlFor="manualPlacement" className="text-white">Manual Placement</Label>
-              <Input
-                type="text"
-                id="manualPlacement"
-                placeholder="X, Y coordinates"
-                value={manualPlacement}
-                onChange={(e) => setManualPlacement(e.target.value)}
+              <Label htmlFor="aspectRatio" className="text-white">Aspect Ratio</Label>
+              <Select value={aspectRatio} onValueChange={(value: AspectRatio) => handleAspectRatioChange(value)}>
+                <SelectTrigger id="aspectRatio">
+                  <SelectValue placeholder="Select aspect ratio" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                  <SelectItem value="9:16">9:16 (Reels/Stories)</SelectItem>
+                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-sm text-gray-400 mt-1">
+                {aspectRatio === "16:9" && "1920×1080 - Best for landscape videos"}
+                {aspectRatio === "9:16" && "1080×1920 - Best for reels and stories"}
+                {aspectRatio === "1:1" && "1024×1024 - Perfect square format"}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+              <div>
+                <Label htmlFor="generationType" className="text-white">Generation Type</Label>
+                <select
+                  id="generationType"
+                  className="w-full bg-gray-800 text-white rounded-md p-2"
+                  value={generationType}
+                  onChange={(e) => setGenerationType(e.target.value as "description" | "reference")}
+                >
+                  <option value="description">Description</option>
+                  <option value="reference">Reference Image</option>
+                </select>
+              </div>
+
+              <div>
+                <Label htmlFor="placementType" className="text-white">Placement Type</Label>
+                <select
+                  id="placementType"
+                  className="w-full bg-gray-800 text-white rounded-md p-2"
+                  value={placementType}
+                  onChange={(e) => setPlacementType(e.target.value as "original" | "automatic" | "manual_placement" | "manual_padding")}
+                >
+                  <option value="original">Original</option>
+                  <option value="automatic">Automatic</option>
+                  <option value="manual_placement">Manual Placement</option>
+                  <option value="manual_padding">Manual Padding</option>
+                </select>
+              </div>
+            </div>
+
+            {placementType === "manual_placement" && (
+              <div className="mt-4">
+                <Label htmlFor="manualPlacement" className="text-white">Manual Placement</Label>
+                <Input
+                  type="text"
+                  id="manualPlacement"
+                  placeholder="X, Y coordinates"
+                  value={manualPlacement}
+                  onChange={(e) => setManualPlacement(e.target.value)}
+                />
+              </div>
+            )}
+
+            <div className="flex items-center justify-between mt-4">
+              <Label htmlFor="optimizeDescription" className="text-white">Optimize Description</Label>
+              <Switch
+                id="optimizeDescription"
+                checked={optimizeDescription}
+                onCheckedChange={setOptimizeDescription}
               />
             </div>
-          )}
 
-          <div className="flex items-center justify-between mt-4">
-            <Label htmlFor="optimizeDescription" className="text-white">Optimize Description</Label>
-            <Switch
-              id="optimizeDescription"
-              checked={optimizeDescription}
-              onCheckedChange={setOptimizeDescription}
-            />
+            <div className="flex items-center justify-between mt-4">
+              <Label htmlFor="fastMode" className="text-white">Fast Mode</Label>
+              <Switch
+                id="fastMode"
+                checked={fastMode}
+                onCheckedChange={setFastMode}
+              />
+            </div>
+
+            <div className="flex items-center justify-between mt-4">
+              <Label htmlFor="originalQuality" className="text-white">Original Quality</Label>
+              <Switch
+                id="originalQuality"
+                checked={originalQuality}
+                onCheckedChange={setOriginalQuality}
+              />
+            </div>
           </div>
-
-          <div className="flex items-center justify-between mt-4">
-            <Label htmlFor="fastMode" className="text-white">Fast Mode</Label>
-            <Switch
-              id="fastMode"
-              checked={fastMode}
-              onCheckedChange={setFastMode}
-            />
-          </div>
-
-          <div className="flex items-center justify-between mt-4">
-            <Label htmlFor="originalQuality" className="text-white">Original Quality</Label>
-            <Switch
-              id="originalQuality"
-              checked={originalQuality}
-              onCheckedChange={setOriginalQuality}
-            />
-          </div>
-
-          <GenerateButton
-            numResults={1}
-            availableCredits={availableCredits}
-            isGenerating={isGenerating}
-            isSubmitting={isSubmitting}
-          />
-        </div>
-      </Card>
+        </Card>
+      </div>
+      
+      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 lg:relative lg:bottom-auto lg:left-auto lg:right-auto lg:p-0 lg:bg-transparent lg:border-0">
+        <GenerateButton
+          numResults={1}
+          availableCredits={availableCredits}
+          isGenerating={isGenerating}
+          isSubmitting={isSubmitting}
+        />
+      </div>
     </form>
   );
 }

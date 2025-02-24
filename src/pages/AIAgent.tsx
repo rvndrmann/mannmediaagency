@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
@@ -7,6 +6,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Header } from "@/components/ai-agent/Header";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface UserCredits {
   user_id: string;
@@ -22,7 +23,6 @@ const AIAgent = () => {
     input,
     setInput,
     isLoading,
-    handleSubmit,
     userCredits
   } = useAIChat();
 
@@ -32,6 +32,55 @@ const AIAgent = () => {
     generatedImages: generatedImagesV2, 
     handleGenerate: handleGenerateV2
   } = useProductShoot();
+
+  // Add state management for Product Shot V1
+  const [productShotPrompt, setProductShotPrompt] = useState("");
+  const [productShotPreview, setProductShotPreview] = useState<string | null>(null);
+  const [productShotFile, setProductShotFile] = useState<File | null>(null);
+  const [imageSize, setImageSize] = useState("square_hd");
+  const [inferenceSteps, setInferenceSteps] = useState(8);
+  const [guidanceScale, setGuidanceScale] = useState(3.5);
+  const [outputFormat, setOutputFormat] = useState("png");
+
+  // Handlers for Product Shot V1
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        toast.error("File size must be less than 5MB");
+        return;
+      }
+
+      if (!file.type.startsWith('image/')) {
+        toast.error("Please upload an image file");
+        return;
+      }
+
+      setProductShotFile(file);
+      const url = URL.createObjectURL(file);
+      setProductShotPreview(url);
+    }
+  };
+
+  const handleClearFile = () => {
+    if (productShotPreview) {
+      URL.revokeObjectURL(productShotPreview);
+    }
+    setProductShotPreview(null);
+    setProductShotFile(null);
+  };
+
+  const handleGenerate = () => {
+    // Implement generation logic here
+    console.log("Generating with:", {
+      prompt: productShotPrompt,
+      file: productShotFile,
+      imageSize,
+      inferenceSteps,
+      guidanceScale,
+      outputFormat
+    });
+  };
 
   const { data: userCreditData } = useQuery({
     queryKey: ["userCredits"],
@@ -65,6 +114,41 @@ const AIAgent = () => {
     enabled: !!userCreditData?.user_id,
   });
 
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() === "") return;
+
+    // Append the user's message to the chat
+    const userMessage = { role: "user", content: input };
+    messages.push(userMessage);
+
+    // Clear the input field
+    setInput("");
+
+    // Optimistically update the chat interface
+    const assistantMessage = { role: "assistant", content: "Loading..." };
+    messages.push(assistantMessage);
+
+    // Send the chat history to the API
+    fetch("/api/ai-chat", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ messages: messages }),
+    })
+      .then((response) => response.json())
+      .then((data) => {
+        // Replace the "Loading..." message with the actual response
+        assistantMessage.content = data.content;
+      })
+      .catch((error) => {
+        console.error("Error:", error);
+        assistantMessage.content =
+          "Sorry, I encountered an error. Please try again.";
+      });
+  };
+
   return (
     <div className="min-h-screen bg-[#1A1F2C] relative">
       <Header onBack={() => navigate(-1)} />
@@ -84,25 +168,27 @@ const AIAgent = () => {
           }}
           productShotV1={{
             isMobile,
-            prompt: "",
-            previewUrl: null,
-            imageSize: "square_hd",
-            inferenceSteps: 8,
-            guidanceScale: 3.5,
-            outputFormat: "png",
+            prompt: productShotPrompt,
+            previewUrl: productShotPreview,
+            imageSize,
+            inferenceSteps,
+            guidanceScale,
+            outputFormat,
             productImages: productImages || [],
             imagesLoading,
             creditsRemaining: userCreditData?.credits_remaining ?? 0,
             isGenerating: isLoading,
-            onPromptChange: () => {},
-            onFileSelect: () => {},
-            onClearFile: () => {},
-            onImageSizeChange: () => {},
-            onInferenceStepsChange: () => {},
-            onGuidanceScaleChange: () => {},
-            onOutputFormatChange: () => {},
-            onGenerate: () => {},
-            onDownload: () => {}
+            onPromptChange: setProductShotPrompt,
+            onFileSelect: handleFileSelect,
+            onClearFile: handleClearFile,
+            onImageSizeChange: setImageSize,
+            onInferenceStepsChange: setInferenceSteps,
+            onGuidanceScaleChange: setGuidanceScale,
+            onOutputFormatChange: setOutputFormat,
+            onGenerate: handleGenerate,
+            onDownload: (url: string) => {
+              window.open(url, '_blank');
+            }
           }}
           onInputChange={setInput}
           onSubmit={handleSubmit}

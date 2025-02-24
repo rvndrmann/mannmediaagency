@@ -127,46 +127,48 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         </TabsList>
 
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex h-full">
-            <div className="w-1/3 min-w-[320px] flex flex-col border-r border-gray-800 bg-[#1A1F2C]">
-              <div className="p-4 border-b border-gray-800">
-                <Button 
-                  onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-                >
-                  <PenTool className="h-4 w-4 mr-2" />
-                  Use Last AI Response
-                </Button>
-              </div>
-              <div className="flex-1">
-                <InputPanel
-                  isMobile={productShotV1.isMobile}
-                  prompt={productShotV1.prompt}
-                  onPromptChange={productShotV1.onPromptChange}
-                  previewUrl={productShotV1.previewUrl}
-                  onFileSelect={productShotV1.onFileSelect}
-                  onClearFile={productShotV1.onClearFile}
-                  imageSize={productShotV1.imageSize}
-                  onImageSizeChange={productShotV1.onImageSizeChange}
-                  inferenceSteps={productShotV1.inferenceSteps}
-                  onInferenceStepsChange={productShotV1.onInferenceStepsChange}
-                  guidanceScale={productShotV1.guidanceScale}
-                  onGuidanceScaleChange={productShotV1.onGuidanceScaleChange}
-                  outputFormat={productShotV1.outputFormat}
-                  onOutputFormatChange={productShotV1.onOutputFormatChange}
-                  onGenerate={productShotV1.onGenerate}
-                  isGenerating={false}
-                  creditsRemaining={productShotV1.creditsRemaining}
-                />
-              </div>
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-gray-800">
+              <Button 
+                onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              >
+                <PenTool className="h-4 w-4 mr-2" />
+                Use Last AI Response
+              </Button>
             </div>
-            <div className="flex-1 bg-[#1A1F2C]">
-              <GalleryPanel 
-                isMobile={productShotV1.isMobile}
-                images={productShotV1.productImages}
-                isLoading={productShotV1.imagesLoading}
-                onDownload={productShotV1.onDownload}
-              />
+            <div className="flex-1 overflow-auto">
+              <div className="flex h-full">
+                <div className="w-1/3 min-w-[320px] border-r border-gray-800">
+                  <InputPanel
+                    isMobile={productShotV1.isMobile}
+                    prompt={productShotV1.prompt}
+                    onPromptChange={productShotV1.onPromptChange}
+                    previewUrl={productShotV1.previewUrl}
+                    onFileSelect={productShotV1.onFileSelect}
+                    onClearFile={productShotV1.onClearFile}
+                    imageSize={productShotV1.imageSize}
+                    onImageSizeChange={productShotV1.onImageSizeChange}
+                    inferenceSteps={productShotV1.inferenceSteps}
+                    onInferenceStepsChange={productShotV1.onInferenceStepsChange}
+                    guidanceScale={productShotV1.guidanceScale}
+                    onGuidanceScaleChange={productShotV1.onGuidanceScaleChange}
+                    outputFormat={productShotV1.outputFormat}
+                    onOutputFormatChange={productShotV1.onOutputFormatChange}
+                    onGenerate={productShotV1.onGenerate}
+                    isGenerating={false}
+                    creditsRemaining={productShotV1.creditsRemaining}
+                  />
+                </div>
+                <div className="flex-1">
+                  <GalleryPanel 
+                    isMobile={productShotV1.isMobile}
+                    images={productShotV1.productImages}
+                    isLoading={productShotV1.imagesLoading}
+                    onDownload={productShotV1.onDownload}
+                  />
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>
@@ -206,67 +208,69 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         </TabsContent>
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex h-full">
-            <div className="w-1/3 min-w-[320px] flex flex-col border-r border-gray-800 bg-[#1A1F2C]">
-              <div className="p-4 border-b border-gray-800">
-                <Button 
-                  onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
-                  className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
-                >
-                  <PenTool className="h-4 w-4 mr-2" />
-                  Use Last AI Response
-                </Button>
-              </div>
-              <div className="flex-1">
-                <ImageToVideoInputPanel
-                  isMobile={productShotV1.isMobile}
-                  prompt={productShotV1.prompt}
-                  onPromptChange={productShotV1.onPromptChange}
-                  previewUrl={productShotV1.previewUrl}
-                  onFileSelect={productShotV1.onFileSelect}
-                  onClearFile={productShotV1.onClearFile}
-                  onSelectFromHistory={handleSelectFromHistory}
-                  onGenerate={productShotV1.onGenerate}
-                  isGenerating={false}
-                  creditsRemaining={productShotV1.creditsRemaining}
-                  aspectRatio="16:9"
-                  onAspectRatioChange={() => {}}
-                />
-              </div>
+          <div className="flex flex-col h-full">
+            <div className="p-4 border-b border-gray-800">
+              <Button 
+                onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+              >
+                <PenTool className="h-4 w-4 mr-2" />
+                Use Last AI Response
+              </Button>
             </div>
-            <div className="flex-1 bg-[#1A1F2C]">
-              <ScrollArea className="h-full">
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold text-white mb-6">
-                    Select from Generated Product Shots
-                  </h3>
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
-                    {allProductImages.map((image) => (
-                      <div 
-                        key={image.id} 
-                        className="group relative overflow-hidden bg-[#2A2A2A] rounded-lg border border-gray-800 transition-all hover:border-purple-500"
-                      >
-                        <img 
-                          src={image.url} 
-                          alt={image.prompt} 
-                          className="w-full aspect-square object-cover transition-transform group-hover:scale-105"
-                          onClick={() => handleSelectFromHistory(image.id, image.url)}
-                        />
-                        <div className="absolute inset-0 flex flex-col justify-between p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
-                          <div className="flex justify-end">
-                            <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded">
-                              {image.source === 'v1' ? 'V1' : 'V2'}
-                            </span>
-                          </div>
-                          <div className="bg-black/75 p-2 rounded">
-                            <p className="text-white text-sm line-clamp-2">{image.prompt}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+            <div className="flex-1 overflow-auto">
+              <div className="flex h-full">
+                <div className="w-1/3 min-w-[320px] border-r border-gray-800">
+                  <ImageToVideoInputPanel
+                    isMobile={productShotV1.isMobile}
+                    prompt={productShotV1.prompt}
+                    onPromptChange={productShotV1.onPromptChange}
+                    previewUrl={productShotV1.previewUrl}
+                    onFileSelect={productShotV1.onFileSelect}
+                    onClearFile={productShotV1.onClearFile}
+                    onSelectFromHistory={handleSelectFromHistory}
+                    onGenerate={productShotV1.onGenerate}
+                    isGenerating={false}
+                    creditsRemaining={productShotV1.creditsRemaining}
+                    aspectRatio="16:9"
+                    onAspectRatioChange={() => {}}
+                  />
                 </div>
-              </ScrollArea>
+                <div className="flex-1">
+                  <ScrollArea className="h-full">
+                    <div className="p-6">
+                      <h3 className="text-xl font-semibold text-white mb-6">
+                        Select from Generated Product Shots
+                      </h3>
+                      <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+                        {allProductImages.map((image) => (
+                          <div 
+                            key={image.id} 
+                            className="group relative overflow-hidden bg-[#2A2A2A] rounded-lg border border-gray-800 transition-all hover:border-purple-500"
+                          >
+                            <img 
+                              src={image.url} 
+                              alt={image.prompt} 
+                              className="w-full aspect-square object-cover transition-transform group-hover:scale-105"
+                              onClick={() => handleSelectFromHistory(image.id, image.url)}
+                            />
+                            <div className="absolute inset-0 flex flex-col justify-between p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
+                              <div className="flex justify-end">
+                                <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded">
+                                  {image.source === 'v1' ? 'V1' : 'V2'}
+                                </span>
+                              </div>
+                              <div className="bg-black/75 p-2 rounded">
+                                <p className="text-white text-sm line-clamp-2">{image.prompt}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </ScrollArea>
+                </div>
+              </div>
             </div>
           </div>
         </TabsContent>

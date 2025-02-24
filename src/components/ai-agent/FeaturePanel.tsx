@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -8,7 +7,9 @@ import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { ImageSelector } from "@/components/image-to-video/ImageSelector";
+import { Button } from "@/components/ui/button";
+import { PenTool } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
 
 interface ProductShotV1Props {
   isMobile: boolean;
@@ -45,6 +46,8 @@ interface FeaturePanelProps {
 }
 
 export function FeaturePanel({ messages, productShotV2, productShotV1 }: FeaturePanelProps) {
+  const { toast } = useToast();
+
   const allProductImages = [
     ...(productShotV1.productImages || []).map(img => ({
       id: img.id,
@@ -61,8 +64,35 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
   ];
 
   const handleSelectFromHistory = (jobId: string, imageUrl: string) => {
-    // Here you would handle selecting an image from the history
     console.log('Selected image:', { jobId, imageUrl });
+  };
+
+  const getLastAIResponse = () => {
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === "assistant");
+
+    if (!lastAssistantMessage) {
+      toast({
+        title: "No AI Response Found",
+        description: "There are no AI responses in the chat history.",
+        variant: "destructive",
+      });
+      return null;
+    }
+
+    return lastAssistantMessage.content;
+  };
+
+  const useLastAIResponse = (setPromptFn: (value: string) => void) => {
+    const lastResponse = getLastAIResponse();
+    if (lastResponse) {
+      setPromptFn(lastResponse);
+      toast({
+        title: "Prompt Updated",
+        description: "The last AI response has been copied to the prompt.",
+      });
+    }
   };
 
   return (
@@ -98,25 +128,34 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-hidden">
           <div className="flex h-full gap-4 bg-[#1A1F2C] rounded-lg">
             <div className="w-1/3 min-w-[320px] border-r border-white/10">
-              <InputPanel
-                isMobile={productShotV1.isMobile}
-                prompt={productShotV1.prompt}
-                onPromptChange={productShotV1.onPromptChange}
-                previewUrl={productShotV1.previewUrl}
-                onFileSelect={productShotV1.onFileSelect}
-                onClearFile={productShotV1.onClearFile}
-                imageSize={productShotV1.imageSize}
-                onImageSizeChange={productShotV1.onImageSizeChange}
-                inferenceSteps={productShotV1.inferenceSteps}
-                onInferenceStepsChange={productShotV1.onInferenceStepsChange}
-                guidanceScale={productShotV1.guidanceScale}
-                onGuidanceScaleChange={productShotV1.onGuidanceScaleChange}
-                outputFormat={productShotV1.outputFormat}
-                onOutputFormatChange={productShotV1.onOutputFormatChange}
-                onGenerate={productShotV1.onGenerate}
-                isGenerating={false}
-                creditsRemaining={productShotV1.creditsRemaining}
-              />
+              <div className="p-4">
+                <Button 
+                  onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
+                  className="w-full mb-4 bg-green-500 text-white hover:bg-green-600"
+                >
+                  <PenTool className="h-4 w-4 mr-2" />
+                  Use Last AI Response
+                </Button>
+                <InputPanel
+                  isMobile={productShotV1.isMobile}
+                  prompt={productShotV1.prompt}
+                  onPromptChange={productShotV1.onPromptChange}
+                  previewUrl={productShotV1.previewUrl}
+                  onFileSelect={productShotV1.onFileSelect}
+                  onClearFile={productShotV1.onClearFile}
+                  imageSize={productShotV1.imageSize}
+                  onImageSizeChange={productShotV1.onImageSizeChange}
+                  inferenceSteps={productShotV1.inferenceSteps}
+                  onInferenceStepsChange={productShotV1.onInferenceStepsChange}
+                  guidanceScale={productShotV1.guidanceScale}
+                  onGuidanceScaleChange={productShotV1.onGuidanceScaleChange}
+                  outputFormat={productShotV1.outputFormat}
+                  onOutputFormatChange={productShotV1.onOutputFormatChange}
+                  onGenerate={productShotV1.onGenerate}
+                  isGenerating={false}
+                  creditsRemaining={productShotV1.creditsRemaining}
+                />
+              </div>
             </div>
             <div className="flex-1">
               <GalleryPanel 
@@ -130,7 +169,14 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         </TabsContent>
 
         <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="space-y-6">
+          <div className="space-y-6 p-4">
+            <Button 
+              onClick={() => useLastAIResponse((value) => productShotV2.onSubmit({ prompt: value }))}
+              className="w-full bg-green-500 text-white hover:bg-green-600"
+            >
+              <PenTool className="h-4 w-4 mr-2" />
+              Use Last AI Response
+            </Button>
             <ProductShotForm 
               onSubmit={productShotV2.onSubmit}
               isGenerating={productShotV2.isGenerating}
@@ -149,20 +195,29 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
           <div className="flex h-full gap-4 bg-[#1A1F2C] rounded-lg">
             <div className="w-1/3 min-w-[320px] border-r border-white/10">
-              <ImageToVideoInputPanel
-                isMobile={productShotV1.isMobile}
-                prompt={productShotV1.prompt}
-                onPromptChange={productShotV1.onPromptChange}
-                previewUrl={productShotV1.previewUrl}
-                onFileSelect={productShotV1.onFileSelect}
-                onClearFile={productShotV1.onClearFile}
-                onSelectFromHistory={handleSelectFromHistory}
-                onGenerate={productShotV1.onGenerate}
-                isGenerating={false}
-                creditsRemaining={productShotV1.creditsRemaining}
-                aspectRatio="16:9"
-                onAspectRatioChange={() => {}}
-              />
+              <div className="p-4">
+                <Button 
+                  onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
+                  className="w-full mb-4 bg-green-500 text-white hover:bg-green-600"
+                >
+                  <PenTool className="h-4 w-4 mr-2" />
+                  Use Last AI Response
+                </Button>
+                <ImageToVideoInputPanel
+                  isMobile={productShotV1.isMobile}
+                  prompt={productShotV1.prompt}
+                  onPromptChange={productShotV1.onPromptChange}
+                  previewUrl={productShotV1.previewUrl}
+                  onFileSelect={productShotV1.onFileSelect}
+                  onClearFile={productShotV1.onClearFile}
+                  onSelectFromHistory={handleSelectFromHistory}
+                  onGenerate={productShotV1.onGenerate}
+                  isGenerating={false}
+                  creditsRemaining={productShotV1.creditsRemaining}
+                  aspectRatio="16:9"
+                  onAspectRatioChange={() => {}}
+                />
+              </div>
             </div>
             <div className="flex-1">
               <ScrollArea className="h-full">

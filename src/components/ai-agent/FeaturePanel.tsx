@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -96,42 +97,42 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
   };
 
   return (
-    <Card className="bg-[#222222]/60 backdrop-blur-xl border-white/10 p-4">
+    <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
       <Tabs defaultValue="product-shot-v1" className="h-[calc(100vh-8rem)]">
-        <TabsList className="w-full bg-[#333333] mb-4">
+        <TabsList className="w-full bg-[#222222] border-b border-gray-800 px-4 py-2">
           <TabsTrigger 
             value="product-shot-v1" 
-            className="flex-1 text-white data-[state=active]:bg-[#444444]"
+            className="flex-1 text-white data-[state=active]:bg-[#2A2A2A] data-[state=active]:border-b-2 data-[state=active]:border-purple-500 rounded-none px-4 py-2"
           >
             Product Shot V1
           </TabsTrigger>
           <TabsTrigger 
             value="product-shot-v2" 
-            className="flex-1 text-white data-[state=active]:bg-[#444444]"
+            className="flex-1 text-white data-[state=active]:bg-[#2A2A2A] data-[state=active]:border-b-2 data-[state=active]:border-purple-500 rounded-none px-4 py-2"
           >
             Product Shot V2
           </TabsTrigger>
           <TabsTrigger 
             value="image-to-video" 
-            className="flex-1 text-white data-[state=active]:bg-[#444444]"
+            className="flex-1 text-white data-[state=active]:bg-[#2A2A2A] data-[state=active]:border-b-2 data-[state=active]:border-purple-500 rounded-none px-4 py-2"
           >
             Image to Video
           </TabsTrigger>
           <TabsTrigger 
             value="faceless-video" 
-            className="flex-1 text-white data-[state=active]:bg-[#444444]"
+            className="flex-1 text-white data-[state=active]:bg-[#2A2A2A] data-[state=active]:border-b-2 data-[state=active]:border-purple-500 rounded-none px-4 py-2"
           >
             Faceless Video
           </TabsTrigger>
         </TabsList>
 
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex h-full gap-4 bg-[#1A1F2C] rounded-lg">
-            <div className="w-1/3 min-w-[320px] border-r border-white/10">
-              <div className="p-4">
+          <div className="flex h-full">
+            <div className="w-1/3 min-w-[320px] border-r border-gray-800 bg-[#1A1F2C]">
+              <div className="p-6 space-y-6">
                 <Button 
                   onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
-                  className="w-full mb-4 bg-green-500 text-white hover:bg-green-600"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
                 >
                   <PenTool className="h-4 w-4 mr-2" />
                   Use Last AI Response
@@ -157,7 +158,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                 />
               </div>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 bg-[#1A1F2C]">
               <GalleryPanel 
                 isMobile={productShotV1.isMobile}
                 images={productShotV1.productImages}
@@ -169,36 +170,42 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
         </TabsContent>
 
         <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="space-y-6 p-4">
+          <div className="h-full p-6 space-y-6 bg-[#1A1F2C]">
             <Button 
               onClick={() => useLastAIResponse((value) => productShotV2.onSubmit({ prompt: value }))}
-              className="w-full bg-green-500 text-white hover:bg-green-600"
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
             >
               <PenTool className="h-4 w-4 mr-2" />
               Use Last AI Response
             </Button>
-            <ProductShotForm 
-              onSubmit={productShotV2.onSubmit}
-              isGenerating={productShotV2.isGenerating}
-              isSubmitting={productShotV2.isSubmitting}
-              availableCredits={productShotV2.availableCredits}
-            />
-            {productShotV2.generatedImages.length > 0 && (
-              <GeneratedImagesPanel 
-                images={productShotV2.generatedImages}
-                isGenerating={productShotV2.isGenerating}
-              />
-            )}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6">
+                <ProductShotForm 
+                  onSubmit={productShotV2.onSubmit}
+                  isGenerating={productShotV2.isGenerating}
+                  isSubmitting={productShotV2.isSubmitting}
+                  availableCredits={productShotV2.availableCredits}
+                />
+              </div>
+              <div className="space-y-6">
+                {productShotV2.generatedImages.length > 0 && (
+                  <GeneratedImagesPanel 
+                    images={productShotV2.generatedImages}
+                    isGenerating={productShotV2.isGenerating}
+                  />
+                )}
+              </div>
+            </div>
           </div>
         </TabsContent>
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-hidden">
-          <div className="flex h-full gap-4 bg-[#1A1F2C] rounded-lg">
-            <div className="w-1/3 min-w-[320px] border-r border-white/10">
-              <div className="p-4">
+          <div className="flex h-full">
+            <div className="w-1/3 min-w-[320px] border-r border-gray-800 bg-[#1A1F2C]">
+              <div className="p-6 space-y-6">
                 <Button 
                   onClick={() => useLastAIResponse(productShotV1.onPromptChange)}
-                  className="w-full mb-4 bg-green-500 text-white hover:bg-green-600"
+                  className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
                 >
                   <PenTool className="h-4 w-4 mr-2" />
                   Use Last AI Response
@@ -219,25 +226,25 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                 />
               </div>
             </div>
-            <div className="flex-1">
+            <div className="flex-1 bg-[#1A1F2C]">
               <ScrollArea className="h-full">
-                <div className="p-6">
-                  <h3 className="text-xl font-semibold mb-6 text-white">
+                <div className="p-6 space-y-6">
+                  <h3 className="text-xl font-semibold text-white">
                     Select from Generated Product Shots
                   </h3>
                   <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
                     {allProductImages.map((image) => (
                       <div 
                         key={image.id} 
-                        className="relative group cursor-pointer rounded-lg overflow-hidden bg-black/20"
+                        className="group relative overflow-hidden bg-[#2A2A2A] rounded-lg border border-gray-800 transition-all hover:border-purple-500"
                       >
                         <img 
                           src={image.url} 
                           alt={image.prompt} 
-                          className="w-full aspect-square object-cover group-hover:opacity-75 transition-opacity"
+                          className="w-full aspect-square object-cover transition-transform group-hover:scale-105"
                           onClick={() => handleSelectFromHistory(image.id, image.url)}
                         />
-                        <div className="absolute inset-0 flex flex-col justify-between p-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute inset-0 flex flex-col justify-between p-3 bg-gradient-to-t from-black/80 via-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity">
                           <div className="flex justify-end">
                             <span className="bg-purple-600 text-white text-xs px-2 py-1 rounded">
                               {image.source === 'v1' ? 'V1' : 'V2'}

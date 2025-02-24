@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -8,28 +7,40 @@ import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
 import { Phone } from "lucide-react";
 import { Label } from "@/components/ui/label";
+import { PhoneInput } from "./PhoneInput";
 
 const LoginForm = () => {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false);
   const [isPhoneLoading, setIsPhoneLoading] = useState(false);
   const [phoneNumber, setPhoneNumber] = useState("");
+  const [phoneError, setPhoneError] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
   const [showVerification, setShowVerification] = useState(false);
   const navigate = useNavigate();
 
+  const validatePhoneNumber = (number: string) => {
+    if (!number) return "Phone number is required";
+    if (!number.startsWith('+')) return "Phone number must start with +";
+    if (number.length < 8) return "Phone number is too short";
+    if (number.length > 15) return "Phone number is too long";
+    if (!/^\+\d+$/.test(number)) return "Phone number can only contain digits";
+    return "";
+  };
+
   const handlePhoneSignIn = async () => {
-    if (!phoneNumber) {
-      toast.error("Please enter your phone number");
+    const error = validatePhoneNumber(phoneNumber);
+    if (error) {
+      setPhoneError(error);
       return;
     }
+    setPhoneError("");
 
     setIsPhoneLoading(true);
     try {
-      const formattedPhone = phoneNumber.startsWith('+') ? phoneNumber : `+${phoneNumber}`;
       const { error } = await supabase.auth.signInWithOtp({
-        phone: formattedPhone,
+        phone: phoneNumber,
         options: {
-          shouldCreateUser: true, // This will create a new user if one doesn't exist
+          shouldCreateUser: true,
         }
       });
 
@@ -39,7 +50,10 @@ const LoginForm = () => {
       toast.success("Verification code sent to your phone");
     } catch (error: any) {
       console.error('Phone sign-in error:', error);
-      toast.error(error.message || 'Failed to send verification code');
+      const errorMessage = error.message?.includes('Invalid From Number') 
+        ? "Unable to send SMS at this time. Please try another login method or contact support."
+        : error.message || 'Failed to send verification code';
+      toast.error(errorMessage);
     } finally {
       setIsPhoneLoading(false);
     }
@@ -118,17 +132,14 @@ const LoginForm = () => {
     <div className="space-y-4">
       {!showVerification ? (
         <>
-          <div className="space-y-2">
-            <Label htmlFor="phone" className="text-white">Phone Number</Label>
-            <Input
-              id="phone"
-              type="tel"
-              placeholder="+1234567890"
-              value={phoneNumber}
-              onChange={(e) => setPhoneNumber(e.target.value)}
-              className="bg-white/10 border-white/20 text-white placeholder:text-gray-400"
-            />
-          </div>
+          <PhoneInput
+            value={phoneNumber}
+            onChange={(value) => {
+              setPhoneNumber(value);
+              setPhoneError("");
+            }}
+            error={phoneError}
+          />
           <Button
             onClick={handlePhoneSignIn}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"

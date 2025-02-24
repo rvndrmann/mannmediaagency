@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -48,69 +49,70 @@ export function InputPanel({
   onAspectRatioChange,
 }: InputPanelProps) {
   return (
-    <div className={cn(
-      "space-y-6 p-6 border-r border-gray-800",
-      isMobile ? "w-full border-r-0 border-b" : "w-1/3 overflow-y-auto"
-    )}>
-      <div className="space-y-6">
-        {!isMobile && (
-          <div>
-            <h1 className="text-2xl font-bold text-white mb-2">Image to Video Generator</h1>
-            <p className="text-gray-400">
-              Credits remaining: {creditsRemaining?.toFixed(2) || "0.00"}
-            </p>
-          </div>
-        )}
+    <div className="flex flex-col h-full">
+      <ScrollArea className="flex-1">
+        <div className="p-6 space-y-6">
+          {!isMobile && (
+            <div>
+              <h1 className="text-2xl font-bold text-white mb-2">Image to Video Generator</h1>
+              <p className="text-gray-400">
+                Credits remaining: {creditsRemaining?.toFixed(2) || "0.00"}
+              </p>
+            </div>
+          )}
 
-        <ImageSelector
-          previewUrl={previewUrl}
-          onFileSelect={onFileSelect}
-          onClear={onClearFile}
-          onSelectFromHistory={onSelectFromHistory}
-          aspectRatio={aspectRatio === "16:9" ? 16/9 : aspectRatio === "9:16" ? 9/16 : 1}
-          helpText="Upload an image (recommended aspect ratio)"
-        />
-
-        <div className="space-y-2">
-          <Label className="text-white">Prompt</Label>
-          <Textarea
-            placeholder="Describe how you want the image to animate..."
-            value={prompt}
-            onChange={(e) => onPromptChange(e.target.value)}
-            className="min-h-[100px] bg-gray-900 border-gray-700 text-white"
+          <ImageSelector
+            previewUrl={previewUrl}
+            onFileSelect={onFileSelect}
+            onClear={onClearFile}
+            onSelectFromHistory={onSelectFromHistory}
+            aspectRatio={aspectRatio === "16:9" ? 16/9 : aspectRatio === "9:16" ? 9/16 : 1}
+            helpText="Upload an image (recommended aspect ratio)"
           />
+
+          <div className="space-y-2">
+            <Label className="text-white">Prompt</Label>
+            <Textarea
+              placeholder="Describe how you want the image to animate..."
+              value={prompt}
+              onChange={(e) => onPromptChange(e.target.value)}
+              className="min-h-[100px] bg-gray-900 border-gray-700 text-white"
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label className="text-white">Aspect Ratio</Label>
+            <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
+              <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
+                <SelectValue placeholder="Select aspect ratio" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="16:9">16:9</SelectItem>
+                <SelectItem value="9:16">9:16</SelectItem>
+                <SelectItem value="1:1">1:1</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          <Collapsible>
+            <CollapsibleTrigger className="text-sm text-purple-400 hover:text-purple-300">
+              Show prompt writing guide
+            </CollapsibleTrigger>
+            <CollapsibleContent className="mt-2 text-sm text-gray-400 space-y-2">
+              <p>For best results, include:</p>
+              <ul className="list-disc pl-4 space-y-1">
+                <li>Main action or movement you want to see</li>
+                <li>Character/object movements and gestures</li>
+                <li>Camera movements (if desired)</li>
+                <li>Environment and atmosphere changes</li>
+                <li>Lighting and mood descriptions</li>
+              </ul>
+            </CollapsibleContent>
+          </Collapsible>
         </div>
+      </ScrollArea>
 
-        <div className="space-y-2">
-          <Label className="text-white">Aspect Ratio</Label>
-          <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
-            <SelectTrigger>
-              <SelectValue placeholder="Select aspect ratio" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="16:9">16:9</SelectItem>
-              <SelectItem value="9:16">9:16</SelectItem>
-              <SelectItem value="1:1">1:1</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Collapsible>
-          <CollapsibleTrigger className="text-sm text-purple-400 hover:text-purple-300">
-            Show prompt writing guide
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 text-sm text-gray-400 space-y-2">
-            <p>For best results, include:</p>
-            <ul className="list-disc pl-4 space-y-1">
-              <li>Main action or movement you want to see</li>
-              <li>Character/object movements and gestures</li>
-              <li>Camera movements (if desired)</li>
-              <li>Environment and atmosphere changes</li>
-              <li>Lighting and mood descriptions</li>
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
-
+      <div className="p-6 border-t border-gray-800 bg-[#1A1F2C]">
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !prompt.trim() || !previewUrl}

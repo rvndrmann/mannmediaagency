@@ -6,6 +6,7 @@ import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { GeneratedImage } from "@/types/product-shoot";
 
 export default function ProductShootV2() {
   const { isGenerating, isSubmitting, generatedImages, handleGenerate } = useProductShoot();

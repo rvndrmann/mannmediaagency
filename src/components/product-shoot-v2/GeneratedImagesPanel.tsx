@@ -1,6 +1,8 @@
 
+import { GeneratedImage } from "@/types/product-shoot";
+
 interface GeneratedImagesPanelProps {
-  images: string[];
+  images: GeneratedImage[];
   isGenerating: boolean;
 }
 
@@ -12,7 +14,7 @@ export function GeneratedImagesPanel({ images, isGenerating }: GeneratedImagesPa
         {images.map((image, index) => (
           <img
             key={index}
-            src={image}
+            src={image.url}
             alt={`Generated image ${index + 1}`}
             className="w-full h-auto rounded-lg border border-gray-800"
           />

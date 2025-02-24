@@ -10,6 +10,7 @@ import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-vide
 import { UseAIResponseButton } from "./features/UseAIResponseButton";
 import { ProductImageGrid } from "./features/ProductImageGrid";
 import { useState } from "react";
+import { GeneratedImage } from "@/types/product-shoot";
 
 interface Message {
   role: "user" | "assistant";
@@ -23,7 +24,7 @@ interface FeaturePanelProps {
     isGenerating: boolean;
     isSubmitting: boolean;
     availableCredits: number;
-    generatedImages: string[];
+    generatedImages: GeneratedImage[];
   };
   productShotV1: {
     isMobile: boolean;

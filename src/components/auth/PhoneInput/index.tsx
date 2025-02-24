@@ -4,7 +4,7 @@ import React from "react";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { CountrySelect } from "./CountrySelect";
-import { countryCodes, validatePhoneNumber, formatPhoneNumber } from "@/utils/phoneValidation";
+import { countryCodes } from "@/utils/phoneValidation";
 import type { CountryCode } from "@/utils/phoneValidation";
 import { cn } from "@/lib/utils";
 
@@ -18,7 +18,6 @@ interface PhoneInputProps {
 export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneInputProps) => {
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>(countryCodes[0]);
   const [localNumber, setLocalNumber] = useState("");
-  const [localError, setLocalError] = useState("");
   const [isTouched, setIsTouched] = useState(false);
 
   useEffect(() => {
@@ -38,31 +37,27 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
 
   const handleCountrySelect = (country: CountryCode) => {
     setSelectedCountry(country);
-    const formattedNumber = formatPhoneNumber(country.value, localNumber);
+    const cleanNumber = localNumber.replace(/[^\d]/g, '');
+    const formattedNumber = `+${country.value}${cleanNumber}`;
     onChange(formattedNumber);
-    
-    const validationError = validatePhoneNumber(localNumber, country, isTouched);
-    setLocalError(validationError);
-    onValidityChange?.(!validationError && localNumber.length >= country.minLength);
+    onValidityChange?.(true); // Don't validate on country change
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newNumber = e.target.value.replace(/[^0-9]/g, '');
     setLocalNumber(newNumber);
-    
-    const formattedNumber = formatPhoneNumber(selectedCountry.value, newNumber);
+    const formattedNumber = `+${selectedCountry.value}${newNumber}`;
     onChange(formattedNumber);
     
-    const validationError = validatePhoneNumber(newNumber, selectedCountry, isTouched);
-    setLocalError(validationError);
-    onValidityChange?.(!validationError && newNumber.length >= selectedCountry.minLength);
+    // Only validate if the input has been touched and number is complete
+    if (isTouched) {
+      onValidityChange?.(newNumber.length >= selectedCountry.minLength);
+    }
   };
 
   const handleBlur = () => {
     setIsTouched(true);
-    const validationError = validatePhoneNumber(localNumber, selectedCountry, true);
-    setLocalError(validationError);
-    onValidityChange?.(!validationError && localNumber.length >= selectedCountry.minLength);
+    onValidityChange?.(localNumber.length >= selectedCountry.minLength);
   };
 
   return (
@@ -86,12 +81,12 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
           onBlur={handleBlur}
           className={cn(
             "flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400",
-            (isTouched && (localError || error)) && "border-red-500"
+            (isTouched && error) && "border-red-500"
           )}
         />
       </div>
-      {isTouched && (error || localError) && (
-        <p className="text-sm text-red-500">{error || localError}</p>
+      {isTouched && error && (
+        <p className="text-sm text-red-500">{error}</p>
       )}
       <p className="text-sm text-gray-400">
         Format: +{selectedCountry.value} followed by {selectedCountry.minLength} digits

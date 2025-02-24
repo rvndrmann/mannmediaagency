@@ -13,8 +13,10 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
   const navigate = useNavigate();
 
   const handlePhoneSubmit = async () => {
-    if (!phoneNumber.trim()) {
-      setError("Phone number is required");
+    // Only validate on submit
+    const cleanNumber = phoneNumber.replace(/[^\d+]/g, '');
+    if (!cleanNumber || cleanNumber.length < 5) { // Basic minimum length check
+      setError("Please enter a valid phone number");
       return;
     }
 

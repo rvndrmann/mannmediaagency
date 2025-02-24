@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -31,21 +32,19 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
   const [open, setOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
 
-  // Extract the number part without country code
+  // Remove the plus sign and country code from the input value to get just the number
   const numberPart = value.replace(/^\+\d+/, '');
 
   const handleCountrySelect = (country: typeof countries[0]) => {
     setSelectedCountry(country);
+    // Combine the new country code with existing number
     onChange(`+${country.value}${numberPart}`);
     setOpen(false);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    // Allow only digits, but keep the input value as is for better UX
-    const newNumber = e.target.value;
-    // Remove any non-digit characters for the stored value
-    const digitsOnly = newNumber.replace(/[^\d]/g, '');
-    onChange(`+${selectedCountry.value}${digitsOnly}`);
+    const newNumber = e.target.value.replace(/[^\d]/g, ''); // Remove non-digits
+    onChange(`+${selectedCountry.value}${newNumber}`);
   };
 
   return (
@@ -92,6 +91,7 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
           id="phone"
           type="tel"
           inputMode="numeric"
+          pattern="[0-9]*"
           placeholder="Enter your phone number"
           value={numberPart}
           onChange={handleNumberChange}
@@ -99,7 +99,7 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
         />
       </div>
       {error && (
-        <p className="text-sm text-red-500">{error}</p>
+        <p className="text-sm text-red-500 mt-1">{error}</p>
       )}
     </div>
   );

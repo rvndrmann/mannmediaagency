@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate } from "react-router-dom";
@@ -145,6 +146,8 @@ const SignupForm = () => {
             <Input
               id="code"
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               placeholder="Enter verification code"
               value={verificationCode}
               onChange={(e) => setVerificationCode(e.target.value)}

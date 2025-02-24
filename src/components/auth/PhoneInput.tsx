@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -37,14 +36,16 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
 
   const handleCountrySelect = (country: typeof countries[0]) => {
     setSelectedCountry(country);
-    // Update the full phone number with new country code
     onChange(`+${country.value}${numberPart}`);
     setOpen(false);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const newNumber = e.target.value.replace(/[^\d]/g, '');
-    onChange(`+${selectedCountry.value}${newNumber}`);
+    // Allow only digits, but keep the input value as is for better UX
+    const newNumber = e.target.value;
+    // Remove any non-digit characters for the stored value
+    const digitsOnly = newNumber.replace(/[^\d]/g, '');
+    onChange(`+${selectedCountry.value}${digitsOnly}`);
   };
 
   return (
@@ -57,17 +58,17 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
               variant="outline"
               role="combobox"
               aria-expanded={open}
-              className="w-[140px] justify-between bg-white/10 border-white/20 text-white hover:bg-white/20"
+              className="w-[120px] justify-between bg-white/10 border-white/20 text-white hover:bg-white/20"
             >
               {selectedCountry.flag} +{selectedCountry.value}
-              <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 opacity-50" />
+              <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
           <PopoverContent className="w-[200px] p-0">
             <Command>
               <CommandInput placeholder="Search country..." />
               <CommandEmpty>No country found.</CommandEmpty>
-              <CommandGroup>
+              <CommandGroup className="max-h-[300px] overflow-y-auto">
                 {countries.map((country) => (
                   <CommandItem
                     key={country.value}
@@ -90,10 +91,11 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
         <Input
           id="phone"
           type="tel"
-          placeholder="Phone number"
+          inputMode="numeric"
+          placeholder="Enter your phone number"
           value={numberPart}
           onChange={handleNumberChange}
-          className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400"
+          className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-lg"
         />
       </div>
       {error && (

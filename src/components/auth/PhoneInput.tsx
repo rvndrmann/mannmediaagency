@@ -33,9 +33,20 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [localNumber, setLocalNumber] = useState("");
 
-  // Properly sync the local number state with the parent value
+  // Sync local number and country code from parent value
   useEffect(() => {
     if (value) {
+      // Extract country code and find matching country
+      const match = value.match(/^\+(\d+)/);
+      if (match) {
+        const countryCode = match[1];
+        const country = countries.find(c => value.startsWith(`+${c.value}`));
+        if (country) {
+          setSelectedCountry(country);
+        }
+      }
+      
+      // Extract local number part
       const numberPart = value.replace(/^\+\d+/, '');
       setLocalNumber(numberPart);
     }
@@ -46,7 +57,6 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
     // Combine the new country code with existing local number
     const cleanNumber = localNumber.replace(/[^\d]/g, '');
     onChange(`+${country.value}${cleanNumber}`);
-    setOpen(false);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -66,15 +76,20 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
               role="combobox"
               aria-expanded={open}
               className="w-[120px] justify-between bg-white/10 border-white/20 text-white hover:bg-white/20"
+              aria-label="Select country code"
             >
               {selectedCountry.flag} +{selectedCountry.value}
               <ChevronsUpDown className="ml-1 h-4 w-4 shrink-0 opacity-50" />
             </Button>
           </PopoverTrigger>
-          <PopoverContent className="w-[200px] p-0 bg-gray-800 border border-gray-700 z-50">
-            <Command className="bg-gray-800">
+          <PopoverContent 
+            className="w-[200px] p-0 z-[100]"
+            sideOffset={8}
+            align="start"
+          >
+            <Command className="bg-gray-800 rounded-md border border-gray-700">
               <CommandInput 
-                className="bg-gray-800 text-white placeholder:text-gray-400" 
+                className="bg-gray-800 text-white placeholder:text-gray-400 border-b border-gray-700" 
                 placeholder="Search country..." 
               />
               <CommandEmpty className="text-gray-400 p-2">No country found.</CommandEmpty>
@@ -82,9 +97,13 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
                 {countries.map((country) => (
                   <CommandItem
                     key={country.value}
-                    value={country.label}
-                    onSelect={() => handleCountrySelect(country)}
-                    className="text-white hover:bg-gray-700"
+                    value={country.value}
+                    onSelect={() => {
+                      handleCountrySelect(country);
+                      // Small delay before closing to ensure touch events register
+                      setTimeout(() => setOpen(false), 100);
+                    }}
+                    className="text-white hover:bg-gray-700 cursor-pointer"
                   >
                     <Check
                       className={cn(

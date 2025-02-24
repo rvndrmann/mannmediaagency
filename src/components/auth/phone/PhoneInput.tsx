@@ -11,9 +11,9 @@ import {
 } from "@/components/ui/select";
 
 const COUNTRY_CODES = [
+  { code: "+91", country: "IN" },
   { code: "+1", country: "US" },
   { code: "+44", country: "UK" },
-  { code: "+91", country: "IN" },
   { code: "+61", country: "AU" },
   { code: "+81", country: "JP" },
   { code: "+86", country: "CN" },
@@ -25,7 +25,7 @@ interface PhoneInputProps {
 }
 
 const PhoneInput = ({ onSubmit, isLoading }: PhoneInputProps) => {
-  const [countryCode, setCountryCode] = useState("+1");
+  const [countryCode, setCountryCode] = useState("+91");
   const [phoneNumber, setPhoneNumber] = useState("");
 
   const handleSubmit = (e: React.FormEvent) => {

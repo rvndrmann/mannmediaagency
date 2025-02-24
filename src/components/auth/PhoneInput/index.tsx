@@ -19,6 +19,7 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
   const [selectedCountry, setSelectedCountry] = useState<CountryCode>(countryCodes[0]);
   const [localNumber, setLocalNumber] = useState("");
   const [localError, setLocalError] = useState("");
+  const [isTouched, setIsTouched] = useState(false);
 
   useEffect(() => {
     if (value) {
@@ -40,9 +41,9 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
     const formattedNumber = formatPhoneNumber(country.value, localNumber);
     onChange(formattedNumber);
     
-    const validationError = validatePhoneNumber(localNumber, country);
+    const validationError = validatePhoneNumber(localNumber, country, isTouched);
     setLocalError(validationError);
-    onValidityChange?.(!validationError);
+    onValidityChange?.(!validationError && localNumber.length >= country.minLength);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,9 +53,16 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
     const formattedNumber = formatPhoneNumber(selectedCountry.value, newNumber);
     onChange(formattedNumber);
     
-    const validationError = validatePhoneNumber(newNumber, selectedCountry);
+    const validationError = validatePhoneNumber(newNumber, selectedCountry, isTouched);
     setLocalError(validationError);
-    onValidityChange?.(!validationError);
+    onValidityChange?.(!validationError && newNumber.length >= selectedCountry.minLength);
+  };
+
+  const handleBlur = () => {
+    setIsTouched(true);
+    const validationError = validatePhoneNumber(localNumber, selectedCountry, true);
+    setLocalError(validationError);
+    onValidityChange?.(!validationError && localNumber.length >= selectedCountry.minLength);
   };
 
   return (
@@ -75,13 +83,14 @@ export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneIn
           placeholder={`${selectedCountry.minLength} digits required`}
           value={localNumber}
           onChange={handleNumberChange}
+          onBlur={handleBlur}
           className={cn(
             "flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400",
-            localError && "border-red-500"
+            (isTouched && (localError || error)) && "border-red-500"
           )}
         />
       </div>
-      {(error || localError) && (
+      {isTouched && (error || localError) && (
         <p className="text-sm text-red-500">{error || localError}</p>
       )}
       <p className="text-sm text-gray-400">

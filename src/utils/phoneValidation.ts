@@ -18,17 +18,18 @@ export const countryCodes: CountryCode[] = [
   { value: "65", label: "Singapore", flag: "🇸🇬", minLength: 8, maxLength: 8 }
 ];
 
-export const validatePhoneNumber = (number: string, country: CountryCode): string => {
-  if (!number) return "Phone number is required";
+export const validatePhoneNumber = (number: string, country: CountryCode, isTouched: boolean): string => {
+  if (!isTouched) return ""; // Don't show errors until the input is touched
   
   const cleanNumber = number.replace(/[^\d]/g, '');
   
-  if (cleanNumber.length < country.minLength) {
-    return `Phone number must be at least ${country.minLength} digits`;
+  // Only validate if the user has entered something or if they've finished typing
+  if (cleanNumber.length > 0 && cleanNumber.length < country.minLength) {
+    return `Enter at least ${country.minLength} digits`;
   }
   
   if (cleanNumber.length > country.maxLength) {
-    return `Phone number cannot exceed ${country.maxLength} digits`;
+    return `Number cannot exceed ${country.maxLength} digits`;
   }
   
   return "";

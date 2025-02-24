@@ -133,37 +133,50 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
 
   return (
     <div className="space-y-2">
-      <Label className="text-white">Upload Image</Label>
-      <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="upload">Upload</TabsTrigger>
-          <TabsTrigger value="saved">Saved Images</TabsTrigger>
+      <Label className="text-sm font-medium text-white mb-2">Upload Image</Label>
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1">
+          <TabsTrigger 
+            value="upload"
+            className="data-[state=active]:bg-purple-500 text-white data-[state=active]:text-white"
+          >
+            Upload
+          </TabsTrigger>
+          <TabsTrigger 
+            value="saved"
+            className="data-[state=active]:bg-purple-500 text-white data-[state=active]:text-white"
+          >
+            Saved Images
+          </TabsTrigger>
         </TabsList>
         <TabsContent value="upload" className="mt-4">
           <div className="relative">
             {!previewUrl ? (
-              <div className="border-2 border-dashed border-gray-700 rounded-lg p-4 text-center">
+              <div className="border-2 border-dashed border-white/20 hover:border-purple-500/50 transition-colors rounded-lg bg-white/5">
                 <input
                   type="file"
                   accept="image/*"
                   onChange={onFileSelect}
                   className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-                <Upload className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-                <p className="text-sm text-gray-400">Drop an image or click to upload</p>
+                <div className="p-8 text-center">
+                  <Upload className="mx-auto h-10 w-10 text-white/40 mb-4" />
+                  <p className="text-sm text-white/80 font-medium mb-1">Drop an image or click to upload</p>
+                  <p className="text-xs text-white/40">Supports JPG, PNG - Max 5MB</p>
+                </div>
               </div>
             ) : (
-              <div className="relative">
+              <div className="relative group">
                 <img
                   src={previewUrl}
                   alt="Preview"
-                  className="w-full h-48 object-cover rounded-lg"
+                  className="w-full h-64 object-cover rounded-lg border border-white/10"
                 />
-                <div className="absolute top-2 right-2 flex gap-2">
+                <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="bg-black/50 hover:bg-black/70"
+                    className="bg-black/50 hover:bg-black/70 backdrop-blur-sm"
                     onClick={() => saveImage.mutate()}
                     disabled={isUploading}
                   >
@@ -172,7 +185,7 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
                   <Button
                     variant="ghost"
                     size="icon"
-                    className="bg-black/50 hover:bg-black/70"
+                    className="bg-black/50 hover:bg-black/70 backdrop-blur-sm"
                     onClick={onClear}
                     disabled={isUploading}
                   >

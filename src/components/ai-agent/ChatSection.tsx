@@ -21,7 +21,7 @@ export function ChatSection({
   onSubmit
 }: ChatSectionProps) {
   return (
-    <Card className="glass-card p-4 h-[calc(100vh-8rem)] flex flex-col">
+    <Card className="glass-card p-4 h-full flex flex-col">
       <Tabs defaultValue="chat" className="flex-1 flex flex-col">
         <TabsList className="w-full bg-[#333333]/50 backdrop-blur-lg mb-4">
           <TabsTrigger 

@@ -1,4 +1,3 @@
-
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { Card } from "@/components/ui/card";
@@ -30,7 +29,6 @@ export const ExploreGrid = ({
   };
 
   const getContent = () => {
-    // Filter out any items without result_url for extra safety
     const validImages = images?.filter(img => img.result_url && filterBySearch(img)) || [];
     const validVideos = videos?.filter(vid => vid.result_url && filterBySearch(vid)) || [];
     const validProductShots = productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || [];
@@ -51,15 +49,12 @@ export const ExploreGrid = ({
   };
 
   const isV2Image = (item: any) => {
-    // If it's in the productShots array, it's a V2 image
     if (productShots?.some(shot => shot.id === item.id)) {
       return true;
     }
-    // If it's in the images array, it's a V1 image
     if (images?.some(img => img.id === item.id)) {
       return false;
     }
-    // For other cases, check the settings
     if (item.settings && typeof item.settings === 'string') {
       try {
         const settings = JSON.parse(item.settings);
@@ -104,62 +99,61 @@ export const ExploreGrid = ({
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 mt-6">
+    <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6">
       {content.map((item: any) => {
         if ('source_image_url' in item && 'scene_description' in item) {
-          // This is a product shot
           const isV2 = contentType === "product-shots" ? true : 
                       contentType === "images" ? false :
                       isV2Image(item);
           const aspectRatio = getAspectRatio(item);
           
           return (
-            <div key={item.id} className="space-y-2">
+            <div key={item.id} className="space-y-1 sm:space-y-2">
               <div className="relative">
                 <ImageCard image={{
                   id: item.id,
                   result_url: item.result_url,
                   prompt: item.scene_description
                 }} />
-                <div className="absolute top-2 right-2 flex gap-2">
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex gap-1 sm:gap-2">
                   {isV2 ? (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0">
-                      <Sparkles className="w-3 h-3 mr-1" />
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[10px] sm:text-xs">
+                      <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       V2
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0">
-                      <BadgeCheck className="w-3 h-3 mr-1" />
+                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[10px] sm:text-xs">
+                      <BadgeCheck className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       V1
                     </Badge>
                   )}
                   {aspectRatio && (
-                    <Badge variant="outline" className="bg-background/80">
-                      <ArrowUpDown className="w-3 h-3 mr-1" />
+                    <Badge variant="outline" className="bg-background/80 text-[10px] sm:text-xs">
+                      <ArrowUpDown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       {aspectRatio}
                     </Badge>
                   )}
                 </div>
               </div>
-              <div className="px-4 text-sm text-muted-foreground">
+              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
           );
         } else if ('source_image_url' in item) {
           return (
-            <div key={item.id} className="space-y-2">
+            <div key={item.id} className="space-y-1 sm:space-y-2">
               <VideoCard video={item} />
-              <div className="px-4 text-sm text-muted-foreground">
+              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
           );
         } else {
           return (
-            <div key={item.id} className="space-y-2">
+            <div key={item.id} className="space-y-1 sm:space-y-2">
               <ImageCard image={item} />
-              <div className="px-4 text-sm text-muted-foreground">
+              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>

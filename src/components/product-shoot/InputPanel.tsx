@@ -46,7 +46,7 @@ export function InputPanel({
   inferenceSteps,
   onInferenceStepsChange,
   guidanceScale,
-  onGuidanceScale,
+  onGuidanceScaleChange,
   outputFormat,
   onOutputFormatChange,
   onGenerate,
@@ -126,7 +126,7 @@ export function InputPanel({
               max="7"
               step="0.1"
               value={guidanceScale}
-              onChange={(e) => onGuidanceScale(Number(e.target.value))}
+              onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
               className="w-full bg-[#2A2A2A] h-1.5 rounded-lg appearance-none cursor-pointer accent-purple-500"
             />
           </div>

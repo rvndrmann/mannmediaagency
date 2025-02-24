@@ -200,13 +200,23 @@ const ProductShoot = () => {
       <MobilePanelToggle title="Product Shot V1" />
       <div 
         className={cn(
-          "flex overflow-hidden transition-all duration-300",
+          "transition-all duration-300",
+          isMobile 
+            ? "flex flex-col" 
+            : "flex",
           chatExpanded 
             ? "h-[calc(70vh-64px)]" 
             : "h-[calc(100vh-64px-3rem)]"
         )}
       >
-        <div className="w-1/3 min-w-[380px] bg-[#1A1F2C]/80 backdrop-blur-xl border-r border-white/10 flex flex-col">
+        <div 
+          className={cn(
+            "bg-[#1A1F2C]/80 backdrop-blur-xl border-white/10",
+            isMobile 
+              ? "w-full border-b h-auto overflow-y-auto" 
+              : "w-1/3 min-w-[380px] border-r flex flex-col"
+          )}
+        >
           <InputPanel
             isMobile={isMobile}
             prompt={prompt}
@@ -227,7 +237,12 @@ const ProductShoot = () => {
             creditsRemaining={userCredits?.credits_remaining}
           />
         </div>
-        <div className="flex-1 bg-[#121418] overflow-hidden">
+        <div 
+          className={cn(
+            "bg-[#121418] overflow-hidden",
+            isMobile ? "w-full flex-1" : "flex-1"
+          )}
+        >
           <GalleryPanel
             isMobile={isMobile}
             images={images}

@@ -8,39 +8,55 @@ import { Command, CommandEmpty, CommandGroup, CommandInput, CommandItem } from "
 import { Check, ChevronsUpDown } from "lucide-react";
 import { cn } from "@/lib/utils";
 
-// Common country codes with flags
+// Common country codes with flags and validation rules
 const countries = [
-  { value: "91", label: "India", flag: "🇮🇳" },
-  { value: "1", label: "United States", flag: "🇺🇸" },
-  { value: "44", label: "United Kingdom", flag: "🇬🇧" },
-  { value: "61", label: "Australia", flag: "🇦🇺" },
-  { value: "86", label: "China", flag: "🇨🇳" },
-  { value: "81", label: "Japan", flag: "🇯🇵" },
-  { value: "82", label: "South Korea", flag: "🇰🇷" },
-  { value: "65", label: "Singapore", flag: "🇸🇬" },
-  { value: "971", label: "UAE", flag: "🇦🇪" },
-  { value: "966", label: "Saudi Arabia", flag: "🇸🇦" },
+  { value: "91", label: "India", flag: "🇮🇳", minLength: 10, maxLength: 10 },
+  { value: "1", label: "United States", flag: "🇺🇸", minLength: 10, maxLength: 10 },
+  { value: "44", label: "United Kingdom", flag: "🇬🇧", minLength: 10, maxLength: 10 },
+  { value: "61", label: "Australia", flag: "🇦🇺", minLength: 9, maxLength: 9 },
+  { value: "86", label: "China", flag: "🇨🇳", minLength: 11, maxLength: 11 },
+  { value: "81", label: "Japan", flag: "🇯🇵", minLength: 10, maxLength: 10 },
+  { value: "82", label: "South Korea", flag: "🇰🇷", minLength: 9, maxLength: 10 },
+  { value: "65", label: "Singapore", flag: "🇸🇬", minLength: 8, maxLength: 8 },
+  { value: "971", label: "UAE", flag: "🇦🇪", minLength: 9, maxLength: 9 },
+  { value: "966", label: "Saudi Arabia", flag: "🇸🇦", minLength: 9, maxLength: 9 },
 ];
 
 interface PhoneInputProps {
   value: string;
   onChange: (value: string) => void;
   error?: string;
+  onValidityChange?: (isValid: boolean) => void;
 }
 
-export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
+export const PhoneInput = ({ value, onChange, error, onValidityChange }: PhoneInputProps) => {
   const [open, setOpen] = useState(false);
   const [selectedCountry, setSelectedCountry] = useState(countries[0]);
   const [localNumber, setLocalNumber] = useState("");
+  const [localError, setLocalError] = useState("");
+
+  // Validate phone number based on country rules
+  const validatePhoneNumber = (number: string, country: typeof countries[0]) => {
+    if (!number) return "Phone number is required";
+    if (number.length < country.minLength) {
+      return `Phone number must be at least ${country.minLength} digits for ${country.label}`;
+    }
+    if (number.length > country.maxLength) {
+      return `Phone number cannot exceed ${country.maxLength} digits for ${country.label}`;
+    }
+    return "";
+  };
 
   // Sync local number and country code from parent value
   useEffect(() => {
     if (value) {
-      // Extract country code and find matching country
       const match = value.match(/^\+(\d+)/);
       if (match) {
         const countryCode = match[1];
-        const country = countries.find(c => value.startsWith(`+${c.value}`));
+        const country = countries.find(c => {
+          // Find the longest matching country code prefix
+          return value.startsWith(`+${c.value}`);
+        });
         if (country) {
           setSelectedCountry(country);
         }
@@ -49,20 +65,36 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
       // Extract local number part
       const numberPart = value.replace(/^\+\d+/, '');
       setLocalNumber(numberPart);
+      
+      // Validate the complete number
+      const validationError = validatePhoneNumber(numberPart, selectedCountry);
+      setLocalError(validationError);
+      onValidityChange?.(!validationError);
     }
-  }, [value]);
+  }, [value, onValidityChange]);
 
   const handleCountrySelect = (country: typeof countries[0]) => {
     setSelectedCountry(country);
-    // Combine the new country code with existing local number
     const cleanNumber = localNumber.replace(/[^\d]/g, '');
-    onChange(`+${country.value}${cleanNumber}`);
+    const formattedNumber = `+${country.value}${cleanNumber}`;
+    onChange(formattedNumber);
+    
+    // Revalidate with new country rules
+    const validationError = validatePhoneNumber(cleanNumber, country);
+    setLocalError(validationError);
+    onValidityChange?.(!validationError);
   };
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newNumber = e.target.value.replace(/[^0-9]/g, ''); // Only allow digits
     setLocalNumber(newNumber);
-    onChange(`+${selectedCountry.value}${newNumber}`);
+    const formattedNumber = `+${selectedCountry.value}${newNumber}`;
+    onChange(formattedNumber);
+    
+    // Validate the new number
+    const validationError = validatePhoneNumber(newNumber, selectedCountry);
+    setLocalError(validationError);
+    onValidityChange?.(!validationError);
   };
 
   return (
@@ -100,7 +132,6 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
                     value={country.value}
                     onSelect={() => {
                       handleCountrySelect(country);
-                      // Small delay before closing to ensure touch events register
                       setTimeout(() => setOpen(false), 100);
                     }}
                     className="text-white hover:bg-gray-700 cursor-pointer"
@@ -123,19 +154,26 @@ export const PhoneInput = ({ value, onChange, error }: PhoneInputProps) => {
           type="tel"
           inputMode="numeric"
           pattern="[0-9]*"
-          maxLength={15}
+          maxLength={selectedCountry.maxLength}
           enterKeyHint="done"
           autoComplete="tel-national"
-          placeholder="Enter your phone number"
+          placeholder={`${selectedCountry.minLength} digits required`}
           value={localNumber}
           onChange={handleNumberChange}
-          className="flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-lg"
+          className={cn(
+            "flex-1 bg-white/10 border-white/20 text-white placeholder:text-gray-400 h-12 text-lg",
+            localError && "border-red-500"
+          )}
           aria-label="Phone number"
+          aria-invalid={!!localError}
         />
       </div>
-      {error && (
-        <p className="text-sm text-red-500 mt-1">{error}</p>
+      {(error || localError) && (
+        <p className="text-sm text-red-500 mt-1">{error || localError}</p>
       )}
+      <p className="text-sm text-gray-400 mt-1">
+        Format: +{selectedCountry.value} followed by {selectedCountry.minLength} digits
+      </p>
     </div>
   );
 };

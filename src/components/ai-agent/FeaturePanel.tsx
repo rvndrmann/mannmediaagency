@@ -181,14 +181,26 @@ export function FeaturePanel({ messages, productShotV2, productShotV1 }: Feature
                   const lastResponse = getLastAIResponse();
                   if (lastResponse) {
                     productShotV2.onSubmit({
-                      prompt: lastResponse,
+                      sourceFile: null,
+                      referenceFile: null,
+                      sceneDescription: lastResponse,
                       generationType: "description",
                       placementType: "automatic",
+                      manualPlacement: "",
                       optimizeDescription: true,
+                      numResults: 1,
                       fastMode: false,
                       originalQuality: true,
+                      shotWidth: 1024,
+                      shotHeight: 1024,
+                      syncMode: false,
                       aspectRatio: "1:1",
-                      manualPlacement: ""
+                      padding: {
+                        left: 0,
+                        right: 0,
+                        top: 0,
+                        bottom: 0
+                      }
                     });
                   }
                 }}

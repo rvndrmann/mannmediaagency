@@ -64,7 +64,8 @@ const AIAgent = () => {
                 isGenerating: isGeneratingV2,
                 isSubmitting: isSubmittingV2,
                 availableCredits: userCreditsQuery.data?.credits_remaining || 0,
-                generatedImages: generatedImagesV2
+                generatedImages: generatedImagesV2,
+                messages: messages // Add messages here
               }}
               productShotV1={{
                 isMobile,

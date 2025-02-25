@@ -160,7 +160,7 @@ export const SplitScreen = ({
         </div>
       </div>
 
-      {/* Mobile Navigation - Fixed positioning */}
+      {/* Mobile Navigation */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-50">
           <MobileToolNav

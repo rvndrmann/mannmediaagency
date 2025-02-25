@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -98,19 +99,20 @@ export const SplitScreen = ({
   };
 
   return (
-    <div className="min-h-screen bg-[#1A1F2C]">
+    <div className="relative flex flex-col min-h-screen bg-[#1A1F2C]">
       <div 
         className={cn(
-          "transition-all duration-300 ease-in-out",
-          isMobile ? "pb-16" : "flex h-[calc(100vh-4rem)]"
+          "flex-1 transition-all duration-300 ease-in-out",
+          isMobile ? "pb-20" : "flex h-[calc(100vh-4rem)]" // Increased bottom padding for mobile nav
         )}
       >
+        {/* Chat Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-30 animate-in fade-in slide-in" 
+                ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-16" // Added padding bottom
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10"
@@ -127,6 +129,7 @@ export const SplitScreen = ({
           />
         </div>
 
+        {/* Feature Panel Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out",
@@ -134,7 +137,7 @@ export const SplitScreen = ({
               showChat 
                 ? "hidden" 
                 : cn(
-                    "min-h-screen",
+                    "min-h-[calc(100vh-5rem)]", // Adjusted height to account for nav
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
             ) : "flex-1"
@@ -157,11 +160,14 @@ export const SplitScreen = ({
         </div>
       </div>
 
+      {/* Mobile Navigation - Fixed positioning */}
       {isMobile && (
-        <MobileToolNav
-          activeTool={showChat ? 'ai-agent' : activeTool}
-          onToolSelect={handleToolSelect}
-        />
+        <div className="fixed bottom-0 left-0 right-0 z-50">
+          <MobileToolNav
+            activeTool={showChat ? 'ai-agent' : activeTool}
+            onToolSelect={handleToolSelect}
+          />
+        </div>
       )}
     </div>
   );

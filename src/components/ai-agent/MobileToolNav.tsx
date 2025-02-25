@@ -43,8 +43,8 @@ interface MobileToolNavProps {
 
 export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) {
   return (
-    <div className="md:hidden fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10">
-      <nav className="flex items-center justify-between px-2 h-16 safe-bottom">
+    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
+      <nav className="flex items-center justify-between px-2 h-16">
         {tools.map((tool) => (
           <button
             key={tool.id}

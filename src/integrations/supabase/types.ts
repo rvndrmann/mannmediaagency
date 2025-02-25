@@ -1039,30 +1039,6 @@ export type Database = {
         }
         Relationships: []
       }
-      user_roles: {
-        Row: {
-          created_at: string
-          id: string
-          role: Database["public"]["Enums"]["user_role"]
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          role?: Database["public"]["Enums"]["user_role"]
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
       video_audio_tracks: {
         Row: {
           audio_url: string
@@ -1315,83 +1291,6 @@ export type Database = {
           },
         ]
       }
-      work_assignments: {
-        Row: {
-          assigned_by: string
-          created_at: string
-          delivered_content: string | null
-          feedback: string | null
-          id: string
-          status: string
-          updated_at: string
-          work_request_id: string
-          worker_id: string
-        }
-        Insert: {
-          assigned_by: string
-          created_at?: string
-          delivered_content?: string | null
-          feedback?: string | null
-          id?: string
-          status?: string
-          updated_at?: string
-          work_request_id: string
-          worker_id: string
-        }
-        Update: {
-          assigned_by?: string
-          created_at?: string
-          delivered_content?: string | null
-          feedback?: string | null
-          id?: string
-          status?: string
-          updated_at?: string
-          work_request_id?: string
-          worker_id?: string
-        }
-        Relationships: [
-          {
-            foreignKeyName: "work_assignments_work_request_id_fkey"
-            columns: ["work_request_id"]
-            isOneToOne: true
-            referencedRelation: "work_requests"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
-      work_requests: {
-        Row: {
-          created_at: string
-          credits_required: number
-          description: string
-          id: string
-          status: string
-          title: string
-          updated_at: string
-          user_id: string
-        }
-        Insert: {
-          created_at?: string
-          credits_required?: number
-          description: string
-          id?: string
-          status?: string
-          title: string
-          updated_at?: string
-          user_id: string
-        }
-        Update: {
-          created_at?: string
-          credits_required?: number
-          description?: string
-          id?: string
-          status?: string
-          title?: string
-          updated_at?: string
-          user_id?: string
-        }
-        Relationships: []
-      }
     }
     Views: {
       [_ in never]: never
@@ -1437,7 +1336,6 @@ export type Database = {
         | "video_generated"
         | "completed"
         | "failed"
-      user_role: "user" | "worker" | "admin"
       video_generation_status:
         | "pending"
         | "in_queue"

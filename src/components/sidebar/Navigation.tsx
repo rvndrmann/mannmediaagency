@@ -1,121 +1,171 @@
+
+import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { SidebarMenu, SidebarMenuItem } from "@/components/ui/sidebar/menu";
 import { cn } from "@/lib/utils";
 import {
-  BrainCircuit,
-  Image,
-  ImagePlus,
-  LayoutGrid,
-  Play,
-  Cog,
-  FileSpreadsheet,
+  ScrollText,
+  Settings,
+  Info,
+  Mail,
+  Shield,
+  FileText,
+  CreditCard,
+  Compass,
+  User,
+  Menu,
+  Bot,
 } from "lucide-react";
-import { NavLink } from "react-router-dom";
+import { Link } from "react-router-dom";
+import { Separator } from "@/components/ui/separator";
+import { useSidebar } from "@/components/ui/sidebar/context";
 
 export const Navigation = () => {
+  const location = useLocation();
+  const { toggleSidebar } = useSidebar();
+
+  const mainNavigation = [
+    {
+      name: "Explore",
+      subtext: "Discover Amazing Content",
+      to: "/explore",
+      icon: Compass,
+    },
+    {
+      name: "Dashboard",
+      subtext: "Your Content Overview",
+      to: "/dashboard",
+      icon: ScrollText,
+    },
+    {
+      name: "AI Agent",
+      subtext: "Intelligent Assistant",
+      to: "/ai-agent",
+      icon: Bot,
+    },
+    {
+      name: "Plans & Billing",
+      to: "/plans",
+      icon: CreditCard,
+    },
+    {
+      name: "Profile Settings",
+      to: "/profile",
+      icon: User,
+    },
+    {
+      name: "Integrations",
+      icon: Settings,
+      disabled: true,
+      comingSoon: true,
+    },
+  ];
+
+  const legalNavigation = [
+    {
+      name: "About Us",
+      to: "/about",
+      icon: Info,
+    },
+    {
+      name: "Contact",
+      to: "/contact",
+      icon: Mail,
+    },
+    {
+      name: "Privacy Policy",
+      to: "/privacy",
+      icon: Shield,
+    },
+    {
+      name: "Terms of Service",
+      to: "/terms",
+      icon: FileText,
+    },
+  ];
+
   return (
-    <SidebarMenu>
-      <SidebarMenuItem>
-        <NavLink to="/" end>
-          {({ isActive }) => (
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        className="fixed top-4 left-4 z-50 md:hidden"
+        onClick={toggleSidebar}
+      >
+        <Menu className="h-6 w-6" />
+      </Button>
+      <nav className="space-y-6 px-2">
+        <div className="space-y-1">
+          {mainNavigation.map((item) => (
             <Button
+              key={item.name}
               variant="ghost"
               className={cn(
-                "w-full justify-start",
-                isActive && "bg-muted"
+                "w-full justify-start gap-2",
+                location.pathname === item.to
+                  ? "bg-accent text-accent-foreground"
+                  : "hover:bg-accent hover:text-accent-foreground",
+                item.disabled && "opacity-50 cursor-not-allowed"
               )}
+              asChild={!item.disabled}
+              disabled={item.disabled}
             >
-              <LayoutGrid className="mr-2 h-4 w-4" />
-              Dashboard
+              {!item.disabled ? (
+                <Link to={item.to} className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4" />
+                  <div className="flex-1 text-left">
+                    <div>{item.name}</div>
+                    {item.subtext && (
+                      <div className="text-xs text-muted-foreground">
+                        {item.subtext}
+                      </div>
+                    )}
+                  </div>
+                  {item.comingSoon && (
+                    <span className="text-xs text-muted-foreground">Coming soon</span>
+                  )}
+                </Link>
+              ) : (
+                <div className="flex items-center gap-2">
+                  <item.icon className="h-4 w-4" />
+                  <div className="flex-1 text-left">
+                    <div>{item.name}</div>
+                    {item.subtext && (
+                      <div className="text-xs text-muted-foreground">
+                        {item.subtext}
+                      </div>
+                    )}
+                  </div>
+                  {item.comingSoon && (
+                    <span className="text-xs text-muted-foreground">Coming soon</span>
+                  )}
+                </div>
+              )}
             </Button>
-          )}
-        </NavLink>
-      </SidebarMenuItem>
+          ))}
+        </div>
 
-      <SidebarMenuItem>
-        <NavLink to="/work-requests">
-          {({ isActive }) => (
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start",
-                isActive && "bg-muted"
-              )}
-            >
-              <FileSpreadsheet className="mr-2 h-4 w-4" />
-              Work Requests
-            </Button>
-          )}
-        </NavLink>
-      </SidebarMenuItem>
+        <Separator />
 
-      <SidebarMenuItem>
-        <NavLink to="/video-generator">
-          {({ isActive }) => (
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start",
-                isActive && "bg-muted"
-              )}
-            >
-              <Play className="mr-2 h-4 w-4" />
-              Video Generator
-            </Button>
-          )}
-        </NavLink>
-      </SidebarMenuItem>
-
-      <SidebarMenuItem>
-        <NavLink to="/image-generator">
-          {({ isActive }) => (
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start",
-                isActive && "bg-muted"
-              )}
-            >
-              <Image className="mr-2 h-4 w-4" />
-              Image Generator
-            </Button>
-          )}
-        </NavLink>
-      </SidebarMenuItem>
-
-      <SidebarMenuItem>
-        <NavLink to="/product-ad-generator">
-          {({ isActive }) => (
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start",
-                isActive && "bg-muted"
-              )}
-            >
-              <ImagePlus className="mr-2 h-4 w-4" />
-              Product Ad Generator
-            </Button>
-          )}
-        </NavLink>
-      </SidebarMenuItem>
-
-      <SidebarMenuItem>
-        <NavLink to="/profile-settings">
-          {({ isActive }) => (
-            <Button
-              variant="ghost"
-              className={cn(
-                "w-full justify-start",
-                isActive && "bg-muted"
-              )}
-            >
-              <Cog className="mr-2 h-4 w-4" />
-              Settings
-            </Button>
-          )}
-        </NavLink>
-      </SidebarMenuItem>
-    </SidebarMenu>
+        <div className="space-y-1">
+          <div className="px-2 py-1">
+            <h3 className="text-xs font-semibold text-gray-400">Information</h3>
+          </div>
+          {legalNavigation.map((item) => (
+            <Link key={item.name} to={item.to}>
+              <Button
+                variant="ghost"
+                className={cn(
+                  "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 text-sm",
+                  location.pathname === item.to && "bg-gray-800 text-white"
+                )}
+              >
+                <item.icon className="mr-2 h-4 w-4" />
+                {item.name}
+              </Button>
+            </Link>
+          ))}
+        </div>
+      </nav>
+    </>
   );
 };

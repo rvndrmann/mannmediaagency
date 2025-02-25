@@ -8,6 +8,7 @@ import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { useProductShotV1 } from "@/hooks/use-product-shot-v1";
 import { useUserCredits } from "@/hooks/use-user-credits";
 import { useChatHandler } from "@/hooks/use-chat-handler";
+import { useImageToVideo } from "@/hooks/use-image-to-video";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -32,6 +33,15 @@ const AIAgent = () => {
     user_id: userCreditsQuery.data?.user_id || '',
     credits_remaining: userCreditsQuery.data?.credits_remaining || 0
   });
+
+  const {
+    isGenerating: isGeneratingVideo,
+    previewUrl: videoPreviewUrl,
+    handleFileSelect: handleVideoFileSelect,
+    handleClearFile: handleVideoClearFile,
+    handleGenerate: handleVideoGenerate,
+  } = useImageToVideo();
+
   const { messages, handleSubmit } = useChatHandler(setInput);
 
   return (
@@ -74,6 +84,15 @@ const AIAgent = () => {
             onDownload: (url: string) => {
               window.open(url, '_blank');
             }
+          }}
+          imageToVideo={{
+            isMobile,
+            previewUrl: videoPreviewUrl,
+            onFileSelect: handleVideoFileSelect,
+            onClearFile: handleVideoClearFile,
+            creditsRemaining: userCreditsQuery.data?.credits_remaining || 0,
+            isGenerating: isGeneratingVideo,
+            onGenerate: handleVideoGenerate,
           }}
           onInputChange={setInput}
           onSubmit={(e) => handleSubmit(e, input)}

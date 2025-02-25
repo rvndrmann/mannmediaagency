@@ -50,9 +50,13 @@ const AIAgent = () => {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
-        <div className="min-h-screen bg-[#1A1F2C] relative pb-16 md:pb-0">
-          {!isMobile && <Header onBack={() => navigate(-1)} />}
-          <div>
+        <div className="min-h-screen bg-[#1A1F2C]">
+          {!isMobile && (
+            <div className="fixed top-0 left-0 right-0 z-50">
+              <Header onBack={() => navigate(-1)} />
+            </div>
+          )}
+          <div className="h-screen pt-16">
             <SplitScreen
               isMobile={isMobile}
               messages={messages}
@@ -65,7 +69,7 @@ const AIAgent = () => {
                 isSubmitting: isSubmittingV2,
                 availableCredits: userCreditsQuery.data?.credits_remaining || 0,
                 generatedImages: generatedImagesV2,
-                messages: messages // Add messages here
+                messages: messages
               }}
               productShotV1={{
                 isMobile,

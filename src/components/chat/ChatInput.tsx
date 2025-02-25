@@ -30,14 +30,14 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
 
   return (
     <form onSubmit={onSubmit} className="space-y-2">
-      <div className="flex gap-2">
+      <div className="flex gap-3">
         <div className="flex-1 space-y-2">
           <Textarea
             value={input}
             onChange={(e) => handleChange(e.target.value)}
             placeholder="Type your message..."
             disabled={isLoading}
-            className="min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none"
+            className="min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none focus:ring-2 focus:ring-[#9b87f5] focus:border-transparent"
           />
           <div className="flex justify-between items-center">
             <span className={`text-sm ${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-400'}`}>
@@ -49,9 +49,9 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
         <Button 
           type="submit" 
           disabled={isLoading}
-          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start"
+          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start px-4 h-12 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
         >
-          <Send className="h-4 w-4" />
+          <Send className="h-5 w-5" />
         </Button>
       </div>
     </form>

@@ -781,6 +781,7 @@ export type Database = {
           background_music: string | null
           created_at: string
           final_video_with_music: string | null
+          "PRODUCT IMAGE": number | null
           ready_to_go: boolean | null
           source: string | null
           "stories id": number
@@ -793,6 +794,7 @@ export type Database = {
           background_music?: string | null
           created_at?: string
           final_video_with_music?: string | null
+          "PRODUCT IMAGE"?: number | null
           ready_to_go?: boolean | null
           source?: string | null
           "stories id"?: number
@@ -805,6 +807,7 @@ export type Database = {
           background_music?: string | null
           created_at?: string
           final_video_with_music?: string | null
+          "PRODUCT IMAGE"?: number | null
           ready_to_go?: boolean | null
           source?: string | null
           "stories id"?: number

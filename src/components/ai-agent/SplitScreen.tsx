@@ -93,14 +93,14 @@ export const SplitScreen = ({
   return (
     <div 
       className={cn(
-        "flex h-screen",
-        isMobile ? "flex-col" : "h-[calc(100vh-4rem)]"
+        "flex",
+        isMobile ? "flex-col h-screen overflow-hidden" : "h-[calc(100vh-4rem)]"
       )}
     >
       <div 
         className={cn(
           "relative bg-[#1A1F2C] border-white/10",
-          isMobile ? "h-screen w-full border-b pb-16" : "flex-none w-[50%] border-r"
+          isMobile ? "h-[40vh] min-h-[300px] w-full border-b" : "flex-none w-[50%] border-r"
         )}
       >
         <ChatSection
@@ -116,7 +116,7 @@ export const SplitScreen = ({
       <div 
         className={cn(
           "relative bg-[#1A1F2C]",
-          isMobile ? "min-h-screen w-full pb-16" : "flex-1"
+          isMobile ? "h-[60vh] w-full pb-16" : "flex-1"
         )}
       >
         <ToolSelector 
@@ -126,7 +126,7 @@ export const SplitScreen = ({
         
         <div className={cn(
           "h-[calc(100%-3rem)]",
-          isMobile && "mt-4"
+          isMobile && "overflow-y-auto"
         )}>
           <FeaturePanel
             messages={messages}

@@ -73,7 +73,7 @@ export const UseAIResponseButton = ({
       )}
     >
       <PenTool className="h-4 w-4 mr-2" />
-      {variant === "default" ? "Use Last AI Response" : "Use AI"}
+      {variant === "default" ? "Use Last AI Response" : "Use Last AI Response"}
     </Button>
   );
 };

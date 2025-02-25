@@ -35,6 +35,7 @@ export default function ProductShootV2() {
             isGenerating={isGenerating}
             isSubmitting={isSubmitting}
             availableCredits={userCredits?.credits_remaining}
+            messages={[]} // Add empty array as default messages
           />
         </div>
 

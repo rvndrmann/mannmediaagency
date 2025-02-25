@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -53,7 +52,7 @@ interface ImageToVideoProps {
 
 interface SplitScreenProps {
   isMobile: boolean;
-  messages: any[];
+  messages: Message[];
   input: string;
   isLoading: boolean;
   userCredits: any;
@@ -63,6 +62,7 @@ interface SplitScreenProps {
     isSubmitting: boolean;
     availableCredits: number;
     generatedImages: GeneratedImage[];
+    messages: Message[];
   };
   productShotV1: ProductShotV1Props;
   imageToVideo: ImageToVideoProps;
@@ -149,10 +149,7 @@ export const SplitScreen = ({
           
           <FeaturePanel
             messages={messages}
-            productShotV2={{
-              ...productShotV2,
-              messages // Add messages to productShotV2 props
-            }}
+            productShotV2={productShotV2}
             productShotV1={productShotV1}
             imageToVideo={imageToVideo}
             activeTool={activeTool}

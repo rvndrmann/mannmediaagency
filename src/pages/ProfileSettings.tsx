@@ -1,16 +1,13 @@
-import { useState, useEffect } from "react";
+
+import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { Sidebar } from "@/components/Sidebar";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { User, Upload } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Plans } from "./Plans";
+import { ProfileForm } from "@/components/settings/ProfileForm";
+import { MobileSettingsTabs } from "@/components/settings/MobileSettingsTabs";
 
 const ProfileSettings = () => {
   const queryClient = useQueryClient();
@@ -167,58 +164,16 @@ const ProfileSettings = () => {
     );
   }
 
-  const renderProfileContent = () => (
-    <>
-      <Card className="max-w-2xl p-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="relative group">
-            <div className="h-16 w-16 rounded-full bg-gray-700 flex items-center justify-center overflow-hidden">
-              {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="h-full w-full object-cover" />
-              ) : (
-                <User className="h-8 w-8 text-gray-400" />
-              )}
-            </div>
-            <label className="absolute bottom-0 right-0 p-1 bg-primary rounded-full cursor-pointer hover:bg-primary/90 transition-colors">
-              <Upload className="h-4 w-4 text-white" />
-              <input
-                type="file"
-                className="hidden"
-                accept="image/*"
-                onChange={handleAvatarUpload}
-                disabled={uploading}
-              />
-            </label>
-          </div>
-          <div>
-            <h2 className="text-lg font-medium">Your Profile</h2>
-            <p className="text-sm text-gray-500">
-              Current username: {profile?.username || "No username set"}
-            </p>
-          </div>
-        </div>
-
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div>
-            <label htmlFor="username" className="block text-sm font-medium mb-2">
-              New Username
-            </label>
-            <Input
-              id="username"
-              placeholder="Enter new username"
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              minLength={3}
-              required
-            />
-          </div>
-          <Button type="submit" disabled={isSubmitting || uploading}>
-            {isSubmitting ? "Updating..." : "Update Profile"}
-          </Button>
-        </form>
-      </Card>
-    </>
-  );
+  const profileFormProps = {
+    username,
+    setUsername,
+    isSubmitting,
+    uploading,
+    avatarUrl,
+    handleSubmit,
+    handleAvatarUpload,
+    currentUsername: profile?.username,
+  };
 
   return (
     <SidebarProvider>
@@ -227,30 +182,15 @@ const ProfileSettings = () => {
           <Sidebar />
           <div className="flex-1 p-8">
             {isMobile ? (
-              <Tabs
-                value={activeTab}
-                onValueChange={setActiveTab}
-                className="w-full space-y-6"
-              >
-                <div className="border-b sticky top-0 bg-background z-10 pb-2">
-                  <TabsList className="w-full grid grid-cols-2">
-                    <TabsTrigger value="profile">Profile</TabsTrigger>
-                    <TabsTrigger value="plans">Plans</TabsTrigger>
-                  </TabsList>
-                </div>
-                
-                <TabsContent value="profile" className="space-y-6 pb-16">
-                  {renderProfileContent()}
-                </TabsContent>
-                
-                <TabsContent value="plans" className="space-y-6 pb-16">
-                  <Plans />
-                </TabsContent>
-              </Tabs>
+              <MobileSettingsTabs
+                activeTab={activeTab}
+                setActiveTab={setActiveTab}
+                profileFormProps={profileFormProps}
+              />
             ) : (
               <>
                 <h1 className="text-2xl font-bold mb-6">Profile Settings</h1>
-                {renderProfileContent()}
+                <ProfileForm {...profileFormProps} />
               </>
             )}
           </div>

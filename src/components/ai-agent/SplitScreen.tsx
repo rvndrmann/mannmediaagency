@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -83,30 +84,33 @@ export const SplitScreen = ({
 }: SplitScreenProps) => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [showChat, setShowChat] = useState(false);
+  const [isTransitioning, setIsTransitioning] = useState(false);
 
   const handleToolSelect = (tool: string) => {
+    setIsTransitioning(true);
     if (tool === 'ai-agent') {
       setShowChat(true);
     } else {
       setShowChat(false);
       setActiveTool(tool);
     }
+    setTimeout(() => setIsTransitioning(false), 300);
   };
 
   return (
     <div className="min-h-screen bg-[#1A1F2C]">
       <div 
         className={cn(
-          "transition-all duration-300",
+          "transition-all duration-300 ease-in-out",
           isMobile ? "pb-16" : "flex h-[calc(100vh-4rem)]"
         )}
       >
         <div 
           className={cn(
-            "bg-[#1A1F2C] transition-all duration-300",
+            "bg-[#1A1F2C] transition-all duration-300 ease-in-out",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-30" 
+                ? "fixed inset-0 z-30 animate-in fade-in slide-in" 
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10"
@@ -125,11 +129,14 @@ export const SplitScreen = ({
 
         <div 
           className={cn(
-            "bg-[#1A1F2C]",
+            "bg-[#1A1F2C] transition-all duration-300 ease-in-out",
             isMobile ? (
               showChat 
                 ? "hidden" 
-                : "min-h-screen"
+                : cn(
+                    "min-h-screen",
+                    isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
+                  )
             ) : "flex-1"
           )}
         >
@@ -142,7 +149,10 @@ export const SplitScreen = ({
           
           <FeaturePanel
             messages={messages}
-            productShotV2={productShotV2}
+            productShotV2={{
+              ...productShotV2,
+              messages // Add messages to productShotV2 props
+            }}
             productShotV1={productShotV1}
             imageToVideo={imageToVideo}
             activeTool={activeTool}

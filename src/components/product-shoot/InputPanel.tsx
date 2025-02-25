@@ -11,6 +11,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
+import { Message } from "@/types/message";
 
 interface InputPanelProps {
   isMobile: boolean;

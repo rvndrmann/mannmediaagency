@@ -9,6 +9,7 @@ import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { ChatSection } from "@/components/product-shoot/ChatSection";
 import { useNavigate } from "react-router-dom";
+import { Message } from "@/types/message";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
@@ -21,6 +22,7 @@ const ProductShoot = () => {
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");
   const [chatExpanded, setChatExpanded] = useState(true);
+  const [messages, setMessages] = useState<Message[]>([]);
   const queryClient = useQueryClient();
 
   const { data: session } = useQuery({
@@ -200,16 +202,12 @@ const ProductShoot = () => {
       <MobilePanelToggle title="Product Shot V1" />
       <div className={cn(
         "transition-all duration-300 relative",
-        isMobile 
-          ? "flex flex-col h-[calc(100vh-64px)]" 
-          : "flex h-[calc(100vh-64px-3rem)]",
+        isMobile ? "flex flex-col h-[calc(100vh-64px)]" : "flex h-[calc(100vh-64px-3rem)]",
         chatExpanded && isMobile && "h-[calc(70vh-64px)]"
       )}>
         <div className={cn(
           "bg-[#1A1F2C]/80 backdrop-blur-xl border-white/10",
-          isMobile 
-            ? "w-full border-b max-h-[60vh] overflow-y-auto" 
-            : "w-1/3 min-w-[380px] border-r flex flex-col"
+          isMobile ? "w-full border-b max-h-[60vh] overflow-y-auto" : "w-1/3 min-w-[380px] border-r flex flex-col"
         )}>
           <InputPanel
             isMobile={isMobile}
@@ -229,13 +227,12 @@ const ProductShoot = () => {
             onGenerate={() => generateImage.mutate()}
             isGenerating={generateImage.isPending}
             creditsRemaining={userCredits?.credits_remaining}
+            messages={messages}
           />
         </div>
         <div className={cn(
           "bg-[#121418]",
-          isMobile 
-            ? "w-full flex-1 overflow-y-auto" 
-            : "flex-1 overflow-hidden"
+          isMobile ? "w-full flex-1 overflow-y-auto" : "flex-1 overflow-hidden"
         )}>
           <GalleryPanel
             isMobile={isMobile}

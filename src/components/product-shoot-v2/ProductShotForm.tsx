@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -11,7 +12,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ImageUploader } from "@/components/product-shoot/ImageUploader";
-import { ProductShotFormProps } from "./types";
 import { useProductShotForm } from "./hooks/useProductShotForm";
 import { GenerateButton } from "./components/GenerateButton";
 import { AspectRatio } from "@/types/product-shoot";

@@ -8,6 +8,7 @@ import { InputPanel } from "@/components/image-to-video/InputPanel";
 import { GalleryPanel } from "@/components/image-to-video/GalleryPanel";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { Message } from "@/types/message";
 
 interface SupabaseVideoJob {
   id: string;
@@ -39,6 +40,7 @@ const ImageToVideo = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const [messages, setMessages] = useState<Message[]>([]);
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -276,6 +278,7 @@ const ImageToVideo = () => {
           creditsRemaining={userCredits?.credits_remaining}
           aspectRatio={aspectRatio}
           onAspectRatioChange={setAspectRatio}
+          messages={messages}
         />
         <GalleryPanel
           isMobile={isMobile}

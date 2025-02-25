@@ -13,6 +13,7 @@ import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
+import { useNavigate } from "react-router-dom";
 
 interface CreateWorkRequestDialogProps {
   open: boolean;
@@ -28,19 +29,29 @@ export const CreateWorkRequestDialog = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const navigate = useNavigate();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
     try {
-      const { error } = await supabase.from("work_requests").insert([
-        {
-          title,
-          description,
-          credits_required: 1, // Default to 1 credit per request
-        },
-      ]);
+      // First get the current user
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      if (!user) {
+        // If no user is found, redirect to login
+        navigate('/auth/login');
+        return;
+      }
+
+      const { error } = await supabase.from("work_requests").insert({
+        title,
+        description,
+        credits_required: 1, // Default to 1 credit per request
+        user_id: user.id,
+        status: "pending" // Set initial status
+      });
 
       if (error) throw error;
 

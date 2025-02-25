@@ -3,8 +3,6 @@ import { useState } from "react";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
-import { useNavigate } from "react-router-dom";
-import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { DialogHeaderSection } from "./dialog/DialogHeaderSection";
 import { ScriptInputSection } from "./dialog/ScriptInputSection";
@@ -12,6 +10,8 @@ import { StyleSelectorSection } from "./dialog/StyleSelectorSection";
 import { MusicUploaderSection } from "./dialog/MusicUploaderSection";
 import { ProductPhotoSection } from "./dialog/ProductPhotoSection";
 import { DialogActionsSection } from "./dialog/DialogActionsSection";
+import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
+import { useVideoCreation } from "@/hooks/use-video-creation";
 
 interface CreateVideoDialogProps {
   isOpen: boolean;
@@ -38,132 +38,45 @@ export const CreateVideoDialog = ({
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState(initialScript);
   const [readyToGo, setReadyToGo] = useState(initialReadyToGo);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
-  const [productPhoto, setProductPhoto] = useState<File | null>(null);
-  const [uploadProgress, setUploadProgress] = useState(0);
-  const [productPhotoProgress, setProductPhotoProgress] = useState(0);
-  const [uploadedFileName, setUploadedFileName] = useState<string | null>(initialBackgroundMusic);
-  const [uploadedPhotoName, setUploadedPhotoName] = useState<string | null>(initialProductPhoto);
-  const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<string>(initialStyle);
-  const navigate = useNavigate();
+  const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(initialBackgroundMusic);
+  const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
   const { toast } = useToast();
+
+  const {
+    uploadProgress: musicUploadProgress,
+    uploadedFileName: musicFileName,
+    handleFileUpload: handleMusicUpload
+  } = useSupabaseUpload(initialBackgroundMusic);
+
+  const {
+    uploadProgress: photoUploadProgress,
+    uploadedFileName: photoFileName,
+    previewUrl: photoPreviewUrl,
+    handleFileUpload: handlePhotoUpload
+  } = useSupabaseUpload(initialProductPhoto);
+
+  const { isSubmitting, createVideo } = useVideoCreation({
+    onSuccess: onClose
+  });
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('image/')) {
-        toast({
-          title: "Error",
-          description: "Please upload an image file",
-          variant: "destructive",
-        });
-        return;
-      }
-      setProductPhoto(file);
-      setProductPhotoProgress(0);
-      setUploadedPhotoName(null);
-
-      try {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${crypto.randomUUID()}.${fileExt}`;
-
-        // Create a preview URL
-        const previewUrl = URL.createObjectURL(file);
-        setProductPhotoUrl(previewUrl);
-
-        const { error: uploadError } = await supabase.storage
-          .from('product-photos')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('product-photos')
-          .getPublicUrl(filePath);
-
-        setProductPhotoProgress(100);
-        setUploadedPhotoName(file.name);
-        setProductPhotoUrl(publicUrl);
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to upload product photo",
-          variant: "destructive",
-        });
-        setProductPhotoProgress(0);
-        setUploadedPhotoName(null);
-        setProductPhotoUrl(null);
-      }
+      const url = await handlePhotoUpload(file, 'product-photos', 'image');
+      if (url) setProductPhotoUrl(url);
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleMusicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      if (!file.type.startsWith('audio/')) {
-        toast({
-          title: "Error",
-          description: "Please upload an audio file",
-          variant: "destructive",
-        });
-        return;
-      }
-      setBackgroundMusic(file);
-      setUploadProgress(0);
-      setUploadedFileName(null);
-
-      try {
-        const fileExt = file.name.split('.').pop();
-        const filePath = `${crypto.randomUUID()}.${fileExt}`;
-
-        const { error: uploadError } = await supabase.storage
-          .from('background-music')
-          .upload(filePath, file, {
-            cacheControl: '3600',
-            upsert: false
-          });
-
-        if (uploadError) {
-          throw uploadError;
-        }
-
-        const { data: { publicUrl } } = supabase.storage
-          .from('background-music')
-          .getPublicUrl(filePath);
-          
-        setUploadProgress(100);
-        setUploadedFileName(file.name);
-      } catch (error) {
-        console.error('Upload error:', error);
-        toast({
-          title: "Error",
-          description: "Failed to upload background music",
-          variant: "destructive",
-        });
-        setUploadProgress(0);
-        setUploadedFileName(null);
-      }
+      const url = await handleMusicUpload(file, 'background-music', 'audio');
+      if (url) setBackgroundMusicUrl(url);
     }
   };
 
   const handleSubmit = async () => {
-    if (!source.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter a script or idea",
-        variant: "destructive",
-      });
-      return;
-    }
-
     if (creditsRemaining < 10) {
       toast({
         title: "Insufficient Credits",
@@ -173,70 +86,13 @@ export const CreateVideoDialog = ({
       return;
     }
 
-    setIsSubmitting(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      if (!user) {
-        throw new Error("No authenticated user found");
-      }
-
-      let backgroundMusicUrl = null;
-      
-      if (backgroundMusic) {
-        const fileExt = backgroundMusic.name.split('.').pop();
-        const filePath = `${crypto.randomUUID()}.${fileExt}`;
-        
-        const { error: uploadError } = await supabase.storage
-          .from('background-music')
-          .upload(filePath, backgroundMusic);
-
-        if (uploadError) throw uploadError;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('background-music')
-          .getPublicUrl(filePath);
-          
-        backgroundMusicUrl = publicUrl;
-      }
-
-      const { data: storyTypes } = await supabase
-        .from("story_type")
-        .select("id, story_type");
-
-      const selectedStoryType = storyTypes?.find(type => type.story_type === style);
-      const story_type_id = selectedStoryType?.id || null;
-
-      const { error } = await supabase
-        .from("stories")
-        .insert([
-          {
-            source: source.trim(),
-            ready_to_go: readyToGo,
-            background_music: backgroundMusicUrl || initialBackgroundMusic,
-            story_type_id: story_type_id,
-            user_id: user.id,
-            "PRODUCT IMAGE": productPhotoUrl ? 1 : null // Set to 1 when product photo is uploaded
-          },
-        ]);
-
-      if (error) throw error;
-
-      toast({
-        title: "Success",
-        description: "Your video has been created successfully",
-      });
-      onClose();
-    } catch (error) {
-      console.error("Error creating video:", error);
-      toast({
-        title: "Error",
-        description: "Failed to create video. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsSubmitting(false);
-    }
+    await createVideo({
+      source,
+      readyToGo,
+      backgroundMusicUrl,
+      productPhotoUrl,
+      style
+    });
   };
 
   return (
@@ -255,9 +111,9 @@ export const CreateVideoDialog = ({
           />
 
           <ProductPhotoSection
-            uploadProgress={productPhotoProgress}
-            uploadedFileName={uploadedPhotoName}
-            previewUrl={productPhotoUrl}
+            uploadProgress={photoUploadProgress}
+            uploadedFileName={photoFileName}
+            previewUrl={photoPreviewUrl}
             onFileChange={handlePhotoChange}
           />
 
@@ -267,9 +123,9 @@ export const CreateVideoDialog = ({
           />
 
           <MusicUploaderSection
-            uploadProgress={uploadProgress}
-            uploadedFileName={uploadedFileName}
-            onFileChange={handleFileChange}
+            uploadProgress={musicUploadProgress}
+            uploadedFileName={musicFileName}
+            onFileChange={handleMusicChange}
           />
 
           <div className="flex items-center justify-between">

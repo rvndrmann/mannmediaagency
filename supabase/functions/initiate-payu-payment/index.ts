@@ -57,13 +57,12 @@ serve(async (req) => {
     const random = Math.random().toString(36).substring(2, 8);
     const txnId = `LIVE${timestamp}${random}`;
     
+    // Create transaction record first
     await db.createPaymentTransaction(userId, txnId, amount);
 
-    // Get user email and prepare payment parameters
+    // Get user contact information (email or phone)
     const email = await db.getUserEmail(userId);
-    if (!email) {
-      throw new Error('User email not found');
-    }
+    console.log('User contact info retrieved:', email.substring(0, 4) + '...');
 
     const cleanAmount = Number(amount).toFixed(2);
     const productInfo = `${planName} Plan`;
@@ -71,7 +70,7 @@ serve(async (req) => {
     const failureUrl = new URL('/payment/failure', origin).toString();
     const cancelUrl = new URL('/payment/cancel', origin).toString();
     const firstname = "User";
-    const phone = "9999999999";
+    const phone = "9999999999"; // Default phone if not available
     
     console.log('Payment Parameters:', {
       email: email.substring(0, 4) + '...',
@@ -142,3 +141,4 @@ serve(async (req) => {
     );
   }
 });
+

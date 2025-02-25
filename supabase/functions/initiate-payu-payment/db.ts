@@ -34,15 +34,35 @@ export class DatabaseService {
   }
 
   async getUserEmail(userId: string): Promise<string> {
-    console.log('Fetching email for user:', userId);
+    console.log('Fetching user details for:', userId);
     
-    const { data: { user }, error: userError } = await this.supabase.auth.admin.getUserById(userId)
-    if (userError || !user) {
+    // Get user details from auth.users
+    const { data, error: userError } = await this.supabase.auth.admin.getUserById(userId);
+    
+    if (userError || !data?.user) {
       console.error('User fetch error:', userError);
       throw new Error('Failed to get user details');
     }
+
+    console.log('User details fetched:', {
+      hasEmail: !!data.user.email,
+      hasPhone: !!data.user.phone,
+      provider: data.user.app_metadata?.provider
+    });
+
+    // Use email if available, otherwise use phone number
+    const userIdentifier = data.user.email || data.user.phone;
     
-    console.log('User email fetched successfully');
-    return user.email || '';
+    if (!userIdentifier) {
+      console.error('No email or phone found for user');
+      throw new Error('No contact information found for user');
+    }
+    
+    // For PayU requirements, if using phone, create a placeholder email
+    const contactInfo = data.user.email || `user.${userId}@example.com`;
+    
+    console.log('User contact info resolved successfully');
+    return contactInfo;
   }
 }
+

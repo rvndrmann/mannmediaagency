@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +16,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UseAIResponseButton } from "@/components/ui/use-ai-response-button";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -31,6 +31,7 @@ interface InputPanelProps {
   creditsRemaining: number | null;
   aspectRatio: string;
   onAspectRatioChange: (value: string) => void;
+  messages: Message[];
 }
 
 export function InputPanel({
@@ -46,7 +47,8 @@ export function InputPanel({
   creditsRemaining,
   aspectRatio,
   onAspectRatioChange,
-}: InputPanelProps) {
+  messages,
+}: InputPanelProps & { messages: Message[] }) {
   return (
     <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800">
       <ScrollArea className="flex-1 pb-32 md:pb-24">
@@ -71,6 +73,26 @@ export function InputPanel({
             />
 
             <div className="space-y-2">
+              <Label className="text-white">Animation Prompt</Label>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Textarea
+                    placeholder="Describe how you want the image to animate..."
+                    value={prompt}
+                    onChange={(e) => onPromptChange(e.target.value)}
+                    className="min-h-[120px] bg-gray-900 border-gray-700 text-white resize-none"
+                  />
+                </div>
+                <UseAIResponseButton
+                  messages={messages}
+                  onUseResponse={onPromptChange}
+                  variant="compact"
+                  className="shrink-0"
+                />
+              </div>
+            </div>
+
+            <div className="space-y-2">
               <Label className="text-white">Aspect Ratio</Label>
               <Select value={aspectRatio} onValueChange={onAspectRatioChange}>
                 <SelectTrigger className="w-full bg-gray-900 border-gray-700 text-white">
@@ -82,16 +104,6 @@ export function InputPanel({
                   <SelectItem value="1:1">1:1 (Square)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label className="text-white">Animation Prompt</Label>
-              <Textarea
-                placeholder="Describe how you want the image to animate..."
-                value={prompt}
-                onChange={(e) => onPromptChange(e.target.value)}
-                className="min-h-[120px] bg-gray-900 border-gray-700 text-white resize-none"
-              />
             </div>
 
             <Collapsible>

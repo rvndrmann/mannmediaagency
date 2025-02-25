@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { PenTool } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { cn } from "@/lib/utils";
 
 interface Message {
   role: "user" | "assistant";
@@ -11,9 +12,16 @@ interface Message {
 interface UseAIResponseButtonProps {
   onUseResponse: (response: string) => void;
   messages: Message[];
+  className?: string;
+  variant?: "default" | "compact";
 }
 
-export const UseAIResponseButton = ({ onUseResponse, messages }: UseAIResponseButtonProps) => {
+export const UseAIResponseButton = ({ 
+  onUseResponse, 
+  messages,
+  className,
+  variant = "default"
+}: UseAIResponseButtonProps) => {
   const { toast } = useToast();
 
   const getLastAIResponse = () => {
@@ -57,10 +65,15 @@ export const UseAIResponseButton = ({ onUseResponse, messages }: UseAIResponseBu
     <Button 
       onClick={handleClick}
       variant="default"
-      className="w-full bg-purple-600 hover:bg-purple-700 text-white transition-colors"
+      size={variant === "compact" ? "sm" : "default"}
+      className={cn(
+        "bg-purple-600 hover:bg-purple-700 text-white transition-colors",
+        variant === "compact" && "px-2 h-8",
+        className
+      )}
     >
       <PenTool className="h-4 w-4 mr-2" />
-      Use Last AI Response
+      {variant === "default" ? "Use Last AI Response" : "Use AI"}
     </Button>
   );
 };

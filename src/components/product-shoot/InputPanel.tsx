@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -29,6 +30,7 @@ interface InputPanelProps {
   onGuidanceScaleChange: (value: number) => void;
   onOutputFormatChange: (value: string) => void;
   onGenerate: () => void;
+  messages: Message[];
 }
 
 export const InputPanel = ({
@@ -49,6 +51,7 @@ export const InputPanel = ({
   onGuidanceScaleChange,
   onOutputFormatChange,
   onGenerate,
+  messages,
 }: InputPanelProps) => {
   return (
     <div className="space-y-6">
@@ -70,13 +73,23 @@ export const InputPanel = ({
 
         <div className="space-y-2">
           <Label htmlFor="prompt" className="text-white">Prompt</Label>
-          <Textarea
-            id="prompt"
-            placeholder="Describe your product shot..."
-            value={prompt}
-            onChange={(e) => onPromptChange(e.target.value)}
-            className="min-h-[100px] bg-gray-900 border-gray-700 text-white resize-none"
-          />
+          <div className="flex gap-2">
+            <div className="flex-1">
+              <Textarea
+                id="prompt"
+                placeholder="Describe your product shot..."
+                value={prompt}
+                onChange={(e) => onPromptChange(e.target.value)}
+                className="min-h-[100px] bg-gray-900 border-gray-700 text-white resize-none"
+              />
+            </div>
+            <UseAIResponseButton
+              messages={messages}
+              onUseResponse={onPromptChange}
+              variant="compact"
+              className="shrink-0"
+            />
+          </div>
         </div>
 
         <div className="space-y-4">

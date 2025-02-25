@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,8 +16,9 @@ import { useProductShotForm } from "./hooks/useProductShotForm";
 import { GenerateButton } from "./components/GenerateButton";
 import { AspectRatio } from "@/types/product-shoot";
 import { useEffect } from "react";
+import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 
-export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availableCredits = 0, initialSceneDescription }: ProductShotFormProps) {
+export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availableCredits = 0, initialSceneDescription, messages }: ProductShotFormProps & { messages: Message[] }) {
   const {
     sourcePreview,
     referencePreview,
@@ -75,13 +75,23 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
 
             <div className="mt-4">
               <Label htmlFor="sceneDescription" className="text-white">Scene Description</Label>
-              <Textarea
-                id="sceneDescription"
-                placeholder="A futuristic product shot with neon lights"
-                value={sceneDescription}
-                onChange={(e) => setSceneDescription(e.target.value)}
-                disabled={generationType !== "description"}
-              />
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <Textarea
+                    id="sceneDescription"
+                    placeholder="A futuristic product shot with neon lights"
+                    value={sceneDescription}
+                    onChange={(e) => setSceneDescription(e.target.value)}
+                    disabled={generationType !== "description"}
+                  />
+                </div>
+                <UseAIResponseButton
+                  messages={messages}
+                  onUseResponse={setSceneDescription}
+                  variant="compact"
+                  className="shrink-0"
+                />
+              </div>
             </div>
 
             <div className="mt-4">

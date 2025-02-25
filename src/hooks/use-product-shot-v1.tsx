@@ -35,6 +35,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       setProductShotFile(file);
       const url = URL.createObjectURL(file);
       setProductShotPreview(url);
+      toast.success("Image uploaded successfully");
     }
   };
 
@@ -44,6 +45,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
     }
     setProductShotPreview(null);
     setProductShotFile(null);
+    toast.info("Image cleared");
   };
 
   const handleGenerate = async () => {
@@ -57,8 +59,14 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       return;
     }
 
+    if (isGenerating) {
+      toast.info("Image generation already in progress...");
+      return;
+    }
+
     try {
       setIsGenerating(true);
+      toast.success("Starting image generation...");
 
       // Convert file to base64
       const reader = new FileReader();
@@ -120,7 +128,10 @@ export function useProductShotV1(userCredits: UserCredits | null) {
         .eq('user_id', userCredits.user_id)
         .order("created_at", { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        toast.error("Failed to load image history");
+        throw error;
+      }
       return data || [];
     },
     enabled: !!userCredits?.user_id,

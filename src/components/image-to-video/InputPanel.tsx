@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -48,7 +49,7 @@ export function InputPanel({
 }: InputPanelProps) {
   return (
     <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800">
-      <ScrollArea className="flex-1 pb-24">
+      <ScrollArea className="flex-1 pb-32 md:pb-24">
         <div className="p-6 space-y-6">
           {!isMobile && (
             <div className="space-y-1">
@@ -114,7 +115,7 @@ export function InputPanel({
         </div>
       </ScrollArea>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-10 lg:sticky">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-20 md:pb-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-[60] lg:sticky">
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !prompt.trim() || !previewUrl}

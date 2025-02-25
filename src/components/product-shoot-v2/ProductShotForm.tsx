@@ -53,7 +53,7 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
 
   return (
     <form onSubmit={handleSubmit}>
-      <div className="space-y-6 pb-24">
+      <div className="space-y-6 pb-32 md:pb-24">
         <Card className="p-4 bg-gray-900 border-gray-800">
           <div className="space-y-4">
             <ImageUploader
@@ -176,7 +176,7 @@ export function ProductShotForm({ onSubmit, isGenerating, isSubmitting, availabl
         </Card>
       </div>
       
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-10 lg:sticky">
+      <div className="fixed bottom-0 left-0 right-0 p-4 pb-20 md:pb-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-[60] md:sticky">
         <GenerateButton
           numResults={1}
           availableCredits={availableCredits}

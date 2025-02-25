@@ -10,6 +10,7 @@ import { DialogHeaderSection } from "./dialog/DialogHeaderSection";
 import { ScriptInputSection } from "./dialog/ScriptInputSection";
 import { StyleSelectorSection } from "./dialog/StyleSelectorSection";
 import { MusicUploaderSection } from "./dialog/MusicUploaderSection";
+import { ProductPhotoSection } from "./dialog/ProductPhotoSection";
 import { DialogActionsSection } from "./dialog/DialogActionsSection";
 
 interface CreateVideoDialogProps {
@@ -21,6 +22,7 @@ interface CreateVideoDialogProps {
   initialStyle?: string;
   initialReadyToGo?: boolean;
   initialBackgroundMusic?: string | null;
+  initialProductPhoto?: string | null;
 }
 
 export const CreateVideoDialog = ({
@@ -32,16 +34,76 @@ export const CreateVideoDialog = ({
   initialStyle = "",
   initialReadyToGo = false,
   initialBackgroundMusic = null,
+  initialProductPhoto = null,
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState(initialScript);
   const [readyToGo, setReadyToGo] = useState(initialReadyToGo);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [backgroundMusic, setBackgroundMusic] = useState<File | null>(null);
+  const [productPhoto, setProductPhoto] = useState<File | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [productPhotoProgress, setProductPhotoProgress] = useState(0);
   const [uploadedFileName, setUploadedFileName] = useState<string | null>(initialBackgroundMusic);
+  const [uploadedPhotoName, setUploadedPhotoName] = useState<string | null>(initialProductPhoto);
+  const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
   const [style, setStyle] = useState<string>(initialStyle);
   const navigate = useNavigate();
   const { toast } = useToast();
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        toast({
+          title: "Error",
+          description: "Please upload an image file",
+          variant: "destructive",
+        });
+        return;
+      }
+      setProductPhoto(file);
+      setProductPhotoProgress(0);
+      setUploadedPhotoName(null);
+
+      try {
+        const fileExt = file.name.split('.').pop();
+        const filePath = `${crypto.randomUUID()}.${fileExt}`;
+
+        // Create a preview URL
+        const previewUrl = URL.createObjectURL(file);
+        setProductPhotoUrl(previewUrl);
+
+        const { error: uploadError } = await supabase.storage
+          .from('product-photos')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('product-photos')
+          .getPublicUrl(filePath);
+
+        setProductPhotoProgress(100);
+        setUploadedPhotoName(file.name);
+        setProductPhotoUrl(publicUrl);
+      } catch (error) {
+        console.error('Upload error:', error);
+        toast({
+          title: "Error",
+          description: "Failed to upload product photo",
+          variant: "destructive",
+        });
+        setProductPhotoProgress(0);
+        setUploadedPhotoName(null);
+        setProductPhotoUrl(null);
+      }
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -62,38 +124,23 @@ export const CreateVideoDialog = ({
         const fileExt = file.name.split('.').pop();
         const filePath = `${crypto.randomUUID()}.${fileExt}`;
 
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const arrayBuffer = event.target?.result as ArrayBuffer;
-          const blob = new Blob([arrayBuffer], { type: file.type });
+        const { error: uploadError } = await supabase.storage
+          .from('background-music')
+          .upload(filePath, file, {
+            cacheControl: '3600',
+            upsert: false
+          });
+
+        if (uploadError) {
+          throw uploadError;
+        }
+
+        const { data: { publicUrl } } = supabase.storage
+          .from('background-music')
+          .getPublicUrl(filePath);
           
-          const { error: uploadError } = await supabase.storage
-            .from('background-music')
-            .upload(filePath, blob, {
-              cacheControl: '3600',
-              upsert: false
-            });
-
-          if (uploadError) {
-            throw uploadError;
-          }
-
-          const { data: { publicUrl } } = supabase.storage
-            .from('background-music')
-            .getPublicUrl(filePath);
-          
-          setUploadProgress(100);
-          setUploadedFileName(file.name);
-        };
-
-        reader.onprogress = (event) => {
-          if (event.lengthComputable) {
-            const percent = (event.loaded / event.total) * 100;
-            setUploadProgress(percent);
-          }
-        };
-
-        reader.readAsArrayBuffer(file);
+        setUploadProgress(100);
+        setUploadedFileName(file.name);
       } catch (error) {
         console.error('Upload error:', error);
         toast({
@@ -168,7 +215,8 @@ export const CreateVideoDialog = ({
             ready_to_go: readyToGo,
             background_music: backgroundMusicUrl || initialBackgroundMusic,
             story_type_id: story_type_id,
-            user_id: user.id
+            user_id: user.id,
+            "PRODUCT IMAGE": productPhotoUrl ? 1 : null // Set to 1 when product photo is uploaded
           },
         ]);
 
@@ -204,6 +252,13 @@ export const CreateVideoDialog = ({
           <ScriptInputSection
             source={source}
             onSourceChange={setSource}
+          />
+
+          <ProductPhotoSection
+            uploadProgress={productPhotoProgress}
+            uploadedFileName={uploadedPhotoName}
+            previewUrl={productPhotoUrl}
+            onFileChange={handlePhotoChange}
           />
 
           <StyleSelectorSection

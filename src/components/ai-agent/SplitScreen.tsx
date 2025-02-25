@@ -29,6 +29,16 @@ interface ProductShotV1Props {
   onDownload: (url: string) => void;
 }
 
+interface ImageToVideoProps {
+  isMobile: boolean;
+  previewUrl: string | null;
+  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearFile: () => void;
+  creditsRemaining: number;
+  isGenerating: boolean;
+  onGenerate: (prompt: string, aspectRatio: string) => void;
+}
+
 interface SplitScreenProps {
   isMobile: boolean;
   messages: any[];
@@ -43,6 +53,7 @@ interface SplitScreenProps {
     generatedImages: GeneratedImage[];
   };
   productShotV1: ProductShotV1Props;
+  imageToVideo: ImageToVideoProps;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
 }
@@ -55,67 +66,12 @@ export const SplitScreen = ({
   userCredits,
   productShotV2,
   productShotV1,
+  imageToVideo,
   onInputChange,
   onSubmit,
 }: SplitScreenProps) => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   
-  // Add state for Image to Video section
-  const [imageToVideoPreview, setImageToVideoPreview] = useState<string | null>(null);
-  const [imageToVideoFile, setImageToVideoFile] = useState<File | null>(null);
-
-  const handleImageToVideoFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageToVideoFile(file);
-      const url = URL.createObjectURL(file);
-      setImageToVideoPreview(url);
-    }
-  };
-
-  const handleImageToVideoClear = () => {
-    if (imageToVideoPreview) {
-      URL.revokeObjectURL(imageToVideoPreview);
-    }
-    setImageToVideoPreview(null);
-    setImageToVideoFile(null);
-  };
-
-  // Create props objects for passing down
-  const productShotV1Props = {
-    ...productShotV1,
-    isMobile,
-    prompt: productShotV1.prompt,
-    previewUrl: productShotV1.previewUrl,
-    imageSize: productShotV1.imageSize,
-    inferenceSteps: productShotV1.inferenceSteps,
-    guidanceScale: productShotV1.guidanceScale,
-    outputFormat: productShotV1.outputFormat,
-    productImages: productShotV1.productImages,
-    imagesLoading: productShotV1.imagesLoading,
-    creditsRemaining: productShotV1.creditsRemaining,
-    isGenerating: productShotV1.isGenerating,
-    onPromptChange: productShotV1.onPromptChange,
-    onFileSelect: productShotV1.onFileSelect,
-    onClearFile: productShotV1.onClearFile,
-    onImageSizeChange: productShotV1.onImageSizeChange,
-    onInferenceStepsChange: productShotV1.onInferenceStepsChange,
-    onGuidanceScaleChange: productShotV1.onGuidanceScaleChange,
-    onOutputFormatChange: productShotV1.onOutputFormatChange,
-    onGenerate: productShotV1.onGenerate,
-    onDownload: productShotV1.onDownload
-  };
-
-  const imageToVideoProps = {
-    isMobile,
-    previewUrl: imageToVideoPreview,
-    onFileSelect: handleImageToVideoFileSelect,
-    onClearFile: handleImageToVideoClear,
-    creditsRemaining: productShotV1.creditsRemaining,
-    isGenerating: false,
-    onGenerate: () => {},
-  };
-
   return (
     <div 
       className={cn(
@@ -158,7 +114,7 @@ export const SplitScreen = ({
             messages={messages}
             productShotV2={productShotV2}
             productShotV1={productShotV1}
-            imageToVideo={imageToVideoProps}
+            imageToVideo={imageToVideo}
             activeTool={activeTool}
           />
         </div>

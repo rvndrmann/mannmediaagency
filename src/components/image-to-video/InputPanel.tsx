@@ -26,7 +26,7 @@ interface InputPanelProps {
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
   onSelectFromHistory: (jobId: string, imageUrl: string) => void;
-  onGenerate: () => void;
+  onGenerate: (prompt: string, aspectRatio: string) => void;
   isGenerating: boolean;
   creditsRemaining: number | null;
   aspectRatio: string;
@@ -117,7 +117,7 @@ export function InputPanel({
 
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-20 md:pb-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-[60] lg:sticky">
         <Button
-          onClick={onGenerate}
+          onClick={() => onGenerate(prompt, aspectRatio)}
           disabled={isGenerating || !prompt.trim() || !previewUrl}
           className="w-full bg-purple-600 hover:bg-purple-700 text-white"
         >

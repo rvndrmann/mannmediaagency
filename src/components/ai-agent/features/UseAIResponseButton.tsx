@@ -65,15 +65,15 @@ export const UseAIResponseButton = ({
     <Button 
       onClick={handleClick}
       variant="default"
-      size={variant === "compact" ? "sm" : "default"}
+      size="sm"
       className={cn(
         "bg-purple-600 hover:bg-purple-700 text-white transition-colors",
-        variant === "compact" && "px-2 h-8",
+        variant === "compact" && "h-7 px-2 text-xs py-0 min-w-0",
         className
       )}
     >
-      <PenTool className="h-4 w-4 mr-2" />
-      {variant === "default" ? "Use Last AI Response" : "Use Last AI Response"}
+      <PenTool className="h-3.5 w-3.5 mr-1" />
+      <span className="whitespace-nowrap text-xs">Use Last AI</span>
     </Button>
   );
 };

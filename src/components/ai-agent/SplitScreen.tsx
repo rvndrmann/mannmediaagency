@@ -99,20 +99,20 @@ export const SplitScreen = ({
   };
 
   return (
-    <div className="relative flex flex-col min-h-screen bg-[#1A1F2C]">
+    <div className="relative min-h-screen h-full bg-[#1A1F2C] pb-[4.5rem] md:pb-0">
       <div 
         className={cn(
-          "flex-1 transition-all duration-300 ease-in-out",
-          isMobile ? "pb-20" : "flex h-[calc(100vh-4rem)]" // Increased bottom padding for mobile nav
+          "h-full transition-all duration-300 ease-in-out",
+          isMobile ? "" : "flex h-[calc(100vh-4rem)]"
         )}
       >
         {/* Chat Section */}
         <div 
           className={cn(
-            "bg-[#1A1F2C] transition-all duration-300 ease-in-out",
+            "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-16" // Added padding bottom
+                ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-20" 
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10"
@@ -132,12 +132,12 @@ export const SplitScreen = ({
         {/* Feature Panel Section */}
         <div 
           className={cn(
-            "bg-[#1A1F2C] transition-all duration-300 ease-in-out",
+            "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
               showChat 
                 ? "hidden" 
                 : cn(
-                    "min-h-[calc(100vh-5rem)]", // Adjusted height to account for nav
+                    "h-[calc(100vh-4.5rem)]",
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
             ) : "flex-1"

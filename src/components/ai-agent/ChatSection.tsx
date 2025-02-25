@@ -23,7 +23,7 @@ export function ChatSection({
   return (
     <Card className="h-full flex flex-col bg-transparent border-0 shadow-none">
       <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
-        <TabsList className="w-full bg-[#333333]/50 backdrop-blur-lg sticky top-0 z-40">
+        <TabsList className="w-full bg-[#333333]/50 backdrop-blur-lg sticky top-0 z-30">
           <TabsTrigger 
             value="chat" 
             className="flex-1 text-white data-[state=active]:bg-[#444444]"
@@ -31,7 +31,7 @@ export function ChatSection({
             Chat
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="chat" className="flex-1 h-full">
+        <TabsContent value="chat" className="flex-1 h-[calc(100vh-8rem)]">
           <ChatPanel
             messages={messages}
             input={input}

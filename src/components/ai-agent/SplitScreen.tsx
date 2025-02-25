@@ -1,10 +1,11 @@
-
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
 import { FeaturePanel } from "./FeaturePanel";
+import { MobileToolNav } from "./MobileToolNav";
 import { ToolSelector } from "./ToolSelector";
 import { GeneratedImage } from "@/types/product-shoot";
+import { Message } from "@/types/message";
 
 interface ProductShotV1Props {
   isMobile: boolean;
@@ -81,62 +82,80 @@ export const SplitScreen = ({
   onSubmit,
 }: SplitScreenProps) => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
-  const [videoPrompt, setVideoPrompt] = useState('');
-  const [aspectRatio, setAspectRatio] = useState('16:9');
+  const [showChat, setShowChat] = useState(false);
 
-  // Create an adapter for the imageToVideo props to match FeaturePanel expectations
-  const imageToVideoAdapter: ImageToVideoFeaturePanelProps = {
-    ...imageToVideo,
-    onGenerate: () => imageToVideo.onGenerate(videoPrompt, aspectRatio)
+  const handleToolSelect = (tool: string) => {
+    if (tool === 'ai-agent') {
+      setShowChat(true);
+    } else {
+      setShowChat(false);
+      setActiveTool(tool);
+    }
   };
-  
-  return (
-    <div 
-      className={cn(
-        "flex",
-        isMobile ? "flex-col h-screen overflow-hidden" : "h-[calc(100vh-4rem)]"
-      )}
-    >
-      <div 
-        className={cn(
-          "relative bg-[#1A1F2C] border-white/10",
-          isMobile ? "h-[40vh] min-h-[300px] w-full border-b" : "flex-none w-[50%] border-r"
-        )}
-      >
-        <ChatSection
-          messages={messages}
-          input={input}
-          isLoading={isLoading}
-          userCredits={userCredits}
-          onInputChange={onInputChange}
-          onSubmit={onSubmit}
-        />
-      </div>
 
+  return (
+    <div className="min-h-screen bg-[#1A1F2C]">
       <div 
         className={cn(
-          "relative bg-[#1A1F2C]",
-          isMobile ? "h-[60vh] w-full pb-16" : "flex-1"
+          "transition-all duration-300",
+          isMobile ? "pb-16" : "flex h-[calc(100vh-4rem)]"
         )}
       >
-        <ToolSelector 
-          activeTool={activeTool}
-          onToolSelect={setActiveTool}
-        />
-        
-        <div className={cn(
-          "h-[calc(100%-3rem)]",
-          isMobile && "overflow-y-auto"
-        )}>
+        <div 
+          className={cn(
+            "bg-[#1A1F2C] transition-all duration-300",
+            isMobile ? (
+              showChat 
+                ? "fixed inset-0 z-30" 
+                : "hidden"
+            ) : (
+              "relative w-[50%] border-r border-white/10"
+            )
+          )}
+        >
+          <ChatSection
+            messages={messages}
+            input={input}
+            isLoading={isLoading}
+            userCredits={userCredits}
+            onInputChange={onInputChange}
+            onSubmit={onSubmit}
+          />
+        </div>
+
+        <div 
+          className={cn(
+            "bg-[#1A1F2C]",
+            isMobile ? (
+              showChat 
+                ? "hidden" 
+                : "min-h-screen"
+            ) : "flex-1"
+          )}
+        >
+          {!isMobile && (
+            <ToolSelector 
+              activeTool={activeTool}
+              onToolSelect={setActiveTool}
+            />
+          )}
+          
           <FeaturePanel
             messages={messages}
             productShotV2={productShotV2}
             productShotV1={productShotV1}
-            imageToVideo={imageToVideoAdapter}
+            imageToVideo={imageToVideo}
             activeTool={activeTool}
           />
         </div>
       </div>
+
+      {isMobile && (
+        <MobileToolNav
+          activeTool={showChat ? 'ai-agent' : activeTool}
+          onToolSelect={handleToolSelect}
+        />
+      )}
     </div>
   );
 };

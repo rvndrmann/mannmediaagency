@@ -45,7 +45,7 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg pb-2 px-3">
       {/* Main grid with 2x2 layout */}
-      <nav className="relative grid grid-cols-2 gap-3 mt-14">
+      <nav className="relative grid grid-cols-2 gap-3 pb-2">
         {tools.map((tool) => (
           <button
             key={tool.id}
@@ -68,14 +68,15 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
         ))}
       </nav>
 
-      {/* Centered floating chat button */}
+      {/* Chat button positioned above the navigation */}
       <button
         onClick={() => onToolSelect('ai-agent')}
         className={cn(
-          "absolute left-1/2 -translate-x-1/2 -translate-y-1/2",
+          "absolute left-1/2 -top-7 -translate-x-1/2",
           "flex items-center justify-center",
           "h-14 w-14 rounded-full",
           "transition-all duration-300 ease-in-out",
+          "shadow-lg",
           activeTool === 'ai-agent'
             ? "bg-green-500 transform scale-[0.98]"
             : "bg-purple-500 hover:bg-purple-600 hover:scale-[0.98]"

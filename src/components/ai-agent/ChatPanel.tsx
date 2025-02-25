@@ -3,7 +3,6 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 
 interface Message {
   role: "user" | "assistant";
@@ -72,20 +71,12 @@ export const ChatPanel = ({
       </div>
 
       <div className="fixed bottom-[8.5rem] md:sticky md:bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl pt-2 border-t border-white/10 space-y-2 p-4 z-35">
-        <div className="flex items-center gap-2">
-          <ChatInput
-            input={input}
-            isLoading={isLoading}
-            onInputChange={onInputChange}
-            onSubmit={onSubmit}
-          />
-          <UseAIResponseButton
-            messages={messages}
-            onUseResponse={onInputChange}
-            variant="compact"
-            className="shrink-0"
-          />
-        </div>
+        <ChatInput
+          input={input}
+          isLoading={isLoading}
+          onInputChange={onInputChange}
+          onSubmit={onSubmit}
+        />
       </div>
     </div>
   );

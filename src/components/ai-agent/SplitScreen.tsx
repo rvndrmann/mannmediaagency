@@ -29,6 +29,16 @@ interface ProductShotV1Props {
   onDownload: (url: string) => void;
 }
 
+interface ImageToVideoFeaturePanelProps {
+  isMobile: boolean;
+  previewUrl: string | null;
+  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+  onClearFile: () => void;
+  creditsRemaining: number;
+  isGenerating: boolean;
+  onGenerate: () => void;
+}
+
 interface ImageToVideoProps {
   isMobile: boolean;
   previewUrl: string | null;
@@ -71,6 +81,14 @@ export const SplitScreen = ({
   onSubmit,
 }: SplitScreenProps) => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
+  const [videoPrompt, setVideoPrompt] = useState('');
+  const [aspectRatio, setAspectRatio] = useState('16:9');
+
+  // Create an adapter for the imageToVideo props to match FeaturePanel expectations
+  const imageToVideoAdapter: ImageToVideoFeaturePanelProps = {
+    ...imageToVideo,
+    onGenerate: () => imageToVideo.onGenerate(videoPrompt, aspectRatio)
+  };
   
   return (
     <div 
@@ -114,7 +132,7 @@ export const SplitScreen = ({
             messages={messages}
             productShotV2={productShotV2}
             productShotV1={productShotV1}
-            imageToVideo={imageToVideo}
+            imageToVideo={imageToVideoAdapter}
             activeTool={activeTool}
           />
         </div>

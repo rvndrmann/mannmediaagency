@@ -16,7 +16,8 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { UseAIResponseButton } from "@/components/ui/use-ai-response-button";
+import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
+import { Message } from "@/types/message";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -48,7 +49,7 @@ export function InputPanel({
   aspectRatio,
   onAspectRatioChange,
   messages,
-}: InputPanelProps & { messages: Message[] }) {
+}: InputPanelProps) {
   return (
     <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800">
       <ScrollArea className="flex-1 pb-32 md:pb-24">

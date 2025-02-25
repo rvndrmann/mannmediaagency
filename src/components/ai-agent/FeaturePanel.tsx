@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -10,11 +9,7 @@ import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-vide
 import { UseAIResponseButton } from "./features/UseAIResponseButton";
 import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { Message } from "@/types/message";
 
 interface FeaturePanelProps {
   messages: Message[];
@@ -87,8 +82,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
             <InputPanel
               {...productShotV1}
-              prompt={productShotV1.prompt}
-              onPromptChange={productShotV1.onPromptChange}
+              messages={messages}
             />
             <GalleryPanel
               isMobile={productShotV1.isMobile}
@@ -104,11 +98,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="space-y-6 min-h-[calc(100vh-16rem)]">
                 <ProductShotForm
-                  onSubmit={productShotV2.onSubmit}
-                  isGenerating={productShotV2.isGenerating}
-                  isSubmitting={productShotV2.isSubmitting}
-                  availableCredits={productShotV2.availableCredits}
-                  initialSceneDescription=""
+                  {...productShotV2}
+                  messages={messages}
                 />
               </div>
               <div className="space-y-6">
@@ -125,18 +116,8 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <ImageToVideoInputPanel
-            isMobile={imageToVideo.isMobile}
-            prompt={imageToVideoPrompt}
-            onPromptChange={setImageToVideoPrompt}
-            previewUrl={imageToVideo.previewUrl}
-            onFileSelect={imageToVideo.onFileSelect}
-            onClearFile={imageToVideo.onClearFile}
-            onSelectFromHistory={() => {}}
-            onGenerate={imageToVideo.onGenerate}
-            isGenerating={imageToVideo.isGenerating}
-            creditsRemaining={imageToVideo.creditsRemaining}
-            aspectRatio={selectedAspectRatio}
-            onAspectRatioChange={setSelectedAspectRatio}
+            {...imageToVideo}
+            messages={messages}
           />
         </TabsContent>
 

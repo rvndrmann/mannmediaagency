@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -37,7 +38,7 @@ interface InputPanelProps {
 
 export function InputPanel({
   isMobile,
-  prompt,
+  prompt = "", // Add default value
   onPromptChange,
   previewUrl,
   onFileSelect,
@@ -130,8 +131,8 @@ export function InputPanel({
 
       <div className="fixed bottom-0 left-0 right-0 p-4 pb-20 md:pb-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-[60] lg:sticky">
         <Button
-          onClick={() => onGenerate(prompt, aspectRatio)}
-          disabled={isGenerating || !prompt.trim() || !previewUrl}
+          onClick={() => onGenerate(prompt || "", aspectRatio)}
+          disabled={isGenerating || !prompt?.trim() || !previewUrl}
           className="w-full bg-purple-600 hover:bg-purple-700 text-white"
         >
           {isGenerating ? (

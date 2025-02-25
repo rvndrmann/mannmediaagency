@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -32,13 +33,13 @@ interface FeaturePanelProps {
     imagesLoading: boolean;
     creditsRemaining: number;
     isGenerating: boolean;
-    onPromptChange: (prompt: string) => void;
+    onPromptChange: (value: string) => void;
     onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onClearFile: () => void;
-    onImageSizeChange: (size: string) => void;
-    onInferenceStepsChange: (steps: number) => void;
-    onGuidanceScaleChange: (scale: number) => void;
-    onOutputFormatChange: (format: string) => void;
+    onImageSizeChange: (value: string) => void;
+    onInferenceStepsChange: (value: number) => void;
+    onGuidanceScaleChange: (value: number) => void;
+    onOutputFormatChange: (value: string) => void;
     onGenerate: () => void;
     onDownload: (url: string) => void;
   };
@@ -49,7 +50,7 @@ interface FeaturePanelProps {
     onClearFile: () => void;
     creditsRemaining: number;
     isGenerating: boolean;
-    onGenerate: () => void;
+    onGenerate: (prompt: string, aspectRatio: string) => void;
   };
   activeTool: string;
 }
@@ -61,8 +62,6 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
   const handleUseAIResponse = (response: string) => {
     if (activeTool === "product-shot-v1") {
       productShotV1.onPromptChange(response);
-    } else if (activeTool === "product-shot-v2") {
-      // handle product shot v2
     } else if (activeTool === "image-to-video") {
       setImageToVideoPrompt(response);
     }
@@ -117,7 +116,14 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <ImageToVideoInputPanel
             {...imageToVideo}
+            prompt={imageToVideoPrompt}
+            onPromptChange={setImageToVideoPrompt}
             messages={messages}
+            aspectRatio={selectedAspectRatio}
+            onAspectRatioChange={setSelectedAspectRatio}
+            onSelectFromHistory={(jobId: string, imageUrl: string) => {
+              // Implement if needed
+            }}
           />
         </TabsContent>
 

@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -159,7 +158,7 @@ const Explore = () => {
           <Sidebar />
           <main className="flex-1 relative">
             <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-              {isMobile && (
+              {isMobile ? (
                 <div className="flex items-center p-4">
                   <Button
                     variant="ghost"
@@ -171,16 +170,24 @@ const Explore = () => {
                   </Button>
                   <h1 className="text-xl font-bold">Explore</h1>
                 </div>
+              ) : (
+                <div className="p-4">
+                  <div className="flex items-center gap-4">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => navigate(-1)}
+                      className="mr-2"
+                    >
+                      <ChevronLeft className="h-5 w-5" />
+                    </Button>
+                    <h1 className="text-2xl font-bold">Explore</h1>
+                  </div>
+                </div>
               )}
             </div>
 
-            <div className={`p-4 md:p-8 ${isMobile ? 'pt-20' : ''}`}>
-              {!isMobile && (
-                <div className="flex items-center gap-4 mb-6">
-                  <h1 className="text-2xl font-bold">Explore</h1>
-                </div>
-              )}
-              
+            <div className={`p-4 md:p-8 ${isMobile ? 'pt-20' : 'pt-20'}`}>
               <FilterBar
                 searchQuery={searchQuery}
                 onSearchChange={setSearchQuery}

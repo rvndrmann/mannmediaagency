@@ -72,9 +72,9 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
       <button
         onClick={() => onToolSelect('ai-agent')}
         className={cn(
-          "absolute left-1/2 -top-7 -translate-x-1/2",
-          "flex items-center justify-center",
-          "h-14 w-14 rounded-full",
+          "absolute left-1/2 -top-8 -translate-x-1/2",
+          "flex flex-col items-center justify-center",
+          "h-16 w-16 rounded-full",
           "transition-all duration-300 ease-in-out",
           "shadow-lg",
           activeTool === 'ai-agent'
@@ -82,7 +82,8 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
             : "bg-purple-500 hover:bg-purple-600 hover:scale-[0.98]"
         )}
       >
-        <MessageCircle className="h-6 w-6 text-white" />
+        <MessageCircle className="h-6 w-6 text-white mb-0.5" />
+        <span className="text-white text-[10px] font-medium">AI AGENT</span>
       </button>
     </div>
   );

@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { useIsMobile } from "@/hooks/use-mobile";
-import { Header } from "@/components/ai-agent/Header";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { useProductShotV1 } from "@/hooks/use-product-shot-v1";
 import { useUserCredits } from "@/hooks/use-user-credits";
@@ -51,12 +50,7 @@ const AIAgent = () => {
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
         <div className="min-h-screen bg-[#1A1F2C]">
-          {!isMobile && (
-            <div className="fixed top-0 left-0 right-0 z-50">
-              <Header onBack={() => navigate(-1)} />
-            </div>
-          )}
-          <div className="h-screen pt-16">
+          <div className="h-screen">
             <SplitScreen
               isMobile={isMobile}
               messages={messages}

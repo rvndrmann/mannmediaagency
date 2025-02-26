@@ -6,7 +6,7 @@ import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedIma
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
-import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
+import { FacelessVideoForm } from "@/components/video/FacelessVideoForm";
 import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
@@ -57,7 +57,6 @@ interface FeaturePanelProps {
 export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
-  const [isCreateVideoDialogOpen, setIsCreateVideoDialogOpen] = useState(false);
 
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
@@ -106,29 +105,13 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
             messages={messages}
             aspectRatio={selectedAspectRatio}
             onAspectRatioChange={setSelectedAspectRatio}
-            onSelectFromHistory={(jobId: string, imageUrl: string) => {
-              // Implement if needed
-            }}
+            onSelectFromHistory={() => {}}
           />
         </TabsContent>
 
         <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <div className="p-6">
-            <div className="flex flex-col items-center justify-center min-h-[calc(100vh-16rem)]">
-              <button
-                onClick={() => setIsCreateVideoDialogOpen(true)}
-                className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white px-6 py-3 rounded-lg 
-                          transition-all duration-200 transform hover:scale-105 
-                          flex items-center gap-2"
-              >
-                Create New Video
-              </button>
-            </div>
-          </div>
-          <CreateVideoDialog
-            isOpen={isCreateVideoDialogOpen && activeTool === 'faceless-video'}
-            onClose={() => setIsCreateVideoDialogOpen(false)}
-            availableVideos={Math.floor(productShotV1.creditsRemaining / 10)}
+          <FacelessVideoForm
+            messages={messages}
             creditsRemaining={productShotV1.creditsRemaining}
           />
         </TabsContent>

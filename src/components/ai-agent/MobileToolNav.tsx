@@ -30,7 +30,7 @@ const tools: ToolButton[] = [
   },
   {
     id: "faceless-video",
-    label: "Faceless",
+    label: "Product Video",
     icon: <FileText className="h-5 w-5" />,
     bgColor: "bg-purple-500 hover:bg-purple-600"
   }

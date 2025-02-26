@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -7,7 +6,6 @@ import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedIma
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
-import { UseAIResponseButton } from "./features/UseAIResponseButton";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
@@ -61,24 +59,9 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
   const [isCreateVideoDialogOpen, setIsCreateVideoDialogOpen] = useState(false);
 
-  const handleUseAIResponse = (response: string) => {
-    if (activeTool === "product-shot-v1") {
-      productShotV1.onPromptChange(response);
-    } else if (activeTool === "image-to-video") {
-      setImageToVideoPrompt(response);
-    }
-  };
-
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
       <Tabs value={activeTool} className="h-[calc(100vh-8rem)]">
-        <div className="p-4 border-b border-gray-800">
-          <UseAIResponseButton 
-            messages={messages}
-            onUseResponse={handleUseAIResponse}
-          />
-        </div>
-
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
             <InputPanel

@@ -30,6 +30,24 @@ export const useSupabaseUpload = (initialFileName: string | null = null): UseSup
     setUploadedFileName(null);
 
     try {
+      // Check if the bucket exists first
+      const { data: buckets, error: bucketError } = await supabase.storage.listBuckets();
+      
+      if (bucketError) {
+        throw new Error(`Error checking buckets: ${bucketError.message}`);
+      }
+      
+      const bucketExists = buckets.some(b => b.name === bucket);
+      
+      if (!bucketExists) {
+        toast({
+          title: "Upload Error",
+          description: `Storage bucket "${bucket}" does not exist. Please contact support.`,
+          variant: "destructive",
+        });
+        throw new Error(`Bucket "${bucket}" does not exist`);
+      }
+
       const fileExt = file.name.split('.').pop();
       const filePath = `${crypto.randomUUID()}.${fileExt}`;
 
@@ -38,22 +56,36 @@ export const useSupabaseUpload = (initialFileName: string | null = null): UseSup
         setPreviewUrl(previewUrl);
       }
 
-      const { error: uploadError } = await supabase.storage
+      // Simulate upload progress
+      const progressInterval = setInterval(() => {
+        setUploadProgress(prev => {
+          if (prev >= 90) {
+            clearInterval(progressInterval);
+            return 90;
+          }
+          return prev + 10;
+        });
+      }, 300);
+
+      const { data, error: uploadError } = await supabase.storage
         .from(bucket)
         .upload(filePath, file, {
           cacheControl: '3600',
           upsert: false
         });
 
+      clearInterval(progressInterval);
+
       if (uploadError) {
         throw uploadError;
       }
 
+      setUploadProgress(100);
+      
       const { data: { publicUrl } } = supabase.storage
         .from(bucket)
         .getPublicUrl(filePath);
 
-      setUploadProgress(100);
       setUploadedFileName(file.name);
       
       return publicUrl;
@@ -61,7 +93,7 @@ export const useSupabaseUpload = (initialFileName: string | null = null): UseSup
       console.error('Upload error:', error);
       toast({
         title: "Error",
-        description: `Failed to upload ${fileType}`,
+        description: `Failed to upload ${fileType}: ${error.message || 'Unknown error'}`,
         variant: "destructive",
       });
       setUploadProgress(0);

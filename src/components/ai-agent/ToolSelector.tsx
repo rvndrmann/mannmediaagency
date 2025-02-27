@@ -27,7 +27,7 @@ const tools = [
   },
   {
     id: 'faceless-video',
-    name: 'Faceless Video',
+    name: 'Product Video',
     icon: <FileText className="h-4 w-4" />,
     gradient: 'from-[#6E59A5] to-[#1A1F2C]',
     activeGradient: 'from-green-500 to-green-600'

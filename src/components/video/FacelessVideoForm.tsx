@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "./VideoPlayer";
 import { useState } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 interface FacelessVideoFormProps {
   messages: Message[];
@@ -25,6 +26,7 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
   const [style, setStyle] = useState("");
   const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(null);
   const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
+  const { toast } = useToast();
 
   const {
     uploadProgress: musicUploadProgress,
@@ -41,27 +43,77 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
 
   const { isSubmitting, createVideo } = useVideoCreation({
     onSuccess: () => {
-      // Handle success
+      setSource("");
+      setStyle("");
+      setBackgroundMusicUrl(null);
+      setProductPhotoUrl(null);
+      setReadyToGo(false);
+      toast({
+        title: "Video Created",
+        description: "Your product video has been created and is being processed. You can view it in your dashboard once ready.",
+      });
     }
   });
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = await handlePhotoUpload(file, 'product-photos', 'image');
-      if (url) setProductPhotoUrl(url);
+      try {
+        const url = await handlePhotoUpload(file, 'product-photos', 'image');
+        if (url) {
+          console.log("Product photo uploaded successfully:", url);
+          setProductPhotoUrl(url);
+        }
+      } catch (error) {
+        console.error("Error uploading product photo:", error);
+        toast({
+          title: "Upload Error",
+          description: "Failed to upload product photo. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const handleMusicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const url = await handleMusicUpload(file, 'background-music', 'audio');
-      if (url) setBackgroundMusicUrl(url);
+      try {
+        const url = await handleMusicUpload(file, 'background-music', 'audio');
+        if (url) {
+          console.log("Background music uploaded successfully:", url);
+          setBackgroundMusicUrl(url);
+        }
+      } catch (error) {
+        console.error("Error uploading background music:", error);
+        toast({
+          title: "Upload Error",
+          description: "Failed to upload background music. Please try again.",
+          variant: "destructive",
+        });
+      }
     }
   };
 
   const handleSubmit = async () => {
+    if (!source.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a script or idea for your video.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!style) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a style for your video.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     await createVideo({
       source,
       readyToGo,

@@ -3,16 +3,25 @@ import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 
+interface CreateStoryParams {
+  script: string;
+  style: string;
+  readyToGo: boolean;
+  backgroundMusic: string | null;
+  productPhotoUrl?: string | null;
+}
+
 export const useStoryCreation = () => {
   const [isCreating, setIsCreating] = useState(false);
   const { toast } = useToast();
 
-  const createStory = async (
-    script: string,
-    style: string,
-    readyToGo: boolean,
-    backgroundMusic: string | null
-  ) => {
+  const createStory = async ({
+    script,
+    style,
+    readyToGo,
+    backgroundMusic,
+    productPhotoUrl
+  }: CreateStoryParams) => {
     if (!script.trim()) {
       toast({
         title: "Error",
@@ -78,20 +87,51 @@ export const useStoryCreation = () => {
       // Use the first matching story type
       const storyType = storyTypes[0];
 
-      // Insert the story with video_length_seconds as null initially
-      const { error: insertError } = await supabase
+      // Create the story data object
+      const storyData = {
+        source: script,
+        story_type_id: storyType.id,
+        ready_to_go: readyToGo,
+        background_music: backgroundMusic,
+        user_id: user.id,
+        video_length_seconds: null, // This will be updated when the video is generated
+      };
+
+      // If a product photo URL is provided, set the "PRODUCT IMAGE" column to 1
+      if (productPhotoUrl) {
+        storyData["PRODUCT IMAGE"] = 1;
+      }
+
+      // Insert the story
+      const { data: newStory, error: insertError } = await supabase
         .from("stories")
-        .insert({
-          source: script,
-          story_type_id: storyType.id,
-          ready_to_go: readyToGo,
-          background_music: backgroundMusic,
-          user_id: user.id,
-          video_length_seconds: null, // This will be updated when the video is generated
-        });
+        .insert(storyData)
+        .select()
+        .single();
 
       if (insertError) {
         throw insertError;
+      }
+
+      // If we have a product photo URL and a new story was created successfully,
+      // update story metadata to store the URL reference
+      if (productPhotoUrl && newStory) {
+        const storyId = newStory["stories id"];
+        
+        // Store the product photo URL in the story metadata
+        const { error: metadataError } = await supabase
+          .from("story_metadata")
+          .upsert({
+            story_id: storyId,
+            additional_context: `Product photo URL: ${productPhotoUrl}`,
+          }, {
+            onConflict: "story_id"
+          });
+
+        if (metadataError) {
+          console.error("Error saving product photo metadata:", metadataError);
+          // Continue anyway as this is not critical
+        }
       }
 
       toast({

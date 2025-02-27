@@ -12,6 +12,7 @@ import { Message } from "@/types/message";
 import { Button } from "@/components/ui/button";
 import { VideoPlayer } from "./VideoPlayer";
 import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 interface FacelessVideoFormProps {
   messages: Message[];
@@ -73,60 +74,47 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
   const hasEnoughCredits = creditsRemaining >= 10;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
-      <div className="space-y-6">
-        <Card className="p-4 bg-gray-900 border-gray-800">
-          <div className="space-y-6">
-            <ScriptInputSection
-              source={source}
-              onSourceChange={setSource}
-            />
-
-            <ProductPhotoSection
-              uploadProgress={photoUploadProgress}
-              uploadedFileName={photoFileName}
-              previewUrl={photoPreviewUrl}
-              onFileChange={handlePhotoChange}
-            />
-
-            <StyleSelectorSection
-              style={style}
-              onStyleChange={setStyle}
-            />
-
-            <MusicUploaderSection
-              uploadProgress={musicUploadProgress}
-              uploadedFileName={musicFileName}
-              onFileChange={handleMusicChange}
-            />
-
-            <div className="flex items-center justify-between">
-              <Label htmlFor="readyToGo" className="text-xl text-purple-600">
-                Ready to Go
-              </Label>
-              <Switch
-                id="readyToGo"
-                checked={readyToGo}
-                onCheckedChange={setReadyToGo}
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 pb-20 lg:pb-6">
+      <div className="space-y-6 flex flex-col">
+        <ScrollArea className="flex-1">
+          <Card className="p-4 bg-gray-900 border-gray-800">
+            <div className="space-y-6">
+              <ScriptInputSection
+                source={source}
+                onSourceChange={setSource}
               />
-            </div>
 
-            <div className="pt-4">
-              <Button
-                onClick={handleSubmit}
-                disabled={isSubmitting || !hasEnoughCredits}
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg font-medium"
-              >
-                {isSubmitting ? "Creating..." : `Generate Video (${creditsRemaining} credits available)`}
-              </Button>
-              {!hasEnoughCredits && (
-                <p className="text-red-500 text-sm mt-2">
-                  You need at least 10 credits to create a video
-                </p>
-              )}
+              <ProductPhotoSection
+                uploadProgress={photoUploadProgress}
+                uploadedFileName={photoFileName}
+                previewUrl={photoPreviewUrl}
+                onFileChange={handlePhotoChange}
+              />
+
+              <StyleSelectorSection
+                style={style}
+                onStyleChange={setStyle}
+              />
+
+              <MusicUploaderSection
+                uploadProgress={musicUploadProgress}
+                uploadedFileName={musicFileName}
+                onFileChange={handleMusicChange}
+              />
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="readyToGo" className="text-xl text-purple-600">
+                  Ready to Go
+                </Label>
+                <Switch
+                  id="readyToGo"
+                  checked={readyToGo}
+                  onCheckedChange={setReadyToGo}
+                />
+              </div>
             </div>
-          </div>
-        </Card>
+          </Card>
+        </ScrollArea>
       </div>
 
       <div className="space-y-6">
@@ -137,6 +125,22 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
             Your generated videos will appear here
           </div>
         </Card>
+      </div>
+      
+      {/* Fixed Generate button for better visibility */}
+      <div className="fixed bottom-20 lg:sticky lg:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-30 lg:col-span-2">
+        <Button
+          onClick={handleSubmit}
+          disabled={isSubmitting || !hasEnoughCredits}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-6 text-lg font-medium"
+        >
+          {isSubmitting ? "Creating..." : `Generate Video (${creditsRemaining} credits available)`}
+        </Button>
+        {!hasEnoughCredits && (
+          <p className="text-red-500 text-sm mt-2 text-center">
+            You need at least 10 credits to create a video
+          </p>
+        )}
       </div>
     </div>
   );

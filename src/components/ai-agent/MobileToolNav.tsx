@@ -24,7 +24,7 @@ const tools: ToolButton[] = [
   },
   {
     id: "image-to-video",
-    label: "Video",
+    label: "Image to Video",
     icon: <Video className="h-5 w-5" />,
     bgColor: "bg-purple-500 hover:bg-purple-600"
   },

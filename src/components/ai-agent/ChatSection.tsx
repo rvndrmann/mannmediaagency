@@ -1,3 +1,4 @@
+
 import { useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -36,8 +37,8 @@ export function ChatSection({
     if (chatContainer) {
       const handleScroll = () => {
         const isBottom =
-          chatContainer.scrollHeight - chatContainer.scrollTop ===
-          chatContainer.clientHeight;
+          chatContainer.scrollHeight - chatContainer.scrollTop <=
+          chatContainer.clientHeight + 10; // Added small offset for better UX
         setIsScrolledToBottom(isBottom);
       };
 
@@ -47,14 +48,24 @@ export function ChatSection({
   }, []);
 
   useEffect(() => {
-    if (!isMobile && isScrolledToBottom) {
-      // Scroll to bottom only on desktop
+    if (isScrolledToBottom) {
+      // Scroll to bottom for both mobile and desktop
       chatContainerRef.current?.scrollTo({
         top: chatContainerRef.current.scrollHeight,
         behavior: "smooth",
       });
     }
-  }, [messages, isMobile, isScrolledToBottom]);
+  }, [messages, isScrolledToBottom]);
+
+  // Focus input when chat becomes visible on mobile
+  useEffect(() => {
+    if (isMobile && inputRef.current) {
+      const timeoutId = setTimeout(() => {
+        inputRef.current?.focus();
+      }, 300);
+      return () => clearTimeout(timeoutId);
+    }
+  }, [isMobile]);
 
   return (
     <div className="flex flex-col h-full">
@@ -97,7 +108,10 @@ export function ChatSection({
       </div>
 
       <form onSubmit={onSubmit} className="ai-chat-form">
-        <div className="border-t border-white/10 p-4 flex items-center gap-2">
+        <div className={cn(
+          "border-t border-white/10 p-4 flex items-center gap-2",
+          isMobile && "fixed bottom-16 left-0 right-0 z-40 bg-[#1A1F2C] shadow-lg"
+        )}>
           <Input
             ref={inputRef}
             placeholder="Ask me anything..."
@@ -105,7 +119,7 @@ export function ChatSection({
             onChange={(e) => onInputChange(e.target.value)}
             className="bg-[#202431] border-white/20 text-white"
           />
-          <Button type="submit" disabled={isLoading}>
+          <Button type="submit" disabled={isLoading} size="sm">
             <Send className="h-4 w-4 mr-2" />
             Send
           </Button>

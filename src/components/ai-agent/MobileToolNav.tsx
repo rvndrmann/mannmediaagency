@@ -1,6 +1,6 @@
 
 import { cn } from "@/lib/utils";
-import { Camera, Video, Sparkles, FileText, MessageCircle, RefreshCw } from "lucide-react";
+import { Camera, Video, Sparkles, FileText, MessageCircle } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 interface ToolButton {
@@ -45,27 +45,10 @@ const tools: ToolButton[] = [
 interface MobileToolNavProps {
   activeTool: string;
   onToolSelect: (tool: string) => void;
-  onFixButtonClick?: () => void;
-  isGenerating?: boolean;
 }
 
-export function MobileToolNav({ activeTool, onToolSelect, onFixButtonClick, isGenerating = false }: MobileToolNavProps) {
+export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) {
   const navigate = useNavigate();
-
-  // Get current tool credit cost
-  const getActiveCreditCost = () => {
-    if (activeTool === 'ai-agent') return 0.07;
-    const activeTool_ = tools.find(t => t.id === activeTool);
-    return activeTool_?.creditCost || 0;
-  };
-
-  // Get action text based on the active tool
-  const getActionText = () => {
-    if (activeTool === 'ai-agent') return 'Fix';
-    if (activeTool === 'product-shot-v1' || activeTool === 'product-shot-v2') return 'Generate Image';
-    if (activeTool === 'image-to-video' || activeTool === 'faceless-video') return 'Generate Video';
-    return 'Fix';
-  };
 
   return (
     <div className="fixed bottom-16 left-0 right-0 z-50 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
@@ -109,29 +92,6 @@ export function MobileToolNav({ activeTool, onToolSelect, onFixButtonClick, isGe
       >
         <MessageCircle className="h-6 w-6 text-white mb-0.5" />
         <span className="text-white text-[10px] font-medium">AI AGENT</span>
-      </button>
-
-      {/* Fix/Generate button positioned on the right */}
-      <button
-        onClick={onFixButtonClick}
-        disabled={isGenerating}
-        className={cn(
-          "absolute right-4 -top-16", // Changed from -top-8 to -top-16 to move it higher
-          "flex flex-col items-center justify-center",
-          "h-16 w-[auto] min-w-16 px-2 rounded-full",
-          "transition-all duration-300 ease-in-out",
-          "shadow-lg z-50",
-          isGenerating
-            ? "bg-gray-500 opacity-70"
-            : "bg-purple-500 hover:bg-purple-600 hover:scale-[0.98]",
-          isGenerating && "animate-pulse"
-        )}
-        aria-label={`${getActionText()} (${getActiveCreditCost()} ${getActiveCreditCost() === 1 ? "credit" : "credits"})`}
-      >
-        <RefreshCw className={cn("h-6 w-6 text-white mb-0.5", isGenerating && "animate-spin")} />
-        <span className="text-white text-[10px] font-medium whitespace-nowrap">
-          {getActionText()} ({getActiveCreditCost()} {getActiveCreditCost() === 1 ? "credit" : "credits"})
-        </span>
       </button>
     </div>
   );

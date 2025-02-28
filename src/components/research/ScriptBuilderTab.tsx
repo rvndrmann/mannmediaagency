@@ -64,7 +64,13 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
       return;
     }
 
-    const success = await createStory(script, style, readyToGo, backgroundMusic);
+    const success = await createStory({
+      script,
+      style,
+      readyToGo,
+      backgroundMusic
+    });
+    
     if (success) {
       setScript("");
       setStyle("");

@@ -127,10 +127,14 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
         </TabsContent>
 
         <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <FacelessVideoForm
-            messages={messages}
-            creditsRemaining={productShotV1.creditsRemaining}
-          />
+          <div className="grid grid-cols-1 gap-6 p-6">
+            <div className="space-y-6 min-h-[calc(100vh-16rem)]">
+              <FacelessVideoForm
+                messages={messages}
+                creditsRemaining={productShotV1.creditsRemaining}
+              />
+            </div>
+          </div>
         </TabsContent>
 
         <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -70,8 +71,8 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
   };
 
   return (
-    <form onSubmit={handleSubmit} className="faceless-video-form">
-      <div className="space-y-6 p-6">
+    <form onSubmit={handleSubmit} className="faceless-video-form w-full">
+      <div className="space-y-6">
         <div>
           <Label htmlFor="script" className="text-white">Video Script</Label>
           <div className="flex gap-2">
@@ -81,7 +82,7 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
                 placeholder="Write a script or generate one using AI..."
                 value={script}
                 onChange={(e) => setScript(e.target.value)}
-                className="bg-gray-900 border-gray-700 text-white resize-none"
+                className="bg-gray-900 border-gray-700 text-white resize-none min-h-[200px]"
               />
             </div>
             <UseAIResponseButton

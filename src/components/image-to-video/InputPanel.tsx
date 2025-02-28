@@ -53,7 +53,7 @@ export function InputPanel({
 }: InputPanelProps) {
   return (
     <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800">
-      <ScrollArea className="flex-1 pb-20">
+      <ScrollArea className="flex-1 pb-32">
         <div className="p-6 space-y-6">
           {!isMobile && (
             <div className="space-y-1">
@@ -129,11 +129,11 @@ export function InputPanel({
         </div>
       </ScrollArea>
 
-      <div className="fixed bottom-[4.5rem] md:sticky md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-40">
+      <div className="fixed md:sticky bottom-[6rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50">
         <Button
           onClick={() => onGenerate(prompt || "", aspectRatio)}
           disabled={isGenerating || !prompt?.trim() || !previewUrl}
-          className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 md:py-3 text-sm md:text-base font-medium"
         >
           {isGenerating ? (
             <>

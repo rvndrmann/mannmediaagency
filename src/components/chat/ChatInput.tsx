@@ -38,12 +38,12 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
               onChange={(e) => handleChange(e.target.value)}
               placeholder="Type your message..."
               disabled={isLoading}
-              className="min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none focus:ring-2 focus:ring-[#9b87f5] focus:border-transparent pr-4"
+              className="min-h-[80px] md:min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none focus:ring-2 focus:ring-[#9b87f5] focus:border-transparent pr-4"
             />
             <div className="absolute bottom-2 left-3 right-3">
               <div className="flex justify-between items-center">
                 <span className={`text-xs ${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-400'}`}>
-                  {currentWords}/{MAX_WORDS} words
+                  {currentWords}/{MAX_WORDS}
                 </span>
                 <Progress value={progress} className="w-1/3 h-1" />
               </div>

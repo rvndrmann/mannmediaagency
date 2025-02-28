@@ -101,7 +101,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
 
   return (
     <div className="h-full flex flex-col">
-      <ScrollArea className="flex-1 pb-24">
+      <ScrollArea className="flex-1 pb-32">
         <div className="p-6 space-y-6">
           <ScriptEditor
             script={script}
@@ -144,7 +144,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
         </div>
       </ScrollArea>
 
-      <div className="fixed bottom-[4.5rem] md:sticky md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-40">
+      <div className="fixed md:sticky bottom-[6rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50">
         <Button 
           onClick={handleCreateVideo}
           disabled={isCreating}

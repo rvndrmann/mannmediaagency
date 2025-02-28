@@ -129,7 +129,7 @@ export const SplitScreen = ({
               showChat 
                 ? "hidden" 
                 : cn(
-                    "h-[calc(100vh-4.5rem)]",
+                    "h-[calc(100vh-7.5rem)]",
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
             ) : "flex-1 overflow-hidden"
@@ -154,7 +154,7 @@ export const SplitScreen = ({
 
       {/* Mobile Navigation */}
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 z-40">
+        <div className="fixed bottom-16 left-0 right-0 z-50">
           <MobileToolNav
             activeTool={showChat ? 'ai-agent' : activeTool}
             onToolSelect={handleToolSelect}

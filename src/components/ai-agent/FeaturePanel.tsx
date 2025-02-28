@@ -8,9 +8,10 @@ import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
+import { useToast } from "@/hooks/use-toast";
 
 interface FeaturePanelProps {
   messages: Message[];
@@ -56,10 +57,26 @@ interface FeaturePanelProps {
     onSelectFromHistory?: (jobId: string, imageUrl: string) => void;
   };
   activeTool: string;
+  onSetVideoSubmitFunction?: (fn: () => void) => void;
 }
 
-export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
+export function FeaturePanel({ 
+  messages, 
+  productShotV2, 
+  productShotV1, 
+  imageToVideo, 
+  activeTool,
+  onSetVideoSubmitFunction
+}: FeaturePanelProps) {
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(true);
+  const { toast } = useToast();
+  
+  // Refs for holding form values
+  const scriptRef = useRef("");
+  const styleRef = useRef("Explainer");
+  const readyToGoRef = useRef(false);
+  const backgroundMusicRef = useRef<string | null>(null);
+  const productPhotoRef = useRef<string | null>(null);
   
   // For initial script, we can use the last AI message content if available
   const getInitialScript = () => {
@@ -71,6 +88,55 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
       
     return lastAssistantMessage?.content || "";
   };
+  
+  // Create our video submission function and expose it to parent
+  const handleVideoSubmit = () => {
+    // Check if we have a script first
+    if (!scriptRef.current || scriptRef.current.trim() === "") {
+      toast({
+        title: "Script Required",
+        description: "Please enter a script before creating a video.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Find the submit button in our form
+    const submitButton = document.querySelector('.CreateVideoDialogSubmitButton') as HTMLButtonElement;
+    if (submitButton) {
+      submitButton.click();
+    } else {
+      // If we can't find the button, we can try to submit programmatically
+      const videoForm = document.querySelector('.faceless-video-form') as HTMLFormElement;
+      if (videoForm) {
+        // Dispatch a submit event on the form
+        const event = new Event('submit', { bubbles: true, cancelable: true });
+        videoForm.dispatchEvent(event);
+      }
+    }
+  };
+  
+  // Update script reference when script changes
+  const handleScriptChange = (value: string) => {
+    scriptRef.current = value;
+  };
+  
+  // Update style reference when style changes
+  const handleStyleChange = (value: string) => {
+    styleRef.current = value;
+  };
+  
+  // Update readyToGo reference when it changes
+  const handleReadyToGoChange = (value: boolean) => {
+    readyToGoRef.current = value;
+  };
+  
+  // Expose the video submit function to parent
+  useEffect(() => {
+    if (onSetVideoSubmitFunction) {
+      onSetVideoSubmitFunction(handleVideoSubmit);
+    }
+  }, [onSetVideoSubmitFunction]);
 
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">

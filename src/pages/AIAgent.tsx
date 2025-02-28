@@ -11,7 +11,6 @@ import { useImageToVideo } from "@/hooks/use-image-to-video";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
-import { BottomNav } from "@/components/mobile/BottomNav";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -52,7 +51,7 @@ const AIAgent = () => {
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
         <div className="min-h-screen bg-[#1A1F2C]">
-          <div className={`h-screen ${isMobile ? 'pb-32' : ''}`}>
+          <div className="h-screen">
             <SplitScreen
               isMobile={isMobile}
               messages={messages}
@@ -105,7 +104,6 @@ const AIAgent = () => {
               onSubmit={(e) => handleSubmit(e, input)}
             />
           </div>
-          {isMobile && <BottomNav />}
           <Toaster />
         </div>
       </TooltipProvider>

@@ -38,7 +38,7 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
               onChange={(e) => handleChange(e.target.value)}
               placeholder="Type your message..."
               disabled={isLoading}
-              className="min-h-[80px] md:min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none focus:ring-2 focus:ring-[#9b87f5] focus:border-transparent pr-4"
+              className="min-h-[60px] md:min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none focus:ring-2 focus:ring-[#9b87f5] focus:border-transparent pr-4"
             />
             <div className="absolute bottom-2 left-3 right-3">
               <div className="flex justify-between items-center">
@@ -53,9 +53,9 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
         <Button 
           type="submit" 
           disabled={isLoading}
-          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start px-4 h-12 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start px-4 h-10 md:h-12 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
         >
-          <Send className="h-5 w-5" />
+          <Send className="h-4 w-4 md:h-5 md:w-5" />
         </Button>
       </div>
     </form>

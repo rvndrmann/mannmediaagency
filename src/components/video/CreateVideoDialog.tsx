@@ -109,9 +109,6 @@ export const CreateVideoDialog = ({
     });
   };
 
-  // Expose handleSubmit for the mobile button to use through a ref or parent component
-  // We handle this in the FeaturePanel component with the MobileToolNav
-
   // Conditional content for Dialog or Embedded form
   const content = (
     <div className={embeddedMode ? "space-y-6" : ""}>
@@ -179,13 +176,25 @@ export const CreateVideoDialog = ({
           />
         </div>
 
-        {/* Only show the action buttons when NOT in embedded mode */}
+        {/* IMPORTANT: Only show action buttons when NOT in embedded mode */}
         {!embeddedMode && (
           <DialogActionsSection
             onClose={onClose}
             onSubmit={handleSubmit}
             isSubmitting={isSubmitting}
           />
+        )}
+        
+        {/* Add a hidden button for programmatic submission in embedded mode */}
+        {embeddedMode && (
+          <button 
+            type="button"
+            onClick={handleSubmit}
+            className="hidden CreateVideoDialogSubmitButton"
+            aria-hidden="true"
+          >
+            Submit
+          </button>
         )}
       </div>
     </div>

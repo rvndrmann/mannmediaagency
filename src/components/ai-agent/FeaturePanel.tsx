@@ -101,17 +101,36 @@ export function FeaturePanel({
       return;
     }
     
-    // Find the submit button in our form
+    // Find the submit button in our form and click it
     const submitButton = document.querySelector('.CreateVideoDialogSubmitButton') as HTMLButtonElement;
     if (submitButton) {
+      console.log("Found submit button, clicking it");
       submitButton.click();
     } else {
-      // If we can't find the button, we can try to submit programmatically
-      const videoForm = document.querySelector('.faceless-video-form') as HTMLFormElement;
+      console.log("Submit button not found");
+      // Fallback if we can't find the submit button directly
+      const videoForm = document.querySelector('.faceless-video-form') as HTMLDivElement;
       if (videoForm) {
-        // Dispatch a submit event on the form
-        const event = new Event('submit', { bubbles: true, cancelable: true });
-        videoForm.dispatchEvent(event);
+        // Try to find any buttons inside the form
+        const formButtons = videoForm.querySelectorAll('button');
+        if (formButtons.length > 0) {
+          console.log("Found a form button, trying to use it");
+          formButtons[formButtons.length - 1].click();
+        } else {
+          console.log("No buttons found in form");
+          toast({
+            title: "Action Failed",
+            description: "Couldn't find submit button. Please try again.",
+            variant: "destructive",
+          });
+        }
+      } else {
+        console.log("Video form not found");
+        toast({
+          title: "Action Failed", 
+          description: "Couldn't find video form. Please try again.",
+          variant: "destructive",
+        });
       }
     }
   };

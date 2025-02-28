@@ -108,6 +108,8 @@ export const SplitScreen = ({
   const handleFixButtonClick = () => {
     if (isAnyGenerating) return;
     
+    console.log("Fix button clicked, active tool:", activeTool);
+    
     switch (activeTool) {
       case 'product-shot-v1':
         if (productShotV1.prompt && productShotV1.previewUrl) {
@@ -125,6 +127,7 @@ export const SplitScreen = ({
         break;
       case 'faceless-video':
         // Use our ref to call the video submit function
+        console.log("Calling video submit function");
         videoSubmitRef.current();
         break;
       case 'ai-agent':

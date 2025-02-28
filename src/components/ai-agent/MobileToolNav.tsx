@@ -52,8 +52,26 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
+      {/* AI Agent button positioned at the bottom of the screen */}
+      <button
+        onClick={() => onToolSelect('ai-agent')}
+        className={cn(
+          "absolute left-1/2 -top-8 -translate-x-1/2 transform",
+          "flex flex-col items-center justify-center",
+          "h-16 w-16 rounded-full",
+          "transition-all duration-300 ease-in-out",
+          "shadow-lg z-50",
+          activeTool === 'ai-agent'
+            ? "bg-green-500 scale-[0.98]"
+            : "bg-green-500 hover:bg-green-600 hover:scale-[0.98]"
+        )}
+      >
+        <MessageCircle className="h-6 w-6 text-white mb-0.5" />
+        <span className="text-white text-[10px] font-medium">AI AGENT</span>
+      </button>
+
       {/* Main grid with 2x2 layout */}
-      <nav className="relative grid grid-cols-2 gap-3 p-3 pb-4 mt-16">
+      <nav className="grid grid-cols-2 gap-3 p-3">
         {tools.map((tool) => (
           <button
             key={tool.id}
@@ -75,24 +93,6 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
           </button>
         ))}
       </nav>
-
-      {/* Chat button positioned below the navigation */}
-      <button
-        onClick={() => onToolSelect('ai-agent')}
-        className={cn(
-          "absolute left-1/2 -bottom-8 -translate-x-1/2",
-          "flex flex-col items-center justify-center",
-          "h-16 w-16 rounded-full",
-          "transition-all duration-300 ease-in-out",
-          "shadow-lg z-50",
-          activeTool === 'ai-agent'
-            ? "bg-green-500 transform scale-[0.98]"
-            : "bg-green-500 hover:bg-green-600 hover:scale-[0.98]"
-        )}
-      >
-        <MessageCircle className="h-6 w-6 text-white mb-0.5" />
-        <span className="text-white text-[10px] font-medium">AI AGENT</span>
-      </button>
     </div>
   );
 }

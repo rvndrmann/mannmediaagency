@@ -63,8 +63,18 @@ export function MobileToolNav({ activeTool, onToolSelect, onFixButtonClick, isGe
   const getActionText = () => {
     if (activeTool === 'ai-agent') return 'Fix';
     if (activeTool === 'product-shot-v1' || activeTool === 'product-shot-v2') return 'Generate Image';
-    if (activeTool === 'image-to-video' || activeTool === 'faceless-video') return 'Generate Video';
+    if (activeTool === 'image-to-video') return 'Generate Video';
+    if (activeTool === 'faceless-video') return 'Create Video';
     return 'Fix';
+  };
+
+  // Get credit cost text based on the active tool
+  const getCreditCostText = () => {
+    const cost = getActiveCreditCost();
+    if (activeTool === 'faceless-video') {
+      return `(Costs ${cost} ${cost === 1 ? "credit" : "credits"})`;
+    }
+    return `(${cost} ${cost === 1 ? "credit" : "credits"})`;
   };
 
   return (
@@ -118,7 +128,7 @@ export function MobileToolNav({ activeTool, onToolSelect, onFixButtonClick, isGe
         className={cn(
           "absolute right-4 -top-16", // Changed from -top-8 to -top-16 to move it higher
           "flex flex-col items-center justify-center",
-          "h-16 w-[auto] min-w-16 px-2 rounded-full",
+          "h-16 w-[auto] min-w-16 px-3 rounded-full", // Increased padding from px-2 to px-3
           "transition-all duration-300 ease-in-out",
           "shadow-lg z-50",
           isGenerating
@@ -126,11 +136,11 @@ export function MobileToolNav({ activeTool, onToolSelect, onFixButtonClick, isGe
             : "bg-purple-500 hover:bg-purple-600 hover:scale-[0.98]",
           isGenerating && "animate-pulse"
         )}
-        aria-label={`${getActionText()} (${getActiveCreditCost()} ${getActiveCreditCost() === 1 ? "credit" : "credits"})`}
+        aria-label={`${getActionText()} ${getCreditCostText()}`}
       >
         <RefreshCw className={cn("h-6 w-6 text-white mb-0.5", isGenerating && "animate-spin")} />
         <span className="text-white text-[10px] font-medium whitespace-nowrap">
-          {getActionText()} ({getActiveCreditCost()} {getActiveCreditCost() === 1 ? "credit" : "credits"})
+          {getActionText()} {getCreditCostText()}
         </span>
       </button>
     </div>

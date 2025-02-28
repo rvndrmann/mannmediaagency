@@ -87,7 +87,7 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
           "shadow-lg z-50",
           activeTool === 'ai-agent'
             ? "bg-green-500 transform scale-[0.98]"
-            : "bg-purple-500 hover:bg-purple-600 hover:scale-[0.98]"
+            : "bg-green-500 hover:bg-green-600 hover:scale-[0.98]" // Changed to green
         )}
       >
         <MessageCircle className="h-6 w-6 text-white mb-0.5" />

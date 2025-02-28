@@ -26,6 +26,10 @@ export function ChatSection({
 }: ChatSectionProps) {
   const navigate = useNavigate();
   
+  const handleBackClick = () => {
+    navigate('/');
+  };
+  
   return (
     <Card className="h-full flex flex-col bg-transparent border-0 shadow-none">
       <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
@@ -33,8 +37,8 @@ export function ChatSection({
           {/* Back button for desktop view only */}
           {!isMobile && (
             <button 
-              onClick={() => navigate(-1)}
-              className="absolute left-4 flex items-center text-white"
+              onClick={handleBackClick}
+              className="absolute left-4 flex items-center text-white hover:text-gray-300 transition-colors"
             >
               <ArrowLeft className="h-4 w-4 mr-1" />
               <span className="text-sm">Back</span>

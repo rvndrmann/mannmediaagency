@@ -33,12 +33,8 @@
     @apply border-border/10;
   }
 
-  html, body {
-    @apply overflow-x-hidden;
-  }
-
   body {
-    @apply bg-background text-foreground font-sans antialiased w-full;
+    @apply bg-background text-foreground font-sans antialiased;
     font-feature-settings: "ss01", "ss02", "cv01", "cv02";
   }
 

@@ -103,7 +103,7 @@ export const SplitScreen = ({
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-20" 
+                ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-28" 
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10 overflow-hidden"
@@ -153,7 +153,7 @@ export const SplitScreen = ({
 
       {/* Mobile Navigation */}
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 z-50">
+        <div className="fixed bottom-0 left-0 right-0 z-40">
           <MobileToolNav
             activeTool={showChat ? 'ai-agent' : activeTool}
             onToolSelect={handleToolSelect}

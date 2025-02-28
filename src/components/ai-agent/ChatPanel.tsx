@@ -59,9 +59,9 @@ export const ChatPanel = ({
       <div className="flex-1 overflow-hidden">
         <ScrollArea 
           ref={scrollAreaRef} 
-          className="h-[calc(100vh-22rem)] md:h-[calc(100vh-8rem)]"
+          className="h-[calc(100vh-16rem)] md:h-[calc(100vh-10rem)]"
         >
-          <div className="space-y-4 p-4 pb-16 md:pb-12">
+          <div className="space-y-4 p-4 pb-16 md:pb-4">
             {messages.map((message, index) => (
               <ChatMessage key={index} message={message} />
             ))}

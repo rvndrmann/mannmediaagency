@@ -29,7 +29,7 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-2">
+    <form onSubmit={onSubmit} className="space-y-0">
       <div className="flex gap-3">
         <div className="flex-1">
           <div className="relative">

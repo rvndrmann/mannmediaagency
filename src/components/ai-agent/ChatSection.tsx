@@ -110,7 +110,7 @@ export function ChatSection({
       <form onSubmit={onSubmit} className="ai-chat-form">
         <div className={cn(
           "border-t border-white/10 p-4 flex items-center gap-2",
-          isMobile && "fixed bottom-16 left-0 right-0 z-40 bg-[#1A1F2C] shadow-lg"
+          isMobile && "fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C] shadow-lg border-t border-white/10"
         )}>
           <Input
             ref={inputRef}
@@ -127,4 +127,4 @@ export function ChatSection({
       </form>
     </div>
   );
-}
+};

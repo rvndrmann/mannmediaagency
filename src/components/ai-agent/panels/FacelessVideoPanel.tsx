@@ -1,8 +1,8 @@
 
+import { useState } from "react";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { GenerateButton } from "./GenerateButton";
 import { FileText } from "lucide-react";
-import { useState } from "react";
 import { Message } from "@/types/message";
 
 interface FacelessVideoPanelProps {
@@ -14,16 +14,15 @@ interface FacelessVideoPanelProps {
 
 export const FacelessVideoPanel = ({ productShotV1, messages }: FacelessVideoPanelProps) => {
   const [isVideoDialogOpen] = useState(true);
+  const [scriptGenerated, setScriptGenerated] = useState(false);
   
-  // For initial script, we can use the last AI message content if available
+  // Instead of auto-setting the script, we'll pass an empty string initially
+  // and only use the AI response when user clicks the "Use Last AI" button
   const getInitialScript = () => {
-    if (!messages || messages.length === 0) return "";
-    
-    const lastAssistantMessage = [...messages]
-      .reverse()
-      .find(msg => msg.role === "assistant");
-      
-    return lastAssistantMessage?.content || "";
+    if (scriptGenerated) {
+      return "";
+    }
+    return "";
   };
 
   const handleCreateVideo = () => {
@@ -38,7 +37,7 @@ export const FacelessVideoPanel = ({ productShotV1, messages }: FacelessVideoPan
         onClose={() => {}} // We don't actually close this dialog in the panel context
         availableVideos={Math.floor((productShotV1.creditsRemaining || 0) / 20)}
         creditsRemaining={productShotV1.creditsRemaining}
-        initialScript={getInitialScript()}
+        initialScript=""
         initialStyle="Explainer"
         embeddedMode={true} // Add a flag for embedded mode styling
         messages={messages}

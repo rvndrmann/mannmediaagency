@@ -91,6 +91,16 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
+  // Add padding to main content when on mobile to account for fixed bottom nav
+  useEffect(() => {
+    if (isMobile) {
+      document.body.classList.add('pb-32');
+      return () => {
+        document.body.classList.remove('pb-32');
+      };
+    }
+  }, [isMobile]);
+
   return (
     <div className="relative min-h-screen h-full bg-[#1A1F2C]">
       <div 
@@ -104,7 +114,7 @@ export const SplitScreen = ({
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-36" 
+                ? "fixed inset-0 z-50 animate-in fade-in slide-in pb-16" 
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10 overflow-hidden"
@@ -129,7 +139,7 @@ export const SplitScreen = ({
               showChat 
                 ? "hidden" 
                 : cn(
-                    "pb-36",
+                    "pb-16",
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
             ) : "flex-1 overflow-hidden"

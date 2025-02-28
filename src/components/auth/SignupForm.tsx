@@ -96,7 +96,7 @@ const SignupForm = () => {
           <p className="text-gray-400">Sign up to get started with MANNMEDIAAGENCY</p>
         </div>
 
-        {!verificationStep && !isMobile && (
+        {!verificationStep && (
           <div className="flex gap-2 mb-6">
             <Button
               variant={authMethod === "google" ? "default" : "outline"}
@@ -123,7 +123,7 @@ const SignupForm = () => {
               isLoading={isLoading}
               phoneNumber={phoneNumber}
             />
-          ) : isMobile || authMethod === "phone" ? (
+          ) : authMethod === "phone" ? (
             <PhoneInput onSubmit={handlePhoneSubmit} isLoading={isLoading} />
           ) : (
             <Button

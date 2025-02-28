@@ -1,10 +1,11 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { ExploreGrid } from "@/components/explore/ExploreGrid";
 import { FilterBar } from "@/components/explore/FilterBar";
 import { useNavigate } from "react-router-dom";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { SidebarProvider } from "@/components/ui/sidebar";
 import { Sidebar } from "@/components/Sidebar";
 import { Button } from "@/components/ui/button";
@@ -153,65 +154,76 @@ const Explore = () => {
 
   return (
     <SidebarProvider defaultOpen={false}>
-      <div className="flex flex-col min-h-screen w-full bg-background">
-        <div className="flex flex-1">
-          <Sidebar />
-          <main className="flex-1 relative">
-            <div className="fixed top-0 left-0 right-0 z-50 bg-background border-b">
-              {isMobile ? (
-                <div className="flex items-center p-4">
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => navigate(-1)}
-                    className="mr-2"
-                  >
-                    <ChevronLeft className="h-5 w-5" />
-                  </Button>
-                  <h1 className="text-xl font-bold">Explore</h1>
-                </div>
-              ) : (
-                <div className="p-4">
-                  <div className="flex items-center gap-4">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => navigate(-1)}
-                      className="mr-2"
-                    >
-                      <ChevronLeft className="h-5 w-5" />
-                    </Button>
-                    <h1 className="text-2xl font-bold">Explore</h1>
-                  </div>
-                </div>
-              )}
-            </div>
+      <div className="flex min-h-screen bg-background">
+        <Sidebar />
+        <div className="flex-1">
+          <div className="flex items-center gap-4 p-4 border-b">
+            {isMobile && (
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => navigate(-1)}
+                className="mr-2"
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </Button>
+            )}
+            <h1 className="text-xl md:text-2xl font-bold">Explore</h1>
+          </div>
 
-            <div className={`p-4 md:p-8 ${isMobile ? 'pt-20' : 'pt-20'}`}>
-              <FilterBar
-                searchQuery={searchQuery}
-                onSearchChange={setSearchQuery}
-              />
+          <div className="flex-1 p-2 md:p-8">
+            <FilterBar
+              searchQuery={searchQuery}
+              onSearchChange={setSearchQuery}
+            />
 
-              <Tabs value={contentType} onValueChange={(value) => setContentType(value as typeof contentType)} className="mt-6">
-                <TabsList className="w-full md:w-auto overflow-x-auto">
-                  <TabsTrigger value="all">All Content</TabsTrigger>
-                  <TabsTrigger value="product-shots">Product Shot V2</TabsTrigger>
-                  <TabsTrigger value="images">Product Shot V1</TabsTrigger>
-                  <TabsTrigger value="videos">Videos</TabsTrigger>
-                </TabsList>
-              </Tabs>
+            <Tabs value={contentType} onValueChange={(value) => setContentType(value as typeof contentType)} className="mt-4 md:mt-6">
+              <TabsList className="w-full md:w-auto overflow-x-auto">
+                <TabsTrigger value="all">All Content</TabsTrigger>
+                <TabsTrigger value="product-shots">Product Shot V2</TabsTrigger>
+                <TabsTrigger value="images">Product Shot V1</TabsTrigger>
+                <TabsTrigger value="videos">Videos</TabsTrigger>
+              </TabsList>
 
-              <ExploreGrid
-                images={publicImages}
-                videos={publicVideos}
-                productShots={productShots}
-                isLoading={imagesLoading || videosLoading || productShotsLoading}
-                contentType={contentType}
-                searchQuery={searchQuery}
-              />
-            </div>
-          </main>
+              <TabsContent value="all">
+                <ExploreGrid
+                  images={publicImages}
+                  videos={publicVideos}
+                  productShots={productShots}
+                  isLoading={imagesLoading || videosLoading || productShotsLoading}
+                  contentType="all"
+                  searchQuery={searchQuery}
+                />
+              </TabsContent>
+              
+              <TabsContent value="product-shots">
+                <ExploreGrid
+                  productShots={productShots}
+                  isLoading={productShotsLoading}
+                  contentType="product-shots"
+                  searchQuery={searchQuery}
+                />
+              </TabsContent>
+              
+              <TabsContent value="images">
+                <ExploreGrid
+                  images={publicImages}
+                  isLoading={imagesLoading}
+                  contentType="images"
+                  searchQuery={searchQuery}
+                />
+              </TabsContent>
+              
+              <TabsContent value="videos">
+                <ExploreGrid
+                  videos={publicVideos}
+                  isLoading={videosLoading}
+                  contentType="videos"
+                  searchQuery={searchQuery}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
         </div>
       </div>
     </SidebarProvider>

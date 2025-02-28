@@ -28,7 +28,7 @@ export const ProfileSection = () => {
     },
   });
 
-  const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 10);
+  const availableStories = Math.floor((userCredits?.credits_remaining || 0) / 20);
 
   return (
     <Card className="bg-gray-800 border-gray-700 p-4">

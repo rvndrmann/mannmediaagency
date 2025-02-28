@@ -43,7 +43,7 @@ interface MobileToolNavProps {
 
 export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) {
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-30 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
       {/* Main grid with 2x2 layout */}
       <nav className="relative grid grid-cols-2 gap-3 p-3 pb-4">
         {tools.map((tool) => (
@@ -76,7 +76,7 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
           "flex flex-col items-center justify-center",
           "h-16 w-16 rounded-full",
           "transition-all duration-300 ease-in-out",
-          "shadow-lg",
+          "shadow-lg z-50",
           activeTool === 'ai-agent'
             ? "bg-green-500 transform scale-[0.98]"
             : "bg-purple-500 hover:bg-purple-600 hover:scale-[0.98]"

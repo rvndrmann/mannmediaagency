@@ -10,6 +10,7 @@ interface ChatSectionProps {
   userCredits: any;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  isMobile?: boolean;
 }
 
 export function ChatSection({
@@ -18,7 +19,8 @@ export function ChatSection({
   isLoading,
   userCredits,
   onInputChange,
-  onSubmit
+  onSubmit,
+  isMobile = false
 }: ChatSectionProps) {
   return (
     <Card className="h-full flex flex-col bg-transparent border-0 shadow-none">
@@ -39,6 +41,7 @@ export function ChatSection({
             userCredits={userCredits}
             onInputChange={onInputChange}
             onSubmit={onSubmit}
+            isMobile={isMobile}
           />
         </TabsContent>
       </Tabs>

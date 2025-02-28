@@ -16,6 +16,7 @@ interface ChatPanelProps {
   userCredits: { credits_remaining: number } | null;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  isMobile?: boolean;
 }
 
 export const ChatPanel = ({
@@ -24,7 +25,8 @@ export const ChatPanel = ({
   isLoading,
   userCredits,
   onInputChange,
-  onSubmit
+  onSubmit,
+  isMobile = false
 }: ChatPanelProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -59,9 +61,9 @@ export const ChatPanel = ({
       <div className="flex-1 overflow-hidden">
         <ScrollArea 
           ref={scrollAreaRef} 
-          className="h-full min-h-[calc(100vh-16rem)]"
+          className={`h-full ${isMobile ? "min-h-[calc(100vh-16rem)]" : "min-h-[calc(100vh-16rem)]"}`}
         >
-          <div className="space-y-4 p-4 pb-16">
+          <div className={`space-y-4 p-4 ${isMobile ? "pb-28" : "pb-16"}`}>
             {messages.map((message, index) => (
               <ChatMessage key={index} message={message} />
             ))}
@@ -70,7 +72,7 @@ export const ChatPanel = ({
         </ScrollArea>
       </div>
 
-      <div className="sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 z-10">
+      <div className={`sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 ${isMobile ? "z-60 mb-20" : "z-10"}`}>
         <ChatInput
           input={input}
           isLoading={isLoading}

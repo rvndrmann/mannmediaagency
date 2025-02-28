@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -78,6 +79,7 @@ export const SplitScreen = ({
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [videoSubmitHandler, setVideoSubmitHandler] = useState<(() => Promise<void>) | null>(null);
 
   const isAnyGenerating = 
     productShotV1.isGenerating || 
@@ -115,14 +117,21 @@ export const SplitScreen = ({
         }
         break;
       case 'faceless-video':
-        const videoButton = document.querySelector('.faceless-video-form button[type="submit"]') as HTMLButtonElement;
-        if (videoButton) videoButton.click();
+        // Use the stored submit handler function instead of trying to find a button
+        if (videoSubmitHandler) {
+          videoSubmitHandler();
+        }
         break;
       case 'ai-agent':
         const chatForm = document.querySelector('form.ai-chat-form') as HTMLFormElement;
         if (chatForm) chatForm.requestSubmit();
         break;
     }
+  };
+
+  // Create a handler that will be passed to the CreateVideoDialog component
+  const handleVideoSubmitRegistration = (submitFn: () => Promise<void>) => {
+    setVideoSubmitHandler(() => submitFn);
   };
 
   return (
@@ -182,6 +191,7 @@ export const SplitScreen = ({
             productShotV1={productShotV1}
             imageToVideo={imageToVideo}
             activeTool={activeTool}
+            onVideoSubmitRegistration={handleVideoSubmitRegistration}
           />
         </div>
       </div>

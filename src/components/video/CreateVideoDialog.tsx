@@ -27,6 +27,7 @@ interface CreateVideoDialogProps {
   initialProductPhoto?: string | null;
   embeddedMode?: boolean;
   messages?: Message[];
+  onMobileSubmit?: (submitFn: () => Promise<void>) => void;
 }
 
 export const CreateVideoDialog = ({
@@ -41,6 +42,7 @@ export const CreateVideoDialog = ({
   initialProductPhoto = null,
   embeddedMode = false,
   messages = [],
+  onMobileSubmit,
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState(initialScript);
   const [readyToGo, setReadyToGo] = useState(initialReadyToGo);
@@ -100,6 +102,11 @@ export const CreateVideoDialog = ({
       style
     });
   };
+
+  // Share the submit function with parent component if in embedded mode
+  if (embeddedMode && onMobileSubmit) {
+    onMobileSubmit(handleSubmit);
+  }
 
   const handleAiScriptGeneration = (aiText: string) => {
     setSource(aiText);
@@ -176,11 +183,14 @@ export const CreateVideoDialog = ({
           />
         </div>
 
-        <DialogActionsSection
-          onClose={onClose}
-          onSubmit={handleSubmit}
-          isSubmitting={isSubmitting}
-        />
+        {/* Only show action buttons in dialog mode, not in embedded mode */}
+        {!embeddedMode && (
+          <DialogActionsSection
+            onClose={onClose}
+            onSubmit={handleSubmit}
+            isSubmitting={isSubmitting}
+          />
+        )}
       </div>
     </div>
   );

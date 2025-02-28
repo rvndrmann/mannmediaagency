@@ -38,6 +38,8 @@ interface ImageToVideoProps {
   onClearFile: () => void;
   creditsRemaining: number;
   isGenerating: boolean;
+  prompt: string;
+  aspectRatio: string;
   onGenerate: (prompt: string, aspectRatio: string) => void;
   onSelectFromHistory: (jobId: string, imageUrl: string) => void;
 }
@@ -78,6 +80,13 @@ export const SplitScreen = ({
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
+  // Combined state for generating status
+  const isAnyGenerating = 
+    productShotV1.isGenerating || 
+    productShotV2.isGenerating || 
+    productShotV2.isSubmitting || 
+    imageToVideo.isGenerating;
+
   const handleToolSelect = (tool: string) => {
     setIsTransitioning(true);
     if (tool === 'ai-agent') {
@@ -87,6 +96,39 @@ export const SplitScreen = ({
       setActiveTool(tool);
     }
     setTimeout(() => setIsTransitioning(false), 300);
+  };
+
+  // Handle fix button click based on active tool
+  const handleFixButtonClick = () => {
+    if (isAnyGenerating) return;
+    
+    switch (activeTool) {
+      case 'product-shot-v1':
+        if (productShotV1.prompt && productShotV1.previewUrl) {
+          productShotV1.onGenerate();
+        }
+        break;
+      case 'product-shot-v2':
+        // This will be handled via the form submission
+        const submitButton = document.querySelector('form button[type="submit"]') as HTMLButtonElement;
+        if (submitButton) submitButton.click();
+        break;
+      case 'image-to-video':
+        if (imageToVideo.prompt && imageToVideo.previewUrl) {
+          imageToVideo.onGenerate(imageToVideo.prompt, imageToVideo.aspectRatio);
+        }
+        break;
+      case 'faceless-video':
+        // Trigger the faceless video generation
+        const videoButton = document.querySelector('.faceless-video-form button[type="submit"]') as HTMLButtonElement;
+        if (videoButton) videoButton.click();
+        break;
+      case 'ai-agent':
+        // Trigger the AI chat submit
+        const chatForm = document.querySelector('form.ai-chat-form') as HTMLFormElement;
+        if (chatForm) chatForm.requestSubmit();
+        break;
+    }
   };
 
   return (
@@ -157,6 +199,8 @@ export const SplitScreen = ({
         <MobileToolNav
           activeTool={showChat ? 'ai-agent' : activeTool}
           onToolSelect={handleToolSelect}
+          onFixButtonClick={handleFixButtonClick}
+          isGenerating={isAnyGenerating}
         />
       )}
     </div>

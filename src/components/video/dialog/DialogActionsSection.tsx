@@ -25,7 +25,7 @@ export const DialogActionsSection = ({
       <Button
         onClick={onSubmit}
         disabled={isSubmitting}
-        className="px-8 bg-purple-600 hover:bg-purple-700 text-white CreateVideoDialogSubmitButton"
+        className="px-8 bg-purple-600 hover:bg-purple-700 text-white video-dialog-visible-button"
       >
         {isSubmitting ? "Creating..." : "Create Video (Costs 20 credits)"}
       </Button>

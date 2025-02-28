@@ -101,37 +101,49 @@ export function FeaturePanel({
       return;
     }
     
-    // Find the submit button in our form and click it
-    const submitButton = document.querySelector('.CreateVideoDialogSubmitButton') as HTMLButtonElement;
+    // First try to find our specially marked hidden submit button
+    const submitButton = document.querySelector('.embedded-video-submit-button') as HTMLButtonElement;
     if (submitButton) {
-      console.log("Found submit button, clicking it");
+      console.log("Found embedded submit button, clicking it");
       submitButton.click();
-    } else {
-      console.log("Submit button not found");
-      // Fallback if we can't find the submit button directly
-      const videoForm = document.querySelector('.faceless-video-form') as HTMLDivElement;
-      if (videoForm) {
-        // Try to find any buttons inside the form
-        const formButtons = videoForm.querySelectorAll('button');
-        if (formButtons.length > 0) {
-          console.log("Found a form button, trying to use it");
-          formButtons[formButtons.length - 1].click();
-        } else {
-          console.log("No buttons found in form");
-          toast({
-            title: "Action Failed",
-            description: "Couldn't find submit button. Please try again.",
-            variant: "destructive",
-          });
-        }
+      return;
+    }
+    
+    console.log("Embedded submit button not found, trying fallbacks");
+    
+    // Try the general class as fallback
+    const fallbackButton = document.querySelector('.CreateVideoDialogSubmitButton') as HTMLButtonElement;
+    if (fallbackButton) {
+      console.log("Found fallback submit button, clicking it");
+      fallbackButton.click();
+      return;
+    }
+    
+    // Final fallback - search the form for any button
+    console.log("No submit buttons found, searching form directly");
+    const videoForm = document.querySelector('.faceless-video-form') as HTMLDivElement;
+    if (videoForm) {
+      // Try to find any buttons inside the form
+      const formButtons = videoForm.querySelectorAll('button');
+      if (formButtons.length > 0) {
+        console.log("Found a form button, trying to use it:", formButtons.length, "buttons found");
+        // Click the last button (usually the submit)
+        formButtons[formButtons.length - 1].click();
       } else {
-        console.log("Video form not found");
+        console.error("No buttons found in form");
         toast({
-          title: "Action Failed", 
-          description: "Couldn't find video form. Please try again.",
+          title: "Action Failed",
+          description: "Couldn't find submit button. Please try again.",
           variant: "destructive",
         });
       }
+    } else {
+      console.error("Video form not found");
+      toast({
+        title: "Action Failed", 
+        description: "Couldn't find video form. Please try again.",
+        variant: "destructive",
+      });
     }
   };
   

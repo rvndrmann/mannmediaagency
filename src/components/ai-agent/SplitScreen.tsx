@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -80,7 +79,6 @@ export const SplitScreen = ({
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   
-  // Ref to hold the video creation submit function
   const videoSubmitRef = useRef<() => void>(() => {});
 
   const isAnyGenerating = 
@@ -100,7 +98,6 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
-  // Allow the feature panel to set the video submit function
   const setVideoSubmitFunction = (fn: () => void) => {
     videoSubmitRef.current = fn;
   };
@@ -126,8 +123,7 @@ export const SplitScreen = ({
         }
         break;
       case 'faceless-video':
-        // Use our ref to call the video submit function
-        console.log("Calling video submit function");
+        console.log("Calling video submit function for faceless-video");
         videoSubmitRef.current();
         break;
       case 'ai-agent':

@@ -185,13 +185,14 @@ export const CreateVideoDialog = ({
           />
         )}
         
-        {/* Add a hidden button for programmatic submission in embedded mode */}
+        {/* Add a truly hidden button for programmatic submission in embedded mode */}
         {embeddedMode && (
           <button 
             type="button"
             onClick={handleSubmit}
-            className="hidden CreateVideoDialogSubmitButton"
+            className="!hidden embedded-video-submit-button CreateVideoDialogSubmitButton"
             aria-hidden="true"
+            data-testid="embedded-video-submit"
           >
             Submit
           </button>

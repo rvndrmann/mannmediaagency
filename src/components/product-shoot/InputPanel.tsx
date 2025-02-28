@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -148,7 +149,9 @@ export const InputPanel = ({
             </Select>
           </div>
         </div>
-
+      </div>
+      
+      <div className="fixed md:relative w-full left-0 md:left-auto right-0 bottom-[6rem] md:bottom-auto p-4 md:p-0 bg-[#1A1F2C]/95 md:bg-transparent backdrop-blur-xl md:backdrop-blur-none border-t md:border-t-0 border-gray-800 z-40">
         <Button
           onClick={onGenerate}
           disabled={isGenerating || !prompt.trim() || !previewUrl}
@@ -160,7 +163,7 @@ export const InputPanel = ({
               Generating...
             </>
           ) : (
-            "Generate Image (0.2 credits)"
+            "Generate Image (Costs 0.2 credits)"
           )}
         </Button>
       </div>

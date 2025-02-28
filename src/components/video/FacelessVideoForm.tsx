@@ -186,7 +186,7 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
           disabled={isSubmitting || !hasEnoughCredits}
           className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 md:py-6 text-base md:text-lg font-medium"
         >
-          {isSubmitting ? "Creating..." : `Generate Video (${creditsRemaining} credits available)`}
+          {isSubmitting ? "Creating..." : `Generate Video (Costs 20 credits)`}
         </Button>
         {!hasEnoughCredits && (
           <p className="text-red-500 text-sm mt-2 text-center">

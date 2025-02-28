@@ -16,7 +16,7 @@ export const GenerateButton = ({ availableCredits, isGenerating, isSubmitting }:
         "Generating..."
       ) : (
         <>
-          Generate (0.2 credits)
+          Generate (Costs 0.2 credits)
           {availableCredits < calculateCreditCost() && (
             <span className="ml-2 text-xs text-red-400">
               (Insufficient credits)

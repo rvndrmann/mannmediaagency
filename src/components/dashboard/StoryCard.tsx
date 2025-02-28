@@ -30,23 +30,26 @@ export const StoryCard = ({ story }: StoryCardProps) => {
           />
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-            <Video className="h-8 w-8 text-gray-400" />
+            <Video className="h-6 w-6 text-gray-400" />
           </div>
         )}
       </div>
-      <div className="p-4 space-y-2">
+      <div className="p-2 space-y-1">
         <div className="flex items-center justify-between">
-          <Badge variant={story.ready_to_go ? "default" : "secondary"}>
+          <Badge 
+            variant={story.ready_to_go ? "default" : "secondary"}
+            className="text-xs py-0"
+          >
             {story.ready_to_go ? "Ready" : "Processing"}
           </Badge>
         </div>
         {story.story_metadata?.seo_title && (
-          <p className="text-sm font-medium line-clamp-2">
+          <p className="text-xs font-medium line-clamp-1">
             {story.story_metadata.seo_title}
           </p>
         )}
-        <p className="text-xs text-gray-500">
-          Created: {formatDate(story.created_at)}
+        <p className="text-[10px] text-gray-500">
+          {formatDate(story.created_at)}
         </p>
       </div>
     </Card>

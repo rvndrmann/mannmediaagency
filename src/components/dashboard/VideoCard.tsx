@@ -68,7 +68,7 @@ export const VideoCard = ({ video }: VideoCardProps) => {
 
   return (
     <Card className="overflow-hidden">
-      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "300px" }}>
+      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "120px" }}>
         {video.result_url ? (
           <div className="w-full h-full flex items-center justify-center">
             <video
@@ -76,29 +76,30 @@ export const VideoCard = ({ video }: VideoCardProps) => {
               controls
               playsInline
               preload="metadata"
-              className="max-w-full max-h-[300px] h-auto w-auto object-contain"
+              className="max-w-full max-h-[120px] h-auto w-auto object-contain"
             />
           </div>
         ) : (
-          <div className="w-full h-full min-h-[300px] bg-gray-100 flex items-center justify-center">
-            Processing...
+          <div className="w-full h-full min-h-[120px] bg-gray-100 flex items-center justify-center">
+            <span className="text-xs">Processing...</span>
           </div>
         )}
       </div>
-      <div className="p-4 space-y-2">
+      <div className="p-2 space-y-1">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Badge variant="secondary">{video.status}</Badge>
+          <div className="flex items-center gap-1">
+            <Badge variant="secondary" className="text-[10px] py-0 px-1">{video.status}</Badge>
             <Button
               variant="ghost"
               size="sm"
+              className="h-6 w-6 p-0"
               onClick={toggleVisibility}
               disabled={isUpdating}
             >
               {video.visibility === 'public' ? (
-                <Globe className="h-4 w-4 text-green-500" />
+                <Globe className="h-3 w-3 text-green-500" />
               ) : (
-                <Lock className="h-4 w-4" />
+                <Lock className="h-3 w-3" />
               )}
             </Button>
           </div>
@@ -106,33 +107,34 @@ export const VideoCard = ({ video }: VideoCardProps) => {
             <Button
               variant="ghost"
               size="sm"
+              className="h-6 w-6 p-0"
               onClick={() => handleCopy(video.video_metadata.seo_title, "Title")}
             >
               {copiedField === "Title" ? (
-                <Check className="h-4 w-4 text-green-500" />
+                <Check className="h-3 w-3 text-green-500" />
               ) : (
-                <Copy className="h-4 w-4" />
+                <Copy className="h-3 w-3" />
               )}
             </Button>
           )}
         </div>
-        <div className="flex items-start justify-between gap-2">
-          <p className="text-sm line-clamp-2 flex-1">{video.prompt}</p>
+        <div className="flex items-start justify-between gap-1">
+          <p className="text-xs line-clamp-1 flex-1">{video.prompt}</p>
           <Button
             variant="ghost"
             size="sm"
-            className="mt-0.5 flex-shrink-0"
+            className="h-6 w-6 p-0 flex-shrink-0"
             onClick={() => handleCopy(video.prompt, "Prompt")}
           >
             {copiedField === "Prompt" ? (
-              <Check className="h-4 w-4 text-green-500" />
+              <Check className="h-3 w-3 text-green-500" />
             ) : (
-              <Copy className="h-4 w-4" />
+              <Copy className="h-3 w-3" />
             )}
           </Button>
         </div>
-        <p className="text-xs text-gray-500">
-          Created: {formatDate(video.created_at)}
+        <p className="text-[10px] text-gray-500">
+          {formatDate(video.created_at)}
         </p>
       </div>
     </Card>

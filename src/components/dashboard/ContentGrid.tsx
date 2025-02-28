@@ -84,7 +84,7 @@ export const ContentGrid = ({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-2 sm:gap-4">
+    <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
       {content.map((item) => {
         if ('story' in item) {
           return <StoryCard key={item["stories id"]} story={item} />;

@@ -22,7 +22,7 @@ export const DialogHeaderSection = ({
         </div>
         <div className="text-purple-600 text-right text-sm">
           <div>Available Credits: {creditsRemaining}</div>
-          <div className="text-xs text-gray-500">Cost: 10 credits per video</div>
+          <div className="text-xs text-gray-500">Cost: 20 credits per video</div>
         </div>
       </div>
       

@@ -123,7 +123,7 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
     });
   };
 
-  const hasEnoughCredits = creditsRemaining >= 10;
+  const hasEnoughCredits = creditsRemaining >= 20;
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 pb-32 lg:pb-6">
@@ -190,10 +190,10 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
         </Button>
         {!hasEnoughCredits && (
           <p className="text-red-500 text-sm mt-2 text-center">
-            You need at least 10 credits to create a video
+            You need at least 20 credits to create a video
           </p>
         )}
       </div>
     </div>
   );
-}
+};

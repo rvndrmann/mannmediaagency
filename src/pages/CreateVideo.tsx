@@ -27,14 +27,14 @@ const CreateVideo = () => {
     },
   });
 
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 10);
-  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 20;
 
   const handleCreateVideo = () => {
     if (!hasEnoughCredits) {
       toast({
         title: "Insufficient Credits",
-        description: "You need at least 10 credits to create a video.",
+        description: "You need at least 20 credits to create a video.",
         variant: "destructive",
       });
       return;

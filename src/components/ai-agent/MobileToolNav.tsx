@@ -116,7 +116,7 @@ export function MobileToolNav({ activeTool, onToolSelect, onFixButtonClick, isGe
         onClick={onFixButtonClick}
         disabled={isGenerating}
         className={cn(
-          "absolute right-4 -top-8",
+          "absolute right-4 -top-16", // Changed from -top-8 to -top-16 to move it higher
           "flex flex-col items-center justify-center",
           "h-16 w-[auto] min-w-16 px-2 rounded-full",
           "transition-all duration-300 ease-in-out",

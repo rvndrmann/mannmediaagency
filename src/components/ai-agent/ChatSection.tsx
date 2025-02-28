@@ -31,7 +31,7 @@ export function ChatSection({
             Chat
           </TabsTrigger>
         </TabsList>
-        <TabsContent value="chat" className="flex-1 h-[calc(100vh-8rem)]">
+        <TabsContent value="chat" className="flex-1 flex flex-col overflow-hidden h-[calc(100vh-6rem)]">
           <ChatPanel
             messages={messages}
             input={input}

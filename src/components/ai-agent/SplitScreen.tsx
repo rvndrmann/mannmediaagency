@@ -94,7 +94,7 @@ export const SplitScreen = ({
       <div 
         className={cn(
           "h-full transition-all duration-300 ease-in-out",
-          isMobile ? "" : "flex h-[calc(100vh-4rem)]"
+          isMobile ? "" : "flex h-screen"
         )}
       >
         {/* Chat Section */}
@@ -106,7 +106,7 @@ export const SplitScreen = ({
                 ? "fixed inset-0 z-30 animate-in fade-in slide-in pb-20" 
                 : "hidden"
             ) : (
-              "relative w-[50%] border-r border-white/10"
+              "relative w-[50%] border-r border-white/10 overflow-hidden"
             )
           )}
         >
@@ -131,7 +131,7 @@ export const SplitScreen = ({
                     "h-[calc(100vh-4.5rem)]",
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
-            ) : "flex-1"
+            ) : "flex-1 overflow-hidden"
           )}
         >
           {!isMobile && (

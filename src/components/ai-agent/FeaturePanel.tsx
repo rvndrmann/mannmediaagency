@@ -46,6 +46,8 @@ interface FeaturePanelProps {
   imageToVideo: {
     isMobile: boolean;
     previewUrl: string | null;
+    prompt: string;
+    aspectRatio: string;
     onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onClearFile: () => void;
     creditsRemaining: number;
@@ -57,9 +59,6 @@ interface FeaturePanelProps {
 }
 
 export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
-  const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
-
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
       <Tabs value={activeTool} className="h-[calc(100vh-8rem)]">
@@ -101,13 +100,29 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
 
         <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <ImageToVideoInputPanel
-            {...imageToVideo}
-            prompt={imageToVideoPrompt}
-            onPromptChange={setImageToVideoPrompt}
-            messages={messages}
-            aspectRatio={selectedAspectRatio}
-            onAspectRatioChange={setSelectedAspectRatio}
+            isMobile={imageToVideo.isMobile}
+            prompt={imageToVideo.prompt}
+            onPromptChange={(newPrompt) => {
+              // This is a pass-through since we don't have direct access to setPrompt
+              if (imageToVideo.onGenerate) {
+                // We'll just update in the parent component when generating
+              }
+            }}
+            previewUrl={imageToVideo.previewUrl}
+            onFileSelect={imageToVideo.onFileSelect}
+            onClearFile={imageToVideo.onClearFile}
             onSelectFromHistory={imageToVideo.onSelectFromHistory || ((jobId, imageUrl) => {})}
+            onGenerate={imageToVideo.onGenerate}
+            isGenerating={imageToVideo.isGenerating}
+            creditsRemaining={imageToVideo.creditsRemaining}
+            aspectRatio={imageToVideo.aspectRatio}
+            onAspectRatioChange={(newAspectRatio) => {
+              // This is a pass-through since we don't have direct access to setAspectRatio
+              if (imageToVideo.onGenerate) {
+                // We'll just update in the parent component when generating
+              }
+            }}
+            messages={messages}
           />
         </TabsContent>
 

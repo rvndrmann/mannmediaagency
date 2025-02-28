@@ -39,10 +39,14 @@ const AIAgent = () => {
   const {
     isGenerating: isGeneratingVideo,
     previewUrl: videoPreviewUrl,
+    prompt: videoPrompt,
+    aspectRatio: videoAspectRatio,
     handleFileSelect: handleVideoFileSelect,
     handleClearFile: handleVideoClearFile,
     handleGenerate: handleVideoGenerate,
     handleSelectFromHistory: handleVideoSelectFromHistory,
+    handlePromptChange: handleVideoPromptChange,
+    handleAspectRatioChange: handleVideoAspectRatioChange,
   } = useImageToVideo();
 
   const { messages, handleSubmit } = useChatHandler(setInput);
@@ -92,6 +96,8 @@ const AIAgent = () => {
             imageToVideo={{
               isMobile,
               previewUrl: videoPreviewUrl,
+              prompt: videoPrompt,
+              aspectRatio: videoAspectRatio,
               onFileSelect: handleVideoFileSelect,
               onClearFile: handleVideoClearFile,
               creditsRemaining: userCreditsQuery.data?.credits_remaining || 0,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -34,12 +33,12 @@ interface ProductShotV1Props {
 interface ImageToVideoProps {
   isMobile: boolean;
   previewUrl: string | null;
+  prompt: string;
+  aspectRatio: string;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
   creditsRemaining: number;
   isGenerating: boolean;
-  prompt: string;
-  aspectRatio: string;
   onGenerate: (prompt: string, aspectRatio: string) => void;
   onSelectFromHistory: (jobId: string, imageUrl: string) => void;
 }
@@ -80,7 +79,6 @@ export const SplitScreen = ({
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
 
-  // Combined state for generating status
   const isAnyGenerating = 
     productShotV1.isGenerating || 
     productShotV2.isGenerating || 
@@ -98,7 +96,6 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
-  // Handle fix button click based on active tool
   const handleFixButtonClick = () => {
     if (isAnyGenerating) return;
     
@@ -109,7 +106,6 @@ export const SplitScreen = ({
         }
         break;
       case 'product-shot-v2':
-        // This will be handled via the form submission
         const submitButton = document.querySelector('form button[type="submit"]') as HTMLButtonElement;
         if (submitButton) submitButton.click();
         break;
@@ -119,12 +115,10 @@ export const SplitScreen = ({
         }
         break;
       case 'faceless-video':
-        // Trigger the faceless video generation
         const videoButton = document.querySelector('.faceless-video-form button[type="submit"]') as HTMLButtonElement;
         if (videoButton) videoButton.click();
         break;
       case 'ai-agent':
-        // Trigger the AI chat submit
         const chatForm = document.querySelector('form.ai-chat-form') as HTMLFormElement;
         if (chatForm) chatForm.requestSubmit();
         break;
@@ -139,7 +133,6 @@ export const SplitScreen = ({
           isMobile ? "" : "flex h-screen"
         )}
       >
-        {/* Chat Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
@@ -163,7 +156,6 @@ export const SplitScreen = ({
           />
         </div>
 
-        {/* Feature Panel Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
@@ -194,7 +186,6 @@ export const SplitScreen = ({
         </div>
       </div>
 
-      {/* Mobile Navigation */}
       {isMobile && (
         <MobileToolNav
           activeTool={showChat ? 'ai-agent' : activeTool}

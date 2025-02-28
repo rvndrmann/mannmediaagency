@@ -8,6 +8,8 @@ export const useImageToVideo = () => {
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
+  const [prompt, setPrompt] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -42,13 +44,21 @@ export const useImageToVideo = () => {
     console.log("Selected image from history:", imageUrl);
   };
 
-  const handleGenerate = async (prompt: string, aspectRatio: string) => {
+  const handlePromptChange = (newPrompt: string) => {
+    setPrompt(newPrompt);
+  };
+
+  const handleAspectRatioChange = (newAspectRatio: string) => {
+    setAspectRatio(newAspectRatio);
+  };
+
+  const handleGenerate = async (promptText: string, aspectRatioValue: string) => {
     if (!selectedFile && !previewUrl) {
       toast.error("Please provide an image");
       return;
     }
 
-    if (!prompt.trim()) {
+    if (!promptText.trim()) {
       toast.error("Please provide a prompt");
       return;
     }
@@ -87,10 +97,10 @@ export const useImageToVideo = () => {
       const { data: jobData, error: jobError } = await supabase
         .from('video_generation_jobs')
         .insert({
-          prompt: prompt.trim(),
+          prompt: promptText.trim(),
           source_image_url: publicUrl,
           duration: "5",
-          aspect_ratio: aspectRatio,
+          aspect_ratio: aspectRatioValue,
           status: 'in_queue',
           user_id: session.user.id,
           file_name: selectedFile?.name || 'image.jpg',
@@ -104,10 +114,10 @@ export const useImageToVideo = () => {
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           job_id: jobData.id,
-          prompt: prompt.trim(),
+          prompt: promptText.trim(),
           image_url: publicUrl,
           duration: "5",
-          aspect_ratio: aspectRatio,
+          aspect_ratio: aspectRatioValue,
         },
       });
 
@@ -115,6 +125,7 @@ export const useImageToVideo = () => {
 
       toast.success("Video generation started");
       handleClearFile();
+      setPrompt("");
     } catch (error) {
       const message = error instanceof Error ? error.message : "Failed to generate video";
       toast.error(message);
@@ -126,9 +137,13 @@ export const useImageToVideo = () => {
   return {
     isGenerating,
     previewUrl,
+    prompt,
+    aspectRatio,
     handleFileSelect,
     handleClearFile,
     handleSelectFromHistory,
+    handlePromptChange,
+    handleAspectRatioChange,
     handleGenerate,
   };
 };

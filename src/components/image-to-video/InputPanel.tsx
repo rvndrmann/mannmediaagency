@@ -129,7 +129,7 @@ export function InputPanel({
         </div>
       </ScrollArea>
 
-      <div className="fixed md:sticky bottom-[9.5rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50">
+      <div className="fixed md:sticky bottom-[7.5rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50">
         <Button
           onClick={() => onGenerate(prompt || "", aspectRatio)}
           disabled={isGenerating || !prompt?.trim() || !previewUrl}

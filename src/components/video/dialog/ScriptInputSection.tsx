@@ -30,15 +30,12 @@ export const ScriptInputSection = ({
 
   return (
     <div className="space-y-2">
-      <Label htmlFor="source" className="text-xl text-purple-600">
-        Script or Idea <span className="text-red-500">*</span>
-      </Label>
       <Textarea
         id="source"
         value={source}
         onChange={(e) => handleChange(e.target.value)}
         placeholder="Enter your script or idea"
-        className="w-full min-h-[200px] p-4 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none"
+        className="w-full min-h-[200px] p-4 border border-purple-100 rounded-lg focus:ring-purple-500 focus:border-purple-500 resize-none bg-gray-900 border-gray-700 text-white"
       />
       <div className="flex items-center justify-between text-sm">
         <span className={`${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-500'}`}>

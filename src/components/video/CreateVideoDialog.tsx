@@ -12,6 +12,8 @@ import { ProductPhotoSection } from "./dialog/ProductPhotoSection";
 import { DialogActionsSection } from "./dialog/DialogActionsSection";
 import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { useVideoCreation } from "@/hooks/use-video-creation";
+import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
+import { Message } from "@/types/message";
 
 interface CreateVideoDialogProps {
   isOpen: boolean;
@@ -23,6 +25,8 @@ interface CreateVideoDialogProps {
   initialReadyToGo?: boolean;
   initialBackgroundMusic?: string | null;
   initialProductPhoto?: string | null;
+  embeddedMode?: boolean;
+  messages?: Message[];
 }
 
 export const CreateVideoDialog = ({
@@ -35,10 +39,12 @@ export const CreateVideoDialog = ({
   initialReadyToGo = false,
   initialBackgroundMusic = null,
   initialProductPhoto = null,
+  embeddedMode = false,
+  messages = [],
 }: CreateVideoDialogProps) => {
   const [source, setSource] = useState(initialScript);
   const [readyToGo, setReadyToGo] = useState(initialReadyToGo);
-  const [style, setStyle] = useState<string>(initialStyle);
+  const [style, setStyle] = useState<string>(initialStyle || "Explainer");
   const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(initialBackgroundMusic);
   const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
   const { toast } = useToast();
@@ -77,10 +83,10 @@ export const CreateVideoDialog = ({
   };
 
   const handleSubmit = async () => {
-    if (creditsRemaining < 10) {
+    if (creditsRemaining < 20) {
       toast({
         title: "Insufficient Credits",
-        description: "You need at least 10 credits to create a video.",
+        description: "You need at least 20 credits to create a video.",
         variant: "destructive",
       });
       return;
@@ -95,56 +101,99 @@ export const CreateVideoDialog = ({
     });
   };
 
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[600px]">
+  const handleAiScriptGeneration = (aiText: string) => {
+    setSource(aiText);
+    toast({
+      title: "Script Updated",
+      description: "The AI response has been used as your script."
+    });
+  };
+
+  // Conditional content for Dialog or Embedded form
+  const content = (
+    <div className={embeddedMode ? "space-y-6" : ""}>
+      {embeddedMode ? (
+        <div className="flex justify-between items-center mb-6">
+          <h2 className="text-2xl font-bold text-purple-600">Create Your Video</h2>
+          <div className="text-right text-sm">
+            <div className="text-purple-600">Available Credits: {creditsRemaining}</div>
+            <div className="text-xs text-gray-500">Cost: 20 credits per video</div>
+          </div>
+        </div>
+      ) : (
         <DialogHeaderSection
           onClose={onClose}
           availableVideos={availableVideos}
           creditsRemaining={creditsRemaining}
         />
-        
-        <div className="space-y-6">
+      )}
+      
+      <div className="space-y-6">
+        <div className="space-y-2">
+          <div className="flex justify-between items-center mb-2">
+            <Label htmlFor="source" className="text-xl text-purple-600">
+              Script <span className="text-red-500">*</span>
+            </Label>
+            {messages && messages.length > 0 && (
+              <UseAIResponseButton 
+                messages={messages} 
+                onUseResponse={handleAiScriptGeneration} 
+              />
+            )}
+          </div>
           <ScriptInputSection
             source={source}
             onSourceChange={setSource}
           />
+        </div>
 
-          <ProductPhotoSection
-            uploadProgress={photoUploadProgress}
-            uploadedFileName={photoFileName}
-            previewUrl={photoPreviewUrl}
-            onFileChange={handlePhotoChange}
-          />
+        <ProductPhotoSection
+          uploadProgress={photoUploadProgress}
+          uploadedFileName={photoFileName}
+          previewUrl={photoPreviewUrl}
+          onFileChange={handlePhotoChange}
+        />
 
-          <StyleSelectorSection
-            style={style}
-            onStyleChange={setStyle}
-          />
+        <StyleSelectorSection
+          style={style}
+          onStyleChange={setStyle}
+        />
 
-          <MusicUploaderSection
-            uploadProgress={musicUploadProgress}
-            uploadedFileName={musicFileName}
-            onFileChange={handleMusicChange}
-          />
+        <MusicUploaderSection
+          uploadProgress={musicUploadProgress}
+          uploadedFileName={musicFileName}
+          onFileChange={handleMusicChange}
+        />
 
-          <div className="flex items-center justify-between">
-            <Label htmlFor="readyToGo" className="text-xl text-purple-600">
-              Ready to Go
-            </Label>
-            <Switch
-              id="readyToGo"
-              checked={readyToGo}
-              onCheckedChange={setReadyToGo}
-            />
-          </div>
-
-          <DialogActionsSection
-            onClose={onClose}
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
+        <div className="flex items-center justify-between">
+          <Label htmlFor="readyToGo" className="text-xl text-purple-600">
+            Ready to Go
+          </Label>
+          <Switch
+            id="readyToGo"
+            checked={readyToGo}
+            onCheckedChange={setReadyToGo}
           />
         </div>
+
+        <DialogActionsSection
+          onClose={onClose}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+        />
+      </div>
+    </div>
+  );
+
+  // Render either as a Dialog or directly (for embedded use)
+  return embeddedMode ? (
+    <div className="p-4 rounded-lg shadow-md bg-gray-900 border border-gray-800">
+      {content}
+    </div>
+  ) : (
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent className="sm:max-w-[600px]">
+        {content}
       </DialogContent>
     </Dialog>
   );

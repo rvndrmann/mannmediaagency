@@ -7,7 +7,7 @@ import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedIma
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
-import { FacelessVideoForm } from "@/components/video/FacelessVideoForm";
+import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
@@ -59,6 +59,19 @@ interface FeaturePanelProps {
 }
 
 export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
+  const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(true);
+  
+  // For initial script, we can use the last AI message content if available
+  const getInitialScript = () => {
+    if (!messages || messages.length === 0) return "";
+    
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === "assistant");
+      
+    return lastAssistantMessage?.content || "";
+  };
+
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
       <Tabs value={activeTool} className="h-[calc(100vh-8rem)]">
@@ -127,13 +140,17 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
         </TabsContent>
 
         <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <div className="grid grid-cols-1 gap-6 p-6">
-            <div className="space-y-6 min-h-[calc(100vh-16rem)]">
-              <FacelessVideoForm
-                messages={messages}
-                creditsRemaining={productShotV1.creditsRemaining}
-              />
-            </div>
+          <div className="p-6">
+            <CreateVideoDialog
+              isOpen={isVideoDialogOpen}
+              onClose={() => {}} // We don't actually close this dialog in the panel context
+              availableVideos={Math.floor((productShotV1.creditsRemaining || 0) / 20)}
+              creditsRemaining={productShotV1.creditsRemaining}
+              initialScript={getInitialScript()}
+              initialStyle="Explainer"
+              embeddedMode={true} // Add a flag for embedded mode styling
+              messages={messages}
+            />
           </div>
         </TabsContent>
 

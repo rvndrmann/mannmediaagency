@@ -68,7 +68,7 @@ export const VideoCard = ({ video }: VideoCardProps) => {
 
   return (
     <Card className="overflow-hidden h-full flex flex-col">
-      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "120px" }}>
+      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "150px" }}>
         {video.result_url ? (
           <div className="w-full h-full flex items-center justify-center">
             <video
@@ -76,11 +76,11 @@ export const VideoCard = ({ video }: VideoCardProps) => {
               controls
               playsInline
               preload="metadata"
-              className="w-full max-h-[150px] sm:max-h-[180px] md:max-h-[200px] object-contain"
+              className="w-full min-h-[150px] sm:min-h-[180px] md:min-h-[200px] object-contain"
             />
           </div>
         ) : (
-          <div className="w-full h-full min-h-[120px] sm:min-h-[150px] bg-gray-100 flex items-center justify-center">
+          <div className="w-full h-full min-h-[150px] sm:min-h-[180px] bg-gray-100 flex items-center justify-center">
             <span className="text-[10px] sm:text-xs">Processing...</span>
           </div>
         )}

@@ -29,10 +29,22 @@ export const ExploreGrid = ({
             content.scene_description?.toLowerCase().includes(query));
   };
 
+  // Create a function to deduplicate content by result_url
+  const removeDuplicates = (items: any[]) => {
+    const uniqueUrls = new Set();
+    return items.filter(item => {
+      const url = item.result_url;
+      if (!url || uniqueUrls.has(url)) return false;
+      uniqueUrls.add(url);
+      return true;
+    });
+  };
+
   const getContent = () => {
-    const validImages = images?.filter(img => img.result_url && filterBySearch(img)) || [];
-    const validVideos = videos?.filter(vid => vid.result_url && filterBySearch(vid)) || [];
-    const validProductShots = productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || [];
+    // Deduplicate images, videos and product shots
+    const validImages = removeDuplicates(images?.filter(img => img.result_url && filterBySearch(img)) || []);
+    const validVideos = removeDuplicates(videos?.filter(vid => vid.result_url && filterBySearch(vid)) || []);
+    const validProductShots = removeDuplicates(productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || []);
 
     switch (contentType) {
       case "all":
@@ -50,35 +62,50 @@ export const ExploreGrid = ({
   };
 
   const isV2Image = (item: any) => {
+    // Check if the item is in the productShots array
     if (productShots?.some(shot => shot.id === item.id)) {
       return true;
     }
+    
+    // Check in images array
     if (images?.some(img => img.id === item.id)) {
       return false;
     }
-    if (item.settings && typeof item.settings === 'string') {
-      try {
-        const settings = JSON.parse(item.settings);
-        return !!settings.optimize_description;
-      } catch {
-        return false;
+    
+    // Handle settings detection with better error handling
+    if (item.settings) {
+      if (typeof item.settings === 'string') {
+        try {
+          const settings = JSON.parse(item.settings);
+          return !!settings.optimize_description;
+        } catch {
+          return false;
+        }
+      } else {
+        return !!item.settings.optimize_description;
       }
-    } else if (item.settings) {
-      return !!item.settings.optimize_description;
     }
+    
+    // Default case for product shots that don't have optimize_description setting
+    if (item.scene_description) {
+      return true;
+    }
+    
     return false;
   };
 
   const getAspectRatio = (item: any) => {
-    if (item.settings && typeof item.settings === 'string') {
-      try {
-        const settings = JSON.parse(item.settings);
-        return settings.aspectRatio;
-      } catch {
-        return null;
+    if (item.settings) {
+      if (typeof item.settings === 'string') {
+        try {
+          const settings = JSON.parse(item.settings);
+          return settings.aspectRatio;
+        } catch {
+          return null;
+        }
+      } else if (item.settings.aspectRatio) {
+        return item.settings.aspectRatio;
       }
-    } else if (item.settings) {
-      return item.settings.aspectRatio;
     }
     return null;
   };
@@ -99,7 +126,7 @@ export const ExploreGrid = ({
     );
   }
 
-  // Separate videos and non-videos
+  // Separate videos and non-videos for different layout treatments
   const videoContent = content.filter(item => 'source_image_url' in item && !('scene_description' in item));
   const nonVideoContent = content.filter(item => !('source_image_url' in item) || 'scene_description' in item);
 
@@ -121,7 +148,7 @@ export const ExploreGrid = ({
                     <ImageCard image={{
                       id: item.id,
                       result_url: item.result_url,
-                      prompt: item.scene_description
+                      prompt: item.scene_description || ""
                     }} />
                     <div className="absolute top-1 right-1 flex gap-0.5 sm:gap-2">
                       {isV2 ? (

@@ -42,6 +42,7 @@ const AIAgent = () => {
     handleFileSelect: handleVideoFileSelect,
     handleClearFile: handleVideoClearFile,
     handleGenerate: handleVideoGenerate,
+    handleSelectFromHistory: handleVideoSelectFromHistory,
   } = useImageToVideo();
 
   const { messages, handleSubmit } = useChatHandler(setInput);
@@ -97,6 +98,7 @@ const AIAgent = () => {
                 creditsRemaining: userCreditsQuery.data?.credits_remaining || 0,
                 isGenerating: isGeneratingVideo,
                 onGenerate: handleVideoGenerate,
+                onSelectFromHistory: handleVideoSelectFromHistory,
               }}
               onInputChange={setInput}
               onSubmit={(e) => handleSubmit(e, input)}

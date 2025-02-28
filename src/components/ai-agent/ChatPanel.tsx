@@ -61,7 +61,7 @@ export const ChatPanel = ({
           ref={scrollAreaRef} 
           className="h-[calc(100vh-22rem)] md:h-[calc(100vh-8rem)]"
         >
-          <div className="space-y-4 p-4 pb-32 md:pb-24">
+          <div className="space-y-4 p-4 pb-16 md:pb-12">
             {messages.map((message, index) => (
               <ChatMessage key={index} message={message} />
             ))}
@@ -70,7 +70,7 @@ export const ChatPanel = ({
         </ScrollArea>
       </div>
 
-      <div className="fixed md:sticky bottom-[10rem] md:bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl pt-2 border-t border-white/10 p-4 z-50">
+      <div className="fixed md:sticky bottom-[10rem] md:bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 z-50">
         <ChatInput
           input={input}
           isLoading={isLoading}

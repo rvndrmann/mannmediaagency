@@ -99,7 +99,7 @@ export const SplitScreen = ({
   };
 
   return (
-    <div className="relative min-h-screen h-full bg-[#1A1F2C] pb-[4.5rem] md:pb-0">
+    <div className="relative min-h-screen h-full bg-[#1A1F2C] pb-[10rem] md:pb-0">
       <div 
         className={cn(
           "h-full transition-all duration-300 ease-in-out",

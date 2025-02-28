@@ -51,8 +51,8 @@ const AIAgent = () => {
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
-        <div className="min-h-screen bg-[#1A1F2C]">
-          <div className={`${isMobile ? 'pb-16' : ''} h-screen`}>
+        <div className="min-h-screen bg-[#1A1F2C] relative">
+          <div className={`${isMobile ? 'pb-24' : ''} h-screen`}>
             <SplitScreen
               isMobile={isMobile}
               messages={messages}
@@ -105,7 +105,11 @@ const AIAgent = () => {
               onSubmit={(e) => handleSubmit(e, input)}
             />
           </div>
-          {isMobile && <BottomNav />}
+          {isMobile && (
+            <div className="z-50">
+              <BottomNav />
+            </div>
+          )}
           <Toaster />
         </div>
       </TooltipProvider>

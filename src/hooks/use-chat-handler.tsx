@@ -98,21 +98,22 @@ export function useChatHandler(setInput: (value: string) => void) {
       // Refetch credits to update UI
       await userCreditData.refetch();
 
-      console.log('Sending chat request:', {
-        messages: [...messages, userMessage],
-        lastMessage: userMessage.content
+      console.log('Sending chat request with messages:', messages.length + 1);
+
+      // Send only the last few messages to reduce payload size
+      const recentMessages = [...messages, userMessage].slice(-10);
+
+      const response = await supabase.functions.invoke('chat-with-langflow', {
+        body: { messages: recentMessages }
       });
 
-      const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
-        body: { messages: [...messages, userMessage] }
-      });
-
-      console.log('Received response:', data);
-
-      if (error) {
-        console.error('Chat error:', error);
-        throw error;
+      if (response.error) {
+        console.error('Chat function error:', response.error);
+        throw new Error(response.error.message || 'Failed to connect to AI service');
       }
+
+      const data = response.data;
+      console.log('Received response data:', data);
 
       if (data && data.message) {
         // Update assistant message with the response
@@ -126,13 +127,19 @@ export function useChatHandler(setInput: (value: string) => void) {
         throw new Error('Invalid response format from AI');
       }
     } catch (error) {
-      console.error("Error:", error);
+      console.error("Chat error:", error);
       // Update assistant message with error
       setMessages(prevMessages => {
         const newMessages = [...prevMessages];
         newMessages[newMessages.length - 1].content = "Sorry, I encountered an error. Please try again.";
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
         return newMessages;
+      });
+
+      toast({
+        title: "Chat Error",
+        description: error instanceof Error ? error.message : "Failed to get response from AI",
+        variant: "destructive",
       });
     }
   };

@@ -12,137 +12,32 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface LangflowMessage {
-  timestamp: string;
-  sender: string;
-  sender_name: string;
-  session_id: string;
-  text: string;
-  files: any[];
-  error: boolean;
-  edit: boolean;
-  properties: {
-    text_color: string;
-    background_color: string;
-    edited: boolean;
-    source: {
-      id: string;
-      display_name: string;
-      source: string;
-    };
-    icon: string;
-    allow_markdown: boolean;
-    state: string;
-    targets: string[];
-  };
-  category: string;
-  content_blocks: any[];
-}
-
-interface LangflowResponse {
-  session_id: string;
-  outputs: Array<{
-    inputs: {
-      input_value: string;
-    };
-    outputs: Array<{
-      results: {
-        message: LangflowMessage;
-      };
-    }>;
-  }>;
-}
-
-class LangflowClient {
-  private baseURL: string;
-  private applicationToken: string;
-
-  constructor(baseURL: string, applicationToken: string) {
-    this.baseURL = baseURL;
-    this.applicationToken = applicationToken;
-  }
-
-  private async post(endpoint: string, body: any) {
-    console.log('Making request to:', `${this.baseURL}${endpoint}`);
-    console.log('Request body:', JSON.stringify(body, null, 2));
-
-    const headers = {
-      "Authorization": `Bearer ${this.applicationToken}`,
-      "Content-Type": "application/json"
-    };
-
-    const response = await fetch(`${this.baseURL}${endpoint}`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify(body)
-    });
-
-    console.log('Response status:', response.status);
-    const responseText = await response.text();
-    console.log('Raw response:', responseText);
-
-    if (!response.ok) {
-      throw new Error(`Langflow API error: ${response.status} - ${responseText}`);
-    }
-
-    try {
-      const responseData = JSON.parse(responseText);
-      console.log('Parsed response data:', JSON.stringify(responseData, null, 2));
-      return responseData;
-    } catch (error) {
-      console.error('Error parsing response:', error);
-      throw new Error(`Failed to parse Langflow response: ${error.message}`);
-    }
-  }
-
-  async chat(message: string) {
-    if (!LANGFLOW_ID || !FLOW_ID) {
-      throw new Error('Missing required configuration');
-    }
-
-    const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
-    const tweaks = {
-      "Agent-swaq6": {},
-      "ChatInput-SylqI": {},
-      "ChatOutput-E57mu": {},
-      "Agent-Hpbdi": {},
-      "Agent-JogPZ": {}
-    };
-
-    const payload = {
-      input_value: message,
-      input_type: "chat",
-      output_type: "chat",
-      tweaks
-    };
-
-    const response = await this.post(endpoint, payload) as LangflowResponse;
-    
-    if (!response?.outputs?.[0]?.outputs?.[0]?.results?.message?.text) {
-      console.error('Invalid response format:', JSON.stringify(response, null, 2));
-      throw new Error('Invalid response format from Langflow');
-    }
-
-    const messageText = response.outputs[0].outputs[0].results.message.text;
-    console.log('Extracted message text:', messageText);
-    return messageText;
-  }
+interface Message {
+  role: "user" | "assistant";
+  content: string;
 }
 
 serve(async (req) => {
+  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    if (!APPLICATION_TOKEN || !BASE_API_URL) {
-      throw new Error('Missing required environment variables');
+    console.log("Environment check:", {
+      baseApiUrl: BASE_API_URL ? "Set" : "Not set",
+      langflowId: LANGFLOW_ID ? "Set" : "Not set",
+      flowId: FLOW_ID ? "Set" : "Not set",
+      applicationToken: APPLICATION_TOKEN ? "Set" : "Not set",
+    });
+
+    if (!LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN) {
+      throw new Error('Missing required environment variables for LangFlow API');
     }
 
-    const client = new LangflowClient(BASE_API_URL, APPLICATION_TOKEN);
     const { messages } = await req.json();
     
-    if (!messages || !Array.isArray(messages)) {
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new Error('Invalid request: messages array is required');
     }
 
@@ -152,23 +47,94 @@ serve(async (req) => {
     }
 
     console.log('Processing message:', lastMessage.content);
-    const response = await client.chat(lastMessage.content);
+
+    // Simple fallback response to use if the API is not available
+    const fallbackResponse = {
+      message: "I'm sorry, I'm currently experiencing connectivity issues. Please try again later."
+    };
+
+    // Check if we're in a development environment without API connection
+    if (Deno.env.get("ENVIRONMENT") === "development" && Deno.env.get("USE_FALLBACK") === "true") {
+      console.log("Using fallback response in development mode");
+      return new Response(
+        JSON.stringify(fallbackResponse),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Prepare for API call
+    const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
+    const tweaks = {};
+
+    const payload = {
+      input_value: lastMessage.content,
+      input_type: "chat",
+      output_type: "chat",
+      tweaks
+    };
+
+    console.log(`Making request to: ${BASE_API_URL}${endpoint}`);
+    
+    const headers = {
+      "Authorization": `Bearer ${APPLICATION_TOKEN}`,
+      "Content-Type": "application/json"
+    };
+
+    const apiResponse = await fetch(`${BASE_API_URL}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(payload)
+    });
+
+    console.log('API Response status:', apiResponse.status);
+    
+    if (!apiResponse.ok) {
+      const errorText = await apiResponse.text();
+      console.error('API Error:', errorText);
+      
+      // Return a friendly error message to the user
+      return new Response(
+        JSON.stringify({ 
+          message: "I'm sorry, I'm having trouble connecting to my knowledge base. Please try again in a moment." 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 200 // Send 200 to client even on API error
+        }
+      );
+    }
+
+    const responseData = await apiResponse.json();
+    
+    if (!responseData?.outputs?.[0]?.outputs?.[0]?.results?.message?.text) {
+      console.warn('Invalid response format:', JSON.stringify(responseData, null, 2));
+      
+      // Return the fallback response when we can't parse the API response
+      return new Response(
+        JSON.stringify(fallbackResponse),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const messageText = responseData.outputs[0].outputs[0].results.message.text;
+    console.log('Successfully extracted response text');
 
     return new Response(
-      JSON.stringify({ message: response }),
+      JSON.stringify({ message: messageText }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
 
   } catch (error) {
-    console.error('Error:', error);
+    console.error('Error in chat-with-langflow function:', error);
+    
     return new Response(
       JSON.stringify({ 
-        error: error.message,
-        timestamp: new Date().toISOString()
+        message: "I apologize, but I encountered an error processing your request. Please try again.",
+        error: error.message
       }),
       { 
-        status: 500,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 // Send 200 to the client even on internal errors
       }
     );
   }

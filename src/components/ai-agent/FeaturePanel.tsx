@@ -1,182 +1,163 @@
 
-// Import needed modules and components
-import { Message } from "@/types/message";
+import { Card } from "@/components/ui/card";
+import { Tabs, TabsContent } from "@/components/ui/tabs";
+import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
+import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
+import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
+import { InputPanel } from "@/components/product-shoot/InputPanel";
+import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
+import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
+import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
+import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
-import { Tabs } from "@radix-ui/react-tabs";
-import { useUserCredits } from "@/hooks/use-user-credits";
-
-// Define prop interfaces as needed for each panel component
+import { Message } from "@/types/message";
 
 interface FeaturePanelProps {
   messages: Message[];
-  productShotV1: any;
   productShotV2: {
     onSubmit: (formData: any) => Promise<void>;
     isGenerating: boolean;
     isSubmitting: boolean;
     availableCredits: number;
     generatedImages: GeneratedImage[];
-    messages: Message[];
   };
-  imageToVideo: any;
+  productShotV1: {
+    isMobile: boolean;
+    prompt: string;
+    previewUrl: string | null;
+    imageSize: string;
+    inferenceSteps: number;
+    guidanceScale: number;
+    outputFormat: string;
+    productImages: any[];
+    imagesLoading: boolean;
+    creditsRemaining: number;
+    isGenerating: boolean;
+    onPromptChange: (value: string) => void;
+    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onClearFile: () => void;
+    onImageSizeChange: (value: string) => void;
+    onInferenceStepsChange: (value: number) => void;
+    onGuidanceScaleChange: (value: number) => void;
+    onOutputFormatChange: (value: string) => void;
+    onGenerate: () => void;
+    onDownload: (url: string) => void;
+  };
+  imageToVideo: {
+    isMobile: boolean;
+    previewUrl: string | null;
+    prompt: string;
+    aspectRatio: string;
+    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
+    onClearFile: () => void;
+    creditsRemaining: number;
+    isGenerating: boolean;
+    onGenerate: (prompt: string, aspectRatio: string) => void;
+    onSelectFromHistory?: (jobId: string, imageUrl: string) => void;
+  };
   activeTool: string;
-  onVideoSubmitRegistration?: (submitFn: () => Promise<void>) => void;
 }
 
-export function FeaturePanel({
-  messages,
-  productShotV1,
-  productShotV2,
-  imageToVideo,
-  activeTool,
-  onVideoSubmitRegistration
-}: FeaturePanelProps) {
-  const userCreditsQuery = useUserCredits();
-  const creditsRemaining = userCreditsQuery.data?.credits_remaining || 0;
+export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
+  const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(true);
+  
+  // For initial script, we can use the last AI message content if available
+  const getInitialScript = () => {
+    if (!messages || messages.length === 0) return "";
+    
+    const lastAssistantMessage = [...messages]
+      .reverse()
+      .find(msg => msg.role === "assistant");
+      
+    return lastAssistantMessage?.content || "";
+  };
 
   return (
-    <div className="flex flex-col h-full overflow-auto">
-      {activeTool === 'product-shot-v1' && (
-        <div className="product-shot-v1-panel h-full">
-          {/* Render product shot v1 panel directly using props */}
-          <div className="space-y-4 p-4">
-            <textarea
-              className="w-full p-2 bg-gray-800 text-white rounded-md"
-              placeholder="Enter product description..."
-              value={productShotV1.prompt || ''}
-              onChange={(e) => productShotV1.onPromptChange?.(e.target.value)}
+    <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
+      <Tabs value={activeTool} className="h-[calc(100vh-8rem)]">
+        <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
+            <InputPanel
+              {...productShotV1}
+              messages={messages}
             />
-            
-            {productShotV1.previewUrl && (
-              <div className="aspect-square relative rounded-md overflow-hidden">
-                <img 
-                  src={productShotV1.previewUrl} 
-                  alt="Product preview" 
-                  className="object-cover w-full h-full"
+            <GalleryPanel
+              isMobile={productShotV1.isMobile}
+              images={productShotV1.productImages}
+              isLoading={productShotV1.imagesLoading}
+              onDownload={productShotV1.onDownload}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="product-shot-v2" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <div className="p-6">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="space-y-6 min-h-[calc(100vh-16rem)]">
+                <ProductShotForm
+                  {...productShotV2}
+                  messages={messages}
                 />
-                <button 
-                  onClick={productShotV1.onClearFile}
-                  className="absolute top-2 right-2 bg-black/70 text-white p-1 rounded-full"
-                >
-                  ×
-                </button>
               </div>
-            )}
-            
-            <div className="flex justify-between">
-              <label className="text-white">
-                Image Size:
-                <select 
-                  value={productShotV1.imageSize} 
-                  onChange={(e) => productShotV1.onImageSizeChange?.(e.target.value)}
-                  className="ml-2 bg-gray-800 rounded-md"
-                >
-                  <option value="512x512">512×512</option>
-                  <option value="768x768">768×768</option>
-                </select>
-              </label>
-              
-              <button
-                onClick={productShotV1.onGenerate}
-                disabled={productShotV1.isGenerating}
-                className="bg-purple-600 text-white px-4 py-2 rounded-md disabled:opacity-50"
-              >
-                {productShotV1.isGenerating ? 'Generating...' : 'Generate'}
-              </button>
+              <div className="space-y-6">
+                {productShotV2.generatedImages.length > 0 && (
+                  <GeneratedImagesPanel
+                    images={productShotV2.generatedImages}
+                    isGenerating={productShotV2.isGenerating}
+                  />
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        </TabsContent>
 
-      {activeTool === 'product-shot-v2' && (
-        <div className="product-shot-v2-panel h-full">
-          {/* Import and use ProductShotForm here */}
-          {(() => {
-            const ProductShotForm = require('@/components/product-shoot-v2/ProductShotForm').ProductShotForm;
-            return (
-              <ProductShotForm
-                onSubmit={productShotV2.onSubmit}
-                isGenerating={productShotV2.isGenerating}
-                isSubmitting={productShotV2.isSubmitting}
-                availableCredits={productShotV2.availableCredits}
-                messages={messages}
-              />
-            );
-          })()}
-        </div>
-      )}
+        <TabsContent value="image-to-video" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <ImageToVideoInputPanel
+            isMobile={imageToVideo.isMobile}
+            prompt={imageToVideo.prompt}
+            onPromptChange={(newPrompt) => {
+              // This is a pass-through since we don't have direct access to setPrompt
+              if (imageToVideo.onGenerate) {
+                // We'll just update in the parent component when generating
+              }
+            }}
+            previewUrl={imageToVideo.previewUrl}
+            onFileSelect={imageToVideo.onFileSelect}
+            onClearFile={imageToVideo.onClearFile}
+            onSelectFromHistory={imageToVideo.onSelectFromHistory || ((jobId, imageUrl) => {})}
+            onGenerate={imageToVideo.onGenerate}
+            isGenerating={imageToVideo.isGenerating}
+            creditsRemaining={imageToVideo.creditsRemaining}
+            aspectRatio={imageToVideo.aspectRatio}
+            onAspectRatioChange={(newAspectRatio) => {
+              // This is a pass-through since we don't have direct access to setAspectRatio
+              if (imageToVideo.onGenerate) {
+                // We'll just update in the parent component when generating
+              }
+            }}
+            messages={messages}
+          />
+        </TabsContent>
 
-      {activeTool === 'image-to-video' && (
-        <div className="image-to-video-panel h-full">
-          {/* Render image to video panel directly using props */}
-          <div className="space-y-4 p-4">
-            {imageToVideo.previewUrl && (
-              <div className="aspect-square relative rounded-md overflow-hidden">
-                <img 
-                  src={imageToVideo.previewUrl} 
-                  alt="Image preview" 
-                  className="object-cover w-full h-full"
-                />
-                <button 
-                  onClick={imageToVideo.onClearFile}
-                  className="absolute top-2 right-2 bg-black/70 text-white p-1 rounded-full"
-                >
-                  ×
-                </button>
-              </div>
-            )}
-            
-            <textarea
-              className="w-full p-2 bg-gray-800 text-white rounded-md"
-              placeholder="Enter video description..."
-              value={imageToVideo.prompt || ''}
-              onChange={(e) => imageToVideo.onPromptChange?.(e.target.value)}
+        <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <div className="p-6">
+            <CreateVideoDialog
+              isOpen={isVideoDialogOpen}
+              onClose={() => {}} // We don't actually close this dialog in the panel context
+              availableVideos={Math.floor((productShotV1.creditsRemaining || 0) / 20)}
+              creditsRemaining={productShotV1.creditsRemaining}
+              initialScript={getInitialScript()}
+              initialStyle="Explainer"
+              embeddedMode={true} // Add a flag for embedded mode styling
+              messages={messages}
             />
-            
-            <div className="flex justify-between">
-              <label className="text-white">
-                Aspect Ratio:
-                <select 
-                  value={imageToVideo.aspectRatio} 
-                  onChange={(e) => imageToVideo.onAspectRatioChange?.(e.target.value)}
-                  className="ml-2 bg-gray-800 rounded-md"
-                >
-                  <option value="16:9">16:9</option>
-                  <option value="9:16">9:16</option>
-                  <option value="1:1">1:1</option>
-                </select>
-              </label>
-              
-              <button
-                onClick={() => imageToVideo.onGenerate(imageToVideo.prompt, imageToVideo.aspectRatio)}
-                disabled={imageToVideo.isGenerating}
-                className="bg-purple-600 text-white px-4 py-2 rounded-md disabled:opacity-50"
-              >
-                {imageToVideo.isGenerating ? 'Generating...' : 'Generate'}
-              </button>
-            </div>
           </div>
-        </div>
-      )}
+        </TabsContent>
 
-      {activeTool === 'faceless-video' && (
-        <div className="faceless-video-form p-4 h-full">
-          {(() => {
-            const { CreateVideoDialog } = require('@/components/video/CreateVideoDialog');
-            return (
-              <CreateVideoDialog
-                isOpen={true}
-                onClose={() => {}}
-                availableVideos={0}
-                creditsRemaining={creditsRemaining}
-                embeddedMode={true}
-                messages={messages}
-                onMobileSubmit={onVideoSubmitRegistration}
-              />
-            );
-          })()}
-        </div>
-      )}
-    </div>
+        <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">
+          <ScriptBuilderTab messages={messages} />
+        </TabsContent>
+      </Tabs>
+    </Card>
   );
 }

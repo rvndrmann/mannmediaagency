@@ -90,7 +90,7 @@ export const SplitScreen = ({
   };
 
   return (
-    <div className="relative min-h-screen h-full bg-[#1A1F2C] pb-[4.5rem] md:pb-0">
+    <div className="relative min-h-screen h-full bg-[#1A1F2C]">
       <div 
         className={cn(
           "h-full transition-all duration-300 ease-in-out",
@@ -129,7 +129,7 @@ export const SplitScreen = ({
               showChat 
                 ? "hidden" 
                 : cn(
-                    "h-[calc(100vh-4.5rem)]",
+                    "pb-36",
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
             ) : "flex-1 overflow-hidden"
@@ -154,12 +154,10 @@ export const SplitScreen = ({
 
       {/* Mobile Navigation */}
       {isMobile && (
-        <div className="fixed bottom-0 left-0 right-0 z-40">
-          <MobileToolNav
-            activeTool={showChat ? 'ai-agent' : activeTool}
-            onToolSelect={handleToolSelect}
-          />
-        </div>
+        <MobileToolNav
+          activeTool={showChat ? 'ai-agent' : activeTool}
+          onToolSelect={handleToolSelect}
+        />
       )}
     </div>
   );

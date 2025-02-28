@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
 import { FeaturePanel } from "./FeaturePanel";
@@ -78,8 +78,6 @@ export const SplitScreen = ({
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
-  
-  const videoSubmitRef = useRef<() => void>(() => {});
 
   const isAnyGenerating = 
     productShotV1.isGenerating || 
@@ -98,14 +96,8 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
-  const setVideoSubmitFunction = (fn: () => void) => {
-    videoSubmitRef.current = fn;
-  };
-
   const handleFixButtonClick = () => {
     if (isAnyGenerating) return;
-    
-    console.log("Fix button clicked, active tool:", activeTool);
     
     switch (activeTool) {
       case 'product-shot-v1':
@@ -123,8 +115,8 @@ export const SplitScreen = ({
         }
         break;
       case 'faceless-video':
-        console.log("Calling video submit function for faceless-video");
-        videoSubmitRef.current();
+        const videoButton = document.querySelector('.faceless-video-form button[type="submit"]') as HTMLButtonElement;
+        if (videoButton) videoButton.click();
         break;
       case 'ai-agent':
         const chatForm = document.querySelector('form.ai-chat-form') as HTMLFormElement;
@@ -190,7 +182,6 @@ export const SplitScreen = ({
             productShotV1={productShotV1}
             imageToVideo={imageToVideo}
             activeTool={activeTool}
-            onSetVideoSubmitFunction={setVideoSubmitFunction}
           />
         </div>
       </div>

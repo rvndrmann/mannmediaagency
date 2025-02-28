@@ -8,10 +8,9 @@ import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-video/InputPanel";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
-import { useToast } from "@/hooks/use-toast";
 
 interface FeaturePanelProps {
   messages: Message[];
@@ -57,26 +56,10 @@ interface FeaturePanelProps {
     onSelectFromHistory?: (jobId: string, imageUrl: string) => void;
   };
   activeTool: string;
-  onSetVideoSubmitFunction?: (fn: () => void) => void;
 }
 
-export function FeaturePanel({ 
-  messages, 
-  productShotV2, 
-  productShotV1, 
-  imageToVideo, 
-  activeTool,
-  onSetVideoSubmitFunction
-}: FeaturePanelProps) {
+export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
   const [isVideoDialogOpen, setIsVideoDialogOpen] = useState(true);
-  const { toast } = useToast();
-  
-  // Refs for holding form values
-  const scriptRef = useRef("");
-  const styleRef = useRef("Explainer");
-  const readyToGoRef = useRef(false);
-  const backgroundMusicRef = useRef<string | null>(null);
-  const productPhotoRef = useRef<string | null>(null);
   
   // For initial script, we can use the last AI message content if available
   const getInitialScript = () => {
@@ -88,86 +71,6 @@ export function FeaturePanel({
       
     return lastAssistantMessage?.content || "";
   };
-  
-  // Create our video submission function and expose it to parent
-  const handleVideoSubmit = () => {
-    // Check if we have a script first
-    if (!scriptRef.current || scriptRef.current.trim() === "") {
-      toast({
-        title: "Script Required",
-        description: "Please enter a script before creating a video.",
-        variant: "destructive",
-      });
-      return;
-    }
-    
-    // First try to find our specially marked hidden submit button
-    const submitButton = document.querySelector('.embedded-video-submit-button') as HTMLButtonElement;
-    if (submitButton) {
-      console.log("Found embedded submit button, clicking it");
-      submitButton.click();
-      return;
-    }
-    
-    console.log("Embedded submit button not found, trying fallbacks");
-    
-    // Try the general class as fallback
-    const fallbackButton = document.querySelector('.CreateVideoDialogSubmitButton') as HTMLButtonElement;
-    if (fallbackButton) {
-      console.log("Found fallback submit button, clicking it");
-      fallbackButton.click();
-      return;
-    }
-    
-    // Final fallback - search the form for any button
-    console.log("No submit buttons found, searching form directly");
-    const videoForm = document.querySelector('.faceless-video-form') as HTMLDivElement;
-    if (videoForm) {
-      // Try to find any buttons inside the form
-      const formButtons = videoForm.querySelectorAll('button');
-      if (formButtons.length > 0) {
-        console.log("Found a form button, trying to use it:", formButtons.length, "buttons found");
-        // Click the last button (usually the submit)
-        formButtons[formButtons.length - 1].click();
-      } else {
-        console.error("No buttons found in form");
-        toast({
-          title: "Action Failed",
-          description: "Couldn't find submit button. Please try again.",
-          variant: "destructive",
-        });
-      }
-    } else {
-      console.error("Video form not found");
-      toast({
-        title: "Action Failed", 
-        description: "Couldn't find video form. Please try again.",
-        variant: "destructive",
-      });
-    }
-  };
-  
-  // Update script reference when script changes
-  const handleScriptChange = (value: string) => {
-    scriptRef.current = value;
-  };
-  
-  // Update style reference when style changes
-  const handleStyleChange = (value: string) => {
-    styleRef.current = value;
-  };
-  
-  // Update readyToGo reference when it changes
-  const handleReadyToGoChange = (value: boolean) => {
-    readyToGoRef.current = value;
-  };
-  
-  // Expose the video submit function to parent
-  useEffect(() => {
-    if (onSetVideoSubmitFunction) {
-      onSetVideoSubmitFunction(handleVideoSubmit);
-    }
-  }, [onSetVideoSubmitFunction]);
 
   return (
     <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">

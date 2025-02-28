@@ -176,34 +176,18 @@ export const CreateVideoDialog = ({
           />
         </div>
 
-        {/* IMPORTANT: Only show action buttons when NOT in embedded mode */}
-        {!embeddedMode && (
-          <DialogActionsSection
-            onClose={onClose}
-            onSubmit={handleSubmit}
-            isSubmitting={isSubmitting}
-          />
-        )}
-        
-        {/* Add a truly hidden button for programmatic submission in embedded mode */}
-        {embeddedMode && (
-          <button 
-            type="button"
-            onClick={handleSubmit}
-            className="!hidden embedded-video-submit-button CreateVideoDialogSubmitButton"
-            aria-hidden="true"
-            data-testid="embedded-video-submit"
-          >
-            Submit
-          </button>
-        )}
+        <DialogActionsSection
+          onClose={onClose}
+          onSubmit={handleSubmit}
+          isSubmitting={isSubmitting}
+        />
       </div>
     </div>
   );
 
   // Render either as a Dialog or directly (for embedded use)
   return embeddedMode ? (
-    <div className="p-4 rounded-lg shadow-md bg-gray-900 border border-gray-800 faceless-video-form">
+    <div className="p-4 rounded-lg shadow-md bg-gray-900 border border-gray-800">
       {content}
     </div>
   ) : (

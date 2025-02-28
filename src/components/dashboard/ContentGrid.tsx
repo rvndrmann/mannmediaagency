@@ -84,19 +84,35 @@ export const ContentGrid = ({
   }
 
   return (
-    <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
-      {content.map((item) => {
-        if ('story' in item) {
-          return <StoryCard key={item["stories id"]} story={item} />;
-        }
-        if ('prompt' in item && 'result_url' in item && !item.source_image_url) {
-          return <ImageCard key={item.id} image={item} />;
-        }
-        if ('prompt' in item && 'source_image_url' in item) {
-          return <VideoCard key={item.id} video={item} />;
-        }
-        return null;
-      })}
+    <div className="grid gap-1 sm:gap-2 md:gap-4">
+      <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
+        {content.map((item) => {
+          // For videos, we render in a separate section below
+          if ('prompt' in item && 'source_image_url' in item) {
+            return null;
+          }
+          
+          if ('story' in item) {
+            return <StoryCard key={item["stories id"]} story={item} />;
+          }
+          if ('prompt' in item && 'result_url' in item && !item.source_image_url) {
+            return <ImageCard key={item.id} image={item} />;
+          }
+          return null;
+        })}
+      </div>
+
+      {/* Videos in a 2-column layout */}
+      {content.some(item => 'prompt' in item && 'source_image_url' in item) && (
+        <div className="grid grid-cols-2 gap-1 sm:gap-2 md:gap-4 mt-1 sm:mt-2">
+          {content.map((item) => {
+            if ('prompt' in item && 'source_image_url' in item) {
+              return <VideoCard key={item.id} video={item} />;
+            }
+            return null;
+          })}
+        </div>
+      )}
     </div>
   );
 };

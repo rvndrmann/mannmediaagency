@@ -67,8 +67,8 @@ export const VideoCard = ({ video }: VideoCardProps) => {
   };
 
   return (
-    <Card className="overflow-hidden">
-      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "70px" }}>
+    <Card className="overflow-hidden h-full flex flex-col">
+      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "120px" }}>
         {video.result_url ? (
           <div className="w-full h-full flex items-center justify-center">
             <video
@@ -76,16 +76,16 @@ export const VideoCard = ({ video }: VideoCardProps) => {
               controls
               playsInline
               preload="metadata"
-              className="max-w-full max-h-[70px] sm:max-h-[120px] h-auto w-auto object-contain"
+              className="w-full max-h-[150px] sm:max-h-[180px] md:max-h-[200px] object-contain"
             />
           </div>
         ) : (
-          <div className="w-full h-full min-h-[70px] sm:min-h-[120px] bg-gray-100 flex items-center justify-center">
+          <div className="w-full h-full min-h-[120px] sm:min-h-[150px] bg-gray-100 flex items-center justify-center">
             <span className="text-[10px] sm:text-xs">Processing...</span>
           </div>
         )}
       </div>
-      <div className="p-1 sm:p-2 space-y-0.5 sm:space-y-1">
+      <div className="p-1 sm:p-2 space-y-0.5 sm:space-y-1 flex-1">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-0.5 sm:gap-1">
             <Badge variant="secondary" className="text-[8px] sm:text-[10px] py-0 px-0.5 sm:px-1">{video.status}</Badge>

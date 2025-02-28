@@ -99,68 +99,82 @@ export const ExploreGrid = ({
     );
   }
 
+  // Separate videos and non-videos
+  const videoContent = content.filter(item => 'source_image_url' in item && !('scene_description' in item));
+  const nonVideoContent = content.filter(item => !('source_image_url' in item) || 'scene_description' in item);
+
   return (
-    <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4 mt-2 sm:mt-4 md:mt-6">
-      {content.map((item: any) => {
-        if ('source_image_url' in item && 'scene_description' in item) {
-          const isV2 = contentType === "product-shots" ? true : 
-                      contentType === "images" ? false :
-                      isV2Image(item);
-          const aspectRatio = getAspectRatio(item);
-          
-          return (
-            <div key={item.id} className="space-y-0.5 sm:space-y-2">
-              <div className="relative">
-                <ImageCard image={{
-                  id: item.id,
-                  result_url: item.result_url,
-                  prompt: item.scene_description
-                }} />
-                <div className="absolute top-1 right-1 flex gap-0.5 sm:gap-2">
-                  {isV2 ? (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[8px] sm:text-xs py-0 px-1">
-                      <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
-                      V2
-                    </Badge>
-                  ) : (
-                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[8px] sm:text-xs py-0 px-1">
-                      <BadgeCheck className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
-                      V1
-                    </Badge>
-                  )}
-                  {aspectRatio && (
-                    <Badge variant="outline" className="bg-background/80 text-[8px] sm:text-xs py-0 px-1">
-                      <ArrowUpDown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
-                      {aspectRatio}
-                    </Badge>
-                  )}
+    <div className="space-y-4 mt-2 sm:mt-4 md:mt-6">
+      {/* Images in 3 columns */}
+      {nonVideoContent.length > 0 && (
+        <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
+          {nonVideoContent.map((item: any) => {
+            if ('source_image_url' in item && 'scene_description' in item) {
+              const isV2 = contentType === "product-shots" ? true : 
+                          contentType === "images" ? false :
+                          isV2Image(item);
+              const aspectRatio = getAspectRatio(item);
+              
+              return (
+                <div key={item.id} className="space-y-0.5 sm:space-y-2">
+                  <div className="relative">
+                    <ImageCard image={{
+                      id: item.id,
+                      result_url: item.result_url,
+                      prompt: item.scene_description
+                    }} />
+                    <div className="absolute top-1 right-1 flex gap-0.5 sm:gap-2">
+                      {isV2 ? (
+                        <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[8px] sm:text-xs py-0 px-1">
+                          <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
+                          V2
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[8px] sm:text-xs py-0 px-1">
+                          <BadgeCheck className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
+                          V1
+                        </Badge>
+                      )}
+                      {aspectRatio && (
+                        <Badge variant="outline" className="bg-background/80 text-[8px] sm:text-xs py-0 px-1">
+                          <ArrowUpDown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
+                          {aspectRatio}
+                        </Badge>
+                      )}
+                    </div>
+                  </div>
+                  <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
+                    by {item.profiles?.username || 'Anonymous'}
+                  </div>
                 </div>
-              </div>
-              <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
-                by {item.profiles?.username || 'Anonymous'}
-              </div>
-            </div>
-          );
-        } else if ('source_image_url' in item) {
-          return (
+              );
+            } else {
+              return (
+                <div key={item.id} className="space-y-0.5 sm:space-y-2">
+                  <ImageCard image={item} />
+                  <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
+                    by {item.profiles?.username || 'Anonymous'}
+                  </div>
+                </div>
+              );
+            }
+          })}
+        </div>
+      )}
+
+      {/* Videos in 2 columns */}
+      {videoContent.length > 0 && (
+        <div className="grid grid-cols-2 gap-1 sm:gap-2 md:gap-4">
+          {videoContent.map((item: any) => (
             <div key={item.id} className="space-y-0.5 sm:space-y-2">
               <VideoCard video={item} />
               <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
-          );
-        } else {
-          return (
-            <div key={item.id} className="space-y-0.5 sm:space-y-2">
-              <ImageCard image={item} />
-              <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
-                by {item.profiles?.username || 'Anonymous'}
-              </div>
-            </div>
-          );
-        }
-      })}
+          ))}
+        </div>
+      )}
     </div>
   );
 };

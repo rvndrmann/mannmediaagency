@@ -1,6 +1,7 @@
 
 import { cn } from "@/lib/utils";
-import { Camera, Video, Bot, Sparkles, FileText, MessageCircle } from "lucide-react";
+import { Camera, Video, Sparkles, FileText, MessageCircle, ArrowLeft } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 
 interface ToolButton {
   id: string;
@@ -42,8 +43,19 @@ interface MobileToolNavProps {
 }
 
 export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) {
+  const navigate = useNavigate();
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-40 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
+      {/* Back button */}
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute -top-12 left-4 bg-[#1A1F2C]/80 backdrop-blur-md p-2 rounded-full border border-white/10 shadow-lg"
+        aria-label="Go back"
+      >
+        <ArrowLeft className="h-5 w-5 text-white" />
+      </button>
+      
       {/* Main grid with 2x2 layout */}
       <nav className="relative grid grid-cols-2 gap-3 p-3 pb-4">
         {tools.map((tool) => (

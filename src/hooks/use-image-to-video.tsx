@@ -7,12 +7,14 @@ export const useImageToVideo = () => {
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       if (file.type.startsWith('image/')) {
         setSelectedFile(file);
+        setSelectedImageUrl(null);
         const url = URL.createObjectURL(file);
         setPreviewUrl(url);
       } else {
@@ -22,11 +24,22 @@ export const useImageToVideo = () => {
   };
 
   const handleClearFile = () => {
-    if (previewUrl) {
+    if (previewUrl && !selectedImageUrl) {
       URL.revokeObjectURL(previewUrl);
     }
     setSelectedFile(null);
+    setSelectedImageUrl(null);
     setPreviewUrl(null);
+  };
+
+  const handleSelectFromHistory = (jobId: string, imageUrl: string) => {
+    if (previewUrl && !selectedImageUrl) {
+      URL.revokeObjectURL(previewUrl);
+    }
+    setSelectedFile(null);
+    setSelectedImageUrl(imageUrl);
+    setPreviewUrl(imageUrl);
+    console.log("Selected image from history:", imageUrl);
   };
 
   const handleGenerate = async (prompt: string, aspectRatio: string) => {
@@ -43,7 +56,7 @@ export const useImageToVideo = () => {
     try {
       setIsGenerating(true);
 
-      let publicUrl = previewUrl;
+      let publicUrl = selectedImageUrl;
 
       if (selectedFile) {
         const fileExt = selectedFile.name.split('.').pop();
@@ -115,6 +128,7 @@ export const useImageToVideo = () => {
     previewUrl,
     handleFileSelect,
     handleClearFile,
+    handleSelectFromHistory,
     handleGenerate,
   };
 };

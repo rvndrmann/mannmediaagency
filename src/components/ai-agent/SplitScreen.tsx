@@ -31,16 +31,6 @@ interface ProductShotV1Props {
   onDownload: (url: string) => void;
 }
 
-interface ImageToVideoFeaturePanelProps {
-  isMobile: boolean;
-  previewUrl: string | null;
-  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onClearFile: () => void;
-  creditsRemaining: number;
-  isGenerating: boolean;
-  onGenerate: () => void;
-}
-
 interface ImageToVideoProps {
   isMobile: boolean;
   previewUrl: string | null;
@@ -49,6 +39,7 @@ interface ImageToVideoProps {
   creditsRemaining: number;
   isGenerating: boolean;
   onGenerate: (prompt: string, aspectRatio: string) => void;
+  onSelectFromHistory: (jobId: string, imageUrl: string) => void;
 }
 
 interface SplitScreenProps {

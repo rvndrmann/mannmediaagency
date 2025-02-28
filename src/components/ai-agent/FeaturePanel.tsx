@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -50,6 +51,7 @@ interface FeaturePanelProps {
     creditsRemaining: number;
     isGenerating: boolean;
     onGenerate: (prompt: string, aspectRatio: string) => void;
+    onSelectFromHistory?: (jobId: string, imageUrl: string) => void;
   };
   activeTool: string;
 }
@@ -105,7 +107,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
             messages={messages}
             aspectRatio={selectedAspectRatio}
             onAspectRatioChange={setSelectedAspectRatio}
-            onSelectFromHistory={() => {}}
+            onSelectFromHistory={imageToVideo.onSelectFromHistory || ((jobId, imageUrl) => {})}
           />
         </TabsContent>
 

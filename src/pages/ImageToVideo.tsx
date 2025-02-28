@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -140,6 +141,7 @@ const ImageToVideo = () => {
     clearSelectedFile();
     setSelectedImageUrl(imageUrl);
     setPreviewUrl(imageUrl);
+    console.log("Selected image from history:", imageUrl);
   };
 
   const handleGenerate = async () => {

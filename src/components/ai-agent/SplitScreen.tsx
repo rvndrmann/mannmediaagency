@@ -94,9 +94,9 @@ export const SplitScreen = ({
   // Add padding to main content when on mobile to account for fixed bottom nav
   useEffect(() => {
     if (isMobile) {
-      document.body.classList.add('pb-32');
+      document.body.classList.add('pb-36'); // Increased padding to accommodate both chat input and nav
       return () => {
-        document.body.classList.remove('pb-32');
+        document.body.classList.remove('pb-36');
       };
     }
   }, [isMobile]);
@@ -114,7 +114,7 @@ export const SplitScreen = ({
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-50 animate-in fade-in slide-in pb-16" 
+                ? "fixed inset-0 z-50 animate-in fade-in slide-in pb-32" // Increased bottom padding for chat input
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10 overflow-hidden"

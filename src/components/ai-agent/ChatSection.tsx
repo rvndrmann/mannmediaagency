@@ -84,8 +84,11 @@ export function ChatSection({
         Credits: {userCredits?.credits_remaining?.toFixed(2) || "0.00"}
       </div>
 
-      {/* Messages area */}
-      <div className="flex-grow overflow-y-auto bg-[#1A1F2C]">
+      {/* Messages area with reduced bottom padding to make room for input */}
+      <div className={cn(
+        "flex-grow overflow-y-auto bg-[#1A1F2C]",
+        isMobile && "pb-24" // Add padding to bottom for mobile to make room for fixed input
+      )}>
         <ScrollArea ref={chatContainerRef} className="h-full px-4 py-2">
           <div className="flex flex-col gap-4">
             {messages.map((message, index) => (
@@ -141,8 +144,14 @@ export function ChatSection({
         </ScrollArea>
       </div>
 
-      {/* Input area */}
-      <form onSubmit={onSubmit} className="ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]">
+      {/* Input area - fixed at bottom for mobile */}
+      <form 
+        onSubmit={onSubmit} 
+        className={cn(
+          "ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
+          isMobile && "fixed bottom-16 left-0 right-0 z-50" // Position above the nav bar
+        )}
+      >
         <div className="relative">
           <Input
             ref={inputRef}

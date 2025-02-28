@@ -30,7 +30,7 @@ export function ChatSection({
     <Card className="h-full flex flex-col bg-transparent border-0 shadow-none">
       <Tabs defaultValue="chat" className="flex-1 flex flex-col h-full">
         <TabsList className="w-full bg-[#333333]/50 backdrop-blur-lg sticky top-0 z-30">
-          {/* Back button for desktop view */}
+          {/* Back button for desktop view only */}
           {!isMobile && (
             <button 
               onClick={() => navigate(-1)}

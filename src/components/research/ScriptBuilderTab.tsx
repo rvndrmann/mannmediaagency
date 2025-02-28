@@ -144,7 +144,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
         </div>
       </ScrollArea>
 
-      <div className="fixed bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-10 lg:sticky">
+      <div className="fixed bottom-[4.5rem] md:sticky md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-40">
         <Button 
           onClick={handleCreateVideo}
           disabled={isCreating}

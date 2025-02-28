@@ -59,7 +59,7 @@ export const ChatPanel = ({
       <div className="flex-1 overflow-hidden">
         <ScrollArea 
           ref={scrollAreaRef} 
-          className="h-[calc(100vh-24rem)] md:h-[calc(100vh-8rem)]"
+          className="h-[calc(100vh-13rem)] md:h-[calc(100vh-8rem)]"
         >
           <div className="space-y-4 p-4 pb-32 md:pb-24">
             {messages.map((message, index) => (
@@ -70,7 +70,7 @@ export const ChatPanel = ({
         </ScrollArea>
       </div>
 
-      <div className="fixed bottom-[8.5rem] md:sticky md:bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl pt-2 border-t border-white/10 space-y-2 p-4 z-35">
+      <div className="sticky bottom-[5.5rem] md:bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl pt-2 border-t border-white/10 p-4 z-20">
         <ChatInput
           input={input}
           isLoading={isLoading}

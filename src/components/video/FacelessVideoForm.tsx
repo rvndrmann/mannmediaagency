@@ -126,7 +126,7 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
   const hasEnoughCredits = creditsRemaining >= 10;
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 pb-20 lg:pb-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 pb-28 lg:pb-6">
       <div className="space-y-6 flex flex-col">
         <ScrollArea className="flex-1">
           <Card className="p-4 bg-gray-900 border-gray-800">
@@ -180,7 +180,7 @@ export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoF
       </div>
       
       {/* Fixed Generate button for better visibility */}
-      <div className="fixed bottom-20 lg:sticky lg:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-30 lg:col-span-2">
+      <div className="fixed bottom-[4.5rem] lg:sticky lg:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-40 lg:col-span-2">
         <Button
           onClick={handleSubmit}
           disabled={isSubmitting || !hasEnoughCredits}

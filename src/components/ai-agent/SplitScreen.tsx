@@ -72,8 +72,9 @@ export const SplitScreen = ({
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
-              "pb-32", // Always keep space for bottom navigation
-              isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
+              showChat ? "hidden" : 
+              /* Fixed the comma operator issue by properly formatting the condition */
+              cn("pb-32", isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100")
             ) : "flex-1 overflow-hidden"
           )}
         >

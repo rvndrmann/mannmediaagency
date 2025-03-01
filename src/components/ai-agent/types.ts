@@ -3,7 +3,7 @@ import { Message } from "@/types/message";
 import { GeneratedImage } from "@/types/product-shoot";
 
 export interface ProductShotV2Props {
-  onSubmit: (formData: any) => void;
+  onSubmit: (formData: any) => Promise<void> | void;
   isGenerating: boolean;
   isSubmitting: boolean;
   availableCredits: number;

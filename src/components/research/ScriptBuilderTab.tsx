@@ -48,7 +48,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
   });
 
   const { isCreating, createStory } = useStoryCreation();
-  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 20;
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
 
   const handleMusicUpload = (musicUrl: string) => {
     setBackgroundMusic(musicUrl);
@@ -86,7 +86,7 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
           <AlertCircle className="h-4 w-4" />
           <AlertTitle>Insufficient Credits</AlertTitle>
           <AlertDescription>
-            You need at least 20 credits to create a video. Current balance: {userCredits?.credits_remaining || 0} credits.
+            You need at least 10 credits to create a video. Current balance: {userCredits?.credits_remaining || 0} credits.
           </AlertDescription>
         </Alert>
         <Button 

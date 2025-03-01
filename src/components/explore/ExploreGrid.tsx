@@ -1,4 +1,3 @@
-
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { Card } from "@/components/ui/card";
@@ -29,22 +28,10 @@ export const ExploreGrid = ({
             content.scene_description?.toLowerCase().includes(query));
   };
 
-  // Create a function to deduplicate content by result_url
-  const removeDuplicates = (items: any[]) => {
-    const uniqueUrls = new Set();
-    return items.filter(item => {
-      const url = item.result_url;
-      if (!url || uniqueUrls.has(url)) return false;
-      uniqueUrls.add(url);
-      return true;
-    });
-  };
-
   const getContent = () => {
-    // Deduplicate images, videos and product shots
-    const validImages = removeDuplicates(images?.filter(img => img.result_url && filterBySearch(img)) || []);
-    const validVideos = removeDuplicates(videos?.filter(vid => vid.result_url && filterBySearch(vid)) || []);
-    const validProductShots = removeDuplicates(productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || []);
+    const validImages = images?.filter(img => img.result_url && filterBySearch(img)) || [];
+    const validVideos = videos?.filter(vid => vid.result_url && filterBySearch(vid)) || [];
+    const validProductShots = productShots?.filter(shot => shot.result_url && filterBySearch(shot)) || [];
 
     switch (contentType) {
       case "all":
@@ -62,50 +49,35 @@ export const ExploreGrid = ({
   };
 
   const isV2Image = (item: any) => {
-    // Check if the item is in the productShots array
     if (productShots?.some(shot => shot.id === item.id)) {
       return true;
     }
-    
-    // Check in images array
     if (images?.some(img => img.id === item.id)) {
       return false;
     }
-    
-    // Handle settings detection with better error handling
-    if (item.settings) {
-      if (typeof item.settings === 'string') {
-        try {
-          const settings = JSON.parse(item.settings);
-          return !!settings.optimize_description;
-        } catch {
-          return false;
-        }
-      } else {
-        return !!item.settings.optimize_description;
+    if (item.settings && typeof item.settings === 'string') {
+      try {
+        const settings = JSON.parse(item.settings);
+        return !!settings.optimize_description;
+      } catch {
+        return false;
       }
+    } else if (item.settings) {
+      return !!item.settings.optimize_description;
     }
-    
-    // Default case for product shots that don't have optimize_description setting
-    if (item.scene_description) {
-      return true;
-    }
-    
     return false;
   };
 
   const getAspectRatio = (item: any) => {
-    if (item.settings) {
-      if (typeof item.settings === 'string') {
-        try {
-          const settings = JSON.parse(item.settings);
-          return settings.aspectRatio;
-        } catch {
-          return null;
-        }
-      } else if (item.settings.aspectRatio) {
-        return item.settings.aspectRatio;
+    if (item.settings && typeof item.settings === 'string') {
+      try {
+        const settings = JSON.parse(item.settings);
+        return settings.aspectRatio;
+      } catch {
+        return null;
       }
+    } else if (item.settings) {
+      return item.settings.aspectRatio;
     }
     return null;
   };
@@ -126,82 +98,68 @@ export const ExploreGrid = ({
     );
   }
 
-  // Separate videos and non-videos for different layout treatments
-  const videoContent = content.filter(item => 'source_image_url' in item && !('scene_description' in item));
-  const nonVideoContent = content.filter(item => !('source_image_url' in item) || 'scene_description' in item);
-
   return (
-    <div className="space-y-4 mt-2 sm:mt-4 md:mt-6">
-      {/* Images in 3 columns */}
-      {nonVideoContent.length > 0 && (
-        <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
-          {nonVideoContent.map((item: any) => {
-            if ('source_image_url' in item && 'scene_description' in item) {
-              const isV2 = contentType === "product-shots" ? true : 
-                          contentType === "images" ? false :
-                          isV2Image(item);
-              const aspectRatio = getAspectRatio(item);
-              
-              return (
-                <div key={item.id} className="space-y-0.5 sm:space-y-2">
-                  <div className="relative">
-                    <ImageCard image={{
-                      id: item.id,
-                      result_url: item.result_url,
-                      prompt: item.scene_description || ""
-                    }} />
-                    <div className="absolute top-1 right-1 flex gap-0.5 sm:gap-2">
-                      {isV2 ? (
-                        <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[8px] sm:text-xs py-0 px-1">
-                          <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
-                          V2
-                        </Badge>
-                      ) : (
-                        <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[8px] sm:text-xs py-0 px-1">
-                          <BadgeCheck className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
-                          V1
-                        </Badge>
-                      )}
-                      {aspectRatio && (
-                        <Badge variant="outline" className="bg-background/80 text-[8px] sm:text-xs py-0 px-1">
-                          <ArrowUpDown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5" />
-                          {aspectRatio}
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-                  <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
-                    by {item.profiles?.username || 'Anonymous'}
-                  </div>
+    <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6">
+      {content.map((item: any) => {
+        if ('source_image_url' in item && 'scene_description' in item) {
+          const isV2 = contentType === "product-shots" ? true : 
+                      contentType === "images" ? false :
+                      isV2Image(item);
+          const aspectRatio = getAspectRatio(item);
+          
+          return (
+            <div key={item.id} className="space-y-1 sm:space-y-2">
+              <div className="relative">
+                <ImageCard image={{
+                  id: item.id,
+                  result_url: item.result_url,
+                  prompt: item.scene_description
+                }} />
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex gap-1 sm:gap-2">
+                  {isV2 ? (
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[10px] sm:text-xs">
+                      <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                      V2
+                    </Badge>
+                  ) : (
+                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[10px] sm:text-xs">
+                      <BadgeCheck className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                      V1
+                    </Badge>
+                  )}
+                  {aspectRatio && (
+                    <Badge variant="outline" className="bg-background/80 text-[10px] sm:text-xs">
+                      <ArrowUpDown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
+                      {aspectRatio}
+                    </Badge>
+                  )}
                 </div>
-              );
-            } else {
-              return (
-                <div key={item.id} className="space-y-0.5 sm:space-y-2">
-                  <ImageCard image={item} />
-                  <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
-                    by {item.profiles?.username || 'Anonymous'}
-                  </div>
-                </div>
-              );
-            }
-          })}
-        </div>
-      )}
-
-      {/* Videos in 2 columns */}
-      {videoContent.length > 0 && (
-        <div className="grid grid-cols-2 gap-1 sm:gap-2 md:gap-4">
-          {videoContent.map((item: any) => (
-            <div key={item.id} className="space-y-0.5 sm:space-y-2">
-              <VideoCard video={item} />
-              <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground">
+              </div>
+              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
-          ))}
-        </div>
-      )}
+          );
+        } else if ('source_image_url' in item) {
+          return (
+            <div key={item.id} className="space-y-1 sm:space-y-2">
+              <VideoCard video={item} />
+              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
+                by {item.profiles?.username || 'Anonymous'}
+              </div>
+            </div>
+          );
+        } else {
+          return (
+            <div key={item.id} className="space-y-1 sm:space-y-2">
+              <ImageCard image={item} />
+              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
+                by {item.profiles?.username || 'Anonymous'}
+              </div>
+            </div>
+          );
+        }
+      })}
     </div>
   );
 };

@@ -1,134 +1,199 @@
 
-import { useState, useEffect } from "react";
+import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { useStoryCreation } from "@/hooks/use-story-creation";
+import { Switch } from "@/components/ui/switch";
+import { ScriptInputSection } from "./dialog/ScriptInputSection";
+import { StyleSelectorSection } from "./dialog/StyleSelectorSection";
+import { MusicUploaderSection } from "./dialog/MusicUploaderSection";
+import { ProductPhotoSection } from "./dialog/ProductPhotoSection";
+import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 import { useVideoCreation } from "@/hooks/use-video-creation";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog";
-import { DialogActionsSection } from "./dialog/DialogActionsSection";
-import { toast } from "sonner";
-import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 import { Message } from "@/types/message";
+import { Button } from "@/components/ui/button";
+import { VideoPlayer } from "./VideoPlayer";
+import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { useToast } from "@/hooks/use-toast";
 
 interface FacelessVideoFormProps {
   messages: Message[];
-  creditsRemaining: number | undefined;
+  creditsRemaining: number;
 }
 
 export function FacelessVideoForm({ messages, creditsRemaining }: FacelessVideoFormProps) {
-  const [script, setScript] = useState("");
-  const [style, setStyle] = useState("Explainer");
+  const [source, setSource] = useState("");
   const [readyToGo, setReadyToGo] = useState(false);
-  const [backgroundMusic, setBackgroundMusic] = useState<string | null>(null);
+  const [style, setStyle] = useState("");
+  const [backgroundMusicUrl, setBackgroundMusicUrl] = useState<string | null>(null);
   const [productPhotoUrl, setProductPhotoUrl] = useState<string | null>(null);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const { toast } = useToast();
 
-  const { isCreating, createStory } = useStoryCreation();
+  const {
+    uploadProgress: musicUploadProgress,
+    uploadedFileName: musicFileName,
+    handleFileUpload: handleMusicUpload
+  } = useSupabaseUpload(null);
+
+  const {
+    uploadProgress: photoUploadProgress,
+    uploadedFileName: photoFileName,
+    previewUrl: photoPreviewUrl,
+    handleFileUpload: handlePhotoUpload
+  } = useSupabaseUpload(null);
+
   const { isSubmitting, createVideo } = useVideoCreation({
     onSuccess: () => {
-      setIsDialogOpen(false);
-      setScript("");
+      setSource("");
+      setStyle("");
+      setBackgroundMusicUrl(null);
+      setProductPhotoUrl(null);
+      setReadyToGo(false);
+      toast({
+        title: "Video Created",
+        description: "Your product video has been created and is being processed. You can view it in your dashboard once ready.",
+      });
     }
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const url = await handlePhotoUpload(file, 'product-photos', 'image');
+        if (url) {
+          console.log("Product photo uploaded successfully:", url);
+          setProductPhotoUrl(url);
+        }
+      } catch (error) {
+        console.error("Error uploading product photo:", error);
+        toast({
+          title: "Upload Error",
+          description: "Failed to upload product photo. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
 
-    if (!script.trim()) {
-      toast.error("Please generate or write a script first");
+  const handleMusicChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      try {
+        const url = await handleMusicUpload(file, 'background-music', 'audio');
+        if (url) {
+          console.log("Background music uploaded successfully:", url);
+          setBackgroundMusicUrl(url);
+        }
+      } catch (error) {
+        console.error("Error uploading background music:", error);
+        toast({
+          title: "Upload Error",
+          description: "Failed to upload background music. Please try again.",
+          variant: "destructive",
+        });
+      }
+    }
+  };
+
+  const handleSubmit = async () => {
+    if (!source.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter a script or idea for your video.",
+        variant: "destructive",
+      });
       return;
     }
 
-    setIsDialogOpen(true);
-  };
-
-  const handleDialogClose = () => {
-    setIsDialogOpen(false);
-  };
-
-  const handleCreateVideo = async () => {
-    const success = await createStory({
-      script,
-      style,
-      readyToGo,
-      backgroundMusic,
-      productPhotoUrl
-    });
-
-    if (success) {
-      setIsDialogOpen(false);
-      setScript("");
+    if (!style) {
+      toast({
+        title: "Missing Information",
+        description: "Please select a style for your video.",
+        variant: "destructive",
+      });
+      return;
     }
+
+    await createVideo({
+      source,
+      readyToGo,
+      backgroundMusicUrl,
+      productPhotoUrl,
+      style
+    });
   };
+
+  const hasEnoughCredits = creditsRemaining >= 10;
 
   return (
-    <form onSubmit={handleSubmit} className="faceless-video-form w-full">
-      <div className="space-y-6">
-        <div>
-          <Label htmlFor="script" className="text-white">Video Script</Label>
-          <div className="flex gap-2">
-            <div className="flex-1">
-              <Textarea
-                id="script"
-                placeholder="Write a script or generate one using AI..."
-                value={script}
-                onChange={(e) => setScript(e.target.value)}
-                className="bg-gray-900 border-gray-700 text-white resize-none min-h-[200px]"
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6 pb-32 lg:pb-6">
+      <div className="space-y-6 flex flex-col">
+        <ScrollArea className="flex-1">
+          <Card className="p-4 bg-gray-900 border-gray-800">
+            <div className="space-y-6">
+              <ScriptInputSection
+                source={source}
+                onSourceChange={setSource}
               />
+
+              <ProductPhotoSection
+                uploadProgress={photoUploadProgress}
+                uploadedFileName={photoFileName}
+                previewUrl={photoPreviewUrl}
+                onFileChange={handlePhotoChange}
+              />
+
+              <StyleSelectorSection
+                style={style}
+                onStyleChange={setStyle}
+              />
+
+              <MusicUploaderSection
+                uploadProgress={musicUploadProgress}
+                uploadedFileName={musicFileName}
+                onFileChange={handleMusicChange}
+              />
+
+              <div className="flex items-center justify-between">
+                <Label htmlFor="readyToGo" className="text-xl text-purple-600">
+                  Ready to Go
+                </Label>
+                <Switch
+                  id="readyToGo"
+                  checked={readyToGo}
+                  onCheckedChange={setReadyToGo}
+                />
+              </div>
             </div>
-            <UseAIResponseButton
-              messages={messages}
-              onUseResponse={setScript}
-              variant="compact"
-              className="shrink-0"
-            />
-          </div>
-        </div>
-
-        <div>
-          <Label htmlFor="style" className="text-white">Video Style</Label>
-          <Select value={style} onValueChange={setStyle}>
-            <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
-              <SelectValue placeholder="Select a style" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="Explainer">Explainer</SelectItem>
-              <SelectItem value="Review">Review</SelectItem>
-              <SelectItem value="Tutorial">Tutorial</SelectItem>
-              <SelectItem value="Testimonial">Testimonial</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
-
-        <Button type="submit" className="w-full bg-purple-600 hover:bg-purple-700 text-white">
-          Create Video (Costs 20 credits)
-        </Button>
-
-        <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
-          <DialogContent className="bg-gray-900 border-gray-700 text-white">
-            <DialogHeader>
-              <DialogTitle>Confirm Video Creation</DialogTitle>
-              <DialogDescription>
-                Creating this video will cost 20 credits. Do you want to proceed?
-              </DialogDescription>
-            </DialogHeader>
-            <DialogActionsSection
-              onClose={handleDialogClose}
-              onSubmit={handleCreateVideo}
-              isSubmitting={isCreating}
-            />
-          </DialogContent>
-        </Dialog>
+          </Card>
+        </ScrollArea>
       </div>
-    </form>
+
+      <div className="space-y-6">
+        {/* Preview section - can be expanded based on requirements */}
+        <Card className="p-4 bg-gray-900 border-gray-800">
+          <h2 className="text-xl font-semibold text-white mb-4">Generated Videos</h2>
+          <div className="text-gray-400 text-center py-8">
+            Your generated videos will appear here
+          </div>
+        </Card>
+      </div>
+      
+      {/* Fixed Generate button for better visibility */}
+      <div className="fixed md:sticky bottom-[6rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50 lg:col-span-2">
+        <Button
+          onClick={handleSubmit}
+          disabled={isSubmitting || !hasEnoughCredits}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-3 md:py-6 text-base md:text-lg font-medium"
+        >
+          {isSubmitting ? "Creating..." : `Generate Video (${creditsRemaining} credits available)`}
+        </Button>
+        {!hasEnoughCredits && (
+          <p className="text-red-500 text-sm mt-2 text-center">
+            You need at least 10 credits to create a video
+          </p>
+        )}
+      </div>
+    </div>
   );
 }

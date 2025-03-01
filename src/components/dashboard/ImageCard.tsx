@@ -109,34 +109,33 @@ export const ImageCard = ({ image }: ImageCardProps) => {
                 variant="secondary"
                 size="sm"
                 onClick={handleDownload}
-                className="transform translate-y-4 group-hover:translate-y-0 transition-transform text-[10px] sm:text-xs h-6 sm:h-8"
+                className="transform translate-y-4 group-hover:translate-y-0 transition-transform"
               >
-                <Download className="h-3 w-3 sm:h-4 sm:w-4 mr-1 sm:mr-2" />
+                <Download className="h-4 w-4 mr-2" />
                 Download
               </Button>
             </div>
           </div>
         ) : (
           <div className="w-full h-full bg-gray-100 flex items-center justify-center">
-            <span className="text-[10px] sm:text-xs">Processing...</span>
+            Processing...
           </div>
         )}
       </div>
-      <div className="p-1 sm:p-4 space-y-1 sm:space-y-2">
+      <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-0.5 sm:gap-2">
-            <Badge variant="secondary" className="text-[8px] sm:text-xs py-0 px-1 sm:px-2">{image.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{image.status}</Badge>
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 sm:h-8 sm:w-8 p-0"
               onClick={toggleVisibility}
               disabled={isUpdating}
             >
               {image.visibility === 'public' ? (
-                <Globe className="h-2 w-2 sm:h-4 sm:w-4 text-green-500" />
+                <Globe className="h-4 w-4 text-green-500" />
               ) : (
-                <Lock className="h-2 w-2 sm:h-4 sm:w-4" />
+                <Lock className="h-4 w-4" />
               )}
             </Button>
           </div>
@@ -144,34 +143,33 @@ export const ImageCard = ({ image }: ImageCardProps) => {
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 sm:h-8 sm:w-8 p-0"
               onClick={() => handleCopy(image.product_image_metadata.seo_title, "Title")}
             >
               {copiedField === "Title" ? (
-                <Check className="h-2 w-2 sm:h-4 sm:w-4 text-green-500" />
+                <Check className="h-4 w-4 text-green-500" />
               ) : (
-                <Copy className="h-2 w-2 sm:h-4 sm:w-4" />
+                <Copy className="h-4 w-4" />
               )}
             </Button>
           )}
         </div>
-        <div className="flex items-start justify-between gap-0.5 sm:gap-2">
-          <p className="text-[10px] sm:text-sm line-clamp-1 sm:line-clamp-2 flex-1">{image.prompt}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm line-clamp-2 flex-1">{image.prompt}</p>
           <Button
             variant="ghost"
             size="sm"
-            className="h-4 w-4 sm:h-8 sm:w-8 p-0 flex-shrink-0"
+            className="mt-0.5 flex-shrink-0"
             onClick={() => handleCopy(image.prompt, "Prompt")}
           >
             {copiedField === "Prompt" ? (
-              <Check className="h-2 w-2 sm:h-4 sm:w-4 text-green-500" />
+              <Check className="h-4 w-4 text-green-500" />
             ) : (
-              <Copy className="h-2 w-2 sm:h-4 sm:w-4" />
+              <Copy className="h-4 w-4" />
             )}
           </Button>
         </div>
         {image.settings && (
-          <div className="hidden sm:block space-y-2">
+          <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm text-gray-500">Inference Steps:</p>
               <div className="flex items-center gap-2">
@@ -228,7 +226,7 @@ export const ImageCard = ({ image }: ImageCardProps) => {
             </div>
           </div>
         )}
-        <p className="text-[8px] sm:text-xs text-gray-500">
+        <p className="text-xs text-gray-500">
           Created: {formatDate(image.created_at)}
         </p>
       </div>

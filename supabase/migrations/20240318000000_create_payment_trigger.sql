@@ -102,3 +102,4 @@ CREATE TRIGGER on_payment_status_change
   AFTER UPDATE ON public.payment_transactions
   FOR EACH ROW
   EXECUTE FUNCTION update_user_credits_on_payment();
+

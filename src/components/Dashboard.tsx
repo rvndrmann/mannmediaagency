@@ -118,9 +118,9 @@ export const Dashboard = () => {
   });
 
   return (
-    <div className="flex-1 p-2 md:p-8">
+    <div className="flex-1 p-4 md:p-8">
       <AnnouncementBanner />
-      <div className="flex justify-between items-center mb-4 md:mb-6">
+      <div className="flex justify-between items-center mb-6">
         <div className="flex items-center gap-4">
           <SidebarTrigger className="md:hidden" />
           <h1 className="text-xl md:text-2xl font-bold">Dashboard</h1>
@@ -134,12 +134,12 @@ export const Dashboard = () => {
         onDateRangeChange={setDateRange}
       />
 
-      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)} className="mt-4 md:mt-6">
-        <TabsList className="w-full">
-          <TabsTrigger value="all" className="flex-1">All Content</TabsTrigger>
-          <TabsTrigger value="stories" className="flex-1">Stories</TabsTrigger>
-          <TabsTrigger value="images" className="flex-1">Images</TabsTrigger>
-          <TabsTrigger value="videos" className="flex-1">Videos</TabsTrigger>
+      <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as ContentType)} className="mt-6">
+        <TabsList>
+          <TabsTrigger value="all">All Content</TabsTrigger>
+          <TabsTrigger value="stories">Stories</TabsTrigger>
+          <TabsTrigger value="images">Images</TabsTrigger>
+          <TabsTrigger value="videos">Videos</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">

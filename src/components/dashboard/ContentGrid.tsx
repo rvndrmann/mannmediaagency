@@ -83,35 +83,20 @@ export const ContentGrid = ({
     return <EmptyState type={type} />;
   }
 
-  // Separate videos from other content
-  const videoContent = content.filter(item => 'prompt' in item && 'source_image_url' in item);
-  const nonVideoContent = content.filter(item => !('prompt' in item) || !('source_image_url' in item));
-
   return (
-    <div className="grid gap-1 sm:gap-2 md:gap-4">
-      {/* Non-video content in 3 columns */}
-      {nonVideoContent.length > 0 && (
-        <div className="grid grid-cols-3 gap-1 sm:gap-2 md:gap-4">
-          {nonVideoContent.map((item) => {
-            if ('story' in item) {
-              return <StoryCard key={item["stories id"]} story={item} />;
-            }
-            if ('prompt' in item && 'result_url' in item && !item.source_image_url) {
-              return <ImageCard key={item.id} image={item} />;
-            }
-            return null;
-          })}
-        </div>
-      )}
-
-      {/* Videos in a 2-column layout */}
-      {videoContent.length > 0 && (
-        <div className="grid grid-cols-2 gap-1 sm:gap-2 md:gap-4 mt-1 sm:mt-2">
-          {videoContent.map((item) => (
-            <VideoCard key={item.id} video={item} />
-          ))}
-        </div>
-      )}
+    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+      {content.map((item) => {
+        if ('story' in item) {
+          return <StoryCard key={item["stories id"]} story={item} />;
+        }
+        if ('prompt' in item && 'result_url' in item && !item.source_image_url) {
+          return <ImageCard key={item.id} image={item} />;
+        }
+        if ('prompt' in item && 'source_image_url' in item) {
+          return <VideoCard key={item.id} video={item} />;
+        }
+        return null;
+      })}
     </div>
   );
 };

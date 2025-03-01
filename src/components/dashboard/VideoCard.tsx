@@ -67,8 +67,8 @@ export const VideoCard = ({ video }: VideoCardProps) => {
   };
 
   return (
-    <Card className="overflow-hidden h-full flex flex-col">
-      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "150px" }}>
+    <Card className="overflow-hidden">
+      <div className="relative w-full bg-gray-900 flex items-center justify-center" style={{ minHeight: "300px" }}>
         {video.result_url ? (
           <div className="w-full h-full flex items-center justify-center">
             <video
@@ -76,30 +76,29 @@ export const VideoCard = ({ video }: VideoCardProps) => {
               controls
               playsInline
               preload="metadata"
-              className="w-full min-h-[150px] sm:min-h-[180px] md:min-h-[200px] object-contain"
+              className="max-w-full max-h-[300px] h-auto w-auto object-contain"
             />
           </div>
         ) : (
-          <div className="w-full h-full min-h-[150px] sm:min-h-[180px] bg-gray-100 flex items-center justify-center">
-            <span className="text-[10px] sm:text-xs">Processing...</span>
+          <div className="w-full h-full min-h-[300px] bg-gray-100 flex items-center justify-center">
+            Processing...
           </div>
         )}
       </div>
-      <div className="p-1 sm:p-2 space-y-0.5 sm:space-y-1 flex-1">
+      <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-0.5 sm:gap-1">
-            <Badge variant="secondary" className="text-[8px] sm:text-[10px] py-0 px-0.5 sm:px-1">{video.status}</Badge>
+          <div className="flex items-center gap-2">
+            <Badge variant="secondary">{video.status}</Badge>
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 sm:h-6 sm:w-6 p-0"
               onClick={toggleVisibility}
               disabled={isUpdating}
             >
               {video.visibility === 'public' ? (
-                <Globe className="h-2 w-2 sm:h-3 sm:w-3 text-green-500" />
+                <Globe className="h-4 w-4 text-green-500" />
               ) : (
-                <Lock className="h-2 w-2 sm:h-3 sm:w-3" />
+                <Lock className="h-4 w-4" />
               )}
             </Button>
           </div>
@@ -107,34 +106,33 @@ export const VideoCard = ({ video }: VideoCardProps) => {
             <Button
               variant="ghost"
               size="sm"
-              className="h-4 w-4 sm:h-6 sm:w-6 p-0"
               onClick={() => handleCopy(video.video_metadata.seo_title, "Title")}
             >
               {copiedField === "Title" ? (
-                <Check className="h-2 w-2 sm:h-3 sm:w-3 text-green-500" />
+                <Check className="h-4 w-4 text-green-500" />
               ) : (
-                <Copy className="h-2 w-2 sm:h-3 sm:w-3" />
+                <Copy className="h-4 w-4" />
               )}
             </Button>
           )}
         </div>
-        <div className="flex items-start justify-between gap-0.5 sm:gap-1">
-          <p className="text-[10px] sm:text-xs line-clamp-1 flex-1">{video.prompt}</p>
+        <div className="flex items-start justify-between gap-2">
+          <p className="text-sm line-clamp-2 flex-1">{video.prompt}</p>
           <Button
             variant="ghost"
             size="sm"
-            className="h-4 w-4 sm:h-6 sm:w-6 p-0 flex-shrink-0"
+            className="mt-0.5 flex-shrink-0"
             onClick={() => handleCopy(video.prompt, "Prompt")}
           >
             {copiedField === "Prompt" ? (
-              <Check className="h-2 w-2 sm:h-3 sm:w-3 text-green-500" />
+              <Check className="h-4 w-4 text-green-500" />
             ) : (
-              <Copy className="h-2 w-2 sm:h-3 sm:w-3" />
+              <Copy className="h-4 w-4" />
             )}
           </Button>
         </div>
-        <p className="text-[8px] sm:text-[10px] text-gray-500">
-          {formatDate(video.created_at)}
+        <p className="text-xs text-gray-500">
+          Created: {formatDate(video.created_at)}
         </p>
       </div>
     </Card>

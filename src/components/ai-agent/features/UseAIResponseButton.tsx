@@ -55,8 +55,8 @@ export const UseAIResponseButton = ({
     if (lastResponse) {
       onUseResponse(lastResponse);
       toast({
-        title: "AI Response Used",
-        description: "The last AI response has been used successfully.",
+        title: "Prompt Updated",
+        description: "The last AI response has been copied to the prompt.",
       });
     }
   };
@@ -71,7 +71,6 @@ export const UseAIResponseButton = ({
         variant === "compact" && "h-7 px-2 text-xs py-0 min-w-0",
         className
       )}
-      type="button"
     >
       <PenTool className="h-3.5 w-3.5 mr-1" />
       <span className="whitespace-nowrap text-xs">Use Last AI</span>

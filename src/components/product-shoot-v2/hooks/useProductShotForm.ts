@@ -1,9 +1,10 @@
+
 import { useState } from "react";
 import { ProductShotFormData, AspectRatio } from "@/types/product-shoot";
 import { toast } from "sonner";
 
 export const useProductShotForm = (
-  onSubmit: (data: ProductShotFormData) => void | Promise<void>,
+  onSubmit: (data: ProductShotFormData) => void,
   isGenerating: boolean,
   isSubmitting: boolean,
   availableCredits: number = 0

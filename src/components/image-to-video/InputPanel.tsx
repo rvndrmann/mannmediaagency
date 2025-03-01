@@ -128,6 +128,27 @@ export function InputPanel({
           </div>
         </div>
       </ScrollArea>
+
+      <div className="fixed md:sticky bottom-[6rem] md:bottom-0 left-0 right-0 p-4 bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-gray-800 z-50">
+        <Button
+          onClick={() => onGenerate(prompt || "", aspectRatio)}
+          disabled={isGenerating || !prompt?.trim() || !previewUrl}
+          className="w-full bg-purple-600 hover:bg-purple-700 text-white py-2 md:py-3 text-sm md:text-base font-medium"
+        >
+          {isGenerating ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Generating...
+            </>
+          ) : (
+            <>
+              <Video className="mr-2 h-4 w-4" />
+              <CreditCard className="mr-2 h-4 w-4" />
+              Generate Video (1 credit)
+            </>
+          )}
+        </Button>
+      </div>
     </div>
   );
 }

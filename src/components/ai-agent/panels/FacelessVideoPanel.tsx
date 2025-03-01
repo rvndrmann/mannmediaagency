@@ -1,8 +1,6 @@
 
 import { useState } from "react";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
-import { GenerateButton } from "./GenerateButton";
-import { FileText } from "lucide-react";
 import { Message } from "@/types/message";
 import { ProductShotV1Props } from "../types";
 
@@ -24,11 +22,6 @@ export const FacelessVideoPanel = ({ productShotV1, messages }: FacelessVideoPan
     return "";
   };
 
-  const handleCreateVideo = () => {
-    const submitButton = document.querySelector('.faceless-video-form button[type="submit"]') as HTMLButtonElement;
-    if (submitButton) submitButton.click();
-  };
-
   return (
     <div className="p-6 relative">
       <CreateVideoDialog
@@ -41,13 +34,7 @@ export const FacelessVideoPanel = ({ productShotV1, messages }: FacelessVideoPan
         embeddedMode={true} // Add a flag for embedded mode styling
         messages={messages}
       />
-      <GenerateButton 
-        onClick={handleCreateVideo}
-        icon={<FileText className="mr-2 h-4 w-4" />}
-        label="Create Video"
-        creditCost="20 credits"
-        position="fixed"
-      />
+      {/* Removed the duplicate GenerateButton here */}
     </div>
   );
 };

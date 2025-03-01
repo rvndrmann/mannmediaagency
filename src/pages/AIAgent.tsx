@@ -104,6 +104,8 @@ const AIAgent = () => {
               isGenerating: isGeneratingVideo,
               onGenerate: handleVideoGenerate,
               onSelectFromHistory: handleVideoSelectFromHistory,
+              onPromptChange: handleVideoPromptChange,
+              onAspectRatioChange: handleVideoAspectRatioChange,
             }}
             onInputChange={setInput}
             onSubmit={(e) => handleSubmit(e, input)}

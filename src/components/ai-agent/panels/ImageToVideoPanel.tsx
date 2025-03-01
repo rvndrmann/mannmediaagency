@@ -11,13 +11,14 @@ interface ImageToVideoPanelProps {
 }
 
 export const ImageToVideoPanel = ({ imageToVideo, messages }: ImageToVideoPanelProps) => {
-  const renderGenerateButton = () => {
-    if (!imageToVideo.prompt || !imageToVideo.previewUrl || imageToVideo.isGenerating) return null;
+  const showGenerateButton = () => {
+    // Always show the button, but disable it if conditions aren't met
+    const isDisabled = !imageToVideo.prompt || !imageToVideo.previewUrl || imageToVideo.isGenerating;
     
     return (
       <GenerateButton 
         onClick={() => imageToVideo.onGenerate(imageToVideo.prompt, imageToVideo.aspectRatio)}
-        disabled={imageToVideo.isGenerating}
+        disabled={isDisabled}
         icon={<Video className="mr-2 h-4 w-4" />}
         label="Generate Video"
         creditCost="1 credit"
@@ -32,10 +33,8 @@ export const ImageToVideoPanel = ({ imageToVideo, messages }: ImageToVideoPanelP
         isMobile={imageToVideo.isMobile}
         prompt={imageToVideo.prompt}
         onPromptChange={(newPrompt) => {
-          // This is a pass-through since we don't have direct access to setPrompt
-          if (imageToVideo.onGenerate) {
-            // We'll just update in the parent component when generating
-          }
+          // Forward prompt changes to parent
+          imageToVideo.onPromptChange?.(newPrompt);
         }}
         previewUrl={imageToVideo.previewUrl}
         onFileSelect={imageToVideo.onFileSelect}
@@ -46,14 +45,12 @@ export const ImageToVideoPanel = ({ imageToVideo, messages }: ImageToVideoPanelP
         creditsRemaining={imageToVideo.creditsRemaining}
         aspectRatio={imageToVideo.aspectRatio}
         onAspectRatioChange={(newAspectRatio) => {
-          // This is a pass-through since we don't have direct access to setAspectRatio
-          if (imageToVideo.onGenerate) {
-            // We'll just update in the parent component when generating
-          }
+          // Forward aspect ratio changes to parent
+          imageToVideo.onAspectRatioChange?.(newAspectRatio);
         }}
         messages={messages}
       />
-      {renderGenerateButton()}
+      {showGenerateButton()}
     </div>
   );
 };

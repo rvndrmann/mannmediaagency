@@ -13,7 +13,8 @@ interface ProductShotV1PanelProps {
 
 export const ProductShotV1Panel = ({ productShotV1, messages }: ProductShotV1PanelProps) => {
   const renderGenerateButton = () => {
-    if (!productShotV1.prompt || !productShotV1.previewUrl || productShotV1.isGenerating) return null;
+    // Less restrictive condition - show as long as we have a prompt
+    if (!productShotV1.prompt || productShotV1.isGenerating) return null;
     
     return (
       <GenerateButton 

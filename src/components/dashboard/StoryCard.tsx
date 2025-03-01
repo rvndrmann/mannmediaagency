@@ -36,7 +36,10 @@ export const StoryCard = ({ story }: StoryCardProps) => {
       </div>
       <div className="p-4 space-y-2">
         <div className="flex items-center justify-between">
-          <Badge variant={story.ready_to_go ? "default" : "secondary"}>
+          <Badge variant="outline" className="bg-slate-800 text-white">
+            #{story["stories id"]}
+          </Badge>
+          <Badge variant={story.ready_to_go ? "default" : "secondary"} className="ml-2">
             {story.ready_to_go ? "Ready" : "Processing"}
           </Badge>
         </div>

@@ -44,7 +44,7 @@ export const StoriesList = ({ stories, selectedStoryId, onStorySelect }: Stories
             onClick={() => onStorySelect(story["stories id"])}
           >
             <div className="flex justify-between items-start mb-2">
-              <span className="text-sm font-medium text-gray-400">
+              <span className="text-sm font-medium text-gray-200">
                 #{story["stories id"]}
               </span>
               <div className="flex items-center gap-2">

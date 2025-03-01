@@ -13,6 +13,7 @@ interface ChatSectionProps {
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   isMobile?: boolean;
+  onBack?: () => void;
 }
 
 export function ChatSection({
@@ -22,12 +23,17 @@ export function ChatSection({
   userCredits,
   onInputChange,
   onSubmit,
-  isMobile = false
+  isMobile = false,
+  onBack
 }: ChatSectionProps) {
   const navigate = useNavigate();
   
   const handleBackClick = () => {
-    navigate('/');
+    if (onBack) {
+      onBack();
+    } else {
+      navigate('/');
+    }
   };
   
   return (

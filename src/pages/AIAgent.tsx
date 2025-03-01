@@ -11,6 +11,8 @@ import { useImageToVideo } from "@/hooks/use-image-to-video";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -47,10 +49,29 @@ const AIAgent = () => {
 
   const { messages, handleSubmit } = useChatHandler(setInput);
 
+  const handleBackClick = () => {
+    navigate('/');
+  };
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
         <div className="min-h-screen bg-[#1A1F2C]">
+          {/* Back button for mobile view */}
+          {isMobile && (
+            <div className="fixed top-0 left-0 z-50 p-4">
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={handleBackClick}
+                className="text-white hover:bg-black/20"
+              >
+                <ArrowLeft className="h-4 w-4 mr-1" />
+                <span>Back</span>
+              </Button>
+            </div>
+          )}
+          
           <div className="h-screen">
             <SplitScreen
               isMobile={isMobile}
@@ -102,6 +123,7 @@ const AIAgent = () => {
               }}
               onInputChange={setInput}
               onSubmit={(e) => handleSubmit(e, input)}
+              onBack={handleBackClick}
             />
           </div>
           <Toaster />

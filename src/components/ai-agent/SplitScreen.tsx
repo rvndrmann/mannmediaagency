@@ -60,6 +60,7 @@ interface SplitScreenProps {
   imageToVideo: ImageToVideoProps;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  onBack?: () => void;
 }
 
 export const SplitScreen = ({
@@ -73,6 +74,7 @@ export const SplitScreen = ({
   imageToVideo,
   onInputChange,
   onSubmit,
+  onBack,
 }: SplitScreenProps) => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [showChat, setShowChat] = useState(false);
@@ -118,6 +120,7 @@ export const SplitScreen = ({
             onInputChange={onInputChange}
             onSubmit={onSubmit}
             isMobile={isMobile}
+            onBack={onBack}
           />
         </div>
 

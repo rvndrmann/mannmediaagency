@@ -1,73 +1,13 @@
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
 import { FeaturePanel } from "./FeaturePanel";
 import { MobileToolNav } from "./MobileToolNav";
 import { ToolSelector } from "./ToolSelector";
-import { GeneratedImage } from "@/types/product-shoot";
-import { Message } from "@/types/message";
-import { Button } from "@/components/ui/button";
-import { MessageCircle } from "lucide-react";
-
-// Import tools from MobileToolNav
-import { tools } from "./MobileToolNav";
-
-interface ProductShotV1Props {
-  isMobile: boolean;
-  prompt: string;
-  previewUrl: string | null;
-  imageSize: string;
-  inferenceSteps: number;
-  guidanceScale: number;
-  outputFormat: string;
-  productImages: any[];
-  imagesLoading: boolean;
-  creditsRemaining: number;
-  isGenerating: boolean;
-  onPromptChange: (value: string) => void;
-  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onClearFile: () => void;
-  onImageSizeChange: (value: string) => void;
-  onInferenceStepsChange: (value: number) => void;
-  onGuidanceScaleChange: (value: number) => void;
-  onOutputFormatChange: (value: string) => void;
-  onGenerate: () => void;
-  onDownload: (url: string) => void;
-}
-
-interface ImageToVideoProps {
-  isMobile: boolean;
-  previewUrl: string | null;
-  prompt: string;
-  aspectRatio: string;
-  onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-  onClearFile: () => void;
-  creditsRemaining: number;
-  isGenerating: boolean;
-  onGenerate: (prompt: string, aspectRatio: string) => void;
-  onSelectFromHistory: (jobId: string, imageUrl: string) => void;
-}
-
-interface SplitScreenProps {
-  isMobile: boolean;
-  messages: Message[];
-  input: string;
-  isLoading: boolean;
-  userCredits: any;
-  productShotV2: {
-    onSubmit: (formData: any) => Promise<void>;
-    isGenerating: boolean;
-    isSubmitting: boolean;
-    availableCredits: number;
-    generatedImages: GeneratedImage[];
-    messages: Message[];
-  };
-  productShotV1: ProductShotV1Props;
-  imageToVideo: ImageToVideoProps;
-  onInputChange: (value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-}
+import { MobileToolsGrid } from "./MobileToolsGrid";
+import { MobileAgentButton } from "./MobileAgentButton";
+import { SplitScreenProps } from "./types";
 
 export const SplitScreen = ({
   isMobile,
@@ -104,6 +44,7 @@ export const SplitScreen = ({
           isMobile ? "" : "flex h-screen"
         )}
       >
+        {/* Chat Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
@@ -127,6 +68,7 @@ export const SplitScreen = ({
           />
         </div>
 
+        {/* Feature Panel */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
@@ -149,48 +91,15 @@ export const SplitScreen = ({
           
           {/* Tools Grid for Mobile */}
           {isMobile && (
-            <div className="px-3 pt-3 pb-4">
-              <div className="grid grid-cols-2 gap-3">
-                {tools.map((tool) => (
-                  <button
-                    key={tool.id}
-                    onClick={() => handleToolSelect(tool.id)}
-                    className={cn(
-                      "flex flex-col items-center justify-center py-4 px-4 rounded-xl",
-                      "transition-all duration-300 ease-in-out",
-                      activeTool === tool.id 
-                        ? "bg-green-500 transform scale-[0.98]"
-                        : tool.bgColor + " hover:scale-[0.98]"
-                    )}
-                  >
-                    <div className="text-white mb-1.5">
-                      {tool.icon}
-                    </div>
-                    <span className="text-white font-medium text-[11px]">
-                      {tool.label}
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
+            <MobileToolsGrid 
+              activeTool={activeTool} 
+              onToolSelect={handleToolSelect}
+            />
           )}
           
-          {/* AI Agent Button for Mobile - Positioned between tools and feature panel */}
+          {/* AI Agent Button for Mobile */}
           {isMobile && (
-            <div className="flex justify-center mb-4">
-              <Button 
-                onClick={() => handleToolSelect('ai-agent')}
-                className={cn(
-                  "flex flex-col items-center justify-center",
-                  "h-16 w-16 rounded-full z-40",
-                  "transition-all duration-300 ease-in-out",
-                  "shadow-lg bg-green-500 hover:bg-green-600"
-                )}
-              >
-                <MessageCircle className="h-6 w-6 text-white mb-0.5" />
-                <span className="text-white text-[10px] font-medium">AI AGENT</span>
-              </Button>
-            </div>
+            <MobileAgentButton onToolSelect={handleToolSelect} />
           )}
           
           <FeaturePanel
@@ -212,4 +121,3 @@ export const SplitScreen = ({
     </div>
   );
 };
-

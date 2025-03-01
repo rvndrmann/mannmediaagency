@@ -2,57 +2,18 @@
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
-import { Message } from "@/types/message";
 import { ProductShotV1Panel } from "./panels/ProductShotV1Panel";
 import { ProductShotV2Panel } from "./panels/ProductShotV2Panel";
 import { ImageToVideoPanel } from "./panels/ImageToVideoPanel";
 import { FacelessVideoPanel } from "./panels/FacelessVideoPanel";
-import { GeneratedImage } from "@/types/product-shoot";
+import { ProductShotV1Props, ProductShotV2Props, ImageToVideoProps } from "./types";
+import { Message } from "@/types/message";
 
 interface FeaturePanelProps {
   messages: Message[];
-  productShotV2: {
-    onSubmit: (formData: any) => Promise<void>;
-    isGenerating: boolean;
-    isSubmitting: boolean;
-    availableCredits: number;
-    generatedImages: GeneratedImage[];
-    messages: Message[];
-  };
-  productShotV1: {
-    isMobile: boolean;
-    prompt: string;
-    previewUrl: string | null;
-    imageSize: string;
-    inferenceSteps: number;
-    guidanceScale: number;
-    outputFormat: string;
-    productImages: any[];
-    imagesLoading: boolean;
-    creditsRemaining: number;
-    isGenerating: boolean;
-    onPromptChange: (value: string) => void;
-    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onClearFile: () => void;
-    onImageSizeChange: (value: string) => void;
-    onInferenceStepsChange: (value: number) => void;
-    onGuidanceScaleChange: (value: number) => void;
-    onOutputFormatChange: (value: string) => void;
-    onGenerate: () => void;
-    onDownload: (url: string) => void;
-  };
-  imageToVideo: {
-    isMobile: boolean;
-    previewUrl: string | null;
-    prompt: string;
-    aspectRatio: string;
-    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onClearFile: () => void;
-    creditsRemaining: number;
-    isGenerating: boolean;
-    onGenerate: (prompt: string, aspectRatio: string) => void;
-    onSelectFromHistory?: (jobId: string, imageUrl: string) => void;
-  };
+  productShotV2: ProductShotV2Props;
+  productShotV1: ProductShotV1Props;
+  imageToVideo: ImageToVideoProps;
   activeTool: string;
 }
 

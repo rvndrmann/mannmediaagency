@@ -4,30 +4,10 @@ import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { GenerateButton } from "./GenerateButton";
 import { Camera } from "lucide-react";
 import { Message } from "@/types/message";
+import { ProductShotV1Props } from "../types";
 
 interface ProductShotV1PanelProps {
-  productShotV1: {
-    isMobile: boolean;
-    prompt: string;
-    previewUrl: string | null;
-    imageSize: string;
-    inferenceSteps: number;
-    guidanceScale: number;
-    outputFormat: string;
-    productImages: any[];
-    imagesLoading: boolean;
-    creditsRemaining: number;
-    isGenerating: boolean;
-    onPromptChange: (value: string) => void;
-    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onClearFile: () => void;
-    onImageSizeChange: (value: string) => void;
-    onInferenceStepsChange: (value: number) => void;
-    onGuidanceScaleChange: (value: number) => void;
-    onOutputFormatChange: (value: string) => void;
-    onGenerate: () => void;
-    onDownload: (url: string) => void;
-  };
+  productShotV1: ProductShotV1Props;
   messages: Message[];
 }
 

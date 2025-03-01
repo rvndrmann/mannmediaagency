@@ -4,11 +4,10 @@ import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { GenerateButton } from "./GenerateButton";
 import { FileText } from "lucide-react";
 import { Message } from "@/types/message";
+import { ProductShotV1Props } from "../types";
 
 interface FacelessVideoPanelProps {
-  productShotV1: {
-    creditsRemaining: number;
-  };
+  productShotV1: Pick<ProductShotV1Props, 'creditsRemaining'>;
   messages: Message[];
 }
 

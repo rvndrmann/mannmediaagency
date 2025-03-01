@@ -1,18 +1,11 @@
 
 import { ProductShotForm } from "@/components/product-shoot-v2/ProductShotForm";
 import { GeneratedImagesPanel } from "@/components/product-shoot-v2/GeneratedImagesPanel";
-import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
+import { ProductShotV2Props } from "../types";
 
 interface ProductShotV2PanelProps {
-  productShotV2: {
-    onSubmit: (formData: any) => Promise<void>;
-    isGenerating: boolean;
-    isSubmitting: boolean;
-    availableCredits: number;
-    generatedImages: GeneratedImage[];
-    messages: Message[];
-  };
+  productShotV2: ProductShotV2Props;
   messages: Message[];
 }
 

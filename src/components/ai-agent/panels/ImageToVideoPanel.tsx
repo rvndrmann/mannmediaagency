@@ -3,20 +3,10 @@ import { InputPanel as ImageToVideoInputPanel } from "@/components/image-to-vide
 import { GenerateButton } from "./GenerateButton";
 import { Video } from "lucide-react";
 import { Message } from "@/types/message";
+import { ImageToVideoProps } from "../types";
 
 interface ImageToVideoPanelProps {
-  imageToVideo: {
-    isMobile: boolean;
-    previewUrl: string | null;
-    prompt: string;
-    aspectRatio: string;
-    onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
-    onClearFile: () => void;
-    creditsRemaining: number;
-    isGenerating: boolean;
-    onGenerate: (prompt: string, aspectRatio: string) => void;
-    onSelectFromHistory?: (jobId: string, imageUrl: string) => void;
-  };
+  imageToVideo: ImageToVideoProps;
   messages: Message[];
 }
 

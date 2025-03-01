@@ -87,7 +87,7 @@ export function ChatSection({
       {/* Messages area with reduced bottom padding to make room for input */}
       <div className={cn(
         "flex-grow overflow-y-auto bg-[#1A1F2C]",
-        isMobile && "pb-16" // Reduced padding to prevent too much space
+        isMobile && "pb-[calc(16px+4rem)]" // Adjust padding to account for input and AI button
       )}>
         <ScrollArea ref={chatContainerRef} className="h-full px-4 py-2">
           <div className="flex flex-col gap-4">
@@ -144,12 +144,12 @@ export function ChatSection({
         </ScrollArea>
       </div>
 
-      {/* Input area - fixed at bottom for mobile */}
+      {/* Input area - positioned above the AI Agent button */}
       <form 
         onSubmit={onSubmit} 
         className={cn(
           "ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
-          isMobile && "fixed bottom-20 left-0 right-0 z-40" // Position above the AI Agent button
+          isMobile && "fixed bottom-[calc(4rem+4rem)] left-0 right-0 z-40" // Position above the AI Agent button (which is above nav)
         )}
       >
         <div className="relative">

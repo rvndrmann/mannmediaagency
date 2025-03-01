@@ -1,3 +1,4 @@
+
 import { ImageCard } from "@/components/dashboard/ImageCard";
 import { VideoCard } from "@/components/dashboard/VideoCard";
 import { Card } from "@/components/ui/card";
@@ -35,8 +36,19 @@ export const ExploreGrid = ({
 
     switch (contentType) {
       case "all":
-        return [...validImages, ...validVideos, ...validProductShots]
-          .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        // First add videos, then add images and product shots
+        return [...validVideos, ...validImages, ...validProductShots]
+          .sort((a, b) => {
+            // If one is a video and one is not, prioritize videos
+            const aIsVideo = 'source_image_url' in a && !('scene_description' in a);
+            const bIsVideo = 'source_image_url' in b && !('scene_description' in b);
+            
+            if (aIsVideo && !bIsVideo) return -1; // a is video, b is not, so a comes first
+            if (!aIsVideo && bIsVideo) return 1; // b is video, a is not, so b comes first
+            
+            // If both are the same type, sort by date
+            return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
+          });
       case "images":
         return validImages;
       case "videos":

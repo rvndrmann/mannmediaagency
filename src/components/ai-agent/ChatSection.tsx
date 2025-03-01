@@ -87,7 +87,7 @@ export function ChatSection({
       {/* Messages area with reduced bottom padding to make room for input */}
       <div className={cn(
         "flex-grow overflow-y-auto bg-[#1A1F2C]",
-        isMobile && "pb-[calc(16px+4rem)]" // Adjust padding to account for input and AI button
+        isMobile && "pb-[calc(16px+6rem)]" // Adjust padding to account for input and AI button
       )}>
         <ScrollArea ref={chatContainerRef} className="h-full px-4 py-2">
           <div className="flex flex-col gap-4">
@@ -149,7 +149,7 @@ export function ChatSection({
         onSubmit={onSubmit} 
         className={cn(
           "ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
-          isMobile && "fixed bottom-[calc(4rem+4rem)] left-0 right-0 z-40" // Position above the AI Agent button (which is above nav)
+          isMobile && "fixed bottom-[calc(4rem+5rem)] left-0 right-0 z-40" // Position above the AI Agent button (which is above nav)
         )}
       >
         <div className="relative">
@@ -158,16 +158,16 @@ export function ChatSection({
             placeholder="Type your message..."
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
-            className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-4 h-14"
+            className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-4 h-16"
             maxLength={350}
           />
           <Button 
             type="submit" 
             disabled={isLoading} 
             size="icon" 
-            className="absolute right-1 top-1 h-12 w-12 rounded-full bg-purple-500 hover:bg-purple-600"
+            className="absolute right-1 top-1 h-14 w-14 rounded-full bg-purple-500 hover:bg-purple-600"
           >
-            <Send className="h-5 w-5 text-white" />
+            <Send className="h-6 w-6 text-white" />
           </Button>
           <div className="text-xs text-gray-400 mt-1 text-right">
             {charCount}/350

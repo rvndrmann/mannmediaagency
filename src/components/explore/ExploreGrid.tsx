@@ -111,7 +111,7 @@ export const ExploreGrid = ({
   }
 
   return (
-    <div className="grid grid-cols-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-2 sm:gap-4 mt-4 sm:mt-6">
+    <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-1.5 sm:gap-4 mt-4 sm:mt-6 max-w-[100vw] mx-auto">
       {content.map((item: any) => {
         if ('source_image_url' in item && 'scene_description' in item) {
           const isV2 = contentType === "product-shots" ? true : 
@@ -127,27 +127,27 @@ export const ExploreGrid = ({
                   result_url: item.result_url,
                   prompt: item.scene_description
                 }} />
-                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex gap-1 sm:gap-2">
+                <div className="absolute top-1 right-1 sm:top-2 sm:right-2 flex flex-wrap gap-0.5 sm:gap-2">
                   {isV2 ? (
-                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[10px] sm:text-xs">
+                    <Badge variant="secondary" className="bg-green-500/10 text-green-500 hover:bg-green-500/20 border-0 text-[8px] sm:text-xs">
                       <Sparkles className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       V2
                     </Badge>
                   ) : (
-                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[10px] sm:text-xs">
+                    <Badge variant="secondary" className="bg-blue-500/10 text-blue-500 hover:bg-blue-500/20 border-0 text-[8px] sm:text-xs">
                       <BadgeCheck className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       V1
                     </Badge>
                   )}
                   {aspectRatio && (
-                    <Badge variant="outline" className="bg-background/80 text-[10px] sm:text-xs">
+                    <Badge variant="outline" className="bg-background/80 text-[8px] sm:text-xs">
                       <ArrowUpDown className="w-2 h-2 sm:w-3 sm:h-3 mr-0.5 sm:mr-1" />
                       {aspectRatio}
                     </Badge>
                   )}
                 </div>
               </div>
-              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
+              <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground truncate">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
@@ -156,7 +156,7 @@ export const ExploreGrid = ({
           return (
             <div key={item.id} className="space-y-1 sm:space-y-2">
               <VideoCard video={item} />
-              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
+              <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground truncate">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>
@@ -165,7 +165,7 @@ export const ExploreGrid = ({
           return (
             <div key={item.id} className="space-y-1 sm:space-y-2">
               <ImageCard image={item} />
-              <div className="px-2 sm:px-4 text-[10px] sm:text-sm text-muted-foreground">
+              <div className="px-1 sm:px-4 text-[8px] sm:text-sm text-muted-foreground truncate">
                 by {item.profiles?.username || 'Anonymous'}
               </div>
             </div>

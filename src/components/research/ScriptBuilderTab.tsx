@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { Video, AlertCircle } from "lucide-react";
+import { Video, AlertCircle, Info } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { ScriptEditor } from "@/components/video/ScriptEditor";
@@ -13,6 +13,7 @@ import { useStoryCreation } from "@/hooks/use-story-creation";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useNavigate } from "react-router-dom";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Message {
   role: "user" | "assistant";
@@ -103,6 +104,23 @@ export const ScriptBuilderTab = ({ messages }: ScriptBuilderTabProps) => {
     <div className="h-full flex flex-col">
       <ScrollArea className="flex-1 pb-32">
         <div className="p-6 space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-white">Create Video Script</h2>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <div className="flex items-center gap-1.5 text-sm text-blue-400 cursor-help">
+                    <span>10 credits</span>
+                    <Info className="w-3.5 h-3.5" />
+                  </div>
+                </TooltipTrigger>
+                <TooltipContent side="left" className="bg-gray-800 border-gray-700 text-white">
+                  <p>Creating a video costs 10 credits</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
           <ScriptEditor
             script={script}
             setScript={setScript}

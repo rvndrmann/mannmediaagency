@@ -8,6 +8,7 @@ import { TransactionHistory } from "@/components/plans/TransactionHistory";
 import { PlanCard } from "@/components/plans/PlanCard";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/hooks/use-toast";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface Transaction {
   created_at: string;
@@ -27,11 +28,24 @@ interface DiscountCode {
 const Plans = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const isMobile = useIsMobile();
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [discountCode, setDiscountCode] = useState("");
   const [activeDiscount, setActiveDiscount] = useState<DiscountCode | null>(null);
   const [isValidatingCode, setIsValidatingCode] = useState(false);
+
+  const creditCosts = [
+    {
+      title: "Credit Usage Breakdown",
+      items: [
+        { name: "Product Video", cost: "10 credits" },
+        { name: "AI Agent (1000 words)", cost: "1 credit" },
+        { name: "Product Image", cost: "0.2 credits" },
+        { name: "Image to Video", cost: "1 credit" }
+      ]
+    }
+  ];
 
   const plans = [
     {
@@ -182,9 +196,9 @@ const Plans = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-background p-6">
+    <div className="min-h-screen bg-background p-4 md:p-6">
       <div className="max-w-7xl mx-auto">
-        <div className="flex items-center mb-8">
+        <div className="flex items-center mb-6 md:mb-8">
           <Button 
             variant="ghost" 
             onClick={() => navigate("/")}
@@ -193,10 +207,10 @@ const Plans = () => {
             <ArrowLeft className="w-4 h-4 mr-2" />
             Back
           </Button>
-          <h1 className="text-2xl font-bold text-white">Choose Your Plan</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-white">Choose Your Plan</h1>
         </div>
         
-        <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-8">
+        <div className="flex items-center gap-2 bg-[#222222]/60 backdrop-blur-xl rounded-full p-1 mb-6 md:mb-8">
           <Button 
             variant="default" 
             className="rounded-full bg-[#1065b7] hover:bg-[#1065b7]/90 text-white"
@@ -205,8 +219,8 @@ const Plans = () => {
           </Button>
         </div>
 
-        <div className="mb-8">
-          <div className="flex gap-4 max-w-md">
+        <div className="mb-6 md:mb-8">
+          <div className="flex flex-col md:flex-row gap-4 max-w-md">
             <Input
               placeholder="Enter discount code"
               value={discountCode}
@@ -228,17 +242,32 @@ const Plans = () => {
           )}
         </div>
         
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-2 gap-6 mb-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 mb-8 md:mb-12">
           {plans.map((plan) => (
             <PlanCard
               key={plan.name}
               {...plan}
               price={`₹${calculateDiscountedPrice(plan.price)}`}
               originalPrice={activeDiscount ? `₹${plan.price}` : undefined}
+              creditCosts={creditCosts}
               onSubscribe={() => handleSubscribe(plan)}
             />
           ))}
         </div>
+
+        {!isMobile && (
+          <div className="mt-8 p-6 bg-[#1A1A1A]/60 rounded-xl">
+            <h2 className="text-xl font-bold text-white mb-4">Credit Usage Details</h2>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+              {creditCosts[0].items.map((item, idx) => (
+                <div key={idx} className="p-4 bg-[#222222]/60 rounded-lg">
+                  <h3 className="font-medium text-white mb-2">{item.name}</h3>
+                  <p className="text-2xl font-bold text-blue-400">{item.cost}</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <TransactionHistory 
           transactions={transactions}

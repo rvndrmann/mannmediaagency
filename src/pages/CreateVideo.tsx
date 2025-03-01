@@ -2,12 +2,13 @@
 import { useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Plus, ArrowLeft } from "lucide-react";
+import { Plus, ArrowLeft, Info } from "lucide-react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { CreateVideoDialog } from "@/components/video/CreateVideoDialog";
 import { useNavigate } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 const CreateVideo = () => {
   const [isDialogOpen, setIsDialogOpen] = useState(false);
@@ -63,9 +64,27 @@ const CreateVideo = () => {
               <Plus className="w-6 h-6 text-white" />
             </div>
             <h2 className="text-xl font-semibold text-white">Start Creating</h2>
-            <p className="text-gray-400">
-              You have {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
-            </p>
+            
+            <div className="flex flex-col items-center gap-2">
+              <p className="text-gray-400">
+                You have {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
+              </p>
+              
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <div className="flex items-center gap-1 text-sm text-blue-400 hover:text-blue-300 cursor-help">
+                      <Info className="w-3.5 h-3.5" />
+                      <span>Credit usage info</span>
+                    </div>
+                  </TooltipTrigger>
+                  <TooltipContent className="bg-gray-800 border-gray-700 text-white">
+                    <p>Each video requires 10 credits</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+            </div>
+            
             <Button 
               onClick={handleCreateVideo}
               disabled={!hasEnoughCredits}
@@ -74,6 +93,18 @@ const CreateVideo = () => {
               <Plus className="w-4 h-4 mr-2" />
               Create New Video
             </Button>
+            
+            {!hasEnoughCredits && (
+              <div className="text-sm text-amber-400">
+                <Button 
+                  variant="link" 
+                  onClick={() => navigate("/plans")}
+                  className="text-amber-400 hover:text-amber-300 p-0 h-auto font-normal underline"
+                >
+                  Get more credits
+                </Button>
+              </div>
+            )}
           </div>
         </Card>
 

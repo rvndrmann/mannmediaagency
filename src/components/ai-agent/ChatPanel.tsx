@@ -3,6 +3,8 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
+import { Info } from "lucide-react";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface Message {
   role: "user" | "assistant";
@@ -61,10 +63,22 @@ export const ChatPanel = ({
 
   return (
     <div className="flex flex-col h-full relative">
-      <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10">
+      <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10 flex items-center space-x-2">
         <span className="text-sm text-white/80">
           Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
         </span>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="cursor-help">
+                <Info className="h-3.5 w-3.5 text-blue-400" />
+              </div>
+            </TooltipTrigger>
+            <TooltipContent side="bottom" className="bg-gray-800 border-gray-700 text-white">
+              <p>AI Agent: 1 credit per 1000 words</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
       </div>
       
       <div className="flex-1 overflow-hidden">

@@ -1,6 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { Check } from "lucide-react";
 
 interface PlanProps {
   name: string;
@@ -10,6 +11,10 @@ interface PlanProps {
   originalPrice?: string;
   billing: string;
   features: string[];
+  creditCosts?: {
+    title: string;
+    items: { name: string; cost: string }[];
+  }[];
   onSubscribe: () => void;
 }
 
@@ -21,6 +26,7 @@ export const PlanCard = ({
   originalPrice,
   billing,
   features,
+  creditCosts,
   onSubscribe,
 }: PlanProps) => {
   return (
@@ -62,6 +68,24 @@ export const PlanCard = ({
             ))}
           </ul>
         </div>
+
+        {creditCosts && creditCosts.length > 0 && (
+          <div className="space-y-3 pt-2 border-t border-white/10">
+            {creditCosts.map((section, idx) => (
+              <div key={idx} className="space-y-2">
+                <p className="text-sm font-medium text-white">{section.title}:</p>
+                <ul className="space-y-1.5">
+                  {section.items.map((item, itemIdx) => (
+                    <li key={itemIdx} className="text-xs text-white/70 flex items-center justify-between">
+                      <span>{item.name}</span>
+                      <span className="font-medium text-white/80">{item.cost}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </Card>
   );

@@ -28,14 +28,14 @@ const CreateVideo = () => {
     },
   });
 
-  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 10);
-  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 10;
+  const availableVideos = Math.floor((userCredits?.credits_remaining || 0) / 20);
+  const hasEnoughCredits = (userCredits?.credits_remaining || 0) >= 20;
 
   const handleCreateVideo = () => {
     if (!hasEnoughCredits) {
       toast({
         title: "Insufficient Credits",
-        description: "You need at least 10 credits to create a video.",
+        description: "You need at least 20 credits to create a video.",
         variant: "destructive",
       });
       return;
@@ -67,7 +67,7 @@ const CreateVideo = () => {
             
             <div className="flex flex-col items-center gap-2">
               <p className="text-gray-400">
-                You have {availableVideos} videos available ({userCredits?.credits_remaining || 0} credits)
+                You have {userCredits?.credits_remaining || 0} credits available
               </p>
               
               <TooltipProvider>
@@ -79,7 +79,7 @@ const CreateVideo = () => {
                     </div>
                   </TooltipTrigger>
                   <TooltipContent className="bg-gray-800 border-gray-700 text-white">
-                    <p>Each video requires 10 credits</p>
+                    <p>Each video requires 20 credits</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>

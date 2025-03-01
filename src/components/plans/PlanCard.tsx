@@ -1,12 +1,10 @@
 
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Check } from "lucide-react";
 
 interface PlanProps {
   name: string;
   credits: string;
-  videos: string;
   price: string;
   originalPrice?: string;
   billing: string;
@@ -21,7 +19,6 @@ interface PlanProps {
 export const PlanCard = ({
   name,
   credits,
-  videos,
   price,
   originalPrice,
   billing,
@@ -35,7 +32,6 @@ export const PlanCard = ({
         <div>
           <h3 className="text-xl font-bold text-white">{name}</h3>
           <p className="text-sm text-white/70">{credits}</p>
-          <p className="text-sm text-white/70">{videos}</p>
         </div>
         
         <div>

@@ -75,7 +75,7 @@ export const ChatPanel = ({
               </div>
             </TooltipTrigger>
             <TooltipContent side="bottom" className="bg-gray-800 border-gray-700 text-white">
-              <p>AI Agent: 1 credit per 1000 words</p>
+              <p>AI Agent: 0.07 credits per message</p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>

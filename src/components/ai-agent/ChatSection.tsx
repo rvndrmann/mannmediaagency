@@ -14,6 +14,7 @@ interface ChatSectionProps {
   onSubmit: (e: React.FormEvent) => void;
   isMobile?: boolean;
   onBack?: () => void;
+  isVisible?: boolean;
 }
 
 export function ChatSection({
@@ -24,7 +25,8 @@ export function ChatSection({
   onInputChange,
   onSubmit,
   isMobile = false,
-  onBack
+  onBack,
+  isVisible = true
 }: ChatSectionProps) {
   const navigate = useNavigate();
   
@@ -68,6 +70,7 @@ export function ChatSection({
             onInputChange={onInputChange}
             onSubmit={onSubmit}
             isMobile={isMobile}
+            isVisible={isVisible}
           />
         </TabsContent>
       </Tabs>

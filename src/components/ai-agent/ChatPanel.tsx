@@ -17,6 +17,7 @@ interface ChatPanelProps {
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   isMobile?: boolean;
+  isVisible?: boolean;
 }
 
 export const ChatPanel = ({
@@ -26,7 +27,8 @@ export const ChatPanel = ({
   userCredits,
   onInputChange,
   onSubmit,
-  isMobile = false
+  isMobile = false,
+  isVisible = true
 }: ChatPanelProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -36,19 +38,26 @@ export const ChatPanel = ({
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
         const scrollHeight = scrollContainer.scrollHeight;
-        const clientHeight = scrollContainer.clientHeight;
-        
-        const isNearBottom = scrollContainer.scrollTop + clientHeight >= scrollHeight - 200;
-        if (isNearBottom) {
-          scrollContainer.scrollTop = scrollHeight;
-        }
+        scrollContainer.scrollTop = scrollHeight;
       }
     }
   };
 
+  // Scroll to bottom when messages change or when the chat becomes visible
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Force scroll to bottom when the component becomes visible
+  useEffect(() => {
+    if (isVisible) {
+      // Small delay to ensure DOM is fully rendered
+      const timer = setTimeout(() => {
+        scrollToBottom();
+      }, 100);
+      return () => clearTimeout(timer);
+    }
+  }, [isVisible]);
 
   return (
     <div className="flex flex-col h-full relative">

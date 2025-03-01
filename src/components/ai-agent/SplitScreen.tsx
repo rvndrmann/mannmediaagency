@@ -79,17 +79,28 @@ export const SplitScreen = ({
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const [isChatVisible, setIsChatVisible] = useState(false);
 
   const handleToolSelect = (tool: string) => {
     setIsTransitioning(true);
     if (tool === 'ai-agent') {
       setShowChat(true);
+      // Set chat visible after a short delay to ensure the transition has started
+      setTimeout(() => setIsChatVisible(true), 50);
     } else {
       setShowChat(false);
+      setIsChatVisible(false);
       setActiveTool(tool);
     }
     setTimeout(() => setIsTransitioning(false), 300);
   };
+
+  // Reset chat visibility when component mounts or unmounts
+  useEffect(() => {
+    return () => {
+      setIsChatVisible(false);
+    };
+  }, []);
 
   return (
     <div className="relative min-h-screen h-full bg-[#1A1F2C] pb-[4.5rem] md:pb-0">
@@ -121,6 +132,7 @@ export const SplitScreen = ({
             onSubmit={onSubmit}
             isMobile={isMobile}
             onBack={onBack}
+            isVisible={isChatVisible}
           />
         </div>
 

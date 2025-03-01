@@ -38,7 +38,7 @@ export function ChatSection({
       const handleScroll = () => {
         const isBottom =
           chatContainer.scrollHeight - chatContainer.scrollTop <=
-          chatContainer.clientHeight + 10; // Added small offset for better UX
+          chatContainer.clientHeight + 10;
         setIsScrolledToBottom(isBottom);
       };
 
@@ -49,7 +49,6 @@ export function ChatSection({
 
   useEffect(() => {
     if (isScrolledToBottom) {
-      // Scroll to bottom for both mobile and desktop
       chatContainerRef.current?.scrollTo({
         top: chatContainerRef.current.scrollHeight,
         behavior: "smooth",
@@ -57,7 +56,6 @@ export function ChatSection({
     }
   }, [messages, isScrolledToBottom]);
 
-  // Focus input when chat becomes visible on mobile
   useEffect(() => {
     if (isMobile && inputRef.current) {
       const timeoutId = setTimeout(() => {
@@ -67,7 +65,6 @@ export function ChatSection({
     }
   }, [isMobile]);
 
-  // Update character count
   useEffect(() => {
     setCharCount(input.length);
   }, [input]);
@@ -80,14 +77,14 @@ export function ChatSection({
       </div>
 
       {/* Credits display */}
-      <div className="absolute top-4 right-4 bg-purple-500/70 px-3 py-1 rounded-lg text-white text-sm z-10">
+      <div className="absolute top-4 right-4 bg-purple-500/70 px-3 py-1 rounded-full text-white text-sm z-10">
         Credits: {userCredits?.credits_remaining?.toFixed(2) || "0.00"}
       </div>
 
-      {/* Messages area with reduced bottom padding to make room for input */}
+      {/* Messages area */}
       <div className={cn(
         "flex-grow overflow-y-auto bg-[#1A1F2C]",
-        isMobile && "pb-[calc(16px+16rem)]" // Increased padding to account for tools, nav, AI button and input
+        isMobile && "pb-36" // Reduced padding to see more messages
       )}>
         <ScrollArea ref={chatContainerRef} className="h-full px-4 py-2">
           <div className="flex flex-col gap-4">
@@ -112,7 +109,7 @@ export function ChatSection({
                   className={cn(
                     "rounded-2xl p-3 break-words",
                     message.role === "assistant" 
-                      ? "bg-gray-700 text-white" 
+                      ? "bg-gray-800 text-white" 
                       : "bg-purple-500 text-white ml-auto"
                   )}
                 >
@@ -135,7 +132,7 @@ export function ChatSection({
                   <AvatarImage src="/ai-logo.png" alt="ai" />
                   <AvatarFallback className="bg-gray-700 text-white text-xs">AI</AvatarFallback>
                 </Avatar>
-                <div className="bg-gray-700 text-white rounded-2xl p-3">
+                <div className="bg-gray-800 text-white rounded-2xl p-3">
                   Thinking...
                 </div>
               </div>
@@ -149,7 +146,7 @@ export function ChatSection({
         onSubmit={onSubmit} 
         className={cn(
           "ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
-          isMobile && "fixed bottom-[calc(16rem)] left-0 right-0 z-40" // Position above the AI Agent button (which is above all other components)
+          isMobile && "fixed bottom-[calc(4rem+8rem+2rem)] left-0 right-0 z-40" // Position correctly above the AI Agent button
         )}
       >
         <div className="relative">
@@ -158,18 +155,18 @@ export function ChatSection({
             placeholder="Type your message..."
             value={input}
             onChange={(e) => onInputChange(e.target.value)}
-            className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-4 h-16"
+            className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-5 h-14"
             maxLength={350}
           />
           <Button 
             type="submit" 
             disabled={isLoading} 
             size="icon" 
-            className="absolute right-1 top-1 h-14 w-14 rounded-full bg-purple-500 hover:bg-purple-600"
+            className="absolute right-1 top-1 h-12 w-12 rounded-full bg-purple-500 hover:bg-purple-600"
           >
-            <Send className="h-6 w-6 text-white" />
+            <Send className="h-5 w-5 text-white" />
           </Button>
-          <div className="text-xs text-gray-400 mt-1 text-right">
+          <div className="text-xs text-gray-400 mt-1.5 text-right pr-2">
             {charCount}/350
           </div>
         </div>

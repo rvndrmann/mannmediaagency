@@ -87,7 +87,7 @@ export function ChatSection({
       {/* Messages area with reduced bottom padding to make room for input */}
       <div className={cn(
         "flex-grow overflow-y-auto bg-[#1A1F2C]",
-        isMobile && "pb-[calc(16px+6rem)]" // Adjust padding to account for input and AI button
+        isMobile && "pb-[calc(16px+16rem)]" // Increased padding to account for tools, nav, AI button and input
       )}>
         <ScrollArea ref={chatContainerRef} className="h-full px-4 py-2">
           <div className="flex flex-col gap-4">
@@ -149,7 +149,7 @@ export function ChatSection({
         onSubmit={onSubmit} 
         className={cn(
           "ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
-          isMobile && "fixed bottom-[calc(4rem+5rem)] left-0 right-0 z-40" // Position above the AI Agent button (which is above nav)
+          isMobile && "fixed bottom-[calc(16rem)] left-0 right-0 z-40" // Position above the AI Agent button (which is above all other components)
         )}
       >
         <div className="relative">

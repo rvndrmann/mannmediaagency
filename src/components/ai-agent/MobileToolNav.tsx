@@ -50,10 +50,55 @@ interface MobileToolNavProps {
 export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) {
   const navigate = useNavigate();
 
+  // Main navigation items from BottomNav
+  const mainNavItems = [
+    {
+      id: "ai-agent",
+      label: "AI Agent",
+      icon: <MessageCircle className="h-5 w-5" />,
+    },
+    {
+      id: "explore",
+      label: "Explore",
+      icon: <Camera className="h-5 w-5" />,
+    },
+    {
+      id: "dashboard",
+      label: "Dashboard",
+      icon: <FileText className="h-5 w-5" />,
+    },
+    {
+      id: "settings",
+      label: "Settings",
+      icon: <FileText className="h-5 w-5" />,
+    }
+  ];
+
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C]/95 backdrop-blur supports-[backdrop-filter]:bg-[#1A1F2C]/60 border-t border-white/10 shadow-lg">
-      {/* Main grid with 2x2 layout at the bottom */}
-      <nav className="grid grid-cols-2 gap-3 p-3">
+      {/* Main navigation at the very bottom */}
+      <nav className="grid grid-cols-4 border-t border-white/10 py-2 px-2">
+        {mainNavItems.map((item) => (
+          <button
+            key={item.id}
+            onClick={() => navigate(`/${item.id === 'ai-agent' ? 'ai-agent' : item.id}`)}
+            className={cn(
+              "flex flex-col items-center justify-center py-1.5 px-2",
+              "transition-all duration-300 ease-in-out",
+            )}
+          >
+            <div className="text-white mb-1">
+              {item.icon}
+            </div>
+            <span className="text-white font-medium text-[10px]">
+              {item.label}
+            </span>
+          </button>
+        ))}
+      </nav>
+      
+      {/* AI Tools grid positioned above main nav */}
+      <nav className="grid grid-cols-2 gap-3 p-3 border-t border-white/10">
         {tools.map((tool) => (
           <button
             key={tool.id}
@@ -76,7 +121,7 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
         ))}
       </nav>
       
-      {/* AI Agent button positioned above the main navigation */}
+      {/* AI Agent button positioned above the tool grid */}
       <button
         onClick={() => onToolSelect('ai-agent')}
         className={cn(

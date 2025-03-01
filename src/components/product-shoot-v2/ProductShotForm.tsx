@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -20,7 +19,7 @@ import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIRespons
 import { Message } from "@/types/message";
 
 export interface ProductShotFormProps {
-  onSubmit: (formData: any) => Promise<void>;
+  onSubmit: (formData: any) => Promise<void> | void;
   isGenerating: boolean;
   isSubmitting: boolean;
   availableCredits: number | undefined;

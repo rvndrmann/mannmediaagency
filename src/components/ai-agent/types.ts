@@ -1,4 +1,3 @@
-
 import { Message } from "@/types/message";
 import { GeneratedImage } from "@/types/product-shoot";
 

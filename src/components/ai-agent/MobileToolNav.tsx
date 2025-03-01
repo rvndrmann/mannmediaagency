@@ -74,14 +74,14 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
       id: "settings",
       label: "Settings",
       icon: <Settings className="h-5 w-5" />,
-      route: "/profile"
+      route: "/settings"
     }
   ];
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C] border-t border-white/10 shadow-lg">
       {/* Main navigation at the very bottom */}
-      <nav className="grid grid-cols-4 py-3 px-3 border-t border-white/10">
+      <nav className="grid grid-cols-4 py-3 px-3">
         {mainNavItems.map((item) => (
           <button
             key={item.id}
@@ -105,13 +105,13 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
       </nav>
       
       {/* AI Tools grid positioned above main nav */}
-      <nav className="grid grid-cols-2 gap-3 p-3 pb-4">
+      <nav className="grid grid-cols-2 gap-3 p-3 pb-4 border-t border-white/10">
         {tools.map((tool) => (
           <button
             key={tool.id}
             onClick={() => onToolSelect(tool.id)}
             className={cn(
-              "flex flex-col items-center justify-center py-3 px-4 rounded-xl",
+              "flex flex-col items-center justify-center py-4 px-4 rounded-xl",
               "transition-all duration-300 ease-in-out",
               activeTool === tool.id 
                 ? "bg-green-500 transform scale-[0.98]"
@@ -127,24 +127,6 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
           </button>
         ))}
       </nav>
-      
-      {/* AI Agent button positioned above the tool grid */}
-      <button
-        onClick={() => onToolSelect('ai-agent')}
-        className={cn(
-          "absolute left-1/2 -top-10 -translate-x-1/2 transform",
-          "flex flex-col items-center justify-center",
-          "h-16 w-16 rounded-full",
-          "transition-all duration-300 ease-in-out",
-          "shadow-lg",
-          activeTool === 'ai-agent'
-            ? "bg-green-500 scale-[0.98]"
-            : "bg-green-500 hover:bg-green-600 hover:scale-[0.98]"
-        )}
-      >
-        <MessageCircle className="h-6 w-6 text-white mb-0.5" />
-        <span className="text-white text-[10px] font-medium">AI AGENT</span>
-      </button>
     </div>
   );
 }

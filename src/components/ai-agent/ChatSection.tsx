@@ -2,9 +2,9 @@
 import { useState, useRef, useEffect } from "react";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send } from "lucide-react";
+import { Send, MessageCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useUserCredits } from "@/hooks/use-user-credits";
 
@@ -28,7 +28,7 @@ export function ChatSection({
   isMobile,
 }: ChatSectionProps) {
   const chatContainerRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLInputElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const [isScrolledToBottom, setIsScrolledToBottom] = useState(true);
   const [charCount, setCharCount] = useState(0);
 
@@ -141,36 +141,55 @@ export function ChatSection({
         </ScrollArea>
       </div>
 
-      {/* Input area - positioned above the AI Agent button */}
-      <form 
-        onSubmit={onSubmit} 
-        className={cn(
-          "ai-chat-form px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
-          isMobile && "fixed bottom-[calc(4rem+8rem+2rem)] left-0 right-0 z-40" // Position correctly above the AI Agent button
-        )}
-      >
-        <div className="relative">
-          <Input
-            ref={inputRef}
-            placeholder="Type your message..."
-            value={input}
-            onChange={(e) => onInputChange(e.target.value)}
-            className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-5 h-14"
-            maxLength={350}
-          />
+      {/* Input area with AI Agent button */}
+      <div className="relative">
+        {/* AI Agent button placed above the input area */}
+        <div className="flex justify-center">
           <Button 
-            type="submit" 
-            disabled={isLoading} 
-            size="icon" 
-            className="absolute right-1 top-1 h-12 w-12 rounded-full bg-purple-500 hover:bg-purple-600"
+            onClick={() => onSubmit(new Event('submit') as unknown as React.FormEvent)}
+            className={cn(
+              "absolute -top-10 flex flex-col items-center justify-center",
+              "h-16 w-16 rounded-full z-40",
+              "transition-all duration-300 ease-in-out",
+              "shadow-lg bg-green-500 hover:bg-green-600"
+            )}
           >
-            <Send className="h-5 w-5 text-white" />
+            <MessageCircle className="h-6 w-6 text-white mb-0.5" />
+            <span className="text-white text-[10px] font-medium">AI AGENT</span>
           </Button>
-          <div className="text-xs text-gray-400 mt-1.5 text-right pr-2">
-            {charCount}/350
-          </div>
         </div>
-      </form>
+
+        <form 
+          onSubmit={onSubmit} 
+          className={cn(
+            "px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
+            isMobile && "fixed bottom-[calc(4rem+8rem+2rem)] left-0 right-0 z-30 w-full"
+          )}
+        >
+          <div className="relative">
+            <Textarea
+              ref={inputRef}
+              placeholder="Type your message..."
+              value={input}
+              onChange={(e) => onInputChange(e.target.value)}
+              className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-5 py-3 min-h-[80px] resize-none"
+              maxLength={350}
+              rows={3}
+            />
+            <Button 
+              type="submit" 
+              disabled={isLoading} 
+              size="icon" 
+              className="absolute right-1 top-[calc(50%-24px)] h-12 w-12 rounded-full bg-purple-500 hover:bg-purple-600"
+            >
+              <Send className="h-5 w-5 text-white" />
+            </Button>
+            <div className="text-xs text-gray-400 mt-1.5 text-right pr-2">
+              {charCount}/350
+            </div>
+          </div>
+        </form>
+      </div>
     </div>
   );
-};
+}

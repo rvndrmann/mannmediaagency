@@ -4,9 +4,8 @@ import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Send, MessageCircle } from "lucide-react";
+import { Send } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useUserCredits } from "@/hooks/use-user-credits";
 
 interface ChatSectionProps {
   messages: { role: "user" | "assistant"; content: string }[];
@@ -82,10 +81,7 @@ export function ChatSection({
       </div>
 
       {/* Messages area */}
-      <div className={cn(
-        "flex-grow overflow-y-auto bg-[#1A1F2C]",
-        isMobile && "pb-36" // Reduced padding to see more messages
-      )}>
+      <div className="flex-grow overflow-y-auto bg-[#1A1F2C]">
         <ScrollArea ref={chatContainerRef} className="h-full px-4 py-2">
           <div className="flex flex-col gap-4">
             {messages.map((message, index) => (
@@ -141,55 +137,34 @@ export function ChatSection({
         </ScrollArea>
       </div>
 
-      {/* Input area with AI Agent button */}
-      <div className="relative">
-        {/* AI Agent button placed above the input area */}
-        <div className="flex justify-center">
+      {/* Input area */}
+      <form 
+        onSubmit={onSubmit} 
+        className="px-4 py-4 border-t border-white/10 bg-[#1A1F2C]"
+      >
+        <div className="relative">
+          <Textarea
+            ref={inputRef}
+            placeholder="Type your message..."
+            value={input}
+            onChange={(e) => onInputChange(e.target.value)}
+            className="bg-[#262938] border-white/10 text-white rounded-lg pr-16 pl-5 py-3 min-h-[100px] resize-none"
+            maxLength={350}
+            rows={3}
+          />
           <Button 
-            onClick={() => onSubmit(new Event('submit') as unknown as React.FormEvent)}
-            className={cn(
-              "absolute -top-10 flex flex-col items-center justify-center",
-              "h-16 w-16 rounded-full z-40",
-              "transition-all duration-300 ease-in-out",
-              "shadow-lg bg-green-500 hover:bg-green-600"
-            )}
+            type="submit" 
+            disabled={isLoading} 
+            size="icon" 
+            className="absolute right-2 bottom-3 h-10 w-10 rounded-full bg-purple-500 hover:bg-purple-600"
           >
-            <MessageCircle className="h-6 w-6 text-white mb-0.5" />
-            <span className="text-white text-[10px] font-medium">AI AGENT</span>
+            <Send className="h-5 w-5 text-white" />
           </Button>
-        </div>
-
-        <form 
-          onSubmit={onSubmit} 
-          className={cn(
-            "px-4 py-4 border-t border-white/10 bg-[#1A1F2C]",
-            isMobile && "fixed bottom-[calc(4rem+8rem+2rem)] left-0 right-0 z-30 w-full"
-          )}
-        >
-          <div className="relative">
-            <Textarea
-              ref={inputRef}
-              placeholder="Type your message..."
-              value={input}
-              onChange={(e) => onInputChange(e.target.value)}
-              className="bg-[#262938] border-white/10 text-white rounded-full pr-16 pl-5 py-3 min-h-[80px] resize-none"
-              maxLength={350}
-              rows={3}
-            />
-            <Button 
-              type="submit" 
-              disabled={isLoading} 
-              size="icon" 
-              className="absolute right-1 top-[calc(50%-24px)] h-12 w-12 rounded-full bg-purple-500 hover:bg-purple-600"
-            >
-              <Send className="h-5 w-5 text-white" />
-            </Button>
-            <div className="text-xs text-gray-400 mt-1.5 text-right pr-2">
-              {charCount}/350
-            </div>
+          <div className="text-xs text-gray-400 mt-2 text-right pr-2">
+            {charCount}/350
           </div>
-        </form>
-      </div>
+        </div>
+      </form>
     </div>
   );
 }

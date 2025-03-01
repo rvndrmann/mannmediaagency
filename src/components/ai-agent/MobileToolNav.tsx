@@ -79,9 +79,9 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
   ];
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-50 bg-[#1A1F2C] border-t border-white/10 shadow-lg">
+    <div className="fixed bottom-0 left-0 right-0 z-50">
       {/* Main navigation at the very bottom */}
-      <nav className="grid grid-cols-4 py-3 px-3">
+      <nav className="grid grid-cols-4 py-3 px-3 bg-[#1A1F2C] border-t border-white/10 shadow-lg">
         {mainNavItems.map((item) => (
           <button
             key={item.id}
@@ -99,30 +99,6 @@ export function MobileToolNav({ activeTool, onToolSelect }: MobileToolNavProps) 
             </div>
             <span className="text-[10px] font-medium">
               {item.label}
-            </span>
-          </button>
-        ))}
-      </nav>
-      
-      {/* AI Tools grid positioned above main nav */}
-      <nav className="grid grid-cols-2 gap-3 p-3 pb-4 border-t border-white/10">
-        {tools.map((tool) => (
-          <button
-            key={tool.id}
-            onClick={() => onToolSelect(tool.id)}
-            className={cn(
-              "flex flex-col items-center justify-center py-4 px-4 rounded-xl",
-              "transition-all duration-300 ease-in-out",
-              activeTool === tool.id 
-                ? "bg-green-500 transform scale-[0.98]"
-                : tool.bgColor + " hover:scale-[0.98]"
-            )}
-          >
-            <div className="text-white mb-1.5">
-              {tool.icon}
-            </div>
-            <span className="text-white font-medium text-[11px]">
-              {tool.label}
             </span>
           </button>
         ))}

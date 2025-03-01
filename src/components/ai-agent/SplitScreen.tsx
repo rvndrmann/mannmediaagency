@@ -7,6 +7,8 @@ import { MobileToolNav } from "./MobileToolNav";
 import { ToolSelector } from "./ToolSelector";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
+import { Button } from "@/components/ui/button";
+import { MessageCircle } from "lucide-react";
 
 interface ProductShotV1Props {
   isMobile: boolean;
@@ -91,16 +93,6 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
-  // Add padding to main content when on mobile to account for fixed bottom nav
-  useEffect(() => {
-    if (isMobile) {
-      document.body.classList.add('pb-[calc(4rem+10rem)]'); // Main nav + Tools grid + spacing
-      return () => {
-        document.body.classList.remove('pb-[calc(4rem+10rem)]');
-      };
-    }
-  }, [isMobile]);
-
   return (
     <div className="relative min-h-screen h-full bg-[#1A1F2C]">
       <div 
@@ -114,7 +106,7 @@ export const SplitScreen = ({
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
             isMobile ? (
               showChat 
-                ? "fixed inset-0 z-50 animate-in fade-in slide-in pb-[calc(4rem+10rem+10rem)]" 
+                ? "fixed inset-0 z-50 animate-in fade-in slide-in" 
                 : "hidden"
             ) : (
               "relative w-[50%] border-r border-white/10 overflow-hidden"
@@ -139,7 +131,7 @@ export const SplitScreen = ({
               showChat 
                 ? "hidden" 
                 : cn(
-                    "pb-[calc(4rem+10rem)]", // Main nav + Tools grid + spacing
+                    "pb-32", // Space for bottom navigation
                     isTransitioning ? "opacity-0 scale-95" : "opacity-100 scale-100"
                   )
             ) : "flex-1 overflow-hidden"
@@ -150,6 +142,52 @@ export const SplitScreen = ({
               activeTool={activeTool}
               onToolSelect={setActiveTool}
             />
+          )}
+          
+          {/* Tools Grid for Mobile */}
+          {isMobile && (
+            <div className="px-3 pt-3 pb-4">
+              <div className="grid grid-cols-2 gap-3">
+                {tools.map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={() => onToolSelect(tool.id)}
+                    className={cn(
+                      "flex flex-col items-center justify-center py-4 px-4 rounded-xl",
+                      "transition-all duration-300 ease-in-out",
+                      activeTool === tool.id 
+                        ? "bg-green-500 transform scale-[0.98]"
+                        : tool.bgColor + " hover:scale-[0.98]"
+                    )}
+                  >
+                    <div className="text-white mb-1.5">
+                      {tool.icon}
+                    </div>
+                    <span className="text-white font-medium text-[11px]">
+                      {tool.label}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+          
+          {/* AI Agent Button for Mobile - Positioned between tools and feature panel */}
+          {isMobile && (
+            <div className="flex justify-center mb-4">
+              <Button 
+                onClick={() => handleToolSelect('ai-agent')}
+                className={cn(
+                  "flex flex-col items-center justify-center",
+                  "h-16 w-16 rounded-full z-40",
+                  "transition-all duration-300 ease-in-out",
+                  "shadow-lg bg-green-500 hover:bg-green-600"
+                )}
+              >
+                <MessageCircle className="h-6 w-6 text-white mb-0.5" />
+                <span className="text-white text-[10px] font-medium">AI AGENT</span>
+              </Button>
+            </div>
           )}
           
           <FeaturePanel

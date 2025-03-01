@@ -10,6 +10,9 @@ import { Message } from "@/types/message";
 import { Button } from "@/components/ui/button";
 import { MessageCircle } from "lucide-react";
 
+// Import tools from MobileToolNav
+import { tools } from "./MobileToolNav";
+
 interface ProductShotV1Props {
   isMobile: boolean;
   prompt: string;
@@ -151,7 +154,7 @@ export const SplitScreen = ({
                 {tools.map((tool) => (
                   <button
                     key={tool.id}
-                    onClick={() => onToolSelect(tool.id)}
+                    onClick={() => handleToolSelect(tool.id)}
                     className={cn(
                       "flex flex-col items-center justify-center py-4 px-4 rounded-xl",
                       "transition-all duration-300 ease-in-out",
@@ -209,3 +212,4 @@ export const SplitScreen = ({
     </div>
   );
 };
+

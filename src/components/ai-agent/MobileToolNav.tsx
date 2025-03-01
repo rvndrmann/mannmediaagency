@@ -11,7 +11,8 @@ interface ToolButton {
   creditCost: number;
 }
 
-const tools: ToolButton[] = [
+// Export the tools array so it can be imported in other components
+export const tools: ToolButton[] = [
   {
     id: "product-shot-v1",
     label: "Shot V1",

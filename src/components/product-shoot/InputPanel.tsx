@@ -79,7 +79,7 @@ export const InputPanel = ({
             min={1}
             max={20}
             onChange={onInferenceStepsChange}
-            description="Higher values produce more detailed results but take longer"
+            description="Higher values = more detailed results"
           />
 
           <RangeSlider
@@ -89,7 +89,7 @@ export const InputPanel = ({
             max={7}
             step={0.1}
             onChange={onGuidanceScaleChange}
-            description="Controls how closely the result follows your prompt"
+            description="Controls prompt adherence"
           />
 
           <OutputFormatSelector

@@ -40,7 +40,7 @@ export const GenerateButton = ({
           Generating...
         </>
       ) : (
-        `Generate Image (0.2 credits) - ${imageSize}`
+        `Generate Image (0.2 credits) - ${imageSize || 'unknown size'}`
       )}
     </Button>
   );

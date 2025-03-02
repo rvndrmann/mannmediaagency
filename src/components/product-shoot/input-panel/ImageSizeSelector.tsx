@@ -21,16 +21,13 @@ export const ImageSizeSelector = ({
 }: ImageSizeSelectorProps) => {
   // Define the image size options with exact values matching the ImageSize type
   const imageSizeOptions = [
-    { value: "square_hd", label: "Square HD (1:1)" },
-    { value: "square", label: "Square (1:1)" },
-    { value: "portrait_4_3", label: "Portrait 4:3" },
-    { value: "portrait_16_9", label: "Portrait 16:9" },
-    { value: "landscape_4_3", label: "Landscape 4:3" },
-    { value: "landscape_16_9", label: "Landscape 16:9" },
+    { value: "square_hd", label: "square_hd" },
+    { value: "square", label: "square" },
+    { value: "portrait_4_3", label: "portrait_4_3" },
+    { value: "portrait_16_9", label: "portrait_16_9" },
+    { value: "landscape_4_3", label: "landscape_4_3" },
+    { value: "landscape_16_9", label: "landscape_16_9" },
   ];
-
-  // Find the currently selected image size label
-  const selectedSizeLabel = imageSizeOptions.find(option => option.value === imageSize)?.label || '';
   
   // Log current imageSize on component mount and updates
   useEffect(() => {
@@ -54,7 +51,7 @@ export const ImageSizeSelector = ({
 
   return (
     <div>
-      <Label htmlFor="imageSize" className="text-white">Image Size: <span className="text-purple-400">{selectedSizeLabel}</span></Label>
+      <Label htmlFor="imageSize" className="text-white">Image Size: <span className="text-purple-400">{imageSize}</span></Label>
       <div className="relative">
         <Select 
           value={imageSize} 

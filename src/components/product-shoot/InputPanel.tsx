@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -120,29 +121,43 @@ export const InputPanel = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-white">Inference Steps</Label>
-            <input
-              type="range"
-              min="1"
-              max="20"
-              value={inferenceSteps}
-              onChange={(e) => onInferenceStepsChange(Number(e.target.value))}
-              className="w-full accent-purple-500"
-            />
+            <Label className="text-sm font-medium text-white">
+              Inference Steps: <span className="text-purple-400">{inferenceSteps}</span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min="1"
+                max="20"
+                value={inferenceSteps}
+                onChange={(e) => onInferenceStepsChange(Number(e.target.value))}
+                className="w-full accent-purple-500"
+              />
+              <span className="text-sm font-medium text-white min-w-[30px] text-center">
+                {inferenceSteps}
+              </span>
+            </div>
             <p className="text-xs text-white/60">Higher values produce more detailed results but take longer</p>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-white">Guidance Scale</Label>
-            <input
-              type="range"
-              min="1"
-              max="7"
-              step="0.1"
-              value={guidanceScale}
-              onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
-              className="w-full accent-purple-500"
-            />
+            <Label className="text-sm font-medium text-white">
+              Guidance Scale: <span className="text-purple-400">{guidanceScale.toFixed(1)}</span>
+            </Label>
+            <div className="flex items-center gap-2">
+              <input
+                type="range"
+                min="1"
+                max="7"
+                step="0.1"
+                value={guidanceScale}
+                onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
+                className="w-full accent-purple-500"
+              />
+              <span className="text-sm font-medium text-white min-w-[30px] text-center">
+                {guidanceScale.toFixed(1)}
+              </span>
+            </div>
             <p className="text-xs text-white/60">Controls how closely the result follows your prompt</p>
           </div>
 

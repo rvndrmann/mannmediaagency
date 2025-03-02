@@ -4,7 +4,7 @@ import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
-import { useProductShotV1 } from "@/hooks/use-product-shot-v1";
+import { useProductShotV1, ImageSize } from "@/hooks/use-product-shot-v1";
 import { useUserCredits } from "@/hooks/use-user-credits";
 import { useChatHandler } from "@/hooks/use-chat-handler";
 import { useImageToVideo } from "@/hooks/use-image-to-video";
@@ -108,7 +108,8 @@ const AIAgent = () => {
                 onGenerate: productShotActions.handleGenerate,
                 onDownload: (url: string) => {
                   window.open(url, '_blank');
-                }
+                },
+                messages
               }}
               imageToVideo={{
                 isMobile,

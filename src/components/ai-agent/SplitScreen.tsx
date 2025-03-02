@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -7,12 +6,13 @@ import { MobileToolNav } from "./MobileToolNav";
 import { ToolSelector } from "./ToolSelector";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
+import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 interface ProductShotV1Props {
   isMobile: boolean;
   prompt: string;
   previewUrl: string | null;
-  imageSize: string;
+  imageSize: ImageSize;
   inferenceSteps: number;
   guidanceScale: number;
   outputFormat: string;
@@ -23,12 +23,13 @@ interface ProductShotV1Props {
   onPromptChange: (value: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
-  onImageSizeChange: (value: string) => void;
+  onImageSizeChange: (value: ImageSize) => void;
   onInferenceStepsChange: (value: number) => void;
   onGuidanceScaleChange: (value: number) => void;
   onOutputFormatChange: (value: string) => void;
   onGenerate: () => void;
   onDownload: (url: string) => void;
+  messages: Message[];
 }
 
 interface ImageToVideoProps {

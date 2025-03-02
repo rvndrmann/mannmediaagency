@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,12 +12,13 @@ import {
 } from "@/components/ui/select";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 import { Message } from "@/types/message";
+import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 interface InputPanelProps {
   isMobile: boolean;
   prompt: string;
   previewUrl: string | null;
-  imageSize: string;
+  imageSize: ImageSize;
   inferenceSteps: number;
   guidanceScale: number;
   outputFormat: string;
@@ -27,7 +27,7 @@ interface InputPanelProps {
   onPromptChange: (value: string) => void;
   onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
   onClearFile: () => void;
-  onImageSizeChange: (value: string) => void;
+  onImageSizeChange: (value: ImageSize) => void;
   onInferenceStepsChange: (value: number) => void;
   onGuidanceScaleChange: (value: number) => void;
   onOutputFormatChange: (value: string) => void;
@@ -106,7 +106,10 @@ export const InputPanel = ({
         <div className="space-y-4">
           <div>
             <Label htmlFor="imageSize" className="text-white">Image Size</Label>
-            <Select value={imageSize} onValueChange={onImageSizeChange}>
+            <Select 
+              value={imageSize} 
+              onValueChange={(value) => onImageSizeChange(value as ImageSize)}
+            >
               <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select size" />
               </SelectTrigger>

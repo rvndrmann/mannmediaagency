@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";

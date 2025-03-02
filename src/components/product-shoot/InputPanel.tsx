@@ -115,9 +115,9 @@ export const InputPanel = ({
               <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select size" />
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white">
                 {imageSizeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value}>
+                  <SelectItem key={option.value} value={option.value} className="text-white hover:bg-gray-800">
                     {option.label}
                   </SelectItem>
                 ))}
@@ -169,12 +169,12 @@ export const InputPanel = ({
           <div className="space-y-2">
             <Label className="text-sm font-medium text-white">Output Format</Label>
             <Select value={outputFormat} onValueChange={onOutputFormatChange}>
-              <SelectTrigger className="bg-white/5 border-white/10 text-white">
+              <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
-              <SelectContent className="bg-[#1A1F2C] border-white/10">
-                <SelectItem value="png" className="text-white">PNG</SelectItem>
-                <SelectItem value="jpg" className="text-white">JPG</SelectItem>
+              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white">
+                <SelectItem value="png" className="text-white hover:bg-gray-800">PNG</SelectItem>
+                <SelectItem value="jpg" className="text-white hover:bg-gray-800">JPG</SelectItem>
               </SelectContent>
             </Select>
           </div>

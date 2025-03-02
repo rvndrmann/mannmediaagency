@@ -68,6 +68,22 @@ export const InputPanel = ({
 
   // Find the currently selected image size label
   const selectedSizeLabel = imageSizeOptions.find(option => option.value === imageSize)?.label || '';
+  
+  console.log("Current imageSize value:", imageSize); // Debug: log the current value
+
+  // Handle image size change with validation
+  const handleImageSizeChange = (value: string) => {
+    console.log("Changing imageSize to:", value); // Debug: log the new value
+    
+    // Validate that the value is a valid ImageSize enum value
+    const isValidSize = imageSizeOptions.some(option => option.value === value);
+    
+    if (isValidSize) {
+      onImageSizeChange(value as ImageSize);
+    } else {
+      console.error("Invalid imageSize value:", value);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -111,21 +127,32 @@ export const InputPanel = ({
         <div className="space-y-4">
           <div>
             <Label htmlFor="imageSize" className="text-white">Image Size: <span className="text-purple-400">{selectedSizeLabel}</span></Label>
-            <Select 
-              value={imageSize} 
-              onValueChange={(value) => onImageSizeChange(value as ImageSize)}
-            >
-              <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
-                <SelectValue placeholder="Select size" />
-              </SelectTrigger>
-              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white max-h-[200px] overflow-y-auto z-50">
-                {imageSizeOptions.map((option) => (
-                  <SelectItem key={option.value} value={option.value} className="text-white hover:bg-gray-800">
-                    {option.label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="relative">
+              <Select 
+                defaultValue={imageSize}
+                value={imageSize} 
+                onValueChange={handleImageSizeChange}
+              >
+                <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
+                  <SelectValue placeholder="Select size" />
+                </SelectTrigger>
+                <SelectContent 
+                  position="popper" 
+                  className="bg-[#1A1F2C] border-gray-700 text-white max-h-[200px] overflow-y-auto z-[100]"
+                  sideOffset={4}
+                >
+                  {imageSizeOptions.map((option) => (
+                    <SelectItem 
+                      key={option.value} 
+                      value={option.value} 
+                      className="text-white hover:bg-gray-800 cursor-pointer"
+                    >
+                      {option.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -175,9 +202,9 @@ export const InputPanel = ({
               <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select format" />
               </SelectTrigger>
-              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white">
-                <SelectItem value="png" className="text-white hover:bg-gray-800">PNG</SelectItem>
-                <SelectItem value="jpg" className="text-white hover:bg-gray-800">JPG</SelectItem>
+              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white z-[100]">
+                <SelectItem value="png" className="text-white hover:bg-gray-800 cursor-pointer">PNG</SelectItem>
+                <SelectItem value="jpg" className="text-white hover:bg-gray-800 cursor-pointer">JPG</SelectItem>
               </SelectContent>
             </Select>
           </div>

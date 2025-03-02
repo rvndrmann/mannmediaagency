@@ -19,11 +19,14 @@ export const ImageSizeSelector = ({
   imageSize, 
   onImageSizeChange 
 }: ImageSizeSelectorProps) => {
-  // Define the image size options with simplified HD options only
+  // Define the complete set of image size options matching the ImageSize type
   const imageSizeOptions = [
-    { value: "square_hd", label: "Square HD" },
-    { value: "portrait_16_9", label: "Portrait HD" },
-    { value: "landscape_16_9", label: "Landscape HD" },
+    { value: "square_hd", label: "square_hd" },
+    { value: "square", label: "square" },
+    { value: "portrait_4_3", label: "portrait_4_3" },
+    { value: "portrait_16_9", label: "portrait_16_9" },
+    { value: "landscape_4_3", label: "landscape_4_3" },
+    { value: "landscape_16_9", label: "landscape_16_9" },
   ];
   
   // Log current imageSize on component mount and updates

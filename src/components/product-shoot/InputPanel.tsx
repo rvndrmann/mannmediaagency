@@ -54,6 +54,15 @@ export const InputPanel = ({
   onGenerate,
   messages,
 }: InputPanelProps) => {
+  const imageSizeOptions = [
+    { value: "square_hd", label: "Square HD" },
+    { value: "square", label: "Square" },
+    { value: "portrait_4_3", label: "Portrait 4:3" },
+    { value: "portrait_16_9", label: "Portrait 16:9" },
+    { value: "landscape_4_3", label: "Landscape 4:3" },
+    { value: "landscape_16_9", label: "Landscape 16:9" },
+  ];
+
   return (
     <div className="space-y-6">
       {!isMobile && (
@@ -101,9 +110,11 @@ export const InputPanel = ({
                 <SelectValue placeholder="Select size" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="square_hd">Square HD</SelectItem>
-                <SelectItem value="portrait_hd">Portrait HD</SelectItem>
-                <SelectItem value="landscape_hd">Landscape HD</SelectItem>
+                {imageSizeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

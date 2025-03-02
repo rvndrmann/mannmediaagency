@@ -56,7 +56,6 @@ const AIAgent = () => {
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
         <div className="min-h-screen bg-[#1A1F2C]">
-          {/* Enhanced back button for mobile view */}
           {isMobile && (
             <div className="fixed top-0 left-0 z-50 p-4">
               <Button 

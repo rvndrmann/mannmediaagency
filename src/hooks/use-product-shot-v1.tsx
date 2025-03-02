@@ -13,6 +13,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
   const [productShotPrompt, setProductShotPrompt] = useState("");
   const [productShotPreview, setProductShotPreview] = useState<string | null>(null);
   const [productShotFile, setProductShotFile] = useState<File | null>(null);
+  // Updated the default value to a supported option
   const [imageSize, setImageSize] = useState("square_hd");
   const [inferenceSteps, setInferenceSteps] = useState(8);
   const [guidanceScale, setGuidanceScale] = useState(3.5);

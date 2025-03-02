@@ -56,7 +56,7 @@ export const InputPanel = ({
   onGenerate,
   messages,
 }: InputPanelProps) => {
-  // Define the image size options that match the UI shown in the screenshot
+  // Define the image size options that are consistent across all usages
   const imageSizeOptions = [
     { value: "square_hd", label: "Square HD" },
     { value: "square", label: "Square" },
@@ -129,7 +129,6 @@ export const InputPanel = ({
             <Label htmlFor="imageSize" className="text-white">Image Size: <span className="text-purple-400">{selectedSizeLabel}</span></Label>
             <div className="relative">
               <Select 
-                defaultValue={imageSize}
                 value={imageSize} 
                 onValueChange={handleImageSizeChange}
               >

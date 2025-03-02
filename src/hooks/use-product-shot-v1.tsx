@@ -50,6 +50,13 @@ export function useProductShotV1(userCredits: UserCredits | null) {
     toast.info("Image cleared");
   };
 
+  // Add a method to directly set the preview URL (needed for custom events)
+  const setProductShotPreviewUrl = (url: string) => {
+    setProductShotPreview(url);
+    // We don't have the actual file here, so we won't set productShotFile
+    // This is used only for display purposes in the UI
+  };
+
   const handleGenerate = async () => {
     if (!productShotFile || !productShotPrompt.trim()) {
       toast.error("Please provide both an image and a prompt");
@@ -159,7 +166,8 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       setInferenceSteps,
       setGuidanceScale,
       setOutputFormat,
-      handleGenerate
+      handleGenerate,
+      setProductShotPreview: setProductShotPreviewUrl  // Add the new action
     }
   };
 }

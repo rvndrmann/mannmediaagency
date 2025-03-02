@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,20 +11,13 @@ import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { ChatSection } from "@/components/product-shoot/ChatSection";
 import { useNavigate } from "react-router-dom";
 import { Message } from "@/types/message";
-import { ImageSize } from "@/hooks/use-product-shot-v1";
+import { useProductShotV1 } from "@/hooks/use-product-shot-v1";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
-  const [prompt, setPrompt] = useState("");
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [imageSize, setImageSize] = useState<ImageSize>("square_hd");
-  const [inferenceSteps, setInferenceSteps] = useState(8);
-  const [guidanceScale, setGuidanceScale] = useState(3.5);
-  const [outputFormat, setOutputFormat] = useState("png");
-  const [chatExpanded, setChatExpanded] = useState(true);
   const [messages, setMessages] = useState<Message[]>([]);
+  const [chatExpanded, setChatExpanded] = useState(true);
   const queryClient = useQueryClient();
 
   const { data: session } = useQuery({
@@ -43,7 +37,7 @@ const ProductShoot = () => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from("user_credits")
-        .select("credits_remaining")
+        .select("credits_remaining, user_id")
         .maybeSingle();
 
       if (error) throw error;
@@ -51,6 +45,9 @@ const ProductShoot = () => {
     },
     enabled: !!session,
   });
+
+  // Use the same hook that's used in AIAgent
+  const { state: productShotState, actions: productShotActions } = useProductShotV1(userCredits || null);
 
   const { data: images, isLoading: imagesLoading } = useQuery({
     queryKey: ["product-images"],
@@ -72,7 +69,9 @@ const ProductShoot = () => {
 
   useEffect(() => {
     const handleSetPreviewUrl = (event: CustomEvent) => {
-      setPreviewUrl(event.detail);
+      if (event.detail) {
+        productShotActions.setProductShotPreview(event.detail);
+      }
     };
 
     window.addEventListener('set-preview-url', handleSetPreviewUrl as EventListener);
@@ -80,102 +79,7 @@ const ProductShoot = () => {
     return () => {
       window.removeEventListener('set-preview-url', handleSetPreviewUrl as EventListener);
     };
-  }, []);
-
-  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      if (file.type.startsWith('image/')) {
-        setSelectedFile(file);
-        const url = URL.createObjectURL(file);
-        setPreviewUrl(url);
-      } else {
-        toast.error("Please select an image file");
-      }
-    }
-  };
-
-  const clearSelectedFile = () => {
-    if (previewUrl) {
-      URL.revokeObjectURL(previewUrl);
-    }
-    setSelectedFile(null);
-    setPreviewUrl(null);
-  };
-
-  const convertFileToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.readAsDataURL(file);
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = (error) => reject(error);
-    });
-  };
-
-  const generateImage = useMutation({
-    mutationFn: async () => {
-      if (!prompt.trim()) {
-        throw new Error("Please enter a prompt");
-      }
-
-      if (!selectedFile) {
-        throw new Error("Please upload an image");
-      }
-
-      try {
-        const base64Image = await convertFileToBase64(selectedFile);
-
-        const response = await supabase.functions.invoke("generate-product-image", {
-          body: {
-            prompt: prompt.trim(),
-            image: base64Image,
-            imageSize,
-            numInferenceSteps: inferenceSteps,
-            guidanceScale,
-            outputFormat
-          },
-        });
-
-        if (response.error) {
-          let errorMessage = "Failed to generate image";
-          
-          try {
-            const parsedError = JSON.parse(response.error.message);
-            if (parsedError.error) {
-              errorMessage = parsedError.error;
-            }
-          } catch {
-            errorMessage = response.error.message;
-          }
-          
-          throw new Error(errorMessage);
-        }
-
-        return response.data;
-      } catch (error) {
-        throw error;
-      }
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["product-images"] });
-      queryClient.invalidateQueries({ queryKey: ["userCredits"] });
-      setPrompt("");
-      clearSelectedFile();
-      toast.success("Image generation started");
-    },
-    onError: (error) => {
-      const message = error instanceof Error ? error.message : "Failed to generate image";
-      const isCreditsError = message.toLowerCase().includes('credits');
-      
-      toast.error(message, {
-        duration: 5000,
-        action: isCreditsError ? {
-          label: "Buy Credits",
-          onClick: () => navigate("/plans")
-        } : undefined
-      });
-    },
-  });
+  }, [productShotActions]);
 
   const handleDownload = async (url: string) => {
     try {
@@ -212,22 +116,22 @@ const ProductShoot = () => {
         )}>
           <InputPanel
             isMobile={isMobile}
-            prompt={prompt}
-            onPromptChange={setPrompt}
-            previewUrl={previewUrl}
-            onFileSelect={handleFileSelect}
-            onClearFile={clearSelectedFile}
-            imageSize={imageSize}
-            onImageSizeChange={setImageSize}
-            inferenceSteps={inferenceSteps}
-            onInferenceStepsChange={setInferenceSteps}
-            guidanceScale={guidanceScale}
-            onGuidanceScaleChange={setGuidanceScale}
-            outputFormat={outputFormat}
-            onOutputFormatChange={setOutputFormat}
-            onGenerate={() => generateImage.mutate()}
-            isGenerating={generateImage.isPending}
-            creditsRemaining={userCredits?.credits_remaining}
+            prompt={productShotState.productShotPrompt}
+            onPromptChange={productShotActions.setProductShotPrompt}
+            previewUrl={productShotState.productShotPreview}
+            onFileSelect={productShotActions.handleFileSelect}
+            onClearFile={productShotActions.handleClearFile}
+            imageSize={productShotState.imageSize}
+            onImageSizeChange={productShotActions.setImageSize}
+            inferenceSteps={productShotState.inferenceSteps}
+            onInferenceStepsChange={productShotActions.setInferenceSteps}
+            guidanceScale={productShotState.guidanceScale}
+            onGuidanceScaleChange={productShotActions.setGuidanceScale}
+            outputFormat={productShotState.outputFormat}
+            onOutputFormatChange={productShotActions.setOutputFormat}
+            onGenerate={productShotActions.handleGenerate}
+            isGenerating={productShotState.isGenerating}
+            creditsRemaining={userCredits?.credits_remaining || 0}
             messages={messages}
           />
         </div>

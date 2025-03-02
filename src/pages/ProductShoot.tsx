@@ -10,6 +10,7 @@ import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
 import { ChatSection } from "@/components/product-shoot/ChatSection";
 import { useNavigate } from "react-router-dom";
 import { Message } from "@/types/message";
+import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 const ProductShoot = () => {
   const isMobile = useIsMobile();
@@ -17,7 +18,7 @@ const ProductShoot = () => {
   const [prompt, setPrompt] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
-  const [imageSize, setImageSize] = useState("square_hd");
+  const [imageSize, setImageSize] = useState<ImageSize>("square_hd");
   const [inferenceSteps, setInferenceSteps] = useState(8);
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");

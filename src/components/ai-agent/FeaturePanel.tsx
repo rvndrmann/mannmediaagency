@@ -11,6 +11,7 @@ import { FacelessVideoForm } from "@/components/video/FacelessVideoForm";
 import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
+import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 interface FeaturePanelProps {
   messages: Message[];
@@ -25,7 +26,7 @@ interface FeaturePanelProps {
     isMobile: boolean;
     prompt: string;
     previewUrl: string | null;
-    imageSize: string;
+    imageSize: ImageSize;
     inferenceSteps: number;
     guidanceScale: number;
     outputFormat: string;
@@ -36,12 +37,13 @@ interface FeaturePanelProps {
     onPromptChange: (value: string) => void;
     onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onClearFile: () => void;
-    onImageSizeChange: (value: string) => void;
+    onImageSizeChange: (value: ImageSize) => void;
     onInferenceStepsChange: (value: number) => void;
     onGuidanceScaleChange: (value: number) => void;
     onOutputFormatChange: (value: string) => void;
     onGenerate: () => void;
     onDownload: (url: string) => void;
+    messages: Message[];
   };
   imageToVideo: {
     isMobile: boolean;

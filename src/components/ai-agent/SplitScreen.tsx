@@ -86,7 +86,6 @@ export const SplitScreen = ({
     setIsTransitioning(true);
     if (tool === 'ai-agent') {
       setShowChat(true);
-      // Set chat visible after a short delay to ensure the transition has started
       setTimeout(() => setIsChatVisible(true), 50);
     } else {
       setShowChat(false);
@@ -96,7 +95,6 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
-  // Reset chat visibility when component mounts or unmounts
   useEffect(() => {
     return () => {
       setIsChatVisible(false);
@@ -111,7 +109,6 @@ export const SplitScreen = ({
           isMobile ? "" : "flex h-screen"
         )}
       >
-        {/* Chat Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
@@ -137,7 +134,6 @@ export const SplitScreen = ({
           />
         </div>
 
-        {/* Feature Panel Section */}
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",
@@ -168,7 +164,6 @@ export const SplitScreen = ({
         </div>
       </div>
 
-      {/* Mobile Navigation */}
       {isMobile && (
         <div className="fixed bottom-0 left-0 right-0 z-40">
           <MobileToolNav

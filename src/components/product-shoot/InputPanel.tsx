@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -55,13 +56,14 @@ export const InputPanel = ({
   onGenerate,
   messages,
 }: InputPanelProps) => {
+  // Define the image size options with correct values and labels
   const imageSizeOptions = [
-    { value: "square_hd", label: "Square HD" },
-    { value: "square", label: "Square" },
-    { value: "portrait_4_3", label: "Portrait 4:3" },
-    { value: "portrait_16_9", label: "Portrait 16:9" },
-    { value: "landscape_4_3", label: "Landscape 4:3" },
-    { value: "landscape_16_9", label: "Landscape 16:9" },
+    { value: "square_hd", label: "Square HD (1024×1024)" },
+    { value: "square", label: "Square (512×512)" },
+    { value: "portrait_4_3", label: "Portrait 4:3 (768×1024)" },
+    { value: "portrait_16_9", label: "Portrait 16:9 (576×1024)" },
+    { value: "landscape_4_3", label: "Landscape 4:3 (1024×768)" },
+    { value: "landscape_16_9", label: "Landscape 16:9 (1024×576)" },
   ];
 
   return (

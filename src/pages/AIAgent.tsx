@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { useAIChat } from "@/hooks/use-ai-chat";
 import { useProductShoot } from "@/hooks/use-product-shoot";
@@ -96,7 +97,7 @@ const AIAgent = () => {
                 productImages: productShotState.productImages || [],
                 imagesLoading: productShotState.imagesLoading,
                 creditsRemaining: userCreditsQuery.data?.credits_remaining || 0,
-                isGenerating: isLoading,
+                isGenerating: productShotState.isGenerating,
                 onPromptChange: productShotActions.setProductShotPrompt,
                 onFileSelect: productShotActions.handleFileSelect,
                 onClearFile: productShotActions.handleClearFile,

@@ -2,6 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
+import { useEffect } from "react";
 
 interface GenerateButtonProps {
   isGenerating: boolean;
@@ -16,6 +17,11 @@ export const GenerateButton = ({
   onClick,
   imageSize
 }: GenerateButtonProps) => {
+  // Log the imageSize prop when it changes
+  useEffect(() => {
+    console.log("GenerateButton received imageSize:", imageSize);
+  }, [imageSize]);
+  
   // Log the current image size when button is clicked
   const handleClick = () => {
     console.log("Generating with image size:", imageSize);
@@ -34,7 +40,7 @@ export const GenerateButton = ({
           Generating...
         </>
       ) : (
-        "Generate Image (0.2 credits)"
+        `Generate Image (0.2 credits) - ${imageSize}`
       )}
     </Button>
   );

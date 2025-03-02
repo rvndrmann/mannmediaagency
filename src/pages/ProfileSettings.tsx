@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useCallback, memo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,6 +8,20 @@ import { SidebarProvider } from "@/components/ui/sidebar";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ProfileForm } from "@/components/settings/ProfileForm";
 import { MobileSettingsTabs } from "@/components/settings/MobileSettingsTabs";
+
+// Memo-ize the loading component to prevent unnecessary re-renders
+const LoadingView = memo(() => (
+  <SidebarProvider>
+    <div className="flex flex-col min-h-screen w-full bg-background">
+      <div className="flex flex-1">
+        <Sidebar />
+        <div className="flex-1 p-8">Loading...</div>
+      </div>
+    </div>
+  </SidebarProvider>
+));
+
+LoadingView.displayName = "LoadingView";
 
 const ProfileSettings = () => {
   const queryClient = useQueryClient();
@@ -32,15 +46,16 @@ const ProfileSettings = () => {
 
       if (error) throw error;
       
-      if (!username) {
-        setUsername(data.username || "");
+      if (!username && data.username) {
+        setUsername(data.username);
       }
-      if (!avatarUrl) {
+      if (!avatarUrl && data.avatar_url) {
         setAvatarUrl(data.avatar_url);
       }
       
       return data;
     },
+    staleTime: 5 * 60 * 1000, // Cache profile data for 5 minutes
   });
 
   const updateProfile = useMutation({
@@ -93,7 +108,7 @@ const ProfileSettings = () => {
     },
   });
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedUsername = username.trim();
     
@@ -114,9 +129,9 @@ const ProfileSettings = () => {
 
     setIsSubmitting(true);
     updateProfile.mutate({ newUsername: trimmedUsername, newAvatarUrl: avatarUrl });
-  };
+  }, [username, profile?.username, avatarUrl, updateProfile]);
 
-  const handleAvatarUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+  const handleAvatarUpload = useCallback(async (event: React.ChangeEvent<HTMLInputElement>) => {
     try {
       setUploading(true);
 
@@ -149,19 +164,10 @@ const ProfileSettings = () => {
     } finally {
       setUploading(false);
     }
-  };
+  }, [username, updateProfile]);
 
   if (isLoading) {
-    return (
-      <SidebarProvider>
-        <div className="flex flex-col min-h-screen w-full bg-background">
-          <div className="flex flex-1">
-            <Sidebar />
-            <div className="flex-1 p-8">Loading...</div>
-          </div>
-        </div>
-      </SidebarProvider>
-    );
+    return <LoadingView />;
   }
 
   const profileFormProps = {

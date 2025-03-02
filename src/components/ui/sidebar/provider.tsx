@@ -35,7 +35,17 @@ export const SidebarProvider = React.forwardRef<
   ) => {
     const isMobile = useIsMobile();
     const [openMobile, setOpenMobile] = React.useState(false);
-    const [_open, _setOpen] = React.useState(defaultOpen);
+    const [_open, _setOpen] = React.useState(() => {
+      // Try to get saved state from cookie, but only on client
+      if (typeof document !== 'undefined') {
+        const match = document.cookie.match(
+          new RegExp(`(^| )${SIDEBAR_COOKIE_NAME}=([^;]+)`)
+        );
+        return match ? match[2] === "true" : defaultOpen;
+      }
+      return defaultOpen;
+    });
+    
     const open = openProp ?? _open;
     
     const setOpen = React.useCallback(
@@ -53,8 +63,8 @@ export const SidebarProvider = React.forwardRef<
 
     const toggleSidebar = React.useCallback(() => {
       return isMobile
-        ? setOpenMobile((open) => !open)
-        : setOpen((open) => !open);
+        ? setOpenMobile((prevOpen) => !prevOpen)
+        : setOpen((prevOpen) => !prevOpen);
     }, [isMobile, setOpen, setOpenMobile]);
 
     React.useEffect(() => {

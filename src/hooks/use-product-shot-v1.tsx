@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,15 +11,6 @@ export interface UserCredits {
 
 export type ImageSize = "square_hd" | "square" | "portrait_4_3" | "portrait_16_9" | "landscape_4_3" | "landscape_16_9";
 
-// Validation function to ensure imageSize is valid
-const isValidImageSize = (size: string): size is ImageSize => {
-  const validSizes: ImageSize[] = [
-    "square_hd", "square", "portrait_4_3", 
-    "portrait_16_9", "landscape_4_3", "landscape_16_9"
-  ];
-  return validSizes.includes(size as ImageSize);
-};
-
 export function useProductShotV1(userCredits: UserCredits | null) {
   const [productShotPrompt, setProductShotPrompt] = useState("");
   const [productShotPreview, setProductShotPreview] = useState<string | null>(null);
@@ -28,23 +20,6 @@ export function useProductShotV1(userCredits: UserCredits | null) {
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");
   const [isGenerating, setIsGenerating] = useState(false);
-
-  // Add effect to log imageSize changes for debugging
-  useEffect(() => {
-    console.log("ImageSize state updated:", imageSize);
-  }, [imageSize]);
-
-  // Safe setter for imageSize that validates the value
-  const safeSetImageSize = (newSize: string) => {
-    console.log("Attempting to set imageSize to:", newSize);
-    if (isValidImageSize(newSize)) {
-      setImageSize(newSize);
-      console.log("ImageSize successfully set to:", newSize);
-    } else {
-      console.error(`Invalid imageSize: ${newSize}`);
-      toast.error(`Invalid image size: ${newSize}`);
-    }
-  };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -93,13 +68,6 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       return;
     }
 
-    // Validate imageSize before proceeding
-    if (!isValidImageSize(imageSize)) {
-      toast.error(`Invalid image size: ${imageSize}. Using default "square_hd" instead.`);
-      setImageSize("square_hd");
-      return;
-    }
-
     console.log("Starting generation with settings:", {
       prompt: productShotPrompt,
       imageSize: imageSize,
@@ -123,9 +91,6 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       
       reader.onload = async () => {
         const base64Image = reader.result as string;
-
-        // Final validation check before API call
-        console.log("Making API call with imageSize:", imageSize);
 
         // Call the Supabase Edge Function
         const { data, error } = await supabase.functions.invoke('generate-product-image', {
@@ -207,7 +172,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       setProductShotPrompt,
       handleFileSelect,
       handleClearFile,
-      setImageSize: safeSetImageSize,
+      setImageSize,
       setInferenceSteps,
       setGuidanceScale,
       setOutputFormat,

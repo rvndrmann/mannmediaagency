@@ -27,15 +27,6 @@ export const ImageSizeSelector = ({
     { value: "landscape_4_3", label: "Landscape 4:3" },
     { value: "landscape_16_9", label: "Landscape 16:9" },
   ];
-  
-  // Handle image size change
-  const handleImageSizeChange = (value: string) => {
-    const isValidSize = imageSizeOptions.some(option => option.value === value);
-    
-    if (isValidSize) {
-      onImageSizeChange(value as ImageSize);
-    }
-  };
 
   return (
     <div>
@@ -43,7 +34,7 @@ export const ImageSizeSelector = ({
       <div className="relative">
         <Select 
           value={imageSize} 
-          onValueChange={handleImageSizeChange}
+          onValueChange={(value) => onImageSizeChange(value as ImageSize)}
           defaultValue="square_hd"
         >
           <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">

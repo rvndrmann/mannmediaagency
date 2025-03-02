@@ -56,14 +56,14 @@ export const InputPanel = ({
   onGenerate,
   messages,
 }: InputPanelProps) => {
-  // Define the image size options with correct values and labels
+  // Define the image size options that match the UI shown in the screenshot
   const imageSizeOptions = [
-    { value: "square_hd", label: "Square HD (1024×1024)" },
-    { value: "square", label: "Square (512×512)" },
-    { value: "portrait_4_3", label: "Portrait 4:3 (768×1024)" },
-    { value: "portrait_16_9", label: "Portrait 16:9 (576×1024)" },
-    { value: "landscape_4_3", label: "Landscape 4:3 (1024×768)" },
-    { value: "landscape_16_9", label: "Landscape 16:9 (1024×576)" },
+    { value: "square_hd", label: "Square HD" },
+    { value: "square", label: "Square" },
+    { value: "portrait_4_3", label: "Portrait HD" },
+    { value: "portrait_16_9", label: "Portrait" },
+    { value: "landscape_4_3", label: "Landscape HD" },
+    { value: "landscape_16_9", label: "Landscape" },
   ];
 
   // Find the currently selected image size label
@@ -138,7 +138,7 @@ export const InputPanel = ({
                 </SelectTrigger>
                 <SelectContent 
                   position="popper" 
-                  className="bg-[#1A1F2C] border-gray-700 text-white max-h-[200px] overflow-y-auto z-[100]"
+                  className="bg-[#1A1F2C] border-gray-700 text-white max-h-[300px] overflow-y-auto z-[100]"
                   sideOffset={4}
                 >
                   {imageSizeOptions.map((option) => (

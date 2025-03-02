@@ -8,7 +8,6 @@ import { GenerateButton } from "./input-panel/GenerateButton";
 import { Header } from "./input-panel/Header";
 import { Message } from "@/types/message";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
-import { useEffect } from "react";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -51,17 +50,6 @@ export const InputPanel = ({
   onGenerate,
   messages,
 }: InputPanelProps) => {
-  // Log when imageSize prop changes
-  useEffect(() => {
-    console.log("InputPanel received imageSize:", imageSize);
-  }, [imageSize]);
-  
-  // Log when onImageSizeChange is called
-  const handleImageSizeChange = (newSize: ImageSize) => {
-    console.log("InputPanel handleImageSizeChange called with:", newSize);
-    onImageSizeChange(newSize);
-  };
-
   return (
     <div className="space-y-6">
       {!isMobile && <Header creditsRemaining={creditsRemaining} />}
@@ -82,7 +70,7 @@ export const InputPanel = ({
         <div className="space-y-4">
           <ImageSizeSelector 
             imageSize={imageSize}
-            onImageSizeChange={handleImageSizeChange}
+            onImageSizeChange={onImageSizeChange}
           />
 
           <RangeSlider
@@ -114,7 +102,6 @@ export const InputPanel = ({
           isGenerating={isGenerating}
           disabled={isGenerating || !prompt.trim() || !previewUrl}
           onClick={onGenerate}
-          imageSize={imageSize}
         />
       </div>
     </div>

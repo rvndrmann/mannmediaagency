@@ -1,5 +1,4 @@
 
-
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -9,7 +8,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
-import { useEffect } from "react";
 
 interface ImageSizeSelectorProps {
   imageSize: ImageSize;
@@ -20,33 +18,22 @@ export const ImageSizeSelector = ({
   imageSize, 
   onImageSizeChange 
 }: ImageSizeSelectorProps) => {
-  // Define the complete set of image size options matching the ImageSize type
+  // Define the image size options
   const imageSizeOptions = [
-    { value: "square_hd", label: "square_hd" },
-    { value: "square", label: "square" },
-    { value: "portrait_4_3", label: "portrait_4_3" },
-    { value: "portrait_16_9", label: "portrait_16_9" },
-    { value: "landscape_4_3", label: "landscape_4_3" },
-    { value: "landscape_16_9", label: "landscape_16_9" },
+    { value: "square_hd", label: "Square HD" },
+    { value: "square", label: "Square" },
+    { value: "portrait_4_3", label: "Portrait 4:3" },
+    { value: "portrait_16_9", label: "Portrait 16:9" },
+    { value: "landscape_4_3", label: "Landscape 4:3" },
+    { value: "landscape_16_9", label: "Landscape 16:9" },
   ];
   
-  // Log current imageSize on component mount and updates
-  useEffect(() => {
-    console.log("ImageSizeSelector mounted/updated with imageSize:", imageSize);
-  }, [imageSize]);
-  
-  // Handle image size change with validation
+  // Handle image size change
   const handleImageSizeChange = (value: string) => {
-    console.log("ImageSizeSelector selected value:", value);
-    
-    // Validate that the value is a valid ImageSize enum value
     const isValidSize = imageSizeOptions.some(option => option.value === value);
     
     if (isValidSize) {
-      console.log("ImageSizeSelector calling onImageSizeChange with:", value);
       onImageSizeChange(value as ImageSize);
-    } else {
-      console.error("Invalid imageSize value selected:", value);
     }
   };
 

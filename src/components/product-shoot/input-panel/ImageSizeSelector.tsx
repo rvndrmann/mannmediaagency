@@ -18,14 +18,14 @@ export const ImageSizeSelector = ({
   imageSize, 
   onImageSizeChange 
 }: ImageSizeSelectorProps) => {
-  // Define the image size options that are consistent across all usages
+  // Define the image size options with exact values matching the ImageSize type
   const imageSizeOptions = [
-    { value: "square_hd", label: "Square HD" },
-    { value: "square", label: "Square" },
-    { value: "portrait_4_3", label: "Portrait HD" },
-    { value: "portrait_16_9", label: "Portrait" },
-    { value: "landscape_4_3", label: "Landscape HD" },
-    { value: "landscape_16_9", label: "Landscape" },
+    { value: "square_hd", label: "Square HD (1:1)" },
+    { value: "square", label: "Square (1:1)" },
+    { value: "portrait_4_3", label: "Portrait 4:3" },
+    { value: "portrait_16_9", label: "Portrait 16:9" },
+    { value: "landscape_4_3", label: "Landscape 4:3" },
+    { value: "landscape_16_9", label: "Landscape 16:9" },
   ];
 
   // Find the currently selected image size label
@@ -33,7 +33,7 @@ export const ImageSizeSelector = ({
   
   // Handle image size change with validation
   const handleImageSizeChange = (value: string) => {
-    console.log("Changing imageSize to:", value); // Debug: log the new value
+    console.log("Selected image size from UI:", value);
     
     // Validate that the value is a valid ImageSize enum value
     const isValidSize = imageSizeOptions.some(option => option.value === value);
@@ -41,7 +41,7 @@ export const ImageSizeSelector = ({
     if (isValidSize) {
       onImageSizeChange(value as ImageSize);
     } else {
-      console.error("Invalid imageSize value:", value);
+      console.error("Invalid imageSize value selected:", value);
     }
   };
 

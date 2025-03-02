@@ -9,12 +9,13 @@ export interface UserCredits {
   credits_remaining: number;
 }
 
+export type ImageSize = "square_hd" | "square" | "portrait_4_3" | "portrait_16_9" | "landscape_4_3" | "landscape_16_9";
+
 export function useProductShotV1(userCredits: UserCredits | null) {
   const [productShotPrompt, setProductShotPrompt] = useState("");
   const [productShotPreview, setProductShotPreview] = useState<string | null>(null);
   const [productShotFile, setProductShotFile] = useState<File | null>(null);
-  // Updated the default value to a supported option
-  const [imageSize, setImageSize] = useState("square_hd");
+  const [imageSize, setImageSize] = useState<ImageSize>("square_hd");
   const [inferenceSteps, setInferenceSteps] = useState(8);
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");

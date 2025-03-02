@@ -107,7 +107,7 @@ export const InputPanel = ({
           <div>
             <Label htmlFor="imageSize" className="text-white">Image Size</Label>
             <Select value={imageSize} onValueChange={onImageSizeChange}>
-              <SelectTrigger className="w-full bg-gray-900 border-gray-700 text-white">
+              <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select size" />
               </SelectTrigger>
               <SelectContent>

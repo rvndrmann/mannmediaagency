@@ -19,14 +19,11 @@ export const ImageSizeSelector = ({
   imageSize, 
   onImageSizeChange 
 }: ImageSizeSelectorProps) => {
-  // Define the image size options with exact values matching the ImageSize type
+  // Define the image size options with simplified HD options only
   const imageSizeOptions = [
-    { value: "square_hd", label: "square_hd" },
-    { value: "square", label: "square" },
-    { value: "portrait_4_3", label: "portrait_4_3" },
-    { value: "portrait_16_9", label: "portrait_16_9" },
-    { value: "landscape_4_3", label: "landscape_4_3" },
-    { value: "landscape_16_9", label: "landscape_16_9" },
+    { value: "square_hd", label: "Square HD" },
+    { value: "portrait_16_9", label: "Portrait HD" },
+    { value: "landscape_16_9", label: "Landscape HD" },
   ];
   
   // Log current imageSize on component mount and updates
@@ -51,12 +48,12 @@ export const ImageSizeSelector = ({
 
   return (
     <div>
-      <Label htmlFor="imageSize" className="text-white">Image Size: <span className="text-purple-400">{imageSize}</span></Label>
+      <Label htmlFor="imageSize" className="text-white">Image Size</Label>
       <div className="relative">
         <Select 
           value={imageSize} 
           onValueChange={handleImageSizeChange}
-          defaultValue={imageSize}
+          defaultValue="square_hd"
         >
           <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
             <SelectValue placeholder="Select size" />

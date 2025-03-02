@@ -1,21 +1,30 @@
 
 import { Button } from "@/components/ui/button";
 import { Loader2 } from "lucide-react";
+import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 interface GenerateButtonProps {
   isGenerating: boolean;
   disabled: boolean;
   onClick: () => void;
+  imageSize?: ImageSize;
 }
 
 export const GenerateButton = ({
   isGenerating,
   disabled,
-  onClick
+  onClick,
+  imageSize
 }: GenerateButtonProps) => {
+  // Log the current image size when button is clicked
+  const handleClick = () => {
+    console.log("Generating with image size:", imageSize);
+    onClick();
+  };
+
   return (
     <Button
-      onClick={onClick}
+      onClick={handleClick}
       disabled={disabled || isGenerating}
       className="w-full bg-purple-600 hover:bg-purple-700 text-white"
     >

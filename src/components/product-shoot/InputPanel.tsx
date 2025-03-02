@@ -102,6 +102,7 @@ export const InputPanel = ({
           isGenerating={isGenerating}
           disabled={isGenerating || !prompt.trim() || !previewUrl}
           onClick={onGenerate}
+          imageSize={imageSize}
         />
       </div>
     </div>

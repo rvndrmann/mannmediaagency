@@ -66,6 +66,9 @@ export const InputPanel = ({
     { value: "landscape_16_9", label: "Landscape 16:9 (1024×576)" },
   ];
 
+  // Find the currently selected image size label
+  const selectedSizeLabel = imageSizeOptions.find(option => option.value === imageSize)?.label || '';
+
   return (
     <div className="space-y-6">
       {!isMobile && (
@@ -107,7 +110,7 @@ export const InputPanel = ({
 
         <div className="space-y-4">
           <div>
-            <Label htmlFor="imageSize" className="text-white">Image Size</Label>
+            <Label htmlFor="imageSize" className="text-white">Image Size: <span className="text-purple-400">{selectedSizeLabel}</span></Label>
             <Select 
               value={imageSize} 
               onValueChange={(value) => onImageSizeChange(value as ImageSize)}
@@ -115,7 +118,7 @@ export const InputPanel = ({
               <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select size" />
               </SelectTrigger>
-              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white">
+              <SelectContent className="bg-[#1A1F2C] border-gray-700 text-white max-h-[200px] overflow-y-auto z-50">
                 {imageSizeOptions.map((option) => (
                   <SelectItem key={option.value} value={option.value} className="text-white hover:bg-gray-800">
                     {option.label}
@@ -126,10 +129,12 @@ export const InputPanel = ({
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-white">
-              Inference Steps: <span className="text-purple-400">{inferenceSteps}</span>
+            <Label className="text-sm font-medium text-white flex justify-between">
+              <span>Inference Steps</span>
+              <span className="text-purple-400 font-semibold">{inferenceSteps}</span>
             </Label>
             <div className="flex items-center gap-2">
+              <span className="text-xs text-white/70 w-6 text-center">1</span>
               <input
                 type="range"
                 min="1"
@@ -138,18 +143,18 @@ export const InputPanel = ({
                 onChange={(e) => onInferenceStepsChange(Number(e.target.value))}
                 className="w-full accent-purple-500"
               />
-              <span className="text-sm font-medium text-white min-w-[30px] text-center">
-                {inferenceSteps}
-              </span>
+              <span className="text-xs text-white/70 w-6 text-center">20</span>
             </div>
             <p className="text-xs text-white/60">Higher values produce more detailed results but take longer</p>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-white">
-              Guidance Scale: <span className="text-purple-400">{guidanceScale.toFixed(1)}</span>
+            <Label className="text-sm font-medium text-white flex justify-between">
+              <span>Guidance Scale</span>
+              <span className="text-purple-400 font-semibold">{guidanceScale.toFixed(1)}</span>
             </Label>
             <div className="flex items-center gap-2">
+              <span className="text-xs text-white/70 w-6 text-center">1.0</span>
               <input
                 type="range"
                 min="1"
@@ -159,15 +164,13 @@ export const InputPanel = ({
                 onChange={(e) => onGuidanceScaleChange(Number(e.target.value))}
                 className="w-full accent-purple-500"
               />
-              <span className="text-sm font-medium text-white min-w-[30px] text-center">
-                {guidanceScale.toFixed(1)}
-              </span>
+              <span className="text-xs text-white/70 w-6 text-center">7.0</span>
             </div>
             <p className="text-xs text-white/60">Controls how closely the result follows your prompt</p>
           </div>
 
           <div className="space-y-2">
-            <Label className="text-sm font-medium text-white">Output Format</Label>
+            <Label className="text-sm font-medium text-white">Output Format: <span className="text-purple-400">{outputFormat.toUpperCase()}</span></Label>
             <Select value={outputFormat} onValueChange={onOutputFormatChange}>
               <SelectTrigger className="bg-gray-900 border-gray-700 text-white">
                 <SelectValue placeholder="Select format" />

@@ -35,7 +35,6 @@ export const ImageSizeSelector = ({
         <Select 
           value={imageSize} 
           onValueChange={(value) => onImageSizeChange(value as ImageSize)}
-          defaultValue="square_hd"
         >
           <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
             <SelectValue placeholder="Select size" />

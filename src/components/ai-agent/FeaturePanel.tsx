@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -67,8 +68,24 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
         <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
             <InputPanel
-              {...productShotV1}
-              messages={messages}
+              isMobile={productShotV1.isMobile}
+              prompt={productShotV1.prompt}
+              previewUrl={productShotV1.previewUrl}
+              imageSize={productShotV1.imageSize}
+              inferenceSteps={productShotV1.inferenceSteps}
+              guidanceScale={productShotV1.guidanceScale}
+              outputFormat={productShotV1.outputFormat}
+              creditsRemaining={productShotV1.creditsRemaining}
+              isGenerating={productShotV1.isGenerating}
+              onPromptChange={productShotV1.onPromptChange}
+              onFileSelect={productShotV1.onFileSelect}
+              onClearFile={productShotV1.onClearFile}
+              onImageSizeChange={productShotV1.onImageSizeChange}
+              onInferenceStepsChange={productShotV1.onInferenceStepsChange}
+              onGuidanceScaleChange={productShotV1.onGuidanceScaleChange}
+              onOutputFormatChange={productShotV1.onOutputFormatChange}
+              onGenerate={productShotV1.onGenerate}
+              messages={productShotV1.messages}
             />
             <GalleryPanel
               isMobile={productShotV1.isMobile}

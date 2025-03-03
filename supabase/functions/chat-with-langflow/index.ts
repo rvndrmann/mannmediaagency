@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -8,11 +9,11 @@ const FLOW_ID = Deno.env.get("FLOW_ID");
 const APPLICATION_TOKEN = Deno.env.get("APPLICATION_TOKEN");
 const X_API_KEY = Deno.env.get("X_API_KEY");
 
-// Increase timeout to 45 seconds to allow for longer processing times
-const API_TIMEOUT_MS = 45000; 
+// Increase timeout to 60 seconds to allow for longer processing times
+const API_TIMEOUT_MS = 60000; 
 
-// Maximum retries for failed requests
-const MAX_RETRIES = 2;
+// Increase maximum retries for failed requests
+const MAX_RETRIES = 3;
 
 // Maximum input length to avoid timeouts due to large payloads
 const MAX_INPUT_LENGTH = 4000;
@@ -125,7 +126,7 @@ function truncateInput(input: string, maxLength: number): string {
   return input.substring(input.length - maxLength);
 }
 
-// Helper function to make API call with retries
+// Helper function to make API call with retries and improved error handling
 async function makeAstraLangflowRequest(
   url: string, 
   headers: Record<string, string>, 
@@ -151,28 +152,33 @@ async function makeAstraLangflowRequest(
         controller.abort();
       }, API_TIMEOUT_MS);
       
-      // Make the request
-      const response = await fetch(url, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      
-      // Clear the timeout
-      clearTimeout(timeoutId);
-      
-      // Check for successful response
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error (${response.status}):`, errorText.substring(0, 500));
-        throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
+      // Make the request with added error handling
+      try {
+        const response = await fetch(url, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(payload),
+          signal: controller.signal
+        });
+        
+        // Clear the timeout
+        clearTimeout(timeoutId);
+        
+        // Check for successful response
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`API Error (${response.status}):`, errorText.substring(0, 500));
+          throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
+        }
+        
+        // Parse the response JSON
+        const data = await response.json();
+        console.log('API response received successfully');
+        return data;
+      } catch (fetchError) {
+        clearTimeout(timeoutId);
+        throw fetchError;
       }
-      
-      // Parse the response JSON
-      const data = await response.json();
-      console.log('API response received successfully');
-      return data;
     } catch (error) {
       lastError = error;
       

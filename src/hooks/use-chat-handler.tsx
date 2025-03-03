@@ -2,13 +2,9 @@
 import { useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { useUserCredits, UserCredits } from "@/hooks/use-user-credits";
-import { UseQueryResult } from "@tanstack/react-query";
-
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { useUserCredits } from "@/hooks/use-user-credits";
+import { Message, Task } from "@/types/message";
+import { v4 as uuidv4 } from "uuid";
 
 const STORAGE_KEY = "ai_agent_chat_history";
 const CHAT_CREDIT_COST = 0.07;
@@ -61,6 +57,65 @@ export function useChatHandler(setInput: (value: string) => void) {
     }
   };
 
+  // Create a new task for the assistant message
+  const createTask = (name: string): Task => ({
+    id: uuidv4(),
+    name,
+    status: "pending",
+  });
+
+  // Update a task's status in the latest assistant message
+  const updateTaskStatus = (taskId: string, status: Task["status"], details?: string) => {
+    setMessages(prevMessages => {
+      const newMessages = [...prevMessages];
+      const lastAssistantMessageIndex = newMessages.findIndex(
+        m => m.role === "assistant" && m.tasks
+      );
+      
+      if (lastAssistantMessageIndex >= 0) {
+        const message = newMessages[lastAssistantMessageIndex];
+        const updatedTasks = message.tasks?.map(task => 
+          task.id === taskId ? { ...task, status, details } : task
+        );
+        
+        newMessages[lastAssistantMessageIndex] = {
+          ...message,
+          tasks: updatedTasks,
+          status: updatedTasks?.every(t => t.status === "completed") 
+            ? "completed" 
+            : updatedTasks?.some(t => t.status === "error") 
+              ? "error" 
+              : "working"
+        };
+      }
+
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
+      return newMessages;
+    });
+  };
+
+  // Parse user message for commands
+  const parseCommands = (message: string) => {
+    // This is a simplified parser
+    const commandPatterns = [
+      { regex: /create (?:a |an )?(product shot|image)/i, feature: "product-shot-v1", action: "create" },
+      { regex: /generate (?:a |an )?(product (shot|image))/i, feature: "product-shot-v2", action: "create" },
+      { regex: /convert (?:an )?(image|shot) to video/i, feature: "image-to-video", action: "convert" },
+      { regex: /create (?:a |an )?(video|product video)/i, feature: "product-video", action: "create" },
+      { regex: /save (?:this )?(image|shot) as default/i, feature: "default-image", action: "save" },
+      { regex: /use default (image|shot)/i, feature: "default-image", action: "use" },
+    ];
+
+    const detectedCommands = commandPatterns.filter(pattern => pattern.regex.test(message))
+      .map(command => ({
+        feature: command.feature,
+        action: command.action,
+        parameters: {} // In a full implementation, we would parse parameters here
+      }));
+
+    return detectedCommands.length ? detectedCommands : null;
+  };
+
   const handleSubmit = async (e: React.FormEvent, input: string) => {
     e.preventDefault();
     if (input.trim() === "") return;
@@ -80,7 +135,18 @@ export function useChatHandler(setInput: (value: string) => void) {
     if (!deductionSuccessful) return;
 
     const userMessage: Message = { role: "user", content: input };
-    const assistantMessage: Message = { role: "assistant", content: "Loading..." };
+    
+    // Create assistant message with initial tasks
+    const assistantMessage: Message = { 
+      role: "assistant", 
+      content: "I'm analyzing your request...", 
+      status: "thinking",
+      tasks: [
+        createTask("Analyzing your request"),
+        createTask("Checking for commands"),
+        createTask("Preparing response")
+      ]
+    };
     
     // Update messages state with new messages
     setMessages(prevMessages => {
@@ -100,6 +166,32 @@ export function useChatHandler(setInput: (value: string) => void) {
 
       console.log('Sending chat request with messages:', messages.length + 1);
 
+      // Update first task to in-progress
+      updateTaskStatus(assistantMessage.tasks![0].id, "in-progress");
+      
+      // Detect any commands in the user message
+      const commands = parseCommands(input);
+      
+      // Short delay to simulate thinking
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      // Mark first task as completed
+      updateTaskStatus(assistantMessage.tasks![0].id, "completed");
+      
+      // Update second task based on command detection
+      if (commands) {
+        updateTaskStatus(
+          assistantMessage.tasks![1].id, 
+          "completed", 
+          `Detected: ${commands.map(c => `${c.action} ${c.feature}`).join(', ')}`
+        );
+      } else {
+        updateTaskStatus(assistantMessage.tasks![1].id, "completed", "No specific commands detected");
+      }
+      
+      // Update the third task to in-progress
+      updateTaskStatus(assistantMessage.tasks![2].id, "in-progress");
+
       // Send only the last few messages to reduce payload size
       const recentMessages = [...messages, userMessage].slice(-10);
 
@@ -109,6 +201,7 @@ export function useChatHandler(setInput: (value: string) => void) {
 
       if (response.error) {
         console.error('Chat function error:', response.error);
+        updateTaskStatus(assistantMessage.tasks![2].id, "error", "Failed to connect to AI service");
         throw new Error(response.error.message || 'Failed to connect to AI service');
       }
 
@@ -116,10 +209,20 @@ export function useChatHandler(setInput: (value: string) => void) {
       console.log('Received response data:', data);
 
       if (data && data.message) {
+        // Mark third task as completed
+        updateTaskStatus(assistantMessage.tasks![2].id, "completed");
+        
         // Update assistant message with the response
         setMessages(prevMessages => {
           const newMessages = [...prevMessages];
-          newMessages[newMessages.length - 1].content = data.message;
+          const lastIndex = newMessages.length - 1;
+          
+          newMessages[lastIndex] = {
+            ...newMessages[lastIndex],
+            content: data.message,
+            status: "completed"
+          };
+          
           localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
           return newMessages;
         });
@@ -131,7 +234,22 @@ export function useChatHandler(setInput: (value: string) => void) {
       // Update assistant message with error
       setMessages(prevMessages => {
         const newMessages = [...prevMessages];
-        newMessages[newMessages.length - 1].content = "Sorry, I encountered an error. Please try again.";
+        const lastIndex = newMessages.length - 1;
+        
+        // Update all pending tasks to error
+        const updatedTasks = newMessages[lastIndex].tasks?.map(task => 
+          task.status === "pending" || task.status === "in-progress" 
+            ? { ...task, status: "error" as const } 
+            : task
+        );
+        
+        newMessages[lastIndex] = {
+          ...newMessages[lastIndex],
+          content: "Sorry, I encountered an error. Please try again.",
+          status: "error",
+          tasks: updatedTasks
+        };
+        
         localStorage.setItem(STORAGE_KEY, JSON.stringify(newMessages));
         return newMessages;
       });

@@ -65,86 +65,108 @@ serve(async (req) => {
     // Get the JWT token from the request
     const authHeader = req.headers.get('Authorization');
     if (!authHeader) {
-      throw new Error('Authorization header is required');
+      console.warn('No Authorization header provided');
+      // We'll continue without user authentication for now
     }
-    const token = authHeader.replace('Bearer ', '');
-
-    // Get user from token
-    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
-    if (userError || !user) {
-      throw new Error('Invalid user token');
-    }
-
-    // Get active automation rules
-    const { data: rules, error: rulesError } = await supabase
-      .from('automation_rules')
-      .select('*')
-      .eq('is_active', true)
-      .order('priority', { ascending: false });
-
-    if (rulesError) {
-      console.error('Error fetching automation rules:', rulesError);
-      throw new Error('Failed to fetch automation rules');
-    }
-
-    console.log(`Found ${rules?.length || 0} active automation rules`);
-
-    // Check for rule matches based on keywords
-    const matchedRules = rules?.filter(rule => {
-      // Check if any trigger keyword is present
-      const hasTrigger = rule.trigger_keywords?.some(keyword => 
-        message.toLowerCase().includes(keyword.toLowerCase())
-      );
-      
-      // Check if any negative keyword is present
-      const hasNegative = rule.negative_keywords?.some(keyword => 
-        message.toLowerCase().includes(keyword.toLowerCase())
-      );
-      
-      return hasTrigger && !hasNegative;
-    }) || [];
-
-    console.log(`Matched ${matchedRules.length} rules based on keywords`);
-
-    // If we have rule matches, we need to verify with OpenAI
-    let command: Command | null = null;
-    let detectedIntent = null;
     
-    if (matchedRules.length > 0) {
-      const bestMatchedRule = matchedRules[0]; // Get highest priority rule
-      
-      // Get the prompt for this rule
-      const { data: prompt, error: promptError } = await supabase
-        .from('ai_prompts')
-        .select('*')
-        .eq('id', bestMatchedRule.prompt_id)
-        .single();
-        
-      if (promptError || !prompt) {
-        console.error('Error fetching prompt:', promptError);
-        throw new Error('Failed to fetch associated prompt');
+    let user = null;
+    if (authHeader) {
+      const token = authHeader.replace('Bearer ', '');
+      // Get user from token
+      const { data: userData, error: userError } = await supabase.auth.getUser(token);
+      if (!userError && userData?.user) {
+        user = userData.user;
+        console.log('Authenticated user:', user.id);
+      } else {
+        console.warn('Invalid user token, continuing as anonymous user');
       }
-      
-      // Check if user has enough credits
-      if (userCredits?.credits_remaining < bestMatchedRule.required_credits) {
-        console.log('User has insufficient credits');
+    }
+
+    try {
+      // Get active automation rules
+      const { data: rules, error: rulesError } = await supabase
+        .from('automation_rules')
+        .select('*')
+        .eq('is_active', true)
+        .order('priority', { ascending: false });
+
+      if (rulesError) {
+        console.error('Error fetching automation rules:', rulesError);
+        throw new Error('Failed to fetch automation rules');
+      }
+
+      // If we have no rules, skip to Langflow
+      if (!rules || rules.length === 0) {
+        console.log('No active automation rules found, proceeding to Langflow');
         return new Response(
           JSON.stringify({
             command: null,
-            message: `I'm sorry, but you need at least ${bestMatchedRule.required_credits} credits to perform this action. You currently have ${userCredits?.credits_remaining || 0} credits.`,
-            detected_rule: bestMatchedRule.name,
-            error: "INSUFFICIENT_CREDITS"
+            message: null,
+            use_langflow: true
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-      
-      // Now use OpenAI to help with intent detection
-      if (OPENAI_API_KEY) {
-        console.log('Using OpenAI to detect intent for: ', bestMatchedRule.name);
+
+      console.log(`Found ${rules.length} active automation rules`);
+
+      // Check for rule matches based on keywords
+      const matchedRules = rules.filter(rule => {
+        // Check if any trigger keyword is present
+        const hasTrigger = rule.trigger_keywords?.some(keyword => 
+          message.toLowerCase().includes(keyword.toLowerCase())
+        );
         
-        // Create a system message based on the rule and context
-        const systemMessage = `
+        // Check if any negative keyword is present
+        const hasNegative = rule.negative_keywords?.some(keyword => 
+          message.toLowerCase().includes(keyword.toLowerCase())
+        );
+        
+        return hasTrigger && !hasNegative;
+      });
+
+      console.log(`Matched ${matchedRules.length} rules based on keywords`);
+
+      // If we have rule matches, we need to verify with OpenAI
+      let command: Command | null = null;
+      let detectedIntent = null;
+      
+      if (matchedRules.length > 0) {
+        const bestMatchedRule = matchedRules[0]; // Get highest priority rule
+        
+        try {
+          // Get the prompt for this rule
+          const { data: prompt, error: promptError } = await supabase
+            .from('ai_prompts')
+            .select('*')
+            .eq('id', bestMatchedRule.prompt_id)
+            .single();
+            
+          if (promptError || !prompt) {
+            console.error('Error fetching prompt:', promptError);
+            throw new Error('Failed to fetch associated prompt');
+          }
+          
+          // Check if user has enough credits
+          if (userCredits?.credits_remaining < bestMatchedRule.required_credits) {
+            console.log('User has insufficient credits');
+            return new Response(
+              JSON.stringify({
+                command: null,
+                message: `I'm sorry, but you need at least ${bestMatchedRule.required_credits} credits to perform this action. You currently have ${userCredits?.credits_remaining || 0} credits.`,
+                detected_rule: bestMatchedRule.name,
+                error: "INSUFFICIENT_CREDITS"
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // Now use OpenAI to help with intent detection
+          if (OPENAI_API_KEY) {
+            console.log('Using OpenAI to detect intent for: ', bestMatchedRule.name);
+            
+            // Create a system message based on the rule and context
+            const systemMessage = `
 You are an AI that detects user intents. Your task is to determine if the user message is asking for the following action:
 "${bestMatchedRule.name}: ${bestMatchedRule.description || 'No description'}"
 
@@ -153,139 +175,155 @@ The user is currently using the ${activeContext || "AI Agent"} tool.
 If you detect this intent, extract relevant parameters in JSON format. If not, respond with "NO_MATCH".
 `;
 
-        // Set up OpenAI request
-        const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: 'gpt-4o-mini',
-            messages: [
-              { role: 'system', content: systemMessage },
-              { role: 'user', content: message }
-            ],
-            temperature: 0.3,
-          }),
-        });
-
-        if (!openAIResponse.ok) {
-          throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
-        }
-
-        const openAIData = await openAIResponse.json();
-        const aiResponseText = openAIData.choices[0].message.content;
-        console.log('OpenAI detection response:', aiResponseText);
-
-        // Check if we have a match
-        if (!aiResponseText.includes('NO_MATCH')) {
-          detectedIntent = bestMatchedRule.name;
-          
-          // Try to extract parameters as JSON
-          let parameters = {};
-          try {
-            // Look for JSON structure in the response
-            const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
-            if (jsonMatch) {
-              parameters = JSON.parse(jsonMatch[0]);
-            }
-          } catch (err) {
-            console.warn('Could not parse parameters from OpenAI response:', err);
-          }
-          
-          // Map the rule action to our command format
-          const actionMap: Record<string, any> = {
-            'generate_photo': { feature: 'product-shot-v1', action: 'create' },
-            'generate_video': { feature: 'image-to-video', action: 'convert' },
-            'generate_metadata': { feature: 'default-image', action: 'save' },
-            'create_story': { feature: 'product-video', action: 'create' },
-            'none': { feature: 'default-image', action: 'list' }
-          };
-          
-          const mappedAction = actionMap[bestMatchedRule.action] || 
-                              { feature: 'product-shot-v1', action: 'create' };
-          
-          // Build the command object
-          command = {
-            ...mappedAction,
-            parameters: {
-              ...parameters,
-              autoGenerate: true,
-              ruleName: bestMatchedRule.name
-            },
-            confidence: 0.9
-          };
-          
-          // Record this automation in history
-          await supabase
-            .from('automation_history')
-            .insert({
-              rule_id: bestMatchedRule.id,
-              user_message: message,
-              detected_intent: detectedIntent,
-              action_taken: bestMatchedRule.action,
-              success: true,
-              user_id: user.id,
-              credits_used: bestMatchedRule.required_credits,
-              metadata: { command, parameters }
+            // Set up OpenAI request
+            const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+              method: 'POST',
+              headers: {
+                'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                model: 'gpt-4o-mini',
+                messages: [
+                  { role: 'system', content: systemMessage },
+                  { role: 'user', content: message }
+                ],
+                temperature: 0.3,
+              }),
             });
-        }
-      } else {
-        console.warn('OpenAI API Key not configured, using simpler detection method');
-        
-        // Use simple keyword matching as fallback
-        detectedIntent = bestMatchedRule.name;
-        
-        // Map the rule action to our command format
-        const actionMap: Record<string, any> = {
-          'generate_photo': { feature: 'product-shot-v1', action: 'create' },
-          'generate_video': { feature: 'image-to-video', action: 'convert' },
-          'generate_metadata': { feature: 'default-image', action: 'save' },
-          'create_story': { feature: 'product-video', action: 'create' },
-          'none': { feature: 'default-image', action: 'list' }
-        };
-        
-        const mappedAction = actionMap[bestMatchedRule.action] || 
-                            { feature: 'product-shot-v1', action: 'create' };
-        
-        // Build a simple command
-        command = {
-          ...mappedAction,
-          parameters: {
-            prompt: message,
-            autoGenerate: true,
-            ruleName: bestMatchedRule.name
-          },
-          confidence: 0.7
-        };
-        
-        // Record this automation
-        await supabase
-          .from('automation_history')
-          .insert({
-            rule_id: bestMatchedRule.id,
-            user_message: message,
-            detected_intent: detectedIntent,
-            action_taken: bestMatchedRule.action,
-            success: true,
-            user_id: user.id,
-            credits_used: bestMatchedRule.required_credits,
-            metadata: { command }
-          });
-      }
-    }
 
-    // If we detected a command, respond with it
-    if (command) {
-      return new Response(
-        JSON.stringify({
-          command,
-          message: `I've detected you want to ${detectedIntent}. I'll help you with that right away.`,
-          detected_rule: detectedIntent
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+            if (!openAIResponse.ok) {
+              const errorText = await openAIResponse.text();
+              console.error('OpenAI API error:', errorText);
+              throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+            }
+
+            const openAIData = await openAIResponse.json();
+            const aiResponseText = openAIData.choices[0].message.content;
+            console.log('OpenAI detection response:', aiResponseText);
+
+            // Check if we have a match
+            if (!aiResponseText.includes('NO_MATCH')) {
+              detectedIntent = bestMatchedRule.name;
+              
+              // Try to extract parameters as JSON
+              let parameters = {};
+              try {
+                // Look for JSON structure in the response
+                const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
+                if (jsonMatch) {
+                  parameters = JSON.parse(jsonMatch[0]);
+                }
+              } catch (err) {
+                console.warn('Could not parse parameters from OpenAI response:', err);
+              }
+              
+              // Map the rule action to our command format
+              const actionMap: Record<string, any> = {
+                'generate_photo': { feature: 'product-shot-v1', action: 'create' },
+                'generate_video': { feature: 'image-to-video', action: 'convert' },
+                'generate_metadata': { feature: 'default-image', action: 'save' },
+                'create_story': { feature: 'product-video', action: 'create' },
+                'none': { feature: 'default-image', action: 'list' }
+              };
+              
+              const mappedAction = actionMap[bestMatchedRule.action] || 
+                                { feature: 'product-shot-v1', action: 'create' };
+              
+              // Build the command object
+              command = {
+                ...mappedAction,
+                parameters: {
+                  ...parameters,
+                  autoGenerate: true,
+                  ruleName: bestMatchedRule.name
+                },
+                confidence: 0.9
+              };
+              
+              // Record this automation in history
+              if (user) {
+                await supabase
+                  .from('automation_history')
+                  .insert({
+                    rule_id: bestMatchedRule.id,
+                    user_message: message,
+                    detected_intent: detectedIntent,
+                    action_taken: bestMatchedRule.action,
+                    success: true,
+                    user_id: user.id,
+                    credits_used: bestMatchedRule.required_credits,
+                    metadata: { command, parameters }
+                  });
+              }
+            } else {
+              console.log('OpenAI did not detect a match, falling back to Langflow');
+            }
+          } else {
+            console.warn('OpenAI API Key not configured, using simpler detection method');
+            
+            // Use simple keyword matching as fallback
+            detectedIntent = bestMatchedRule.name;
+            
+            // Map the rule action to our command format
+            const actionMap: Record<string, any> = {
+              'generate_photo': { feature: 'product-shot-v1', action: 'create' },
+              'generate_video': { feature: 'image-to-video', action: 'convert' },
+              'generate_metadata': { feature: 'default-image', action: 'save' },
+              'create_story': { feature: 'product-video', action: 'create' },
+              'none': { feature: 'default-image', action: 'list' }
+            };
+            
+            const mappedAction = actionMap[bestMatchedRule.action] || 
+                                { feature: 'product-shot-v1', action: 'create' };
+            
+            // Build a simple command
+            command = {
+              ...mappedAction,
+              parameters: {
+                prompt: message,
+                autoGenerate: true,
+                ruleName: bestMatchedRule.name
+              },
+              confidence: 0.7
+            };
+            
+            // Record this automation
+            if (user) {
+              await supabase
+                .from('automation_history')
+                .insert({
+                  rule_id: bestMatchedRule.id,
+                  user_message: message,
+                  detected_intent: detectedIntent,
+                  action_taken: bestMatchedRule.action,
+                  success: true,
+                  user_id: user.id,
+                  credits_used: bestMatchedRule.required_credits,
+                  metadata: { command }
+                });
+            }
+          }
+        } catch (ruleProcessingError) {
+          console.error('Error processing rule:', ruleProcessingError);
+          // If rule processing fails, we'll continue to Langflow
+        }
+      }
+
+      // If we detected a command, respond with it
+      if (command) {
+        return new Response(
+          JSON.stringify({
+            command,
+            message: `I've detected you want to ${detectedIntent}. I'll help you with that right away.`,
+            detected_rule: detectedIntent
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (automationError) {
+      console.error('Error in automation processing:', automationError);
+      // We'll just log this and continue to Langflow
     }
     
     // Fall back to Langflow for regular chat
@@ -304,10 +342,11 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
       JSON.stringify({
         error: error.message,
         command: null,
-        message: "Sorry, there was an error processing your request."
+        message: "Sorry, there was an error processing your request.",
+        use_langflow: true // Fall back to Langflow on error
       }),
       {
-        status: 500,
+        status: 200, // Use 200 even for errors to avoid UI disruption
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );

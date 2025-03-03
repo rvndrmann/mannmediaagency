@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -209,16 +210,19 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
 
       // First try command detection
       console.log('Sending request to command detection system');
-      const detectionResponse = await supabase.functions.invoke('detect-command', {
-        body: { 
-          message: trimmedInput,
-          activeContext: activeTool,
-          userCredits
-        }
-      });
-
-      if (detectionResponse.error) {
-        console.error('Command detection error:', detectionResponse.error);
+      let detectionResponse;
+      try {
+        detectionResponse = await supabase.functions.invoke('detect-command', {
+          body: { 
+            message: trimmedInput,
+            activeContext: activeTool,
+            userCredits
+          }
+        });
+      } catch (detectionError) {
+        console.error('Command detection error:', detectionError);
+        // We'll continue with Langflow if detection fails
+        detectionResponse = { data: { use_langflow: true } };
       }
 
       let command = null;
@@ -227,7 +231,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
 
       // Check if we got a command detection result
       if (detectionResponse.data) {
-        useLangflow = detectionResponse.data.use_langflow || false;
+        useLangflow = detectionResponse.data.use_langflow !== false;
         command = detectionResponse.data.command;
         messageContent = detectionResponse.data.message;
       }
@@ -259,71 +263,90 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       else if (useLangflow) {
         console.log('Falling back to Langflow for response generation');
         
-        // Send message to Langflow with any detected but incomplete command data
-        const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
-          body: { 
-            messages: [...messages, userMessage],
-            activeTool,
-            userCredits,
-            command,
-            detectedMessage: messageContent
+        try {
+          // Send message to Langflow with any detected but incomplete command data
+          const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
+            body: { 
+              messages: [...messages, userMessage],
+              activeTool,
+              userCredits,
+              command,
+              detectedMessage: messageContent
+            }
+          });
+
+          console.log('Received response from LangFlow:', data);
+
+          if (error) {
+            console.error('Chat error:', error);
+            updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Failed to connect to AI service");
+            throw error;
           }
-        });
 
-        console.log('Received response from LangFlow:', data);
+          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
+          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
 
-        if (error) {
-          console.error('Chat error:', error);
-          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Failed to connect to AI service");
-          throw error;
-        }
-
-        updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
-        updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
-
-        if (data && data.message) {
-          // Check if there's a command to execute
-          const responseCommand = data.command;
-          
-          if (responseCommand) {
-            console.log('Command received from Langflow:', responseCommand);
+          if (data && data.message) {
+            // Check if there's a command to execute
+            const responseCommand = data.command;
+            
+            if (responseCommand) {
+              console.log('Command received from Langflow:', responseCommand);
+              
+              setMessages(prev => {
+                const newMessages = [...prev];
+                if (messageIndex >= 0 && messageIndex < newMessages.length) {
+                  newMessages[messageIndex] = {
+                    ...newMessages[messageIndex],
+                    command: responseCommand,
+                    content: data.message,
+                    status: "working"
+                  };
+                }
+                return newMessages;
+              });
+              
+              // Execute the command
+              await executeCommand(responseCommand, messageIndex);
+            }
+            
+            // Update the message content with the LangFlow response
+            updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
             
             setMessages(prev => {
               const newMessages = [...prev];
               if (messageIndex >= 0 && messageIndex < newMessages.length) {
                 newMessages[messageIndex] = {
                   ...newMessages[messageIndex],
-                  command: responseCommand,
                   content: data.message,
-                  status: "working"
+                  status: "completed"
                 };
               }
               return newMessages;
             });
-            
-            // Execute the command
-            await executeCommand(responseCommand, messageIndex);
+          } else {
+            throw new Error('Invalid response format from AI');
           }
+        } catch (langflowError) {
+          console.error('Langflow processing error:', langflowError);
           
-          // Update the message content with the LangFlow response
-          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
+          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error");
+          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
           
           setMessages(prev => {
             const newMessages = [...prev];
             if (messageIndex >= 0 && messageIndex < newMessages.length) {
               newMessages[messageIndex] = {
                 ...newMessages[messageIndex],
-                content: data.message,
-                status: "completed"
+                content: "I'm having trouble connecting to my AI services. Please try again in a moment.",
+                status: "error"
               };
             }
             return newMessages;
           });
-        } else {
-          throw new Error('Invalid response format from AI');
         }
       } else {
-        // Generic failure case
+        // This is the case where neither command detection nor Langflow worked
         throw new Error('Both command detection and Langflow processing failed');
       }
 

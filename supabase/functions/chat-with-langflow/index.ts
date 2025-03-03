@@ -2,8 +2,9 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-// Updated API URL to match the Astra DataStax format
-const BASE_API_URL = Deno.env.get("BASE_API_URL") || "https://astra.datastax.com";
+// Updated API URL to match the Astra Langflow format from documentation
+const BASE_API_URL = Deno.env.get("BASE_API_URL") || "https://api.langflow.astra.datastax.com";
+const LANGFLOW_ID = Deno.env.get("LANGFLOW_ID");
 const FLOW_ID = Deno.env.get("FLOW_ID");
 const APPLICATION_TOKEN = Deno.env.get("APPLICATION_TOKEN");
 const X_API_KEY = Deno.env.get("X_API_KEY");
@@ -22,6 +23,7 @@ interface Message {
 function checkEnvironmentVariables() {
   const variables = {
     baseApiUrl: BASE_API_URL,
+    langflowId: LANGFLOW_ID,
     flowId: FLOW_ID,
     applicationToken: APPLICATION_TOKEN ? "Set" : "Not set",
     xApiKey: X_API_KEY ? "Set" : "Not set",
@@ -29,8 +31,9 @@ function checkEnvironmentVariables() {
   
   console.log("Environment variables:", JSON.stringify(variables));
   
-  if (!FLOW_ID || !APPLICATION_TOKEN || !X_API_KEY) {
+  if (!LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN || !X_API_KEY) {
     const missingVars = [];
+    if (!LANGFLOW_ID) missingVars.push("LANGFLOW_ID");
     if (!FLOW_ID) missingVars.push("FLOW_ID");
     if (!APPLICATION_TOKEN) missingVars.push("APPLICATION_TOKEN");
     if (!X_API_KEY) missingVars.push("X_API_KEY");
@@ -217,8 +220,8 @@ ${messageHistory}
                ? inputString.substring(0, 100) + '...' 
                : inputString);
 
-    // Prepare for API call - updated to match the new Astra format
-    const endpoint = `/api/v1/run/${FLOW_ID}?stream=false`;
+    // Prepare for API call - updated to match the documented Astra Langflow format
+    const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
     
     const tweaks = {
       "Agent-swaq6": {},
@@ -235,7 +238,8 @@ ${messageHistory}
       tweaks
     };
 
-    console.log(`Making request to: ${BASE_API_URL}${endpoint}`);
+    const fullUrl = `${BASE_API_URL}${endpoint}`;
+    console.log(`Making request to: ${fullUrl}`);
     console.log('Payload structure:', JSON.stringify({
       input_type: payload.input_type,
       output_type: payload.output_type,
@@ -258,8 +262,8 @@ ${messageHistory}
         controller.abort();
       }, 25000); // 25 second timeout - adjusted for Astra API
     
-      console.log("Starting Astra API request...");
-      const apiResponse = await fetch(`${BASE_API_URL}${endpoint}`, {
+      console.log("Starting Astra Langflow API request...");
+      const apiResponse = await fetch(fullUrl, {
         method: 'POST',
         headers,
         body: JSON.stringify(payload),
@@ -334,7 +338,7 @@ ${messageHistory}
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (fetchError) {
-      console.error('Fetch error in Astra API call:', fetchError);
+      console.error('Fetch error in Astra Langflow API call:', fetchError);
       
       // Special handling for timeout errors
       if (fetchError.name === 'AbortError') {

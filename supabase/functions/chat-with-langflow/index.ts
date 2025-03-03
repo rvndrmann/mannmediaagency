@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -8,6 +7,15 @@ const LANGFLOW_ID = Deno.env.get("LANGFLOW_ID");
 const FLOW_ID = Deno.env.get("FLOW_ID");
 const APPLICATION_TOKEN = Deno.env.get("APPLICATION_TOKEN");
 const X_API_KEY = Deno.env.get("X_API_KEY");
+
+// Increase timeout to 45 seconds to allow for longer processing times
+const API_TIMEOUT_MS = 45000; 
+
+// Maximum retries for failed requests
+const MAX_RETRIES = 2;
+
+// Maximum input length to avoid timeouts due to large payloads
+const MAX_INPUT_LENGTH = 4000;
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -95,6 +103,97 @@ function extractResponseText(responseData: any): { messageText: string | null, c
       command: null 
     };
   }
+}
+
+// Helper function to truncate input if it's too long
+function truncateInput(input: string, maxLength: number): string {
+  if (input.length <= maxLength) {
+    return input;
+  }
+  
+  console.log(`Input exceeds maximum length (${input.length} > ${maxLength}), truncating...`);
+  
+  // Simple truncation strategy that keeps the most recent message intact
+  // For more sophisticated truncation, consider using a more complex algorithm
+  const userMessageStart = input.lastIndexOf("user:"); 
+  if (userMessageStart > 0 && input.length - userMessageStart < maxLength) {
+    // If we can keep just the last user message, do that
+    return input.substring(userMessageStart);
+  }
+  
+  // Otherwise just truncate, prioritizing the most recent content
+  return input.substring(input.length - maxLength);
+}
+
+// Helper function to make API call with retries
+async function makeAstraLangflowRequest(
+  url: string, 
+  headers: Record<string, string>, 
+  payload: any, 
+  retries = MAX_RETRIES
+): Promise<any> {
+  let lastError;
+  
+  for (let attempt = 0; attempt <= retries; attempt++) {
+    if (attempt > 0) {
+      const backoffMs = Math.min(1000 * (2 ** attempt), 10000); // Exponential backoff capped at 10 seconds
+      console.log(`Retry attempt ${attempt}/${retries} after ${backoffMs}ms...`);
+      await new Promise(resolve => setTimeout(resolve, backoffMs));
+    }
+    
+    try {
+      console.log(`API request attempt ${attempt + 1}/${retries + 1} to ${url}`);
+      
+      // Create abort controller for timeout
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log(`Request timeout after ${API_TIMEOUT_MS}ms - aborting`);
+        controller.abort();
+      }, API_TIMEOUT_MS);
+      
+      // Make the request
+      const response = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload),
+        signal: controller.signal
+      });
+      
+      // Clear the timeout
+      clearTimeout(timeoutId);
+      
+      // Check for successful response
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`API Error (${response.status}):`, errorText.substring(0, 500));
+        throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
+      }
+      
+      // Parse the response JSON
+      const data = await response.json();
+      console.log('API response received successfully');
+      return data;
+    } catch (error) {
+      lastError = error;
+      
+      // Don't retry if it's an abort error and it's the last attempt
+      if (error.name === 'AbortError' && attempt === retries) {
+        console.error('Final attempt timed out');
+        throw new Error('Request timed out after multiple attempts');
+      }
+      
+      // Log the error
+      console.error(`API request attempt ${attempt + 1} failed:`, error.message);
+      
+      // If it's the last attempt, throw the error
+      if (attempt === retries) {
+        throw error;
+      }
+    }
+  }
+  
+  // This should never be reached but is here for completeness
+  throw lastError;
 }
 
 serve(async (req) => {
@@ -195,11 +294,16 @@ serve(async (req) => {
     }
 
     // Extract only the text from previous messages to create a conversation history
-    const messageHistory = messages.slice(0, -1).map((msg: Message) => 
-      `${msg.role}: ${msg.content}`
-    ).join("\n");
+    // Limit the number of previous messages to include to avoid excessive payload size
+    const maxPreviousMessages = 5;
+    const messageHistoryArray = messages
+      .slice(Math.max(0, messages.length - 1 - maxPreviousMessages), messages.length - 1)
+      .map((msg: Message) => `${msg.role}: ${msg.content}`);
+    
+    const messageHistory = messageHistoryArray.join("\n");
+    console.log(`Including ${messageHistoryArray.length} previous messages in context`);
 
-    // Create a simplified context string
+    // Create a simplified context string (kept short to reduce payload size)
     const contextString = `
 Active Tool: ${activeTool || "ai-agent"}
 Credits Available: ${userCredits?.credits_remaining || 0}
@@ -207,14 +311,13 @@ Message History:
 ${messageHistory}
 `;
 
-    console.log('Context string sample:', 
-               contextString.length > 100 
-               ? contextString.substring(0, 100) + '...' 
-               : contextString);
-    
     // Create a simple input string that Langflow can accept
-    const inputString = `${lastMessage.content}\n\nContext: ${contextString}`;
+    // Truncate if necessary to avoid timeout issues with large payloads
+    const fullInputString = `${lastMessage.content}\n\nContext: ${contextString}`;
+    const inputString = truncateInput(fullInputString, MAX_INPUT_LENGTH);
     
+    console.log('Input string length:', inputString.length, 
+                inputString.length < fullInputString.length ? '(truncated)' : '');
     console.log('Input string sample:', 
                inputString.length > 100 
                ? inputString.substring(0, 100) + '...' 
@@ -223,13 +326,8 @@ ${messageHistory}
     // Prepare for API call - updated to match the documented Astra Langflow format
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
     
-    const tweaks = {
-      "Agent-swaq6": {},
-      "ChatInput-SylqI": {},
-      "ChatOutput-E57mu": {},
-      "Agent-Hpbdi": {},
-      "Agent-JogPZ": {}
-    };
+    // Simplified tweaks object to reduce payload size
+    const tweaks = {};
 
     const payload = {
       input_value: inputString,
@@ -240,15 +338,6 @@ ${messageHistory}
 
     const fullUrl = `${BASE_API_URL}${endpoint}`;
     console.log(`Making request to: ${fullUrl}`);
-    console.log('Payload structure:', JSON.stringify({
-      input_type: payload.input_type,
-      output_type: payload.output_type,
-      input_value_length: inputString.length,
-      tweaks: Object.keys(payload.tweaks)
-    }));
-    
-    // Display full request data for debugging
-    console.log('Full request payload:', JSON.stringify(payload, null, 2).substring(0, 1000) + '...');
     
     // Updated headers to include x-api-key
     const headers = {
@@ -262,63 +351,9 @@ ${messageHistory}
     ));
 
     try {
-      // Timeout implementation to prevent hanging requests
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log("Request timeout - aborting");
-        controller.abort();
-      }, 25000); // 25 second timeout - adjusted for Astra API
-    
-      console.log("Starting Astra Langflow API request...");
-      const apiResponse = await fetch(fullUrl, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(payload),
-        signal: controller.signal
-      });
-      
-      clearTimeout(timeoutId);
-      console.log('API Response received, status:', apiResponse.status);
-      
-      if (!apiResponse.ok) {
-        let errorText = 'Unknown error';
-        try {
-          errorText = await apiResponse.text();
-          console.error('API Error response text:', errorText);
-        } catch (e) {
-          console.error('Could not read error response:', e);
-          errorText = 'Could not read error response';
-        }
-        
-        return new Response(
-          JSON.stringify({ 
-            message: "I'm sorry, I'm having trouble connecting to my knowledge base. Please try again in a moment.",
-            command: null,
-            error: `API error: ${apiResponse.status} - ${errorText.substring(0, 200)}`
-          }),
-          { 
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-            status: 200 // Send 200 to client even on API error
-          }
-        );
-      }
-
-      let responseData;
-      try {
-        responseData = await apiResponse.json();
-        console.log('Raw response structure:', JSON.stringify(Object.keys(responseData || {}), null, 2));
-        console.log('Raw response sample:', JSON.stringify(responseData, null, 2).substring(0, 1000) + '...');
-      } catch (jsonError) {
-        console.error('Error parsing JSON response:', jsonError);
-        return new Response(
-          JSON.stringify({ 
-            message: "I received an invalid response from my knowledge base. Please try again.",
-            command: null,
-            error: "JSON parsing error"
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      // Make API call with retry logic
+      console.log("Starting Astra Langflow API request with retry capability");
+      const responseData = await makeAstraLangflowRequest(fullUrl, headers, payload);
       
       // Extract the response text and command
       const { messageText, command } = extractResponseText(responseData);
@@ -345,32 +380,28 @@ ${messageHistory}
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } catch (fetchError) {
-      console.error('Fetch error in Astra Langflow API call:', fetchError);
-      console.error('Fetch error details:', JSON.stringify({
-        name: fetchError.name,
-        message: fetchError.message,
-        stack: fetchError.stack
-      }));
+    } catch (apiError) {
+      console.error('API call error:', apiError);
       
       // Special handling for timeout errors
-      if (fetchError.name === 'AbortError') {
-        console.log('Request timed out');
+      if (apiError.message?.includes('timed out') || apiError.name === 'AbortError') {
+        console.log('Request timed out after retries');
         return new Response(
           JSON.stringify({
-            message: "I'm sorry, the request took too long to process. Please try a shorter message or try again later.",
+            message: "I'm sorry, but I'm taking too long to process your request. Try sending a shorter message or try again later.",
             command: null,
-            error: "Request timeout"
+            error: "Request timeout after retries"
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      // Generic fetch error
+      // Handle other API errors
       return new Response(
         JSON.stringify({
-          ...fallbackResponse,
-          error: fetchError.message
+          message: "I apologize, but I'm having trouble connecting to my knowledge base right now. Please try again in a moment.",
+          command: null,
+          error: apiError instanceof Error ? apiError.message : String(apiError)
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

@@ -1,4 +1,3 @@
-
 import { serve } from "std/http/server.ts";
 import { createClient } from '@supabase/supabase-js';
 
@@ -9,126 +8,144 @@ interface Command {
   parameters?: Record<string, any>;
 }
 
-// CORS headers for browser requests
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+interface RequestBody {
+  command: Command;
+}
 
 serve(async (req) => {
-  // Handle CORS preflight requests
+  // CORS headers
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+    return new Response('ok', {
+      headers: {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+      }
+    });
   }
 
   try {
-    // Get supabase client using environment variables
-    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-    const supabaseServiceKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const supabase = createClient(supabaseUrl, supabaseServiceKey);
-
-    // Get request body
-    const { command, userId } = await req.json();
-
-    // Validate input
-    if (!command || !command.feature || !command.action) {
-      return new Response(
-        JSON.stringify({ error: 'Invalid command structure' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
-      );
+    // Get the API token from the Authorization header
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(JSON.stringify({ error: 'Missing or invalid Authorization header' }), {
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
     }
 
-    console.log(`Processing command: ${command.feature} - ${command.action}`, command.parameters);
+    // Create Supabase client with service role key from env
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
-    let result = null;
+    // Get user from token
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: userError } = await supabase.auth.getUser(token);
 
-    // Process the command based on feature and action
-    switch (command.feature) {
-      case 'default-image':
-        if (command.action === 'list') {
-          // List default images for the user
+    if (userError || !user) {
+      return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+        status: 401,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
+    }
+
+    // Parse request body
+    const { command } = await req.json() as RequestBody;
+
+    // Handle command based on feature and action
+    let result;
+    
+    // Default image commands
+    if (command.feature === 'default-image') {
+      // Handle default image commands
+      switch (command.action) {
+        case 'list':
+          // List all default images for the user
           const { data, error } = await supabase
             .from('default_product_images')
             .select('*')
-            .eq('user_id', userId)
+            .eq('user_id', user.id)
             .order('created_at', { ascending: false });
-
+            
           if (error) throw error;
           result = { images: data };
-        } 
-        else if (command.action === 'use') {
-          // Update last used timestamp for a default image
-          if (!command.parameters?.imageId) {
-            throw new Error('No image ID provided');
-          }
-
-          const { data, error } = await supabase
-            .from('default_product_images')
-            .update({ last_used_at: new Date().toISOString() })
-            .eq('id', command.parameters.imageId)
-            .eq('user_id', userId)
-            .select()
-            .single();
-
-          if (error) throw error;
-          result = { image: data };
-        }
-        else if (command.action === 'save') {
-          // Save a new default image
+          break;
+          
+        case 'save':
+          // Save an image as default
           if (!command.parameters?.url || !command.parameters?.name) {
-            throw new Error('Image URL and name are required');
+            throw new Error('Missing required parameters: url and name');
           }
-
-          const { data, error } = await supabase
+          
+          const { data: saveData, error: saveError } = await supabase
             .from('default_product_images')
             .insert({
               url: command.parameters.url,
               name: command.parameters.name,
               context: command.parameters.context || 'product',
-              user_id: userId
+              user_id: user.id
             })
             .select()
             .single();
-
-          if (error) throw error;
-          result = { image: data };
-        }
-        break;
-
-      // Future implementations for other features
-      case 'product-shot-v1':
-      case 'product-shot-v2':
-      case 'image-to-video':
-      case 'product-video':
-        // For now, just acknowledge the command
-        result = { 
-          acknowledged: true,
-          message: `Command for ${command.feature} - ${command.action} received but not fully implemented yet.`
-        };
-        break;
-
-      default:
-        throw new Error(`Unsupported feature: ${command.feature}`);
+            
+          if (saveError) throw saveError;
+          result = { success: true, image: saveData };
+          break;
+          
+        case 'use':
+          // Update last_used_at timestamp for a default image
+          if (!command.parameters?.id) {
+            throw new Error('Missing required parameter: id');
+          }
+          
+          const { data: updateData, error: updateError } = await supabase
+            .from('default_product_images')
+            .update({ last_used_at: new Date().toISOString() })
+            .eq('id', command.parameters.id)
+            .eq('user_id', user.id)
+            .select()
+            .single();
+            
+          if (updateError) throw updateError;
+          result = { success: true, image: updateData };
+          break;
+          
+        default:
+          throw new Error(`Unknown action for default-image feature: ${command.action}`);
+      }
+    } else {
+      return new Response(JSON.stringify({ error: 'Unsupported feature or action' }), {
+        status: 400,
+        headers: {
+          'Content-Type': 'application/json',
+          'Access-Control-Allow-Origin': '*',
+        },
+      });
     }
 
-    // Return the result
-    return new Response(
-      JSON.stringify({ success: true, result }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-
+    return new Response(JSON.stringify(result), {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
   } catch (error) {
     console.error('Error processing command:', error);
     
-    return new Response(
-      JSON.stringify({ 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error occurred' 
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 500 
-      }
-    );
+    return new Response(JSON.stringify({ error: error.message }), {
+      status: 500,
+      headers: {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*',
+      },
+    });
   }
 });

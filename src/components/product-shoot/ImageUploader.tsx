@@ -5,6 +5,8 @@ import { Label } from "@/components/ui/label";
 import { Upload, X, Save } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SavedImagesGrid } from "./SavedImagesGrid";
+import { DefaultImagesGrid } from "./DefaultImagesGrid";
+import { SaveAsDefaultButton } from "./SaveAsDefaultButton";
 import { supabase } from "@/integrations/supabase/client";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
@@ -131,11 +133,16 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
     setActiveTab("upload");
   };
 
+  const refreshCachedImages = () => {
+    queryClient.invalidateQueries({ queryKey: ["saved-product-images"] });
+    queryClient.invalidateQueries({ queryKey: ["defaultProductImages"] });
+  };
+
   return (
     <div className="space-y-2">
       <Label className="text-sm font-medium text-white mb-2">Upload Image</Label>
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2 bg-white/5 p-1">
+        <TabsList className="grid w-full grid-cols-3 bg-white/5 p-1">
           <TabsTrigger 
             value="upload"
             className="data-[state=active]:bg-purple-500 text-white data-[state=active]:text-white"
@@ -147,6 +154,12 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
             className="data-[state=active]:bg-purple-500 text-white data-[state=active]:text-white"
           >
             Saved Images
+          </TabsTrigger>
+          <TabsTrigger 
+            value="defaults"
+            className="data-[state=active]:bg-purple-500 text-white data-[state=active]:text-white"
+          >
+            Default Images
           </TabsTrigger>
         </TabsList>
         <TabsContent value="upload" className="mt-4">
@@ -173,6 +186,10 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
                   className="w-full h-64 object-cover rounded-lg border border-white/10"
                 />
                 <div className="absolute top-2 right-2 flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <SaveAsDefaultButton 
+                    imageUrl={previewUrl} 
+                    onSaved={refreshCachedImages}
+                  />
                   <Button
                     variant="ghost"
                     size="icon"
@@ -198,6 +215,9 @@ export function ImageUploader({ previewUrl, onFileSelect, onClear }: ImageUpload
         </TabsContent>
         <TabsContent value="saved" className="mt-4">
           <SavedImagesGrid onSelect={handleImageSelect} />
+        </TabsContent>
+        <TabsContent value="defaults" className="mt-4">
+          <DefaultImagesGrid onSelect={handleImageSelect} />
         </TabsContent>
       </Tabs>
     </div>

@@ -1,10 +1,10 @@
-
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Loader2, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SaveAsDefaultButton } from "./SaveAsDefaultButton";
 
 interface SavedImagesGridProps {
   onSelect: (imageUrl: string) => void;
@@ -52,6 +52,11 @@ export function SavedImagesGrid({ onSelect }: SavedImagesGridProps) {
     },
   });
 
+  const refreshCachedImages = () => {
+    queryClient.invalidateQueries({ queryKey: ["saved-product-images"] });
+    queryClient.invalidateQueries({ queryKey: ["defaultProductImages"] });
+  };
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center h-48">
@@ -79,14 +84,20 @@ export function SavedImagesGrid({ onSelect }: SavedImagesGridProps) {
               className="w-full h-32 object-cover rounded-lg cursor-pointer hover:opacity-90 transition-opacity"
               onClick={() => onSelect(image.image_url)}
             />
-            <Button
-              variant="ghost"
-              size="icon"
-              className="absolute top-2 right-2 bg-black/50 hover:bg-black/70 invisible group-hover:visible"
-              onClick={() => deleteImage.mutate(image)}
-            >
-              <X className="h-4 w-4 text-white" />
-            </Button>
+            <div className="absolute top-2 right-2 flex gap-2 invisible group-hover:visible">
+              <SaveAsDefaultButton 
+                imageUrl={image.image_url} 
+                onSaved={refreshCachedImages}
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="bg-black/50 hover:bg-black/70"
+                onClick={() => deleteImage.mutate(image)}
+              >
+                <X className="h-4 w-4 text-white" />
+              </Button>
+            </div>
           </div>
         ))}
       </div>

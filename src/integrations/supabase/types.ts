@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      ai_prompts: {
+        Row: {
+          category: string
+          created_at: string | null
+          id: string
+          name: string
+          prompt_template: string
+          requires_context: boolean
+          updated_at: string | null
+          variables: Json
+        }
+        Insert: {
+          category: string
+          created_at?: string | null
+          id?: string
+          name: string
+          prompt_template: string
+          requires_context?: boolean
+          updated_at?: string | null
+          variables?: Json
+        }
+        Update: {
+          category?: string
+          created_at?: string | null
+          id?: string
+          name?: string
+          prompt_template?: string
+          requires_context?: boolean
+          updated_at?: string | null
+          variables?: Json
+        }
+        Relationships: []
+      }
       announcements: {
         Row: {
           active: boolean | null
@@ -96,6 +129,98 @@ export type Database = {
           thumbnail_path?: string | null
           title?: string
           video_path?: string
+        }
+        Relationships: []
+      }
+      automation_history: {
+        Row: {
+          action_taken: string
+          created_at: string | null
+          credits_used: number
+          detected_intent: string | null
+          id: string
+          metadata: Json | null
+          rule_id: string | null
+          success: boolean
+          user_id: string
+          user_message: string
+        }
+        Insert: {
+          action_taken: string
+          created_at?: string | null
+          credits_used?: number
+          detected_intent?: string | null
+          id?: string
+          metadata?: Json | null
+          rule_id?: string | null
+          success?: boolean
+          user_id: string
+          user_message: string
+        }
+        Update: {
+          action_taken?: string
+          created_at?: string | null
+          credits_used?: number
+          detected_intent?: string | null
+          id?: string
+          metadata?: Json | null
+          rule_id?: string | null
+          success?: boolean
+          user_id?: string
+          user_message?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_history_rule_id_fkey"
+            columns: ["rule_id"]
+            isOneToOne: false
+            referencedRelation: "automation_rules"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automation_rules: {
+        Row: {
+          action: string
+          created_at: string | null
+          description: string | null
+          id: string
+          is_active: boolean
+          name: string
+          negative_keywords: string[] | null
+          priority: number
+          prompt_id: string | null
+          required_credits: number
+          trigger_keywords: string[]
+          updated_at: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name: string
+          negative_keywords?: string[] | null
+          priority?: number
+          prompt_id?: string | null
+          required_credits?: number
+          trigger_keywords?: string[]
+          updated_at?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string | null
+          description?: string | null
+          id?: string
+          is_active?: boolean
+          name?: string
+          negative_keywords?: string[] | null
+          priority?: number
+          prompt_id?: string | null
+          required_credits?: number
+          trigger_keywords?: string[]
+          updated_at?: string | null
         }
         Relationships: []
       }

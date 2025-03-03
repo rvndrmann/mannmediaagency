@@ -23,5 +23,7 @@ export interface Command {
     imageUrl?: string;
     prompt?: string;
     autoGenerate?: boolean;
+    contextualData?: any; // Additional context data from AI analysis
   };
+  confidence?: number; // Confidence score from AI detection
 }

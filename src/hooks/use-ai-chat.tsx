@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -103,31 +104,30 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
-  // Parse user message for commands
-  const parseCommands = (message: string): Command | null => {
-    // This is a parser for various commands
-    const commandPatterns = [
-      { regex: /create (?:a |an )?(product shot|image)/i, feature: "product-shot-v1", action: "create" },
-      { regex: /generate (?:a |an )?(product (shot|image))/i, feature: "product-shot-v2", action: "create" },
-      { regex: /convert (?:an )?(image|shot) to video/i, feature: "image-to-video", action: "convert" },
-      { regex: /create (?:a |an )?(video|product video)/i, feature: "product-video", action: "create" },
-      { regex: /save (?:this )?(image|shot) as default/i, feature: "default-image", action: "save" },
-      { regex: /use default (image|shot)/i, feature: "default-image", action: "use" },
-      { regex: /show default images/i, feature: "default-image", action: "list" },
-      { regex: /list default images/i, feature: "default-image", action: "list" },
-    ];
+  // Use AI to detect commands in user messages
+  const detectCommand = async (messageContent: string): Promise<Command | null> => {
+    try {
+      console.log('Detecting command with AI...');
+      
+      const { data, error } = await supabase.functions.invoke('detect-command', {
+        body: { 
+          messages: messages,
+          lastMessage: messageContent 
+        }
+      });
 
-    for (const pattern of commandPatterns) {
-      if (pattern.regex.test(message)) {
-        return {
-          feature: pattern.feature as Command['feature'],
-          action: pattern.action as Command['action'],
-          parameters: extractParameters(message, pattern.feature as Command['feature']),
-        };
+      console.log('Command detection response:', data);
+
+      if (error) {
+        console.error('Command detection error:', error);
+        return null;
       }
-    }
 
-    return null;
+      return data?.command || null;
+    } catch (error) {
+      console.error('Error detecting command:', error);
+      return null;
+    }
   };
 
   // Extract parameters from user message based on feature
@@ -170,36 +170,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           params.imageUrl = sortedImages[0].url;
           params.name = sortedImages[0].name;
         }
-      }
-    }
-    
-    // Extract prompt for product shot commands
-    if (feature === "product-shot-v1" || feature === "product-shot-v2") {
-      const promptRegex = /(?:create|generate)(?: a| an)? (?:product shot|product image|image) (?:of|showing|with|that is) (.+?)(?:\.|\?|!|$)/i;
-      const promptMatch = message.match(promptRegex);
-      
-      if (promptMatch && promptMatch[1]) {
-        params.prompt = promptMatch[1].trim();
-      }
-      
-      const useDefaultRegex = /(?:using|with|and use) (?:the |a |an )?default image/i;
-      if (useDefaultRegex.test(message)) {
-        if (defaultImages && defaultImages.length > 0) {
-          const sortedImages = [...defaultImages].sort((a, b) => {
-            if (!a.last_used_at) return 1;
-            if (!b.last_used_at) return -1;
-            return new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime();
-          });
-          
-          params.imageId = sortedImages[0].id;
-          params.imageUrl = sortedImages[0].url;
-          params.name = sortedImages[0].name;
-        }
-      }
-      
-      const autoGenerateRegex = /(?:and generate|then generate|and create)/i;
-      if (autoGenerateRegex.test(message)) {
-        params.autoGenerate = true;
       }
     }
     
@@ -397,22 +367,28 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       // Update first task to in-progress
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       
-      // Detect any commands in the user message
-      const command = parseCommands(trimmedInput);
-      
       // Short delay to simulate thinking
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Mark first task as completed
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
       
-      // Update second task based on command detection
-      if (command) {
+      // Update second task to in-progress
+      updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
+      
+      // Use AI to detect if this message contains a command
+      console.log('Detecting commands with AI...');
+      const detectedCommand = await detectCommand(trimmedInput);
+      
+      if (detectedCommand) {
+        console.log('AI detected command:', detectedCommand);
+        
+        // Update the command detection task
         updateTaskStatus(
           messageIndex,
           assistantMessage.tasks![1].id, 
           "completed", 
-          `Detected: ${command.action} ${command.feature}`
+          `Detected: ${detectedCommand.action} ${detectedCommand.feature}`
         );
         
         // Save the detected command to the message
@@ -421,14 +397,14 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           if (messageIndex >= 0 && messageIndex < newMessages.length) {
             newMessages[messageIndex] = {
               ...newMessages[messageIndex],
-              command
+              command: detectedCommand
             };
           }
           return newMessages;
         });
         
         // Execute the command and get a response
-        const commandResponse = await executeCommand(command, messageIndex);
+        const commandResponse = await executeCommand(detectedCommand, messageIndex);
         
         // Update assistant message with the command response
         setMessages(prev => {
@@ -449,13 +425,14 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           return;
         }
       } else {
+        // No command detected
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed", "No specific commands detected");
       }
       
       // Update the third task to in-progress
       updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
 
-      console.log('Sending chat request:', {
+      console.log('Sending chat request to LangFlow:', {
         messages: [...messages, userMessage],
         lastMessage: userMessage.content
       });
@@ -466,7 +443,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         }
       });
 
-      console.log('Received response:', data);
+      console.log('Received response from LangFlow:', data);
 
       if (error) {
         console.error('Chat error:', error);

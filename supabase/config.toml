@@ -30,3 +30,5 @@ verify_jwt = false
 verify_jwt = false
 [functions.handle-ai-command]
 verify_jwt = true
+[functions.detect-command]
+verify_jwt = false

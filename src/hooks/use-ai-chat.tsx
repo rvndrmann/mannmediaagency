@@ -85,6 +85,30 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     });
   };
 
+  // Set all tasks for a message to error state
+  const setAllTasksToError = (messageIndex: number, errorMessage?: string) => {
+    setMessages(prev => {
+      const newMessages = [...prev];
+      if (messageIndex >= 0 && messageIndex < newMessages.length) {
+        const message = newMessages[messageIndex];
+        if (message.tasks) {
+          const updatedTasks = message.tasks.map(task => ({
+            ...task,
+            status: task.status === "completed" ? "completed" : "error",
+            details: task.status === "completed" ? task.details : (errorMessage || "Failed")
+          }));
+          
+          newMessages[messageIndex] = {
+            ...message,
+            tasks: updatedTasks,
+            status: "error"
+          };
+        }
+      }
+      return newMessages;
+    });
+  };
+
   const deductChatCredits = async () => {
     try {
       const { data, error } = await supabase.rpc('safely_decrease_chat_credits', {
@@ -153,6 +177,18 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
 
         // Switch to the appropriate tool with parameters
         onToolSwitch(command.feature, command.parameters);
+        
+        // Update message status to completed after command execution
+        setMessages(prev => {
+          const newMessages = [...prev];
+          if (messageIndex >= 0 && messageIndex < newMessages.length) {
+            newMessages[messageIndex] = {
+              ...newMessages[messageIndex],
+              status: "completed"
+            };
+          }
+          return newMessages;
+        });
       }
     } catch (error) {
       console.error("Command execution error:", error);
@@ -273,6 +309,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             return newMessages;
           });
           
+          setIsLoading(false);
           return; // Exit early
         }
       }
@@ -349,22 +386,22 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
               
               // Execute the command
               await executeCommand(responseCommand, messageIndex);
+            } else {
+              // Just update the message content with the LangFlow response
+              updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
+              
+              setMessages(prev => {
+                const newMessages = [...prev];
+                if (messageIndex >= 0 && messageIndex < newMessages.length) {
+                  newMessages[messageIndex] = {
+                    ...newMessages[messageIndex],
+                    content: data.message,
+                    status: "completed"
+                  };
+                }
+                return newMessages;
+              });
             }
-            
-            // Update the message content with the LangFlow response
-            updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
-            
-            setMessages(prev => {
-              const newMessages = [...prev];
-              if (messageIndex >= 0 && messageIndex < newMessages.length) {
-                newMessages[messageIndex] = {
-                  ...newMessages[messageIndex],
-                  content: data.message,
-                  status: "completed"
-                };
-              }
-              return newMessages;
-            });
           } else if (data && data.error === "Request timeout") {
             // Handle timeout specifically
             updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Request timed out");
@@ -381,14 +418,16 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
               }
               return newMessages;
             });
+            
+            toast.error("Request timed out. Please try again with a shorter message.");
           } else {
             throw new Error('Invalid response format from AI');
           }
         } catch (langflowError) {
           console.error('Langflow processing error:', langflowError);
           
-          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error");
-          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
+          // Set all tasks to error state
+          setAllTasksToError(messageIndex, "Connection to AI service failed");
           
           setMessages(prev => {
             const newMessages = [...prev];
@@ -406,17 +445,15 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         }
       } else {
         // Neither command detection nor Langflow worked
+        setAllTasksToError(messageIndex, "AI processing error");
         throw new Error('Both command detection and Langflow processing failed');
       }
     } catch (error) {
       console.error('Chat error:', error);
       
+      // Ensure all tasks are set to error state
       if (messageIndex >= 0 && messageIndex < messages.length + 2) {
-        assistantMessage.tasks!.forEach(task => {
-          if (task.status === "pending" || task.status === "in-progress") {
-            updateTaskStatus(messageIndex, task.id, "error");
-          }
-        });
+        setAllTasksToError(messageIndex, "An error occurred");
         
         setMessages(prev => {
           const newMessages = [...prev];
@@ -433,6 +470,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       
       toast.error(error instanceof Error ? error.message : "Failed to get response from AI");
     } finally {
+      // Always set isLoading to false to ensure UI doesn't get stuck
       setIsLoading(false);
     }
   };

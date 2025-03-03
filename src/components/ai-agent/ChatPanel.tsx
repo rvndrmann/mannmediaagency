@@ -3,12 +3,14 @@ import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { Info } from "lucide-react";
+import { Info, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+  status?: "thinking" | "working" | "completed" | "error";
 }
 
 interface ChatPanelProps {
@@ -61,6 +63,9 @@ export const ChatPanel = ({
     }
   }, [isVisible]);
 
+  // Check if there are any error messages
+  const hasErrors = messages.some(msg => msg.status === "error");
+
   return (
     <div className="flex flex-col h-full relative">
       <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10 flex items-center space-x-2">
@@ -80,6 +85,15 @@ export const ChatPanel = ({
           </Tooltip>
         </TooltipProvider>
       </div>
+      
+      {hasErrors && (
+        <div className="absolute top-0 left-4 mt-2 z-10">
+          <Badge variant="destructive" className="flex items-center gap-1 px-2 py-1">
+            <AlertCircle className="h-3.5 w-3.5" />
+            <span className="text-xs font-medium">Connection issues detected</span>
+          </Badge>
+        </div>
+      )}
       
       <div className="flex-1 overflow-hidden">
         <ScrollArea 

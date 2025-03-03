@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,14 +40,12 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
   }, [messages]);
 
-  // Create a new task
   const createTask = (name: string): Task => ({
     id: uuidv4(),
     name,
     status: "pending",
   });
 
-  // Update a task's status
   const updateTaskStatus = (messageIndex: number, taskId: string, status: Task["status"], details?: string) => {
     setMessages(prev => {
       const newMessages = [...prev];
@@ -104,7 +101,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
-  // Use AI to detect commands in user messages
   const detectCommand = async (messageContent: string): Promise<Command | null> => {
     try {
       console.log('Detecting command with AI...');
@@ -130,18 +126,15 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
-  // Extract parameters from user message based on feature
   const extractParameters = (message: string, feature: Command['feature']): Record<string, any> => {
     const params: Record<string, any> = {};
     
-    // Extract image name for default image commands
     if (feature === "default-image") {
       const nameMatch = message.match(/named ["']([^"']+)["']/i) || message.match(/name ["']([^"']+)["']/i);
       if (nameMatch && nameMatch[1]) {
         params.name = nameMatch[1];
       }
       
-      // If using default image, try to find which one by name
       if (message.includes("use default")) {
         const nameMatch = message.match(/use default image ["']([^"']+)["']/i) || 
                         message.match(/use default ["']([^"']+)["']/i) ||
@@ -149,7 +142,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         if (nameMatch && nameMatch[1]) {
           params.name = nameMatch[1];
           
-          // Find the image by name in defaultImages
           const matchedImage = defaultImages?.find(img => 
             img.name.toLowerCase() === nameMatch[1].toLowerCase()
           );
@@ -159,7 +151,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             params.imageUrl = matchedImage.url;
           }
         } else if (defaultImages && defaultImages.length > 0) {
-          // If no specific name, use the most recently used image
           const sortedImages = [...defaultImages].sort((a, b) => {
             if (!a.last_used_at) return 1;
             if (!b.last_used_at) return -1;
@@ -176,10 +167,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     return params;
   };
 
-  // Execute the detected command
   const executeCommand = async (command: Command, messageIndex: number): Promise<string> => {
     try {
-      // Add a task for executing the command
       const commandTaskId = uuidv4();
       setMessages(prev => {
         const newMessages = [...prev];
@@ -199,16 +188,29 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         return newMessages;
       });
 
-      // Handle different commands
       let result = "";
       
-      // Handle tool switching for commands that require interface changes
       if (onToolSwitch && (
         command.feature === "product-shot-v1" || 
         command.feature === "product-shot-v2" || 
-        command.feature === "image-to-video")
+        command.feature === "image-to-video" ||
+        command.feature === "product-video")
       ) {
-        // Trigger tool switching based on command feature with parameters
+        if (command.feature === "product-shot-v1" && 
+            command.parameters?.name && 
+            !command.parameters.imageUrl && 
+            defaultImages?.length) {
+          const matchedImage = defaultImages.find(img => 
+            img.name.toLowerCase() === command.parameters?.name?.toLowerCase()
+          );
+          
+          if (matchedImage) {
+            command.parameters.imageId = matchedImage.id;
+            command.parameters.imageUrl = matchedImage.url;
+            await updateLastUsed.mutateAsync(matchedImage.id);
+          }
+        }
+        
         onToolSwitch(command.feature, command.parameters);
       }
       
@@ -234,6 +236,17 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             
             if (command.parameters?.imageUrl) {
               responseText += `I'll use the default image "${command.parameters.name}" for your product shot. `;
+            } else if (command.parameters?.name && defaultImages?.length) {
+              const matchedImage = defaultImages.find(img => 
+                img.name.toLowerCase() === command.parameters?.name?.toLowerCase()
+              );
+              
+              if (matchedImage) {
+                responseText += `I'll use your default image "${matchedImage.name}" for your product shot. `;
+                command.parameters.imageUrl = matchedImage.url;
+                command.parameters.imageId = matchedImage.id;
+                await updateLastUsed.mutateAsync(matchedImage.id);
+              }
             }
             
             if (command.parameters?.autoGenerate) {
@@ -265,7 +278,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           break;
       }
 
-      // Mark the command task as completed
       updateTaskStatus(messageIndex, commandTaskId, "completed", "Command executed successfully");
       
       return result;
@@ -276,7 +288,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
-  // Handle listing default images
   const handleListDefaultImages = async (taskId: string, messageIndex: number): Promise<string> => {
     if (!defaultImages || defaultImages.length === 0) {
       updateTaskStatus(messageIndex, taskId, "completed", "No default images found");
@@ -292,21 +303,18 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     return `Here are your default images:\n\n${imagesList}\n\nYou can use any of these images with the "Use default image 'name'" command.`;
   };
 
-  // Handle using a default image
   const handleUseDefaultImage = async (parameters: Record<string, any> | undefined, taskId: string, messageIndex: number): Promise<string> => {
     if (!parameters?.imageId || !parameters?.imageUrl) {
       updateTaskStatus(messageIndex, taskId, "error", "No valid default image found");
       return "I couldn't find a default image to use. Please save a default image first or specify the image name.";
     }
     
-    // Update last used timestamp
     await updateLastUsed.mutateAsync(parameters.imageId);
     
     updateTaskStatus(messageIndex, taskId, "completed", `Using default image: ${parameters.name}`);
     return `I'm using your default image "${parameters.name}". You can now continue with your operation.`;
   };
 
-  // Handle saving a default image
   const handleSaveDefaultImage = async (parameters: Record<string, any> | undefined, taskId: string, messageIndex: number): Promise<string> => {
     if (!parameters?.name) {
       updateTaskStatus(messageIndex, taskId, "error", "No name provided for default image");
@@ -336,7 +344,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       content: trimmedInput
     };
 
-    // Create assistant message with initial tasks
     const assistantMessage: Message = { 
       role: "assistant", 
       content: "I'm analyzing your request...", 
@@ -352,38 +359,29 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     setInput("");
     setIsLoading(true);
     
-    const messageIndex = messages.length + 1; // Index of the new assistant message
+    const messageIndex = messages.length + 1;
 
     try {
-      // Deduct credits first
       await deductChatCredits();
       
-      // Log the chat usage
       await logChatUsage(trimmedInput);
       
-      // Refetch credits to update UI
       refetchCredits();
 
-      // Update first task to in-progress
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       
-      // Short delay to simulate thinking
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Mark first task as completed
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
       
-      // Update second task to in-progress
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
       
-      // Use AI to detect if this message contains a command
       console.log('Detecting commands with AI...');
       const detectedCommand = await detectCommand(trimmedInput);
       
       if (detectedCommand) {
         console.log('AI detected command:', detectedCommand);
         
-        // Update the command detection task
         updateTaskStatus(
           messageIndex,
           assistantMessage.tasks![1].id, 
@@ -391,7 +389,14 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           `Detected: ${detectedCommand.action} ${detectedCommand.feature}`
         );
         
-        // Save the detected command to the message
+        if (detectedCommand.parameters) {
+          const additionalParams = extractParameters(trimmedInput, detectedCommand.feature);
+          detectedCommand.parameters = { 
+            ...detectedCommand.parameters,
+            ...additionalParams
+          };
+        }
+        
         setMessages(prev => {
           const newMessages = [...prev];
           if (messageIndex >= 0 && messageIndex < newMessages.length) {
@@ -403,10 +408,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           return newMessages;
         });
         
-        // Execute the command and get a response
         const commandResponse = await executeCommand(detectedCommand, messageIndex);
         
-        // Update assistant message with the command response
         setMessages(prev => {
           const newMessages = [...prev];
           newMessages[messageIndex] = {
@@ -417,19 +420,15 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           return newMessages;
         });
         
-        // Skip the AI call if we've handled the command completely
         if (commandResponse) {
-          // Mark third task as completed
           updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
           setIsLoading(false);
           return;
         }
       } else {
-        // No command detected
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed", "No specific commands detected");
       }
       
-      // Update the third task to in-progress
       updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
 
       console.log('Sending chat request to LangFlow:', {
@@ -452,10 +451,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       }
 
       if (data && data.message) {
-        // Mark third task as completed
         updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
         
-        // Update assistant message with the response
         setMessages(prev => {
           const newMessages = [...prev];
           newMessages[messageIndex] = {
@@ -472,14 +469,12 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     } catch (error) {
       console.error('Chat error:', error);
       
-      // Update all pending tasks to error
       assistantMessage.tasks!.forEach(task => {
         if (task.status === "pending" || task.status === "in-progress") {
           updateTaskStatus(messageIndex, task.id, "error");
         }
       });
       
-      // Update assistant message with error
       setMessages(prev => {
         const newMessages = [...prev];
         newMessages[messageIndex] = {

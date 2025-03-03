@@ -78,7 +78,12 @@ Your job is to determine if a user message contains a command request. Commands 
 3. product-video - Create a product video
 4. default-image - Save, use or list default images
 
-Extract relevant parameters like prompts, image names, and whether to auto-generate content.
+Extract relevant parameters like prompts, image names, image URLs, image IDs, and whether to auto-generate content.
+
+For default images:
+- When a user asks to "use default image X" for a product shot, set feature=product-shot-v1, action=create, and add the image name to parameters
+- When a user says "create product shot with my default image X", extract the image name and set it in parameters.name
+- For default images, both imageId and imageUrl can be extracted if present in the conversation
 
 Analyze the latest message in context of the conversation and determine if it contains a command.
 Return NULL values if no command is detected.
@@ -90,7 +95,8 @@ Example commands:
 - "save this as my default image named 'My Product'"
 - "use my default image called 'Coffee Cup'"
 - "show me my default images"
-- "create a product shot using my default image and generate it automatically"
+- "create a product shot using my default image 'Logo' and generate it automatically"
+- "make a product-shot-v1 with my default image and add a forest background"
       `
     };
 
@@ -138,6 +144,14 @@ Example commands:
                     name: {
                       type: "string",
                       description: "Name for saving or using a default image"
+                    },
+                    imageId: {
+                      type: "string",
+                      description: "ID of a default image to use (if known)"
+                    },
+                    imageUrl: {
+                      type: "string",
+                      description: "URL of a default image to use (if known)"
                     },
                     autoGenerate: {
                       type: "boolean",

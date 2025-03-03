@@ -61,18 +61,22 @@ const AIAgent = () => {
   // Effect to handle command parameters for product-shot-v1
   useEffect(() => {
     if (commandParams && activeTool === 'product-shot-v1') {
+      console.log("Applying command parameters to product-shot-v1:", commandParams);
+      
       // Set prompt if provided
       if (commandParams.prompt) {
         productShotActions.setProductShotPrompt(commandParams.prompt);
       }
       
-      // Set image if provided
+      // Set image if provided - use direct method for remote/default images
       if (commandParams.imageUrl) {
+        console.log("Setting default image URL:", commandParams.imageUrl);
         productShotActions.setProductShotPreview(commandParams.imageUrl);
       }
       
       // Auto-generate if flag is set
       if (commandParams.autoGenerate) {
+        console.log("Auto-generating product shot");
         setTimeout(() => {
           productShotActions.handleGenerate();
         }, 500); // Small delay to ensure UI is updated

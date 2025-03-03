@@ -2,10 +2,11 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
-const BASE_API_URL = Deno.env.get("BASE_API_URL") || "https://api.langflow.astra.datastax.com";
-const LANGFLOW_ID = Deno.env.get("LANGFLOW_ID");
+// Updated API URL to match the Astra DataStax format
+const BASE_API_URL = Deno.env.get("BASE_API_URL") || "https://astra.datastax.com";
 const FLOW_ID = Deno.env.get("FLOW_ID");
 const APPLICATION_TOKEN = Deno.env.get("APPLICATION_TOKEN");
+const X_API_KEY = Deno.env.get("X_API_KEY");
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -21,18 +22,18 @@ interface Message {
 function checkEnvironmentVariables() {
   const variables = {
     baseApiUrl: BASE_API_URL,
-    langflowId: LANGFLOW_ID,
     flowId: FLOW_ID,
     applicationToken: APPLICATION_TOKEN ? "Set" : "Not set",
+    xApiKey: X_API_KEY ? "Set" : "Not set",
   };
   
   console.log("Environment variables:", variables);
   
-  if (!LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN) {
+  if (!FLOW_ID || !APPLICATION_TOKEN || !X_API_KEY) {
     const missingVars = [];
-    if (!LANGFLOW_ID) missingVars.push("LANGFLOW_ID");
     if (!FLOW_ID) missingVars.push("FLOW_ID");
     if (!APPLICATION_TOKEN) missingVars.push("APPLICATION_TOKEN");
+    if (!X_API_KEY) missingVars.push("X_API_KEY");
     
     return {
       isValid: false,
@@ -216,12 +217,19 @@ ${messageHistory}
                ? inputString.substring(0, 100) + '...' 
                : inputString);
 
-    // Prepare for API call
-    const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
-    const tweaks = {};
+    // Prepare for API call - updated to match the new Astra format
+    const endpoint = `/api/v1/run/${FLOW_ID}?stream=false`;
+    
+    const tweaks = {
+      "Agent-swaq6": {},
+      "ChatInput-SylqI": {},
+      "ChatOutput-E57mu": {},
+      "Agent-Hpbdi": {},
+      "Agent-JogPZ": {}
+    };
 
     const payload = {
-      input_value: inputString, // Simple string input
+      input_value: inputString,
       input_type: "chat",
       output_type: "chat",
       tweaks
@@ -232,12 +240,14 @@ ${messageHistory}
       input_type: payload.input_type,
       output_type: payload.output_type,
       input_value_length: inputString.length,
-      tweaks: payload.tweaks
+      tweaks: Object.keys(payload.tweaks)
     }));
     
+    // Updated headers to include x-api-key
     const headers = {
       "Authorization": `Bearer ${APPLICATION_TOKEN}`,
-      "Content-Type": "application/json"
+      "Content-Type": "application/json",
+      "x-api-key": X_API_KEY
     };
 
     try {
@@ -246,9 +256,9 @@ ${messageHistory}
       const timeoutId = setTimeout(() => {
         console.log("Request timeout - aborting");
         controller.abort();
-      }, 20000); // 20 second timeout - reduced from 30 to fail faster
+      }, 25000); // 25 second timeout - adjusted for Astra API
     
-      console.log("Starting API request...");
+      console.log("Starting Astra API request...");
       const apiResponse = await fetch(`${BASE_API_URL}${endpoint}`, {
         method: 'POST',
         headers,
@@ -324,7 +334,7 @@ ${messageHistory}
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (fetchError) {
-      console.error('Fetch error in LangFlow API call:', fetchError);
+      console.error('Fetch error in Astra API call:', fetchError);
       
       // Special handling for timeout errors
       if (fetchError.name === 'AbortError') {

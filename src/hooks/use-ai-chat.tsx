@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Message, Task, Command } from "@/types/message";
@@ -23,7 +22,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast: useToastFunc } = useToast();
   const { defaultImages, updateLastUsed, saveDefaultImage } = useDefaultImages();
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -170,10 +168,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         return newMessages;
       });
       
-      toast({
-        title: "Error",
-        description: `Failed to execute command: ${error instanceof Error ? error.message : "Unknown error"}`,
-      });
+      toast.error(`Failed to execute command: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   };
 
@@ -183,10 +178,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     if (!trimmedInput || isLoading) return;
 
     if (!userCredits || userCredits.credits_remaining < CHAT_CREDIT_COST) {
-      toast({
-        title: "Insufficient Credits",
-        description: `You need at least ${CHAT_CREDIT_COST} credits to send a message.`,
-      });
+      toast.error(`You need at least ${CHAT_CREDIT_COST} credits to send a message.`);
       return;
     }
 
@@ -410,10 +402,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             return newMessages;
           });
           
-          toast({
-            title: "AI Processing Error",
-            description: "Failed to process your request. Please try again later.",
-          });
+          toast.error("Failed to process your request. Please try again later.");
         }
       } else {
         // Neither command detection nor Langflow worked
@@ -442,10 +431,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         });
       }
       
-      toast({
-        title: "Error",
-        description: error instanceof Error ? error.message : "Failed to get response from AI",
-      });
+      toast.error(error instanceof Error ? error.message : "Failed to get response from AI");
     } finally {
       setIsLoading(false);
     }

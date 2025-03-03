@@ -7,6 +7,7 @@ import { ToolSelector } from "./ToolSelector";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
+import { Badge } from "@/components/ui/badge";
 
 interface ProductShotV1Props {
   isMobile: boolean;
@@ -86,10 +87,8 @@ export const SplitScreen = ({
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
   
-  // Use externally controlled tool state if provided, otherwise use internal state
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
 
-  // Check if the latest message contains a command
   const hasActiveCommand = messages.length > 0 && 
     messages[messages.length - 1].role === 'assistant' && 
     messages[messages.length - 1].command !== undefined;
@@ -103,7 +102,6 @@ export const SplitScreen = ({
       setShowChat(false);
       setIsChatVisible(false);
       
-      // Update either external or internal state
       if (externalOnToolSelect) {
         externalOnToolSelect(tool);
       } else {
@@ -113,7 +111,6 @@ export const SplitScreen = ({
     setTimeout(() => setIsTransitioning(false), 300);
   };
 
-  // Effect to react to changes in externally controlled active tool
   useEffect(() => {
     if (externalActiveTool && externalActiveTool !== 'ai-agent') {
       setShowChat(false);
@@ -135,7 +132,6 @@ export const SplitScreen = ({
           isMobile ? "" : "flex h-screen"
         )}
       >
-        {/* Command indicator - show when a command is being executed */}
         {hasActiveCommand && (
           <div className="absolute top-4 right-4 z-50">
             <Badge variant="command" className="px-3 py-1.5 text-sm">

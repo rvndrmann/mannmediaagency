@@ -6,7 +6,6 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { useProductShotV1, ImageSize } from "@/hooks/use-product-shot-v1";
 import { useUserCredits } from "@/hooks/use-user-credits";
-import { useChatHandler } from "@/hooks/use-chat-handler";
 import { useImageToVideo } from "@/hooks/use-image-to-video";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
@@ -20,9 +19,11 @@ const AIAgent = () => {
   const userCreditsQuery = useUserCredits();
 
   const {
+    messages,
     input,
     setInput,
     isLoading,
+    handleSubmit,
     userCredits
   } = useAIChat();
 
@@ -46,8 +47,6 @@ const AIAgent = () => {
     handleGenerate: handleVideoGenerate,
     handleSelectFromHistory: handleVideoSelectFromHistory,
   } = useImageToVideo();
-
-  const { messages, handleSubmit } = useChatHandler(setInput);
 
   const handleBackClick = () => {
     navigate('/');
@@ -122,7 +121,7 @@ const AIAgent = () => {
                 onSelectFromHistory: handleVideoSelectFromHistory,
               }}
               onInputChange={setInput}
-              onSubmit={(e) => handleSubmit(e, input)}
+              onSubmit={handleSubmit}
               onBack={handleBackClick}
             />
           </div>

@@ -4,6 +4,7 @@ export interface Message {
   content: string;
   status?: "thinking" | "working" | "completed" | "error";
   tasks?: Task[];
+  command?: Command;
 }
 
 export interface Task {
@@ -11,4 +12,10 @@ export interface Task {
   name: string;
   status: "pending" | "in-progress" | "completed" | "error";
   details?: string;
+}
+
+export interface Command {
+  feature: "product-shot-v1" | "product-shot-v2" | "image-to-video" | "product-video" | "default-image";
+  action: "create" | "convert" | "save" | "use" | "list";
+  parameters?: Record<string, any>;
 }

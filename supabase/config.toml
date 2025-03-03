@@ -28,3 +28,5 @@ verify_jwt = true
 verify_jwt = false
 [functions.check-generation-status]
 verify_jwt = false
+[functions.handle-ai-command]
+verify_jwt = true

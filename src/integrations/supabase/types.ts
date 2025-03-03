@@ -162,6 +162,36 @@ export type Database = {
         }
         Relationships: []
       }
+      default_product_images: {
+        Row: {
+          context: string
+          created_at: string | null
+          id: string
+          last_used_at: string | null
+          name: string
+          url: string
+          user_id: string
+        }
+        Insert: {
+          context?: string
+          created_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name: string
+          url: string
+          user_id: string
+        }
+        Update: {
+          context?: string
+          created_at?: string | null
+          id?: string
+          last_used_at?: string | null
+          name?: string
+          url?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       discount_codes: {
         Row: {
           code: string

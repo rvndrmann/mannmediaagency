@@ -20,6 +20,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
   const [guidanceScale, setGuidanceScale] = useState(3.5);
   const [outputFormat, setOutputFormat] = useState("png");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isRemoteImage, setIsRemoteImage] = useState(false);
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -37,29 +38,48 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       setProductShotFile(file);
       const url = URL.createObjectURL(file);
       setProductShotPreview(url);
+      setIsRemoteImage(false);
       toast.success("Image uploaded successfully");
     }
   };
 
   const handleClearFile = () => {
-    if (productShotPreview) {
+    if (productShotPreview && !isRemoteImage) {
       URL.revokeObjectURL(productShotPreview);
     }
     setProductShotPreview(null);
     setProductShotFile(null);
+    setIsRemoteImage(false);
     toast.info("Image cleared");
   };
 
-  // Add a method to directly set the preview URL (needed for custom events)
+  // Function to directly set the preview URL from a remote source
   const setProductShotPreviewUrl = (url: string) => {
     setProductShotPreview(url);
-    // We don't have the actual file here, so we won't set productShotFile
-    // This is used only for display purposes in the UI
+    setIsRemoteImage(true);
+    // We don't have the actual file here, but we'll need to fetch it before generating
+    setProductShotFile(null);
+    toast.success("Default image selected");
+  };
+
+  // Function to fetch a remote image as a File object
+  const fetchRemoteImage = async (url: string): Promise<File | null> => {
+    try {
+      const response = await fetch(url);
+      const blob = await response.blob();
+      const filename = url.split('/').pop() || 'remote-image.jpg';
+      const file = new File([blob], filename, { type: blob.type });
+      return file;
+    } catch (error) {
+      console.error('Error fetching remote image:', error);
+      toast.error("Failed to process the remote image");
+      return null;
+    }
   };
 
   const handleGenerate = async () => {
-    if (!productShotFile || !productShotPrompt.trim()) {
-      toast.error("Please provide both an image and a prompt");
+    if (!productShotPrompt.trim()) {
+      toast.error("Please provide a prompt");
       return;
     }
 
@@ -68,14 +88,6 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       return;
     }
 
-    console.log("Starting generation with settings:", {
-      prompt: productShotPrompt,
-      imageSize: imageSize,
-      inferenceSteps: inferenceSteps, 
-      guidanceScale: guidanceScale,
-      outputFormat: outputFormat
-    });
-
     if (isGenerating) {
       toast.info("Image generation already in progress...");
       return;
@@ -83,11 +95,37 @@ export function useProductShotV1(userCredits: UserCredits | null) {
 
     try {
       setIsGenerating(true);
+      
+      // If we have a remote image URL but no file, fetch the file first
+      let fileToUse = productShotFile;
+      if (!fileToUse && productShotPreview && isRemoteImage) {
+        toast.info("Preparing remote image...");
+        fileToUse = await fetchRemoteImage(productShotPreview);
+        if (!fileToUse) {
+          setIsGenerating(false);
+          return; // Error already shown by fetchRemoteImage
+        }
+      }
+      
+      if (!fileToUse) {
+        toast.error("Please provide an image");
+        setIsGenerating(false);
+        return;
+      }
+
       toast.success("Starting image generation...");
+
+      console.log("Starting generation with settings:", {
+        prompt: productShotPrompt,
+        imageSize: imageSize,
+        inferenceSteps: inferenceSteps, 
+        guidanceScale: guidanceScale,
+        outputFormat: outputFormat
+      });
 
       // Convert file to base64
       const reader = new FileReader();
-      reader.readAsDataURL(productShotFile);
+      reader.readAsDataURL(fileToUse);
       
       reader.onload = async () => {
         const base64Image = reader.result as string;
@@ -166,7 +204,8 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       outputFormat,
       productImages,
       imagesLoading,
-      isGenerating
+      isGenerating,
+      isRemoteImage
     },
     actions: {
       setProductShotPrompt,

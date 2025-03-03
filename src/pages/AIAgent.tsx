@@ -12,18 +12,20 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const AIAgent = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const userCreditsQuery = useUserCredits();
   const [activeTool, setActiveTool] = useState('product-shot-v1');
+  const [commandParams, setCommandParams] = useState<any>(null);
 
-  // Handle tool switching from AI chat commands
-  const handleToolSwitch = (tool: string) => {
-    console.log("Switching to tool:", tool);
+  // Handle tool switching from AI chat commands with parameters
+  const handleToolSwitch = (tool: string, params?: any) => {
+    console.log("Switching to tool:", tool, "with params:", params);
     setActiveTool(tool);
+    setCommandParams(params || null);
   };
 
   const {
@@ -56,6 +58,31 @@ const AIAgent = () => {
     handleSelectFromHistory: handleVideoSelectFromHistory,
   } = useImageToVideo();
 
+  // Effect to handle command parameters for product-shot-v1
+  useEffect(() => {
+    if (commandParams && activeTool === 'product-shot-v1') {
+      // Set prompt if provided
+      if (commandParams.prompt) {
+        productShotActions.setProductShotPrompt(commandParams.prompt);
+      }
+      
+      // Set image if provided
+      if (commandParams.imageUrl) {
+        productShotActions.setProductShotPreview(commandParams.imageUrl);
+      }
+      
+      // Auto-generate if flag is set
+      if (commandParams.autoGenerate) {
+        setTimeout(() => {
+          productShotActions.handleGenerate();
+        }, 500); // Small delay to ensure UI is updated
+      }
+      
+      // Clear parameters after processing
+      setCommandParams(null);
+    }
+  }, [commandParams, activeTool, productShotActions]);
+
   const handleBackClick = () => {
     navigate('/');
   };
@@ -85,8 +112,8 @@ const AIAgent = () => {
               input={input}
               isLoading={isLoading}
               userCredits={userCredits}
-              activeTool={activeTool}  /* Pass active tool as prop */
-              onToolSelect={setActiveTool}  /* Pass tool select handler */
+              activeTool={activeTool}
+              onToolSelect={setActiveTool}
               productShotV2={{
                 onSubmit: handleGenerateV2,
                 isGenerating: isGeneratingV2,

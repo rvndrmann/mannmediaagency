@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -90,6 +89,11 @@ export const SplitScreen = ({
   // Use externally controlled tool state if provided, otherwise use internal state
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
 
+  // Check if the latest message contains a command
+  const hasActiveCommand = messages.length > 0 && 
+    messages[messages.length - 1].role === 'assistant' && 
+    messages[messages.length - 1].command !== undefined;
+
   const handleToolSelect = (tool: string) => {
     setIsTransitioning(true);
     if (tool === 'ai-agent') {
@@ -131,6 +135,15 @@ export const SplitScreen = ({
           isMobile ? "" : "flex h-screen"
         )}
       >
+        {/* Command indicator - show when a command is being executed */}
+        {hasActiveCommand && (
+          <div className="absolute top-4 right-4 z-50">
+            <Badge variant="command" className="px-3 py-1.5 text-sm">
+              Executing {messages[messages.length - 1].command?.feature} command
+            </Badge>
+          </div>
+        )}
+
         <div 
           className={cn(
             "bg-[#1A1F2C] transition-all duration-300 ease-in-out h-full",

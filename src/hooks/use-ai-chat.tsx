@@ -9,7 +9,7 @@ import { useDefaultImages } from "@/hooks/use-default-images";
 const STORAGE_KEY = "ai_agent_chat_history";
 const CHAT_CREDIT_COST = 0.07;
 
-export const useAIChat = (onToolSwitch?: (tool: string) => void) => {
+export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) => {
   const [messages, setMessages] = useState<Message[]>(() => {
     const savedMessages = localStorage.getItem(STORAGE_KEY);
     return savedMessages ? JSON.parse(savedMessages) : [];
@@ -173,6 +173,36 @@ export const useAIChat = (onToolSwitch?: (tool: string) => void) => {
       }
     }
     
+    // Extract prompt for product shot commands
+    if (feature === "product-shot-v1" || feature === "product-shot-v2") {
+      const promptRegex = /(?:create|generate)(?: a| an)? (?:product shot|product image|image) (?:of|showing|with|that is) (.+?)(?:\.|\?|!|$)/i;
+      const promptMatch = message.match(promptRegex);
+      
+      if (promptMatch && promptMatch[1]) {
+        params.prompt = promptMatch[1].trim();
+      }
+      
+      const useDefaultRegex = /(?:using|with|and use) (?:the |a |an )?default image/i;
+      if (useDefaultRegex.test(message)) {
+        if (defaultImages && defaultImages.length > 0) {
+          const sortedImages = [...defaultImages].sort((a, b) => {
+            if (!a.last_used_at) return 1;
+            if (!b.last_used_at) return -1;
+            return new Date(b.last_used_at).getTime() - new Date(a.last_used_at).getTime();
+          });
+          
+          params.imageId = sortedImages[0].id;
+          params.imageUrl = sortedImages[0].url;
+          params.name = sortedImages[0].name;
+        }
+      }
+      
+      const autoGenerateRegex = /(?:and generate|then generate|and create)/i;
+      if (autoGenerateRegex.test(message)) {
+        params.autoGenerate = true;
+      }
+    }
+    
     return params;
   };
 
@@ -208,8 +238,8 @@ export const useAIChat = (onToolSwitch?: (tool: string) => void) => {
         command.feature === "product-shot-v2" || 
         command.feature === "image-to-video")
       ) {
-        // Trigger tool switching based on command feature
-        onToolSwitch(command.feature);
+        // Trigger tool switching based on command feature with parameters
+        onToolSwitch(command.feature, command.parameters);
       }
       
       switch (command.feature) {
@@ -226,10 +256,23 @@ export const useAIChat = (onToolSwitch?: (tool: string) => void) => {
         case "product-shot-v1":
         case "product-shot-v2":
           if (command.action === "create") {
-            result = `I can help you create a product shot. Please navigate to the Product Shot tab or let me know what product you'd like to showcase.`;
-            if (command.parameters?.imageUrl) {
-              result = `I'll use the default image "${command.parameters.name}" for your product shot. You can now add details or customize the generation.`;
+            let responseText = `I can help you create a product shot. `;
+            
+            if (command.parameters?.prompt) {
+              responseText += `I'll use the prompt: "${command.parameters.prompt}". `;
             }
+            
+            if (command.parameters?.imageUrl) {
+              responseText += `I'll use the default image "${command.parameters.name}" for your product shot. `;
+            }
+            
+            if (command.parameters?.autoGenerate) {
+              responseText += `I'll automatically start the generation process.`;
+            } else {
+              responseText += `You can now add details or customize the generation.`;
+            }
+            
+            result = responseText;
           }
           break;
           
@@ -295,9 +338,6 @@ export const useAIChat = (onToolSwitch?: (tool: string) => void) => {
 
   // Handle saving a default image
   const handleSaveDefaultImage = async (parameters: Record<string, any> | undefined, taskId: string, messageIndex: number): Promise<string> => {
-    // This would typically save the most recently generated image
-    // For now, we'll just acknowledge the request
-    
     if (!parameters?.name) {
       updateTaskStatus(messageIndex, taskId, "error", "No name provided for default image");
       return "To save a default image, please provide a name for it. For example: 'Save this image as default named \"My Product\"'";

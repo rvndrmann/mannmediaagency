@@ -17,5 +17,11 @@ export interface Task {
 export interface Command {
   feature: "product-shot-v1" | "product-shot-v2" | "image-to-video" | "product-video" | "default-image";
   action: "create" | "convert" | "save" | "use" | "list";
-  parameters?: Record<string, any>;
+  parameters?: {
+    name?: string;
+    imageId?: string;
+    imageUrl?: string;
+    prompt?: string;
+    autoGenerate?: boolean;
+  };
 }

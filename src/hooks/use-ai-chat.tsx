@@ -92,9 +92,10 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       if (messageIndex >= 0 && messageIndex < newMessages.length) {
         const message = newMessages[messageIndex];
         if (message.tasks) {
+          // Fixed: specify the status as a literal type instead of a string
           const updatedTasks = message.tasks.map(task => ({
             ...task,
-            status: task.status === "completed" ? "completed" : "error",
+            status: task.status === "completed" ? "completed" as const : "error" as const,
             details: task.status === "completed" ? task.details : (errorMessage || "Failed")
           }));
           

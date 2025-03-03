@@ -35,7 +35,19 @@ serve(async (req) => {
       throw new Error('Missing required environment variables for LangFlow API');
     }
 
-    const { messages, activeTool, userCredits } = await req.json();
+    const { messages, activeTool, userCredits, command, detectedMessage } = await req.json();
+    
+    // If we received a command and message from the detect-command function, use that directly
+    if (command && detectedMessage) {
+      console.log("Using pre-detected command:", command);
+      return new Response(
+        JSON.stringify({
+          message: detectedMessage,
+          command: command
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
       throw new Error('Invalid request: messages array is required');

@@ -1,5 +1,5 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
 const BASE_API_URL = Deno.env.get("BASE_API_URL") || "https://api.langflow.astra.datastax.com";
@@ -65,36 +65,35 @@ serve(async (req) => {
       );
     }
 
-    // Prepare conversation context for Langflow
-    const conversationContext = {
-      activeTool: activeTool || "ai-agent",
-      userCredits: userCredits || { credits_remaining: 0 },
-      messageHistory: messages.slice(0, -1).map((msg: Message) => ({
-        role: msg.role,
-        content: msg.content
-      }))
-    };
+    // Extract only the text from previous messages to create a conversation history
+    const messageHistory = messages.slice(0, -1).map((msg: Message) => 
+      `${msg.role}: ${msg.content}`
+    ).join("\n");
 
-    // Create an input object
-    const inputObject = {
-      message: lastMessage.content,
-      context: conversationContext
-    };
+    // Create a simplified context string
+    const contextString = `
+Active Tool: ${activeTool || "ai-agent"}
+Credits Available: ${userCredits?.credits_remaining || 0}
+Message History: 
+${messageHistory}
+`;
+
+    console.log('Context string:', contextString);
     
-    // Convert to a pure string that Langflow can accept
-    const stringifiedInput = JSON.stringify(inputObject);
+    // Create a simple input string that Langflow can accept
+    const inputString = `${lastMessage.content}\n\nContext: ${contextString}`;
     
-    console.log('Stringified input (sample):', 
-                stringifiedInput.length > 100 
-                ? stringifiedInput.substring(0, 100) + '...' 
-                : stringifiedInput);
+    console.log('Input string sample:', 
+               inputString.length > 100 
+               ? inputString.substring(0, 100) + '...' 
+               : inputString);
 
     // Prepare for API call
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
     const tweaks = {};
 
     const payload = {
-      input_value: stringifiedInput, // Send properly stringified input
+      input_value: inputString, // Simple string input
       input_type: "chat",
       output_type: "chat",
       tweaks
@@ -104,7 +103,7 @@ serve(async (req) => {
     console.log('Payload structure:', JSON.stringify({
       input_type: payload.input_type,
       output_type: payload.output_type,
-      input_value_length: stringifiedInput.length,
+      input_value_length: inputString.length,
       tweaks: payload.tweaks
     }));
     

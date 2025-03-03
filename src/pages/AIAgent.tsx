@@ -22,6 +22,11 @@ const AIAgent = () => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [commandParams, setCommandParams] = useState<any>(null);
 
+  // Store active tool in localStorage for cross-component state sharing
+  useEffect(() => {
+    localStorage.setItem("activeTool", activeTool);
+  }, [activeTool]);
+
   // Handle tool switching from AI chat commands with parameters
   const handleToolSwitch = (tool: string, params?: any) => {
     console.log("Switching to tool:", tool, "with params:", params);

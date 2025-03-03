@@ -13,6 +13,7 @@ import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
+import { toast } from "sonner";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -72,14 +73,23 @@ const AIAgent = () => {
       if (commandParams.imageUrl) {
         console.log("Setting default image URL:", commandParams.imageUrl);
         productShotActions.setProductShotPreview(commandParams.imageUrl);
+        toast.success(`Using default image: ${commandParams.name || 'Unnamed'}`);
       }
       
       // Auto-generate if flag is set
       if (commandParams.autoGenerate) {
         console.log("Auto-generating product shot");
+        // Use a slightly longer delay to ensure UI is fully updated
         setTimeout(() => {
-          productShotActions.handleGenerate();
-        }, 500); // Small delay to ensure UI is updated
+          try {
+            console.log("Triggering handleGenerate");
+            productShotActions.handleGenerate();
+            toast.success("Automatically generating your product shot");
+          } catch (error) {
+            console.error("Error auto-generating:", error);
+            toast.error("Failed to auto-generate product shot");
+          }
+        }, 1000); // Longer delay to ensure all UI state is updated
       }
       
       // Clear parameters after processing

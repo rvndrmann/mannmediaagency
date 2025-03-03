@@ -84,6 +84,12 @@ For default images:
 - When a user asks to "use default image X" for a product shot, set feature=product-shot-v1, action=create, and add the image name to parameters
 - When a user says "create product shot with my default image X", extract the image name and set it in parameters.name
 - For default images, both imageId and imageUrl can be extracted if present in the conversation
+- When user says to "generate it automatically" or "now generate it", set autoGenerate=true
+
+AUTO GENERATION DETECTION:
+- If the user's message includes phrases like "generate it", "make it now", "create it", "generate the image", "create the image now", set autoGenerate=true
+- If the user says "generate it automatically" or "automatically generate", set autoGenerate=true
+- If user asks the bot to generate without specifying parameters, set autoGenerate=true
 
 Analyze the latest message in context of the conversation and determine if it contains a command.
 Return NULL values if no command is detected.
@@ -97,6 +103,7 @@ Example commands:
 - "show me my default images"
 - "create a product shot using my default image 'Logo' and generate it automatically"
 - "make a product-shot-v1 with my default image and add a forest background"
+- "generate the product image now" (sets autoGenerate=true)
       `
     };
 

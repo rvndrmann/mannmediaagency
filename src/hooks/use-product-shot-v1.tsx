@@ -55,6 +55,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
 
   // Function to directly set the preview URL from a remote source
   const setProductShotPreviewUrl = (url: string) => {
+    console.log("Setting product shot preview URL:", url);
     setProductShotPreview(url);
     setIsRemoteImage(true);
     // We don't have the actual file here, but we'll need to fetch it before generating
@@ -65,10 +66,12 @@ export function useProductShotV1(userCredits: UserCredits | null) {
   // Function to fetch a remote image as a File object
   const fetchRemoteImage = async (url: string): Promise<File | null> => {
     try {
+      console.log("Fetching remote image:", url);
       const response = await fetch(url);
       const blob = await response.blob();
       const filename = url.split('/').pop() || 'remote-image.jpg';
       const file = new File([blob], filename, { type: blob.type });
+      console.log("Remote image fetched successfully");
       return file;
     } catch (error) {
       console.error('Error fetching remote image:', error);
@@ -78,6 +81,12 @@ export function useProductShotV1(userCredits: UserCredits | null) {
   };
 
   const handleGenerate = async () => {
+    console.log("Handle generate called with:", {
+      prompt: productShotPrompt,
+      preview: productShotPreview,
+      isRemoteImage
+    });
+    
     if (!productShotPrompt.trim()) {
       toast.error("Please provide a prompt");
       return;
@@ -100,6 +109,7 @@ export function useProductShotV1(userCredits: UserCredits | null) {
       let fileToUse = productShotFile;
       if (!fileToUse && productShotPreview && isRemoteImage) {
         toast.info("Preparing remote image...");
+        console.log("Fetching remote image file from URL:", productShotPreview);
         fileToUse = await fetchRemoteImage(productShotPreview);
         if (!fileToUse) {
           setIsGenerating(false);
@@ -147,29 +157,34 @@ export function useProductShotV1(userCredits: UserCredits | null) {
         if (error) {
           console.error('Generation error:', error);
           toast.error(error.message || "Failed to generate image");
+          setIsGenerating(false);
           return;
         }
 
         if (data?.error) {
           console.error('API error:', data.error);
           toast.error(data.error);
+          setIsGenerating(false);
           return;
         }
 
         if (data?.imageUrl) {
           toast.success("Image generated successfully!");
+          // We'll rely on the database query to refresh the images
         }
+        
+        setIsGenerating(false);
       };
 
       reader.onerror = (error) => {
         console.error('File reading error:', error);
         toast.error("Failed to process the image");
+        setIsGenerating(false);
       };
 
     } catch (error) {
       console.error('Generation error:', error);
       toast.error("Failed to generate image");
-    } finally {
       setIsGenerating(false);
     }
   };

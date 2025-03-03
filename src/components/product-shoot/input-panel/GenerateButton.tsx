@@ -6,12 +6,14 @@ interface GenerateButtonProps {
   isGenerating: boolean;
   disabled: boolean;
   onClick: () => void;
+  creditCost?: number;
 }
 
 export const GenerateButton = ({
   isGenerating,
   disabled,
-  onClick
+  onClick,
+  creditCost = 0.2
 }: GenerateButtonProps) => {
   return (
     <Button
@@ -25,7 +27,7 @@ export const GenerateButton = ({
           Generating...
         </>
       ) : (
-        "Generate Image (0.2 credits)"
+        `Generate Image (${creditCost} credits)`
       )}
     </Button>
   );

@@ -210,6 +210,29 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             await updateLastUsed.mutateAsync(matchedImage.id);
           }
         }
+
+        const userMessage = messages.length > 0 ? messages[messages.length - 1].content.toLowerCase() : '';
+        const autoGenerateIndicators = [
+          'generate it',
+          'generate the image',
+          'create it now',
+          'make it now',
+          'generate now',
+          'create the shot',
+          'generate automatically',
+          'auto generate',
+          'start generation'
+        ];
+
+        if (!command.parameters.autoGenerate) {
+          command.parameters.autoGenerate = autoGenerateIndicators.some(phrase => 
+            userMessage.includes(phrase)
+          );
+          
+          if (command.parameters.autoGenerate) {
+            console.log("Auto-generation triggered by user message phrases");
+          }
+        }
         
         onToolSwitch(command.feature, command.parameters);
       }

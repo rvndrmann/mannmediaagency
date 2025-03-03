@@ -247,12 +247,19 @@ ${messageHistory}
       tweaks: Object.keys(payload.tweaks)
     }));
     
+    // Display full request data for debugging
+    console.log('Full request payload:', JSON.stringify(payload, null, 2).substring(0, 1000) + '...');
+    
     // Updated headers to include x-api-key
     const headers = {
       "Authorization": `Bearer ${APPLICATION_TOKEN}`,
       "Content-Type": "application/json",
       "x-api-key": X_API_KEY
     };
+
+    console.log('Request headers:', JSON.stringify(headers, (key, value) => 
+      key === "Authorization" ? "Bearer [REDACTED]" : value
+    ));
 
     try {
       // Timeout implementation to prevent hanging requests
@@ -299,7 +306,8 @@ ${messageHistory}
       let responseData;
       try {
         responseData = await apiResponse.json();
-        console.log('Raw response received');
+        console.log('Raw response structure:', JSON.stringify(Object.keys(responseData || {}), null, 2));
+        console.log('Raw response sample:', JSON.stringify(responseData, null, 2).substring(0, 1000) + '...');
       } catch (jsonError) {
         console.error('Error parsing JSON response:', jsonError);
         return new Response(
@@ -339,6 +347,11 @@ ${messageHistory}
       );
     } catch (fetchError) {
       console.error('Fetch error in Astra Langflow API call:', fetchError);
+      console.error('Fetch error details:', JSON.stringify({
+        name: fetchError.name,
+        message: fetchError.message,
+        stack: fetchError.stack
+      }));
       
       // Special handling for timeout errors
       if (fetchError.name === 'AbortError') {
@@ -364,6 +377,7 @@ ${messageHistory}
     }
   } catch (error) {
     console.error('Error in chat-with-langflow function:', error);
+    console.error('Stack trace:', error.stack);
     
     return new Response(
       JSON.stringify({ 

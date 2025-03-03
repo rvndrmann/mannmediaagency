@@ -49,18 +49,57 @@ serve(async (req) => {
   }
 
   try {
-    const { message, activeContext, userCredits } = await req.json();
-    
-    if (!message) {
-      throw new Error('Message is required');
+    let requestBody;
+    try {
+      requestBody = await req.json();
+    } catch (parseError) {
+      console.error('Error parsing request body:', parseError);
+      return new Response(
+        JSON.stringify({
+          command: null,
+          message: "Invalid request format",
+          use_langflow: true,
+          error: "Request parsing error"
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('Processing message:', message);
+    const { message, activeContext, userCredits } = requestBody;
+    
+    if (!message) {
+      console.error('Missing required field: message');
+      return new Response(
+        JSON.stringify({
+          command: null,
+          message: null,
+          use_langflow: true,
+          error: "Missing message"
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    console.log('Processing message:', message.length > 100 ? `${message.substring(0, 100)}...` : message);
     console.log('Active context:', activeContext);
-    console.log('User credits:', userCredits);
+    console.log('User credits:', userCredits?.credits_remaining || 'Not provided');
 
     // Initialize Supabase client with service role key for admin operations
-    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    let supabase;
+    try {
+      supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    } catch (supabaseError) {
+      console.error('Error initializing Supabase client:', supabaseError);
+      return new Response(
+        JSON.stringify({
+          command: null,
+          message: null,
+          use_langflow: true,
+          error: "Supabase client initialization error"
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Get the JWT token from the request
     const authHeader = req.headers.get('Authorization');
@@ -71,28 +110,49 @@ serve(async (req) => {
     
     let user = null;
     if (authHeader) {
-      const token = authHeader.replace('Bearer ', '');
-      // Get user from token
-      const { data: userData, error: userError } = await supabase.auth.getUser(token);
-      if (!userError && userData?.user) {
-        user = userData.user;
-        console.log('Authenticated user:', user.id);
-      } else {
-        console.warn('Invalid user token, continuing as anonymous user');
+      try {
+        const token = authHeader.replace('Bearer ', '');
+        // Get user from token
+        const { data: userData, error: userError } = await supabase.auth.getUser(token);
+        if (!userError && userData?.user) {
+          user = userData.user;
+          console.log('Authenticated user:', user.id);
+        } else {
+          console.warn('Invalid user token or user not found:', userError);
+        }
+      } catch (authError) {
+        console.error('Authentication error:', authError);
+        // Continue as anonymous
       }
     }
 
     try {
       // Get active automation rules
-      const { data: rules, error: rulesError } = await supabase
-        .from('automation_rules')
-        .select('*')
-        .eq('is_active', true)
-        .order('priority', { ascending: false });
+      let rules;
+      try {
+        const { data, error } = await supabase
+          .from('automation_rules')
+          .select('*')
+          .eq('is_active', true)
+          .order('priority', { ascending: false });
 
-      if (rulesError) {
-        console.error('Error fetching automation rules:', rulesError);
-        throw new Error('Failed to fetch automation rules');
+        if (error) {
+          console.error('Error fetching automation rules:', error);
+          throw new Error('Failed to fetch automation rules');
+        }
+        
+        rules = data || [];
+      } catch (rulesError) {
+        console.error('Error in rules fetch:', rulesError);
+        return new Response(
+          JSON.stringify({
+            command: null,
+            message: null,
+            use_langflow: true,
+            error: "Rules fetch error"
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       // If we have no rules, skip to Langflow
@@ -111,7 +171,7 @@ serve(async (req) => {
       console.log(`Found ${rules.length} active automation rules`);
 
       // Check for rule matches based on keywords
-      const matchedRules = rules.filter(rule => {
+      const matchedRules = rules.filter((rule: AutomationRule) => {
         // Check if any trigger keyword is present
         const hasTrigger = rule.trigger_keywords?.some(keyword => 
           message.toLowerCase().includes(keyword.toLowerCase())
@@ -136,15 +196,23 @@ serve(async (req) => {
         
         try {
           // Get the prompt for this rule
-          const { data: prompt, error: promptError } = await supabase
-            .from('ai_prompts')
-            .select('*')
-            .eq('id', bestMatchedRule.prompt_id)
-            .single();
+          let prompt;
+          try {
+            const { data, error } = await supabase
+              .from('ai_prompts')
+              .select('*')
+              .eq('id', bestMatchedRule.prompt_id)
+              .single();
+              
+            if (error || !data) {
+              console.error('Error fetching prompt:', error);
+              throw new Error('Failed to fetch associated prompt');
+            }
             
-          if (promptError || !prompt) {
-            console.error('Error fetching prompt:', promptError);
-            throw new Error('Failed to fetch associated prompt');
+            prompt = data;
+          } catch (promptError) {
+            console.error('Prompt fetch error:', promptError);
+            // Continue without the specific prompt
           }
           
           // Check if user has enough credits
@@ -176,88 +244,112 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
 `;
 
             // Set up OpenAI request
-            const openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
-              method: 'POST',
-              headers: {
-                'Authorization': `Bearer ${OPENAI_API_KEY}`,
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                model: 'gpt-4o-mini',
-                messages: [
-                  { role: 'system', content: systemMessage },
-                  { role: 'user', content: message }
-                ],
-                temperature: 0.3,
-              }),
-            });
-
-            if (!openAIResponse.ok) {
-              const errorText = await openAIResponse.text();
-              console.error('OpenAI API error:', errorText);
-              throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+            let openAIResponse;
+            try {
+              openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Authorization': `Bearer ${OPENAI_API_KEY}`,
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o-mini',
+                  messages: [
+                    { role: 'system', content: systemMessage },
+                    { role: 'user', content: message }
+                  ],
+                  temperature: 0.3,
+                }),
+              });
+              
+              if (!openAIResponse.ok) {
+                const errorText = await openAIResponse.text();
+                console.error('OpenAI API error:', errorText);
+                throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+              }
+              
+            } catch (openaiError) {
+              console.error('OpenAI request error:', openaiError);
+              // Continue with simpler detection method
+              openAIResponse = null;
             }
 
-            const openAIData = await openAIResponse.json();
-            const aiResponseText = openAIData.choices[0].message.content;
-            console.log('OpenAI detection response:', aiResponseText);
-
-            // Check if we have a match
-            if (!aiResponseText.includes('NO_MATCH')) {
-              detectedIntent = bestMatchedRule.name;
-              
-              // Try to extract parameters as JSON
-              let parameters = {};
+            if (openAIResponse) {
+              let openAIData;
               try {
-                // Look for JSON structure in the response
-                const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
-                if (jsonMatch) {
-                  parameters = JSON.parse(jsonMatch[0]);
+                openAIData = await openAIResponse.json();
+              } catch (jsonError) {
+                console.error('Error parsing OpenAI response:', jsonError);
+                openAIData = null;
+              }
+              
+              if (openAIData?.choices?.[0]?.message?.content) {
+                const aiResponseText = openAIData.choices[0].message.content;
+                console.log('OpenAI detection response:', aiResponseText);
+
+                // Check if we have a match
+                if (!aiResponseText.includes('NO_MATCH')) {
+                  detectedIntent = bestMatchedRule.name;
+                  
+                  // Try to extract parameters as JSON
+                  let parameters = {};
+                  try {
+                    // Look for JSON structure in the response
+                    const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
+                    if (jsonMatch) {
+                      parameters = JSON.parse(jsonMatch[0]);
+                    }
+                  } catch (err) {
+                    console.warn('Could not parse parameters from OpenAI response:', err);
+                  }
+                  
+                  // Map the rule action to our command format
+                  const actionMap: Record<string, any> = {
+                    'generate_photo': { feature: 'product-shot-v1', action: 'create' },
+                    'generate_video': { feature: 'image-to-video', action: 'convert' },
+                    'generate_metadata': { feature: 'default-image', action: 'save' },
+                    'create_story': { feature: 'product-video', action: 'create' },
+                    'none': { feature: 'default-image', action: 'list' }
+                  };
+                  
+                  const mappedAction = actionMap[bestMatchedRule.action] || 
+                                     { feature: 'product-shot-v1', action: 'create' };
+                  
+                  // Build the command object
+                  command = {
+                    ...mappedAction,
+                    parameters: {
+                      ...parameters,
+                      autoGenerate: true,
+                      ruleName: bestMatchedRule.name
+                    },
+                    confidence: 0.9
+                  };
+                  
+                  // Record this automation in history
+                  if (user) {
+                    try {
+                      await supabase
+                        .from('automation_history')
+                        .insert({
+                          rule_id: bestMatchedRule.id,
+                          user_message: message,
+                          detected_intent: detectedIntent,
+                          action_taken: bestMatchedRule.action,
+                          success: true,
+                          user_id: user.id,
+                          credits_used: bestMatchedRule.required_credits,
+                          metadata: { command, parameters }
+                        });
+                    } catch (historyError) {
+                      console.error('Error recording automation history:', historyError);
+                      // Non-critical error, continue
+                    }
+                  }
+                } else {
+                  console.log('OpenAI did not detect a match, falling back to Langflow');
                 }
-              } catch (err) {
-                console.warn('Could not parse parameters from OpenAI response:', err);
               }
-              
-              // Map the rule action to our command format
-              const actionMap: Record<string, any> = {
-                'generate_photo': { feature: 'product-shot-v1', action: 'create' },
-                'generate_video': { feature: 'image-to-video', action: 'convert' },
-                'generate_metadata': { feature: 'default-image', action: 'save' },
-                'create_story': { feature: 'product-video', action: 'create' },
-                'none': { feature: 'default-image', action: 'list' }
-              };
-              
-              const mappedAction = actionMap[bestMatchedRule.action] || 
-                                { feature: 'product-shot-v1', action: 'create' };
-              
-              // Build the command object
-              command = {
-                ...mappedAction,
-                parameters: {
-                  ...parameters,
-                  autoGenerate: true,
-                  ruleName: bestMatchedRule.name
-                },
-                confidence: 0.9
-              };
-              
-              // Record this automation in history
-              if (user) {
-                await supabase
-                  .from('automation_history')
-                  .insert({
-                    rule_id: bestMatchedRule.id,
-                    user_message: message,
-                    detected_intent: detectedIntent,
-                    action_taken: bestMatchedRule.action,
-                    success: true,
-                    user_id: user.id,
-                    credits_used: bestMatchedRule.required_credits,
-                    metadata: { command, parameters }
-                  });
-              }
-            } else {
-              console.log('OpenAI did not detect a match, falling back to Langflow');
             }
           } else {
             console.warn('OpenAI API Key not configured, using simpler detection method');
@@ -275,7 +367,7 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
             };
             
             const mappedAction = actionMap[bestMatchedRule.action] || 
-                                { feature: 'product-shot-v1', action: 'create' };
+                               { feature: 'product-shot-v1', action: 'create' };
             
             // Build a simple command
             command = {
@@ -290,18 +382,23 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
             
             // Record this automation
             if (user) {
-              await supabase
-                .from('automation_history')
-                .insert({
-                  rule_id: bestMatchedRule.id,
-                  user_message: message,
-                  detected_intent: detectedIntent,
-                  action_taken: bestMatchedRule.action,
-                  success: true,
-                  user_id: user.id,
-                  credits_used: bestMatchedRule.required_credits,
-                  metadata: { command }
-                });
+              try {
+                await supabase
+                  .from('automation_history')
+                  .insert({
+                    rule_id: bestMatchedRule.id,
+                    user_message: message,
+                    detected_intent: detectedIntent,
+                    action_taken: bestMatchedRule.action,
+                    success: true,
+                    user_id: user.id,
+                    credits_used: bestMatchedRule.required_credits,
+                    metadata: { command }
+                  });
+              } catch (historyError) {
+                console.error('Error recording automation history:', historyError);
+                // Non-critical error, continue
+              }
             }
           }
         } catch (ruleProcessingError) {
@@ -316,7 +413,8 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
           JSON.stringify({
             command,
             message: `I've detected you want to ${detectedIntent}. I'll help you with that right away.`,
-            detected_rule: detectedIntent
+            detected_rule: detectedIntent,
+            use_langflow: false
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -340,7 +438,7 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
     
     return new Response(
       JSON.stringify({
-        error: error.message,
+        error: error instanceof Error ? error.message : "Unknown error",
         command: null,
         message: "Sorry, there was an error processing your request.",
         use_langflow: true // Fall back to Langflow on error

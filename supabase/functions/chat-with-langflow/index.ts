@@ -17,6 +17,74 @@ interface Message {
   content: string;
 }
 
+// Helper function to check environment variables
+function checkEnvironmentVariables() {
+  const variables = {
+    baseApiUrl: BASE_API_URL ? "Set" : "Not set",
+    langflowId: LANGFLOW_ID ? "Set" : "Not set",
+    flowId: FLOW_ID ? "Set" : "Not set",
+    applicationToken: APPLICATION_TOKEN ? "Set" : "Not set",
+  };
+  
+  console.log("Environment check:", variables);
+  
+  if (!LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN) {
+    const missingVars = [];
+    if (!LANGFLOW_ID) missingVars.push("LANGFLOW_ID");
+    if (!FLOW_ID) missingVars.push("FLOW_ID");
+    if (!APPLICATION_TOKEN) missingVars.push("APPLICATION_TOKEN");
+    
+    return {
+      isValid: false,
+      missingVars: missingVars.join(", ")
+    };
+  }
+  
+  return { isValid: true };
+}
+
+// Helper function to extract text from Langflow response
+function extractResponseText(responseData: any): { messageText: string | null, command: any | null } {
+  try {
+    if (!responseData?.outputs?.[0]?.outputs?.[0]?.results) {
+      console.warn('Invalid response format:', JSON.stringify(responseData, null, 2));
+      return { messageText: null, command: null };
+    }
+
+    const result = responseData.outputs[0].outputs[0].results;
+    
+    // Handle different response formats
+    let messageText;
+    if (typeof result.message === 'string') {
+      messageText = result.message;
+    } else if (result.message?.text) {
+      messageText = result.message.text;
+    } else if (result.message) {
+      messageText = JSON.stringify(result.message);
+    } else {
+      messageText = null;
+    }
+    
+    console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
+    
+    // Extract command if present
+    let command = null;
+    if (result.command) {
+      command = {
+        feature: result.command.feature || 'default-image',
+        action: result.command.action || 'list',
+        parameters: result.command.parameters || {}
+      };
+      console.log('Extracted command:', command);
+    }
+    
+    return { messageText, command };
+  } catch (error) {
+    console.error('Error extracting response text:', error);
+    return { messageText: null, command: null };
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -24,26 +92,38 @@ serve(async (req) => {
   }
 
   try {
-    console.log("Environment check:", {
-      baseApiUrl: BASE_API_URL ? "Set" : "Not set",
-      langflowId: LANGFLOW_ID ? "Set" : "Not set",
-      flowId: FLOW_ID ? "Set" : "Not set",
-      applicationToken: APPLICATION_TOKEN ? "Set" : "Not set",
-    });
-
-    // Verify required environment variables are set
-    if (!LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN) {
-      console.error('Missing required environment variables for LangFlow API');
+    // Validate environment variables
+    const envCheck = checkEnvironmentVariables();
+    if (!envCheck.isValid) {
+      console.error(`Missing required environment variables: ${envCheck.missingVars}`);
       return new Response(
         JSON.stringify({ 
           message: "Sorry, the AI chat system is not properly configured. Please contact support.",
-          command: null 
+          command: null,
+          error: `Missing configuration: ${envCheck.missingVars}` 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const { messages, activeTool, userCredits, command, detectedMessage } = await req.json();
+    // Parse request body
+    let bodyData;
+    try {
+      bodyData = await req.json();
+      console.log("Request body structure:", Object.keys(bodyData).join(", "));
+    } catch (parseError) {
+      console.error("Error parsing request body:", parseError);
+      return new Response(
+        JSON.stringify({ 
+          message: "Invalid request format. Please try again.",
+          command: null,
+          error: "Request parsing error" 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { messages, activeTool, userCredits, command, detectedMessage } = bodyData;
     
     // If we received a command and message from the detect-command function, use that directly
     if (command && detectedMessage) {
@@ -57,18 +137,35 @@ serve(async (req) => {
       );
     }
     
+    // Validate messages array
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      throw new Error('Invalid request: messages array is required');
+      console.error('Invalid request: missing or empty messages array');
+      return new Response(
+        JSON.stringify({ 
+          message: "Please provide a valid message to process.",
+          command: null,
+          error: "Invalid messages array" 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage?.content) {
-      throw new Error('Invalid request: no message content found');
+      console.error('Invalid request: no message content found in last message');
+      return new Response(
+        JSON.stringify({ 
+          message: "Your message appears to be empty. Please try again.",
+          command: null,
+          error: "Empty message content" 
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
 
-    console.log('Processing message:', lastMessage.content);
+    console.log('Processing message:', lastMessage.content.substring(0, 100) + '...');
     console.log('Active tool:', activeTool);
-    console.log('User credits:', userCredits);
+    console.log('User credits:', userCredits?.credits_remaining || 'Not provided');
 
     // Simple fallback response to use if the API is not available
     const fallbackResponse = {
@@ -98,7 +195,10 @@ Message History:
 ${messageHistory}
 `;
 
-    console.log('Context string:', contextString);
+    console.log('Context string sample:', 
+               contextString.length > 100 
+               ? contextString.substring(0, 100) + '...' 
+               : contextString);
     
     // Create a simple input string that Langflow can accept
     const inputString = `${lastMessage.content}\n\nContext: ${contextString}`;
@@ -149,14 +249,21 @@ ${messageHistory}
       console.log('API Response status:', apiResponse.status);
       
       if (!apiResponse.ok) {
-        const errorText = await apiResponse.text();
+        let errorText = 'Unknown error';
+        try {
+          errorText = await apiResponse.text();
+        } catch (e) {
+          errorText = 'Could not read error response';
+        }
+        
         console.error('API Error:', errorText);
         
         // Return a friendly error message to the user
         return new Response(
           JSON.stringify({ 
             message: "I'm sorry, I'm having trouble connecting to my knowledge base. Please try again in a moment.",
-            command: null
+            command: null,
+            error: `API error: ${apiResponse.status} - ${errorText.substring(0, 200)}`
           }),
           { 
             headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -165,36 +272,41 @@ ${messageHistory}
         );
       }
 
-      const responseData = await apiResponse.json();
-      console.log('Raw response data:', JSON.stringify(responseData, null, 2));
-      
-      if (!responseData?.outputs?.[0]?.outputs?.[0]?.results?.message) {
-        console.warn('Invalid response format:', JSON.stringify(responseData, null, 2));
-        
-        // Return the fallback response when we can't parse the API response
+      let responseData;
+      try {
+        responseData = await apiResponse.json();
+        console.log('Raw response data sample:', 
+          JSON.stringify(responseData).length > 500 
+            ? JSON.stringify(responseData).substring(0, 500) + '...' 
+            : JSON.stringify(responseData)
+        );
+      } catch (jsonError) {
+        console.error('Error parsing JSON response:', jsonError);
         return new Response(
-          JSON.stringify(fallbackResponse),
+          JSON.stringify({ 
+            message: "I received an invalid response from my knowledge base. Please try again.",
+            command: null,
+            error: "JSON parsing error"
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
-
-      const result = responseData.outputs[0].outputs[0].results;
-      const messageText = result.message.text || result.message;
-      console.log('Successfully extracted response text');
-
-      // Check if the response contains a command
-      let command = null;
-      try {
-        if (result.command) {
-          command = {
-            feature: result.command.feature,
-            action: result.command.action,
-            parameters: result.command.parameters || {}
-          };
-          console.log('Extracted command:', command);
-        }
-      } catch (error) {
-        console.error('Error extracting command:', error);
+      
+      // Extract the response text and command
+      const { messageText, command } = extractResponseText(responseData);
+      
+      if (!messageText) {
+        console.warn('Could not extract message text from response');
+        
+        // Return the fallback response when we can't parse the API response
+        return new Response(
+          JSON.stringify({
+            message: "I apologize, but I couldn't generate a proper response. Please try a different question.",
+            command: null,
+            error: "Response extraction failed"
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
       }
 
       return new Response(
@@ -213,7 +325,8 @@ ${messageHistory}
         return new Response(
           JSON.stringify({
             message: "I'm sorry, the request took too long to process. Please try a shorter message or try again later.",
-            command: null
+            command: null,
+            error: "Request timeout"
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -221,7 +334,10 @@ ${messageHistory}
       
       // Generic fetch error
       return new Response(
-        JSON.stringify(fallbackResponse),
+        JSON.stringify({
+          ...fallbackResponse,
+          error: fetchError.message
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }

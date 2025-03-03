@@ -12,8 +12,13 @@ const CHAT_CREDIT_COST = 0.07;
 
 export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) => {
   const [messages, setMessages] = useState<Message[]>(() => {
-    const savedMessages = localStorage.getItem(STORAGE_KEY);
-    return savedMessages ? JSON.parse(savedMessages) : [];
+    try {
+      const savedMessages = localStorage.getItem(STORAGE_KEY);
+      return savedMessages ? JSON.parse(savedMessages) : [];
+    } catch (e) {
+      console.error("Error loading chat history from localStorage:", e);
+      return [];
+    }
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
@@ -23,22 +28,31 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
 
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .eq("user_id", user.id)
-        .single();
+        const { data, error } = await supabase
+          .from("user_credits")
+          .select("credits_remaining")
+          .eq("user_id", user.id)
+          .single();
 
-      if (error) throw error;
-      return data;
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error("Error fetching user credits:", error);
+        return { credits_remaining: 0 };
+      }
     },
   });
 
   useEffect(() => {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
+    } catch (e) {
+      console.error("Error saving chat history to localStorage:", e);
+    }
   }, [messages]);
 
   const createTask = (name: string): Task => ({
@@ -73,32 +87,41 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
   };
 
   const deductChatCredits = async () => {
-    const { data, error } = await supabase.rpc('safely_decrease_chat_credits', {
-      credit_amount: CHAT_CREDIT_COST
-    });
+    try {
+      const { data, error } = await supabase.rpc('safely_decrease_chat_credits', {
+        credit_amount: CHAT_CREDIT_COST
+      });
 
-    if (error || !data) {
-      throw new Error("Failed to deduct credits for chat usage");
+      if (error || !data) {
+        throw new Error("Failed to deduct credits for chat usage");
+      }
+
+      return data;
+    } catch (error) {
+      console.error("Error deducting chat credits:", error);
+      throw error;
     }
-
-    return data;
   };
 
   const logChatUsage = async (messageContent: string) => {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
 
-    const { error } = await supabase
-      .from('chat_usage')
-      .insert({
-        user_id: user.id,
-        message_content: messageContent,
-        credits_charged: CHAT_CREDIT_COST,
-        words_count: messageContent.trim().split(/\s+/).length
-      });
+      const { error } = await supabase
+        .from('chat_usage')
+        .insert({
+          user_id: user.id,
+          message_content: messageContent,
+          credits_charged: CHAT_CREDIT_COST,
+          words_count: messageContent.trim().split(/\s+/).length
+        });
 
-    if (error) {
-      console.error('Failed to log chat usage:', error);
+      if (error) {
+        console.error('Failed to log chat usage:', error);
+      }
+    } catch (error) {
+      console.error('Error in logChatUsage:', error);
     }
   };
 
@@ -219,6 +242,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             userCredits
           }
         });
+        
+        console.log('Command detection response:', detectionResponse);
       } catch (detectionError) {
         console.error('Command detection error:', detectionError);
         // We'll continue with Langflow if detection fails
@@ -230,7 +255,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       let useLangflow = true;
 
       // Check if we got a command detection result
-      if (detectionResponse.data) {
+      if (detectionResponse?.data) {
         useLangflow = detectionResponse.data.use_langflow !== false;
         command = detectionResponse.data.command;
         messageContent = detectionResponse.data.message;
@@ -344,32 +369,39 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             }
             return newMessages;
           });
+          
+          toast({
+            title: "AI Processing Error",
+            description: "Failed to process your request. Please try again later.",
+            variant: "destructive",
+          });
         }
       } else {
-        // This is the case where neither command detection nor Langflow worked
+        // Neither command detection nor Langflow worked
         throw new Error('Both command detection and Langflow processing failed');
       }
-
     } catch (error) {
       console.error('Chat error:', error);
       
-      assistantMessage.tasks!.forEach(task => {
-        if (task.status === "pending" || task.status === "in-progress") {
-          updateTaskStatus(messageIndex, task.id, "error");
-        }
-      });
-      
-      setMessages(prev => {
-        const newMessages = [...prev];
-        if (messageIndex >= 0 && messageIndex < newMessages.length) {
-          newMessages[messageIndex] = {
-            ...newMessages[messageIndex],
-            content: "Sorry, I encountered an error. Please try again.",
-            status: "error"
-          };
-        }
-        return newMessages;
-      });
+      if (messageIndex >= 0 && messageIndex < messages.length + 2) {
+        assistantMessage.tasks!.forEach(task => {
+          if (task.status === "pending" || task.status === "in-progress") {
+            updateTaskStatus(messageIndex, task.id, "error");
+          }
+        });
+        
+        setMessages(prev => {
+          const newMessages = [...prev];
+          if (messageIndex >= 0 && messageIndex < newMessages.length) {
+            newMessages[messageIndex] = {
+              ...newMessages[messageIndex],
+              content: "Sorry, I encountered an error. Please try again.",
+              status: "error"
+            };
+          }
+          return newMessages;
+        });
+      }
       
       toast({
         title: "Error",

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
@@ -49,6 +50,8 @@ interface SplitScreenProps {
   input: string;
   isLoading: boolean;
   userCredits: any;
+  activeTool?: string;  // New prop for active tool
+  onToolSelect?: (tool: string) => void;  // New prop for tool selection
   productShotV2: {
     onSubmit: (formData: any) => Promise<void>;
     isGenerating: boolean;
@@ -70,6 +73,8 @@ export const SplitScreen = ({
   input,
   isLoading,
   userCredits,
+  activeTool: externalActiveTool,
+  onToolSelect: externalOnToolSelect,
   productShotV2,
   productShotV1,
   imageToVideo,
@@ -77,10 +82,13 @@ export const SplitScreen = ({
   onSubmit,
   onBack,
 }: SplitScreenProps) => {
-  const [activeTool, setActiveTool] = useState('product-shot-v1');
+  const [internalActiveTool, setInternalActiveTool] = useState('product-shot-v1');
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
+  
+  // Use externally controlled tool state if provided, otherwise use internal state
+  const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
 
   const handleToolSelect = (tool: string) => {
     setIsTransitioning(true);
@@ -90,10 +98,24 @@ export const SplitScreen = ({
     } else {
       setShowChat(false);
       setIsChatVisible(false);
-      setActiveTool(tool);
+      
+      // Update either external or internal state
+      if (externalOnToolSelect) {
+        externalOnToolSelect(tool);
+      } else {
+        setInternalActiveTool(tool);
+      }
     }
     setTimeout(() => setIsTransitioning(false), 300);
   };
+
+  // Effect to react to changes in externally controlled active tool
+  useEffect(() => {
+    if (externalActiveTool && externalActiveTool !== 'ai-agent') {
+      setShowChat(false);
+      setIsChatVisible(false);
+    }
+  }, [externalActiveTool]);
 
   useEffect(() => {
     return () => {
@@ -150,7 +172,7 @@ export const SplitScreen = ({
           {!isMobile && (
             <ToolSelector 
               activeTool={activeTool}
-              onToolSelect={setActiveTool}
+              onToolSelect={handleToolSelect}
             />
           )}
           

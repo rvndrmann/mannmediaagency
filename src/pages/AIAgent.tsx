@@ -12,11 +12,19 @@ import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
+import { useState } from "react";
 
 const AIAgent = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const userCreditsQuery = useUserCredits();
+  const [activeTool, setActiveTool] = useState('product-shot-v1');
+
+  // Handle tool switching from AI chat commands
+  const handleToolSwitch = (tool: string) => {
+    console.log("Switching to tool:", tool);
+    setActiveTool(tool);
+  };
 
   const {
     messages,
@@ -25,7 +33,7 @@ const AIAgent = () => {
     isLoading,
     handleSubmit,
     userCredits
-  } = useAIChat();
+  } = useAIChat(handleToolSwitch);
 
   const { 
     isGenerating: isGeneratingV2, 
@@ -77,6 +85,8 @@ const AIAgent = () => {
               input={input}
               isLoading={isLoading}
               userCredits={userCredits}
+              activeTool={activeTool}  /* Pass active tool as prop */
+              onToolSelect={setActiveTool}  /* Pass tool select handler */
               productShotV2={{
                 onSubmit: handleGenerateV2,
                 isGenerating: isGeneratingV2,

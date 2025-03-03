@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
@@ -10,7 +9,7 @@ import { useDefaultImages } from "@/hooks/use-default-images";
 const STORAGE_KEY = "ai_agent_chat_history";
 const CHAT_CREDIT_COST = 0.07;
 
-export const useAIChat = () => {
+export const useAIChat = (onToolSwitch?: (tool: string) => void) => {
   const [messages, setMessages] = useState<Message[]>(() => {
     const savedMessages = localStorage.getItem(STORAGE_KEY);
     return savedMessages ? JSON.parse(savedMessages) : [];
@@ -202,6 +201,16 @@ export const useAIChat = () => {
 
       // Handle different commands
       let result = "";
+      
+      // Handle tool switching for commands that require interface changes
+      if (onToolSwitch && (
+        command.feature === "product-shot-v1" || 
+        command.feature === "product-shot-v2" || 
+        command.feature === "image-to-video")
+      ) {
+        // Trigger tool switching based on command feature
+        onToolSwitch(command.feature);
+      }
       
       switch (command.feature) {
         case "default-image":

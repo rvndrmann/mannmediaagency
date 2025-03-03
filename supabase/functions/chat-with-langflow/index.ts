@@ -27,7 +27,7 @@ function checkEnvironmentVariables() {
     xApiKey: X_API_KEY ? "Set" : "Not set",
   };
   
-  console.log("Environment variables:", variables);
+  console.log("Environment variables:", JSON.stringify(variables));
   
   if (!FLOW_ID || !APPLICATION_TOKEN || !X_API_KEY) {
     const missingVars = [];

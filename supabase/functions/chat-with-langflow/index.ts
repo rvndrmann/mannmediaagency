@@ -75,25 +75,38 @@ serve(async (req) => {
       }))
     };
 
-    // Convert the complex object into a string as required by Langflow
-    const combinedInputString = JSON.stringify({
+    // Create an input object
+    const inputObject = {
       message: lastMessage.content,
       context: conversationContext
-    });
+    };
+    
+    // Convert to a pure string that Langflow can accept
+    const stringifiedInput = JSON.stringify(inputObject);
+    
+    console.log('Stringified input (sample):', 
+                stringifiedInput.length > 100 
+                ? stringifiedInput.substring(0, 100) + '...' 
+                : stringifiedInput);
 
     // Prepare for API call
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
     const tweaks = {};
 
     const payload = {
-      input_value: combinedInputString, // Send serialized string as required by Langflow
+      input_value: stringifiedInput, // Send properly stringified input
       input_type: "chat",
       output_type: "chat",
       tweaks
     };
 
     console.log(`Making request to: ${BASE_API_URL}${endpoint}`);
-    console.log('Payload:', JSON.stringify(payload, null, 2));
+    console.log('Payload structure:', JSON.stringify({
+      input_type: payload.input_type,
+      output_type: payload.output_type,
+      input_value_length: stringifiedInput.length,
+      tweaks: payload.tweaks
+    }));
     
     const headers = {
       "Authorization": `Bearer ${APPLICATION_TOKEN}`,

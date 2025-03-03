@@ -10,6 +10,7 @@ serve(async (req) => {
 
   try {
     console.log("Note: detect-command is now a passthrough function. Command detection has been moved to Langflow.");
+    console.log("This function remains for backward compatibility and will simply return a null command.");
     
     // Return a null command to indicate no separate detection
     return new Response(
@@ -21,10 +22,13 @@ serve(async (req) => {
     console.error('Error in detect-command function:', error);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        command: null,
+        error: error.message
+      }),
       { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 200 // Send 200 to client even on internal errors for graceful degradation
       }
     );
   }

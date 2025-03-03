@@ -75,15 +75,18 @@ serve(async (req) => {
       }))
     };
 
+    // Convert the complex object into a string as required by Langflow
+    const combinedInputString = JSON.stringify({
+      message: lastMessage.content,
+      context: conversationContext
+    });
+
     // Prepare for API call
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}`;
     const tweaks = {};
 
     const payload = {
-      input_value: {
-        message: lastMessage.content,
-        context: conversationContext
-      },
+      input_value: combinedInputString, // Send serialized string as required by Langflow
       input_type: "chat",
       output_type: "chat",
       tweaks

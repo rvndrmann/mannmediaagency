@@ -52,12 +52,13 @@ serve(async (req) => {
     let requestBody;
     try {
       requestBody = await req.json();
+      console.log("Request received:", JSON.stringify(requestBody, null, 2).substring(0, 200) + "...");
     } catch (parseError) {
       console.error('Error parsing request body:', parseError);
       return new Response(
         JSON.stringify({
           command: null,
-          message: "Invalid request format",
+          message: null,
           use_langflow: true,
           error: "Request parsing error"
         }),
@@ -88,6 +89,7 @@ serve(async (req) => {
     let supabase;
     try {
       supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+      console.log("Supabase client initialized successfully");
     } catch (supabaseError) {
       console.error('Error initializing Supabase client:', supabaseError);
       return new Response(
@@ -138,10 +140,20 @@ serve(async (req) => {
 
         if (error) {
           console.error('Error fetching automation rules:', error);
-          throw new Error('Failed to fetch automation rules');
+          // Instead of throwing, we'll handle this gracefully
+          return new Response(
+            JSON.stringify({
+              command: null,
+              message: null,
+              use_langflow: true,
+              error: "Failed to fetch automation rules: " + error.message
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
         
         rules = data || [];
+        console.log(`Successfully fetched ${rules.length} automation rules`);
       } catch (rulesError) {
         console.error('Error in rules fetch:', rulesError);
         return new Response(
@@ -149,7 +161,7 @@ serve(async (req) => {
             command: null,
             message: null,
             use_langflow: true,
-            error: "Rules fetch error"
+            error: "Rules fetch error: " + (rulesError instanceof Error ? rulesError.message : String(rulesError))
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
@@ -206,13 +218,17 @@ serve(async (req) => {
               
             if (error || !data) {
               console.error('Error fetching prompt:', error);
-              throw new Error('Failed to fetch associated prompt');
+              // Instead of throwing, we'll use a default approach
+              console.log('Using default approach without specific prompt');
+              prompt = null;
+            } else {
+              prompt = data;
+              console.log('Successfully fetched prompt:', prompt.name);
             }
-            
-            prompt = data;
           } catch (promptError) {
             console.error('Prompt fetch error:', promptError);
             // Continue without the specific prompt
+            prompt = null;
           }
           
           // Check if user has enough credits
@@ -246,6 +262,7 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
             // Set up OpenAI request
             let openAIResponse;
             try {
+              console.log('Sending request to OpenAI');
               openAIResponse = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -265,12 +282,17 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
               if (!openAIResponse.ok) {
                 const errorText = await openAIResponse.text();
                 console.error('OpenAI API error:', errorText);
-                throw new Error(`OpenAI API error: ${openAIResponse.statusText}`);
+                // Instead of throwing, we'll use a simpler detection method
+                console.log('Falling back to simpler detection method');
+                openAIResponse = null;
+              } else {
+                console.log('OpenAI response received successfully');
               }
               
             } catch (openaiError) {
               console.error('OpenAI request error:', openaiError);
               // Continue with simpler detection method
+              console.log('Error with OpenAI, falling back to simpler detection method');
               openAIResponse = null;
             }
 
@@ -278,6 +300,7 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
               let openAIData;
               try {
                 openAIData = await openAIResponse.json();
+                console.log('OpenAI data parsed successfully');
               } catch (jsonError) {
                 console.error('Error parsing OpenAI response:', jsonError);
                 openAIData = null;
@@ -298,6 +321,7 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
                     const jsonMatch = aiResponseText.match(/\{[\s\S]*\}/);
                     if (jsonMatch) {
                       parameters = JSON.parse(jsonMatch[0]);
+                      console.log('Successfully extracted parameters:', parameters);
                     }
                   } catch (err) {
                     console.warn('Could not parse parameters from OpenAI response:', err);
@@ -326,10 +350,13 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
                     confidence: 0.9
                   };
                   
+                  console.log('Created command object:', command);
+                  
                   // Record this automation in history
                   if (user) {
                     try {
-                      await supabase
+                      console.log('Recording automation history');
+                      const { error: historyError } = await supabase
                         .from('automation_history')
                         .insert({
                           rule_id: bestMatchedRule.id,
@@ -341,6 +368,12 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
                           credits_used: bestMatchedRule.required_credits,
                           metadata: { command, parameters }
                         });
+                        
+                      if (historyError) {
+                        console.error('Error recording automation history:', historyError);
+                      } else {
+                        console.log('Successfully recorded automation history');
+                      }
                     } catch (historyError) {
                       console.error('Error recording automation history:', historyError);
                       // Non-critical error, continue
@@ -380,10 +413,13 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
               confidence: 0.7
             };
             
+            console.log('Created command using simple detection:', command);
+            
             // Record this automation
             if (user) {
               try {
-                await supabase
+                console.log('Recording automation history (simple detection)');
+                const { error: historyError } = await supabase
                   .from('automation_history')
                   .insert({
                     rule_id: bestMatchedRule.id,
@@ -395,6 +431,12 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
                     credits_used: bestMatchedRule.required_credits,
                     metadata: { command }
                   });
+                  
+                if (historyError) {
+                  console.error('Error recording automation history:', historyError);
+                } else {
+                  console.log('Successfully recorded automation history');
+                }
               } catch (historyError) {
                 console.error('Error recording automation history:', historyError);
                 // Non-critical error, continue
@@ -404,11 +446,21 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
         } catch (ruleProcessingError) {
           console.error('Error processing rule:', ruleProcessingError);
           // If rule processing fails, we'll continue to Langflow
+          return new Response(
+            JSON.stringify({
+              command: null,
+              message: null,
+              use_langflow: true,
+              error: "Rule processing error: " + (ruleProcessingError instanceof Error ? ruleProcessingError.message : String(ruleProcessingError))
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
         }
       }
 
       // If we detected a command, respond with it
       if (command) {
+        console.log('Returning detected command');
         return new Response(
           JSON.stringify({
             command,
@@ -422,9 +474,19 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
     } catch (automationError) {
       console.error('Error in automation processing:', automationError);
       // We'll just log this and continue to Langflow
+      return new Response(
+        JSON.stringify({
+          command: null,
+          message: null,
+          use_langflow: true,
+          error: "Automation processing error: " + (automationError instanceof Error ? automationError.message : String(automationError))
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     // Fall back to Langflow for regular chat
+    console.log('No command detected, falling back to Langflow');
     return new Response(
       JSON.stringify({
         command: null,
@@ -450,3 +512,4 @@ If you detect this intent, extract relevant parameters in JSON format. If not, r
     );
   }
 });
+

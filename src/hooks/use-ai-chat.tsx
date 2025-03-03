@@ -6,6 +6,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Message, Task, Command } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { useDefaultImages } from "@/hooks/use-default-images"; 
+import { toast } from "sonner";
 
 const STORAGE_KEY = "ai_agent_chat_history";
 const CHAT_CREDIT_COST = 0.07;
@@ -22,7 +23,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
-  const { toast } = useToast();
+  const { toast: useToastFunc } = useToast();
   const { defaultImages, updateLastUsed, saveDefaultImage } = useDefaultImages();
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -172,7 +173,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       toast({
         title: "Error",
         description: `Failed to execute command: ${error instanceof Error ? error.message : "Unknown error"}`,
-        variant: "destructive",
       });
     }
   };
@@ -186,7 +186,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       toast({
         title: "Insufficient Credits",
         description: `You need at least ${CHAT_CREDIT_COST} credits to send a message.`,
-        variant: "destructive",
       });
       return;
     }
@@ -212,26 +211,31 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     setIsLoading(true);
     
     const messageIndex = messages.length + 1;
+    let creditsDeducted = false;
 
     try {
+      // Step 1: Deduct credits
       await deductChatCredits();
+      creditsDeducted = true;
       
+      // Log usage
       await logChatUsage(trimmedInput);
       
+      // Refresh credits display
       refetchCredits();
 
+      // Update task status: Analyzing request
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
-      
       await new Promise(resolve => setTimeout(resolve, 500));
-      
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
       
+      // Update task status: Processing with AI
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
       
       // Get the active tool from the application state
       const activeTool = localStorage.getItem("activeTool") || "ai-agent";
 
-      // First try command detection
+      // Step 2: Try command detection
       console.log('Sending request to command detection system');
       let detectionResponse;
       try {
@@ -246,7 +250,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         console.log('Command detection response:', detectionResponse);
       } catch (detectionError) {
         console.error('Command detection error:', detectionError);
-        // We'll continue with Langflow if detection fails
+        // Continue with Langflow if detection fails
         detectionResponse = { data: { use_langflow: true } };
       }
 
@@ -259,9 +263,29 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         useLangflow = detectionResponse.data.use_langflow !== false;
         command = detectionResponse.data.command;
         messageContent = detectionResponse.data.message;
+        
+        // Check for specific error
+        if (detectionResponse.data.error === "INSUFFICIENT_CREDITS") {
+          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Insufficient credits");
+          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
+          
+          setMessages(prev => {
+            const newMessages = [...prev];
+            if (messageIndex >= 0 && messageIndex < newMessages.length) {
+              newMessages[messageIndex] = {
+                ...newMessages[messageIndex],
+                content: messageContent || "You don't have enough credits for this operation.",
+                status: "error"
+              };
+            }
+            return newMessages;
+          });
+          
+          return; // Exit early
+        }
       }
 
-      // If command detection worked, use that result directly
+      // Step 3: If command detection worked, use that result directly
       if (command && messageContent) {
         console.log("Using detected command:", command);
         
@@ -284,7 +308,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         // Execute the command
         await executeCommand(command, messageIndex);
       }
-      // Otherwise fallback to Langflow
+      // Step 4: Otherwise fallback to Langflow
       else if (useLangflow) {
         console.log('Falling back to Langflow for response generation');
         
@@ -349,6 +373,22 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
               }
               return newMessages;
             });
+          } else if (data && data.error === "Request timeout") {
+            // Handle timeout specifically
+            updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Request timed out");
+            updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
+            
+            setMessages(prev => {
+              const newMessages = [...prev];
+              if (messageIndex >= 0 && messageIndex < newMessages.length) {
+                newMessages[messageIndex] = {
+                  ...newMessages[messageIndex],
+                  content: "I'm sorry, the request took too long to process. Please try a shorter message or try again later.",
+                  status: "error"
+                };
+              }
+              return newMessages;
+            });
           } else {
             throw new Error('Invalid response format from AI');
           }
@@ -373,7 +413,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           toast({
             title: "AI Processing Error",
             description: "Failed to process your request. Please try again later.",
-            variant: "destructive",
           });
         }
       } else {
@@ -406,7 +445,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       toast({
         title: "Error",
         description: error instanceof Error ? error.message : "Failed to get response from AI",
-        variant: "destructive",
       });
     } finally {
       setIsLoading(false);

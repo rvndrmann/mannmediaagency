@@ -20,13 +20,13 @@ interface Message {
 // Helper function to check environment variables
 function checkEnvironmentVariables() {
   const variables = {
-    baseApiUrl: BASE_API_URL ? "Set" : "Not set",
-    langflowId: LANGFLOW_ID ? "Set" : "Not set",
-    flowId: FLOW_ID ? "Set" : "Not set",
+    baseApiUrl: BASE_API_URL,
+    langflowId: LANGFLOW_ID,
+    flowId: FLOW_ID,
     applicationToken: APPLICATION_TOKEN ? "Set" : "Not set",
   };
   
-  console.log("Environment check:", variables);
+  console.log("Environment variables:", variables);
   
   if (!LANGFLOW_ID || !FLOW_ID || !APPLICATION_TOKEN) {
     const missingVars = [];
@@ -46,8 +46,10 @@ function checkEnvironmentVariables() {
 // Helper function to extract text from Langflow response
 function extractResponseText(responseData: any): { messageText: string | null, command: any | null } {
   try {
+    console.log("Extracting response text from:", JSON.stringify(responseData, null, 2).substring(0, 500) + "...");
+    
     if (!responseData?.outputs?.[0]?.outputs?.[0]?.results) {
-      console.warn('Invalid response format:', JSON.stringify(responseData, null, 2));
+      console.error('Invalid or unexpected response format:', JSON.stringify(responseData, null, 2).substring(0, 500));
       return { messageText: null, command: null };
     }
 
@@ -61,8 +63,11 @@ function extractResponseText(responseData: any): { messageText: string | null, c
       messageText = result.message.text;
     } else if (result.message) {
       messageText = JSON.stringify(result.message);
+    } else if (result.output) {
+      // Try alternative output format
+      messageText = typeof result.output === 'string' ? result.output : JSON.stringify(result.output);
     } else {
-      messageText = null;
+      messageText = "I received a response but couldn't understand it. Please try again.";
     }
     
     console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
@@ -81,7 +86,10 @@ function extractResponseText(responseData: any): { messageText: string | null, c
     return { messageText, command };
   } catch (error) {
     console.error('Error extracting response text:', error);
-    return { messageText: null, command: null };
+    return { 
+      messageText: "I encountered an error processing the AI response. Please try again.", 
+      command: null 
+    };
   }
 }
 
@@ -235,8 +243,12 @@ ${messageHistory}
     try {
       // Timeout implementation to prevent hanging requests
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+      const timeoutId = setTimeout(() => {
+        console.log("Request timeout - aborting");
+        controller.abort();
+      }, 20000); // 20 second timeout - reduced from 30 to fail faster
     
+      console.log("Starting API request...");
       const apiResponse = await fetch(`${BASE_API_URL}${endpoint}`, {
         method: 'POST',
         headers,
@@ -245,20 +257,18 @@ ${messageHistory}
       });
       
       clearTimeout(timeoutId);
-
-      console.log('API Response status:', apiResponse.status);
+      console.log('API Response received, status:', apiResponse.status);
       
       if (!apiResponse.ok) {
         let errorText = 'Unknown error';
         try {
           errorText = await apiResponse.text();
+          console.error('API Error response text:', errorText);
         } catch (e) {
+          console.error('Could not read error response:', e);
           errorText = 'Could not read error response';
         }
         
-        console.error('API Error:', errorText);
-        
-        // Return a friendly error message to the user
         return new Response(
           JSON.stringify({ 
             message: "I'm sorry, I'm having trouble connecting to my knowledge base. Please try again in a moment.",
@@ -275,11 +285,7 @@ ${messageHistory}
       let responseData;
       try {
         responseData = await apiResponse.json();
-        console.log('Raw response data sample:', 
-          JSON.stringify(responseData).length > 500 
-            ? JSON.stringify(responseData).substring(0, 500) + '...' 
-            : JSON.stringify(responseData)
-        );
+        console.log('Raw response received');
       } catch (jsonError) {
         console.error('Error parsing JSON response:', jsonError);
         return new Response(
@@ -309,6 +315,7 @@ ${messageHistory}
         );
       }
 
+      console.log("Returning successful response with message and command");
       return new Response(
         JSON.stringify({
           message: messageText,
@@ -348,7 +355,7 @@ ${messageHistory}
       JSON.stringify({ 
         message: "I apologize, but I encountered an error processing your request. Please try again.",
         command: null,
-        error: error.message
+        error: error instanceof Error ? error.message : String(error)
       }),
       { 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

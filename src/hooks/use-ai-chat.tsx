@@ -244,13 +244,13 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     throw lastError;
   };
 
-  // Format message history in a clean, consistent way
-  const formatMessageHistory = (messages: Message[]): Message[] => {
+  // Format message history for AI processing
+  const formatMessageHistory = (messages: Message[]): any[] => {
     if (!messages || messages.length === 0) {
       return [];
     }
     
-    // Return a clean version of the messages, filtering out technical details
+    // Return just the essential parts of each message
     return messages.map(msg => ({
       role: msg.role,
       content: msg.content
@@ -316,7 +316,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       // Get the active tool from the application state
       const activeTool = localStorage.getItem("activeTool") || "ai-agent";
       
-      // Prepare message history in a clean format
+      // Prepare cleaned message history
       const processedMessages = formatMessageHistory([...messages]);
 
       // Step 2: Try command detection
@@ -326,9 +326,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         detectionResponse = await makeRequestWithRetry('detect-command', { 
           message: trimmedInput,
           activeContext: activeTool,
-          userCredits,
-          messageHistory: processedMessages,
-          requestId
+          userCredits
         });
         
         console.log(`[${requestId}] Command detection response:`, detectionResponse);
@@ -341,7 +339,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       let command = null;
       let messageContent = null;
       let useLangflow = true;
-      let cleanMessage = detectionResponse?.cleanMessage || trimmedInput;
+      let rawMessage = detectionResponse?.rawMessage || trimmedInput;
 
       // Check if we got a command detection result
       if (detectionResponse) {
@@ -400,14 +398,14 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         console.log(`[${requestId}] Falling back to Langflow for response generation`);
         
         try {
-          // Send message to Langflow with any detected but incomplete command data
+          // Send raw message to Langflow without additional context
           const data = await makeRequestWithRetry('chat-with-langflow', { 
             messages: [...messages, userMessage],
             activeTool,
             userCredits,
             command,
             detectedMessage: messageContent,
-            cleanMessage: cleanMessage,
+            rawMessage: rawMessage,
             processedMessageHistory: processedMessages,
             requestId
           });

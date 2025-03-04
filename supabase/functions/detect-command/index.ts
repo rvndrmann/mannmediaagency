@@ -211,13 +211,6 @@ async function logAutomationExecution(ruleId: string, userId: string, message: s
   }
 }
 
-// Function to clean and prepare message for Langflow
-function prepareMessageForLangflow(message: string) {
-  // Remove any excessive formatting, technical details, or annotations
-  // that might confuse the Langflow processing
-  return message.trim();
-}
-
 serve(async (req) => {
   const requestId = generateRequestId();
   console.log(`[${requestId}] New command detection request`);
@@ -230,7 +223,7 @@ serve(async (req) => {
   try {
     // Parse request
     const requestData = await req.json();
-    const { message, activeContext, userCredits, messageHistory } = requestData;
+    const { message, activeContext, userCredits } = requestData;
     
     if (!message) {
       console.log(`[${requestId}] No message provided, using Langflow`);
@@ -238,7 +231,7 @@ serve(async (req) => {
         JSON.stringify({ 
           error: "No message provided",
           use_langflow: true,
-          cleanMessage: null
+          rawMessage: null
         }),
         { 
           headers: { ...corsHeaders, "Content-Type": "application/json" },
@@ -250,10 +243,6 @@ serve(async (req) => {
     console.log(`[${requestId}] Command detection for: ${message.slice(0, 50)}...`);
     console.log(`[${requestId}] Active context: ${activeContext}`);
 
-    // Clean the message for better Langflow processing
-    const cleanedMessage = prepareMessageForLangflow(message);
-    console.log(`[${requestId}] Cleaned message: ${cleanedMessage.slice(0, 50)}...`);
-
     // Step 1: Fetch automation rules from the database
     const automationRules = await fetchAutomationRules();
     console.log(`[${requestId}] Fetched ${automationRules.length} automation rules`);
@@ -264,7 +253,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           use_langflow: true,
-          cleanMessage: cleanedMessage 
+          rawMessage: message 
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -303,8 +292,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ 
           use_langflow: true,
-          cleanMessage: cleanedMessage,
-          processedMessageHistory: messageHistory 
+          rawMessage: message
         }),
         { headers: { ...corsHeaders, "Content-Type": "application/json" } }
       );
@@ -368,7 +356,7 @@ serve(async (req) => {
             command,
             message: `I'll create a ${result.params.product || 'product'} image for you.`,
             use_langflow: false,
-            cleanMessage: cleanedMessage
+            rawMessage: message
           }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" } }
         );
@@ -380,8 +368,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         use_langflow: true,
-        cleanMessage: cleanedMessage,
-        processedMessageHistory: messageHistory
+        rawMessage: message
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
@@ -394,7 +381,7 @@ serve(async (req) => {
         error: error.message, 
         use_langflow: true,
         fallback_reason: "command_detection_error",
-        cleanMessage: requestData?.message || null
+        rawMessage: requestData?.message || null
       }),
       { 
         headers: { ...corsHeaders, "Content-Type": "application/json" },

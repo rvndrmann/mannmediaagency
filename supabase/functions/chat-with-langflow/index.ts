@@ -105,7 +105,7 @@ function formatMessageHistory(messages: Message[]): string {
     return "";
   }
 
-  // Format the message history in a clean, consistent format
+  // Just return the raw message history without additional formatting
   return messages.map(msg => `${msg.role}: ${msg.content}`).join("\n\n");
 }
 
@@ -115,12 +115,6 @@ function truncateInput(input: string, maxLength: number): string {
   }
   
   console.log(`Input exceeds maximum length (${input.length} > ${maxLength}), truncating...`);
-  
-  const userMessageStart = input.lastIndexOf("user:"); 
-  if (userMessageStart > 0 && input.length - userMessageStart < maxLength) {
-    return input.substring(userMessageStart);
-  }
-  
   return input.substring(input.length - maxLength);
 }
 
@@ -275,7 +269,7 @@ serve(async (req) => {
       );
     }
     
-    const { messages, activeTool, userCredits, command, detectedMessage, cleanMessage, processedMessageHistory } = bodyData;
+    const { messages, activeTool, userCredits, command, detectedMessage, rawMessage, processedMessageHistory } = bodyData;
     
     // If detection already found a valid command, use it directly
     if (command && detectedMessage) {
@@ -314,12 +308,11 @@ serve(async (req) => {
       );
     }
 
-    // Use the cleaned message if provided by detect-command
-    const messageContent = cleanMessage || lastMessage.content;
+    // Use the raw message if provided by detect-command, otherwise use the last message content
+    const messageContent = rawMessage || lastMessage.content;
     
-    console.log(`[${requestId}] Processing message:`, messageContent.substring(0, 100) + '...');
+    console.log(`[${requestId}] Processing raw message:`, messageContent.substring(0, 100) + '...');
     console.log(`[${requestId}] Active tool:`, activeTool);
-    console.log(`[${requestId}] User credits:`, userCredits?.credits_remaining || 'Not provided');
 
     // Use development fallback if configured
     if (Deno.env.get("ENVIRONMENT") === "development" && Deno.env.get("USE_FALLBACK") === "true") {
@@ -344,23 +337,13 @@ serve(async (req) => {
       const previousMessages = messages
         .slice(Math.max(0, messages.length - 1 - maxPreviousMessages), messages.length - 1);
       messageHistory = formatMessageHistory(previousMessages);
-      console.log(`[${requestId}] Including ${previousMessages.length} previous messages in context`);
+      console.log(`[${requestId}] Including ${previousMessages.length} previous messages in history`);
     }
 
-    // Prepare context string
-    const contextString = `
-Active Tool: ${activeTool || "ai-agent"}
-Credits Available: ${userCredits?.credits_remaining || 0}
-Message History: 
-${messageHistory}
-`;
-
-    // Prepare input
-    const fullInputString = `${messageContent}\n\nContext: ${contextString}`;
-    const inputString = truncateInput(fullInputString, MAX_INPUT_LENGTH);
+    // Send only the raw message with minimal context
+    const inputString = messageContent;
     
-    console.log(`[${requestId}] Input string length:`, inputString.length, 
-                inputString.length < fullInputString.length ? '(truncated)' : '');
+    console.log(`[${requestId}] Input string length:`, inputString.length);
 
     // Prepare API endpoint
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;

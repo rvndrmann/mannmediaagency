@@ -100,6 +100,15 @@ function extractResponseText(responseData: any): { messageText: string | null, c
   }
 }
 
+function formatMessageHistory(messages: Message[]): string {
+  if (!messages || messages.length === 0) {
+    return "";
+  }
+
+  // Format the message history in a clean, consistent format
+  return messages.map(msg => `${msg.role}: ${msg.content}`).join("\n\n");
+}
+
 function truncateInput(input: string, maxLength: number): string {
   if (input.length <= maxLength) {
     return input;
@@ -266,7 +275,7 @@ serve(async (req) => {
       );
     }
     
-    const { messages, activeTool, userCredits, command, detectedMessage } = bodyData;
+    const { messages, activeTool, userCredits, command, detectedMessage, cleanMessage, processedMessageHistory } = bodyData;
     
     // If detection already found a valid command, use it directly
     if (command && detectedMessage) {
@@ -305,7 +314,10 @@ serve(async (req) => {
       );
     }
 
-    console.log(`[${requestId}] Processing message:`, lastMessage.content.substring(0, 100) + '...');
+    // Use the cleaned message if provided by detect-command
+    const messageContent = cleanMessage || lastMessage.content;
+    
+    console.log(`[${requestId}] Processing message:`, messageContent.substring(0, 100) + '...');
     console.log(`[${requestId}] Active tool:`, activeTool);
     console.log(`[${requestId}] User credits:`, userCredits?.credits_remaining || 'Not provided');
 
@@ -321,14 +333,19 @@ serve(async (req) => {
       );
     }
 
-    // Prepare message history
-    const maxPreviousMessages = 5;
-    const messageHistoryArray = messages
-      .slice(Math.max(0, messages.length - 1 - maxPreviousMessages), messages.length - 1)
-      .map((msg: Message) => `${msg.role}: ${msg.content}`);
-    
-    const messageHistory = messageHistoryArray.join("\n");
-    console.log(`[${requestId}] Including ${messageHistoryArray.length} previous messages in context`);
+    // Use provided message history if available, otherwise prepare it
+    let messageHistory;
+    if (processedMessageHistory) {
+      messageHistory = processedMessageHistory;
+      console.log(`[${requestId}] Using pre-processed message history`);
+    } else {
+      // Prepare message history
+      const maxPreviousMessages = 5;
+      const previousMessages = messages
+        .slice(Math.max(0, messages.length - 1 - maxPreviousMessages), messages.length - 1);
+      messageHistory = formatMessageHistory(previousMessages);
+      console.log(`[${requestId}] Including ${previousMessages.length} previous messages in context`);
+    }
 
     // Prepare context string
     const contextString = `
@@ -339,7 +356,7 @@ ${messageHistory}
 `;
 
     // Prepare input
-    const fullInputString = `${lastMessage.content}\n\nContext: ${contextString}`;
+    const fullInputString = `${messageContent}\n\nContext: ${contextString}`;
     const inputString = truncateInput(fullInputString, MAX_INPUT_LENGTH);
     
     console.log(`[${requestId}] Input string length:`, inputString.length, 

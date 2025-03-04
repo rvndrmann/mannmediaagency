@@ -244,6 +244,19 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     throw lastError;
   };
 
+  // Format message history in a clean, consistent way
+  const formatMessageHistory = (messages: Message[]): Message[] => {
+    if (!messages || messages.length === 0) {
+      return [];
+    }
+    
+    // Return a clean version of the messages, filtering out technical details
+    return messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -302,6 +315,9 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       
       // Get the active tool from the application state
       const activeTool = localStorage.getItem("activeTool") || "ai-agent";
+      
+      // Prepare message history in a clean format
+      const processedMessages = formatMessageHistory([...messages]);
 
       // Step 2: Try command detection
       console.log(`[${requestId}] Sending request to command detection system`);
@@ -311,6 +327,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           message: trimmedInput,
           activeContext: activeTool,
           userCredits,
+          messageHistory: processedMessages,
           requestId
         });
         
@@ -324,6 +341,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       let command = null;
       let messageContent = null;
       let useLangflow = true;
+      let cleanMessage = detectionResponse?.cleanMessage || trimmedInput;
 
       // Check if we got a command detection result
       if (detectionResponse) {
@@ -389,6 +407,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             userCredits,
             command,
             detectedMessage: messageContent,
+            cleanMessage: cleanMessage,
+            processedMessageHistory: processedMessages,
             requestId
           });
 

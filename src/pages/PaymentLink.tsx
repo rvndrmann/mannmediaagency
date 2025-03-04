@@ -14,17 +14,7 @@ import {
 } from "@/components/ui/card";
 import { toast } from "sonner";
 import { Loader2, DollarSign, Lock, AlertTriangle, Calendar } from "lucide-react";
-
-interface PaymentLinkData {
-  id: string;
-  title: string;
-  description: string | null;
-  amount: number;
-  currency: string;
-  is_active: boolean;
-  access_code: string | null;
-  expiry_date: string | null;
-}
+import { PaymentLink as PaymentLinkData } from "@/types/database";
 
 const PaymentLink = () => {
   const { paymentId } = useParams<{ paymentId: string }>();
@@ -60,26 +50,29 @@ const PaymentLink = () => {
         throw new Error("Payment link not found");
       }
 
-      if (!data.is_active) {
+      // Type assertion to resolve property type issues
+      const typedData = data as unknown as PaymentLinkData;
+      
+      if (!typedData.is_active) {
         throw new Error("This payment link is no longer active");
       }
       
       // Check if payment link is expired
-      if (data.expiry_date) {
-        const expiryDate = new Date(data.expiry_date);
+      if (typedData.expiry_date) {
+        const expiryDate = new Date(typedData.expiry_date);
         if (expiryDate < new Date()) {
           setIsExpired(true);
         }
       }
 
-      setPaymentData(data as PaymentLinkData);
+      setPaymentData(typedData);
       
       // Check if access code is required
-      if (data.access_code) {
+      if (typedData.access_code) {
         setAccessRequired(true);
         
         // Check if code from URL matches
-        if (searchParams.get('code') === data.access_code) {
+        if (searchParams.get('code') === typedData.access_code) {
           setAccessVerified(true);
         }
       } else {

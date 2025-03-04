@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -53,40 +52,7 @@ import { toast } from "sonner";
 import { PlusCircle, Eye, Copy, Trash, Edit, ListPlus, FileText, PlusSquare, MinusSquare, DollarSign } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-
-interface CustomOrderForm {
-  id: string;
-  title: string;
-  description: string | null;
-  fields: any[];
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-  access_code: string | null;
-  require_phone: boolean;
-}
-
-interface PaymentLink {
-  id: string;
-  title: string;
-  description: string | null;
-  amount: number;
-  currency: string;
-  created_at: string;
-  updated_at: string;
-  is_active: boolean;
-  access_code: string | null;
-  expiry_date: string | null;
-}
-
-interface FormField {
-  id: string;
-  type: 'text' | 'textarea' | 'number' | 'checkbox' | 'select';
-  label: string;
-  placeholder?: string;
-  required: boolean;
-  options?: string[];
-}
+import { CustomOrderForm, PaymentLink, FormField as FormFieldType } from "@/types/database";
 
 // Form validation schema
 const formSchema = z.object({
@@ -117,7 +83,7 @@ export const AdminFormsManager = () => {
   const [paymentModalOpen, setPaymentModalOpen] = useState(false);
   const [editingForm, setEditingForm] = useState<CustomOrderForm | null>(null);
   const [editingPaymentLink, setEditingPaymentLink] = useState<PaymentLink | null>(null);
-  const [formFields, setFormFields] = useState<FormField[]>([]);
+  const [formFields, setFormFields] = useState<FormFieldType[]>([]);
 
   // Form for creating/editing forms
   const form = useForm<z.infer<typeof formSchema>>({
@@ -162,7 +128,7 @@ export const AdminFormsManager = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setForms(data || []);
+      setForms(data as unknown as CustomOrderForm[] || []);
     } catch (error: any) {
       console.error("Error fetching forms:", error);
       toast.error("Failed to load forms");
@@ -180,7 +146,7 @@ export const AdminFormsManager = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setPaymentLinks(data || []);
+      setPaymentLinks(data as unknown as PaymentLink[] || []);
     } catch (error: any) {
       console.error("Error fetching payment links:", error);
       toast.error("Failed to load payment links");
@@ -190,7 +156,7 @@ export const AdminFormsManager = () => {
   };
 
   const handleAddField = () => {
-    const newField: FormField = {
+    const newField: FormFieldType = {
       id: crypto.randomUUID(),
       type: "text",
       label: `Field ${formFields.length + 1}`,
@@ -204,7 +170,7 @@ export const AdminFormsManager = () => {
     setFormFields(formFields.filter(field => field.id !== id));
   };
 
-  const updateField = (id: string, updates: Partial<FormField>) => {
+  const updateField = (id: string, updates: Partial<FormFieldType>) => {
     setFormFields(
       formFields.map(field => (field.id === id ? { ...field, ...updates } : field))
     );
@@ -318,21 +284,22 @@ export const AdminFormsManager = () => {
         fields: formFields,
       };
 
-      let result;
       if (editingForm) {
         // Update existing form
-        result = await supabase
+        const { error } = await supabase
           .from("custom_order_forms")
-          .update(formData)
+          .update(formData as any)
           .eq("id", editingForm.id);
+          
+        if (error) throw error;
       } else {
         // Create new form
-        result = await supabase
+        const { error } = await supabase
           .from("custom_order_forms")
-          .insert(formData);
+          .insert(formData as any);
+          
+        if (error) throw error;
       }
-
-      if (result.error) throw result.error;
 
       toast.success(editingForm ? "Form updated successfully" : "Form created successfully");
       resetFormModal();
@@ -345,21 +312,22 @@ export const AdminFormsManager = () => {
 
   const onSubmitPaymentLink = async (values: z.infer<typeof paymentLinkSchema>) => {
     try {
-      let result;
       if (editingPaymentLink) {
         // Update existing payment link
-        result = await supabase
+        const { error } = await supabase
           .from("payment_links")
-          .update(values)
+          .update(values as any)
           .eq("id", editingPaymentLink.id);
+          
+        if (error) throw error;
       } else {
         // Create new payment link
-        result = await supabase
+        const { error } = await supabase
           .from("payment_links")
-          .insert(values);
+          .insert(values as any);
+          
+        if (error) throw error;
       }
-
-      if (result.error) throw result.error;
 
       toast.success(editingPaymentLink ? "Payment link updated successfully" : "Payment link created successfully");
       resetPaymentModal();
@@ -806,7 +774,7 @@ export const AdminFormsManager = () => {
                               id={`field-${field.id}-type`}
                               value={field.type}
                               onChange={(e) => updateField(field.id, { 
-                                type: e.target.value as FormField['type'],
+                                type: e.target.value as FormFieldType['type'],
                                 options: e.target.value === 'select' ? [''] : undefined
                               })}
                               className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
@@ -970,111 +938,3 @@ export const AdminFormsManager = () => {
                           placeholder="Enter amount" 
                           {...field}
                           onChange={(e) => field.onChange(Number(e.target.value))}
-                        />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={paymentForm.control}
-                  name="currency"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Currency</FormLabel>
-                      <select
-                        className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                        {...field}
-                      >
-                        <option value="INR">INR (Indian Rupee)</option>
-                        <option value="USD">USD (US Dollar)</option>
-                        <option value="EUR">EUR (Euro)</option>
-                        <option value="GBP">GBP (British Pound)</option>
-                      </select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <FormField
-                  control={paymentForm.control}
-                  name="access_code"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Access Code (Optional)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          placeholder="Create a code to restrict access" 
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Leave blank for public access
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={paymentForm.control}
-                  name="expiry_date"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Expiry Date (Optional)</FormLabel>
-                      <FormControl>
-                        <Input 
-                          type="datetime-local" 
-                          {...field}
-                          value={field.value || ""}
-                        />
-                      </FormControl>
-                      <FormDescription>
-                        Leave blank for no expiry
-                      </FormDescription>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
-
-              <FormField
-                control={paymentForm.control}
-                name="is_active"
-                render={({ field }) => (
-                  <FormItem className="flex flex-row items-center justify-between rounded-lg border p-4">
-                    <div className="space-y-0.5">
-                      <FormLabel className="text-base">Active</FormLabel>
-                      <FormDescription>
-                        Make this payment link available to users
-                      </FormDescription>
-                    </div>
-                    <FormControl>
-                      <Switch
-                        checked={field.value}
-                        onCheckedChange={field.onChange}
-                      />
-                    </FormControl>
-                  </FormItem>
-                )}
-              />
-
-              <DialogFooter>
-                <Button type="button" variant="outline" onClick={resetPaymentModal}>
-                  Cancel
-                </Button>
-                <Button type="submit">
-                  {editingPaymentLink ? "Update Payment Link" : "Create Payment Link"}
-                </Button>
-              </DialogFooter>
-            </form>
-          </Form>
-        </DialogContent>
-      </Dialog>
-    </div>
-  );
-};

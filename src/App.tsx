@@ -3,7 +3,12 @@ import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
 import Auth from "@/pages/Auth";
 import AuthCallback from "@/components/auth/AuthCallback";
 import PrivateRoute from "@/components/auth/PrivateRoute";
-import { Sidebar } from "@/components/ui/sidebar";
+import { 
+  Sidebar, 
+  SidebarHeader, 
+  SidebarContent, 
+  SidebarFooter 
+} from "@/components/ui/sidebar";
 import { Navigation } from "@/components/sidebar/Navigation";
 import { ProfileSection } from "@/components/sidebar/ProfileSection";
 import Index from "@/pages/Index";
@@ -60,16 +65,16 @@ function App() {
     <Router>
       <div className="flex h-screen overflow-hidden">
         {showSidebar && (
-          <Sidebar defaultCollapsed={false}>
-            <Sidebar.Header>
+          <Sidebar>
+            <SidebarHeader>
               <div className="text-2xl font-bold">GLIVE</div>
-            </Sidebar.Header>
-            <Sidebar.Content>
+            </SidebarHeader>
+            <SidebarContent>
               <Navigation />
-            </Sidebar.Content>
-            <Sidebar.Footer>
+            </SidebarContent>
+            <SidebarFooter>
               <ProfileSection />
-            </Sidebar.Footer>
+            </SidebarFooter>
           </Sidebar>
         )}
 

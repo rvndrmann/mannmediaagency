@@ -1,52 +1,36 @@
 
-import { useState, useEffect } from "react";
-import { useParams, useSearchParams, useNavigate } from "react-router-dom";
+import { useState, useEffect, FormEvent } from "react";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Checkbox } from "@/components/ui/checkbox";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
+import { toast } from "sonner";
+import { 
+  Card, 
+  CardContent, 
+  CardFooter, 
+  CardHeader, 
+  CardTitle, 
+  CardDescription 
 } from "@/components/ui/card";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import { Label } from "@/components/ui/label";
-import { toast } from "sonner";
-import { Loader2, Upload, Plus, Check, Lock, AlertTriangle } from "lucide-react";
-import { PhoneInput } from "@/components/auth/phone/PhoneInput";
-import { VerificationInput } from "@/components/auth/phone/VerificationInput";
-import { phoneAuthService } from "@/services/phoneAuth";
-
-interface FormField {
-  id: string;
-  type: 'text' | 'textarea' | 'number' | 'checkbox' | 'select';
-  label: string;
-  placeholder?: string;
-  required: boolean;
-  options?: string[];
-}
-
-interface FormData {
-  id: string;
-  title: string;
-  description: string | null;
-  fields: FormField[];
-  is_active: boolean;
-  access_code: string | null;
-  require_phone: boolean;
-}
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Button } from "@/components/ui/button";
+import { Loader2, CheckCircle2, AlertTriangle, Lock } from "lucide-react";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Checkbox } from "@/components/ui/checkbox";
+import PhoneInput from "@/components/auth/phone/PhoneInput";
+import VerificationInput from "@/components/auth/phone/VerificationInput";
+import { FormData, FormField as FormFieldType } from "@/types/database";
 
 const FormSubmission = () => {
   const { formId } = useParams<{ formId: string }>();
@@ -56,19 +40,16 @@ const FormSubmission = () => {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [formData, setFormData] = useState<FormData | null>(null);
-  const [formValues, setFormValues] = useState<Record<string, any>>({});
   const [accessCode, setAccessCode] = useState(searchParams.get('code') || "");
   const [accessRequired, setAccessRequired] = useState(false);
   const [accessVerified, setAccessVerified] = useState(false);
-  const [images, setImages] = useState<File[]>([]);
-  const [uploadedUrls, setUploadedUrls] = useState<string[]>([]);
+  const [phoneVerificationStep, setPhoneVerificationStep] = useState<'none' | 'input' | 'verify'>('none');
   const [phoneNumber, setPhoneNumber] = useState("");
-  const [verificationCode, setVerificationCode] = useState("");
-  const [phoneVerificationStep, setPhoneVerificationStep] = useState<'phone' | 'code' | 'verified'>('phone');
-  const [phoneVerifying, setPhoneVerifying] = useState(false);
-  const [phoneError, setPhoneError] = useState("");
-  const [imageUploading, setImageUploading] = useState(false);
-  const [phoneRequired, setPhoneRequired] = useState(false);
+  const [sendingCode, setSendingCode] = useState(false);
+  const [verifyingCode, setVerifyingCode] = useState(false);
+  const [phoneVerified, setPhoneVerified] = useState(false);
+  const [formValues, setFormValues] = useState<Record<string, any>>({});
+  const [uploadedImages, setUploadedImages] = useState<string[]>([]);
 
   useEffect(() => {
     if (!formId) return;
@@ -90,27 +71,26 @@ const FormSubmission = () => {
       if (!data) {
         throw new Error("Form not found");
       }
-
+      
       if (!data.is_active) {
         throw new Error("This form is no longer active");
       }
-
-      setFormData(data as FormData);
-      setPhoneRequired(data.require_phone);
       
-      // Initialize form values
-      const initialValues: Record<string, any> = {};
-      (data.fields as FormField[]).forEach(field => {
-        initialValues[field.id] = field.type === 'checkbox' ? false : '';
-      });
-      setFormValues(initialValues);
+      // Convert the data to FormData type
+      const formDataTyped = data as unknown as FormData;
+      setFormData(formDataTyped);
+      
+      // Check if phone verification is required
+      if (formDataTyped.require_phone) {
+        setPhoneVerificationStep('input');
+      }
       
       // Check if access code is required
-      if (data.access_code) {
+      if (formDataTyped.access_code) {
         setAccessRequired(true);
         
         // Check if code from URL matches
-        if (searchParams.get('code') === data.access_code) {
+        if (searchParams.get('code') === formDataTyped.access_code) {
           setAccessVerified(true);
         }
       } else {
@@ -119,126 +99,10 @@ const FormSubmission = () => {
     } catch (error: any) {
       console.error("Error fetching form:", error);
       toast.error(error.message || "Failed to load form");
-      // Navigate back on error
+      // Navigate to home on error
       navigate("/");
     } finally {
       setLoading(false);
-    }
-  };
-
-  const handleInputChange = (fieldId: string, value: any) => {
-    setFormValues(prev => ({
-      ...prev,
-      [fieldId]: value
-    }));
-  };
-
-  const validateForm = () => {
-    if (!formData) return false;
-    
-    for (const field of formData.fields) {
-      if (field.required) {
-        const value = formValues[field.id];
-        if (value === undefined || value === "" || (field.type === 'checkbox' && !value)) {
-          toast.error(`${field.label} is required`);
-          return false;
-        }
-      }
-    }
-    
-    if (phoneRequired && phoneVerificationStep !== 'verified') {
-      toast.error("Phone verification is required");
-      return false;
-    }
-    
-    return true;
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (!e.target.files || e.target.files.length === 0) return;
-    
-    const newFiles = Array.from(e.target.files);
-    
-    // Validate file types
-    for (const file of newFiles) {
-      const validTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
-      if (!validTypes.includes(file.type)) {
-        toast.error(`File type ${file.type} is not supported`);
-        return;
-      }
-    }
-    
-    setImages(prev => [...prev, ...newFiles]);
-  };
-
-  const uploadImages = async () => {
-    if (images.length === 0) return [];
-    
-    setImageUploading(true);
-    const uploadedImageUrls: string[] = [];
-    
-    try {
-      for (const image of images) {
-        const fileName = `${crypto.randomUUID()}-${image.name.replace(/[^\x00-\x7F]/g, '')}`;
-        
-        const { data, error } = await supabase.storage
-          .from('custom_order_images')
-          .upload(fileName, image);
-        
-        if (error) throw error;
-        
-        const { data: { publicUrl } } = supabase.storage
-          .from('custom_order_images')
-          .getPublicUrl(fileName);
-        
-        uploadedImageUrls.push(publicUrl);
-      }
-      
-      setUploadedUrls(uploadedImageUrls);
-      return uploadedImageUrls;
-    } catch (error: any) {
-      console.error("Error uploading images:", error);
-      toast.error("Failed to upload images");
-      return [];
-    } finally {
-      setImageUploading(false);
-    }
-  };
-
-  const handleSubmit = async () => {
-    if (!validateForm()) return;
-    
-    setSubmitting(true);
-    try {
-      // Upload images first
-      const imageUrls = await uploadImages();
-      
-      // Submit form data
-      const { data, error } = await supabase.rpc('create_form_submission', {
-        form_id_param: formId,
-        submission_data_param: formValues,
-        phone_number_param: phoneNumber,
-        image_urls: imageUrls
-      });
-      
-      if (error) throw error;
-      
-      toast.success("Form submitted successfully");
-      
-      // Reset form and redirect
-      setFormValues({});
-      setImages([]);
-      setUploadedUrls([]);
-      
-      // Show success message then navigate back
-      setTimeout(() => {
-        navigate("/form-success");
-      }, 2000);
-    } catch (error: any) {
-      console.error("Error submitting form:", error);
-      toast.error(error.message || "Failed to submit form");
-    } finally {
-      setSubmitting(false);
     }
   };
 
@@ -252,49 +116,207 @@ const FormSubmission = () => {
     }
   };
 
-  const removeImage = (index: number) => {
-    setImages(prev => prev.filter((_, i) => i !== index));
-  };
-
-  const sendVerificationCode = async () => {
-    if (!phoneNumber.trim()) {
-      setPhoneError("Phone number is required");
-      return;
-    }
-
-    setPhoneVerifying(true);
-    setPhoneError("");
+  const handleSendVerificationCode = async (phoneNum: string) => {
+    setSendingCode(true);
+    setPhoneNumber(phoneNum);
     
     try {
-      await phoneAuthService.sendVerificationCode(phoneNumber);
-      setPhoneVerificationStep('code');
-      toast.success("Verification code sent to your phone");
-    } catch (err: any) {
-      const error = phoneAuthService.normalizeError(err);
-      setPhoneError(error.message);
+      // Call Supabase function to send the code
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: phoneNum,
+      });
+
+      if (error) throw error;
+      
+      toast.success("Verification code sent successfully!");
+      setPhoneVerificationStep('verify');
+    } catch (error: any) {
+      console.error("Error sending verification code:", error);
+      toast.error(error.message || "Failed to send verification code");
     } finally {
-      setPhoneVerifying(false);
+      setSendingCode(false);
     }
   };
 
-  const verifyCode = async () => {
-    if (!verificationCode.trim()) {
-      setPhoneError("Verification code is required");
-      return;
-    }
-
-    setPhoneVerifying(true);
-    setPhoneError("");
+  const handleVerifyCode = async (code: string) => {
+    setVerifyingCode(true);
     
     try {
-      await phoneAuthService.verifyCode(phoneNumber, verificationCode);
-      setPhoneVerificationStep('verified');
-      toast.success("Phone verified successfully");
-    } catch (err: any) {
-      const error = phoneAuthService.normalizeError(err);
-      setPhoneError(error.message);
+      const { error } = await supabase.auth.verifyOtp({
+        phone: phoneNumber,
+        token: code,
+        type: 'sms',
+      });
+
+      if (error) throw error;
+      
+      toast.success("Phone number verified successfully!");
+      setPhoneVerified(true);
+      
+      // Clean up auth session since we don't need the user to be logged in
+      await supabase.auth.signOut();
+    } catch (error: any) {
+      console.error("Error verifying code:", error);
+      toast.error(error.message || "Invalid verification code");
     } finally {
-      setPhoneVerifying(false);
+      setVerifyingCode(false);
+    }
+  };
+
+  const handleResendCode = async () => {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: phoneNumber,
+      });
+
+      if (error) throw error;
+      
+      toast.success("Verification code resent!");
+    } catch (error: any) {
+      console.error("Error resending code:", error);
+      toast.error(error.message || "Failed to resend verification code");
+    }
+  };
+
+  const handleValueChange = (fieldId: string, value: any) => {
+    setFormValues(prev => ({
+      ...prev,
+      [fieldId]: value
+    }));
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>, fieldId: string) => {
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
+    
+    try {
+      const file = files[0];
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
+      const filePath = `form-submissions/${formId}/${fileName}`;
+      
+      const { error: uploadError, data } = await supabase.storage
+        .from('public')
+        .upload(filePath, file);
+        
+      if (uploadError) throw uploadError;
+      
+      // Get the public URL
+      const { data: { publicUrl } } = supabase.storage
+        .from('public')
+        .getPublicUrl(filePath);
+        
+      // Add to uploaded images array
+      setUploadedImages(prev => [...prev, publicUrl]);
+      
+      // Add to form values
+      handleValueChange(fieldId, publicUrl);
+      
+      toast.success("Image uploaded successfully!");
+    } catch (error: any) {
+      console.error("Error uploading image:", error);
+      toast.error(error.message || "Failed to upload image");
+    }
+  };
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault();
+    
+    if (!formData) return;
+    
+    // Validate all required fields
+    const missingFields = formData.fields
+      .filter(field => field.required && !formValues[field.id])
+      .map(field => field.label);
+      
+    if (missingFields.length > 0) {
+      toast.error(`Please fill in the following required fields: ${missingFields.join(', ')}`);
+      return;
+    }
+    
+    setSubmitting(true);
+    
+    try {
+      // Submit form data to Supabase Edge Function
+      const { data, error } = await supabase.functions.invoke('create-form-submission', {
+        body: { 
+          formId,
+          formData: formValues,
+          phoneNumber: phoneVerified ? phoneNumber : null,
+          imageUrls: uploadedImages
+        }
+      });
+
+      if (error) throw error;
+      
+      toast.success("Form submitted successfully!");
+      
+      // Redirect to success page
+      navigate("/form-success");
+    } catch (error: any) {
+      console.error("Error submitting form:", error);
+      toast.error(error.message || "Failed to submit form");
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const renderField = (field: FormFieldType) => {
+    switch (field.type) {
+      case 'text':
+        return (
+          <Input
+            id={field.id}
+            placeholder={field.placeholder}
+            value={formValues[field.id] || ''}
+            onChange={(e) => handleValueChange(field.id, e.target.value)}
+          />
+        );
+      case 'textarea':
+        return (
+          <Textarea
+            id={field.id}
+            placeholder={field.placeholder}
+            value={formValues[field.id] || ''}
+            onChange={(e) => handleValueChange(field.id, e.target.value)}
+          />
+        );
+      case 'number':
+        return (
+          <Input
+            id={field.id}
+            type="number"
+            placeholder={field.placeholder}
+            value={formValues[field.id] || ''}
+            onChange={(e) => handleValueChange(field.id, e.target.value)}
+          />
+        );
+      case 'checkbox':
+        return (
+          <Checkbox
+            id={field.id}
+            checked={formValues[field.id] || false}
+            onCheckedChange={(checked) => handleValueChange(field.id, checked)}
+          />
+        );
+      case 'select':
+        return (
+          <select
+            id={field.id}
+            className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+            value={formValues[field.id] || ''}
+            onChange={(e) => handleValueChange(field.id, e.target.value)}
+          >
+            <option value="">Select an option</option>
+            {field.options?.map((option, index) => (
+              <option key={index} value={option}>
+                {option}
+              </option>
+            ))}
+          </select>
+        );
+      default:
+        return null;
     }
   };
 
@@ -351,236 +373,85 @@ const FormSubmission = () => {
     );
   }
   
+  if (phoneVerificationStep === 'input' && !phoneVerified) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-4">
+        <Card className="max-w-md w-full glass-card">
+          <CardHeader>
+            <CardTitle>{formData.title}</CardTitle>
+            <CardDescription>Please verify your phone number to continue</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <PhoneInput 
+              onSubmit={handleSendVerificationCode}
+              isLoading={sendingCode}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+  
+  if (phoneVerificationStep === 'verify' && !phoneVerified) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-4">
+        <Card className="max-w-md w-full glass-card">
+          <CardHeader>
+            <CardTitle>{formData.title}</CardTitle>
+            <CardDescription>Verify your phone number</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <VerificationInput
+              onSubmit={handleVerifyCode}
+              onResend={handleResendCode}
+              isLoading={verifyingCode}
+              phoneNumber={phoneNumber}
+            />
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-4 md:p-8">
-      <Card className="max-w-4xl mx-auto glass-card">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-900 via-slate-800 to-gray-900 p-4">
+      <Card className="max-w-2xl w-full glass-card">
         <CardHeader>
-          <CardTitle>{formData.title}</CardTitle>
+          <CardTitle className="text-white">{formData.title}</CardTitle>
           {formData.description && (
-            <CardDescription>{formData.description}</CardDescription>
+            <CardDescription className="text-gray-400">
+              {formData.description}
+            </CardDescription>
           )}
         </CardHeader>
-        
-        <CardContent className="space-y-6">
-          {/* Form Fields */}
-          <div className="space-y-6">
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
             {formData.fields.map((field) => (
               <div key={field.id} className="space-y-2">
-                <Label htmlFor={field.id} className="text-base">
+                <FormLabel htmlFor={field.id}>
                   {field.label}
                   {field.required && <span className="text-red-500 ml-1">*</span>}
-                </Label>
-                
-                {field.type === 'text' && (
-                  <Input
-                    id={field.id}
-                    placeholder={field.placeholder}
-                    value={formValues[field.id] || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                  />
-                )}
-                
-                {field.type === 'textarea' && (
-                  <Textarea
-                    id={field.id}
-                    placeholder={field.placeholder}
-                    value={formValues[field.id] || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                    rows={4}
-                  />
-                )}
-                
-                {field.type === 'number' && (
-                  <Input
-                    id={field.id}
-                    type="number"
-                    placeholder={field.placeholder}
-                    value={formValues[field.id] || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                  />
-                )}
-                
-                {field.type === 'checkbox' && (
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id={field.id}
-                      checked={!!formValues[field.id]}
-                      onCheckedChange={(checked) => handleInputChange(field.id, checked)}
-                    />
-                    <label
-                      htmlFor={field.id}
-                      className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70"
-                    >
-                      {field.placeholder || 'Yes'}
-                    </label>
-                  </div>
-                )}
-                
-                {field.type === 'select' && field.options && (
-                  <select
-                    id={field.id}
-                    value={formValues[field.id] || ''}
-                    onChange={(e) => handleInputChange(field.id, e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <option value="">Select an option</option>
-                    {field.options.map((option, i) => (
-                      <option key={i} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                )}
+                </FormLabel>
+                {renderField(field)}
               </div>
             ))}
-          </div>
-          
-          {/* File Upload Section */}
-          <div className="space-y-2">
-            <Label className="text-base">
-              Attach Images <span className="text-sm text-muted-foreground">(optional)</span>
-            </Label>
-            <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 mt-2">
-              {images.map((file, index) => (
-                <div 
-                  key={index} 
-                  className="relative border rounded-md overflow-hidden aspect-square group"
-                >
-                  <img 
-                    src={URL.createObjectURL(file)} 
-                    alt={`Upload preview ${index}`}
-                    className="w-full h-full object-cover"
-                  />
-                  <Button
-                    variant="destructive"
-                    size="icon"
-                    className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-                    onClick={() => removeImage(index)}
-                  >
-                    &times;
-                  </Button>
-                </div>
-              ))}
-              
-              <label 
-                className="border-2 border-dashed rounded-md p-4 flex flex-col items-center justify-center h-full aspect-square cursor-pointer hover:bg-background/10 transition-colors"
-              >
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  multiple 
-                  onChange={handleFileChange} 
-                  className="hidden" 
-                />
-                <Plus className="h-6 w-6 mb-2" />
-                <span className="text-xs text-center">Add Image</span>
-              </label>
-            </div>
-          </div>
-          
-          {/* Phone Verification Section */}
-          {phoneRequired && (
-            <div className="space-y-4 border rounded-md p-4">
-              <h3 className="font-medium text-lg">Phone Verification</h3>
-              
-              {phoneVerificationStep === 'phone' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="phone">Phone Number</Label>
-                    <PhoneInput
-                      value={phoneNumber}
-                      onChange={setPhoneNumber}
-                      placeholder="Enter your phone number"
-                    />
-                    {phoneError && (
-                      <p className="text-sm text-destructive">{phoneError}</p>
-                    )}
-                  </div>
-                  <Button
-                    onClick={sendVerificationCode}
-                    disabled={phoneVerifying || !phoneNumber.trim()}
-                    className="w-full"
-                  >
-                    {phoneVerifying ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
-                      </>
-                    ) : (
-                      "Send Verification Code"
-                    )}
-                  </Button>
-                </div>
+            
+            <Button
+              type="submit"
+              className="w-full bg-gradient-to-r from-purple-600 to-blue-600 hover:from-purple-700 hover:to-blue-700"
+              disabled={submitting}
+            >
+              {submitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Submitting...
+                </>
+              ) : (
+                <>Submit</>
               )}
-              
-              {phoneVerificationStep === 'code' && (
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="code">Verification Code</Label>
-                    <div className="space-y-2">
-                      <VerificationInput
-                        value={verificationCode}
-                        onChange={setVerificationCode}
-                      />
-                      {phoneError && (
-                        <p className="text-sm text-destructive">{phoneError}</p>
-                      )}
-                      <p className="text-sm text-muted-foreground">
-                        Sent to {phoneNumber}{" "}
-                        <Button
-                          variant="link"
-                          className="p-0 h-auto"
-                          onClick={() => setPhoneVerificationStep('phone')}
-                        >
-                          Change
-                        </Button>
-                      </p>
-                    </div>
-                  </div>
-                  <Button
-                    onClick={verifyCode}
-                    disabled={phoneVerifying || verificationCode.length < 6}
-                    className="w-full"
-                  >
-                    {phoneVerifying ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Verifying...
-                      </>
-                    ) : (
-                      "Verify Code"
-                    )}
-                  </Button>
-                </div>
-              )}
-              
-              {phoneVerificationStep === 'verified' && (
-                <div className="flex items-center space-x-2 text-green-500">
-                  <Check className="h-5 w-5" />
-                  <span>Phone verified: {phoneNumber}</span>
-                </div>
-              )}
-            </div>
-          )}
+            </Button>
+          </form>
         </CardContent>
-        
-        <CardFooter>
-          <Button 
-            className="w-full" 
-            size="lg"
-            onClick={handleSubmit}
-            disabled={submitting || imageUploading}
-          >
-            {submitting || imageUploading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                {imageUploading ? 'Uploading Images...' : 'Submitting...'}
-              </>
-            ) : (
-              'Submit'
-            )}
-          </Button>
-        </CardFooter>
       </Card>
     </div>
   );

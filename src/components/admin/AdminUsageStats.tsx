@@ -54,16 +54,16 @@ export const AdminUsageStats = () => {
         .from('video_generation_jobs')
         .select('*', { count: 'exact', head: true });
       
-      // Fetch total custom orders
-      const { count: totalCustomOrders } = await supabase
-        .from('custom_orders')
-        .select('*', { count: 'exact', head: true });
+      // Fetch total custom orders - using raw query for tables not in TypeScript types
+      const { count: totalCustomOrders } = await supabase.rpc(
+        'get_table_count',
+        { table_name: 'custom_orders' }
+      );
       
-      // Fetch pending custom orders
-      const { count: pendingCustomOrders } = await supabase
-        .from('custom_orders')
-        .select('*', { count: 'exact', head: true })
-        .eq('status', 'pending');
+      // Fetch pending custom orders - using raw query for tables not in TypeScript types
+      const { count: pendingCustomOrders } = await supabase.rpc(
+        'get_pending_custom_orders_count'
+      );
       
       // Fetch total credits used
       const { data: creditsData } = await supabase

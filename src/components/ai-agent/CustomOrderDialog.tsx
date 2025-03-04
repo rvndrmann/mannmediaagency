@@ -74,19 +74,15 @@ export const CustomOrderDialog = ({
     setIsSubmitting(true);
     
     try {
-      // 1. Create the custom order
-      const { data: orderData, error: orderError } = await supabase
-        .from('custom_orders')
-        .insert({
-          remark,
-          credits_used: 5 // Default value, admin can adjust later
-        })
-        .select()
-        .single();
+      // Use RPC to create the order
+      const { data: orderData, error: orderError } = await supabase.rpc(
+        'create_custom_order',
+        { remark_text: remark, credits_amount: 5 }
+      );
 
       if (orderError) throw orderError;
 
-      // 2. Upload each image and create entries in custom_order_images
+      // Upload each image and create entries in custom_order_images
       const uploadPromises = selectedImages.map(async (file) => {
         // Generate a unique file name
         const fileExt = file.name.split('.').pop();
@@ -105,13 +101,14 @@ export const CustomOrderDialog = ({
           .from('product_photos')
           .getPublicUrl(filePath);
 
-        // Insert image record
-        const { error: imageInsertError } = await supabase
-          .from('custom_order_images')
-          .insert({
-            order_id: orderData.id,
-            image_url: publicUrlData.publicUrl
-          });
+        // Insert image record using RPC
+        const { error: imageInsertError } = await supabase.rpc(
+          'add_custom_order_image',
+          { 
+            order_id_param: orderData.id, 
+            image_url_param: publicUrlData.publicUrl 
+          }
+        );
 
         if (imageInsertError) throw imageInsertError;
       });

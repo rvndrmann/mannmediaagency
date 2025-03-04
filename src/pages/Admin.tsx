@@ -31,14 +31,18 @@ const Admin = () => {
           return;
         }
         
-        // Check if user is in admin_users table
-        const { data: adminData } = await supabase
-          .from('admin_users')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .single();
+        // Check if user is in admin_users table using RPC
+        const { data: adminData, error: adminError } = await supabase.rpc(
+          'check_is_admin'
+        );
         
-        setIsAdmin(!!adminData);
+        if (adminError) {
+          console.error("Error checking admin status:", adminError);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(!!adminData);
+        }
+        
         setIsLoading(false);
       } catch (error) {
         console.error("Error checking admin status:", error);

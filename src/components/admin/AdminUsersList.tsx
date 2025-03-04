@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { User } from "@/types/custom-order";
+import { User, AdminUser } from "@/types/custom-order";
 import {
   Table,
   TableBody,
@@ -27,7 +27,7 @@ export const AdminUsersList = () => {
 
   useEffect(() => {
     fetchUsers();
-    fetchAdmins();
+    fetchAdminsWithRPC();
   }, []);
 
   useEffect(() => {
@@ -73,18 +73,19 @@ export const AdminUsersList = () => {
     }
   };
 
-  const fetchAdmins = async () => {
+  const fetchAdminsWithRPC = async () => {
     try {
-      const { data, error } = await supabase
-        .from('admin_users')
-        .select('user_id');
+      // Use RPC to get admin users
+      const { data, error } = await supabase.rpc('get_admin_users');
       
       if (error) throw error;
       
       const adminMap: {[key: string]: boolean} = {};
-      data.forEach(admin => {
-        adminMap[admin.user_id] = true;
-      });
+      if (Array.isArray(data)) {
+        data.forEach((admin: { user_id: string }) => {
+          adminMap[admin.user_id] = true;
+        });
+      }
       
       setAdmins(adminMap);
     } catch (error) {
@@ -112,10 +113,11 @@ export const AdminUsersList = () => {
         return;
       }
       
-      // Add user as admin
-      const { error } = await supabase
-        .from('admin_users')
-        .insert({ user_id: newAdminId });
+      // Add user as admin using RPC
+      const { error } = await supabase.rpc(
+        'add_admin_user',
+        { admin_user_id: newAdminId }
+      );
       
       if (error) {
         if (error.code === '23505') {
@@ -138,10 +140,11 @@ export const AdminUsersList = () => {
 
   const removeAdmin = async (userId: string) => {
     try {
-      const { error } = await supabase
-        .from('admin_users')
-        .delete()
-        .eq('user_id', userId);
+      // Remove admin using RPC
+      const { error } = await supabase.rpc(
+        'remove_admin_user',
+        { admin_user_id: userId }
+      );
       
       if (error) throw error;
       

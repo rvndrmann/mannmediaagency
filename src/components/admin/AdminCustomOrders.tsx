@@ -74,7 +74,8 @@ export const AdminCustomOrders = () => {
       
       if (error) throw error;
       
-      setOrders(data as CustomOrder[]);
+      // Cast the data to the correct type
+      setOrders(data as unknown as CustomOrder[]);
       
       // Fetch user data for each order
       if (data && data.length > 0) {
@@ -115,7 +116,7 @@ export const AdminCustomOrders = () => {
       
       if (error) throw error;
       
-      setOrderImages(data);
+      setOrderImages(data as unknown as { image_url: string }[]);
     } catch (error) {
       console.error("Error fetching order images:", error);
       toast.error("Failed to load order images");
@@ -145,7 +146,7 @@ export const AdminCustomOrders = () => {
       // Update local state
       setOrders(orders.map(order => 
         order.id === selectedOrder.id 
-          ? { ...order, status, admin_notes: adminNotes, credits_used: credits } 
+          ? { ...order, status: status as 'pending' | 'in_progress' | 'completed' | 'failed', admin_notes: adminNotes, credits_used: credits } 
           : order
       ));
       

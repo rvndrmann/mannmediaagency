@@ -130,14 +130,15 @@ export const AdminCustomOrders = () => {
     
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('custom_orders')
-        .update({
-          status,
-          admin_notes: adminNotes,
-          credits_used: credits
-        })
-        .eq('id', selectedOrder.id);
+      // Use the new RPC function to update the order status
+      const { error } = await supabase.rpc(
+        'update_custom_order_status',
+        { 
+          order_id_param: selectedOrder.id,
+          new_status: status,
+          admin_notes_text: adminNotes
+        }
+      );
       
       if (error) throw error;
       

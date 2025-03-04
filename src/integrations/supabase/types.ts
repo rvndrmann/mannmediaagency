@@ -1731,6 +1731,14 @@ export type Database = {
         }
         Returns: boolean
       }
+      update_custom_order_status: {
+        Args: {
+          order_id_param: string
+          new_status: string
+          admin_notes_text?: string
+        }
+        Returns: undefined
+      }
       update_video_generation_status: {
         Args: {
           p_request_id: string

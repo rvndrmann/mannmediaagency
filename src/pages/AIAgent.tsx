@@ -14,6 +14,7 @@ import { Button } from "@/components/ui/button";
 import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
+import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -21,6 +22,7 @@ const AIAgent = () => {
   const userCreditsQuery = useUserCredits();
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [commandParams, setCommandParams] = useState<any>(null);
+  const [customOrderOpen, setCustomOrderOpen] = useState(false);
 
   // Store active tool in localStorage for cross-component state sharing
   useEffect(() => {
@@ -106,6 +108,10 @@ const AIAgent = () => {
     navigate('/');
   };
 
+  const handleCustomOrderClick = () => {
+    setCustomOrderOpen(true);
+  };
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
@@ -181,6 +187,10 @@ const AIAgent = () => {
               onBack={handleBackClick}
             />
           </div>
+          <CustomOrderDialog 
+            open={customOrderOpen} 
+            onOpenChange={setCustomOrderOpen} 
+          />
           <Toaster />
         </div>
       </TooltipProvider>

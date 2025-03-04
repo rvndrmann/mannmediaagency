@@ -1,9 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { cn } from "@/lib/utils";
 import { ChatSection } from "./ChatSection";
 import { FeaturePanel } from "./FeaturePanel";
 import { MobileToolNav } from "./MobileToolNav";
 import { ToolSelector } from "./ToolSelector";
+import { CustomOrderDialog } from "./CustomOrderDialog";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
@@ -86,6 +88,7 @@ export const SplitScreen = ({
   const [showChat, setShowChat] = useState(false);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [isChatVisible, setIsChatVisible] = useState(false);
+  const [customOrderOpen, setCustomOrderOpen] = useState(false);
   
   const activeTool = externalActiveTool !== undefined ? externalActiveTool : internalActiveTool;
 
@@ -109,6 +112,10 @@ export const SplitScreen = ({
       }
     }
     setTimeout(() => setIsTransitioning(false), 300);
+  };
+
+  const handleCustomOrderClick = () => {
+    setCustomOrderOpen(true);
   };
 
   useEffect(() => {
@@ -182,6 +189,7 @@ export const SplitScreen = ({
             <ToolSelector 
               activeTool={activeTool}
               onToolSelect={handleToolSelect}
+              onCustomOrderClick={handleCustomOrderClick}
             />
           )}
           
@@ -200,9 +208,15 @@ export const SplitScreen = ({
           <MobileToolNav
             activeTool={showChat ? 'ai-agent' : activeTool}
             onToolSelect={handleToolSelect}
+            onCustomOrderClick={handleCustomOrderClick}
           />
         </div>
       )}
+
+      <CustomOrderDialog 
+        open={customOrderOpen} 
+        onOpenChange={setCustomOrderOpen} 
+      />
     </div>
   );
 };

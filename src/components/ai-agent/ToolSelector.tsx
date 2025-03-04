@@ -1,69 +1,105 @@
 
+import React from "react";
+import { Button } from "@/components/ui/button";
+import { 
+  MessageSquare, 
+  Camera, 
+  Clapperboard, 
+  FileText,
+  PlusSquare 
+} from "lucide-react";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { cn } from "@/lib/utils";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Camera, Video, FileText, Sparkles } from "lucide-react";
-
-const tools = [
-  {
-    id: 'product-shot-v1',
-    name: 'Product Shot V1',
-    icon: <Camera className="h-4 w-4" />,
-    gradient: 'from-[#9b87f5] to-[#7E69AB]',
-    activeGradient: 'from-green-500 to-green-600'
-  },
-  {
-    id: 'product-shot-v2',
-    name: 'Product Shot V2',
-    icon: <Sparkles className="h-4 w-4" />,
-    gradient: 'from-[#8B5CF6] to-[#6E59A5]',
-    activeGradient: 'from-green-500 to-green-600'
-  },
-  {
-    id: 'image-to-video',
-    name: 'Image to Video',
-    icon: <Video className="h-4 w-4" />,
-    gradient: 'from-[#7E69AB] to-[#6E59A5]',
-    activeGradient: 'from-green-500 to-green-600'
-  },
-  {
-    id: 'faceless-video',
-    name: 'Product Video',
-    icon: <FileText className="h-4 w-4" />,
-    gradient: 'from-[#6E59A5] to-[#1A1F2C]',
-    activeGradient: 'from-green-500 to-green-600'
-  }
-];
 
 interface ToolSelectorProps {
   activeTool: string;
-  onToolSelect: (toolId: string) => void;
+  onToolSelect: (tool: string) => void;
+  onCustomOrderClick?: () => void;
 }
 
-export const ToolSelector = ({ activeTool, onToolSelect }: ToolSelectorProps) => {
+export const ToolSelector = ({ 
+  activeTool, 
+  onToolSelect,
+  onCustomOrderClick
+}: ToolSelectorProps) => {
+  const tools = [
+    {
+      id: "ai-agent",
+      name: "AI Chat",
+      icon: MessageSquare,
+      tooltip: "Chat with AI assistant"
+    },
+    {
+      id: "product-shot-v1",
+      name: "Product Shot",
+      icon: Camera,
+      tooltip: "Generate product images"
+    },
+    {
+      id: "product-shot-v2",
+      name: "Advanced Shot",
+      icon: FileText,
+      tooltip: "Advanced product image options"
+    },
+    {
+      id: "image-to-video",
+      name: "Video",
+      icon: Clapperboard,
+      tooltip: "Create videos from images"
+    }
+  ];
+
   return (
-    <div className="sticky top-0 z-10 w-full bg-[#1A1F2C]/80 backdrop-blur-lg border-b border-white/10">
-      <ScrollArea className="w-full">
-        <div className="p-2 md:p-4">
-          <div className="grid grid-cols-2 gap-2">
-            {tools.map((tool) => (
-              <button
-                key={tool.id}
-                onClick={() => onToolSelect(tool.id)}
-                className={cn(
-                  "flex items-center gap-2 p-2 md:p-4 rounded-lg text-white",
-                  "transition-all duration-200 transform hover:scale-[1.02]",
-                  "bg-gradient-to-r",
-                  activeTool === tool.id ? tool.activeGradient : tool.gradient,
-                  "text-xs md:text-sm"
-                )}
-              >
-                {tool.icon}
-                <span className="font-medium truncate">{tool.name}</span>
-              </button>
-            ))}
-          </div>
-        </div>
-      </ScrollArea>
+    <div className="border-b border-white/10 bg-[#1E2432] p-3 flex items-center justify-between">
+      <div className="flex items-center space-x-2">
+        <TooltipProvider>
+          {tools.map((tool) => (
+            <Tooltip key={tool.id}>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => onToolSelect(tool.id)}
+                  className={cn(
+                    "text-xs text-white/60 hover:text-white hover:bg-white/10",
+                    activeTool === tool.id && "bg-white/10 text-white"
+                  )}
+                >
+                  <tool.icon className="h-4 w-4 mr-2" />
+                  {tool.name}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{tool.tooltip}</p>
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </TooltipProvider>
+      </div>
+      
+      <TooltipProvider>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={onCustomOrderClick}
+              className="text-xs text-white/60 hover:text-white hover:bg-white/10"
+            >
+              <PlusSquare className="h-4 w-4 mr-2" />
+              Custom Order
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            <p>Request a custom design with multiple images</p>
+          </TooltipContent>
+        </Tooltip>
+      </TooltipProvider>
     </div>
   );
 };

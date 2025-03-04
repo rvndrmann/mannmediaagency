@@ -45,7 +45,7 @@ serve(async (req) => {
       );
     }
     
-    const { message, activeTool, userCredits } = bodyData;
+    const { message } = bodyData;
     
     if (!message) {
       console.error(`[${requestId}] Invalid request: missing message content`);
@@ -60,7 +60,6 @@ serve(async (req) => {
     }
 
     console.log(`[${requestId}] Processing message:`, message.substring(0, 100) + '...');
-    console.log(`[${requestId}] Active tool:`, activeTool);
 
     // Use development fallback if configured
     if (Deno.env.get("ENVIRONMENT") === "development" && Deno.env.get("USE_FALLBACK") === "true") {
@@ -74,11 +73,6 @@ serve(async (req) => {
       );
     }
 
-    // Send only the raw message
-    const inputString = message;
-    
-    console.log(`[${requestId}] Input string length:`, inputString.length);
-
     // Prepare API endpoint
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
     
@@ -91,9 +85,9 @@ serve(async (req) => {
       "Agent-JogPZ": {}
     };
 
-    // Prepare API payload with simplified structure
+    // Prepare API payload with simplified structure exactly matching the curl example
     const payload = {
-      input_value: truncateInput(inputString, MAX_INPUT_LENGTH),
+      input_value: truncateInput(message, MAX_INPUT_LENGTH),
       input_type: "chat",
       output_type: "chat",
       tweaks

@@ -78,15 +78,7 @@ export function extractResponseText(responseData: any): { messageText: string | 
   }
 }
 
-export function formatMessageHistory(messages: Message[]): string {
-  if (!messages || messages.length === 0) {
-    return "";
-  }
-
-  // Just return the raw message history without additional formatting
-  return messages.map(msg => `${msg.role}: ${msg.content}`).join("\n\n");
-}
-
+// Truncate the input if it exceeds the maximum length
 export function truncateInput(input: string, maxLength: number): string {
   if (!input || input.length <= maxLength) {
     return input;

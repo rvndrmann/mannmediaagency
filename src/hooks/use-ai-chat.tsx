@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -88,7 +87,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     });
   }, []);
 
-  // Set all tasks for a message to error state
   const setAllTasksToError = useCallback((messageIndex: number, errorMessage?: string) => {
     setMessages(prev => {
       const newMessages = [...prev];
@@ -161,7 +159,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         command.feature === "image-to-video" ||
         command.feature === "product-video")
       ) {
-        // Handle default image for product shots
         if (command.feature === "product-shot-v1" && 
             command.parameters?.name && 
             !command.parameters.imageUrl && 
@@ -178,10 +175,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           }
         }
 
-        // Switch to the appropriate tool with parameters
         onToolSwitch(command.feature, command.parameters);
         
-        // Update message status to completed after command execution
         setMessages(prev => {
           const newMessages = [...prev];
           if (messageIndex >= 0 && messageIndex < newMessages.length) {
@@ -211,7 +206,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
-  // Function to make request with retry logic
   const makeRequestWithRetry = async (endpoint: string, body: any, retries = MAX_CHAT_RETRY_ATTEMPTS): Promise<any> => {
     let lastError;
     
@@ -244,13 +238,11 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     throw lastError;
   };
 
-  // Format message history for AI processing
   const formatMessageHistory = (messages: Message[]): any[] => {
     if (!messages || messages.length === 0) {
       return [];
     }
     
-    // Return just the essential parts of each message
     return messages.map(msg => ({
       role: msg.role,
       content: msg.content
@@ -267,7 +259,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       return;
     }
 
-    // Generate a unique request ID for this chat session
     const requestId = `chat-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     setProcessingRequestId(requestId);
 
@@ -295,31 +286,21 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     let creditsDeducted = false;
 
     try {
-      // Step 1: Deduct credits
       await deductChatCredits();
       creditsDeducted = true;
       
-      // Log usage
       await logChatUsage(trimmedInput);
       
-      // Refresh credits display
       refetchCredits();
 
-      // Update task status: Analyzing request
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       await new Promise(resolve => setTimeout(resolve, 500));
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
       
-      // Update task status: Processing with AI
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
       
-      // Get the active tool from the application state
       const activeTool = localStorage.getItem("activeTool") || "ai-agent";
       
-      // Prepare cleaned message history
-      const processedMessages = formatMessageHistory([...messages]);
-
-      // Step 2: Try command detection
       console.log(`[${requestId}] Sending request to command detection system`);
       let detectionResponse;
       try {
@@ -332,22 +313,18 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         console.log(`[${requestId}] Command detection response:`, detectionResponse);
       } catch (detectionError) {
         console.error(`[${requestId}] Command detection error:`, detectionError);
-        // Continue with Langflow if detection fails
         detectionResponse = { use_langflow: true };
       }
 
       let command = null;
       let messageContent = null;
       let useLangflow = true;
-      let rawMessage = detectionResponse?.rawMessage || trimmedInput;
 
-      // Check if we got a command detection result
       if (detectionResponse) {
         useLangflow = detectionResponse.use_langflow !== false;
         command = detectionResponse.command;
         messageContent = detectionResponse.message;
         
-        // Check for specific error
         if (detectionResponse.error === "INSUFFICIENT_CREDITS") {
           updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Insufficient credits");
           updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
@@ -366,11 +343,10 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           
           setIsLoading(false);
           setProcessingRequestId(null);
-          return; // Exit early
+          return;
         }
       }
 
-      // Step 3: If command detection worked, use that result directly
       if (command && messageContent) {
         console.log(`[${requestId}] Using detected command:`, command);
         
@@ -390,23 +366,16 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           return newMessages;
         });
         
-        // Execute the command
         await executeCommand(command, messageIndex);
       }
-      // Step 4: Otherwise fallback to Langflow
       else if (useLangflow) {
         console.log(`[${requestId}] Falling back to Langflow for response generation`);
         
         try {
-          // Send raw message to Langflow without additional context
           const data = await makeRequestWithRetry('chat-with-langflow', { 
-            messages: [...messages, userMessage],
+            message: trimmedInput,
             activeTool,
             userCredits,
-            command,
-            detectedMessage: messageContent,
-            rawMessage: rawMessage,
-            processedMessageHistory: processedMessages,
             requestId
           });
 
@@ -416,7 +385,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
 
           if (data && data.message) {
-            // Check if there's a command to execute
             const responseCommand = data.command;
             
             if (responseCommand) {
@@ -435,10 +403,8 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
                 return newMessages;
               });
               
-              // Execute the command
               await executeCommand(responseCommand, messageIndex);
             } else {
-              // Just update the message content with the LangFlow response
               updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
               
               setMessages(prev => {
@@ -454,7 +420,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
               });
             }
           } else if (data && data.error === "Request timeout") {
-            // Handle timeout specifically
             updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Request timed out");
             updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
             
@@ -477,7 +442,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         } catch (langflowError) {
           console.error(`[${requestId}] Langflow processing error:`, langflowError);
           
-          // Set all tasks to error state
           setAllTasksToError(messageIndex, "Connection to AI service failed");
           
           setMessages(prev => {
@@ -495,14 +459,12 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           toast.error("Failed to process your request. Please try again later.");
         }
       } else {
-        // Neither command detection nor Langflow worked
         setAllTasksToError(messageIndex, "AI processing error");
         throw new Error('Both command detection and Langflow processing failed');
       }
     } catch (error) {
       console.error(`[${requestId}] Chat error:`, error);
       
-      // Ensure all tasks are set to error state
       if (messageIndex >= 0 && messageIndex < messages.length + 2) {
         setAllTasksToError(messageIndex, "An error occurred");
         
@@ -521,7 +483,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       
       toast.error(error instanceof Error ? error.message : "Failed to get response from AI");
     } finally {
-      // Always set isLoading to false to ensure UI doesn't get stuck
       setIsLoading(false);
       setProcessingRequestId(null);
     }

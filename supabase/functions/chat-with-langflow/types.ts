@@ -5,14 +5,10 @@ export interface Message {
 }
 
 export interface RequestBody {
-  messages?: Message[];
-  activeTool?: string;
+  message?: string;            // New simplified approach - just the message content
+  activeTool?: string;         // Which tool is currently active in the UI
   userCredits?: { credits_remaining: number };
-  command?: any;
-  detectedMessage?: string;
-  rawMessage?: string;
-  processedMessageHistory?: string;
-  requestId?: string;
+  requestId?: string;          // For tracking purposes
 }
 
 export interface ChatResponse {

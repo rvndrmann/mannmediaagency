@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { corsHeaders } from "./cors.ts";
 import { RequestBody, ChatResponse } from "./types.ts";
-import { generateRequestId, checkEnvironmentVariables, extractResponseText, formatMessageHistory, truncateInput } from "./utils.ts";
+import { generateRequestId, checkEnvironmentVariables, extractResponseText, truncateInput } from "./utils.ts";
 import { makeAstraLangflowRequest } from "./api.ts";
 import { BASE_API_URL, LANGFLOW_ID, FLOW_ID, APPLICATION_TOKEN, MAX_INPUT_LENGTH } from "./config.ts";
 
@@ -45,49 +45,21 @@ serve(async (req) => {
       );
     }
     
-    const { messages, activeTool, userCredits, command, detectedMessage, rawMessage, processedMessageHistory } = bodyData;
+    const { message, activeTool, userCredits } = bodyData;
     
-    // If detection already found a valid command, use it directly
-    if (command && detectedMessage) {
-      console.log(`[${requestId}] Using pre-detected command:`, command);
-      return new Response(
-        JSON.stringify({
-          message: detectedMessage,
-          command: command
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      console.error(`[${requestId}] Invalid request: missing or empty messages array`);
+    if (!message) {
+      console.error(`[${requestId}] Invalid request: missing message content`);
       return new Response(
         JSON.stringify({ 
           message: "Please provide a valid message to process.",
           command: null,
-          error: "Invalid messages array" 
+          error: "Missing message content" 
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
-    const lastMessage = messages[messages.length - 1];
-    if (!lastMessage?.content) {
-      console.error(`[${requestId}] Invalid request: no message content found in last message`);
-      return new Response(
-        JSON.stringify({ 
-          message: "Your message appears to be empty. Please try again.",
-          command: null,
-          error: "Empty message content" 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    // Use the raw message if provided by detect-command, otherwise use the last message content
-    const messageContent = rawMessage || lastMessage.content;
-    
-    console.log(`[${requestId}] Processing raw message:`, messageContent.substring(0, 100) + '...');
+    console.log(`[${requestId}] Processing message:`, message.substring(0, 100) + '...');
     console.log(`[${requestId}] Active tool:`, activeTool);
 
     // Use development fallback if configured
@@ -102,22 +74,8 @@ serve(async (req) => {
       );
     }
 
-    // Use provided message history if available, otherwise prepare it
-    let messageHistory;
-    if (processedMessageHistory) {
-      messageHistory = processedMessageHistory;
-      console.log(`[${requestId}] Using pre-processed message history`);
-    } else {
-      // Prepare message history
-      const maxPreviousMessages = 5;
-      const previousMessages = messages
-        .slice(Math.max(0, messages.length - 1 - maxPreviousMessages), messages.length - 1);
-      messageHistory = formatMessageHistory(previousMessages);
-      console.log(`[${requestId}] Including ${previousMessages.length} previous messages in history`);
-    }
-
-    // Send only the raw message with minimal context
-    const inputString = messageContent;
+    // Send only the raw message
+    const inputString = message;
     
     console.log(`[${requestId}] Input string length:`, inputString.length);
 
@@ -133,7 +91,7 @@ serve(async (req) => {
       "Agent-JogPZ": {}
     };
 
-    // Prepare API payload
+    // Prepare API payload with simplified structure
     const payload = {
       input_value: truncateInput(inputString, MAX_INPUT_LENGTH),
       input_type: "chat",
@@ -143,7 +101,7 @@ serve(async (req) => {
 
     const fullUrl = `${BASE_API_URL}${endpoint}`;
     
-    // Prepare API headers without x-api-key
+    // Prepare API headers
     const headers = {
       "Authorization": `Bearer ${APPLICATION_TOKEN}`,
       "Content-Type": "application/json"

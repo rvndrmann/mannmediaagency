@@ -85,6 +85,28 @@ export const CustomOrderDialog = ({
         throw orderError;
       }
 
+      // Check if bucket exists and create if it doesn't
+      try {
+        // Check if the bucket exists first
+        const { data: buckets } = await supabase.storage.listBuckets();
+        const bucketExists = buckets?.some(bucket => bucket.name === 'product-photos');
+        
+        if (!bucketExists) {
+          console.log("product-photos bucket doesn't exist, attempting to create...");
+          const { error: createBucketError } = await supabase.storage.createBucket('product-photos', {
+            public: true,
+          });
+          
+          if (createBucketError) {
+            console.error("Error creating bucket:", createBucketError);
+            // Continue anyway - the bucket might exist but the user doesn't have permission to list buckets
+          }
+        }
+      } catch (bucketError) {
+        console.warn("Error checking bucket:", bucketError);
+        // Continue with upload - the error might be due to permissions
+      }
+
       // Upload each image and create entries in custom_order_images
       const uploadPromises = selectedImages.map(async (file) => {
         // Generate a unique file name
@@ -94,7 +116,7 @@ export const CustomOrderDialog = ({
 
         // Upload the file to storage
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('product_photos')
+          .from('product-photos')
           .upload(filePath, file);
 
         if (uploadError) {
@@ -104,7 +126,7 @@ export const CustomOrderDialog = ({
 
         // Get the public URL
         const { data: publicUrlData } = supabase.storage
-          .from('product_photos')
+          .from('product-photos')
           .getPublicUrl(filePath);
 
         // Insert image record using RPC
@@ -135,7 +157,7 @@ export const CustomOrderDialog = ({
       setImagePreviews([]);
       onOpenChange(false);
     } catch (error: any) {
-      console.error("Error submitting custom order:", error);
+      console.error("Custom order error details:", error);
       toast.error(error.message || "Failed to submit custom order. Please try again.");
     } finally {
       setIsSubmitting(false);

@@ -52,8 +52,21 @@ import { toast } from "sonner";
 import { PlusCircle, Eye, Copy, Trash, Edit, ListPlus, FileText, PlusSquare, MinusSquare, DollarSign } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
-import { CustomOrderForm, PaymentLink, FormField as FormFieldType } from "@/types/database";
-import { customOrderFormsTable, paymentLinksTable } from "@/utils/supabase-helpers";
+import { 
+  CustomOrderForm, 
+  PaymentLink, 
+  FormField as FormFieldType,
+  DbCustomOrderForm,
+  DbPaymentLink
+} from "@/types/database";
+import { 
+  customOrderFormsTable, 
+  paymentLinksTable,
+  parseFormsList,
+  parseFormFields,
+  prepareFormForSave,
+  preparePaymentLinkForSave
+} from "@/utils/supabase-helpers";
 
 const formSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
@@ -125,8 +138,10 @@ export const AdminFormsManager = () => {
 
       if (error) throw error;
       
-      const parsedForms = (data || []).map(form => parseFormFields(form));
-      setForms(parsedForms);
+      if (data) {
+        const parsedForms = parseFormsList(data as DbCustomOrderForm[]);
+        setForms(parsedForms);
+      }
     } catch (error: any) {
       console.error("Error fetching forms:", error);
       toast.error("Failed to load forms");

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -56,7 +57,7 @@ const PaymentLink = () => {
         throw new Error("This payment link has expired");
       }
       
-      setPaymentLink(data);
+      setPaymentLink(data as PaymentLinkType);
       
       // Check if access code is required
       if (data.access_code) {

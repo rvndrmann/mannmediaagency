@@ -1,75 +1,39 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
+import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": "*",
-  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
-};
+interface RequestBody {
+  formId: string;
+  formData: any;
+  phoneNumber: string | null;
+  imageUrls?: string[];
+}
 
-serve(async (req) => {
-  // Handle CORS preflight request
-  if (req.method === "OPTIONS") {
-    return new Response("ok", { headers: corsHeaders });
-  }
-
+serve(async (req: Request) => {
   try {
-    const supabaseClient = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
-    );
+    // Create a Supabase client with the Auth context of the logged in user
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseServiceKey);
 
     // Parse request body
-    const { formId, formData, phoneNumber, imageUrls } = await req.json();
+    const requestData: RequestBody = await req.json();
+    const { formId, formData, phoneNumber, imageUrls = [] } = requestData;
 
-    // Validate required data
-    if (!formId || !formData) {
+    if (!formId) {
       return new Response(
-        JSON.stringify({ error: "Form ID and form data are required" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: "Form ID is required" }),
+        { status: 400, headers: { "Content-Type": "application/json" } }
       );
     }
 
-    // Check if form exists and is active
-    const { data: formExists, error: formError } = await supabaseClient
-      .from("custom_order_forms")
-      .select("id, is_active")
-      .eq("id", formId)
-      .single();
-
-    if (formError || !formExists) {
-      return new Response(
-        JSON.stringify({ error: "Form not found or inactive" }),
-        {
-          status: 404,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    if (!formExists.is_active) {
-      return new Response(
-        JSON.stringify({ error: "This form is no longer active" }),
-        {
-          status: 400,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
-      );
-    }
-
-    // Insert form submission
-    const { data, error } = await supabaseClient
+    // Insert the form submission
+    const { data, error } = await supabase
       .from("form_submissions")
       .insert({
         form_id: formId,
-        submission_data: {
-          ...formData,
-          image_urls: imageUrls || []
-        },
-        phone_number: phoneNumber
+        submission_data: formData,
+        phone_number: phoneNumber,
       })
       .select()
       .single();
@@ -77,29 +41,22 @@ serve(async (req) => {
     if (error) {
       console.error("Error saving form submission:", error);
       return new Response(
-        JSON.stringify({ error: "Failed to save form submission" }),
-        {
-          status: 500,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        }
+        JSON.stringify({ error: error.message }),
+        { status: 500, headers: { "Content-Type": "application/json" } }
       );
     }
 
+    // Handle any additional processing here, like storing image URLs or sending notifications
+
     return new Response(
       JSON.stringify({ success: true, data }),
-      {
-        status: 200,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      { status: 200, headers: { "Content-Type": "application/json" } }
     );
   } catch (error) {
-    console.error("Unexpected error:", error);
+    console.error("Error in form submission function:", error);
     return new Response(
-      JSON.stringify({ error: "An unexpected error occurred" }),
-      {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      }
+      JSON.stringify({ error: "Internal server error" }),
+      { status: 500, headers: { "Content-Type": "application/json" } }
     );
   }
 });

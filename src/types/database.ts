@@ -52,3 +52,37 @@ export interface FormField {
   required: boolean;
   options?: string[];
 }
+
+// Database variants of the types (with JSON fields)
+export interface DbCustomOrderForm {
+  id: string;
+  title: string;
+  description: string | null;
+  fields: Json;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  access_code: string | null;
+  require_phone: boolean;
+}
+
+export interface DbPaymentLink {
+  id: string;
+  title: string;
+  description: string | null;
+  amount: number;
+  currency: string;
+  created_at: string;
+  updated_at: string;
+  is_active: boolean;
+  access_code: string | null;
+  expiry_date: string | null;
+}
+
+export interface DbFormSubmissionData {
+  id: string;
+  form_id: string;
+  submission_data: Json;
+  created_at: string;
+  phone_number: string | null;
+}

@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
 import { Message, Task, Command } from "@/types/message";
@@ -9,6 +9,8 @@ import { toast } from "sonner";
 
 const STORAGE_KEY = "ai_agent_chat_history";
 const CHAT_CREDIT_COST = 0.07;
+const MAX_CHAT_RETRY_ATTEMPTS = 2;
+const RETRY_DELAY_MS = 1000;
 
 export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) => {
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -22,6 +24,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
   });
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const { defaultImages, updateLastUsed, saveDefaultImage } = useDefaultImages();
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -60,7 +63,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     status: "pending",
   });
 
-  const updateTaskStatus = (messageIndex: number, taskId: string, status: Task["status"], details?: string) => {
+  const updateTaskStatus = useCallback((messageIndex: number, taskId: string, status: Task["status"], details?: string) => {
     setMessages(prev => {
       const newMessages = [...prev];
       if (messageIndex >= 0 && messageIndex < newMessages.length) {
@@ -83,16 +86,15 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       }
       return newMessages;
     });
-  };
+  }, []);
 
   // Set all tasks for a message to error state
-  const setAllTasksToError = (messageIndex: number, errorMessage?: string) => {
+  const setAllTasksToError = useCallback((messageIndex: number, errorMessage?: string) => {
     setMessages(prev => {
       const newMessages = [...prev];
       if (messageIndex >= 0 && messageIndex < newMessages.length) {
         const message = newMessages[messageIndex];
         if (message.tasks) {
-          // Fixed: specify the status as a literal type instead of a string
           const updatedTasks = message.tasks.map(task => ({
             ...task,
             status: task.status === "completed" ? "completed" as const : "error" as const,
@@ -108,7 +110,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       }
       return newMessages;
     });
-  };
+  }, []);
 
   const deductChatCredits = async () => {
     try {
@@ -209,6 +211,39 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
+  // Function to make request with retry logic
+  const makeRequestWithRetry = async (endpoint: string, body: any, retries = MAX_CHAT_RETRY_ATTEMPTS): Promise<any> => {
+    let lastError;
+    
+    for (let attempt = 0; attempt <= retries; attempt++) {
+      if (attempt > 0) {
+        console.log(`Retry attempt ${attempt}/${retries}...`);
+        await new Promise(resolve => setTimeout(resolve, RETRY_DELAY_MS * Math.pow(2, attempt-1)));
+      }
+      
+      try {
+        const response = await supabase.functions.invoke(endpoint, {
+          body: body
+        });
+        
+        if (response.error) {
+          throw new Error(response.error.message || "Function invocation failed");
+        }
+        
+        return response.data;
+      } catch (error) {
+        console.error(`Request attempt ${attempt + 1} failed:`, error);
+        lastError = error;
+        
+        if (attempt === retries) {
+          throw error;
+        }
+      }
+    }
+    
+    throw lastError;
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -218,6 +253,10 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       toast.error(`You need at least ${CHAT_CREDIT_COST} credits to send a message.`);
       return;
     }
+
+    // Generate a unique request ID for this chat session
+    const requestId = `chat-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+    setProcessingRequestId(requestId);
 
     const userMessage: Message = { 
       role: "user", 
@@ -265,22 +304,21 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       const activeTool = localStorage.getItem("activeTool") || "ai-agent";
 
       // Step 2: Try command detection
-      console.log('Sending request to command detection system');
+      console.log(`[${requestId}] Sending request to command detection system`);
       let detectionResponse;
       try {
-        detectionResponse = await supabase.functions.invoke('detect-command', {
-          body: { 
-            message: trimmedInput,
-            activeContext: activeTool,
-            userCredits
-          }
+        detectionResponse = await makeRequestWithRetry('detect-command', { 
+          message: trimmedInput,
+          activeContext: activeTool,
+          userCredits,
+          requestId
         });
         
-        console.log('Command detection response:', detectionResponse);
+        console.log(`[${requestId}] Command detection response:`, detectionResponse);
       } catch (detectionError) {
-        console.error('Command detection error:', detectionError);
+        console.error(`[${requestId}] Command detection error:`, detectionError);
         // Continue with Langflow if detection fails
-        detectionResponse = { data: { use_langflow: true } };
+        detectionResponse = { use_langflow: true };
       }
 
       let command = null;
@@ -288,13 +326,13 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       let useLangflow = true;
 
       // Check if we got a command detection result
-      if (detectionResponse?.data) {
-        useLangflow = detectionResponse.data.use_langflow !== false;
-        command = detectionResponse.data.command;
-        messageContent = detectionResponse.data.message;
+      if (detectionResponse) {
+        useLangflow = detectionResponse.use_langflow !== false;
+        command = detectionResponse.command;
+        messageContent = detectionResponse.message;
         
         // Check for specific error
-        if (detectionResponse.data.error === "INSUFFICIENT_CREDITS") {
+        if (detectionResponse.error === "INSUFFICIENT_CREDITS") {
           updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Insufficient credits");
           updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
           
@@ -311,13 +349,14 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
           });
           
           setIsLoading(false);
+          setProcessingRequestId(null);
           return; // Exit early
         }
       }
 
       // Step 3: If command detection worked, use that result directly
       if (command && messageContent) {
-        console.log("Using detected command:", command);
+        console.log(`[${requestId}] Using detected command:`, command);
         
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
         updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
@@ -340,27 +379,20 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       }
       // Step 4: Otherwise fallback to Langflow
       else if (useLangflow) {
-        console.log('Falling back to Langflow for response generation');
+        console.log(`[${requestId}] Falling back to Langflow for response generation`);
         
         try {
           // Send message to Langflow with any detected but incomplete command data
-          const { data, error } = await supabase.functions.invoke('chat-with-langflow', {
-            body: { 
-              messages: [...messages, userMessage],
-              activeTool,
-              userCredits,
-              command,
-              detectedMessage: messageContent
-            }
+          const data = await makeRequestWithRetry('chat-with-langflow', { 
+            messages: [...messages, userMessage],
+            activeTool,
+            userCredits,
+            command,
+            detectedMessage: messageContent,
+            requestId
           });
 
-          console.log('Received response from LangFlow:', data);
-
-          if (error) {
-            console.error('Chat error:', error);
-            updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Failed to connect to AI service");
-            throw error;
-          }
+          console.log(`[${requestId}] Received response from LangFlow:`, data);
 
           updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
           updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
@@ -370,7 +402,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             const responseCommand = data.command;
             
             if (responseCommand) {
-              console.log('Command received from Langflow:', responseCommand);
+              console.log(`[${requestId}] Command received from Langflow:`, responseCommand);
               
               setMessages(prev => {
                 const newMessages = [...prev];
@@ -425,7 +457,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
             throw new Error('Invalid response format from AI');
           }
         } catch (langflowError) {
-          console.error('Langflow processing error:', langflowError);
+          console.error(`[${requestId}] Langflow processing error:`, langflowError);
           
           // Set all tasks to error state
           setAllTasksToError(messageIndex, "Connection to AI service failed");
@@ -450,7 +482,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
         throw new Error('Both command detection and Langflow processing failed');
       }
     } catch (error) {
-      console.error('Chat error:', error);
+      console.error(`[${requestId}] Chat error:`, error);
       
       // Ensure all tasks are set to error state
       if (messageIndex >= 0 && messageIndex < messages.length + 2) {
@@ -473,6 +505,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     } finally {
       // Always set isLoading to false to ensure UI doesn't get stuck
       setIsLoading(false);
+      setProcessingRequestId(null);
     }
   };
 
@@ -482,6 +515,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     setInput,
     isLoading,
     handleSubmit,
-    userCredits
+    userCredits,
+    processingRequestId
   };
 };

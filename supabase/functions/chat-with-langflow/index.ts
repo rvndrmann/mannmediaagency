@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { corsHeaders } from "../_shared/cors.ts";
@@ -7,13 +8,25 @@ const LANGFLOW_ID = Deno.env.get("LANGFLOW_ID");
 const FLOW_ID = Deno.env.get("FLOW_ID");
 const APPLICATION_TOKEN = Deno.env.get("APPLICATION_TOKEN");
 
-const API_TIMEOUT_MS = 60000; 
-const MAX_RETRIES = 3;
+// Configurable parameters
+const API_TIMEOUT_MS = 30000; // Reduced from 60000 to improve user experience
+const MAX_RETRIES = 2; // Reduced from 3 to avoid excessive waiting
+const RETRY_DELAY_MS = 1000; // Base delay for retry backoff
 const MAX_INPUT_LENGTH = 4000;
+const REQUEST_ID_PREFIX = "lf-req-";
+
+// Response cache to avoid duplicate processing
+const responseCache = new Map();
+const CACHE_TTL_MS = 300000; // 5 minutes cache
 
 interface Message {
   role: "user" | "assistant";
   content: string;
+}
+
+// Generate unique request ID
+function generateRequestId(): string {
+  return REQUEST_ID_PREFIX + crypto.randomUUID();
 }
 
 function checkEnvironmentVariables() {
@@ -43,7 +56,7 @@ function checkEnvironmentVariables() {
 
 function extractResponseText(responseData: any): { messageText: string | null, command: any | null } {
   try {
-    console.log("Extracting response text from:", JSON.stringify(responseData, null, 2).substring(0, 500) + "...");
+    console.log("Extracting response text");
     
     if (!responseData?.outputs?.[0]?.outputs?.[0]?.results) {
       console.error('Invalid or unexpected response format:', JSON.stringify(responseData, null, 2).substring(0, 500));
@@ -102,32 +115,74 @@ function truncateInput(input: string, maxLength: number): string {
   return input.substring(input.length - maxLength);
 }
 
+// Check cache for existing response
+function checkCache(cacheKey: string) {
+  if (responseCache.has(cacheKey)) {
+    const cachedItem = responseCache.get(cacheKey);
+    const now = Date.now();
+    
+    if (now - cachedItem.timestamp < CACHE_TTL_MS) {
+      console.log(`Cache hit for key: ${cacheKey.substring(0, 20)}...`);
+      return cachedItem.data;
+    } else {
+      // Expired cache entry
+      responseCache.delete(cacheKey);
+    }
+  }
+  return null;
+}
+
+// Store response in cache
+function cacheResponse(cacheKey: string, data: any) {
+  responseCache.set(cacheKey, {
+    data,
+    timestamp: Date.now()
+  });
+  
+  // Clean up old cache entries
+  const now = Date.now();
+  for (const [key, value] of responseCache.entries()) {
+    if (now - value.timestamp > CACHE_TTL_MS) {
+      responseCache.delete(key);
+    }
+  }
+}
+
 async function makeAstraLangflowRequest(
   url: string, 
   headers: Record<string, string>, 
   payload: any, 
+  requestId: string,
   retries = MAX_RETRIES
 ): Promise<any> {
   let lastError;
   
+  // Create cache key from payload
+  const cacheKey = JSON.stringify(payload);
+  const cachedResponse = checkCache(cacheKey);
+  if (cachedResponse) {
+    return cachedResponse;
+  }
+  
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      const backoffMs = Math.min(1000 * (2 ** attempt), 10000); // Exponential backoff capped at 10 seconds
-      console.log(`Retry attempt ${attempt}/${retries} after ${backoffMs}ms...`);
+      const backoffMs = Math.min(RETRY_DELAY_MS * (2 ** attempt), 10000); // Exponential backoff capped at 10 seconds
+      console.log(`[${requestId}] Retry attempt ${attempt}/${retries} after ${backoffMs}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoffMs));
     }
     
     try {
-      console.log(`API request attempt ${attempt + 1}/${retries + 1} to ${url}`);
-      console.log(`Request payload:`, JSON.stringify(payload).substring(0, 500));
+      console.log(`[${requestId}] API request attempt ${attempt + 1}/${retries + 1}`);
       
       const controller = new AbortController();
       const timeoutId = setTimeout(() => {
-        console.log(`Request timeout after ${API_TIMEOUT_MS}ms - aborting`);
+        console.log(`[${requestId}] Request timeout after ${API_TIMEOUT_MS}ms - aborting`);
         controller.abort();
       }, API_TIMEOUT_MS);
       
       try {
+        console.log(`[${requestId}] Making request to: ${url}`);
+        
         const response = await fetch(url, {
           method: 'POST',
           headers,
@@ -139,12 +194,16 @@ async function makeAstraLangflowRequest(
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error(`API Error (${response.status}):`, errorText.substring(0, 500));
+          console.error(`[${requestId}] API Error (${response.status}):`, errorText.substring(0, 500));
           throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
         }
         
         const data = await response.json();
-        console.log('API response received successfully');
+        console.log(`[${requestId}] API response received successfully`);
+        
+        // Cache successful response
+        cacheResponse(cacheKey, data);
+        
         return data;
       } catch (fetchError) {
         clearTimeout(timeoutId);
@@ -154,11 +213,11 @@ async function makeAstraLangflowRequest(
       lastError = error;
       
       if (error.name === 'AbortError' && attempt === retries) {
-        console.error('Final attempt timed out');
+        console.error(`[${requestId}] Final attempt timed out`);
         throw new Error('Request timed out after multiple attempts');
       }
       
-      console.error(`API request attempt ${attempt + 1} failed:`, error.message);
+      console.error(`[${requestId}] API request attempt ${attempt + 1} failed:`, error.message);
       
       if (attempt === retries) {
         throw error;
@@ -170,6 +229,9 @@ async function makeAstraLangflowRequest(
 }
 
 serve(async (req) => {
+  const requestId = generateRequestId();
+  console.log(`[${requestId}] New request received`);
+  
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -177,7 +239,7 @@ serve(async (req) => {
   try {
     const envCheck = checkEnvironmentVariables();
     if (!envCheck.isValid) {
-      console.error(`Missing required environment variables: ${envCheck.missingVars}`);
+      console.error(`[${requestId}] Missing required environment variables: ${envCheck.missingVars}`);
       return new Response(
         JSON.stringify({ 
           message: "Sorry, the AI chat system is not properly configured. Please contact support.",
@@ -191,9 +253,9 @@ serve(async (req) => {
     let bodyData;
     try {
       bodyData = await req.json();
-      console.log("Request body structure:", Object.keys(bodyData).join(", "));
+      console.log(`[${requestId}] Request body structure:`, Object.keys(bodyData).join(", "));
     } catch (parseError) {
-      console.error("Error parsing request body:", parseError);
+      console.error(`[${requestId}] Error parsing request body:`, parseError);
       return new Response(
         JSON.stringify({ 
           message: "Invalid request format. Please try again.",
@@ -206,8 +268,9 @@ serve(async (req) => {
     
     const { messages, activeTool, userCredits, command, detectedMessage } = bodyData;
     
+    // If detection already found a valid command, use it directly
     if (command && detectedMessage) {
-      console.log("Using pre-detected command:", command);
+      console.log(`[${requestId}] Using pre-detected command:`, command);
       return new Response(
         JSON.stringify({
           message: detectedMessage,
@@ -218,7 +281,7 @@ serve(async (req) => {
     }
     
     if (!messages || !Array.isArray(messages) || messages.length === 0) {
-      console.error('Invalid request: missing or empty messages array');
+      console.error(`[${requestId}] Invalid request: missing or empty messages array`);
       return new Response(
         JSON.stringify({ 
           message: "Please provide a valid message to process.",
@@ -231,7 +294,7 @@ serve(async (req) => {
 
     const lastMessage = messages[messages.length - 1];
     if (!lastMessage?.content) {
-      console.error('Invalid request: no message content found in last message');
+      console.error(`[${requestId}] Invalid request: no message content found in last message`);
       return new Response(
         JSON.stringify({ 
           message: "Your message appears to be empty. Please try again.",
@@ -242,31 +305,32 @@ serve(async (req) => {
       );
     }
 
-    console.log('Processing message:', lastMessage.content.substring(0, 100) + '...');
-    console.log('Active tool:', activeTool);
-    console.log('User credits:', userCredits?.credits_remaining || 'Not provided');
+    console.log(`[${requestId}] Processing message:`, lastMessage.content.substring(0, 100) + '...');
+    console.log(`[${requestId}] Active tool:`, activeTool);
+    console.log(`[${requestId}] User credits:`, userCredits?.credits_remaining || 'Not provided');
 
-    const fallbackResponse = {
-      message: "I'm sorry, I'm currently experiencing connectivity issues. Please try again later.",
-      command: null
-    };
-
+    // Use development fallback if configured
     if (Deno.env.get("ENVIRONMENT") === "development" && Deno.env.get("USE_FALLBACK") === "true") {
-      console.log("Using fallback response in development mode");
+      console.log(`[${requestId}] Using fallback response in development mode`);
       return new Response(
-        JSON.stringify(fallbackResponse),
+        JSON.stringify({
+          message: "I'm operating in development fallback mode. This is a placeholder response.",
+          command: null
+        }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
 
+    // Prepare message history
     const maxPreviousMessages = 5;
     const messageHistoryArray = messages
       .slice(Math.max(0, messages.length - 1 - maxPreviousMessages), messages.length - 1)
       .map((msg: Message) => `${msg.role}: ${msg.content}`);
     
     const messageHistory = messageHistoryArray.join("\n");
-    console.log(`Including ${messageHistoryArray.length} previous messages in context`);
+    console.log(`[${requestId}] Including ${messageHistoryArray.length} previous messages in context`);
 
+    // Prepare context string
     const contextString = `
 Active Tool: ${activeTool || "ai-agent"}
 Credits Available: ${userCredits?.credits_remaining || 0}
@@ -274,18 +338,17 @@ Message History:
 ${messageHistory}
 `;
 
+    // Prepare input
     const fullInputString = `${lastMessage.content}\n\nContext: ${contextString}`;
     const inputString = truncateInput(fullInputString, MAX_INPUT_LENGTH);
     
-    console.log('Input string length:', inputString.length, 
+    console.log(`[${requestId}] Input string length:`, inputString.length, 
                 inputString.length < fullInputString.length ? '(truncated)' : '');
-    console.log('Input string sample:', 
-               inputString.length > 100 
-               ? inputString.substring(0, 100) + '...' 
-               : inputString);
 
+    // Prepare API endpoint
     const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
     
+    // Use the exact tweaks structure from documentation
     const tweaks = {
       "Agent-swaq6": {},
       "ChatInput-SylqI": {},
@@ -294,6 +357,7 @@ ${messageHistory}
       "Agent-JogPZ": {}
     };
 
+    // Prepare API payload
     const payload = {
       input_value: inputString,
       input_type: "chat",
@@ -302,24 +366,26 @@ ${messageHistory}
     };
 
     const fullUrl = `${BASE_API_URL}${endpoint}`;
-    console.log(`Making request to: ${fullUrl}`);
     
+    // Prepare API headers without x-api-key
     const headers = {
       "Authorization": `Bearer ${APPLICATION_TOKEN}`,
       "Content-Type": "application/json"
     };
 
-    console.log('Request headers:', JSON.stringify(headers, (key, value) => 
+    console.log(`[${requestId}] Request headers:`, JSON.stringify(headers, (key, value) => 
       key === "Authorization" ? "Bearer [REDACTED]" : value
     ));
 
     try {
-      const responseData = await makeAstraLangflowRequest(fullUrl, headers, payload);
+      // Make API request with unique request ID
+      const responseData = await makeAstraLangflowRequest(fullUrl, headers, payload, requestId);
       
+      // Extract response components
       const { messageText, command } = extractResponseText(responseData);
       
       if (!messageText) {
-        console.warn('Could not extract message text from response');
+        console.warn(`[${requestId}] Could not extract message text from response`);
         
         return new Response(
           JSON.stringify({
@@ -331,7 +397,7 @@ ${messageHistory}
         );
       }
 
-      console.log("Returning successful response with message and command");
+      console.log(`[${requestId}] Returning successful response with message and command`);
       return new Response(
         JSON.stringify({
           message: messageText,
@@ -340,10 +406,10 @@ ${messageHistory}
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } catch (apiError) {
-      console.error('API call error:', apiError);
+      console.error(`[${requestId}] API call error:`, apiError);
       
       if (apiError.message?.includes('timed out') || apiError.name === 'AbortError') {
-        console.log('Request timed out after retries');
+        console.log(`[${requestId}] Request timed out after retries`);
         return new Response(
           JSON.stringify({
             message: "I'm sorry, but I'm taking too long to process your request. Try sending a shorter message or try again later.",
@@ -364,8 +430,8 @@ ${messageHistory}
       );
     }
   } catch (error) {
-    console.error('Error in chat-with-langflow function:', error);
-    console.error('Stack trace:', error.stack);
+    console.error(`[${requestId}] Error in chat-with-langflow function:`, error);
+    console.error(`[${requestId}] Stack trace:`, error.stack);
     
     return new Response(
       JSON.stringify({ 

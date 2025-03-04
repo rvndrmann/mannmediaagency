@@ -124,7 +124,9 @@ export const AdminFormsManager = () => {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setForms(data || []);
+      
+      const parsedForms = (data || []).map(form => parseFormFields(form));
+      setForms(parsedForms);
     } catch (error: any) {
       console.error("Error fetching forms:", error);
       toast.error("Failed to load forms");
@@ -276,17 +278,18 @@ export const AdminFormsManager = () => {
       const formData = {
         ...values,
         fields: formFields,
+        title: values.title,
       };
 
       if (editingForm) {
         const { error } = await customOrderFormsTable()
-          .update(formData)
+          .update(prepareFormForSave(formData))
           .eq("id", editingForm.id);
           
         if (error) throw error;
       } else {
         const { error } = await customOrderFormsTable()
-          .insert(formData);
+          .insert(prepareFormForSave(formData));
           
         if (error) throw error;
       }
@@ -302,15 +305,21 @@ export const AdminFormsManager = () => {
 
   const onSubmitPaymentLink = async (values: z.infer<typeof paymentLinkSchema>) => {
     try {
+      const paymentData = {
+        ...values,
+        amount: values.amount,
+        title: values.title
+      };
+
       if (editingPaymentLink) {
         const { error } = await paymentLinksTable()
-          .update(values)
+          .update(preparePaymentLinkForSave(paymentData))
           .eq("id", editingPaymentLink.id);
           
         if (error) throw error;
       } else {
         const { error } = await paymentLinksTable()
-          .insert(values);
+          .insert(preparePaymentLinkForSave(paymentData));
           
         if (error) throw error;
       }
@@ -380,6 +389,23 @@ export const AdminFormsManager = () => {
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleString();
+  };
+
+  const parseFormFields = (form: CustomOrderForm): FormFieldType[] => {
+    return form.fields || [];
+  };
+
+  const prepareFormForSave = (form: CustomOrderForm): CustomOrderForm => {
+    return {
+      ...form,
+      fields: form.fields || [],
+    };
+  };
+
+  const preparePaymentLinkForSave = (link: PaymentLink): PaymentLink => {
+    return {
+      ...link,
+    };
   };
 
   return (

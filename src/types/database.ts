@@ -5,7 +5,7 @@ export interface CustomOrderForm {
   id: string;
   title: string;
   description: string | null;
-  fields: any[];
+  fields: FormField[];
   created_at: string;
   updated_at: string;
   is_active: boolean;

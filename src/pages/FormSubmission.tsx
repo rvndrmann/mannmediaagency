@@ -31,6 +31,7 @@ import PhoneInput from "@/components/auth/phone/PhoneInput";
 import VerificationInput from "@/components/auth/phone/VerificationInput";
 import { FormData, FormField as FormFieldType } from "@/types/database";
 import { customOrderFormsTable, createFormSubmission } from "@/utils/supabase-helpers";
+import { parseFormFields } from "@/utils/supabase-helpers";
 
 const FormSubmission = () => {
   const { formId } = useParams<{ formId: string }>();
@@ -71,23 +72,26 @@ const FormSubmission = () => {
         throw new Error("Form not found");
       }
       
-      if (!data.is_active) {
+      // Parse form fields
+      const parsedForm = parseFormFields(data);
+      
+      if (!parsedForm.is_active) {
         throw new Error("This form is no longer active");
       }
       
-      setFormData(data as unknown as FormData);
+      setFormData(parsedForm);
       
       // Check if phone verification is required
-      if (data.require_phone) {
+      if (parsedForm.require_phone) {
         setPhoneVerificationStep('input');
       }
       
       // Check if access code is required
-      if (data.access_code) {
+      if (parsedForm.access_code) {
         setAccessRequired(true);
         
         // Check if code from URL matches
-        if (searchParams.get('code') === data.access_code) {
+        if (searchParams.get('code') === parsedForm.access_code) {
           setAccessVerified(true);
         }
       } else {
@@ -96,7 +100,6 @@ const FormSubmission = () => {
     } catch (error: any) {
       console.error("Error fetching form:", error);
       toast.error(error.message || "Failed to load form");
-      // Navigate to home on error
       navigate("/");
     } finally {
       setLoading(false);

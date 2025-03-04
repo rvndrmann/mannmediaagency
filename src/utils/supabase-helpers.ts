@@ -28,3 +28,30 @@ export const createFormSubmission = async (formData: {
     body: formData
   });
 };
+
+// Parse fields from database JSON to FormField[] type
+export const parseFormFields = (form: any): CustomOrderForm => {
+  return {
+    ...form,
+    fields: Array.isArray(form.fields) ? form.fields : [],
+    description: form.description || null,
+    access_code: form.access_code || null
+  };
+};
+
+// Helper to convert FormField[] to JSON before sending to database
+export const prepareFormForSave = (formData: Partial<CustomOrderForm>) => {
+  return {
+    ...formData,
+    fields: formData.fields ? JSON.stringify(formData.fields) : undefined
+  };
+};
+
+// Helper to prepare payment link for saving
+export const preparePaymentLinkForSave = (paymentData: Partial<PaymentLink> & { amount: number; title: string }) => {
+  return {
+    ...paymentData,
+    title: paymentData.title,
+    amount: paymentData.amount
+  };
+};

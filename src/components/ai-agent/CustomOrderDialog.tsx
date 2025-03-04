@@ -12,7 +12,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { Loader2, X, Image, Upload } from "lucide-react";
+import { Loader2, X, Upload } from "lucide-react";
 import { useUserCredits } from "@/hooks/use-user-credits";
 
 interface CustomOrderDialogProps {
@@ -80,7 +80,10 @@ export const CustomOrderDialog = ({
         { remark_text: remark, credits_amount: 5 }
       );
 
-      if (orderError) throw orderError;
+      if (orderError) {
+        console.error("Error creating custom order:", orderError);
+        throw orderError;
+      }
 
       // Upload each image and create entries in custom_order_images
       const uploadPromises = selectedImages.map(async (file) => {
@@ -94,7 +97,10 @@ export const CustomOrderDialog = ({
           .from('product_photos')
           .upload(filePath, file);
 
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          console.error("Error uploading image:", uploadError);
+          throw uploadError;
+        }
 
         // Get the public URL
         const { data: publicUrlData } = supabase.storage
@@ -110,11 +116,17 @@ export const CustomOrderDialog = ({
           }
         );
 
-        if (imageInsertError) throw imageInsertError;
+        if (imageInsertError) {
+          console.error("Error adding image to order:", imageInsertError);
+          throw imageInsertError;
+        }
       });
 
       await Promise.all(uploadPromises);
 
+      // Update the user credits query to get latest count
+      userCreditsQuery.refetch();
+      
       toast.success("Custom order submitted successfully!");
       
       // Reset form and close dialog
@@ -122,9 +134,9 @@ export const CustomOrderDialog = ({
       setSelectedImages([]);
       setImagePreviews([]);
       onOpenChange(false);
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error submitting custom order:", error);
-      toast.error("Failed to submit custom order. Please try again.");
+      toast.error(error.message || "Failed to submit custom order. Please try again.");
     } finally {
       setIsSubmitting(false);
     }

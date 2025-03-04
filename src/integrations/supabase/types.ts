@@ -9,6 +9,27 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_users: {
+        Row: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       ai_prompts: {
         Row: {
           category: string
@@ -292,6 +313,68 @@ export type Database = {
           subscription_id?: string | null
           trigger_source?: string | null
           user_id?: string | null
+        }
+        Relationships: []
+      }
+      custom_order_images: {
+        Row: {
+          created_at: string
+          id: string
+          image_url: string
+          order_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          image_url: string
+          order_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          image_url?: string
+          order_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_order_images_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      custom_orders: {
+        Row: {
+          admin_notes: string | null
+          created_at: string
+          credits_used: number
+          id: string
+          remark: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          admin_notes?: string | null
+          created_at?: string
+          credits_used?: number
+          id?: string
+          remark?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          admin_notes?: string | null
+          created_at?: string
+          credits_used?: number
+          id?: string
+          remark?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
         }
         Relationships: []
       }
@@ -1563,8 +1646,71 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      add_admin_user: {
+        Args: {
+          admin_user_id: string
+        }
+        Returns: undefined
+      }
+      add_custom_order_image: {
+        Args: {
+          order_id_param: string
+          image_url_param: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          image_url: string
+          order_id: string
+        }
+      }
+      check_is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
       check_pending_video_statuses: {
         Args: Record<PropertyKey, never>
+        Returns: undefined
+      }
+      create_custom_order: {
+        Args: {
+          remark_text: string
+          credits_amount: number
+        }
+        Returns: {
+          admin_notes: string | null
+          created_at: string
+          credits_used: number
+          id: string
+          remark: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+      }
+      get_admin_users: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          created_at: string
+          id: string
+          updated_at: string
+          user_id: string
+        }[]
+      }
+      get_pending_custom_orders_count: {
+        Args: Record<PropertyKey, never>
+        Returns: number
+      }
+      get_table_count: {
+        Args: {
+          table_name: string
+        }
+        Returns: number
+      }
+      remove_admin_user: {
+        Args: {
+          admin_user_id: string
+        }
         Returns: undefined
       }
       safely_decrease_chat_credits: {

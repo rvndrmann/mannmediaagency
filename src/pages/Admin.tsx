@@ -2,7 +2,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CustomOrder, User } from "@/types/custom-order";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
@@ -11,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminCustomOrders } from "@/components/admin/AdminCustomOrders";
 import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminUsageStats } from "@/components/admin/AdminUsageStats";
+import { AdminFormsManager } from "@/components/admin/AdminFormsManager";
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -108,14 +108,19 @@ const Admin = () => {
 
         <div className="container mx-auto py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-6">
+            <TabsList className="grid grid-cols-4 w-full max-w-2xl mx-auto mb-6">
               <TabsTrigger value="orders">Custom Orders</TabsTrigger>
+              <TabsTrigger value="forms">Forms & Payments</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="stats">Usage Stats</TabsTrigger>
             </TabsList>
             
             <TabsContent value="orders" className="mt-6">
               <AdminCustomOrders key={isRefreshing ? 'refresh-orders' : 'orders'} />
+            </TabsContent>
+            
+            <TabsContent value="forms" className="mt-6">
+              <AdminFormsManager key={isRefreshing ? 'refresh-forms' : 'forms'} />
             </TabsContent>
             
             <TabsContent value="users" className="mt-6">

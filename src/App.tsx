@@ -1,127 +1,122 @@
 
-import { Toaster } from "@/components/ui/toaster";
-import { Toaster as Sonner } from "@/components/ui/sonner";
-import { TooltipProvider } from "@/components/ui/tooltip";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import Index from "./pages/Index";
-import CreateVideo from "./pages/CreateVideo";
-import Integrations from "./pages/Integrations";
-import Plans from "./pages/Plans";
-import Auth from "./pages/Auth";
-import LoginForm from "./components/auth/LoginForm";
-import SignupForm from "./components/auth/SignupForm";
-import AuthCallback from "./components/auth/AuthCallback";
-import Payment from "./pages/Payment";
-import PaymentSuccess from "./pages/PaymentSuccess";
-import PaymentFailure from "./pages/PaymentFailure";
-import PaymentCancel from "./pages/PaymentCancel";
-import AIAgent from "./pages/AIAgent";
-import ProductShoot from "./pages/ProductShoot";
-import ProductShootV2 from "./pages/ProductShootV2";
-import Metadata from "./pages/Metadata";
-import ImageToVideo from "./pages/ImageToVideo";
-import AboutUs from "./pages/AboutUs";
-import Contact from "./pages/Contact";
-import Privacy from "./pages/Privacy";
-import Terms from "./pages/Terms";
-import Explore from "./pages/Explore";
-import Admin from "./pages/Admin";
-import { ThemeProvider } from "next-themes";
+import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
+import Auth from "@/pages/Auth";
+import AuthCallback from "@/components/auth/AuthCallback";
+import PrivateRoute from "@/components/auth/PrivateRoute";
+import { Sidebar } from "@/components/ui/sidebar";
+import { Navigation } from "@/components/sidebar/Navigation";
+import { ProfileSection } from "@/components/sidebar/ProfileSection";
+import Index from "@/pages/Index";
+import Explore from "@/pages/Explore";
+import ProductShoot from "@/pages/ProductShoot";
+import ProductShootV2 from "@/pages/ProductShootV2";
+import ProductAd from "@/pages/ProductAd";
+import ImageToVideo from "@/pages/ImageToVideo";
+import Admin from "@/pages/Admin";
+import FormSubmission from "@/pages/FormSubmission";
+import FormSuccess from "@/pages/FormSuccess";
+import PaymentLink from "@/pages/PaymentLink";
+import AIAgent from "@/pages/AIAgent";
+import CreateVideo from "@/pages/CreateVideo";
+import Privacy from "@/pages/Privacy";
+import Terms from "@/pages/Terms";
+import AboutUs from "@/pages/AboutUs";
+import Contact from "@/pages/Contact";
 import ProfileSettings from "@/pages/ProfileSettings";
-import { BottomNav } from "./components/mobile/BottomNav";
+import Plans from "@/pages/Plans";
+import Payment from "@/pages/Payment";
+import PaymentSuccess from "@/pages/PaymentSuccess";
+import PaymentFailure from "@/pages/PaymentFailure";
+import PaymentCancel from "@/pages/PaymentCancel";
+import Integrations from "@/pages/Integrations";
+import { Toaster } from "@/components/ui/sonner";
+import { BottomNav } from "@/components/mobile/BottomNav";
+import { useNavigate } from "react-router-dom";
+import "@/App.css";
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 1000,
-      refetchOnWindowFocus: false,
-    },
-  },
-});
+// Routes that should have the sidebar
+const routesWithSidebar = [
+  "/",
+  "/dashboard",
+  "/explore",
+  "/product-shoot",
+  "/product-shoot-v2",
+  "/product-ad",
+  "/image-to-video",
+  "/ai-agent",
+  "/create-video",
+  "/profile",
+  "/plans",
+  "/admin",
+  "/integrations",
+];
 
-const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+function App() {
+  const currentPath = window.location.pathname;
+  const showSidebar = routesWithSidebar.includes(currentPath) || 
+                      routesWithSidebar.some(route => currentPath.startsWith(route + "/"));
 
-  useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession();
-        setIsAuthenticated(!!session);
-      } catch (error) {
-        console.error("Session check error:", error);
-        setIsAuthenticated(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
+  return (
+    <Router>
+      <div className="flex h-screen overflow-hidden">
+        {showSidebar && (
+          <Sidebar defaultCollapsed={false}>
+            <Sidebar.Header>
+              <div className="text-2xl font-bold">GLIVE</div>
+            </Sidebar.Header>
+            <Sidebar.Content>
+              <Navigation />
+            </Sidebar.Content>
+            <Sidebar.Footer>
+              <ProfileSection />
+            </Sidebar.Footer>
+          </Sidebar>
+        )}
 
-    checkSession();
+        <main className="flex-1 overflow-y-auto bg-background">
+          <Routes>
+            <Route path="/" element={<Index />} />
+            <Route path="/auth/*" element={<Auth />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
+            
+            {/* Public form and payment routes */}
+            <Route path="/form/:formId" element={<FormSubmission />} />
+            <Route path="/form-success" element={<FormSuccess />} />
+            <Route path="/payment-link/:paymentId" element={<PaymentLink />} />
+            
+            {/* Private routes */}
+            <Route path="/dashboard" element={<PrivateRoute element={<Index />} />} />
+            <Route path="/explore" element={<PrivateRoute element={<Explore />} />} />
+            <Route path="/product-shoot" element={<PrivateRoute element={<ProductShoot />} />} />
+            <Route path="/product-shoot-v2" element={<PrivateRoute element={<ProductShootV2 />} />} />
+            <Route path="/product-ad" element={<PrivateRoute element={<ProductAd />} />} />
+            <Route path="/image-to-video" element={<PrivateRoute element={<ImageToVideo />} />} />
+            <Route path="/ai-agent" element={<PrivateRoute element={<AIAgent />} />} />
+            <Route path="/create-video" element={<PrivateRoute element={<CreateVideo />} />} />
+            <Route path="/profile" element={<PrivateRoute element={<ProfileSettings />} />} />
+            <Route path="/plans" element={<PrivateRoute element={<Plans />} />} />
+            <Route path="/payment" element={<PrivateRoute element={<Payment />} />} />
+            <Route path="/payment/success" element={<PrivateRoute element={<PaymentSuccess />} />} />
+            <Route path="/payment/failure" element={<PrivateRoute element={<PaymentFailure />} />} />
+            <Route path="/payment/cancel" element={<PrivateRoute element={<PaymentCancel />} />} />
+            <Route path="/integrations" element={<PrivateRoute element={<Integrations />} />} />
+            
+            {/* Admin Routes */}
+            <Route path="/admin" element={<Admin />} />
+            
+            {/* Public information pages */}
+            <Route path="/privacy" element={<Privacy />} />
+            <Route path="/terms" element={<Terms />} />
+            <Route path="/about" element={<AboutUs />} />
+            <Route path="/contact" element={<Contact />} />
+          </Routes>
+        </main>
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
-      setIsAuthenticated(!!session);
-      setIsLoading(false);
-    });
-
-    return () => {
-      subscription.unsubscribe();
-    };
-  }, []);
-
-  if (isLoading) {
-    return <div>Loading...</div>;
-  }
-
-  if (!isAuthenticated) {
-    return <Auth />;
-  }
-
-  return <>{children}</>;
-};
-
-const App = () => (
-  <ThemeProvider defaultTheme="dark" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background font-sans antialiased">
-        <BrowserRouter>
-          <TooltipProvider>
-            <Routes>
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/auth/login" element={<LoginForm />} />
-              <Route path="/auth/signup" element={<SignupForm />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/about" element={<AboutUs />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
-              <Route path="/product-shoot" element={<ProtectedRoute><ProductShoot /></ProtectedRoute>} />
-              <Route path="/product-shoot-v2" element={<ProtectedRoute><ProductShootV2 /></ProtectedRoute>} />
-              <Route path="/image-to-video" element={<ProtectedRoute><ImageToVideo /></ProtectedRoute>} />
-              <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
-              <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-              <Route path="/ai-agent" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
-              <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
-              <Route path="/payment/failure" element={<ProtectedRoute><PaymentFailure /></ProtectedRoute>} />
-              <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
-            </Routes>
-            <BottomNav />
-          </TooltipProvider>
-          <Toaster />
-          <Sonner />
-        </BrowserRouter>
+        {showSidebar && <BottomNav />}
       </div>
-    </QueryClientProvider>
-  </ThemeProvider>
-);
+      <Toaster position="top-right" />
+    </Router>
+  );
+}
 
 export default App;

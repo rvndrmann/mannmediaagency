@@ -52,22 +52,20 @@ export const parseFormFields = (form: DbCustomOrderForm): CustomOrderForm => {
 // Helper to convert FormField[] to JSON before sending to database
 export const prepareFormForSave = (formData: Partial<CustomOrderForm>): Partial<DbCustomOrderForm> => {
   if (!formData.fields) {
-    return formData;
+    return formData as Partial<DbCustomOrderForm>;
   }
   
   return {
     ...formData,
     fields: JSON.stringify(formData.fields)
-  };
+  } as Partial<DbCustomOrderForm>;
 };
 
 // Helper to prepare payment link for saving
 export const preparePaymentLinkForSave = (paymentData: Partial<PaymentLink> & { amount: number; title: string }): Partial<DbPaymentLink> => {
   return {
-    ...paymentData,
-    title: paymentData.title,
-    amount: paymentData.amount
-  };
+    ...paymentData
+  } as Partial<DbPaymentLink>;
 };
 
 // Parse an array of forms from the database

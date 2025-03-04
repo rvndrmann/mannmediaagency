@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { PaymentLink as PaymentLinkType } from "@/types/database";
+import { PaymentLink as PaymentLinkType, DbPaymentLink } from "@/types/database";
 import { paymentLinksTable } from "@/utils/supabase-helpers";
 import { Loader2, AlertTriangle, Lock } from "lucide-react";
 

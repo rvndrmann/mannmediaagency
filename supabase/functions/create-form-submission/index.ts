@@ -1,80 +1,105 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.0";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.26.0";
 
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders });
+  // Handle CORS preflight request
+  if (req.method === "OPTIONS") {
+    return new Response("ok", { headers: corsHeaders });
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
+    const supabaseClient = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
     );
 
-    const body = await req.json();
-    const { formId, formData, phoneNumber, imageUrls } = body;
+    // Parse request body
+    const { formId, formData, phoneNumber, imageUrls } = await req.json();
 
+    // Validate required data
     if (!formId || !formData) {
       return new Response(
-        JSON.stringify({ error: 'Missing required fields' }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 400 }
+        JSON.stringify({ error: "Form ID and form data are required" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
       );
     }
 
-    // Insert the submission
-    const { data: submission, error: submissionError } = await supabase
-      .from('form_submissions')
-      .insert({
-        form_id: formId,
-        submission_data: formData,
-        phone_number: phoneNumber || null
-      })
-      .select('id')
+    // Check if form exists and is active
+    const { data: formExists, error: formError } = await supabaseClient
+      .from("custom_order_forms")
+      .select("id, is_active")
+      .eq("id", formId)
       .single();
 
-    if (submissionError) {
-      throw submissionError;
+    if (formError || !formExists) {
+      return new Response(
+        JSON.stringify({ error: "Form not found or inactive" }),
+        {
+          status: 404,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
-    // Process images if any
-    if (imageUrls && imageUrls.length > 0) {
-      const imagePromises = imageUrls.map(url => {
-        return supabase
-          .from('form_submission_images')
-          .insert({
-            submission_id: submission.id,
-            image_url: url
-          });
-      });
+    if (!formExists.is_active) {
+      return new Response(
+        JSON.stringify({ error: "This form is no longer active" }),
+        {
+          status: 400,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
+    }
 
-      await Promise.all(imagePromises);
+    // Insert form submission
+    const { data, error } = await supabaseClient
+      .from("form_submissions")
+      .insert({
+        form_id: formId,
+        submission_data: {
+          ...formData,
+          image_urls: imageUrls || []
+        },
+        phone_number: phoneNumber
+      })
+      .select()
+      .single();
+
+    if (error) {
+      console.error("Error saving form submission:", error);
+      return new Response(
+        JSON.stringify({ error: "Failed to save form submission" }),
+        {
+          status: 500,
+          headers: { ...corsHeaders, "Content-Type": "application/json" },
+        }
+      );
     }
 
     return new Response(
-      JSON.stringify({ 
-        success: true, 
-        message: 'Form submission created successfully',
-        submissionId: submission.id
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
+      JSON.stringify({ success: true, data }),
+      {
+        status: 200,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   } catch (error) {
-    console.error('Error creating form submission:', error);
-    
+    console.error("Unexpected error:", error);
     return new Response(
-      JSON.stringify({ 
-        error: 'Failed to create form submission', 
-        details: error.message 
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
+      JSON.stringify({ error: "An unexpected error occurred" }),
+      {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      }
     );
   }
 });

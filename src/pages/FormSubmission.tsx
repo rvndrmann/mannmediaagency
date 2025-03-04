@@ -1,4 +1,3 @@
-
 import { useState, useEffect, FormEvent } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,6 +30,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import PhoneInput from "@/components/auth/phone/PhoneInput";
 import VerificationInput from "@/components/auth/phone/VerificationInput";
 import { FormData, FormField as FormFieldType } from "@/types/database";
+import { customOrderFormsTable, createFormSubmission } from "@/utils/supabase-helpers";
 
 const FormSubmission = () => {
   const { formId } = useParams<{ formId: string }>();
@@ -60,8 +60,7 @@ const FormSubmission = () => {
   const fetchFormData = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("custom_order_forms")
+      const { data, error } = await customOrderFormsTable()
         .select("*")
         .eq("id", formId)
         .single();
@@ -76,21 +75,19 @@ const FormSubmission = () => {
         throw new Error("This form is no longer active");
       }
       
-      // Convert the data to FormData type
-      const formDataTyped = data as unknown as FormData;
-      setFormData(formDataTyped);
+      setFormData(data as unknown as FormData);
       
       // Check if phone verification is required
-      if (formDataTyped.require_phone) {
+      if (data.require_phone) {
         setPhoneVerificationStep('input');
       }
       
       // Check if access code is required
-      if (formDataTyped.access_code) {
+      if (data.access_code) {
         setAccessRequired(true);
         
         // Check if code from URL matches
-        if (searchParams.get('code') === formDataTyped.access_code) {
+        if (searchParams.get('code') === data.access_code) {
           setAccessVerified(true);
         }
       } else {
@@ -222,7 +219,7 @@ const FormSubmission = () => {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     
-    if (!formData) return;
+    if (!formData || !formId) return;
     
     // Validate all required fields
     const missingFields = formData.fields
@@ -237,14 +234,12 @@ const FormSubmission = () => {
     setSubmitting(true);
     
     try {
-      // Submit form data to Supabase Edge Function
-      const { data, error } = await supabase.functions.invoke('create-form-submission', {
-        body: { 
-          formId,
-          formData: formValues,
-          phoneNumber: phoneVerified ? phoneNumber : null,
-          imageUrls: uploadedImages
-        }
+      // Submit form data using our helper function
+      const { data, error } = await createFormSubmission({
+        formId,
+        formData: formValues,
+        phoneNumber: phoneVerified ? phoneNumber : null,
+        imageUrls: uploadedImages
       });
 
       if (error) throw error;

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { 
@@ -54,8 +53,8 @@ import { PlusCircle, Eye, Copy, Trash, Edit, ListPlus, FileText, PlusSquare, Min
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { CustomOrderForm, PaymentLink, FormField as FormFieldType } from "@/types/database";
+import { customOrderFormsTable, paymentLinksTable } from "@/utils/supabase-helpers";
 
-// Form validation schema
 const formSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
   description: z.string().optional(),
@@ -64,7 +63,6 @@ const formSchema = z.object({
   access_code: z.string().optional(),
 });
 
-// Payment link validation schema
 const paymentLinkSchema = z.object({
   title: z.string().min(3, { message: "Title must be at least 3 characters" }),
   description: z.string().optional(),
@@ -86,7 +84,6 @@ export const AdminFormsManager = () => {
   const [editingPaymentLink, setEditingPaymentLink] = useState<PaymentLink | null>(null);
   const [formFields, setFormFields] = useState<FormFieldType[]>([]);
 
-  // Form for creating/editing forms
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
@@ -98,7 +95,6 @@ export const AdminFormsManager = () => {
     },
   });
 
-  // Form for creating/editing payment links
   const paymentForm = useForm<z.infer<typeof paymentLinkSchema>>({
     resolver: zodResolver(paymentLinkSchema),
     defaultValues: {
@@ -123,13 +119,12 @@ export const AdminFormsManager = () => {
   const fetchForms = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("custom_order_forms")
+      const { data, error } = await customOrderFormsTable()
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setForms(data as unknown as CustomOrderForm[] || []);
+      setForms(data || []);
     } catch (error: any) {
       console.error("Error fetching forms:", error);
       toast.error("Failed to load forms");
@@ -141,13 +136,12 @@ export const AdminFormsManager = () => {
   const fetchPaymentLinks = async () => {
     setLoading(true);
     try {
-      const { data, error } = await supabase
-        .from("payment_links")
+      const { data, error } = await paymentLinksTable()
         .select("*")
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setPaymentLinks(data as unknown as PaymentLink[] || []);
+      setPaymentLinks(data || []);
     } catch (error: any) {
       console.error("Error fetching payment links:", error);
       toast.error("Failed to load payment links");
@@ -274,7 +268,6 @@ export const AdminFormsManager = () => {
 
   const onSubmitForm = async (values: z.infer<typeof formSchema>) => {
     try {
-      // Validate that there's at least one field
       if (formFields.length === 0) {
         toast.error("Please add at least one field to the form");
         return;
@@ -286,18 +279,14 @@ export const AdminFormsManager = () => {
       };
 
       if (editingForm) {
-        // Update existing form
-        const { error } = await supabase
-          .from("custom_order_forms")
-          .update(formData as any)
+        const { error } = await customOrderFormsTable()
+          .update(formData)
           .eq("id", editingForm.id);
           
         if (error) throw error;
       } else {
-        // Create new form
-        const { error } = await supabase
-          .from("custom_order_forms")
-          .insert(formData as any);
+        const { error } = await customOrderFormsTable()
+          .insert(formData);
           
         if (error) throw error;
       }
@@ -314,18 +303,14 @@ export const AdminFormsManager = () => {
   const onSubmitPaymentLink = async (values: z.infer<typeof paymentLinkSchema>) => {
     try {
       if (editingPaymentLink) {
-        // Update existing payment link
-        const { error } = await supabase
-          .from("payment_links")
-          .update(values as any)
+        const { error } = await paymentLinksTable()
+          .update(values)
           .eq("id", editingPaymentLink.id);
           
         if (error) throw error;
       } else {
-        // Create new payment link
-        const { error } = await supabase
-          .from("payment_links")
-          .insert(values as any);
+        const { error } = await paymentLinksTable()
+          .insert(values);
           
         if (error) throw error;
       }
@@ -345,8 +330,7 @@ export const AdminFormsManager = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from("custom_order_forms")
+      const { error } = await customOrderFormsTable()
         .delete()
         .eq("id", id);
 
@@ -366,8 +350,7 @@ export const AdminFormsManager = () => {
     }
 
     try {
-      const { error } = await supabase
-        .from("payment_links")
+      const { error } = await paymentLinksTable()
         .delete()
         .eq("id", id);
 
@@ -610,7 +593,6 @@ export const AdminFormsManager = () => {
         </TabsContent>
       </Tabs>
 
-      {/* Form creation/editing modal */}
       <Dialog open={formModalOpen} onOpenChange={setFormModalOpen}>
         <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
@@ -878,7 +860,6 @@ export const AdminFormsManager = () => {
         </DialogContent>
       </Dialog>
 
-      {/* Payment link creation/editing modal */}
       <Dialog open={paymentModalOpen} onOpenChange={setPaymentModalOpen}>
         <DialogContent className="max-w-2xl">
           <DialogHeader>

@@ -10,7 +10,7 @@ const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { toast } = useToast();
-  const { planName, amount } = location.state || {};
+  const { planName, amount, orderId } = location.state || {};
 
   useEffect(() => {
     if (!planName || !amount) {
@@ -26,7 +26,30 @@ const Payment = () => {
   const initiatePayment = async () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
+      
+      // Get guest id from order if this is a guest order
+      let userId = user?.id;
+      let guestId = null;
+      
+      if (!userId && orderId) {
+        // For guest orders, get the guest_id from the order
+        const { data: orderData, error: orderError } = await supabase
+          .from('custom_orders')
+          .select('guest_id')
+          .eq('id', orderId)
+          .single();
+          
+        if (orderError) {
+          console.error('Error fetching order:', orderError);
+          throw new Error('Unable to process payment for this order.');
+        }
+        
+        guestId = orderData.guest_id;
+        
+        if (!guestId) {
+          throw new Error('Guest information not found. Please try again.');
+        }
+      } else if (!userId) {
         toast({
           variant: "destructive",
           title: "Error",
@@ -37,16 +60,20 @@ const Payment = () => {
       }
 
       console.log("Initiating payment with:", { 
-        userId: user.id, 
+        userId, 
+        guestId,
         planName, 
         amount,
+        orderId
       });
 
       const { data, error } = await supabase.functions.invoke('initiate-payu-payment', {
         body: { 
-          userId: user.id,
+          userId: userId,
+          guestId: guestId,
           planName,
-          amount
+          amount,
+          orderId
         }
       });
 
@@ -101,12 +128,18 @@ const Payment = () => {
               <span>Amount</span>
               <span className="font-medium">₹{amount}</span>
             </div>
+            {orderId && (
+              <div className="flex justify-between text-white">
+                <span>Order ID</span>
+                <span className="font-medium text-xs">{orderId}</span>
+              </div>
+            )}
           </div>
         </CardContent>
         <CardFooter className="flex justify-end space-x-2">
           <Button 
             variant="ghost" 
-            onClick={() => navigate("/plans")}
+            onClick={() => orderId ? navigate("/") : navigate("/plans")}
             className="text-white hover:bg-white/10"
           >
             Cancel

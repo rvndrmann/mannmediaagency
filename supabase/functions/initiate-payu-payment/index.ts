@@ -30,12 +30,12 @@ serve(async (req) => {
     console.log('Request origin:', origin);
 
     // Parse and validate request body
-    const { userId, planName, amount } = await req.json() as PaymentRequest;
-    console.log('Payment Request:', { userId, planName, amount });
+    const { userId, guestId, planName, amount, orderId } = await req.json() as PaymentRequest;
+    console.log('Payment Request:', { userId, guestId, planName, amount, orderId });
     
-    if (!userId) {
-      console.error('Validation Error: Missing userId');
-      throw new Error('User ID is required');
+    if (!userId && !guestId) {
+      console.error('Validation Error: Missing userId or guestId');
+      throw new Error('User ID or Guest ID is required');
     }
 
     // Verify PayU credentials are set
@@ -58,19 +58,34 @@ serve(async (req) => {
     const txnId = `LIVE${timestamp}${random}`;
     
     // Create transaction record first
-    await db.createPaymentTransaction(userId, txnId, amount);
+    await db.createPaymentTransaction(userId, guestId, txnId, amount, orderId);
 
     // Get user contact information (email or phone)
-    const email = await db.getUserEmail(userId);
+    let email, phone, firstname;
+    
+    if (userId) {
+      // Regular user with account
+      const userContact = await db.getUserEmail(userId);
+      email = userContact;
+      phone = "9999999999"; // Default phone if not available
+      firstname = "User";
+    } else if (guestId) {
+      // Guest user
+      const guestInfo = await db.getGuestInfo(guestId);
+      email = guestInfo.email;
+      phone = guestInfo.phone_number;
+      firstname = guestInfo.name;
+    } else {
+      throw new Error('Unable to determine user information');
+    }
+
     console.log('User contact info retrieved:', email.substring(0, 4) + '...');
 
     const cleanAmount = Number(amount).toFixed(2);
-    const productInfo = `${planName} Plan`;
+    const productInfo = `${planName}`;
     const successUrl = new URL('/payment/success', origin).toString();
     const failureUrl = new URL('/payment/failure', origin).toString();
     const cancelUrl = new URL('/payment/cancel', origin).toString();
-    const firstname = "User";
-    const phone = "9999999999"; // Default phone if not available
     
     console.log('Payment Parameters:', {
       email: email.substring(0, 4) + '...',
@@ -141,4 +156,3 @@ serve(async (req) => {
     );
   }
 });
-

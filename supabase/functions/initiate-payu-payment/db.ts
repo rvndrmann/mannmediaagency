@@ -12,17 +12,19 @@ export class DatabaseService {
     )
   }
 
-  async createPaymentTransaction(userId: string, txnId: string, amount: number) {
-    console.log('Creating payment transaction:', { userId, txnId, amount });
+  async createPaymentTransaction(userId: string | null, guestId: string | null, txnId: string, amount: number, orderId: string | null = null) {
+    console.log('Creating payment transaction:', { userId, guestId, txnId, amount, orderId });
     
     const { error: txnError } = await this.supabase
       .from('payment_transactions')
       .insert({
         user_id: userId,
+        guest_id: guestId,
         transaction_id: txnId,
         amount: amount,
         status: 'pending',
-        payment_method: 'payu'
+        payment_method: 'payu',
+        related_order_id: orderId
       })
 
     if (txnError) {
@@ -64,5 +66,26 @@ export class DatabaseService {
     console.log('User contact info resolved successfully');
     return contactInfo;
   }
+  
+  async getGuestInfo(guestId: string): Promise<any> {
+    console.log('Fetching guest details for:', guestId);
+    
+    const { data, error } = await this.supabase
+      .from('custom_order_guests')
+      .select('*')
+      .eq('id', guestId)
+      .single();
+    
+    if (error) {
+      console.error('Guest fetch error:', error);
+      throw new Error('Failed to get guest details');
+    }
+    
+    if (!data) {
+      throw new Error('Guest not found');
+    }
+    
+    console.log('Guest details fetched successfully');
+    return data;
+  }
 }
-

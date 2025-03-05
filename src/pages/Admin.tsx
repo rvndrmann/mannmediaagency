@@ -11,6 +11,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AdminCustomOrders } from "@/components/admin/AdminCustomOrders";
 import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminUsageStats } from "@/components/admin/AdminUsageStats";
+import { CustomOrderLinks } from "@/components/admin/CustomOrderLinks";
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -108,14 +109,19 @@ const Admin = () => {
 
         <div className="container mx-auto py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-3 w-full max-w-md mx-auto mb-6">
+            <TabsList className="grid grid-cols-4 w-full max-w-[600px] mx-auto mb-6">
               <TabsTrigger value="orders">Custom Orders</TabsTrigger>
+              <TabsTrigger value="links">Order Links</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="stats">Usage Stats</TabsTrigger>
             </TabsList>
             
             <TabsContent value="orders" className="mt-6">
               <AdminCustomOrders key={isRefreshing ? 'refresh-orders' : 'orders'} />
+            </TabsContent>
+            
+            <TabsContent value="links" className="mt-6">
+              <CustomOrderLinks key={isRefreshing ? 'refresh-links' : 'links'} />
             </TabsContent>
             
             <TabsContent value="users" className="mt-6">

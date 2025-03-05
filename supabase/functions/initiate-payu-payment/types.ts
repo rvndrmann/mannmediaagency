@@ -1,8 +1,10 @@
 
 export interface PaymentRequest {
-  userId: string;
+  userId?: string;
+  guestId?: string;
   planName: string;
   amount: number;
+  orderId?: string;
 }
 
 export interface SubscriptionRecord {

@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CustomOrder } from "@/types/custom-order";
+import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
 import { 
   Card, 
   CardContent, 
@@ -28,7 +29,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Eye, Loader2, Send, Upload, ImageIcon, VideoIcon, Trash, X, Progress, Separator } from "lucide-react";
+import { Eye, Loader2, Send, Upload, ImageIcon, VideoIcon, Trash, X } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -36,7 +37,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import {
   Tabs,
@@ -44,6 +44,9 @@ import {
   TabsList,
   TabsTrigger,
 } from "@/components/ui/tabs";
+import { Progress } from "@/components/ui/progress";
+import { Separator } from "@/components/ui/separator";
+import { Badge } from "@/components/ui/badge";
 
 export const AdminCustomOrders = () => {
   const [orders, setOrders] = useState<CustomOrder[]>([]);
@@ -91,7 +94,7 @@ export const AdminCustomOrders = () => {
       
       if (error) throw error;
       
-      setOrders(data as unknown as CustomOrder[]);
+      setOrders(data as CustomOrder[]);
       
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(order => order.user_id))];
@@ -134,16 +137,22 @@ export const AdminCustomOrders = () => {
       
       if (imagesError) throw imagesError;
       
-      setOrderImages(imagesData as unknown as { image_url: string }[]);
+      setOrderImages(imagesData as { image_url: string }[]);
 
-      const { data: mediaData, error: mediaError } = await supabase
-        .from('custom_order_media')
-        .select('*')
-        .eq('order_id', order.id);
-      
-      if (mediaError) throw mediaError;
-      
-      setOrderMedia(mediaData as unknown as CustomOrderMedia[]);
+      try {
+        const { data: mediaData, error: mediaError } = await supabase
+          .from('custom_order_media')
+          .select('*')
+          .eq('order_id', order.id);
+        
+        if (mediaError) throw mediaError;
+        
+        setOrderMedia(mediaData as unknown as CustomOrderMedia[]);
+      } catch (error) {
+        // If the table doesn't exist yet, just set empty array
+        console.warn("Error fetching media (table might not exist yet):", error);
+        setOrderMedia([]);
+      }
     } catch (error) {
       console.error("Error fetching order media:", error);
       toast.error("Failed to load order media");
@@ -238,6 +247,17 @@ export const AdminCustomOrders = () => {
     if (!confirm("Are you sure you want to delete this media item?")) return;
     
     try {
+      // First check if the table exists by trying to select one row
+      const { count, error: checkError } = await supabase
+        .from('custom_order_media')
+        .select('*', { count: 'exact', head: true });
+      
+      if (checkError) {
+        console.error("Table doesn't exist yet:", checkError);
+        toast.error("Media storage not set up yet");
+        return;
+      }
+      
       const { error } = await supabase
         .from('custom_order_media')
         .delete()
@@ -322,18 +342,38 @@ export const AdminCustomOrders = () => {
           .from('custom-order-media')
           .getPublicUrl(fileName);
         
-        const { error: mediaError } = await supabase.rpc(
-          'add_custom_order_media',
-          {
-            order_id_param: selectedOrder.id,
-            media_url_param: publicUrlData.publicUrl,
-            media_type_param: mediaType,
-            thumbnail_url_param: mediaType === 'image' ? publicUrlData.publicUrl : null,
-            original_filename_param: file.name
+        try {
+          // Try to call the RPC function
+          const { error: mediaError } = await supabase.rpc(
+            'add_custom_order_media',
+            {
+              order_id_param: selectedOrder.id,
+              media_url_param: publicUrlData.publicUrl,
+              media_type_param: mediaType,
+              thumbnail_url_param: mediaType === 'image' ? publicUrlData.publicUrl : null,
+              original_filename_param: file.name
+            }
+          );
+          
+          if (mediaError) {
+            console.warn("RPC function call failed, falling back to direct insert:", mediaError);
+            // Fallback to direct insert
+            const { error: insertError } = await supabase
+              .from('custom_order_media')
+              .insert({
+                order_id: selectedOrder.id,
+                media_url: publicUrlData.publicUrl,
+                media_type: mediaType,
+                thumbnail_url: mediaType === 'image' ? publicUrlData.publicUrl : null,
+                original_filename: file.name
+              });
+              
+            if (insertError) throw insertError;
           }
-        );
-        
-        if (mediaError) throw mediaError;
+        } catch (dbError) {
+          console.error("Error adding media to database:", dbError);
+          toast.error(`Failed to add ${file.name} to database`);
+        }
         
         const newMedia: CustomOrderMedia = {
           id: crypto.randomUUID(),

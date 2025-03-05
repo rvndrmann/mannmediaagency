@@ -50,15 +50,24 @@ export const OrderDetailsDialog = ({
       if (orderError) throw orderError;
       setOrder(orderData as CustomOrder);
 
-      // Fetch order media
-      const { data: mediaData, error: mediaError } = await supabase
-        .from("custom_order_media")
-        .select("*")
-        .eq("order_id", id)
-        .order("created_at", { ascending: false });
+      try {
+        // Fetch order media
+        const { data: mediaData, error: mediaError } = await supabase
+          .from("custom_order_media")
+          .select("*")
+          .eq("order_id", id)
+          .order("created_at", { ascending: false });
 
-      if (mediaError) throw mediaError;
-      setOrderMedia(mediaData as CustomOrderMedia[]);
+        if (mediaError) {
+          console.warn("Error fetching media (table might not exist yet):", mediaError);
+          setOrderMedia([]);
+        } else {
+          setOrderMedia(mediaData as unknown as CustomOrderMedia[]);
+        }
+      } catch (error) {
+        console.warn("Error in media fetch:", error);
+        setOrderMedia([]);
+      }
     } catch (error) {
       console.error("Error fetching order details:", error);
     } finally {

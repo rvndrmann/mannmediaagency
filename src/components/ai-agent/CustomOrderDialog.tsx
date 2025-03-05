@@ -85,62 +85,46 @@ export const CustomOrderDialog = ({
         throw orderError;
       }
 
-      // Check if bucket exists and create if it doesn't
-      try {
-        // Check if the bucket exists first
-        const { data: buckets } = await supabase.storage.listBuckets();
-        const bucketExists = buckets?.some(bucket => bucket.name === 'product-photos');
-        
-        if (!bucketExists) {
-          console.log("product-photos bucket doesn't exist, attempting to create...");
-          const { error: createBucketError } = await supabase.storage.createBucket('product-photos', {
-            public: true,
-          });
-          
-          if (createBucketError) {
-            console.error("Error creating bucket:", createBucketError);
-            // Continue anyway - the bucket might exist but the user doesn't have permission to list buckets
-          }
-        }
-      } catch (bucketError) {
-        console.warn("Error checking bucket:", bucketError);
-        // Continue with upload - the error might be due to permissions
-      }
-
-      // Upload each image and create entries in custom_order_images
+      // Upload each file and create entries in custom_order_media
       const uploadPromises = selectedImages.map(async (file) => {
         // Generate a unique file name
         const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random().toString(36).substring(2, 15)}.${fileExt}`;
-        const filePath = `custom_orders/${orderData.id}/${fileName}`;
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `${orderData.id}/${fileName}`;
+        
+        // Determine if this is an image or video file
+        const mediaType = file.type.startsWith('image/') ? 'image' : 
+                          file.type.startsWith('video/') ? 'video' : 'image';
 
         // Upload the file to storage
         const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('product-photos')
+          .from('custom-order-media')
           .upload(filePath, file);
 
         if (uploadError) {
-          console.error("Error uploading image:", uploadError);
+          console.error("Error uploading media:", uploadError);
           throw uploadError;
         }
 
         // Get the public URL
         const { data: publicUrlData } = supabase.storage
-          .from('product-photos')
+          .from('custom-order-media')
           .getPublicUrl(filePath);
 
-        // Insert image record using RPC
-        const { error: imageInsertError } = await supabase.rpc(
-          'add_custom_order_image',
+        // Insert media record using RPC
+        const { error: mediaInsertError } = await supabase.rpc(
+          'add_custom_order_media',
           { 
             order_id_param: orderData.id, 
-            image_url_param: publicUrlData.publicUrl 
+            media_url_param: publicUrlData.publicUrl,
+            media_type_param: mediaType,
+            original_filename_param: file.name
           }
         );
 
-        if (imageInsertError) {
-          console.error("Error adding image to order:", imageInsertError);
-          throw imageInsertError;
+        if (mediaInsertError) {
+          console.error("Error adding media to order:", mediaInsertError);
+          throw mediaInsertError;
         }
       });
 
@@ -182,7 +166,7 @@ export const CustomOrderDialog = ({
             </label>
             <input
               type="file"
-              accept="image/*"
+              accept="image/*,video/*"
               multiple
               className="hidden"
               ref={fileInputRef}
@@ -195,7 +179,7 @@ export const CustomOrderDialog = ({
               className="w-full h-20 border-dashed flex flex-col gap-2"
             >
               <Upload className="h-5 w-5" />
-              <span>Click to select images</span>
+              <span>Click to select images or videos</span>
             </Button>
           </div>
 

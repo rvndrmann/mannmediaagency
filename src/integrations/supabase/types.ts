@@ -316,42 +316,6 @@ export type Database = {
         }
         Relationships: []
       }
-      custom_order_forms: {
-        Row: {
-          access_code: string | null
-          created_at: string
-          description: string | null
-          fields: Json
-          id: string
-          is_active: boolean
-          require_phone: boolean
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          access_code?: string | null
-          created_at?: string
-          description?: string | null
-          fields?: Json
-          id?: string
-          is_active?: boolean
-          require_phone?: boolean
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          access_code?: string | null
-          created_at?: string
-          description?: string | null
-          fields?: Json
-          id?: string
-          is_active?: boolean
-          require_phone?: boolean
-          title?: string
-          updated_at?: string
-        }
-        Relationships: []
-      }
       custom_order_images: {
         Row: {
           created_at: string
@@ -510,38 +474,6 @@ export type Database = {
           },
         ]
       }
-      form_submissions: {
-        Row: {
-          created_at: string
-          form_id: string
-          id: string
-          phone_number: string | null
-          submission_data: Json
-        }
-        Insert: {
-          created_at?: string
-          form_id: string
-          id?: string
-          phone_number?: string | null
-          submission_data: Json
-        }
-        Update: {
-          created_at?: string
-          form_id?: string
-          id?: string
-          phone_number?: string | null
-          submission_data?: Json
-        }
-        Relationships: [
-          {
-            foreignKeyName: "form_submissions_form_id_fkey"
-            columns: ["form_id"]
-            isOneToOne: false
-            referencedRelation: "custom_order_forms"
-            referencedColumns: ["id"]
-          },
-        ]
-      }
       image_generation_jobs: {
         Row: {
           created_at: string
@@ -608,45 +540,6 @@ export type Database = {
           platform?: string
           state?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      payment_links: {
-        Row: {
-          access_code: string | null
-          amount: number
-          created_at: string
-          currency: string
-          description: string | null
-          expiry_date: string | null
-          id: string
-          is_active: boolean
-          title: string
-          updated_at: string
-        }
-        Insert: {
-          access_code?: string | null
-          amount: number
-          created_at?: string
-          currency?: string
-          description?: string | null
-          expiry_date?: string | null
-          id?: string
-          is_active?: boolean
-          title: string
-          updated_at?: string
-        }
-        Update: {
-          access_code?: string | null
-          amount?: number
-          created_at?: string
-          currency?: string
-          description?: string | null
-          expiry_date?: string | null
-          id?: string
-          is_active?: boolean
-          title?: string
-          updated_at?: string
         }
         Relationships: []
       }

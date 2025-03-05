@@ -1,12 +1,11 @@
 
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
 const AuthCallback = () => {
   const navigate = useNavigate();
-  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     const handleCallback = async () => {
@@ -22,26 +21,8 @@ const AuthCallback = () => {
         // If we have a session, we're good to go
         if (session?.user) {
           console.log("Authentication successful for:", session.user.email);
-          
-          // Check if user is an admin
-          const { data: isAdmin, error: adminError } = await supabase.rpc(
-            'check_is_admin'
-          );
-          
-          if (adminError) {
-            console.error("Error checking admin status:", adminError);
-          }
-          
           toast.success("Successfully logged in!");
-          
-          // If user is an admin, redirect to admin page, otherwise to home
-          if (isAdmin) {
-            console.log("User is admin, redirecting to admin page");
-            navigate("/admin", { replace: true });
-          } else {
-            console.log("User is not admin, redirecting to home page");
-            navigate("/", { replace: true });
-          }
+          navigate("/", { replace: true });
           return;
         }
 
@@ -61,8 +42,6 @@ const AuthCallback = () => {
         console.error("Auth callback error:", error);
         toast.error(error.message || "Authentication failed");
         navigate("/auth/login", { replace: true });
-      } finally {
-        setIsLoading(false);
       }
     };
 

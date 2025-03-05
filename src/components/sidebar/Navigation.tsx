@@ -14,40 +14,14 @@ import {
   User,
   Menu,
   Bot,
-  LayoutDashboard
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar/context";
-import { useEffect, useState } from "react";
-import { supabase } from "@/integrations/supabase/client";
 
 export const Navigation = () => {
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
-  const [isAdmin, setIsAdmin] = useState(false);
-
-  useEffect(() => {
-    const checkAdminStatus = async () => {
-      try {
-        const { data: adminData, error: adminError } = await supabase.rpc(
-          'check_is_admin'
-        );
-        
-        if (adminError) {
-          console.error("Error checking admin status:", adminError);
-          setIsAdmin(false);
-        } else {
-          setIsAdmin(!!adminData);
-        }
-      } catch (error) {
-        console.error("Error checking admin status:", error);
-        setIsAdmin(false);
-      }
-    };
-
-    checkAdminStatus();
-  }, []);
 
   const mainNavigation = [
     {
@@ -68,13 +42,6 @@ export const Navigation = () => {
       to: "/ai-agent",
       icon: Bot,
     },
-    // Show Admin link only for admin users
-    ...(isAdmin ? [{
-      name: "Admin",
-      subtext: "Admin Dashboard",
-      to: "/admin",
-      icon: LayoutDashboard,
-    }] : []),
     {
       name: "Plans & Billing",
       to: "/plans",

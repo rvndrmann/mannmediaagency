@@ -57,14 +57,16 @@ const PaymentLink = () => {
         throw new Error("This payment link has expired");
       }
       
-      setPaymentLink(data as PaymentLinkType);
+      // Convert DB type to application type
+      const paymentLinkData: PaymentLinkType = data as PaymentLinkType;
+      setPaymentLink(paymentLinkData);
       
       // Check if access code is required
-      if (data.access_code) {
+      if (paymentLinkData.access_code) {
         setAccessRequired(true);
         
         // Check if code from URL matches
-        if (searchParams.get('code') === data.access_code) {
+        if (searchParams.get('code') === paymentLinkData.access_code) {
           setAccessVerified(true);
         }
       } else {

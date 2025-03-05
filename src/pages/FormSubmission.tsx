@@ -237,10 +237,13 @@ const FormSubmission = () => {
     setSubmitting(true);
     
     try {
+      // Ensure formData is serializable by JSON.stringify
+      const serializedFormData = { ...formValues };
+      
       // Submit form data using our helper function
       const { data, error } = await createFormSubmission({
         formId,
-        formData: formValues,
+        formData: serializedFormData,
         phoneNumber: phoneVerified ? phoneNumber : null,
         imageUrls: uploadedImages
       });

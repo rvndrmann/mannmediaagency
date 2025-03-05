@@ -27,8 +27,10 @@ serve(async (req: Request) => {
       );
     }
 
-    // Ensure formData is properly stringified if it's not already a string
-    const submissionData = typeof formData === 'string' ? formData : JSON.stringify(formData);
+    // Ensure formData is properly stringified for database storage
+    const submissionData = typeof formData === 'string' 
+      ? formData 
+      : JSON.stringify(formData);
 
     // Insert the form submission
     const { data, error } = await supabase

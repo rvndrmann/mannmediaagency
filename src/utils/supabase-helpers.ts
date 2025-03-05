@@ -39,11 +39,22 @@ export const createFormSubmission = async (formData: {
 
 // Parse fields from database JSON to FormField[] type
 export const parseFormFields = (form: DbCustomOrderForm): CustomOrderForm => {
+  let parsedFields: FormField[] = [];
+  
+  try {
+    if (typeof form.fields === 'string') {
+      parsedFields = JSON.parse(form.fields);
+    } else if (Array.isArray(form.fields)) {
+      parsedFields = form.fields as FormField[];
+    }
+  } catch (error) {
+    console.error("Error parsing form fields:", error);
+    parsedFields = [];
+  }
+  
   return {
     ...form,
-    fields: typeof form.fields === 'string' 
-      ? JSON.parse(form.fields) 
-      : (Array.isArray(form.fields) ? form.fields : []),
+    fields: parsedFields,
     description: form.description || null,
     access_code: form.access_code || null
   };
@@ -55,17 +66,18 @@ export const prepareFormForSave = (formData: Partial<CustomOrderForm>): Partial<
     return formData as unknown as Partial<DbCustomOrderForm>;
   }
   
-  return {
+  const preparedData = {
     ...formData,
     fields: JSON.stringify(formData.fields)
-  } as unknown as Partial<DbCustomOrderForm>;
+  };
+  
+  return preparedData as unknown as Partial<DbCustomOrderForm>;
 };
 
 // Helper to prepare payment link for saving
 export const preparePaymentLinkForSave = (paymentData: Partial<PaymentLink> & { amount: number; title: string }): Partial<DbPaymentLink> => {
-  return {
-    ...paymentData
-  } as unknown as Partial<DbPaymentLink>;
+  // Nothing to transform for payment links currently, just cast the type
+  return paymentData as unknown as Partial<DbPaymentLink>;
 };
 
 // Parse an array of forms from the database
@@ -75,10 +87,19 @@ export const parseFormsList = (forms: DbCustomOrderForm[]): CustomOrderForm[] =>
 
 // Parse form submission data
 export const parseFormSubmission = (submission: DbFormSubmissionData): FormSubmissionData => {
+  let parsedData: any = submission.submission_data;
+  
+  try {
+    if (typeof submission.submission_data === 'string') {
+      parsedData = JSON.parse(submission.submission_data);
+    }
+  } catch (error) {
+    console.error("Error parsing submission data:", error);
+    parsedData = submission.submission_data;
+  }
+  
   return {
     ...submission,
-    submission_data: typeof submission.submission_data === 'string'
-      ? JSON.parse(submission.submission_data)
-      : submission.submission_data
+    submission_data: parsedData
   };
 };

@@ -352,6 +352,30 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_order_guests: {
+        Row: {
+          created_at: string
+          email: string | null
+          id: string
+          name: string | null
+          phone_number: string
+        }
+        Insert: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone_number: string
+        }
+        Update: {
+          created_at?: string
+          email?: string | null
+          id?: string
+          name?: string | null
+          phone_number?: string
+        }
+        Relationships: []
+      }
       custom_order_images: {
         Row: {
           created_at: string
@@ -380,6 +404,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      custom_order_links: {
+        Row: {
+          access_code: string
+          created_at: string
+          created_by: string | null
+          credits_amount: number
+          custom_rate: number
+          description: string | null
+          expiry_date: string | null
+          id: string
+          is_active: boolean
+          require_phone: boolean
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          access_code: string
+          created_at?: string
+          created_by?: string | null
+          credits_amount?: number
+          custom_rate: number
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          require_phone?: boolean
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          access_code?: string
+          created_at?: string
+          created_by?: string | null
+          credits_amount?: number
+          custom_rate?: number
+          description?: string | null
+          expiry_date?: string | null
+          id?: string
+          is_active?: boolean
+          require_phone?: boolean
+          title?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       custom_order_media: {
         Row: {
@@ -427,7 +496,9 @@ export type Database = {
           delivered_at: string | null
           delivery_message: string | null
           delivery_url: string | null
+          guest_id: string | null
           id: string
+          order_link_id: string | null
           remark: string | null
           status: string
           updated_at: string
@@ -440,7 +511,9 @@ export type Database = {
           delivered_at?: string | null
           delivery_message?: string | null
           delivery_url?: string | null
+          guest_id?: string | null
           id?: string
+          order_link_id?: string | null
           remark?: string | null
           status?: string
           updated_at?: string
@@ -453,13 +526,30 @@ export type Database = {
           delivered_at?: string | null
           delivery_message?: string | null
           delivery_url?: string | null
+          guest_id?: string | null
           id?: string
+          order_link_id?: string | null
           remark?: string | null
           status?: string
           updated_at?: string
           user_id?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "custom_orders_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "custom_orders_order_link_id_fkey"
+            columns: ["order_link_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_links"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       default_product_images: {
         Row: {
@@ -1889,7 +1979,9 @@ export type Database = {
           delivered_at: string | null
           delivery_message: string | null
           delivery_url: string | null
+          guest_id: string | null
           id: string
+          order_link_id: string | null
           remark: string | null
           status: string
           updated_at: string

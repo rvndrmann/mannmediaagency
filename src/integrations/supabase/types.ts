@@ -1963,6 +1963,10 @@ export type Database = {
         }
         Returns: undefined
       }
+      user_is_admin: {
+        Args: Record<PropertyKey, never>
+        Returns: boolean
+      }
     }
     Enums: {
       image_generation_status: "pending" | "processing" | "completed" | "failed"

@@ -82,52 +82,60 @@ export const CustomOrderDialog = ({
 
       if (orderError) {
         console.error("Error creating custom order:", orderError);
-        throw orderError;
+        throw new Error(orderError.message || "Failed to create custom order");
       }
 
       // Upload each file and create entries in custom_order_media
-      const uploadPromises = selectedImages.map(async (file) => {
-        // Generate a unique file name
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${crypto.randomUUID()}.${fileExt}`;
-        const filePath = `${orderData.id}/${fileName}`;
-        
-        // Determine if this is an image or video file
-        const mediaType = file.type.startsWith('image/') ? 'image' : 
-                          file.type.startsWith('video/') ? 'video' : 'image';
+      const uploadPromises = selectedImages.map(async (file, index) => {
+        try {
+          // Generate a unique file name
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${crypto.randomUUID()}.${fileExt}`;
+          const filePath = `${orderData.id}/${fileName}`;
+          
+          // Determine if this is an image or video file
+          const mediaType = file.type.startsWith('image/') ? 'image' : 
+                            file.type.startsWith('video/') ? 'video' : 'image';
 
-        // Upload the file to storage
-        const { data: uploadData, error: uploadError } = await supabase.storage
-          .from('custom-order-media')
-          .upload(filePath, file);
+          // Upload the file to storage
+          const { data: uploadData, error: uploadError } = await supabase.storage
+            .from('custom-order-media')
+            .upload(filePath, file);
 
-        if (uploadError) {
-          console.error("Error uploading media:", uploadError);
-          throw uploadError;
-        }
-
-        // Get the public URL
-        const { data: publicUrlData } = supabase.storage
-          .from('custom-order-media')
-          .getPublicUrl(filePath);
-
-        // Insert media record using RPC
-        const { error: mediaInsertError } = await supabase.rpc(
-          'add_custom_order_media',
-          { 
-            order_id_param: orderData.id, 
-            media_url_param: publicUrlData.publicUrl,
-            media_type_param: mediaType,
-            original_filename_param: file.name
+          if (uploadError) {
+            console.error(`Error uploading media file ${index + 1}:`, uploadError);
+            throw new Error(uploadError.message || `Failed to upload media file ${index + 1}`);
           }
-        );
 
-        if (mediaInsertError) {
-          console.error("Error adding media to order:", mediaInsertError);
-          throw mediaInsertError;
+          // Get the public URL
+          const { data: publicUrlData } = supabase.storage
+            .from('custom-order-media')
+            .getPublicUrl(filePath);
+
+          // Insert media record using RPC
+          const { error: mediaInsertError } = await supabase.rpc(
+            'add_custom_order_media',
+            { 
+              order_id_param: orderData.id, 
+              media_url_param: publicUrlData.publicUrl,
+              media_type_param: mediaType,
+              original_filename_param: file.name
+            }
+          );
+
+          if (mediaInsertError) {
+            console.error(`Error adding media ${index + 1} to order:`, mediaInsertError);
+            throw new Error(mediaInsertError.message || `Failed to add media ${index + 1} to order`);
+          }
+          
+          return true;
+        } catch (fileError: any) {
+          console.error(`Error processing file ${index + 1}:`, fileError);
+          throw new Error(fileError.message || `Error processing file ${index + 1}`);
         }
       });
 
+      // Wait for all uploads to complete
       await Promise.all(uploadPromises);
 
       // Update the user credits query to get latest count
@@ -142,7 +150,15 @@ export const CustomOrderDialog = ({
       onOpenChange(false);
     } catch (error: any) {
       console.error("Custom order error details:", error);
-      toast.error(error.message || "Failed to submit custom order. Please try again.");
+      
+      // Provide more specific error messages based on error type
+      if (error.message && error.message.includes("policy")) {
+        toast.error("Permission error: You don't have the required permissions to complete this action.");
+      } else if (error.message && error.message.includes("storage")) {
+        toast.error("Storage error: There was a problem uploading your files. Please try again.");
+      } else {
+        toast.error(error.message || "Failed to submit custom order. Please try again.");
+      }
     } finally {
       setIsSubmitting(false);
     }

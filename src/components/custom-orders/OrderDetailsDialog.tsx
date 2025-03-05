@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
@@ -32,7 +31,7 @@ export const OrderDetailsDialog = ({
   const [order, setOrder] = useState<CustomOrder | null>(null);
   const [orderMedia, setOrderMedia] = useState<CustomOrderMedia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paymentInfo, setPaymentInfo] = useState<any | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<Record<string, any> | null>(null);
 
   useEffect(() => {
     if (open && orderId) {

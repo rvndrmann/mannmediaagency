@@ -296,22 +296,23 @@ export const AdminCustomOrders = () => {
           });
         }, 300);
         
+        let bucketExistsOrCreated = false;
+        
         try {
-          const { data: buckets } = await supabase.storage.listBuckets();
-          const bucketExists = buckets?.some(bucket => bucket.name === 'custom-order-media');
+          const { data: filesList, error: listError } = await supabase.storage
+            .from('custom-order-media')
+            .list();
           
-          if (!bucketExists) {
-            console.log("custom-order-media bucket doesn't exist, attempting to create...");
-            const { error: createBucketError } = await supabase.storage.createBucket('custom-order-media', {
-              public: true,
-            });
-            
-            if (createBucketError) {
-              console.error("Error creating bucket:", createBucketError);
-            }
+          if (!listError) {
+            bucketExistsOrCreated = true;
           }
-        } catch (bucketError) {
-          console.warn("Error checking bucket:", bucketError);
+        } catch (error) {
+          console.warn("Error checking bucket, will attempt to create:", error);
+        }
+        
+        if (!bucketExistsOrCreated) {
+          console.log("Bucket appears not to exist, but this user can't create it via the API.");
+          console.log("Using the existing bucket or it should be created via migrations");
         }
         
         const fileExt = file.name.split('.').pop();
@@ -319,11 +320,13 @@ export const AdminCustomOrders = () => {
         
         const mediaType = file.type.startsWith('image/') ? 'image' : 'video';
         
-        const { error: uploadError } = await supabase.storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
           .from('custom-order-media')
           .upload(fileName, file);
         
-        if (uploadError) throw uploadError;
+        if (uploadError) {
+          throw new Error(`Upload error: ${uploadError.message}`);
+        }
         
         clearInterval(progressInterval);
         setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
@@ -332,53 +335,28 @@ export const AdminCustomOrders = () => {
           .from('custom-order-media')
           .getPublicUrl(fileName);
         
-        try {
-          const { data, error: rpcError } = await supabase.rpc(
-            'add_custom_order_media',
-            {
-              order_id_param: selectedOrder.id,
-              media_url_param: publicUrlData.publicUrl,
-              media_type_param: mediaType,
-              thumbnail_url_param: mediaType === 'image' ? publicUrlData.publicUrl : null,
-              original_filename_param: file.name
-            }
-          );
-          
-          if (rpcError) {
-            console.warn("RPC function call failed, falling back to direct insert:", rpcError);
-            const { error: insertError } = await supabase
-              .from('custom_order_media')
-              .insert({
-                order_id: selectedOrder.id,
-                media_url: publicUrlData.publicUrl,
-                media_type: mediaType,
-                thumbnail_url: mediaType === 'image' ? publicUrlData.publicUrl : null,
-                original_filename: file.name
-              });
-              
-            if (insertError) throw insertError;
-          }
-        } catch (dbError) {
-          console.error("Error adding media to database:", dbError);
-          toast.error(`Failed to add ${file.name} to database`);
+        const { data: mediaData, error: insertError } = await supabase
+          .from('custom_order_media')
+          .insert({
+            order_id: selectedOrder.id,
+            media_url: publicUrlData.publicUrl,
+            media_type: mediaType,
+            thumbnail_url: mediaType === 'image' ? publicUrlData.publicUrl : null,
+            original_filename: file.name
+          })
+          .select()
+          .single();
+        
+        if (insertError) {
+          throw new Error(`Database error: ${insertError.message}`);
         }
         
-        const newMedia: CustomOrderMedia = {
-          id: crypto.randomUUID(),
-          order_id: selectedOrder.id,
-          media_url: publicUrlData.publicUrl,
-          media_type: mediaType as 'image' | 'video',
-          thumbnail_url: mediaType === 'image' ? publicUrlData.publicUrl : null,
-          original_filename: file.name,
-          created_at: new Date().toISOString()
-        };
-        
-        setOrderMedia(prev => [newMedia, ...prev]);
+        setOrderMedia(prev => [mediaData as CustomOrderMedia, ...prev]);
         
         return publicUrlData.publicUrl;
       } catch (error) {
         console.error(`Error uploading file ${file.name}:`, error);
-        toast.error(`Failed to upload ${file.name}`);
+        toast.error(`Failed to upload ${file.name}: ${error.message || 'Unknown error'}`);
         return null;
       }
     });

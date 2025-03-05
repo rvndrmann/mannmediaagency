@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
@@ -23,6 +24,17 @@ interface OrderDetailsDialogProps {
   orderId: string | null;
 }
 
+// Define a specific type for payment info to avoid excessive type instantiation
+interface PaymentInfo {
+  id?: string;
+  amount?: number;
+  status?: string;
+  payment_status?: string;
+  transaction_id?: string;
+  created_at?: string;
+  [key: string]: any; // For other potential properties
+}
+
 export const OrderDetailsDialog = ({
   open,
   onOpenChange,
@@ -31,7 +43,7 @@ export const OrderDetailsDialog = ({
   const [order, setOrder] = useState<CustomOrder | null>(null);
   const [orderMedia, setOrderMedia] = useState<CustomOrderMedia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paymentInfo, setPaymentInfo] = useState<Record<string, any> | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
 
   useEffect(() => {
     if (open && orderId) {

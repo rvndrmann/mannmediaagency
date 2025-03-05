@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ import {
   Menu,
   Bot,
   Bell,
+  LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -22,6 +24,12 @@ import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Badge } from "@/components/ui/badge";
 import { Notification } from "@/types/custom-order";
+import { 
+  BaseNavigationItem, 
+  NavigationItem, 
+  NavigationItemWithBadge, 
+  IntegrationsNavigationItem 
+} from "@/components/ui/sidebar/types";
 
 export const Navigation = () => {
   const location = useLocation();
@@ -121,7 +129,7 @@ export const Navigation = () => {
   }, []);
 
   // Base navigation items
-  const baseNavigation = [
+  const baseNavigation: NavigationItemWithBadge[] = [
     {
       name: "Explore",
       subtext: "Discover Amazing Content",
@@ -154,15 +162,16 @@ export const Navigation = () => {
   ];
 
   // Add admin item if user is admin
-  const adminItem = {
+  const adminItem: NavigationItem = {
     name: "Admin",
     subtext: "Admin Dashboard",
     to: "/admin",
     icon: Shield,
+    adminOnly: true,
   };
 
   // Last item is always Integrations
-  const integrationsItem = {
+  const integrationsItem: IntegrationsNavigationItem = {
     name: "Integrations",
     icon: Settings,
     disabled: true,
@@ -170,13 +179,13 @@ export const Navigation = () => {
   };
 
   // Combine navigation items based on admin status
-  const mainNavigation = isLoadingAdmin
+  const mainNavigation: NavigationItem[] = isLoadingAdmin
     ? baseNavigation // Show basic navigation while loading
     : isAdmin
       ? [...baseNavigation, adminItem, integrationsItem] // Include admin link for admins
       : [...baseNavigation, integrationsItem]; // Regular navigation for non-admins
 
-  const legalNavigation = [
+  const legalNavigation: BaseNavigationItem[] = [
     {
       name: "About Us",
       to: "/about",
@@ -199,6 +208,21 @@ export const Navigation = () => {
     },
   ];
 
+  // Helper function to check if an item has a badge
+  const hasBadge = (item: NavigationItem): item is NavigationItemWithBadge => {
+    return 'badge' in item && item.badge !== undefined;
+  };
+
+  // Helper function to check if an item is disabled
+  const isDisabled = (item: NavigationItem): boolean => {
+    return 'disabled' in item && item.disabled === true;
+  };
+
+  // Helper function to check if an item has comingSoon
+  const hasComingSoon = (item: NavigationItem): boolean => {
+    return 'comingSoon' in item && item.comingSoon === true;
+  };
+
   return (
     <>
       <Button
@@ -217,15 +241,15 @@ export const Navigation = () => {
               variant="ghost"
               className={cn(
                 "w-full justify-start gap-2",
-                location.pathname === item.to
+                item.to && location.pathname === item.to
                   ? "bg-accent text-accent-foreground"
                   : "hover:bg-accent hover:text-accent-foreground",
-                item.disabled && "opacity-50 cursor-not-allowed"
+                isDisabled(item) && "opacity-50 cursor-not-allowed"
               )}
-              asChild={!item.disabled}
-              disabled={item.disabled}
+              asChild={!isDisabled(item) && item.to !== undefined}
+              disabled={isDisabled(item)}
             >
-              {!item.disabled ? (
+              {!isDisabled(item) && item.to ? (
                 <Link to={item.to} className="flex items-center gap-2">
                   <item.icon className="h-4 w-4" />
                   <div className="flex-1 text-left">
@@ -236,12 +260,12 @@ export const Navigation = () => {
                       </div>
                     )}
                   </div>
-                  {item.badge && (
+                  {hasBadge(item) && item.badge && (
                     <Badge variant="destructive" className="ml-auto">
                       {item.badge}
                     </Badge>
                   )}
-                  {item.comingSoon && (
+                  {hasComingSoon(item) && (
                     <span className="text-xs text-muted-foreground">Coming soon</span>
                   )}
                 </Link>
@@ -256,7 +280,12 @@ export const Navigation = () => {
                       </div>
                     )}
                   </div>
-                  {item.comingSoon && (
+                  {hasBadge(item) && item.badge && (
+                    <Badge variant="destructive" className="ml-auto">
+                      {item.badge}
+                    </Badge>
+                  )}
+                  {hasComingSoon(item) && (
                     <span className="text-xs text-muted-foreground">Coming soon</span>
                   )}
                 </div>
@@ -272,12 +301,12 @@ export const Navigation = () => {
             <h3 className="text-xs font-semibold text-gray-400">Information</h3>
           </div>
           {legalNavigation.map((item) => (
-            <Link key={item.name} to={item.to}>
+            <Link key={item.name} to={item.to || "#"}>
               <Button
                 variant="ghost"
                 className={cn(
                   "w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800 text-sm",
-                  location.pathname === item.to && "bg-gray-800 text-white"
+                  item.to && location.pathname === item.to && "bg-gray-800 text-white"
                 )}
               >
                 <item.icon className="mr-2 h-4 w-4" />

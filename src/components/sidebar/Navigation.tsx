@@ -1,4 +1,3 @@
-
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -102,6 +101,16 @@ export const Navigation = () => {
         (payload) => {
           const newNotification = payload.new as Notification;
           setNotifications(prev => [newNotification, ...prev]);
+        }
+      )
+      .on('postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'user_notifications' },
+        (payload) => {
+          const updatedNotification = payload.new as Notification;
+          // If notification is marked as read, remove it from the list
+          if (updatedNotification.read) {
+            setNotifications(prev => prev.filter(n => n.id !== updatedNotification.id));
+          }
         }
       )
       .subscribe();

@@ -28,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Eye, Loader2, Send, Upload } from "lucide-react";
+import { Eye, Loader2, Send, Upload, ImageIcon, VideoIcon, Trash, X, Progress, Separator } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -64,6 +64,12 @@ export const AdminCustomOrders = () => {
   const [deliveryMessage, setDeliveryMessage] = useState("");
   const [delivering, setDelivering] = useState(false);
   const [activeTab, setActiveTab] = useState("details");
+
+  const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [uploadProgress, setUploadProgress] = useState<{[key: string]: number}>({});
+  const [uploading, setUploading] = useState(false);
+  const [orderMedia, setOrderMedia] = useState<CustomOrderMedia[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     fetchOrders();
@@ -121,17 +127,26 @@ export const AdminCustomOrders = () => {
     setOrderLoading(true);
     
     try {
-      const { data, error } = await supabase
+      const { data: imagesData, error: imagesError } = await supabase
         .from('custom_order_images')
         .select('image_url')
         .eq('order_id', order.id);
       
-      if (error) throw error;
+      if (imagesError) throw imagesError;
       
-      setOrderImages(data as unknown as { image_url: string }[]);
+      setOrderImages(imagesData as unknown as { image_url: string }[]);
+
+      const { data: mediaData, error: mediaError } = await supabase
+        .from('custom_order_media')
+        .select('*')
+        .eq('order_id', order.id);
+      
+      if (mediaError) throw mediaError;
+      
+      setOrderMedia(mediaData as unknown as CustomOrderMedia[]);
     } catch (error) {
-      console.error("Error fetching order images:", error);
-      toast.error("Failed to load order images");
+      console.error("Error fetching order media:", error);
+      toast.error("Failed to load order media");
     } finally {
       setOrderLoading(false);
     }
@@ -178,8 +193,8 @@ export const AdminCustomOrders = () => {
   const deliverOrder = async () => {
     if (!selectedOrder) return;
     
-    if (!deliveryUrl.trim()) {
-      toast.error("Please provide a delivery URL");
+    if (!deliveryUrl.trim() && orderMedia.length === 0) {
+      toast.error("Please provide either a delivery URL or upload media files");
       return;
     }
     
@@ -216,6 +231,142 @@ export const AdminCustomOrders = () => {
       toast.error("Failed to deliver order");
     } finally {
       setDelivering(false);
+    }
+  };
+
+  const deleteMedia = async (mediaId: string) => {
+    if (!confirm("Are you sure you want to delete this media item?")) return;
+    
+    try {
+      const { error } = await supabase
+        .from('custom_order_media')
+        .delete()
+        .eq('id', mediaId);
+      
+      if (error) throw error;
+      
+      setOrderMedia(prev => prev.filter(media => media.id !== mediaId));
+      toast.success("Media deleted successfully");
+    } catch (error) {
+      console.error("Error deleting media:", error);
+      toast.error("Failed to delete media");
+    }
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files.length > 0) {
+      const filesArray = Array.from(event.target.files);
+      setSelectedFiles(prev => [...prev, ...filesArray]);
+    }
+  };
+
+  const removeFile = (index: number) => {
+    setSelectedFiles(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const uploadMedia = async () => {
+    if (!selectedOrder || selectedFiles.length === 0) return;
+    
+    setUploading(true);
+    const uploadPromises = selectedFiles.map(async (file, index) => {
+      try {
+        setUploadProgress(prev => ({ ...prev, [file.name]: 0 }));
+        
+        const progressInterval = setInterval(() => {
+          setUploadProgress(prev => {
+            if (prev[file.name] >= 90) {
+              clearInterval(progressInterval);
+              return prev;
+            }
+            return { ...prev, [file.name]: prev[file.name] + 10 };
+          });
+        }, 300);
+        
+        try {
+          const { data: buckets } = await supabase.storage.listBuckets();
+          const bucketExists = buckets?.some(bucket => bucket.name === 'custom-order-media');
+          
+          if (!bucketExists) {
+            console.log("custom-order-media bucket doesn't exist, attempting to create...");
+            const { error: createBucketError } = await supabase.storage.createBucket('custom-order-media', {
+              public: true,
+            });
+            
+            if (createBucketError) {
+              console.error("Error creating bucket:", createBucketError);
+            }
+          }
+        } catch (bucketError) {
+          console.warn("Error checking bucket:", bucketError);
+        }
+        
+        const fileExt = file.name.split('.').pop();
+        const fileName = `${selectedOrder.id}/${crypto.randomUUID()}.${fileExt}`;
+        
+        const mediaType = file.type.startsWith('image/') ? 'image' : 'video';
+        
+        const { error: uploadError } = await supabase.storage
+          .from('custom-order-media')
+          .upload(fileName, file);
+        
+        if (uploadError) throw uploadError;
+        
+        clearInterval(progressInterval);
+        setUploadProgress(prev => ({ ...prev, [file.name]: 100 }));
+        
+        const { data: publicUrlData } = supabase.storage
+          .from('custom-order-media')
+          .getPublicUrl(fileName);
+        
+        const { error: mediaError } = await supabase.rpc(
+          'add_custom_order_media',
+          {
+            order_id_param: selectedOrder.id,
+            media_url_param: publicUrlData.publicUrl,
+            media_type_param: mediaType,
+            thumbnail_url_param: mediaType === 'image' ? publicUrlData.publicUrl : null,
+            original_filename_param: file.name
+          }
+        );
+        
+        if (mediaError) throw mediaError;
+        
+        const newMedia: CustomOrderMedia = {
+          id: crypto.randomUUID(),
+          order_id: selectedOrder.id,
+          media_url: publicUrlData.publicUrl,
+          media_type: mediaType as 'image' | 'video',
+          thumbnail_url: mediaType === 'image' ? publicUrlData.publicUrl : null,
+          original_filename: file.name,
+          created_at: new Date().toISOString()
+        };
+        
+        setOrderMedia(prev => [newMedia, ...prev]);
+        
+        return publicUrlData.publicUrl;
+      } catch (error) {
+        console.error(`Error uploading file ${file.name}:`, error);
+        toast.error(`Failed to upload ${file.name}`);
+        return null;
+      }
+    });
+    
+    try {
+      const results = await Promise.all(uploadPromises);
+      const successCount = results.filter(Boolean).length;
+      
+      if (successCount > 0) {
+        toast.success(`Successfully uploaded ${successCount} of ${selectedFiles.length} files`);
+        setSelectedFiles([]);
+      }
+    } catch (error) {
+      console.error("Error during uploads:", error);
+    } finally {
+      setUploading(false);
     }
   };
 
@@ -333,8 +484,9 @@ export const AdminCustomOrders = () => {
             </DialogHeader>
 
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid grid-cols-2 w-full">
+              <TabsList className="grid grid-cols-3 w-full">
                 <TabsTrigger value="details">Order Details</TabsTrigger>
+                <TabsTrigger value="media">Media</TabsTrigger>
                 <TabsTrigger value="delivery">Delivery</TabsTrigger>
               </TabsList>
 
@@ -443,10 +595,186 @@ export const AdminCustomOrders = () => {
                 </DialogFooter>
               </TabsContent>
 
+              <TabsContent value="media">
+                <div className="space-y-6 py-4">
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Upload Media Files</h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      Upload images or videos to include with order delivery
+                    </p>
+                    
+                    <input
+                      type="file"
+                      accept="image/*,video/*"
+                      multiple
+                      className="hidden"
+                      ref={fileInputRef}
+                      onChange={handleFileSelect}
+                    />
+                    
+                    <div className="flex gap-2 mb-4">
+                      <Button 
+                        variant="outline" 
+                        onClick={handleUploadClick}
+                        disabled={uploading}
+                        className="flex-1"
+                      >
+                        <Upload className="mr-2 h-4 w-4" />
+                        Select Files
+                      </Button>
+                      
+                      <Button 
+                        onClick={uploadMedia}
+                        disabled={uploading || selectedFiles.length === 0}
+                        className="flex-1"
+                      >
+                        {uploading ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          'Upload Selected Files'
+                        )}
+                      </Button>
+                    </div>
+                    
+                    {selectedFiles.length > 0 && (
+                      <div className="space-y-2 mb-6">
+                        <h4 className="text-sm font-medium">Files to Upload</h4>
+                        {selectedFiles.map((file, index) => (
+                          <div 
+                            key={index} 
+                            className="flex items-center justify-between p-2 border rounded-md"
+                          >
+                            <div className="flex items-center">
+                              <div className="w-8 h-8 bg-muted rounded flex items-center justify-center mr-2">
+                                {file.type.startsWith('image/') ? (
+                                  <ImageIcon className="h-4 w-4" />
+                                ) : (
+                                  <VideoIcon className="h-4 w-4" />
+                                )}
+                              </div>
+                              <div className="text-sm truncate max-w-[200px]">{file.name}</div>
+                            </div>
+                            
+                            <div className="flex items-center">
+                              {uploadProgress[file.name] > 0 && (
+                                <div className="w-20 mr-2">
+                                  <Progress value={uploadProgress[file.name]} className="h-2" />
+                                </div>
+                              )}
+                              <Button 
+                                variant="ghost" 
+                                size="sm"
+                                onClick={() => removeFile(index)}
+                                disabled={uploading}
+                              >
+                                <X className="h-4 w-4" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+
+                  <Separator />
+                  
+                  <div>
+                    <h3 className="text-sm font-medium mb-4">Media Files</h3>
+                    
+                    {orderMedia.length === 0 && orderImages.length === 0 ? (
+                      <p className="text-sm text-muted-foreground">No media attached to this order</p>
+                    ) : (
+                      <div className="grid grid-cols-3 gap-3">
+                        {orderImages.map((img, index) => (
+                          <div 
+                            key={`legacy-${index}`} 
+                            className="relative group cursor-pointer border rounded-md overflow-hidden"
+                            onClick={() => viewImage(img.image_url)}
+                          >
+                            <img 
+                              src={img.image_url} 
+                              alt={`Order image ${index + 1}`}
+                              className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                            />
+                            <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                              <Eye className="h-6 w-6 text-white" />
+                            </div>
+                          </div>
+                        ))}
+                        
+                        {orderMedia.map((media) => (
+                          <div 
+                            key={media.id} 
+                            className="relative group border rounded-md overflow-hidden"
+                          >
+                            {media.media_type === 'image' ? (
+                              <div 
+                                className="cursor-pointer"
+                                onClick={() => viewImage(media.media_url)}
+                              >
+                                <img 
+                                  src={media.media_url} 
+                                  alt={media.original_filename || "Order media"}
+                                  className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                                />
+                                <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                  <Eye className="h-6 w-6 text-white" />
+                                </div>
+                              </div>
+                            ) : (
+                              <div className="w-full h-48">
+                                <video 
+                                  src={media.media_url}
+                                  className="w-full h-full object-cover"
+                                  controls
+                                />
+                              </div>
+                            )}
+                            
+                            <div className="p-2 flex justify-between items-center">
+                              <div className="flex items-center">
+                                <Badge variant="outline" className="text-xs">
+                                  {media.media_type}
+                                </Badge>
+                                {media.original_filename && (
+                                  <span className="text-xs text-muted-foreground ml-2 truncate max-w-[100px]">
+                                    {media.original_filename}
+                                  </span>
+                                )}
+                              </div>
+                              
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => deleteMedia(media.id)}
+                              >
+                                <Trash className="h-4 w-4 text-red-500" />
+                              </Button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+                
+                <DialogFooter className="mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedOrder(null)}
+                  >
+                    Close
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+
               <TabsContent value="delivery">
                 <div className="space-y-6 py-4">
                   <div>
-                    <h3 className="text-sm font-medium mb-2">Delivery URL</h3>
+                    <h3 className="text-sm font-medium mb-2">Delivery URL (Optional)</h3>
                     <p className="text-xs text-muted-foreground mb-2">
                       Add a link to the delivered content (Google Drive, Dropbox, etc.)
                     </p>
@@ -501,7 +829,9 @@ export const AdminCustomOrders = () => {
                     </Button>
                     <Button 
                       onClick={deliverOrder}
-                      disabled={delivering || !deliveryUrl.trim() || !!selectedOrder.delivered_at}
+                      disabled={delivering || 
+                                (orderMedia.length === 0 && !deliveryUrl.trim()) || 
+                                !!selectedOrder.delivered_at}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       {delivering ? (

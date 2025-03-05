@@ -9,8 +9,9 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { ContentGrid } from "./dashboard/ContentGrid";
 import { FilterBar } from "./dashboard/FilterBar";
 import { AnnouncementBanner } from "./announcements/AnnouncementBanner";
+import { UserOrdersList } from "./custom-orders/UserOrdersList";
 
-type ContentType = "all" | "stories" | "images" | "videos";
+type ContentType = "all" | "stories" | "images" | "videos" | "orders";
 
 export const Dashboard = () => {
   const navigate = useNavigate();
@@ -140,6 +141,7 @@ export const Dashboard = () => {
           <TabsTrigger value="stories">Stories</TabsTrigger>
           <TabsTrigger value="images">Images</TabsTrigger>
           <TabsTrigger value="videos">Videos</TabsTrigger>
+          <TabsTrigger value="orders">Custom Orders</TabsTrigger>
         </TabsList>
 
         <TabsContent value="all">
@@ -182,6 +184,10 @@ export const Dashboard = () => {
             dateRange={dateRange}
             type="videos"
           />
+        </TabsContent>
+
+        <TabsContent value="orders">
+          <UserOrdersList />
         </TabsContent>
       </Tabs>
     </div>

@@ -20,6 +20,16 @@ export interface CustomOrderImage {
   created_at: string;
 }
 
+export interface CustomOrderMedia {
+  id: string;
+  order_id: string;
+  media_url: string;
+  media_type: 'image' | 'video';
+  thumbnail_url?: string | null;
+  original_filename?: string | null;
+  created_at: string;
+}
+
 export interface User {
   id: string;
   username: string | null;

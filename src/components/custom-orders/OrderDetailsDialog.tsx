@@ -32,7 +32,7 @@ interface PaymentInfo {
   payment_status?: string;
   transaction_id?: string;
   created_at?: string;
-  [key: string]: any; // For other potential properties
+  // Add specific fields only, avoid using index signature
 }
 
 export const OrderDetailsDialog = ({

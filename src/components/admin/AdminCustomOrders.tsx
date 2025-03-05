@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
@@ -145,11 +144,13 @@ export const AdminCustomOrders = () => {
           .select('*')
           .eq('order_id', order.id);
         
-        if (mediaError) throw mediaError;
-        
-        setOrderMedia(mediaData as unknown as CustomOrderMedia[]);
+        if (mediaError) {
+          console.warn("Error fetching media (table might not exist yet):", mediaError);
+          setOrderMedia([]);
+        } else {
+          setOrderMedia(mediaData as CustomOrderMedia[]);
+        }
       } catch (error) {
-        // If the table doesn't exist yet, just set empty array
         console.warn("Error fetching media (table might not exist yet):", error);
         setOrderMedia([]);
       }
@@ -247,17 +248,6 @@ export const AdminCustomOrders = () => {
     if (!confirm("Are you sure you want to delete this media item?")) return;
     
     try {
-      // First check if the table exists by trying to select one row
-      const { count, error: checkError } = await supabase
-        .from('custom_order_media')
-        .select('*', { count: 'exact', head: true });
-      
-      if (checkError) {
-        console.error("Table doesn't exist yet:", checkError);
-        toast.error("Media storage not set up yet");
-        return;
-      }
-      
       const { error } = await supabase
         .from('custom_order_media')
         .delete()
@@ -343,8 +333,7 @@ export const AdminCustomOrders = () => {
           .getPublicUrl(fileName);
         
         try {
-          // Try to call the RPC function
-          const { error: mediaError } = await supabase.rpc(
+          const { data, error: rpcError } = await supabase.rpc(
             'add_custom_order_media',
             {
               order_id_param: selectedOrder.id,
@@ -355,9 +344,8 @@ export const AdminCustomOrders = () => {
             }
           );
           
-          if (mediaError) {
-            console.warn("RPC function call failed, falling back to direct insert:", mediaError);
-            // Fallback to direct insert
+          if (rpcError) {
+            console.warn("RPC function call failed, falling back to direct insert:", rpcError);
             const { error: insertError } = await supabase
               .from('custom_order_media')
               .insert({

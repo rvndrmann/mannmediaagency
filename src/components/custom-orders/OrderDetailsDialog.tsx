@@ -62,7 +62,7 @@ export const OrderDetailsDialog = ({
           console.warn("Error fetching media (table might not exist yet):", mediaError);
           setOrderMedia([]);
         } else {
-          setOrderMedia(mediaData as unknown as CustomOrderMedia[]);
+          setOrderMedia(mediaData as CustomOrderMedia[]);
         }
       } catch (error) {
         console.warn("Error in media fetch:", error);

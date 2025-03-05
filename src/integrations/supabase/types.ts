@@ -381,6 +381,44 @@ export type Database = {
           },
         ]
       }
+      custom_order_media: {
+        Row: {
+          created_at: string
+          id: string
+          media_type: string
+          media_url: string
+          order_id: string | null
+          original_filename: string | null
+          thumbnail_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          media_type: string
+          media_url: string
+          order_id?: string | null
+          original_filename?: string | null
+          thumbnail_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          media_type?: string
+          media_url?: string
+          order_id?: string | null
+          original_filename?: string | null
+          thumbnail_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "custom_order_media_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       custom_orders: {
         Row: {
           admin_notes: string | null
@@ -1811,6 +1849,24 @@ export type Database = {
           id: string
           image_url: string
           order_id: string
+        }
+      }
+      add_custom_order_media: {
+        Args: {
+          order_id_param: string
+          media_url_param: string
+          media_type_param: string
+          thumbnail_url_param?: string
+          original_filename_param?: string
+        }
+        Returns: {
+          created_at: string
+          id: string
+          media_type: string
+          media_url: string
+          order_id: string | null
+          original_filename: string | null
+          thumbnail_url: string | null
         }
       }
       check_is_admin: {

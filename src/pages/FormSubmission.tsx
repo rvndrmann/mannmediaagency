@@ -219,18 +219,26 @@ const FormSubmission = () => {
     }
   };
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!formData || !formId) return;
+    if (!formData || formData.fields.length === 0) {
+      toast.error("Form data is missing");
+      return;
+    }
     
-    // Validate all required fields
+    if (formData.require_phone && !phoneVerified) {
+      toast.error("Phone verification is required to submit this form");
+      return;
+    }
+    
+    // Validate required fields
     const missingFields = formData.fields
       .filter(field => field.required && !formValues[field.id])
       .map(field => field.label);
       
     if (missingFields.length > 0) {
-      toast.error(`Please fill in the following required fields: ${missingFields.join(', ')}`);
+      toast.error(`Please fill in the following required fields: ${missingFields.join(", ")}`);
       return;
     }
     
@@ -253,7 +261,7 @@ const FormSubmission = () => {
       toast.success("Form submitted successfully!");
       
       // Redirect to success page
-      navigate("/form-success");
+      navigate(`/form-success`);
     } catch (error: any) {
       console.error("Error submitting form:", error);
       toast.error(error.message || "Failed to submit form");

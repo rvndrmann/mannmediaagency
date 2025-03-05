@@ -45,7 +45,8 @@ export const parseFormFields = (form: DbCustomOrderForm): CustomOrderForm => {
     if (typeof form.fields === 'string') {
       parsedFields = JSON.parse(form.fields);
     } else if (Array.isArray(form.fields)) {
-      parsedFields = form.fields as FormField[];
+      // Need to use double casting to avoid TypeScript errors
+      parsedFields = (form.fields as unknown) as FormField[];
     }
   } catch (error) {
     console.error("Error parsing form fields:", error);

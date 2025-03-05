@@ -294,14 +294,14 @@ export const AdminFormsManager = () => {
         ...values,
         fields: formFields,
         title: values.title,
+        description: values.description || null
       };
 
       if (editingForm) {
         const { error } = await customOrderFormsTable()
           .update(prepareFormForSave({
+            ...editingForm,
             ...formData,
-            id: editingForm.id,
-            created_at: editingForm.created_at,
             updated_at: new Date().toISOString()
           }))
           .eq("id", editingForm.id);
@@ -328,15 +328,15 @@ export const AdminFormsManager = () => {
       const paymentData = {
         ...values,
         amount: values.amount,
-        title: values.title
+        title: values.title,
+        description: values.description || null
       };
 
       if (editingPaymentLink) {
         const { error } = await paymentLinksTable()
           .update(preparePaymentLinkForSave({
+            ...editingPaymentLink,
             ...paymentData,
-            id: editingPaymentLink.id,
-            created_at: editingPaymentLink.created_at,
             updated_at: new Date().toISOString()
           }))
           .eq("id", editingPaymentLink.id);
@@ -344,7 +344,7 @@ export const AdminFormsManager = () => {
         if (error) throw error;
       } else {
         const { error } = await paymentLinksTable()
-          .insert(preparePaymentLinkForSave(paymentData));
+          .insert(preparePaymentLinkForSave(paymentData as Partial<PaymentLink>));
           
         if (error) throw error;
       }

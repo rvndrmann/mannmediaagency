@@ -2,41 +2,111 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 const Payment = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
-  const { planName, amount, orderId } = location.state || {};
+  
+  // Get state from location or URL parameters
+  const [paymentDetails, setPaymentDetails] = useState<{
+    planName: string | null;
+    amount: number | null;
+    orderId: string | null;
+  }>({
+    planName: null,
+    amount: null,
+    orderId: null
+  });
+  
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    if (!planName || !amount) {
+    const fetchOrderDetails = async (orderId: string) => {
+      try {
+        const { data: orderData, error } = await supabase
+          .from('custom_orders')
+          .select(`
+            id, 
+            credits_used,
+            order_link_id,
+            custom_order_links(title, custom_rate)
+          `)
+          .eq('id', orderId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (orderData && orderData.custom_order_links) {
+          const linkData = orderData.custom_order_links;
+          setPaymentDetails({
+            planName: linkData.title || "Custom Order",
+            amount: linkData.custom_rate || 0,
+            orderId: orderId
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching order details:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not load order details. Please try again.",
+        });
+        navigate("/");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Initialize payment details from location state or URL params
+    const stateData = location.state || {};
+    const paramOrderId = searchParams.get('orderId');
+    
+    if (stateData.planName && stateData.amount) {
+      // We have state from navigation
+      setPaymentDetails({
+        planName: stateData.planName,
+        amount: stateData.amount,
+        orderId: stateData.orderId || null
+      });
+      setIsLoading(false);
+    } else if (paramOrderId) {
+      // We have an order ID in URL params, fetch details
+      fetchOrderDetails(paramOrderId);
+    } else {
+      // No valid payment information
       toast({
         variant: "destructive",
         title: "Error",
-        description: "Invalid plan details. Please select a plan first.",
+        description: "Invalid payment details. Please select a plan or order first.",
       });
+      setIsLoading(false);
       navigate("/plans");
     }
-  }, [planName, amount, navigate, toast]);
+  }, [location.state, searchParams, navigate, toast]);
 
   const initiatePayment = async () => {
     try {
+      if (!paymentDetails.planName || !paymentDetails.amount) {
+        throw new Error("Missing payment details");
+      }
+      
       const { data: { user } } = await supabase.auth.getUser();
       
       // Get guest id from order if this is a guest order
       let userId = user?.id;
       let guestId = null;
       
-      if (!userId && orderId) {
+      if (!userId && paymentDetails.orderId) {
         // For guest orders, get the guest_id from the order
         const { data: orderData, error: orderError } = await supabase
           .from('custom_orders')
           .select('guest_id')
-          .eq('id', orderId)
+          .eq('id', paymentDetails.orderId)
           .single();
           
         if (orderError) {
@@ -62,18 +132,18 @@ const Payment = () => {
       console.log("Initiating payment with:", { 
         userId, 
         guestId,
-        planName, 
-        amount,
-        orderId
+        planName: paymentDetails.planName, 
+        amount: paymentDetails.amount,
+        orderId: paymentDetails.orderId
       });
 
       const { data, error } = await supabase.functions.invoke('initiate-payu-payment', {
         body: { 
           userId: userId,
           guestId: guestId,
-          planName,
-          amount,
-          orderId
+          planName: paymentDetails.planName,
+          amount: paymentDetails.amount,
+          orderId: paymentDetails.orderId
         }
       });
 
@@ -107,7 +177,18 @@ const Payment = () => {
     }
   };
 
-  if (!planName || !amount) {
+  if (isLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center">
+          <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading payment details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!paymentDetails.planName || !paymentDetails.amount) {
     return null;
   }
 
@@ -122,16 +203,16 @@ const Payment = () => {
           <div className="space-y-4">
             <div className="flex justify-between text-white">
               <span>Plan</span>
-              <span className="font-medium">{planName}</span>
+              <span className="font-medium">{paymentDetails.planName}</span>
             </div>
             <div className="flex justify-between text-white">
               <span>Amount</span>
-              <span className="font-medium">₹{amount}</span>
+              <span className="font-medium">₹{paymentDetails.amount}</span>
             </div>
-            {orderId && (
+            {paymentDetails.orderId && (
               <div className="flex justify-between text-white">
                 <span>Order ID</span>
-                <span className="font-medium text-xs">{orderId}</span>
+                <span className="font-medium text-xs">{paymentDetails.orderId}</span>
               </div>
             )}
           </div>
@@ -139,7 +220,7 @@ const Payment = () => {
         <CardFooter className="flex justify-end space-x-2">
           <Button 
             variant="ghost" 
-            onClick={() => orderId ? navigate("/") : navigate("/plans")}
+            onClick={() => paymentDetails.orderId ? navigate("/") : navigate("/plans")}
             className="text-white hover:bg-white/10"
           >
             Cancel

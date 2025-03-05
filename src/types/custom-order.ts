@@ -1,4 +1,3 @@
-
 export interface CustomOrder {
   id: string;
   user_id: string;
@@ -11,6 +10,8 @@ export interface CustomOrder {
   delivery_url: string | null;
   delivered_at: string | null;
   delivery_message: string | null;
+  guest_id?: string | null;
+  order_link_id?: string | null;
 }
 
 export interface CustomOrderImage {

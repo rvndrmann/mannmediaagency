@@ -70,6 +70,7 @@ const CustomOrderForm = () => {
         .single();
 
       if (error) {
+        console.error("Error fetching order link:", error);
         throw new Error(error.message);
       }
 
@@ -77,8 +78,10 @@ const CustomOrderForm = () => {
         throw new Error("The link is invalid or has expired");
       }
 
+      console.log("Found active order link:", data);
       setLinkData(data as OrderLinkData);
     } catch (error: any) {
+      console.error("Failed to load order link:", error);
       toast.error(error.message || "Failed to load order form");
       navigate("/");
     } finally {
@@ -245,10 +248,19 @@ const CustomOrderForm = () => {
       });
 
       await Promise.all(uploadPromises);
+      
+      console.log("Order submitted successfully, orderId:", orderId);
+      console.log("Custom rate:", linkData.custom_rate);
 
       // Initialize payment if there's a custom rate
       if (linkData.custom_rate > 0) {
         // Redirect to payment page with order details
+        console.log("Redirecting to payment page with:", {
+          planName: `${linkData.title} Order`,
+          amount: linkData.custom_rate,
+          orderId: orderId
+        });
+        
         navigate("/payment", {
           state: {
             planName: `${linkData.title} Order`,

@@ -109,10 +109,11 @@ const App = () => (
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
               <Route path="/ai-agent" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/payment" element={<ProtectedRoute><Payment /></ProtectedRoute>} />
+              <Route path="/payment" element={<Payment />} />
               <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
               <Route path="/payment/failure" element={<ProtectedRoute><PaymentFailure /></ProtectedRoute>} />
               <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
+              <Route path="/order/:accessCode" element={<CustomOrderForm />} />
               <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
             </Routes>
             <BottomNav />

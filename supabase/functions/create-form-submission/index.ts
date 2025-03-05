@@ -27,12 +27,15 @@ serve(async (req: Request) => {
       );
     }
 
+    // Ensure formData is properly stringified if it's not already a string
+    const submissionData = typeof formData === 'string' ? formData : JSON.stringify(formData);
+
     // Insert the form submission
     const { data, error } = await supabase
       .from("form_submissions")
       .insert({
         form_id: formId,
-        submission_data: formData,
+        submission_data: submissionData,
         phone_number: phoneNumber,
       })
       .select()

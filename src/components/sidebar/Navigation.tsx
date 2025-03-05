@@ -18,12 +18,51 @@ import {
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar/context";
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Navigation = () => {
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
+  const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
 
-  const mainNavigation = [
+  useEffect(() => {
+    const checkAdminStatus = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          setIsAdmin(false);
+          setIsLoadingAdmin(false);
+          return;
+        }
+        
+        // Check if user is in admin_users table using RPC
+        const { data: adminData, error: adminError } = await supabase.rpc(
+          'check_is_admin'
+        );
+        
+        if (adminError) {
+          console.error("Error checking admin status:", adminError);
+          setIsAdmin(false);
+        } else {
+          setIsAdmin(!!adminData);
+        }
+        
+        setIsLoadingAdmin(false);
+      } catch (error) {
+        console.error("Error checking admin status:", error);
+        setIsAdmin(false);
+        setIsLoadingAdmin(false);
+      }
+    };
+
+    checkAdminStatus();
+  }, []);
+
+  // Base navigation items
+  const baseNavigation = [
     {
       name: "Explore",
       subtext: "Discover Amazing Content",
@@ -52,13 +91,30 @@ export const Navigation = () => {
       to: "/profile",
       icon: User,
     },
-    {
-      name: "Integrations",
-      icon: Settings,
-      disabled: true,
-      comingSoon: true,
-    },
   ];
+
+  // Add admin item if user is admin
+  const adminItem = {
+    name: "Admin",
+    subtext: "Admin Dashboard",
+    to: "/admin",
+    icon: Shield,
+  };
+
+  // Last item is always Integrations
+  const integrationsItem = {
+    name: "Integrations",
+    icon: Settings,
+    disabled: true,
+    comingSoon: true,
+  };
+
+  // Combine navigation items based on admin status
+  const mainNavigation = isLoadingAdmin
+    ? baseNavigation // Show basic navigation while loading
+    : isAdmin
+      ? [...baseNavigation, adminItem, integrationsItem] // Include admin link for admins
+      : [...baseNavigation, integrationsItem]; // Regular navigation for non-admins
 
   const legalNavigation = [
     {

@@ -14,18 +14,23 @@ import {
   User,
   Menu,
   Bot,
+  Bell,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
 import { useSidebar } from "@/components/ui/sidebar/context";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { Badge } from "@/components/ui/badge";
+import { Notification } from "@/types/custom-order";
 
 export const Navigation = () => {
   const location = useLocation();
   const { toggleSidebar } = useSidebar();
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null);
   const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [loadingNotifications, setLoadingNotifications] = useState(true);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -61,6 +66,51 @@ export const Navigation = () => {
     checkAdminStatus();
   }, []);
 
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        
+        if (!session) {
+          setLoadingNotifications(false);
+          return;
+        }
+        
+        const { data, error } = await supabase
+          .from('user_notifications')
+          .select('*')
+          .eq('read', false)
+          .order('created_at', { ascending: false });
+        
+        if (error) throw error;
+        
+        setNotifications(data as unknown as Notification[]);
+      } catch (error) {
+        console.error("Error fetching notifications:", error);
+      } finally {
+        setLoadingNotifications(false);
+      }
+    };
+
+    fetchNotifications();
+
+    // Setup realtime subscription for new notifications
+    const channel = supabase
+      .channel('public:user_notifications')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'user_notifications' }, 
+        (payload) => {
+          const newNotification = payload.new as Notification;
+          setNotifications(prev => [newNotification, ...prev]);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   // Base navigation items
   const baseNavigation = [
     {
@@ -74,6 +124,7 @@ export const Navigation = () => {
       subtext: "Your Content Overview",
       to: "/dashboard",
       icon: ScrollText,
+      badge: notifications.length > 0 ? notifications.length : undefined,
     },
     {
       name: "AI Agent",
@@ -176,6 +227,11 @@ export const Navigation = () => {
                       </div>
                     )}
                   </div>
+                  {item.badge && (
+                    <Badge variant="destructive" className="ml-auto">
+                      {item.badge}
+                    </Badge>
+                  )}
                   {item.comingSoon && (
                     <span className="text-xs text-muted-foreground">Coming soon</span>
                   )}

@@ -8,6 +8,9 @@ export interface CustomOrder {
   updated_at: string;
   admin_notes: string | null;
   credits_used: number;
+  delivery_url: string | null;
+  delivered_at: string | null;
+  delivery_message: string | null;
 }
 
 export interface CustomOrderImage {
@@ -28,4 +31,15 @@ export interface AdminUser {
   user_id: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  related_id: string | null;
+  created_at: string;
 }

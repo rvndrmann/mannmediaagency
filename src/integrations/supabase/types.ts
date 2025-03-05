@@ -386,6 +386,9 @@ export type Database = {
           admin_notes: string | null
           created_at: string
           credits_used: number
+          delivered_at: string | null
+          delivery_message: string | null
+          delivery_url: string | null
           id: string
           remark: string | null
           status: string
@@ -396,6 +399,9 @@ export type Database = {
           admin_notes?: string | null
           created_at?: string
           credits_used?: number
+          delivered_at?: string | null
+          delivery_message?: string | null
+          delivery_url?: string | null
           id?: string
           remark?: string | null
           status?: string
@@ -406,6 +412,9 @@ export type Database = {
           admin_notes?: string | null
           created_at?: string
           credits_used?: number
+          delivered_at?: string | null
+          delivery_message?: string | null
+          delivery_url?: string | null
           id?: string
           remark?: string | null
           status?: string
@@ -1368,6 +1377,39 @@ export type Database = {
         }
         Relationships: []
       }
+      user_notifications: {
+        Row: {
+          created_at: string
+          id: string
+          message: string
+          read: boolean
+          related_id: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          message: string
+          read?: boolean
+          related_id?: string | null
+          title: string
+          type: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          message?: string
+          read?: boolean
+          related_id?: string | null
+          title?: string
+          type?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       user_pro_subscriptions: {
         Row: {
           created_at: string | null
@@ -1788,12 +1830,23 @@ export type Database = {
           admin_notes: string | null
           created_at: string
           credits_used: number
+          delivered_at: string | null
+          delivery_message: string | null
+          delivery_url: string | null
           id: string
           remark: string | null
           status: string
           updated_at: string
           user_id: string
         }
+      }
+      deliver_custom_order: {
+        Args: {
+          order_id_param: string
+          delivery_url_param: string
+          delivery_message_param: string
+        }
+        Returns: undefined
       }
       get_admin_users: {
         Args: Record<PropertyKey, never>

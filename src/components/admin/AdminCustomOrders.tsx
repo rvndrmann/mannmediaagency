@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder } from "@/types/custom-order";
@@ -29,7 +28,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { toast } from "sonner";
-import { Eye, Loader2 } from "lucide-react";
+import { Eye, Loader2, Send, Upload } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -37,7 +36,14 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
+import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
 
 export const AdminCustomOrders = () => {
   const [orders, setOrders] = useState<CustomOrder[]>([]);
@@ -53,6 +59,11 @@ export const AdminCustomOrders = () => {
   const [saving, setSaving] = useState(false);
   const [orderLoading, setOrderLoading] = useState(false);
   const [userData, setUserData] = useState<{[key: string]: {username: string | null}}>({});
+  
+  const [deliveryUrl, setDeliveryUrl] = useState("");
+  const [deliveryMessage, setDeliveryMessage] = useState("");
+  const [delivering, setDelivering] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
 
   useEffect(() => {
     fetchOrders();
@@ -74,10 +85,8 @@ export const AdminCustomOrders = () => {
       
       if (error) throw error;
       
-      // Cast the data to the correct type
       setOrders(data as unknown as CustomOrder[]);
       
-      // Fetch user data for each order
       if (data && data.length > 0) {
         const userIds = [...new Set(data.map(order => order.user_id))];
         const { data: profilesData } = await supabase
@@ -106,6 +115,9 @@ export const AdminCustomOrders = () => {
     setAdminNotes(order.admin_notes || "");
     setCredits(order.credits_used);
     setStatus(order.status);
+    setDeliveryUrl(order.delivery_url || "");
+    setDeliveryMessage(order.delivery_message || "");
+    setActiveTab("details");
     setOrderLoading(true);
     
     try {
@@ -130,7 +142,6 @@ export const AdminCustomOrders = () => {
     
     setSaving(true);
     try {
-      // Use the new RPC function to update the order status
       const { error } = await supabase.rpc(
         'update_custom_order_status',
         { 
@@ -144,10 +155,14 @@ export const AdminCustomOrders = () => {
       
       toast.success("Order updated successfully");
       
-      // Update local state
       setOrders(orders.map(order => 
         order.id === selectedOrder.id 
-          ? { ...order, status: status as 'pending' | 'in_progress' | 'completed' | 'failed', admin_notes: adminNotes, credits_used: credits } 
+          ? { 
+              ...order, 
+              status: status as 'pending' | 'in_progress' | 'completed' | 'failed', 
+              admin_notes: adminNotes, 
+              credits_used: credits 
+            } 
           : order
       ));
       
@@ -157,6 +172,50 @@ export const AdminCustomOrders = () => {
       toast.error("Failed to update order");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const deliverOrder = async () => {
+    if (!selectedOrder) return;
+    
+    if (!deliveryUrl.trim()) {
+      toast.error("Please provide a delivery URL");
+      return;
+    }
+    
+    setDelivering(true);
+    try {
+      const { error } = await supabase.rpc(
+        'deliver_custom_order',
+        { 
+          order_id_param: selectedOrder.id,
+          delivery_url_param: deliveryUrl,
+          delivery_message_param: deliveryMessage
+        }
+      );
+      
+      if (error) throw error;
+      
+      toast.success("Order delivered successfully");
+      
+      setOrders(orders.map(order => 
+        order.id === selectedOrder.id 
+          ? { 
+              ...order, 
+              status: 'completed',
+              delivery_url: deliveryUrl,
+              delivery_message: deliveryMessage,
+              delivered_at: new Date().toISOString()
+            } 
+          : order
+      ));
+      
+      setSelectedOrder(null);
+    } catch (error) {
+      console.error("Error delivering order:", error);
+      toast.error("Failed to deliver order");
+    } finally {
+      setDelivering(false);
     }
   };
 
@@ -211,6 +270,7 @@ export const AdminCustomOrders = () => {
                 <TableHead>Created</TableHead>
                 <TableHead>Last Updated</TableHead>
                 <TableHead>Credits</TableHead>
+                <TableHead>Delivered</TableHead>
                 <TableHead>Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -239,6 +299,13 @@ export const AdminCustomOrders = () => {
                   <TableCell>{formatDate(order.updated_at)}</TableCell>
                   <TableCell>{order.credits_used}</TableCell>
                   <TableCell>
+                    {order.delivered_at ? (
+                      <span className="text-green-500">✓</span>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </TableCell>
+                  <TableCell>
                     <Button 
                       variant="outline" 
                       size="sm" 
@@ -255,7 +322,6 @@ export const AdminCustomOrders = () => {
         </div>
       )}
 
-      {/* Order Details Dialog */}
       {selectedOrder && (
         <Dialog open={!!selectedOrder} onOpenChange={(open) => !open && setSelectedOrder(null)}>
           <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -266,113 +332,198 @@ export const AdminCustomOrders = () => {
               </DialogDescription>
             </DialogHeader>
 
-            {orderLoading ? (
-              <div className="flex justify-center my-8">
-                <Loader2 className="h-8 w-8 animate-spin text-primary" />
-              </div>
-            ) : (
-              <div className="space-y-6 py-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <h3 className="text-sm font-medium mb-2">Status</h3>
-                    <Select value={status} onValueChange={setStatus}>
-                      <SelectTrigger>
-                        <SelectValue placeholder="Select status" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="pending">Pending</SelectItem>
-                        <SelectItem value="in_progress">In Progress</SelectItem>
-                        <SelectItem value="completed">Completed</SelectItem>
-                        <SelectItem value="failed">Failed</SelectItem>
-                      </SelectContent>
-                    </Select>
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="grid grid-cols-2 w-full">
+                <TabsTrigger value="details">Order Details</TabsTrigger>
+                <TabsTrigger value="delivery">Delivery</TabsTrigger>
+              </TabsList>
+
+              <TabsContent value="details">
+                {orderLoading ? (
+                  <div className="flex justify-center my-8">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary" />
                   </div>
+                ) : (
+                  <div className="space-y-6 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">Status</h3>
+                        <Select value={status} onValueChange={setStatus}>
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="pending">Pending</SelectItem>
+                            <SelectItem value="in_progress">In Progress</SelectItem>
+                            <SelectItem value="completed">Completed</SelectItem>
+                            <SelectItem value="failed">Failed</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <h3 className="text-sm font-medium mb-2">Credits Used</h3>
+                        <Input 
+                          type="number" 
+                          value={credits} 
+                          onChange={(e) => setCredits(Number(e.target.value))}
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Client Remark</h3>
+                      <Card className="bg-muted/50">
+                        <CardContent className="p-4">
+                          <p className="whitespace-pre-line">
+                            {selectedOrder.remark || "No remarks provided"}
+                          </p>
+                        </CardContent>
+                      </Card>
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium mb-2">Admin Notes</h3>
+                      <Textarea
+                        value={adminNotes}
+                        onChange={(e) => setAdminNotes(e.target.value)}
+                        placeholder="Add notes about this order..."
+                        rows={4}
+                      />
+                    </div>
+
+                    <div>
+                      <h3 className="text-sm font-medium mb-4">Attached Images</h3>
+                      {orderImages.length === 0 ? (
+                        <p className="text-sm text-muted-foreground">No images attached</p>
+                      ) : (
+                        <div className="grid grid-cols-3 gap-3">
+                          {orderImages.map((img, index) => (
+                            <div 
+                              key={index} 
+                              className="relative group cursor-pointer border rounded-md overflow-hidden"
+                              onClick={() => viewImage(img.image_url)}
+                            >
+                              <img 
+                                src={img.image_url} 
+                                alt={`Order image ${index + 1}`}
+                                className="w-full h-48 object-cover transition-transform group-hover:scale-105"
+                              />
+                              <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <Eye className="h-6 w-6 text-white" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                <DialogFooter className="mt-6">
+                  <Button 
+                    variant="outline" 
+                    onClick={() => setSelectedOrder(null)}
+                    disabled={saving}
+                  >
+                    Cancel
+                  </Button>
+                  <Button 
+                    onClick={updateOrder}
+                    disabled={saving}
+                  >
+                    {saving ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Saving...
+                      </>
+                    ) : (
+                      'Save Changes'
+                    )}
+                  </Button>
+                </DialogFooter>
+              </TabsContent>
+
+              <TabsContent value="delivery">
+                <div className="space-y-6 py-4">
                   <div>
-                    <h3 className="text-sm font-medium mb-2">Credits Used</h3>
+                    <h3 className="text-sm font-medium mb-2">Delivery URL</h3>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Add a link to the delivered content (Google Drive, Dropbox, etc.)
+                    </p>
                     <Input 
-                      type="number" 
-                      value={credits} 
-                      onChange={(e) => setCredits(Number(e.target.value))}
+                      value={deliveryUrl}
+                      onChange={(e) => setDeliveryUrl(e.target.value)}
+                      placeholder="https://drive.google.com/..."
                     />
                   </div>
-                </div>
 
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Client Remark</h3>
-                  <Card className="bg-muted/50">
-                    <CardContent className="p-4">
-                      <p className="whitespace-pre-line">
-                        {selectedOrder.remark || "No remarks provided"}
+                  <div>
+                    <h3 className="text-sm font-medium mb-2">Delivery Message</h3>
+                    <p className="text-xs text-muted-foreground mb-2">
+                      Add a message for the client about their delivered content
+                    </p>
+                    <Textarea
+                      value={deliveryMessage}
+                      onChange={(e) => setDeliveryMessage(e.target.value)}
+                      placeholder="Thank you for your order! Here's your requested content..."
+                      rows={4}
+                    />
+                  </div>
+
+                  {selectedOrder.delivered_at && (
+                    <div className="bg-green-100 dark:bg-green-900/20 p-4 rounded-md">
+                      <h3 className="text-sm font-medium mb-2 text-green-800 dark:text-green-400">
+                        Order Already Delivered
+                      </h3>
+                      <p className="text-sm text-green-700 dark:text-green-500">
+                        Delivered on: {formatDate(selectedOrder.delivered_at)}
                       </p>
-                    </CardContent>
-                  </Card>
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-2">Admin Notes</h3>
-                  <Textarea
-                    value={adminNotes}
-                    onChange={(e) => setAdminNotes(e.target.value)}
-                    placeholder="Add notes about this order..."
-                    rows={4}
-                  />
-                </div>
-
-                <div>
-                  <h3 className="text-sm font-medium mb-4">Attached Images</h3>
-                  {orderImages.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">No images attached</p>
-                  ) : (
-                    <div className="grid grid-cols-3 gap-3">
-                      {orderImages.map((img, index) => (
-                        <div 
-                          key={index} 
-                          className="relative group cursor-pointer border rounded-md overflow-hidden"
-                          onClick={() => viewImage(img.image_url)}
+                      {selectedOrder.delivery_url && (
+                        <a 
+                          href={selectedOrder.delivery_url} 
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-blue-600 dark:text-blue-400 hover:underline mt-2 inline-block"
                         >
-                          <img 
-                            src={img.image_url} 
-                            alt={`Order image ${index + 1}`}
-                            className="w-full h-48 object-cover transition-transform group-hover:scale-105"
-                          />
-                          <div className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                            <Eye className="h-6 w-6 text-white" />
-                          </div>
-                        </div>
-                      ))}
+                          View Delivered Content
+                        </a>
+                      )}
                     </div>
                   )}
-                </div>
-              </div>
-            )}
 
-            <DialogFooter>
-              <Button 
-                variant="outline" 
-                onClick={() => setSelectedOrder(null)}
-                disabled={saving}
-              >
-                Cancel
-              </Button>
-              <Button 
-                onClick={updateOrder}
-                disabled={saving}
-              >
-                {saving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Saving...
-                  </>
-                ) : (
-                  'Save Changes'
-                )}
-              </Button>
-            </DialogFooter>
+                  <DialogFooter className="mt-6">
+                    <Button 
+                      variant="outline" 
+                      onClick={() => setSelectedOrder(null)}
+                      disabled={delivering}
+                    >
+                      Cancel
+                    </Button>
+                    <Button 
+                      onClick={deliverOrder}
+                      disabled={delivering || !deliveryUrl.trim() || !!selectedOrder.delivered_at}
+                      className="bg-green-600 hover:bg-green-700"
+                    >
+                      {delivering ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          Delivering...
+                        </>
+                      ) : (
+                        <>
+                          <Send className="mr-2 h-4 w-4" />
+                          {selectedOrder.delivered_at ? 'Already Delivered' : 'Deliver to Client'}
+                        </>
+                      )}
+                    </Button>
+                  </DialogFooter>
+                </div>
+              </TabsContent>
+            </Tabs>
           </DialogContent>
         </Dialog>
       )}
 
-      {/* Image Viewer Dialog */}
       <Dialog open={viewImageDialogOpen} onOpenChange={setViewImageDialogOpen}>
         <DialogContent className="max-w-3xl max-h-[90vh]">
           <DialogHeader>

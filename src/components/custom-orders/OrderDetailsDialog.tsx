@@ -73,7 +73,7 @@ export const OrderDetailsDialog = ({
       }
 
       // Fetch payment information if order is payment_pending or linked to a payment
-      if (orderData.status === "payment_pending" || orderData.status === "payment_failed") {
+      if (orderData && (orderData.status === "payment_pending" || orderData.status === "payment_failed")) {
         try {
           const { data: paymentData, error: paymentError } = await supabase
             .from("payment_transactions")
@@ -136,6 +136,22 @@ export const OrderDetailsDialog = ({
     // Navigate to payment page with order details
     // We assume the payment page is at "/payment" route
     window.location.href = `/payment?orderId=${order.id}`;
+  };
+
+  const getStatusBadge = (status: string) => {
+    switch (status) {
+      case "completed":
+        return <Badge variant="success">Completed</Badge>;
+      case "failed":
+      case "payment_failed":
+        return <Badge variant="destructive">Failed</Badge>;
+      case "in_progress":
+        return <Badge variant="info">In Progress</Badge>;
+      case "payment_pending":
+        return <Badge variant="warning">Payment Pending</Badge>;
+      default:
+        return <Badge variant="warning">Pending</Badge>;
+    }
   };
 
   const getStatusDetails = (status: string) => {

@@ -2,7 +2,7 @@
 export interface CustomOrder {
   id: string;
   user_id: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'payment_pending' | 'payment_failed';
   remark: string | null;
   created_at: string;
   updated_at: string;

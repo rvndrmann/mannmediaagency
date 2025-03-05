@@ -60,9 +60,14 @@ const CustomOrderForm = () => {
   const fetchOrderLink = async () => {
     try {
       setIsLoading(true);
-      const { data, error } = await supabase.rpc("check_order_link_valid", {
-        access_code_param: accessCode,
-      });
+      
+      // Use direct query instead of RPC
+      const { data, error } = await supabase
+        .from("custom_order_links")
+        .select("*")
+        .eq("access_code", accessCode)
+        .eq("is_active", true)
+        .single();
 
       if (error) {
         throw new Error(error.message);
@@ -72,7 +77,7 @@ const CustomOrderForm = () => {
         throw new Error("The link is invalid or has expired");
       }
 
-      setLinkData(data);
+      setLinkData(data as OrderLinkData);
     } catch (error: any) {
       toast.error(error.message || "Failed to load order form");
       navigate("/");
@@ -137,14 +142,17 @@ const CustomOrderForm = () => {
       let orderId: string;
 
       if (isAuthenticated && userId) {
-        // Authenticated user flow
-        const { data: orderData, error: orderError } = await supabase.rpc(
-          'create_custom_order',
-          { 
-            remark_text: formData.remark,
-            credits_amount: linkData.credits_amount
-          }
-        );
+        // Authenticated user flow - Use direct query
+        const { data: orderData, error: orderError } = await supabase
+          .from("custom_orders")
+          .insert({
+            user_id: userId,
+            remark: formData.remark,
+            credits_used: linkData.credits_amount,
+            order_link_id: linkData.id
+          })
+          .select()
+          .single();
 
         if (orderError) {
           throw new Error(orderError.message);
@@ -152,23 +160,41 @@ const CustomOrderForm = () => {
 
         orderId = orderData.id;
       } else {
-        // Guest user flow
-        const { data: guestOrderData, error: guestOrderError } = await supabase.rpc(
-          'create_guest_order',
-          {
-            phone_number_param: formData.phone,
-            email_param: formData.email,
-            name_param: formData.name,
-            remark_text: formData.remark,
-            order_link_id_param: linkData.id
-          }
-        );
+        // Guest user flow - Create guest record first
+        const { data: guestData, error: guestError } = await supabase
+          .from("custom_order_guests")
+          .insert({
+            name: formData.name,
+            email: formData.email,
+            phone_number: formData.phone
+          })
+          .select()
+          .single();
+        
+        if (guestError) {
+          throw new Error(guestError.message);
+        }
+        
+        // Now create the order with guest reference
+        const { data: orderData, error: orderError } = await supabase
+          .from("custom_orders")
+          .insert({
+            guest_id: guestData.id,
+            remark: formData.remark,
+            credits_used: linkData.credits_amount,
+            order_link_id: linkData.id,
+            status: linkData.custom_rate > 0 ? 'payment_pending' : 'pending',
+            // For guest orders, we use a static user_id that represents the system
+            user_id: userId || "00000000-0000-0000-0000-000000000000"
+          })
+          .select()
+          .single();
 
-        if (guestOrderError) {
-          throw new Error(guestOrderError.message);
+        if (orderError) {
+          throw new Error(orderError.message);
         }
 
-        orderId = guestOrderData;
+        orderId = orderData.id;
       }
 
       // Upload media files for the order
@@ -198,15 +224,14 @@ const CustomOrderForm = () => {
             .getPublicUrl(filePath);
 
           // Insert media record
-          const { error: mediaInsertError } = await supabase.rpc(
-            'add_custom_order_media',
-            { 
-              order_id_param: orderId, 
-              media_url_param: publicUrlData.publicUrl,
-              media_type_param: mediaType,
-              original_filename_param: file.name
-            }
-          );
+          const { error: mediaInsertError } = await supabase
+            .from("custom_order_media")
+            .insert({
+              order_id: orderId,
+              media_url: publicUrlData.publicUrl,
+              media_type: mediaType,
+              original_filename: file.name
+            });
 
           if (mediaInsertError) {
             throw new Error(mediaInsertError.message);

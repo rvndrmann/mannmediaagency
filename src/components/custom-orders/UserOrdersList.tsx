@@ -346,12 +346,12 @@ export const UserOrdersList = () => {
           ) : (
             <div className="grid gap-4">
               {filteredOrders.map((order) => (
-                <Card key={order.id} className={order.status === "payment_pending" ? "border-yellow-300 dark:border-yellow-600" : ""}>
+                <Card key={order.id} className={(order.status === "payment_pending") ? "border-yellow-300 dark:border-yellow-600" : ""}>
                   <CardHeader className="pb-2">
                     <div className="flex justify-between items-center">
                       <CardTitle className="text-base flex items-center gap-2">
                         Order #{order.id.slice(0, 8)}...
-                        {order.status === "payment_pending" && (
+                        {(order.status === "payment_pending") && (
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger>

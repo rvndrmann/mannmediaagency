@@ -8,6 +8,8 @@ import { GenerateButton } from "./input-panel/GenerateButton";
 import { Header } from "./input-panel/Header";
 import { Message } from "@/types/message";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
+import { Button } from "@/components/ui/button";
+import { VideoIcon } from "lucide-react";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -28,6 +30,7 @@ interface InputPanelProps {
   onOutputFormatChange: (value: string) => void;
   onGenerate: () => void;
   messages: Message[];
+  onVideoTemplatesClick?: () => void;
 }
 
 export const InputPanel = ({
@@ -49,6 +52,7 @@ export const InputPanel = ({
   onOutputFormatChange,
   onGenerate,
   messages,
+  onVideoTemplatesClick,
 }: InputPanelProps) => {
   return (
     <div className="space-y-6">
@@ -98,11 +102,24 @@ export const InputPanel = ({
           />
         </div>
 
-        <GenerateButton
-          isGenerating={isGenerating}
-          disabled={isGenerating || !prompt.trim() || !previewUrl}
-          onClick={onGenerate}
-        />
+        <div className="space-y-3">
+          <GenerateButton
+            isGenerating={isGenerating}
+            disabled={isGenerating || !prompt.trim() || !previewUrl}
+            onClick={onGenerate}
+          />
+
+          {previewUrl && onVideoTemplatesClick && (
+            <Button
+              variant="outline"
+              onClick={onVideoTemplatesClick}
+              className="w-full flex items-center justify-center py-2 text-sm bg-gray-800 hover:bg-gray-700 text-white border-gray-700"
+            >
+              <VideoIcon className="mr-2 h-4 w-4" />
+              Create Video with Templates
+            </Button>
+          )}
+        </div>
       </div>
     </div>
   );

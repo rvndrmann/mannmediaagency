@@ -66,3 +66,16 @@ export interface PaymentTransaction {
   user_id: string;
   related_order_id?: string;
 }
+
+export interface VideoTemplate {
+  id: string;
+  name: string;
+  description: string;
+  thumbnail_url: string;
+  prompt_template: string;
+  credits_cost: number;
+  aspect_ratio: string;
+  duration: string;
+  is_active: boolean;
+  created_at: string;
+}

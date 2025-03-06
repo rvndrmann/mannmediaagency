@@ -7,6 +7,7 @@ import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { useProductShotV1, ImageSize } from "@/hooks/use-product-shot-v1";
 import { useUserCredits } from "@/hooks/use-user-credits";
 import { useImageToVideo } from "@/hooks/use-image-to-video";
+import { useTemplateVideo } from "@/hooks/use-template-video";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
@@ -15,6 +16,8 @@ import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
+import { VideoTemplatesDialog } from "@/components/ai-agent/VideoTemplatesDialog";
+import { VideoTemplate } from "@/types/custom-order";
 
 const AIAgent = () => {
   const navigate = useNavigate();
@@ -23,6 +26,7 @@ const AIAgent = () => {
   const [activeTool, setActiveTool] = useState('product-shot-v1');
   const [commandParams, setCommandParams] = useState<any>(null);
   const [customOrderOpen, setCustomOrderOpen] = useState(false);
+  const [videoTemplatesOpen, setVideoTemplatesOpen] = useState(false);
 
   // Store active tool in localStorage for cross-component state sharing
   useEffect(() => {
@@ -65,6 +69,11 @@ const AIAgent = () => {
     handleGenerate: handleVideoGenerate,
     handleSelectFromHistory: handleVideoSelectFromHistory,
   } = useImageToVideo();
+
+  const {
+    isGenerating: isGeneratingTemplateVideo,
+    generateFromTemplate
+  } = useTemplateVideo();
 
   // Effect to handle command parameters for product-shot-v1
   useEffect(() => {
@@ -112,6 +121,34 @@ const AIAgent = () => {
     setCustomOrderOpen(true);
   };
 
+  const handleVideoTemplatesClick = () => {
+    if (!productShotState.productShotPreview) {
+      toast.error("Please generate or upload an image first");
+      return;
+    }
+    setVideoTemplatesOpen(true);
+  };
+
+  const handleTemplateSelect = async (template: VideoTemplate, imageUrl: string) => {
+    if (!userCreditsQuery.data?.user_id) {
+      toast.error("Please log in to use templates");
+      return;
+    }
+
+    const jobId = await generateFromTemplate(
+      template, 
+      imageUrl, 
+      userCreditsQuery.data.user_id
+    );
+
+    if (jobId) {
+      toast.success("Video generation started, you can view it in the video gallery");
+      if (activeTool !== 'image-to-video') {
+        setActiveTool('image-to-video');
+      }
+    }
+  };
+
   return (
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
@@ -139,6 +176,7 @@ const AIAgent = () => {
               userCredits={userCredits}
               activeTool={activeTool}
               onToolSelect={setActiveTool}
+              onVideoTemplatesClick={handleVideoTemplatesClick}
               productShotV2={{
                 onSubmit: handleGenerateV2,
                 isGenerating: isGeneratingV2,
@@ -170,7 +208,8 @@ const AIAgent = () => {
                 onDownload: (url: string) => {
                   window.open(url, '_blank');
                 },
-                messages
+                messages,
+                onVideoTemplatesClick: handleVideoTemplatesClick
               }}
               imageToVideo={{
                 isMobile,
@@ -185,11 +224,19 @@ const AIAgent = () => {
               onInputChange={setInput}
               onSubmit={handleSubmit}
               onBack={handleBackClick}
+              onCustomOrderClick={handleCustomOrderClick}
             />
           </div>
           <CustomOrderDialog 
             open={customOrderOpen} 
             onOpenChange={setCustomOrderOpen} 
+          />
+          <VideoTemplatesDialog
+            open={videoTemplatesOpen}
+            onOpenChange={setVideoTemplatesOpen}
+            onSelectTemplate={handleTemplateSelect}
+            sourceImageUrl={productShotState.productShotPreview}
+            userCredits={userCreditsQuery.data?.credits_remaining || 0}
           />
           <Toaster />
         </div>

@@ -6,7 +6,8 @@ import {
   Camera, 
   Clapperboard, 
   FileText,
-  PlusSquare 
+  PlusSquare,
+  VideoIcon
 } from "lucide-react";
 import { 
   Tooltip,
@@ -20,12 +21,16 @@ interface ToolSelectorProps {
   activeTool: string;
   onToolSelect: (tool: string) => void;
   onCustomOrderClick?: () => void;
+  onVideoTemplatesClick?: () => void;
+  showVideoTemplatesButton?: boolean;
 }
 
 export const ToolSelector = ({ 
   activeTool, 
   onToolSelect,
-  onCustomOrderClick
+  onCustomOrderClick,
+  onVideoTemplatesClick,
+  showVideoTemplatesButton = false
 }: ToolSelectorProps) => {
   const tools = [
     {
@@ -82,24 +87,47 @@ export const ToolSelector = ({
         </TooltipProvider>
       </div>
       
-      <TooltipProvider>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={onCustomOrderClick}
-              className="text-xs text-white/60 hover:text-white hover:bg-white/10"
-            >
-              <PlusSquare className="h-4 w-4 mr-2" />
-              Custom Order
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>
-            <p>Request a custom design with multiple images</p>
-          </TooltipContent>
-        </Tooltip>
-      </TooltipProvider>
+      <div className="flex items-center space-x-2">
+        {showVideoTemplatesButton && onVideoTemplatesClick && (
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={onVideoTemplatesClick}
+                  className="text-xs text-white/60 hover:text-white hover:bg-white/10"
+                >
+                  <VideoIcon className="h-4 w-4 mr-2" />
+                  Video Templates
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Create videos from your product shots</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        )}
+        
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={onCustomOrderClick}
+                className="text-xs text-white/60 hover:text-white hover:bg-white/10"
+              >
+                <PlusSquare className="h-4 w-4 mr-2" />
+                Custom Order
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>Request a custom design with multiple images</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
     </div>
   );
 };

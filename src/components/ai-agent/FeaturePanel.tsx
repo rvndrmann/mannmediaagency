@@ -44,6 +44,7 @@ interface FeaturePanelProps {
     onGenerate: () => void;
     onDownload: (url: string) => void;
     messages: Message[];
+    onVideoTemplatesClick?: () => void;
   };
   imageToVideo: {
     isMobile: boolean;
@@ -86,6 +87,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
               onOutputFormatChange={productShotV1.onOutputFormatChange}
               onGenerate={productShotV1.onGenerate}
               messages={productShotV1.messages}
+              onVideoTemplatesClick={productShotV1.onVideoTemplatesClick}
             />
             <GalleryPanel
               isMobile={productShotV1.isMobile}

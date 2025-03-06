@@ -55,3 +55,14 @@ export interface Notification {
   related_id: string | null;
   created_at: string;
 }
+
+export interface PaymentTransaction {
+  id: string;
+  amount: number;
+  status: string;
+  payment_status: string;
+  transaction_id: string;
+  created_at: string;
+  user_id: string;
+  related_order_id?: string;
+}

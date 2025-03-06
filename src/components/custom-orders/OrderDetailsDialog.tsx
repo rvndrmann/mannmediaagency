@@ -1,7 +1,6 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
+import { CustomOrder, CustomOrderMedia, PaymentTransaction } from "@/types/custom-order";
 import {
   Dialog,
   DialogContent,
@@ -24,17 +23,6 @@ interface OrderDetailsDialogProps {
   orderId: string | null;
 }
 
-// Define a specific type for payment info to avoid excessive type instantiation
-interface PaymentInfo {
-  id?: string;
-  amount?: number;
-  status?: string;
-  payment_status?: string;
-  transaction_id?: string;
-  created_at?: string;
-  // Add specific fields only, avoid using index signature
-}
-
 export const OrderDetailsDialog = ({
   open,
   onOpenChange,
@@ -43,7 +31,7 @@ export const OrderDetailsDialog = ({
   const [order, setOrder] = useState<CustomOrder | null>(null);
   const [orderMedia, setOrderMedia] = useState<CustomOrderMedia[]>([]);
   const [loading, setLoading] = useState(true);
-  const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
+  const [paymentInfo, setPaymentInfo] = useState<PaymentTransaction | null>(null);
 
   useEffect(() => {
     if (open && orderId) {
@@ -93,7 +81,7 @@ export const OrderDetailsDialog = ({
             .maybeSingle();
 
           if (!paymentError && paymentData) {
-            setPaymentInfo(paymentData);
+            setPaymentInfo(paymentData as PaymentTransaction);
           }
         } catch (error) {
           console.warn("Error fetching payment info:", error);
@@ -112,7 +100,6 @@ export const OrderDetailsDialog = ({
     return format(new Date(dateString), "PPP p");
   };
 
-  // Mark related notification as read when opening details
   useEffect(() => {
     if (open && orderId) {
       const markNotificationAsRead = async () => {
@@ -140,12 +127,9 @@ export const OrderDetailsDialog = ({
     document.body.removeChild(link);
   };
 
-  // Function to handle payment completion for orders with pending payment
   const handleContinueToPayment = () => {
     if (!order) return;
     
-    // Navigate to payment page with order details
-    // We assume the payment page is at "/payment" route
     window.location.href = `/payment?orderId=${order.id}`;
   };
 
@@ -256,7 +240,6 @@ export const OrderDetailsDialog = ({
               </TabsList>
 
               <TabsContent value="details" className="space-y-4 mt-4">
-                {/* Status indicator */}
                 <div className={`p-3 rounded-md ${getStatusDetails(order.status).color} bg-opacity-10 border border-opacity-20 flex items-start gap-3`}>
                   {getStatusDetails(order.status).icon}
                   <div>
@@ -265,7 +248,6 @@ export const OrderDetailsDialog = ({
                   </div>
                 </div>
 
-                {/* Order timeline */}
                 <div className="space-y-3">
                   <div className="flex justify-between items-start">
                     <div className="flex items-center gap-2">
@@ -304,7 +286,6 @@ export const OrderDetailsDialog = ({
                   </div>
                 </div>
 
-                {/* Payment information */}
                 {(order.status === "payment_pending" || order.status === "payment_failed") && (
                   <div className="mt-4 p-3 rounded-md bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-700/50">
                     <h3 className="text-sm font-medium flex items-center gap-2 mb-2">

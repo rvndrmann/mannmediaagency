@@ -1,4 +1,3 @@
-
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +14,7 @@ import {
   Menu,
   Bot,
   Bell,
+  VideoIcon,
   LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -50,7 +50,6 @@ export const Navigation = () => {
           return;
         }
         
-        // Check if user is in admin_users table using RPC
         const { data: adminData, error: adminError } = await supabase.rpc(
           'check_is_admin'
         );
@@ -101,7 +100,6 @@ export const Navigation = () => {
 
     fetchNotifications();
 
-    // Setup realtime subscription for new notifications
     const channel = supabase
       .channel('public:user_notifications')
       .on('postgres_changes', 
@@ -115,7 +113,6 @@ export const Navigation = () => {
         { event: 'UPDATE', schema: 'public', table: 'user_notifications' },
         (payload) => {
           const updatedNotification = payload.new as Notification;
-          // If notification is marked as read, remove it from the list
           if (updatedNotification.read) {
             setNotifications(prev => prev.filter(n => n.id !== updatedNotification.id));
           }
@@ -128,7 +125,6 @@ export const Navigation = () => {
     };
   }, []);
 
-  // Base navigation items
   const baseNavigation: NavigationItemWithBadge[] = [
     {
       name: "Explore",
@@ -150,6 +146,12 @@ export const Navigation = () => {
       icon: Bot,
     },
     {
+      name: "Video Templates",
+      subtext: "Create Amazing Videos",
+      to: "/video-templates",
+      icon: VideoIcon,
+    },
+    {
       name: "Plans & Billing",
       to: "/plans",
       icon: CreditCard,
@@ -161,7 +163,6 @@ export const Navigation = () => {
     },
   ];
 
-  // Add admin item if user is admin
   const adminItem: NavigationItem = {
     name: "Admin",
     subtext: "Admin Dashboard",
@@ -170,7 +171,6 @@ export const Navigation = () => {
     adminOnly: true,
   };
 
-  // Last item is always Integrations
   const integrationsItem: IntegrationsNavigationItem = {
     name: "Integrations",
     icon: Settings,
@@ -178,12 +178,11 @@ export const Navigation = () => {
     comingSoon: true,
   };
 
-  // Combine navigation items based on admin status
   const mainNavigation: NavigationItem[] = isLoadingAdmin
-    ? baseNavigation // Show basic navigation while loading
+    ? baseNavigation
     : isAdmin
-      ? [...baseNavigation, adminItem, integrationsItem] // Include admin link for admins
-      : [...baseNavigation, integrationsItem]; // Regular navigation for non-admins
+      ? [...baseNavigation, adminItem, integrationsItem]
+      : [...baseNavigation, integrationsItem];
 
   const legalNavigation: BaseNavigationItem[] = [
     {
@@ -208,17 +207,14 @@ export const Navigation = () => {
     },
   ];
 
-  // Helper function to check if an item has a badge
   const hasBadge = (item: NavigationItem): item is NavigationItemWithBadge => {
     return 'badge' in item && item.badge !== undefined;
   };
 
-  // Helper function to check if an item is disabled
   const isDisabled = (item: NavigationItem): boolean => {
     return 'disabled' in item && item.disabled === true;
   };
 
-  // Helper function to check if an item has comingSoon
   const hasComingSoon = (item: NavigationItem): boolean => {
     return 'comingSoon' in item && item.comingSoon === true;
   };

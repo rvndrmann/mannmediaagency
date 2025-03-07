@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -28,6 +29,7 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Explore from "./pages/Explore";
 import Admin from "./pages/Admin";
+import VideoTemplates from "./pages/VideoTemplates";
 import { ThemeProvider } from "next-themes";
 import ProfileSettings from "@/pages/ProfileSettings";
 import { BottomNav } from "./components/mobile/BottomNav";
@@ -105,6 +107,7 @@ const App = () => (
               <Route path="/product-shoot" element={<ProtectedRoute><ProductShoot /></ProtectedRoute>} />
               <Route path="/product-shoot-v2" element={<ProtectedRoute><ProductShootV2 /></ProtectedRoute>} />
               <Route path="/image-to-video" element={<ProtectedRoute><ImageToVideo /></ProtectedRoute>} />
+              <Route path="/video-templates" element={<ProtectedRoute><VideoTemplates /></ProtectedRoute>} />
               <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
               <Route path="/ai-agent" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />

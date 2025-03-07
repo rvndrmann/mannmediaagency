@@ -1,10 +1,11 @@
 
 import { Button } from "@/components/ui/button";
-import { LogOut } from "lucide-react";
+import { LogOut, VideoIcon } from "lucide-react";
 import { Sidebar as SidebarComponent, SidebarContent, SidebarHeader, SidebarFooter } from "@/components/ui/sidebar";
 import { supabase } from "@/integrations/supabase/client";
 import { ProfileSection } from "./sidebar/ProfileSection";
 import { Navigation } from "./sidebar/Navigation";
+import { Link } from "react-router-dom";
 
 export const Sidebar = () => {
   return (
@@ -21,7 +22,15 @@ export const Sidebar = () => {
         </div>
       </SidebarContent>
       <SidebarFooter>
-        <div className="px-4">
+        <div className="px-4 py-2">
+          <Link to="/video-templates">
+            <Button
+              variant="outline"
+              className="w-full mb-3 bg-purple-600 hover:bg-purple-700 border-purple-600 text-white"
+            >
+              <VideoIcon className="mr-2 h-4 w-4" /> Video Templates
+            </Button>
+          </Link>
           <Button
             variant="ghost"
             className="w-full justify-start text-gray-300 hover:text-white hover:bg-gray-800"

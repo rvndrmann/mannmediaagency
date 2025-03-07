@@ -33,10 +33,7 @@ export function VideoTemplatesDialog({
       setIsLoading(true);
       try {
         const { data, error } = await supabase
-          .from("video_templates")
-          .select("*")
-          .eq("is_active", true)
-          .order("created_at", { ascending: false });
+          .rpc("get_video_templates");
 
         if (error) throw error;
         setTemplates(data || []);

@@ -1,10 +1,11 @@
 
 import { ReactNode } from "react";
-import { SidePanel } from "./SidePanel";
+import { SidePanel } from "../chat/SidePanel";
 import { FeaturePanel } from "./FeaturePanel";
 import { ToolSelector } from "./ToolSelector";
 import { Message } from "@/types/message";
 import { GeneratedImage } from "@/types/product-shoot";
+import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 interface SplitScreenProps {
   isMobile: boolean;
@@ -27,7 +28,7 @@ interface SplitScreenProps {
     isMobile: boolean;
     prompt: string;
     previewUrl: string | null;
-    imageSize: string;
+    imageSize: ImageSize;
     inferenceSteps: number;
     guidanceScale: number;
     outputFormat: string;
@@ -38,7 +39,7 @@ interface SplitScreenProps {
     onPromptChange: (value: string) => void;
     onFileSelect: (event: React.ChangeEvent<HTMLInputElement>) => void;
     onClearFile: () => void;
-    onImageSizeChange: (value: any) => void;
+    onImageSizeChange: (value: ImageSize) => void;
     onInferenceStepsChange: (value: number) => void;
     onGuidanceScaleChange: (value: number) => void;
     onOutputFormatChange: (value: string) => void;

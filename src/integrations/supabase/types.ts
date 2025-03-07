@@ -1841,6 +1841,48 @@ export type Database = {
           },
         ]
       }
+      video_templates: {
+        Row: {
+          aspect_ratio: string
+          created_at: string
+          credits_cost: number
+          description: string | null
+          duration: string
+          id: string
+          is_active: boolean
+          name: string
+          prompt_template: string
+          thumbnail_url: string
+          updated_at: string
+        }
+        Insert: {
+          aspect_ratio?: string
+          created_at?: string
+          credits_cost?: number
+          description?: string | null
+          duration?: string
+          id?: string
+          is_active?: boolean
+          name: string
+          prompt_template: string
+          thumbnail_url: string
+          updated_at?: string
+        }
+        Update: {
+          aspect_ratio?: string
+          created_at?: string
+          credits_cost?: number
+          description?: string | null
+          duration?: string
+          id?: string
+          is_active?: boolean
+          name?: string
+          prompt_template?: string
+          thumbnail_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       work_assignments: {
         Row: {
           assigned_by: string
@@ -2014,6 +2056,22 @@ export type Database = {
           table_name: string
         }
         Returns: number
+      }
+      get_video_templates: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          aspect_ratio: string
+          created_at: string
+          credits_cost: number
+          description: string | null
+          duration: string
+          id: string
+          is_active: boolean
+          name: string
+          prompt_template: string
+          thumbnail_url: string
+          updated_at: string
+        }[]
       }
       remove_admin_user: {
         Args: {

@@ -32,6 +32,7 @@ export function VideoTemplatesDialog({
     const fetchTemplates = async () => {
       setIsLoading(true);
       try {
+        // Use the table directly with proper type casting instead of the RPC
         const { data, error } = await supabase
           .from("video_templates")
           .select("*")
@@ -39,7 +40,7 @@ export function VideoTemplatesDialog({
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        setTemplates(data || []);
+        setTemplates(data as VideoTemplate[]);
       } catch (error) {
         console.error("Error fetching templates:", error);
         toast.error("Failed to load video templates");

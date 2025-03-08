@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia, PaymentTransaction } from "@/types/custom-order";
@@ -65,7 +64,7 @@ export const OrderDetailsDialog = ({
           console.warn("Error fetching media (table might not exist yet):", mediaError);
           setOrderMedia([]);
         } else {
-          setOrderMedia(mediaData as CustomOrderMedia[]);
+          setOrderMedia(data as unknown as CustomOrderMedia[]);
         }
       } catch (mediaError) {
         console.warn("Error in media fetch:", mediaError);

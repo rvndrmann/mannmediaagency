@@ -2,12 +2,13 @@
 import React from "react";
 import { Button } from "@/components/ui/button";
 import { 
-  MessageSquare, 
   Camera, 
   Clapperboard, 
   FileText,
   PlusSquare,
-  VideoIcon
+  VideoIcon,
+  ArrowLeft,
+  MessageSquare
 } from "lucide-react";
 import { 
   Tooltip,
@@ -23,6 +24,8 @@ interface ToolSelectorProps {
   onCustomOrderClick?: () => void;
   onVideoTemplatesClick?: () => void;
   showVideoTemplatesButton?: boolean;
+  isMobile: boolean;
+  onBackClick?: () => void;
 }
 
 export const ToolSelector = ({ 
@@ -30,14 +33,17 @@ export const ToolSelector = ({
   onToolSelect,
   onCustomOrderClick,
   onVideoTemplatesClick,
-  showVideoTemplatesButton = false
+  showVideoTemplatesButton = false,
+  isMobile,
+  onBackClick
 }: ToolSelectorProps) => {
   const tools = [
     {
       id: "ai-agent",
       name: "AI Chat",
       icon: MessageSquare,
-      tooltip: "Chat with AI assistant"
+      tooltip: "Chat with AI assistant",
+      mobileOnly: true
     },
     {
       id: "product-shot-v1",
@@ -59,11 +65,27 @@ export const ToolSelector = ({
     }
   ];
 
+  const filteredTools = isMobile 
+    ? tools 
+    : tools.filter(tool => !tool.mobileOnly);
+
   return (
     <div className="border-b border-white/10 bg-[#1E2432] p-3 flex items-center justify-between">
       <div className="flex items-center space-x-2">
+        {onBackClick && isMobile && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onBackClick}
+            className="text-xs text-white/60 hover:text-white hover:bg-white/10 mr-1"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+        )}
+        
         <TooltipProvider>
-          {tools.map((tool) => (
+          {filteredTools.map((tool) => (
             <Tooltip key={tool.id}>
               <TooltipTrigger asChild>
                 <Button

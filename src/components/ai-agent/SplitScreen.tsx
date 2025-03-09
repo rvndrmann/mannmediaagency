@@ -89,6 +89,8 @@ export function SplitScreen({
         onCustomOrderClick={onCustomOrderClick}
         onVideoTemplatesClick={onVideoTemplatesClick}
         showVideoTemplatesButton={!!productShotV1.previewUrl && activeTool === 'product-shot-v1'}
+        isMobile={isMobile}
+        onBackClick={onBack}
       />
       
       <main className="flex-1 flex flex-col md:flex-row overflow-hidden">

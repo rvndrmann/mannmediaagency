@@ -11,8 +11,6 @@ import { useTemplateVideo } from "@/hooks/use-template-video";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
-import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
 import { useState, useEffect } from "react";
 import { toast } from "sonner";
 import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
@@ -107,20 +105,6 @@ const AIAgent = () => {
     <ThemeProvider attribute="class" defaultTheme="dark">
       <TooltipProvider>
         <div className="min-h-screen bg-[#1A1F2C]">
-          {isMobile && (
-            <div className="fixed top-0 left-0 z-50 p-4">
-              <Button 
-                variant="gradient" 
-                size="sm" 
-                onClick={handleBackClick}
-                className="text-white shadow-md"
-              >
-                <ArrowLeft className="h-5 w-5 mr-1" />
-                <span className="font-medium">Back</span>
-              </Button>
-            </div>
-          )}
-          
           <div className="h-screen">
             <SplitScreen
               isMobile={isMobile}

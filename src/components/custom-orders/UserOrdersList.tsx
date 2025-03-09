@@ -416,9 +416,9 @@ export const UserOrdersList = () => {
       )}
 
       <OrderDetailsDialog
+        orderId={selectedOrderId}
         open={detailsOpen}
         onOpenChange={setDetailsOpen}
-        orderId={selectedOrderId}
       />
     </div>
   );

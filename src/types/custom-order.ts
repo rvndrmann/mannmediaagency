@@ -2,7 +2,7 @@
 export interface CustomOrder {
   id: string;
   user_id: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'payment_pending' | 'payment_failed';
+  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'payment_pending' | 'payment_failed' | string;
   remark: string | null;
   created_at: string;
   updated_at: string;
@@ -13,6 +13,13 @@ export interface CustomOrder {
   delivery_message: string | null;
   guest_id?: string | null;
   order_link_id?: string | null;
+  // Additional properties from database
+  amount?: number;
+  order_number?: string;
+  service_type?: string;
+  description?: string;
+  requirements?: string;
+  payment_status?: string;
 }
 
 export interface CustomOrderImage {
@@ -26,10 +33,11 @@ export interface CustomOrderMedia {
   id: string;
   order_id: string;
   media_url: string;
-  media_type: 'image' | 'video';
+  media_type: 'image' | 'video' | string;
   thumbnail_url?: string | null;
   original_filename?: string | null;
   created_at: string;
+  filename?: string; // Add this to support current code
 }
 
 export interface User {
@@ -64,6 +72,7 @@ export interface PaymentTransaction {
   transaction_id: string;
   created_at: string;
   user_id: string;
+  payment_method?: string;
   related_order_id?: string;
 }
 

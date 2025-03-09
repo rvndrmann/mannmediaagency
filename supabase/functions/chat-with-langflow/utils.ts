@@ -1,4 +1,3 @@
-
 import { Message } from "./types.ts";
 import { REQUEST_ID_PREFIX, MAX_INPUT_LENGTH } from "./config.ts";
 
@@ -58,17 +57,7 @@ export function extractResponseText(responseData: any): { messageText: string | 
     
     console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
     
-    let command = null;
-    if (result.command) {
-      command = {
-        feature: result.command.feature || 'default-image',
-        action: result.command.action || 'list',
-        parameters: result.command.parameters || {}
-      };
-      console.log('Extracted command:', command);
-    }
-    
-    return { messageText, command };
+    return { messageText, command: null };
   } catch (error) {
     console.error('Error extracting response text:', error);
     return { 

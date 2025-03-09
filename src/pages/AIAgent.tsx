@@ -24,7 +24,6 @@ const AIAgent = () => {
   const isMobile = useIsMobile();
   const userCreditsQuery = useUserCredits();
   const [activeTool, setActiveTool] = useState('product-shot-v1');
-  const [commandParams, setCommandParams] = useState<any>(null);
   const [customOrderOpen, setCustomOrderOpen] = useState(false);
   const [videoTemplatesOpen, setVideoTemplatesOpen] = useState(false);
 
@@ -33,13 +32,6 @@ const AIAgent = () => {
     localStorage.setItem("activeTool", activeTool);
   }, [activeTool]);
 
-  // Handle tool switching from AI chat commands with parameters
-  const handleToolSwitch = (tool: string, params?: any) => {
-    console.log("Switching to tool:", tool, "with params:", params);
-    setActiveTool(tool);
-    setCommandParams(params || null);
-  };
-
   const {
     messages,
     input,
@@ -47,7 +39,7 @@ const AIAgent = () => {
     isLoading,
     handleSubmit,
     userCredits
-  } = useAIChat(handleToolSwitch);
+  } = useAIChat();
 
   const { 
     isGenerating: isGeneratingV2, 
@@ -74,44 +66,6 @@ const AIAgent = () => {
     isGenerating: isGeneratingTemplateVideo,
     generateFromTemplate
   } = useTemplateVideo();
-
-  // Effect to handle command parameters for product-shot-v1
-  useEffect(() => {
-    if (commandParams && activeTool === 'product-shot-v1') {
-      console.log("Applying command parameters to product-shot-v1:", commandParams);
-      
-      // Set prompt if provided
-      if (commandParams.prompt) {
-        productShotActions.setProductShotPrompt(commandParams.prompt);
-      }
-      
-      // Set image if provided - use direct method for remote/default images
-      if (commandParams.imageUrl) {
-        console.log("Setting default image URL:", commandParams.imageUrl);
-        productShotActions.setProductShotPreview(commandParams.imageUrl);
-        toast.success(`Using default image: ${commandParams.name || 'Unnamed'}`);
-      }
-      
-      // Auto-generate if flag is set
-      if (commandParams.autoGenerate) {
-        console.log("Auto-generating product shot");
-        // Use a slightly longer delay to ensure UI is fully updated
-        setTimeout(() => {
-          try {
-            console.log("Triggering handleGenerate");
-            productShotActions.handleGenerate();
-            toast.success("Automatically generating your product shot");
-          } catch (error) {
-            console.error("Error auto-generating:", error);
-            toast.error("Failed to auto-generate product shot");
-          }
-        }, 1000); // Longer delay to ensure all UI state is updated
-      }
-      
-      // Clear parameters after processing
-      setCommandParams(null);
-    }
-  }, [commandParams, activeTool, productShotActions]);
 
   const handleBackClick = () => {
     navigate('/');

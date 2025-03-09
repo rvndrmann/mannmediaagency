@@ -1,9 +1,9 @@
-import { useState, useEffect, useCallback } from "react";
+
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
-import { Message, Task, Command } from "@/types/message";
+import { Message, Task } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
-import { useDefaultImages } from "@/hooks/use-default-images"; 
 import { toast } from "sonner";
 
 const STORAGE_KEY = "ai_agent_chat_history";
@@ -11,7 +11,7 @@ const CHAT_CREDIT_COST = 0.07;
 const MAX_CHAT_RETRY_ATTEMPTS = 2;
 const RETRY_DELAY_MS = 1000;
 
-export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) => {
+export const useAIChat = () => {
   const [messages, setMessages] = useState<Message[]>(() => {
     try {
       const savedMessages = localStorage.getItem(STORAGE_KEY);
@@ -24,7 +24,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
-  const { defaultImages, updateLastUsed, saveDefaultImage } = useDefaultImages();
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -62,7 +61,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     status: "pending",
   });
 
-  const updateTaskStatus = useCallback((messageIndex: number, taskId: string, status: Task["status"], details?: string) => {
+  const updateTaskStatus = (messageIndex: number, taskId: string, status: Task["status"], details?: string) => {
     setMessages(prev => {
       const newMessages = [...prev];
       if (messageIndex >= 0 && messageIndex < newMessages.length) {
@@ -85,9 +84,9 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       }
       return newMessages;
     });
-  }, []);
+  };
 
-  const setAllTasksToError = useCallback((messageIndex: number, errorMessage?: string) => {
+  const setAllTasksToError = (messageIndex: number, errorMessage?: string) => {
     setMessages(prev => {
       const newMessages = [...prev];
       if (messageIndex >= 0 && messageIndex < newMessages.length) {
@@ -108,7 +107,7 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       }
       return newMessages;
     });
-  }, []);
+  };
 
   const deductChatCredits = async () => {
     try {
@@ -149,63 +148,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     }
   };
 
-  const executeCommand = async (command: Command, messageIndex: number): Promise<void> => {
-    try {
-      console.log('Executing command:', command);
-      
-      if (onToolSwitch && (
-        command.feature === "product-shot-v1" || 
-        command.feature === "product-shot-v2" || 
-        command.feature === "image-to-video" ||
-        command.feature === "product-video")
-      ) {
-        if (command.feature === "product-shot-v1" && 
-            command.parameters?.name && 
-            !command.parameters.imageUrl && 
-            defaultImages?.length) {
-          
-          const matchedImage = defaultImages.find(img => 
-            img.name.toLowerCase() === command.parameters?.name?.toLowerCase()
-          );
-          
-          if (matchedImage) {
-            command.parameters.imageId = matchedImage.id;
-            command.parameters.imageUrl = matchedImage.url;
-            await updateLastUsed.mutateAsync(matchedImage.id);
-          }
-        }
-
-        onToolSwitch(command.feature, command.parameters);
-        
-        setMessages(prev => {
-          const newMessages = [...prev];
-          if (messageIndex >= 0 && messageIndex < newMessages.length) {
-            newMessages[messageIndex] = {
-              ...newMessages[messageIndex],
-              status: "completed"
-            };
-          }
-          return newMessages;
-        });
-      }
-    } catch (error) {
-      console.error("Command execution error:", error);
-      
-      setMessages(prev => {
-        const newMessages = [...prev];
-        if (messageIndex >= 0 && messageIndex < newMessages.length) {
-          newMessages[messageIndex] = {
-            ...newMessages[messageIndex],
-            status: "error"
-          };
-        }
-        return newMessages;
-      });
-      
-      toast.error(`Failed to execute command: ${error instanceof Error ? error.message : "Unknown error"}`);
-    }
-  };
-
   const makeRequestWithRetry = async (endpoint: string, body: any, retries = MAX_CHAT_RETRY_ATTEMPTS): Promise<any> => {
     let lastError;
     
@@ -238,17 +180,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     throw lastError;
   };
 
-  const formatMessageHistory = (messages: Message[]): any[] => {
-    if (!messages || messages.length === 0) {
-      return [];
-    }
-    
-    return messages.map(msg => ({
-      role: msg.role,
-      content: msg.content
-    }));
-  };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -272,7 +203,6 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
       content: "I'm analyzing your request...", 
       status: "thinking",
       tasks: [
-        createTask("Analyzing your request"),
         createTask("Processing with AI"),
         createTask("Preparing response")
       ]
@@ -286,181 +216,63 @@ export const useAIChat = (onToolSwitch?: (tool: string, params?: any) => void) =
     let creditsDeducted = false;
 
     try {
+      // 1. Deduct credits first
       await deductChatCredits();
       creditsDeducted = true;
       
+      // 2. Log usage
       await logChatUsage(trimmedInput);
       
+      // 3. Refresh user credits
       refetchCredits();
 
+      // 4. Start processing with AI
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
-      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      // 5. Make direct call to Langflow
+      const data = await makeRequestWithRetry('chat-with-langflow', { 
+        message: trimmedInput,
+        requestId
+      });
+
+      console.log(`[${requestId}] Received response from LangFlow:`, data);
+
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
-      
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
-      
-      const activeTool = localStorage.getItem("activeTool") || "ai-agent";
-      
-      console.log(`[${requestId}] Sending request to command detection system`);
-      let detectionResponse;
-      try {
-        detectionResponse = await makeRequestWithRetry('detect-command', { 
-          message: trimmedInput,
-          activeContext: activeTool,
-          userCredits
-        });
-        
-        console.log(`[${requestId}] Command detection response:`, detectionResponse);
-      } catch (detectionError) {
-        console.error(`[${requestId}] Command detection error:`, detectionError);
-        detectionResponse = { use_langflow: true };
-      }
 
-      let command = null;
-      let messageContent = null;
-      let useLangflow = true;
-
-      if (detectionResponse) {
-        useLangflow = detectionResponse.use_langflow !== false;
-        command = detectionResponse.command;
-        messageContent = detectionResponse.message;
-        
-        if (detectionResponse.error === "INSUFFICIENT_CREDITS") {
-          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Insufficient credits");
-          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
-          
-          setMessages(prev => {
-            const newMessages = [...prev];
-            if (messageIndex >= 0 && messageIndex < newMessages.length) {
-              newMessages[messageIndex] = {
-                ...newMessages[messageIndex],
-                content: messageContent || "You don't have enough credits for this operation.",
-                status: "error"
-              };
-            }
-            return newMessages;
-          });
-          
-          setIsLoading(false);
-          setProcessingRequestId(null);
-          return;
-        }
-      }
-
-      if (command && messageContent) {
-        console.log(`[${requestId}] Using detected command:`, command);
-        
+      if (data && data.message) {
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
-        updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
         
         setMessages(prev => {
           const newMessages = [...prev];
           if (messageIndex >= 0 && messageIndex < newMessages.length) {
             newMessages[messageIndex] = {
               ...newMessages[messageIndex],
-              command: command,
-              content: messageContent,
+              content: data.message,
               status: "completed"
             };
           }
           return newMessages;
         });
+      } else if (data && data.error === "Request timeout") {
+        updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "error", "Request timed out");
+        updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error");
         
-        await executeCommand(command, messageIndex);
-      }
-      else if (useLangflow) {
-        console.log(`[${requestId}] Falling back to Langflow for response generation`);
-        
-        try {
-          const data = await makeRequestWithRetry('chat-with-langflow', { 
-            message: trimmedInput,
-            activeTool,
-            userCredits,
-            requestId
-          });
-
-          console.log(`[${requestId}] Received response from LangFlow:`, data);
-
-          updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
-          updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "in-progress");
-
-          if (data && data.message) {
-            const responseCommand = data.command;
-            
-            if (responseCommand) {
-              console.log(`[${requestId}] Command received from Langflow:`, responseCommand);
-              
-              setMessages(prev => {
-                const newMessages = [...prev];
-                if (messageIndex >= 0 && messageIndex < newMessages.length) {
-                  newMessages[messageIndex] = {
-                    ...newMessages[messageIndex],
-                    command: responseCommand,
-                    content: data.message,
-                    status: "working"
-                  };
-                }
-                return newMessages;
-              });
-              
-              await executeCommand(responseCommand, messageIndex);
-            } else {
-              updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "completed");
-              
-              setMessages(prev => {
-                const newMessages = [...prev];
-                if (messageIndex >= 0 && messageIndex < newMessages.length) {
-                  newMessages[messageIndex] = {
-                    ...newMessages[messageIndex],
-                    content: data.message,
-                    status: "completed"
-                  };
-                }
-                return newMessages;
-              });
-            }
-          } else if (data && data.error === "Request timeout") {
-            updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error", "Request timed out");
-            updateTaskStatus(messageIndex, assistantMessage.tasks![2].id, "error");
-            
-            setMessages(prev => {
-              const newMessages = [...prev];
-              if (messageIndex >= 0 && messageIndex < newMessages.length) {
-                newMessages[messageIndex] = {
-                  ...newMessages[messageIndex],
-                  content: "I'm sorry, the request took too long to process. Please try a shorter message or try again later.",
-                  status: "error"
-                };
-              }
-              return newMessages;
-            });
-            
-            toast.error("Request timed out. Please try again with a shorter message.");
-          } else {
-            throw new Error('Invalid response format from AI');
+        setMessages(prev => {
+          const newMessages = [...prev];
+          if (messageIndex >= 0 && messageIndex < newMessages.length) {
+            newMessages[messageIndex] = {
+              ...newMessages[messageIndex],
+              content: "I'm sorry, the request took too long to process. Please try a shorter message or try again later.",
+              status: "error"
+            };
           }
-        } catch (langflowError) {
-          console.error(`[${requestId}] Langflow processing error:`, langflowError);
-          
-          setAllTasksToError(messageIndex, "Connection to AI service failed");
-          
-          setMessages(prev => {
-            const newMessages = [...prev];
-            if (messageIndex >= 0 && messageIndex < newMessages.length) {
-              newMessages[messageIndex] = {
-                ...newMessages[messageIndex],
-                content: "I'm having trouble connecting to my AI services. Please try again in a moment.",
-                status: "error"
-              };
-            }
-            return newMessages;
-          });
-          
-          toast.error("Failed to process your request. Please try again later.");
-        }
+          return newMessages;
+        });
+        
+        toast.error("Request timed out. Please try again with a shorter message.");
       } else {
-        setAllTasksToError(messageIndex, "AI processing error");
-        throw new Error('Both command detection and Langflow processing failed');
+        throw new Error('Invalid response format from AI');
       }
     } catch (error) {
       console.error(`[${requestId}] Chat error:`, error);

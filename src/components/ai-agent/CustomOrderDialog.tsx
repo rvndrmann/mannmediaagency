@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Textarea } from "@/components/ui/textarea";
@@ -40,7 +39,6 @@ export const CustomOrderDialog = ({
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       
-      // Create previews for the new images
       const newPreviews = newFiles.map(file => URL.createObjectURL(file));
       
       setSelectedImages(prev => [...prev, ...newFiles]);
@@ -53,7 +51,6 @@ export const CustomOrderDialog = ({
   };
 
   const removeImage = (index: number) => {
-    // Revoke the object URL to avoid memory leaks
     URL.revokeObjectURL(imagePreviews[index]);
     
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
@@ -66,18 +63,17 @@ export const CustomOrderDialog = ({
       return;
     }
 
-    if (availableCredits < 5) {
-      toast.error("Insufficient credits. Custom orders require at least 5 credits.");
+    if (availableCredits < 20) {
+      toast.error("Insufficient credits. Custom orders require at least 20 credits.");
       return;
     }
 
     setIsSubmitting(true);
     
     try {
-      // Use RPC to create the order
       const { data: orderData, error: orderError } = await supabase.rpc(
         'create_custom_order',
-        { remark_text: remark, credits_amount: 5 }
+        { remark_text: remark, credits_amount: 20 }
       );
 
       if (orderError) {
@@ -85,19 +81,15 @@ export const CustomOrderDialog = ({
         throw new Error(orderError.message || "Failed to create custom order");
       }
 
-      // Upload each file and create entries in custom_order_media
       const uploadPromises = selectedImages.map(async (file, index) => {
         try {
-          // Generate a unique file name
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           const filePath = `${orderData.id}/${fileName}`;
           
-          // Determine if this is an image or video file
           const mediaType = file.type.startsWith('image/') ? 'image' : 
                             file.type.startsWith('video/') ? 'video' : 'image';
 
-          // Upload the file to storage
           const { data: uploadData, error: uploadError } = await supabase.storage
             .from('custom-order-media')
             .upload(filePath, file);
@@ -107,12 +99,10 @@ export const CustomOrderDialog = ({
             throw new Error(uploadError.message || `Failed to upload media file ${index + 1}`);
           }
 
-          // Get the public URL
           const { data: publicUrlData } = supabase.storage
             .from('custom-order-media')
             .getPublicUrl(filePath);
 
-          // Insert media record using RPC
           const { error: mediaInsertError } = await supabase.rpc(
             'add_custom_order_media',
             { 
@@ -135,15 +125,12 @@ export const CustomOrderDialog = ({
         }
       });
 
-      // Wait for all uploads to complete
       await Promise.all(uploadPromises);
 
-      // Update the user credits query to get latest count
       userCreditsQuery.refetch();
       
       toast.success("Custom order submitted successfully!");
       
-      // Reset form and close dialog
       setRemark("");
       setSelectedImages([]);
       setImagePreviews([]);
@@ -151,7 +138,6 @@ export const CustomOrderDialog = ({
     } catch (error: any) {
       console.error("Custom order error details:", error);
       
-      // Provide more specific error messages based on error type
       if (error.message && error.message.includes("policy")) {
         toast.error("Permission error: You don't have the required permissions to complete this action.");
       } else if (error.message && error.message.includes("storage")) {
@@ -171,7 +157,7 @@ export const CustomOrderDialog = ({
           <DialogTitle>Custom Order Request</DialogTitle>
           <DialogDescription>
             Upload your product images and provide details for a custom order.
-            This will use 5 credits from your account.
+            This will use 20 credits from your account.
           </DialogDescription>
         </DialogHeader>
 
@@ -241,7 +227,7 @@ export const CustomOrderDialog = ({
             </div>
             <div className="flex justify-between items-center text-purple-400">
               <span>Order cost:</span>
-              <span className="font-medium">5 credits</span>
+              <span className="font-medium">20 credits</span>
             </div>
           </div>
         </div>
@@ -256,7 +242,7 @@ export const CustomOrderDialog = ({
           </Button>
           <Button 
             onClick={handleSubmit} 
-            disabled={isSubmitting || selectedImages.length === 0 || availableCredits < 5}
+            disabled={isSubmitting || selectedImages.length === 0 || availableCredits < 20}
           >
             {isSubmitting ? (
               <>

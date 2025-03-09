@@ -51,7 +51,7 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
         }
         
         // Cast the data to CustomOrder type
-        setOrder(data as CustomOrder);
+        setOrder(data as unknown as CustomOrder);
         
         // Fetch order media
         try {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useRef } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -61,7 +60,6 @@ const CustomOrderForm = () => {
     try {
       setIsLoading(true);
       
-      // Use direct query instead of RPC
       const { data, error } = await supabase
         .from("custom_order_links")
         .select("*")
@@ -100,7 +98,6 @@ const CustomOrderForm = () => {
     if (e.target.files) {
       const newFiles = Array.from(e.target.files);
       
-      // Create previews for the new images
       const newPreviews = newFiles.map(file => URL.createObjectURL(file));
       
       setSelectedImages(prev => [...prev, ...newFiles]);
@@ -113,7 +110,6 @@ const CustomOrderForm = () => {
   };
 
   const removeImage = (index: number) => {
-    // Revoke the object URL to avoid memory leaks
     URL.revokeObjectURL(imagePreviews[index]);
     
     setSelectedImages(prev => prev.filter((_, i) => i !== index));
@@ -124,7 +120,6 @@ const CustomOrderForm = () => {
     try {
       if (!linkData) return;
 
-      // Validate form data
       if (linkData.require_phone && !formData.phone) {
         toast.error("Phone number is required");
         return;
@@ -145,13 +140,12 @@ const CustomOrderForm = () => {
       let orderId: string;
 
       if (isAuthenticated && userId) {
-        // Authenticated user flow - Use direct query
         const { data: orderData, error: orderError } = await supabase
           .from("custom_orders")
           .insert({
             user_id: userId,
             remark: formData.remark,
-            credits_used: linkData.credits_amount,
+            credits_used: linkData.credits_amount || 20,
             order_link_id: linkData.id
           })
           .select()
@@ -163,7 +157,6 @@ const CustomOrderForm = () => {
 
         orderId = orderData.id;
       } else {
-        // Guest user flow - Create guest record first
         const { data: guestData, error: guestError } = await supabase
           .from("custom_order_guests")
           .insert({
@@ -178,7 +171,6 @@ const CustomOrderForm = () => {
           throw new Error(guestError.message);
         }
         
-        // Now create the order with guest reference
         const { data: orderData, error: orderError } = await supabase
           .from("custom_orders")
           .insert({
@@ -187,7 +179,6 @@ const CustomOrderForm = () => {
             credits_used: linkData.credits_amount,
             order_link_id: linkData.id,
             status: linkData.custom_rate > 0 ? 'payment_pending' : 'pending',
-            // For guest orders, we use a static user_id that represents the system
             user_id: userId || "00000000-0000-0000-0000-000000000000"
           })
           .select()
@@ -200,19 +191,15 @@ const CustomOrderForm = () => {
         orderId = orderData.id;
       }
 
-      // Upload media files for the order
       const uploadPromises = selectedImages.map(async (file, index) => {
         try {
-          // Generate a unique file name
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           const filePath = `${orderId}/${fileName}`;
           
-          // Determine if this is an image or video file
           const mediaType = file.type.startsWith('image/') ? 'image' : 
                             file.type.startsWith('video/') ? 'video' : 'image';
 
-          // Upload the file to storage
           const { error: uploadError } = await supabase.storage
             .from('custom-order-media')
             .upload(filePath, file);
@@ -221,12 +208,10 @@ const CustomOrderForm = () => {
             throw new Error(uploadError.message);
           }
 
-          // Get the public URL
           const { data: publicUrlData } = supabase.storage
             .from('custom-order-media')
             .getPublicUrl(filePath);
 
-          // Insert media record
           const { error: mediaInsertError } = await supabase
             .from("custom_order_media")
             .insert({
@@ -252,9 +237,7 @@ const CustomOrderForm = () => {
       console.log("Order submitted successfully, orderId:", orderId);
       console.log("Custom rate:", linkData.custom_rate);
 
-      // Initialize payment if there's a custom rate
       if (linkData.custom_rate > 0) {
-        // Redirect to payment page with order details
         console.log("Redirecting to payment page with:", {
           planName: `${linkData.title} Order`,
           amount: linkData.custom_rate,
@@ -269,7 +252,6 @@ const CustomOrderForm = () => {
           }
         });
       } else {
-        // If no payment required, show success message
         toast.success("Order submitted successfully!");
         navigate("/");
       }

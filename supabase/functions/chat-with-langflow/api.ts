@@ -1,6 +1,7 @@
 
 import { checkCache, cacheResponse } from "./cache.ts";
 import { API_TIMEOUT_MS, MAX_RETRIES, RETRY_DELAY_MS } from "./config.ts";
+import { isOpenAIQuotaError } from "./utils.ts";
 
 export async function makeAstraLangflowRequest(
   url: string, 
@@ -49,6 +50,12 @@ export async function makeAstraLangflowRequest(
         if (!response.ok) {
           const errorText = await response.text();
           console.error(`[${requestId}] API Error (${response.status}):`, errorText.substring(0, 500));
+          
+          // Check if it's an OpenAI quota error
+          if (isOpenAIQuotaError(errorText)) {
+            throw new Error(`OpenAI quota exceeded: ${errorText.substring(0, 200)}`);
+          }
+          
           throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
         }
         
@@ -65,6 +72,12 @@ export async function makeAstraLangflowRequest(
       }
     } catch (error) {
       lastError = error;
+      
+      // Don't retry if it's a quota error
+      if (isOpenAIQuotaError(error)) {
+        console.error(`[${requestId}] OpenAI quota exceeded, not retrying`);
+        throw error;
+      }
       
       if (error.name === 'AbortError' && attempt === retries) {
         console.error(`[${requestId}] Final attempt timed out`);

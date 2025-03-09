@@ -3,7 +3,7 @@ import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { corsHeaders } from "./cors.ts";
 import { RequestBody, ChatResponse } from "./types.ts";
-import { generateRequestId, checkEnvironmentVariables, extractResponseText, truncateInput } from "./utils.ts";
+import { generateRequestId, checkEnvironmentVariables, extractResponseText, truncateInput, isOpenAIQuotaError } from "./utils.ts";
 import { makeAstraLangflowRequest } from "./api.ts";
 import { BASE_API_URL, LANGFLOW_ID, FLOW_ID, APPLICATION_TOKEN, MAX_INPUT_LENGTH } from "./config.ts";
 
@@ -148,6 +148,19 @@ serve(async (req) => {
         );
       }
       
+      // Check for OpenAI quota errors
+      if (isOpenAIQuotaError(apiError)) {
+        console.error(`[${requestId}] OpenAI quota exceeded error detected`);
+        return new Response(
+          JSON.stringify({
+            message: "I'm sorry, but the AI service is currently unavailable due to usage limits. Please try again later or contact support for assistance.",
+            command: null,
+            error: "OpenAI quota exceeded"
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       return new Response(
         JSON.stringify({
           message: "I apologize, but I'm having trouble connecting to my knowledge base right now. Please try again in a moment.",
@@ -160,6 +173,19 @@ serve(async (req) => {
   } catch (error) {
     console.error(`[${requestId}] Error in chat-with-langflow function:`, error);
     console.error(`[${requestId}] Stack trace:`, error.stack);
+    
+    // Check for OpenAI quota errors in the general catch block too
+    if (isOpenAIQuotaError(error)) {
+      console.error(`[${requestId}] OpenAI quota exceeded error detected in general error handling`);
+      return new Response(
+        JSON.stringify({
+          message: "I'm sorry, but the AI service is currently unavailable due to usage limits. Please try again later or contact support for assistance.",
+          command: null,
+          error: "OpenAI quota exceeded"
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
     return new Response(
       JSON.stringify({ 

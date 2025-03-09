@@ -1,3 +1,4 @@
+
 import { Message } from "./types.ts";
 import { REQUEST_ID_PREFIX, MAX_INPUT_LENGTH } from "./config.ts";
 
@@ -65,6 +66,21 @@ export function extractResponseText(responseData: any): { messageText: string | 
       command: null 
     };
   }
+}
+
+// Check if the error is related to OpenAI quota
+export function isOpenAIQuotaError(error: any): boolean {
+  if (!error) return false;
+  
+  // Check different places where the error message might be
+  const errorMessage = 
+    error.message || 
+    (typeof error === 'string' ? error : '') || 
+    JSON.stringify(error);
+  
+  return errorMessage.includes('insufficient_quota') || 
+         errorMessage.includes('exceeded your current quota') ||
+         errorMessage.includes('You exceeded your current quota');
 }
 
 // Truncate the input if it exceeds the maximum length

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia, PaymentTransaction } from "@/types/custom-order";
@@ -11,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Loader2, ExternalLink, FileDown, FileText, Calendar, DollarSign, Clock, ShieldCheck, Info } from "lucide-react";
+import { Loader2, ExternalLink, FileDown, Calendar, DollarSign, Clock, ShieldCheck, Info } from "lucide-react";
 import { format } from "date-fns";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
@@ -64,7 +65,7 @@ export const OrderDetailsDialog = ({
           console.warn("Error fetching media (table might not exist yet):", mediaError);
           setOrderMedia([]);
         } else {
-          setOrderMedia(data as unknown as CustomOrderMedia[]);
+          setOrderMedia(mediaData as CustomOrderMedia[]);
         }
       } catch (mediaError) {
         console.warn("Error in media fetch:", mediaError);

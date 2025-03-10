@@ -21,7 +21,7 @@ export async function makeAstraLangflowRequest(
   
   for (let attempt = 0; attempt <= retries; attempt++) {
     if (attempt > 0) {
-      const backoffMs = Math.min(RETRY_DELAY_MS * (2 ** attempt), 10000); // Exponential backoff capped at 10 seconds
+      const backoffMs = Math.min(RETRY_DELAY_MS * (2 ** attempt), 15000); // Exponential backoff capped at 15 seconds
       console.log(`[${requestId}] Retry attempt ${attempt}/${retries} after ${backoffMs}ms...`);
       await new Promise(resolve => setTimeout(resolve, backoffMs));
     }
@@ -29,47 +29,42 @@ export async function makeAstraLangflowRequest(
     try {
       console.log(`[${requestId}] API request attempt ${attempt + 1}/${retries + 1}`);
       
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => {
-        console.log(`[${requestId}] Request timeout after ${API_TIMEOUT_MS}ms - aborting`);
-        controller.abort();
-      }, API_TIMEOUT_MS);
+      // Create a manually controlled timeout
+      const fetchPromise = fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
       
-      try {
-        console.log(`[${requestId}] Making request to: ${url}`);
+      // Create a timeout promise
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Request timeout')), API_TIMEOUT_MS)
+      );
+      
+      // Race the fetch against the timeout
+      const response = await Promise.race([fetchPromise, timeoutPromise]) as Response;
+      
+      console.log(`[${requestId}] Got response with status ${response.status}`);
+      
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`[${requestId}] API Error (${response.status}):`, errorText.substring(0, 500));
         
-        const response = await fetch(url, {
-          method: 'POST',
-          headers,
-          body: JSON.stringify(payload),
-          signal: controller.signal
-        });
-        
-        clearTimeout(timeoutId);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`[${requestId}] API Error (${response.status}):`, errorText.substring(0, 500));
-          
-          // Check if it's an OpenAI quota error
-          if (isOpenAIQuotaError(errorText)) {
-            throw new Error(`OpenAI quota exceeded: ${errorText.substring(0, 200)}`);
-          }
-          
-          throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
+        // Check if it's an OpenAI quota error
+        if (isOpenAIQuotaError(errorText)) {
+          throw new Error(`OpenAI quota exceeded: ${errorText.substring(0, 200)}`);
         }
         
-        const data = await response.json();
-        console.log(`[${requestId}] API response received successfully`);
-        
-        // Cache successful response
-        cacheResponse(cacheKey, data);
-        
-        return data;
-      } catch (fetchError) {
-        clearTimeout(timeoutId);
-        throw fetchError;
+        throw new Error(`API error: ${response.status} - ${errorText.substring(0, 200)}`);
       }
+      
+      const data = await response.json();
+      console.log(`[${requestId}] API response received successfully`);
+      
+      // Cache successful response
+      cacheResponse(cacheKey, data);
+      
+      return data;
     } catch (error) {
       lastError = error;
       
@@ -79,15 +74,16 @@ export async function makeAstraLangflowRequest(
         throw error;
       }
       
-      if (error.name === 'AbortError' && attempt === retries) {
-        console.error(`[${requestId}] Final attempt timed out`);
-        throw new Error('Request timed out after multiple attempts');
+      if (error.name === 'AbortError' || error.message.includes('timeout')) {
+        console.error(`[${requestId}] Request timed out on attempt ${attempt + 1}`);
+        // Continue to next retry
+      } else {
+        console.error(`[${requestId}] API request attempt ${attempt + 1} failed:`, error.message);
       }
       
-      console.error(`[${requestId}] API request attempt ${attempt + 1} failed:`, error.message);
-      
       if (attempt === retries) {
-        throw error;
+        console.error(`[${requestId}] All retry attempts exhausted`);
+        throw new Error(`Request failed after ${retries} retry attempts: ${error.message}`);
       }
     }
   }

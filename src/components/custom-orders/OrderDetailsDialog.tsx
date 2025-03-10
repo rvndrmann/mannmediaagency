@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia, PaymentTransaction } from "@/types/custom-order";
@@ -50,7 +51,7 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
           return;
         }
         
-        // Cast the data to CustomOrder type
+        // Cast the data to CustomOrder type with type assertion
         setOrder(data as unknown as CustomOrder);
         
         // Fetch order media
@@ -66,9 +67,13 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
             setOrderMedia([]);
           } else {
             // Map and ensure each media item has a filename property derived from original_filename
-            const mappedMedia = mediaData.map(item => ({
+            const mappedMedia = (mediaData || []).map(item => ({
               ...item,
-              filename: item.original_filename || `file-${item.id.substring(0, 8)}`
+              filename: item.original_filename || `file-${item.id.substring(0, 8)}`,
+              // Ensure media_type is a valid value, default to "image" if unknown
+              media_type: (item.media_type === "video" || item.media_type === "image") 
+                ? item.media_type 
+                : "image"
             })) as CustomOrderMedia[];
             
             setOrderMedia(mappedMedia);
@@ -90,7 +95,12 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
             console.warn("Error fetching payment history:", paymentError);
             setPaymentHistory([]);
           } else {
-            setPaymentHistory(paymentData as PaymentTransaction[]);
+            // Ensure payment_method is available by providing default value
+            const processedPayments = (paymentData || []).map(item => ({
+              ...item,
+              payment_method: item.payment_method || "Online Payment"
+            }));
+            setPaymentHistory(processedPayments as PaymentTransaction[]);
           }
         } catch (paymentError) {
           console.warn("Error in payment history fetch:", paymentError);

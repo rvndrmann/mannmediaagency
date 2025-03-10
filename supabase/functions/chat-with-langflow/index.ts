@@ -7,6 +7,20 @@ import { generateRequestId, checkEnvironmentVariables, extractResponseText, trun
 import { makeAstraLangflowRequest } from "./api.ts";
 import { BASE_API_URL, LANGFLOW_ID, FLOW_ID, APPLICATION_TOKEN, MAX_INPUT_LENGTH } from "./config.ts";
 
+// Fallback responses for when the API is having issues
+const fallbackResponses = [
+  "I'm having trouble connecting to my knowledge base right now. Could you please try again in a moment?",
+  "I apologize, but I'm experiencing some technical difficulties. Let's try again shortly.",
+  "It looks like my connection to the AI service is slow right now. Could you please try your request again?",
+  "I'm sorry for the inconvenience. My AI services are a bit busy at the moment. Please try again in a few seconds.",
+  "I couldn't process your request completely. Please try again with a slightly shorter message or try again shortly."
+];
+
+const getFallbackResponse = () => {
+  const index = Math.floor(Math.random() * fallbackResponses.length);
+  return fallbackResponses[index];
+};
+
 serve(async (req) => {
   const requestId = generateRequestId();
   console.log(`[${requestId}] New request received`);
@@ -140,7 +154,7 @@ serve(async (req) => {
         console.log(`[${requestId}] Request timed out after retries`);
         return new Response(
           JSON.stringify({
-            message: "I'm sorry, but I'm taking too long to process your request. Try sending a shorter message or try again later.",
+            message: getFallbackResponse(),
             command: null,
             error: "Request timeout after retries"
           }),
@@ -163,7 +177,7 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({
-          message: "I apologize, but I'm having trouble connecting to my knowledge base right now. Please try again in a moment.",
+          message: getFallbackResponse(),
           command: null,
           error: apiError instanceof Error ? apiError.message : String(apiError)
         }),
@@ -189,7 +203,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify({ 
-        message: "I apologize, but I encountered an error processing your request. Please try again.",
+        message: getFallbackResponse(),
         command: null,
         error: error instanceof Error ? error.message : String(error)
       }),

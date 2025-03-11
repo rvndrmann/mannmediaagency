@@ -24,6 +24,8 @@ export const useAIChat = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
+  const [useAssistantsApi, setUseAssistantsApi] = useState<boolean>(false);
+  const [useMcp, setUseMcp] = useState<boolean>(false);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -159,7 +161,11 @@ export const useAIChat = () => {
       
       try {
         const response = await supabase.functions.invoke(endpoint, {
-          body: body
+          body: {
+            ...body,
+            useAssistantsApi: useAssistantsApi,
+            useMcp: useMcp
+          }
         });
         
         if (response.error) {
@@ -229,13 +235,13 @@ export const useAIChat = () => {
       // 4. Start processing with AI
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       
-      // 5. Make direct call to Langflow
+      // 5. Make call to AI function
       const data = await makeRequestWithRetry('chat-with-langflow', { 
         message: trimmedInput,
         requestId
       });
 
-      console.log(`[${requestId}] Received response from LangFlow:`, data);
+      console.log(`[${requestId}] Received response:`, data);
 
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
@@ -243,17 +249,29 @@ export const useAIChat = () => {
       if (data && data.message) {
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
         
+        // Check if there's a command in the response
+        let commandObj = data.command ? data.command : null;
+        
         setMessages(prev => {
           const newMessages = [...prev];
           if (messageIndex >= 0 && messageIndex < newMessages.length) {
             newMessages[messageIndex] = {
               ...newMessages[messageIndex],
               content: data.message,
+              command: commandObj,
               status: "completed"
             };
           }
           return newMessages;
         });
+        
+        // If a media command is detected, display a toast
+        if (commandObj && (
+            (commandObj.type === 'image' || commandObj.type === 'video') ||
+            (commandObj.feature && ['product-shot-v1', 'product-shot-v2', 'image-to-video'].includes(commandObj.feature))
+        )) {
+          toast.info("AI has suggested creating media. Check the response for details.");
+        }
       } else if (data && data.error === "Request timeout") {
         updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "error", "Request timed out");
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "error");
@@ -307,6 +325,10 @@ export const useAIChat = () => {
     isLoading,
     handleSubmit,
     userCredits,
-    processingRequestId
+    processingRequestId,
+    useAssistantsApi,
+    setUseAssistantsApi,
+    useMcp,
+    setUseMcp
   };
 };

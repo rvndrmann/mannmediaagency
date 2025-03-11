@@ -62,6 +62,10 @@ interface SplitScreenProps {
   onSubmit: (e: React.FormEvent) => void;
   onBack: () => void;
   onCustomOrderClick?: () => void;
+  useAssistantsApi?: boolean;
+  setUseAssistantsApi?: (value: boolean) => void;
+  useMcp?: boolean;
+  setUseMcp?: (value: boolean) => void;
 }
 
 export function SplitScreen({
@@ -79,7 +83,11 @@ export function SplitScreen({
   onInputChange,
   onSubmit,
   onBack,
-  onCustomOrderClick
+  onCustomOrderClick,
+  useAssistantsApi = false,
+  setUseAssistantsApi = () => {},
+  useMcp = false,
+  setUseMcp = () => {}
 }: SplitScreenProps) {
   return (
     <div className="h-full flex flex-col bg-[#1A1F2C]">
@@ -129,6 +137,10 @@ export function SplitScreen({
             onInputChange={onInputChange}
             onSubmit={onSubmit}
             onBack={onBack}
+            useAssistantsApi={useAssistantsApi}
+            setUseAssistantsApi={setUseAssistantsApi}
+            useMcp={useMcp}
+            setUseMcp={setUseMcp}
           />
         </div>}
       </main>

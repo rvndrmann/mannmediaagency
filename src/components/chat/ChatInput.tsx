@@ -3,15 +3,29 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { Send } from "lucide-react";
+import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
 
 interface ChatInputProps {
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
+  useAssistantsApi?: boolean;
+  setUseAssistantsApi?: (value: boolean) => void;
+  useMcp?: boolean;
+  setUseMcp?: (value: boolean) => void;
 }
 
-export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInputProps) => {
+export const ChatInput = ({ 
+  input, 
+  isLoading, 
+  onInputChange, 
+  onSubmit,
+  useAssistantsApi = false,
+  setUseAssistantsApi = () => {},
+  useMcp = false,
+  setUseMcp = () => {}
+}: ChatInputProps) => {
   const MAX_WORDS = 350;
 
   const countWords = (text: string) => {
@@ -50,13 +64,21 @@ export const ChatInput = ({ input, isLoading, onInputChange, onSubmit }: ChatInp
             </div>
           </div>
         </div>
-        <Button 
-          type="submit" 
-          disabled={isLoading}
-          className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start px-4 h-12 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-        >
-          <Send className="h-5 w-5" />
-        </Button>
+        <div className="flex flex-col gap-2">
+          <AISettingsDialog 
+            useAssistantsApi={useAssistantsApi} 
+            setUseAssistantsApi={setUseAssistantsApi}
+            useMcp={useMcp}
+            setUseMcp={setUseMcp}
+          />
+          <Button 
+            type="submit" 
+            disabled={isLoading}
+            className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start px-4 h-12 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
+          >
+            <Send className="h-5 w-5" />
+          </Button>
+        </div>
       </div>
     </form>
   );

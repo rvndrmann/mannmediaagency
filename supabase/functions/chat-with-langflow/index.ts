@@ -4,8 +4,16 @@ import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { corsHeaders } from "./cors.ts";
 import { RequestBody, ChatResponse } from "./types.ts";
 import { generateRequestId, checkEnvironmentVariables, extractResponseText, truncateInput, isOpenAIQuotaError } from "./utils.ts";
-import { makeAstraLangflowRequest } from "./api.ts";
-import { BASE_API_URL, LANGFLOW_ID, FLOW_ID, APPLICATION_TOKEN, MAX_INPUT_LENGTH } from "./config.ts";
+import { makeAstraLangflowRequest, makeOpenAIAssistantRequest, makeMCPRequest } from "./api.ts";
+import { 
+  BASE_API_URL, 
+  LANGFLOW_ID, 
+  FLOW_ID, 
+  APPLICATION_TOKEN, 
+  MAX_INPUT_LENGTH,
+  USE_ASSISTANTS_API,
+  USE_MCP 
+} from "./config.ts";
 
 // Fallback responses for when the API is having issues
 const fallbackResponses = [
@@ -30,17 +38,28 @@ serve(async (req) => {
   }
 
   try {
-    const envCheck = checkEnvironmentVariables();
-    if (!envCheck.isValid) {
-      console.error(`[${requestId}] Missing required environment variables: ${envCheck.missingVars}`);
-      return new Response(
-        JSON.stringify({ 
-          message: "Sorry, the AI chat system is not properly configured. Please contact support.",
-          command: null,
-          error: `Missing configuration: ${envCheck.missingVars}` 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+    // Check if we're using the OpenAI Assistants API or MCP
+    const useAssistantsAPI = USE_ASSISTANTS_API;
+    const useMCP = USE_MCP;
+    
+    if (useMCP) {
+      console.log(`[${requestId}] Using Model Context Protocol`);
+    } else if (useAssistantsAPI) {
+      console.log(`[${requestId}] Using OpenAI Assistants API`);
+    } else {
+      // Check Langflow environment variables only if we're not using Assistants API
+      const envCheck = checkEnvironmentVariables();
+      if (!envCheck.isValid) {
+        console.error(`[${requestId}] Missing required environment variables: ${envCheck.missingVars}`);
+        return new Response(
+          JSON.stringify({ 
+            message: "Sorry, the AI chat system is not properly configured. Please contact support.",
+            command: null,
+            error: `Missing configuration: ${envCheck.missingVars}` 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     }
 
     let bodyData: RequestBody;
@@ -87,103 +106,113 @@ serve(async (req) => {
       );
     }
 
-    // Prepare API endpoint
-    const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
+    // Determine which API to use based on configuration
+    let responseData;
     
-    // Use the exact tweaks structure from documentation
-    const tweaks = {
-      "Agent-swaq6": {},
-      "ChatInput-SylqI": {},
-      "ChatOutput-E57mu": {},
-      "Agent-Hpbdi": {},
-      "Agent-JogPZ": {}
-    };
+    if (useMCP) {
+      // Use Model Context Protocol
+      responseData = await makeMCPRequest(message, requestId);
+    } else if (useAssistantsAPI) {
+      // Use OpenAI Assistants API
+      responseData = await makeOpenAIAssistantRequest(message, requestId);
+    } else {
+      // Use original Langflow API
+      // Prepare API endpoint
+      const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
+      
+      // Use the exact tweaks structure from documentation
+      const tweaks = {
+        "Agent-swaq6": {},
+        "ChatInput-SylqI": {},
+        "ChatOutput-E57mu": {},
+        "Agent-Hpbdi": {},
+        "Agent-JogPZ": {}
+      };
 
-    // Prepare API payload with simplified structure exactly matching the curl example
-    const payload = {
-      input_value: truncateInput(message, MAX_INPUT_LENGTH),
-      input_type: "chat",
-      output_type: "chat",
-      tweaks
-    };
+      // Prepare API payload with simplified structure exactly matching the curl example
+      const payload = {
+        input_value: truncateInput(message, MAX_INPUT_LENGTH),
+        input_type: "chat",
+        output_type: "chat",
+        tweaks
+      };
 
-    const fullUrl = `${BASE_API_URL}${endpoint}`;
-    
-    // Prepare API headers
-    const headers = {
-      "Authorization": `Bearer ${APPLICATION_TOKEN}`,
-      "Content-Type": "application/json"
-    };
+      const fullUrl = `${BASE_API_URL}${endpoint}`;
+      
+      // Prepare API headers
+      const headers = {
+        "Authorization": `Bearer ${APPLICATION_TOKEN}`,
+        "Content-Type": "application/json"
+      };
 
-    console.log(`[${requestId}] Request headers:`, JSON.stringify(headers, (key, value) => 
-      key === "Authorization" ? "Bearer [REDACTED]" : value
-    ));
+      console.log(`[${requestId}] Request headers:`, JSON.stringify(headers, (key, value) => 
+        key === "Authorization" ? "Bearer [REDACTED]" : value
+      ));
 
-    try {
       // Make API request with unique request ID
-      const responseData = await makeAstraLangflowRequest(fullUrl, headers, payload, requestId);
-      
-      // Extract response components
-      const { messageText, command } = extractResponseText(responseData);
-      
-      if (!messageText) {
-        console.warn(`[${requestId}] Could not extract message text from response`);
-        
-        return new Response(
-          JSON.stringify({
-            message: "I apologize, but I couldn't generate a proper response. Please try a different question.",
-            command: null,
-            error: "Response extraction failed"
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      console.log(`[${requestId}] Returning successful response with message and command`);
-      return new Response(
-        JSON.stringify({
-          message: messageText,
-          command: command
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    } catch (apiError) {
-      console.error(`[${requestId}] API call error:`, apiError);
-      
-      if (apiError.message?.includes('timed out') || apiError.name === 'AbortError') {
-        console.log(`[${requestId}] Request timed out after retries`);
-        return new Response(
-          JSON.stringify({
-            message: getFallbackResponse(),
-            command: null,
-            error: "Request timeout after retries"
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-      
-      // Check for OpenAI quota errors
-      if (isOpenAIQuotaError(apiError)) {
-        console.error(`[${requestId}] OpenAI quota exceeded error detected`);
-        return new Response(
-          JSON.stringify({
-            message: "I'm sorry, but the AI service is currently unavailable due to usage limits. Please try again later or contact support for assistance.",
-            command: null,
-            error: "OpenAI quota exceeded"
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
+      responseData = await makeAstraLangflowRequest(fullUrl, headers, payload, requestId);
+    }
+    
+    // Extract response components
+    const { messageText, command } = extractResponseText(responseData);
+    
+    if (!messageText) {
+      console.warn(`[${requestId}] Could not extract message text from response`);
       
       return new Response(
         JSON.stringify({
-          message: getFallbackResponse(),
+          message: "I apologize, but I couldn't generate a proper response. Please try a different question.",
           command: null,
-          error: apiError instanceof Error ? apiError.message : String(apiError)
+          error: "Response extraction failed"
         }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
+
+    console.log(`[${requestId}] Returning successful response with message and command`);
+    return new Response(
+      JSON.stringify({
+        message: messageText,
+        command: command
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (apiError) {
+    console.error(`[${requestId}] API call error:`, apiError);
+    
+    if (apiError.message?.includes('timed out') || apiError.name === 'AbortError') {
+      console.log(`[${requestId}] Request timed out after retries`);
+      return new Response(
+        JSON.stringify({
+          message: getFallbackResponse(),
+          command: null,
+          error: "Request timeout after retries"
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Check for OpenAI quota errors
+    if (isOpenAIQuotaError(apiError)) {
+      console.error(`[${requestId}] OpenAI quota exceeded error detected`);
+      return new Response(
+        JSON.stringify({
+          message: "I'm sorry, but the AI service is currently unavailable due to usage limits. Please try again later or contact support for assistance.",
+          command: null,
+          error: "OpenAI quota exceeded"
+        }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    return new Response(
+      JSON.stringify({
+        message: getFallbackResponse(),
+        command: null,
+        error: apiError instanceof Error ? apiError.message : String(apiError)
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
   } catch (error) {
     console.error(`[${requestId}] Error in chat-with-langflow function:`, error);
     console.error(`[${requestId}] Stack trace:`, error.stack);

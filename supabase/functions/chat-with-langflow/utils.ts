@@ -1,5 +1,5 @@
 
-import { Message } from "./types.ts";
+import { ExtractedResponse } from "./types.ts";
 import { REQUEST_ID_PREFIX, MAX_INPUT_LENGTH } from "./config.ts";
 
 // Generate unique request ID
@@ -32,10 +32,23 @@ export function checkEnvironmentVariables() {
   return { isValid: true };
 }
 
-export function extractResponseText(responseData: any): { messageText: string | null, command: any | null } {
+export function extractResponseText(responseData: any): ExtractedResponse {
   try {
     console.log("Extracting response text");
     
+    // Check for MCP or Assistants API format
+    if (responseData?.outputs?.[0]?.outputs?.[0]?.results?.message) {
+      const result = responseData.outputs[0].outputs[0].results;
+      const messageText = result.message;
+      const command = result.command || null;
+      
+      console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
+      console.log('Extracted command:', command ? JSON.stringify(command).substring(0, 100) : 'null');
+      
+      return { messageText, command };
+    }
+    
+    // Check original Langflow format
     if (!responseData?.outputs?.[0]?.outputs?.[0]?.results) {
       console.error('Invalid or unexpected response format:', JSON.stringify(responseData, null, 2).substring(0, 500));
       return { messageText: null, command: null };
@@ -44,6 +57,8 @@ export function extractResponseText(responseData: any): { messageText: string | 
     const result = responseData.outputs[0].outputs[0].results;
     
     let messageText;
+    let command = null;
+    
     if (typeof result.message === 'string') {
       messageText = result.message;
     } else if (result.message?.text) {
@@ -56,9 +71,17 @@ export function extractResponseText(responseData: any): { messageText: string | 
       messageText = "I received a response but couldn't understand it. Please try again.";
     }
     
-    console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
+    // Check for command in various possible locations
+    if (result.command) {
+      command = result.command;
+    } else if (result.actions && Array.isArray(result.actions) && result.actions.length > 0) {
+      command = result.actions[0];
+    }
     
-    return { messageText, command: null };
+    console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
+    console.log('Extracted command:', command ? JSON.stringify(command).substring(0, 100) : 'null');
+    
+    return { messageText, command };
   } catch (error) {
     console.error('Error extracting response text:', error);
     return { 
@@ -80,7 +103,9 @@ export function isOpenAIQuotaError(error: any): boolean {
   
   return errorMessage.includes('insufficient_quota') || 
          errorMessage.includes('exceeded your current quota') ||
-         errorMessage.includes('You exceeded your current quota');
+         errorMessage.includes('You exceeded your current quota') ||
+         errorMessage.includes('rate limit') ||
+         errorMessage.includes('Rate limit reached');
 }
 
 // Truncate the input if it exceeds the maximum length
@@ -91,4 +116,82 @@ export function truncateInput(input: string, maxLength: number): string {
   
   console.log(`Input exceeds maximum length (${input.length} > ${maxLength}), truncating...`);
   return input.substring(input.length - maxLength);
+}
+
+// Parse command to determine if it contains media generation instructions
+export function parseCommandForMediaGeneration(command: any): { 
+  shouldGenerateMedia: boolean, 
+  mediaType?: 'image' | 'video',
+  prompt?: string 
+} {
+  if (!command) {
+    return { shouldGenerateMedia: false };
+  }
+  
+  try {
+    if (typeof command === 'string') {
+      try {
+        command = JSON.parse(command);
+      } catch (e) {
+        // If it's not valid JSON, check for keywords in the string
+        const lowerCommand = command.toLowerCase();
+        if (lowerCommand.includes('generate image') || lowerCommand.includes('create image')) {
+          return { 
+            shouldGenerateMedia: true, 
+            mediaType: 'image',
+            prompt: command 
+          };
+        } else if (lowerCommand.includes('generate video') || lowerCommand.includes('create video')) {
+          return { 
+            shouldGenerateMedia: true, 
+            mediaType: 'video',
+            prompt: command 
+          };
+        }
+        return { shouldGenerateMedia: false };
+      }
+    }
+    
+    // Check for feature/action in standard format
+    if (command.feature && command.action) {
+      if (['product-shot-v1', 'product-shot-v2', 'default-image'].includes(command.feature) && 
+          ['create', 'generate'].includes(command.action)) {
+        return { 
+          shouldGenerateMedia: true, 
+          mediaType: 'image',
+          prompt: command.parameters?.prompt || 'Generate a product image' 
+        };
+      } else if (['image-to-video', 'product-video'].includes(command.feature) && 
+                 ['create', 'convert'].includes(command.action)) {
+        return { 
+          shouldGenerateMedia: true, 
+          mediaType: 'video',
+          prompt: command.parameters?.prompt || 'Generate a video from image' 
+        };
+      }
+    }
+    
+    // Check for type field
+    if (command.type === 'image' || command.type === 'video') {
+      return {
+        shouldGenerateMedia: true,
+        mediaType: command.type,
+        prompt: command.prompt || command.description || 'Generate media'
+      };
+    }
+    
+    // Check for generate field
+    if (command.generate === 'image' || command.generate === 'video') {
+      return {
+        shouldGenerateMedia: true,
+        mediaType: command.generate,
+        prompt: command.prompt || command.description || 'Generate media'
+      };
+    }
+    
+    return { shouldGenerateMedia: false };
+  } catch (error) {
+    console.error('Error parsing command for media generation:', error);
+    return { shouldGenerateMedia: false };
+  }
 }

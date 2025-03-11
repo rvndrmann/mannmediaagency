@@ -14,6 +14,10 @@ interface SidePanelProps {
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   onBack: () => void;
+  useAssistantsApi?: boolean;
+  setUseAssistantsApi?: (value: boolean) => void;
+  useMcp?: boolean;
+  setUseMcp?: (value: boolean) => void;
 }
 
 export function SidePanel({
@@ -23,7 +27,11 @@ export function SidePanel({
   userCredits,
   onInputChange,
   onSubmit,
-  onBack
+  onBack,
+  useAssistantsApi = false,
+  setUseAssistantsApi = () => {},
+  useMcp = false,
+  setUseMcp = () => {}
 }: SidePanelProps) {
   return (
     <div className="h-full flex flex-col bg-[#1E2432] border-l border-white/10">
@@ -60,6 +68,10 @@ export function SidePanel({
           isLoading={isLoading}
           onInputChange={onInputChange}
           onSubmit={onSubmit}
+          useAssistantsApi={useAssistantsApi}
+          setUseAssistantsApi={setUseAssistantsApi}
+          useMcp={useMcp}
+          setUseMcp={setUseMcp}
         />
       </div>
     </div>

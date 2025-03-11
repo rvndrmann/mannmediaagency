@@ -54,15 +54,15 @@ export function SidePanel({
         </div>
       </div>
 
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4 pb-12">
+      <ScrollArea className="flex-1 p-4 pb-20"> {/* Added padding to the bottom to ensure messages don't get hidden behind the input */}
+        <div className="space-y-4">
           {messages.map((message, index) => (
             <ChatMessage key={index} message={message} />
           ))}
         </div>
       </ScrollArea>
 
-      <div className="p-3 border-t border-white/10 mt-auto">
+      <div className="sticky bottom-0 left-0 right-0 p-3 border-t border-white/10 bg-[#1E2432] mt-auto">
         <ChatInput
           input={input}
           isLoading={isLoading}

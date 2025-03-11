@@ -65,7 +65,7 @@ export default function AIAgent() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      <Header onBack={handleBack} />
+      <Header onBack={activeTool !== "ai-agent" ? handleBack : undefined} />
       
       <div className="flex-1 overflow-hidden">
         <SplitScreen
@@ -97,15 +97,15 @@ export default function AIAgent() {
             imagesLoading: productShotV1.state.imagesLoading,
             creditsRemaining: userCredits?.credits_remaining || 0,
             isGenerating: productShotV1.state.isGenerating,
-            onPromptChange: productShotV1.actions.updatePrompt,
-            onFileSelect: productShotV1.actions.handleFileUpload,
-            onClearFile: productShotV1.actions.clearUploadedFile,
-            onImageSizeChange: productShotV1.actions.updateImageSize,
-            onInferenceStepsChange: productShotV1.actions.updateInferenceSteps,
-            onGuidanceScaleChange: productShotV1.actions.updateGuidanceScale,
-            onOutputFormatChange: productShotV1.actions.updateOutputFormat,
-            onGenerate: productShotV1.actions.generateImage,
-            onDownload: productShotV1.actions.downloadImage,
+            onPromptChange: (value: string) => productShotV1.actions.setProductShotPrompt(value),
+            onFileSelect: productShotV1.actions.handleFileSelect,
+            onClearFile: productShotV1.actions.clearFile,
+            onImageSizeChange: productShotV1.actions.setImageSize,
+            onInferenceStepsChange: productShotV1.actions.setInferenceSteps,
+            onGuidanceScaleChange: productShotV1.actions.setGuidanceScale,
+            onOutputFormatChange: productShotV1.actions.setOutputFormat,
+            onGenerate: productShotV1.actions.generate,
+            onDownload: productShotV1.actions.download,
             messages: messages,
             onVideoTemplatesClick: handleVideoTemplatesClick
           }}

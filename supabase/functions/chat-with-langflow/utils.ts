@@ -42,10 +42,19 @@ export function extractResponseText(responseData: any): ExtractedResponse {
       const messageText = result.message;
       const command = result.command || null;
       
-      console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
-      console.log('Extracted command:', command ? JSON.stringify(command).substring(0, 100) : 'null');
+      // Safe logging with type checking
+      if (typeof messageText === 'string') {
+        console.log('Extracted message text:', messageText.length > 100 ? (messageText.substring(0, 100) + '...') : messageText);
+      } else {
+        console.log('Extracted message text (non-string):', JSON.stringify(messageText).substring(0, 100) + '...');
+      }
       
-      return { messageText, command };
+      console.log('Extracted command:', command ? JSON.stringify(command).substring(0, 100) + '...' : 'null');
+      
+      return { 
+        messageText: typeof messageText === 'string' ? messageText : JSON.stringify(messageText), 
+        command 
+      };
     }
     
     // Check original Langflow format
@@ -78,8 +87,16 @@ export function extractResponseText(responseData: any): ExtractedResponse {
       command = result.actions[0];
     }
     
-    console.log('Extracted message text:', messageText ? (messageText.substring(0, 100) + '...') : null);
-    console.log('Extracted command:', command ? JSON.stringify(command).substring(0, 100) : 'null');
+    // Safe logging with type checking
+    if (typeof messageText === 'string') {
+      console.log('Extracted message text:', messageText.length > 100 ? (messageText.substring(0, 100) + '...') : messageText);
+    } else {
+      console.log('Extracted message text (non-string type):', messageText);
+      // Convert to string if it's not already a string
+      messageText = JSON.stringify(messageText);
+    }
+    
+    console.log('Extracted command:', command ? JSON.stringify(command).substring(0, 100) + '...' : 'null');
     
     return { messageText, command };
   } catch (error) {

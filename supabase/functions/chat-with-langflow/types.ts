@@ -38,6 +38,7 @@ export interface MCPTool {
   tool_name: string;
   description: string;
   required_parameters: string[];
+  parameters?: MCPToolParameter[];
 }
 
 export interface MCPQueryPayload {

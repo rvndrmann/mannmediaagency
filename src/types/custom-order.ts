@@ -37,14 +37,14 @@ export interface CustomOrderMedia {
 export interface PaymentTransaction {
   id: string;
   created_at: string;
-  updated_at: string;
+  updated_at?: string;
   user_id: string;
   amount: number;
   status: string;
-  transaction_id: string;
-  payment_processor: string;
-  related_order_id: string;
-  gateway_response: any;
+  transaction_id?: string;
+  payment_processor?: string;
+  related_order_id?: string;
+  gateway_response?: any;
   // Added fields
   payment_method?: string;
   payment_status?: string;

@@ -1,4 +1,3 @@
-
 import { API_TIMEOUT_MS, MAX_RETRIES, RETRY_DELAY_MS, OPENAI_API_KEY, ASSISTANT_ID, MCP_SERVER_URL, MCP_SERVER_TOKEN } from "./config.ts";
 import { MCPQueryPayload, MCPResponse } from "./types.ts";
 
@@ -252,32 +251,68 @@ export async function makeMCPRequest(
   const toolMentioned = toolMatch ? toolMatch[0].toLowerCase() : null;
   
   // Prepare specialized payload based on detected tool
+  const mcpTools = [
+    {
+      tool_name: "product-shot-v1",
+      description: "Generate a product image using the Product Shot V1 AI model",
+      required_parameters: ["prompt"],
+      parameters: [
+        {
+          name: "prompt",
+          description: "Description of the product image to generate"
+        },
+        {
+          name: "imageSize",
+          description: "Size of the output image (small, medium, large)",
+        },
+        {
+          name: "outputFormat",
+          description: "Format of the output image (png, jpg, webp)",
+        }
+      ]
+    },
+    {
+      tool_name: "product-shot-v2", 
+      description: "Generate a high-quality product image with the Product Shot V2 AI model",
+      required_parameters: ["prompt"],
+      parameters: [
+        {
+          name: "prompt",
+          description: "Description of the product image to generate"
+        },
+        {
+          name: "aspectRatio",
+          description: "Aspect ratio of the output image (square, portrait, landscape)",
+        }
+      ]
+    },
+    {
+      tool_name: "image-to-video",
+      description: "Convert a static image into a short animated video",
+      required_parameters: ["imageUrl"],
+      parameters: [
+        {
+          name: "imageUrl",
+          description: "URL of the image to convert to video"
+        },
+        {
+          name: "aspectRatio",
+          description: "Aspect ratio of the output video (square, portrait, landscape)",
+        }
+      ]
+    }
+  ];
+
   const payload: MCPQueryPayload = {
     query: messageContent,
-    include_citations: true,
+    include_citations: false,
     target_audience: "intermediate",
-    response_tokens: 1000,
+    response_tokens: 800,
     enable_image_generation: true,
     enable_video_generation: true,
-    available_tools: [
-      {
-        tool_name: "product-shot-v1",
-        description: "Generate product images using the Product Shot V1 tool",
-        required_parameters: ["prompt", "imageSize"]
-      },
-      {
-        tool_name: "product-shot-v2",
-        description: "Generate enhanced product images using the Product Shot V2 tool",
-        required_parameters: ["prompt"]
-      },
-      {
-        tool_name: "image-to-video",
-        description: "Convert images to videos with animation effects",
-        required_parameters: ["prompt", "sourceImageUrl", "aspectRatio"]
-      }
-    ]
+    available_tools: mcpTools
   };
-  
+
   if (toolMentioned) {
     console.log(`[${requestId}] Tool detected in message: ${toolMentioned}`);
     

@@ -4,7 +4,7 @@ import {
   Camera,
   Clapperboard,
   FileText,
-  PlusSquare
+  Package
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -74,7 +74,7 @@ export const MobileToolNav = ({
         onClick={handleCustomOrderClick}
         className="flex flex-col items-center justify-center px-3 py-1.5 rounded-md transition-colors text-white/60 hover:text-white hover:bg-white/5"
       >
-        <PlusSquare className="w-5 h-5 mb-1" />
+        <Package className="w-5 h-5 mb-1" />
         <span className="text-xs">Custom</span>
       </button>
     </div>

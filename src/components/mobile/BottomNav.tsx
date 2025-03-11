@@ -1,5 +1,5 @@
 
-import { Bot, Compass, ScrollText, Settings } from "lucide-react";
+import { Bot, Compass, ScrollText, Settings, Package } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -20,6 +20,11 @@ const navItems = [
     label: "Dashboard",
     icon: ScrollText,
     href: "/dashboard"
+  },
+  {
+    label: "Custom Orders",
+    icon: Package,
+    href: "/custom-orders"
   },
   {
     label: "Settings",

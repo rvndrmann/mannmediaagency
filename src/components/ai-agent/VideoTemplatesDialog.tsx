@@ -40,8 +40,8 @@ export function VideoTemplatesDialog({
           .order("created_at", { ascending: false });
 
         if (error) throw error;
-        // Use type assertion with as VideoTemplate[] since we've updated the interface
-        setTemplates(data as VideoTemplate[]);
+        // Cast the data to the VideoTemplate type
+        setTemplates(data as unknown as VideoTemplate[]);
       } catch (error) {
         console.error("Error fetching templates:", error);
         toast.error("Failed to load video templates");

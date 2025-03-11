@@ -10,6 +10,7 @@ import { useImageToVideo } from "@/hooks/use-image-to-video";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { VideoTemplatesDialog } from "@/components/ai-agent/VideoTemplatesDialog";
 import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
+import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
 
 export default function AIAgent() {
   const [activeTool, setActiveTool] = useState<string>("ai-agent");
@@ -50,7 +51,7 @@ export default function AIAgent() {
     setShowCustomOrderDialog(true);
   };
   
-  const handleSelectTemplate = () => {
+  const handleSelectTemplate = (template: any, imageUrl: string) => {
     // Placeholder for template selection handling
     setShowVideoTemplatesDialog(false);
   };
@@ -94,13 +95,18 @@ export default function AIAgent() {
             outputFormat: productShotV1.state.outputFormat,
             productImages: productShotV1.state.productImages,
             imagesLoading: productShotV1.state.imagesLoading,
+            creditsRemaining: userCredits?.credits_remaining || 0,
             isGenerating: productShotV1.state.isGenerating,
             onPromptChange: productShotV1.actions.updatePrompt,
+            onFileSelect: productShotV1.actions.handleFileUpload,
+            onClearFile: productShotV1.actions.clearUploadedFile,
+            onImageSizeChange: productShotV1.actions.updateImageSize,
             onInferenceStepsChange: productShotV1.actions.updateInferenceSteps,
             onGuidanceScaleChange: productShotV1.actions.updateGuidanceScale,
-            onImageSizeChange: productShotV1.actions.updateImageSize,
             onOutputFormatChange: productShotV1.actions.updateOutputFormat,
             onGenerate: productShotV1.actions.generateImage,
+            onDownload: productShotV1.actions.downloadImage,
+            messages: messages,
             onVideoTemplatesClick: handleVideoTemplatesClick
           }}
           imageToVideo={{

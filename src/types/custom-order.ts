@@ -45,14 +45,13 @@ export interface PaymentTransaction {
   payment_processor: string;
   related_order_id: string;
   gateway_response: any;
-  // Added field
+  // Added fields
   payment_method?: string;
-  // Additional fields from actual DB data
-  payment_response?: any;
   payment_status?: string;
   payu_data?: any;
   payu_transaction_id?: string;
   webhook_received_at?: string;
+  payment_response?: any;
 }
 
 export interface VideoTemplate {
@@ -60,8 +59,7 @@ export interface VideoTemplate {
   name: string;
   description: string;
   thumbnail_url: string;
-  // Make preset_id optional since it might not exist in all templates
-  preset_id?: string;
+  preset_id?: string; // Make preset_id optional since it might not exist in all templates
   created_at: string;
   updated_at: string;
   credits_cost: number;

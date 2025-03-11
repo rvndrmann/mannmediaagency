@@ -28,6 +28,18 @@ export interface GeneratedMedia {
   prompt?: string;
 }
 
+export interface MCPToolParameter {
+  name: string;
+  value: string | number | boolean;
+  description?: string;
+}
+
+export interface MCPTool {
+  tool_name: string;
+  description: string;
+  required_parameters: string[];
+}
+
 export interface MCPQueryPayload {
   query: string;
   include_citations?: boolean;
@@ -35,6 +47,8 @@ export interface MCPQueryPayload {
   response_tokens?: number;
   enable_image_generation?: boolean;
   enable_video_generation?: boolean;
+  available_tools?: MCPTool[];
+  suggested_tool?: string;
 }
 
 export interface MCPResponse {
@@ -44,4 +58,7 @@ export interface MCPResponse {
     source: string;
   }>;
   generated_media?: GeneratedMedia;
+  selected_tool?: string;
+  tool_parameters?: Record<string, any>;
+  tool_selection_confidence?: number;
 }

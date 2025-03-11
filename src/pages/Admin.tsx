@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
-import { CustomOrder, User } from "@/types/custom-order";
+import { User } from "@/types/custom-order";
 import { ThemeProvider } from "next-themes";
 import { Toaster } from "@/components/ui/toaster";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { AdminCustomOrders } from "@/components/admin/AdminCustomOrders";
 import { AdminUsersList } from "@/components/admin/AdminUsersList";
 import { AdminUsageStats } from "@/components/admin/AdminUsageStats";
 import { CustomOrderLinks } from "@/components/admin/CustomOrderLinks";
+import { AIToolsOverview } from "@/components/admin/AIToolsOverview";
 import { toast } from "sonner";
 
 const Admin = () => {
@@ -109,11 +110,12 @@ const Admin = () => {
 
         <div className="container mx-auto py-6">
           <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-4 w-full max-w-[600px] mx-auto mb-6">
+            <TabsList className="grid grid-cols-5 w-full max-w-[750px] mx-auto mb-6">
               <TabsTrigger value="orders">Custom Orders</TabsTrigger>
               <TabsTrigger value="links">Order Links</TabsTrigger>
               <TabsTrigger value="users">Users</TabsTrigger>
               <TabsTrigger value="stats">Usage Stats</TabsTrigger>
+              <TabsTrigger value="ai-tools">AI Tools</TabsTrigger>
             </TabsList>
             
             <TabsContent value="orders" className="mt-6">
@@ -130,6 +132,10 @@ const Admin = () => {
             
             <TabsContent value="stats" className="mt-6">
               <AdminUsageStats key={isRefreshing ? 'refresh-stats' : 'stats'} />
+            </TabsContent>
+            
+            <TabsContent value="ai-tools" className="mt-6">
+              <AIToolsOverview key={isRefreshing ? 'refresh-ai-tools' : 'ai-tools'} />
             </TabsContent>
           </Tabs>
         </div>

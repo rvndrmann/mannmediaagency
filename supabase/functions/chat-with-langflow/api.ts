@@ -246,14 +246,49 @@ export async function makeMCPRequest(
   
   console.log(`[${requestId}] Making request to MCP Server: ${MCP_SERVER_URL}`);
   
+  // Extract potential tool references from the message
+  const toolPattern = /(product shot|image to video|product-shot v[12]|image-to-video)/i;
+  const toolMatch = messageContent.match(toolPattern);
+  const toolMentioned = toolMatch ? toolMatch[0].toLowerCase() : null;
+  
+  // Prepare specialized payload based on detected tool
   const payload: MCPQueryPayload = {
     query: messageContent,
     include_citations: true,
     target_audience: "intermediate",
     response_tokens: 1000,
     enable_image_generation: true,
-    enable_video_generation: true
+    enable_video_generation: true,
+    available_tools: [
+      {
+        tool_name: "product-shot-v1",
+        description: "Generate product images using the Product Shot V1 tool",
+        required_parameters: ["prompt", "imageSize"]
+      },
+      {
+        tool_name: "product-shot-v2",
+        description: "Generate enhanced product images using the Product Shot V2 tool",
+        required_parameters: ["prompt"]
+      },
+      {
+        tool_name: "image-to-video",
+        description: "Convert images to videos with animation effects",
+        required_parameters: ["prompt", "sourceImageUrl", "aspectRatio"]
+      }
+    ]
   };
+  
+  if (toolMentioned) {
+    console.log(`[${requestId}] Tool detected in message: ${toolMentioned}`);
+    
+    if (toolMentioned.includes("product shot") || toolMentioned.includes("product-shot")) {
+      // Determine which product shot version
+      const isV2 = toolMentioned.includes("v2") || toolMentioned.includes("2");
+      payload.suggested_tool = isV2 ? "product-shot-v2" : "product-shot-v1";
+    } else if (toolMentioned.includes("image to video") || toolMentioned.includes("image-to-video")) {
+      payload.suggested_tool = "image-to-video";
+    }
+  }
   
   try {
     const response = await fetchWithRetry(
@@ -272,9 +307,27 @@ export async function makeMCPRequest(
     
     const mcpResponse = response as MCPResponse;
     
-    // Process the response for any media generation commands
+    // Process the response for any tool selection or media generation commands
     let command = null;
-    if (mcpResponse.generated_media) {
+    
+    // Check for tool selection
+    if (mcpResponse.selected_tool) {
+      console.log(`[${requestId}] MCP selected tool: ${mcpResponse.selected_tool}`);
+      
+      const toolParams = mcpResponse.tool_parameters || {};
+      
+      command = {
+        feature: mcpResponse.selected_tool,
+        action: "create",
+        parameters: {
+          ...toolParams,
+          prompt: toolParams.prompt || messageContent
+        },
+        confidence: mcpResponse.tool_selection_confidence || 0.8
+      };
+    } 
+    // Check for media generation as fallback
+    else if (mcpResponse.generated_media) {
       command = {
         type: mcpResponse.generated_media.type,
         url: mcpResponse.generated_media.url,

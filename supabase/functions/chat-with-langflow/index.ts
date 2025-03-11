@@ -78,7 +78,7 @@ serve(async (req) => {
       );
     }
     
-    const { message } = bodyData;
+    const { message, useAssistantsApi, useMcp } = bodyData;
     
     if (!message) {
       console.error(`[${requestId}] Invalid request: missing message content`);
@@ -106,17 +106,24 @@ serve(async (req) => {
       );
     }
 
-    // Determine which API to use based on configuration
+    // Determine which API to use based on configuration and request preferences
     let responseData;
     
-    if (useMCP) {
+    // Override global settings with request-specific settings if provided
+    const shouldUseMCP = useMcp !== undefined ? useMcp : USE_MCP;
+    const shouldUseAssistantsAPI = useAssistantsApi !== undefined ? useAssistantsApi : USE_ASSISTANTS_API;
+    
+    if (shouldUseMCP) {
       // Use Model Context Protocol
+      console.log(`[${requestId}] Using MCP (from ${useMcp !== undefined ? 'request' : 'config'})`);
       responseData = await makeMCPRequest(message, requestId);
-    } else if (useAssistantsAPI) {
+    } else if (shouldUseAssistantsAPI) {
       // Use OpenAI Assistants API
+      console.log(`[${requestId}] Using Assistants API (from ${useAssistantsApi !== undefined ? 'request' : 'config'})`);
       responseData = await makeOpenAIAssistantRequest(message, requestId);
     } else {
       // Use original Langflow API
+      console.log(`[${requestId}] Using default Langflow API`);
       // Prepare API endpoint
       const endpoint = `/lf/${LANGFLOW_ID}/api/v1/run/${FLOW_ID}?stream=false`;
       
@@ -212,34 +219,6 @@ serve(async (req) => {
         error: apiError instanceof Error ? apiError.message : String(apiError)
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    console.error(`[${requestId}] Error in chat-with-langflow function:`, error);
-    console.error(`[${requestId}] Stack trace:`, error.stack);
-    
-    // Check for OpenAI quota errors in the general catch block too
-    if (isOpenAIQuotaError(error)) {
-      console.error(`[${requestId}] OpenAI quota exceeded error detected in general error handling`);
-      return new Response(
-        JSON.stringify({
-          message: "I'm sorry, but the AI service is currently unavailable due to usage limits. Please try again later or contact support for assistance.",
-          command: null,
-          error: "OpenAI quota exceeded"
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    return new Response(
-      JSON.stringify({ 
-        message: getFallbackResponse(),
-        command: null,
-        error: error instanceof Error ? error.message : String(error)
-      }),
-      { 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        status: 200
-      }
     );
   }
 });

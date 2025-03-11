@@ -1,3 +1,4 @@
+
 export interface CustomOrder {
   id: string;
   user_id: string;
@@ -46,4 +47,46 @@ export interface PaymentTransaction {
   gateway_response: any;
   // Added field
   payment_method?: string;
+}
+
+export interface VideoTemplate {
+  id: string;
+  name: string;
+  description: string;
+  thumbnail_url: string;
+  video_url?: string;
+  preset_id: string;
+  created_at: string;
+  updated_at: string;
+  credits_cost: number;
+  is_active: boolean;
+  aspect_ratio: string;
+  category?: string;
+  service_id?: string;
+}
+
+export interface User {
+  id: string;
+  username?: string;
+  email?: string;
+  created_at: string;
+  last_sign_in?: string;
+  user_metadata?: Record<string, any>;
+}
+
+export interface AdminUser {
+  id: string;
+  user_id: string;
+  created_at: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  created_at: string;
+  read: boolean;
+  action_url?: string;
+  notification_type?: string;
 }

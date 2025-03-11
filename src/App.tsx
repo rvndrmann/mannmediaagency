@@ -34,6 +34,7 @@ import { ThemeProvider } from "next-themes";
 import ProfileSettings from "@/pages/ProfileSettings";
 import { BottomNav } from "./components/mobile/BottomNav";
 import CustomOrderForm from "./pages/CustomOrderForm";
+import CustomOrders from "./pages/CustomOrders";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -111,6 +112,7 @@ const App = () => (
               <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
               <Route path="/ai-agent" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
+              <Route path="/custom-orders" element={<ProtectedRoute><CustomOrders /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="/payment" element={<Payment />} />
               <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />

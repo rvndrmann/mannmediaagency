@@ -11,12 +11,14 @@ import { useIsMobile } from "@/hooks/use-mobile";
 import { VideoTemplatesDialog } from "@/components/ai-agent/VideoTemplatesDialog";
 import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
 import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
+import { useNavigate } from "react-router-dom";
 
 export default function AIAgent() {
   const [activeTool, setActiveTool] = useState<string>("ai-agent");
   const [showVideoTemplatesDialog, setShowVideoTemplatesDialog] = useState(false);
   const [showCustomOrderDialog, setShowCustomOrderDialog] = useState(false);
   const isMobile = useIsMobile();
+  const navigate = useNavigate();
   
   const { 
     messages, 
@@ -48,7 +50,7 @@ export default function AIAgent() {
   };
   
   const handleCustomOrderClick = () => {
-    setShowCustomOrderDialog(true);
+    navigate("/custom-orders");
   };
   
   const handleSelectTemplate = (template: any, imageUrl: string) => {
@@ -99,13 +101,13 @@ export default function AIAgent() {
             isGenerating: productShotV1.state.isGenerating,
             onPromptChange: (value: string) => productShotV1.actions.setProductShotPrompt(value),
             onFileSelect: productShotV1.actions.handleFileSelect,
-            onClearFile: () => productShotV1.actions.clearFile(),
+            onClearFile: () => productShotV1.actions.setReferenceImage(null),
             onImageSizeChange: productShotV1.actions.setImageSize,
             onInferenceStepsChange: productShotV1.actions.setInferenceSteps,
             onGuidanceScaleChange: productShotV1.actions.setGuidanceScale,
             onOutputFormatChange: productShotV1.actions.setOutputFormat,
-            onGenerate: () => productShotV1.actions.generate(),
-            onDownload: () => productShotV1.actions.download(),
+            onGenerate: () => productShotV1.actions.generateImage(),
+            onDownload: (url: string) => productShotV1.actions.downloadImage(url),
             messages: messages,
             onVideoTemplatesClick: handleVideoTemplatesClick
           }}
@@ -134,6 +136,7 @@ export default function AIAgent() {
         <MobileToolNav
           activeTool={activeTool}
           onToolSelect={handleToolSelect}
+          onCustomOrderClick={handleCustomOrderClick}
         />
       )}
       
@@ -143,11 +146,6 @@ export default function AIAgent() {
         onSelectTemplate={handleSelectTemplate}
         sourceImageUrl={productShotV1.state.productShotPreview || ""}
         userCredits={userCredits?.credits_remaining || 0}
-      />
-      
-      <CustomOrderDialog
-        open={showCustomOrderDialog}
-        onOpenChange={setShowCustomOrderDialog}
       />
     </div>
   );

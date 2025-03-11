@@ -15,6 +15,7 @@ import {
   Bot,
   Bell,
   VideoIcon,
+  PlusSquare,
   LucideIcon,
 } from "lucide-react";
 import { Link } from "react-router-dom";
@@ -38,6 +39,7 @@ export const Navigation = () => {
   const [isLoadingAdmin, setIsLoadingAdmin] = useState(true);
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
+  const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -125,6 +127,13 @@ export const Navigation = () => {
     };
   }, []);
 
+  useEffect(() => {
+    if (notifications.length > 0) {
+      const orderNotifications = notifications.filter(n => n.type === 'custom_order');
+      setCustomOrderNotifications(orderNotifications.length);
+    }
+  }, [notifications]);
+
   const baseNavigation: NavigationItemWithBadge[] = [
     {
       name: "Explore",
@@ -144,6 +153,13 @@ export const Navigation = () => {
       subtext: "Intelligent Assistant",
       to: "/ai-agent",
       icon: Bot,
+    },
+    {
+      name: "Custom Orders",
+      subtext: "Request Personalized Content",
+      to: "/custom-orders",
+      icon: PlusSquare,
+      badge: customOrderNotifications > 0 ? customOrderNotifications : undefined,
     },
     {
       name: "Video Templates",

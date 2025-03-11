@@ -1,213 +1,134 @@
-import { useState, useEffect } from "react";
-import { DataGrid, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
-import { supabase } from "@/integrations/supabase/client";
-import { CustomOrder } from "@/types/custom-order";
-import { Button } from "@/components/ui/button";
-import { Edit, Eye } from "lucide-react";
-import { useRouter } from "next/navigation";
-import { useToast } from "@/hooks/use-toast";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
-import { Textarea } from "@/components/ui/textarea";
-import { OrderDetailsDialog } from "./OrderDetailsDialog";
 
-interface UserOrdersListProps {
+import { useEffect, useState } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Button } from "@/components/ui/button";
+import { Eye } from "lucide-react";
+import { OrderDetailsDialog } from "./OrderDetailsDialog";
+import { Badge } from "@/components/ui/badge";
+import { format } from "date-fns";
+
+export interface UserOrdersListProps {
   userId: string;
 }
 
 export const UserOrdersList = ({ userId }: UserOrdersListProps) => {
-  const [customOrders, setCustomOrders] = useState<CustomOrder[]>([]);
+  const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedOrder, setSelectedOrder] = useState<CustomOrder | null>(null);
-  const [open, setOpen] = useState(false);
-  const [editOpen, setEditOpen] = useState(false);
-  const [editedRemark, setEditedRemark] = useState("");
-  const [editedAdminNotes, setEditedAdminNotes] = useState("");
-  const router = useRouter();
-  const { toast } = useToast();
+  const [selectedOrder, setSelectedOrder] = useState<any>(null);
+  const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
   useEffect(() => {
-    const fetchCustomOrders = async () => {
-      setLoading(true);
-      try {
-        const { data, error } = await supabase
-          .from("custom_orders")
-          .select("*")
-          .eq("user_id", userId)
-          .order("created_at", { ascending: false });
-
-        if (error) {
-          console.error("Error fetching custom orders:", error);
-          toast({
-            title: "Error",
-            description: "Failed to fetch custom orders.",
-            variant: "destructive",
-          });
-        } else {
-          setCustomOrders(data || []);
-        }
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchCustomOrders();
+    fetchOrders();
   }, [userId]);
 
-  const handleViewDetails = (order: CustomOrder) => {
-    setSelectedOrder(order);
-    setOpen(true);
-  };
-
-  const handleEditOrder = (order: CustomOrder) => {
-    setSelectedOrder(order);
-    setEditedRemark(order.remark || "");
-    setEditedAdminNotes(order.admin_notes || "");
-    setEditOpen(true);
-  };
-
-  const handleSaveEdit = async () => {
-    if (!selectedOrder) return;
-
+  const fetchOrders = async () => {
     try {
-      const { error } = await supabase
-        .from("custom_orders")
-        .update({ remark: editedRemark, admin_notes: editedAdminNotes })
-        .eq("id", selectedOrder.id);
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('custom_orders')
+        .select(`
+          *,
+          order_link_id (title, description, custom_rate),
+          guest_id (name, email, phone_number)
+        `)
+        .eq('user_id', userId)
+        .order('created_at', { ascending: false });
 
-      if (error) {
-        console.error("Error updating custom order:", error);
-        toast({
-          title: "Error",
-          description: "Failed to update custom order.",
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Success",
-          description: "Custom order updated successfully.",
-        });
-        setCustomOrders((prevOrders) =>
-          prevOrders.map((order) =>
-            order.id === selectedOrder.id
-              ? { ...order, remark: editedRemark, admin_notes: editedAdminNotes }
-              : order
-          )
-        );
-        setEditOpen(false);
-      }
+      if (error) throw error;
+      setOrders(data || []);
     } catch (error) {
-      console.error("Error updating custom order:", error);
-      toast({
-        title: "Error",
-        description: "Failed to update custom order.",
-        variant: "destructive",
-      });
+      console.error('Error fetching orders:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
-  const columns: GridColDef[] = [
-    { field: "id", headerName: "ID", width: 70 },
-    { field: "created_at", headerName: "Created At", width: 150, valueFormatter: ({ value }) => value ? new Date(value).toLocaleString() : '' },
-    { field: "status", headerName: "Status", width: 120 },
-    { field: "remark", headerName: "Remark", width: 200 },
-    { field: "admin_notes", headerName: "Admin Notes", width: 200 },
-    {
-      field: "actions",
-      headerName: "Actions",
-      width: 150,
-      renderCell: (params: GridRenderCellParams<CustomOrder>) => (
-        <div>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleViewDetails(params.row)}
-          >
-            <Eye className="h-4 w-4" />
-          </Button>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={() => handleEditOrder(params.row)}
-          >
-            <Edit className="h-4 w-4" />
-          </Button>
-        </div>
-      ),
-    },
-  ];
+  const getStatusBadge = (status: string) => {
+    const statusMap: Record<string, { color: string; label: string }> = {
+      'pending': { color: 'bg-yellow-500', label: 'Pending' },
+      'processing': { color: 'bg-blue-500', label: 'Processing' },
+      'completed': { color: 'bg-green-500', label: 'Completed' },
+      'delivered': { color: 'bg-purple-500', label: 'Delivered' },
+      'cancelled': { color: 'bg-red-500', label: 'Cancelled' },
+    };
+
+    const badgeInfo = statusMap[status] || { color: 'bg-gray-500', label: status };
+
+    return (
+      <Badge 
+        className={`${badgeInfo.color} text-white capitalize`}
+      >
+        {badgeInfo.label}
+      </Badge>
+    );
+  };
+
+  const handleViewDetails = (order: any) => {
+    setSelectedOrder(order);
+    setShowDetailsDialog(true);
+  };
+
+  if (loading) {
+    return <div>Loading orders...</div>;
+  }
+
+  if (orders.length === 0) {
+    return (
+      <div className="text-center py-8">
+        <p className="text-muted-foreground">You don't have any custom orders yet.</p>
+      </div>
+    );
+  }
 
   return (
-    <div>
-      <h2 className="text-2xl font-bold mb-4">User Orders</h2>
-      {loading ? (
-        <p>Loading orders...</p>
-      ) : (
-        <div style={{ height: 400, width: "100%" }}>
-          <DataGrid
-            rows={customOrders}
-            columns={columns}
-            getRowId={(row) => row.id}
-            disableSelectionOnClick
-          />
-        </div>
+    <>
+      <div className="rounded-md border overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Date</TableHead>
+              <TableHead>Order Type</TableHead>
+              <TableHead>Status</TableHead>
+              <TableHead>Credits</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {orders.map((order) => (
+              <TableRow key={order.id}>
+                <TableCell>
+                  {format(new Date(order.created_at), 'MMM d, yyyy')}
+                </TableCell>
+                <TableCell>
+                  {order.order_link_id?.title || 'Custom Order'}
+                </TableCell>
+                <TableCell>
+                  {getStatusBadge(order.status)}
+                </TableCell>
+                <TableCell>{order.credits_used}</TableCell>
+                <TableCell className="text-right">
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    onClick={() => handleViewDetails(order)}
+                  >
+                    <Eye className="h-4 w-4 mr-1" /> View
+                  </Button>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
+
+      {selectedOrder && (
+        <OrderDetailsDialog
+          open={showDetailsDialog}
+          onOpenChange={setShowDetailsDialog}
+          order={selectedOrder}
+        />
       )}
-
-      <OrderDetailsDialog
-        open={open}
-        onOpenChange={setOpen}
-        customOrderId={selectedOrder?.id || ""}
-      />
-
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
-        <DialogContent className="sm:max-w-[425px]">
-          <DialogHeader>
-            <DialogTitle>Edit Order</DialogTitle>
-            <DialogDescription>
-              Edit the remark and admin notes for this order.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="remark" className="text-right">
-                Remark
-              </Label>
-              <div className="col-span-3">
-                <Input
-                  id="remark"
-                  value={editedRemark}
-                  onChange={(e) => setEditedRemark(e.target.value)}
-                />
-              </div>
-            </div>
-            <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="adminNotes" className="text-right">
-                Admin Notes
-              </Label>
-              <div className="col-span-3">
-                <Textarea
-                  id="adminNotes"
-                  value={editedAdminNotes}
-                  onChange={(e) => setEditedAdminNotes(e.target.value)}
-                />
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end">
-            <Button type="button" onClick={handleSaveEdit}>
-              Save changes
-            </Button>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </div>
+    </>
   );
 };

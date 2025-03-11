@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -128,7 +127,7 @@ export const useAIChat = () => {
     }
   };
 
-  const logChatUsage = async (messageContent: string) => {
+  const logChatUsage = async (messageContent: string, selectedTool?: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
@@ -139,7 +138,8 @@ export const useAIChat = () => {
           user_id: user.id,
           message_content: messageContent,
           credits_charged: CHAT_CREDIT_COST,
-          words_count: messageContent.trim().split(/\s+/).length
+          words_count: messageContent.trim().split(/\s+/).length,
+          selected_tool: selectedTool || null
         });
 
       if (error) {
@@ -251,6 +251,19 @@ export const useAIChat = () => {
         
         // Check if there's a command in the response
         let commandObj = data.command ? data.command : null;
+        let selectedTool = null;
+        
+        // Extract selected tool information from command if present
+        if (commandObj && commandObj.feature) {
+          selectedTool = commandObj.feature;
+        } else if (commandObj && commandObj.tool) {
+          selectedTool = commandObj.tool;
+        } else if (commandObj && commandObj.type) {
+          selectedTool = commandObj.type;
+        }
+        
+        // 2. Log usage with selected tool information
+        await logChatUsage(trimmedInput, selectedTool);
         
         setMessages(prev => {
           const newMessages = [...prev];
@@ -259,6 +272,7 @@ export const useAIChat = () => {
               ...newMessages[messageIndex],
               content: data.message,
               command: commandObj,
+              selectedTool: selectedTool,
               status: "completed"
             };
           }

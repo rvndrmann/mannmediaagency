@@ -1,261 +1,163 @@
 
 import { useState, useEffect } from "react";
-import { Card } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { BarChart } from "@/components/ui/chart";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  BarChart, 
-  Bar, 
-  XAxis, 
-  YAxis, 
-  CartesianGrid, 
-  Tooltip, 
-  Legend, 
-  ResponsiveContainer, 
-  PieChart, 
-  Pie, 
-  Cell
-} from "recharts";
-import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
 
-// Define interfaces for our data
-interface ToolUsageData {
-  tool: string;
-  count: number;
-  percentage?: number;
-}
-
-interface ChatSession {
+// Extended type to include the selected_tool field
+interface ChatUsage {
   id: string;
-  created_at: string;
   user_id: string;
+  created_at: string;
   message_content: string;
-  selected_tool?: string;
-  tool_parameters?: Record<string, any>;
-  tool_selection_confidence?: number;
+  credits_charged: number;
+  words_count: number;
+  selected_tool?: string; // Make it optional as it might not be present in all records
 }
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8'];
-
-export function AIToolsOverview() {
-  const [activeTab, setActiveTab] = useState("usage");
-  const [toolUsage, setToolUsage] = useState<ToolUsageData[]>([]);
-  const [recentChatSessions, setRecentChatSessions] = useState<ChatSession[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  const fetchToolUsageData = async () => {
-    try {
-      setIsLoading(true);
-      
-      // Fetch chat usage data from the database
-      const { data: chatData, error: chatError } = await supabase
-        .from('chat_usage')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(100);
-      
-      if (chatError) throw chatError;
-      
-      // Process chat data to extract tool usage
-      const toolCounts: Record<string, number> = {
-        'product-shot-v1': 0,
-        'product-shot-v2': 0,
-        'image-to-video': 0,
-        'no-tool': 0
-      };
-      
-      // Count tool occurrences in recent chat sessions
-      chatData.forEach(session => {
-        // Check for tool usage in the command field or message content
-        let toolUsed = 'no-tool';
-        
-        if (session.selected_tool) {
-          toolUsed = session.selected_tool;
-        } else if (session.message_content) {
-          const content = session.message_content.toLowerCase();
-          if (content.includes('product shot v1') || content.includes('product-shot-v1')) {
-            toolUsed = 'product-shot-v1';
-          } else if (content.includes('product shot v2') || content.includes('product-shot-v2')) {
-            toolUsed = 'product-shot-v2';
-          } else if (content.includes('image to video') || content.includes('image-to-video')) {
-            toolUsed = 'image-to-video';
-          }
-        }
-        
-        // Increment the count for this tool
-        toolCounts[toolUsed] = (toolCounts[toolUsed] || 0) + 1;
-      });
-      
-      // Convert to the format needed for charts
-      const totalCount = Object.values(toolCounts).reduce((sum, count) => sum + count, 0);
-      const toolUsageData = Object.entries(toolCounts).map(([tool, count]) => ({
-        tool,
-        count,
-        percentage: totalCount > 0 ? Math.round((count / totalCount) * 100) : 0
-      }));
-      
-      setToolUsage(toolUsageData);
-      setRecentChatSessions(chatData);
-      setError(null);
-    } catch (err) {
-      console.error("Error fetching tool usage data:", err);
-      setError("Failed to load tool usage data. Please try again.");
-    } finally {
-      setIsLoading(false);
-    }
-  };
+export const AIToolsOverview = () => {
+  const [toolUsageData, setToolUsageData] = useState<{ [key: string]: number }>({});
+  const [chatUsage, setChatUsage] = useState<ChatUsage[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("overview");
 
   useEffect(() => {
-    fetchToolUsageData();
+    const fetchData = async () => {
+      try {
+        setLoading(true);
+        const { data, error } = await supabase
+          .from('chat_usage')
+          .select('*')
+          .order('created_at', { ascending: false })
+          .limit(100);
+
+        if (error) throw error;
+        
+        setChatUsage(data as ChatUsage[]);
+        
+        // Calculate tool usage
+        const toolCounts: { [key: string]: number } = {};
+        data.forEach((chat: ChatUsage) => {
+          if (chat.selected_tool) {
+            const tool = chat.selected_tool;
+            toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+          }
+        });
+        
+        setToolUsageData(toolCounts);
+      } catch (error) {
+        console.error('Error fetching AI tool usage data:', error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchData();
   }, []);
 
-  // Formatter for the pie chart labels
-  const renderCustomizedLabel = ({ name, value, percent }: any) => {
-    return `${name}: ${percent}%`;
-  };
-
-  // Format timestamps
-  const formatTimestamp = (timestamp: string) => {
-    return new Date(timestamp).toLocaleString();
+  const chartData = {
+    labels: Object.keys(toolUsageData),
+    datasets: [
+      {
+        label: 'Tool Usage Count',
+        data: Object.values(toolUsageData),
+        backgroundColor: [
+          'rgba(53, 162, 235, 0.5)',
+          'rgba(75, 192, 192, 0.5)',
+          'rgba(255, 99, 132, 0.5)',
+          'rgba(255, 206, 86, 0.5)',
+          'rgba(153, 102, 255, 0.5)',
+        ],
+      },
+    ],
   };
 
   return (
-    <div className="space-y-6">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold tracking-tight">AI Tools Overview</h2>
-      </div>
-
+    <div className="space-y-4">
+      <h2 className="text-3xl font-bold tracking-tight">AI Tools Overview</h2>
+      
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList>
-          <TabsTrigger value="usage">Tool Usage</TabsTrigger>
-          <TabsTrigger value="sessions">Recent Chat Sessions</TabsTrigger>
+        <TabsList className="mb-4">
+          <TabsTrigger value="overview">Overview</TabsTrigger>
+          <TabsTrigger value="usage-log">Usage Log</TabsTrigger>
         </TabsList>
-
-        <TabsContent value="usage" className="space-y-6">
-          {isLoading ? (
-            <div className="text-center py-10">Loading usage data...</div>
-          ) : error ? (
-            <div className="text-center py-10 text-red-500">{error}</div>
-          ) : (
-            <>
-              <div className="grid md:grid-cols-2 gap-6">
-                <Card className="p-4">
-                  <h3 className="text-lg font-medium mb-4">Tool Usage Distribution</h3>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={toolUsage}
-                          cx="50%"
-                          cy="50%"
-                          labelLine={false}
-                          outerRadius={80}
-                          fill="#8884d8"
-                          dataKey="count"
-                          nameKey="tool"
-                          label={renderCustomizedLabel}
-                        >
-                          {toolUsage.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                          ))}
-                        </Pie>
-                        <Tooltip />
-                        <Legend />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-
-                <Card className="p-4">
-                  <h3 className="text-lg font-medium mb-4">Tool Usage Counts</h3>
-                  <div className="h-[300px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <BarChart
-                        data={toolUsage}
-                        margin={{
-                          top: 5,
-                          right: 30,
-                          left: 20,
-                          bottom: 5,
-                        }}
-                      >
-                        <CartesianGrid strokeDasharray="3 3" />
-                        <XAxis dataKey="tool" />
-                        <YAxis />
-                        <Tooltip />
-                        <Legend />
-                        <Bar dataKey="count" fill="#8884d8" />
-                      </BarChart>
-                    </ResponsiveContainer>
-                  </div>
-                </Card>
-              </div>
-
-              <Card>
-                <Table>
-                  <TableCaption>Summary of AI tool usage</TableCaption>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Tool</TableHead>
-                      <TableHead>Usage Count</TableHead>
-                      <TableHead>Percentage</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {toolUsage.map((item) => (
-                      <TableRow key={item.tool}>
-                        <TableCell className="font-medium">{item.tool}</TableCell>
-                        <TableCell>{item.count}</TableCell>
-                        <TableCell>{item.percentage}%</TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </Card>
-            </>
-          )}
-        </TabsContent>
-
-        <TabsContent value="sessions">
+        
+        <TabsContent value="overview">
           <Card>
-            <Table>
-              <TableCaption>Recent AI chat sessions</TableCaption>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Time</TableHead>
-                  <TableHead>User Message</TableHead>
-                  <TableHead>Tool Used</TableHead>
-                  <TableHead>Confidence</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {recentChatSessions.map((session) => (
-                  <TableRow key={session.id}>
-                    <TableCell>{formatTimestamp(session.created_at)}</TableCell>
-                    <TableCell className="max-w-md truncate">{session.message_content}</TableCell>
-                    <TableCell>
-                      {session.selected_tool ? (
-                        <Badge variant="outline" className="bg-blue-500/10 text-blue-500">
-                          {session.selected_tool}
-                        </Badge>
-                      ) : (
-                        <Badge variant="outline">None</Badge>
-                      )}
-                    </TableCell>
-                    <TableCell>
-                      {session.tool_selection_confidence 
-                        ? `${Math.round(session.tool_selection_confidence * 100)}%` 
-                        : 'N/A'}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+            <CardHeader>
+              <CardTitle>Tool Usage Distribution</CardTitle>
+              <CardDescription>
+                Number of times each AI tool has been used
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="h-80 flex items-center justify-center">
+                  <p>Loading data...</p>
+                </div>
+              ) : Object.keys(toolUsageData).length > 0 ? (
+                <div className="h-80">
+                  <BarChart data={chartData} />
+                </div>
+              ) : (
+                <div className="h-80 flex items-center justify-center">
+                  <p>No tool usage data available yet</p>
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="usage-log">
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Chat Usage Log</CardTitle>
+              <CardDescription>
+                Recent AI chat interactions and tool usage
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p>Loading data...</p>
+              ) : chatUsage.length > 0 ? (
+                <div className="rounded-md border">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Message</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tool Used</th>
+                        <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Credits</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-200">
+                      {chatUsage.map((chat) => (
+                        <tr key={chat.id}>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {new Date(chat.created_at).toLocaleString()}
+                          </td>
+                          <td className="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                            {chat.message_content}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {chat.selected_tool || 'None'}
+                          </td>
+                          <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                            {chat.credits_charged.toFixed(2)}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
+                <p>No chat usage data available</p>
+              )}
+            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>
     </div>
   );
-}
+};

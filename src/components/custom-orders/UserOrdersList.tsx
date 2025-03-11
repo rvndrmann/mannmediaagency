@@ -1,425 +1,213 @@
-
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect } from "react";
+import { DataGrid, GridColDef, GridRenderCellParams } from "@mui/x-data-grid";
 import { supabase } from "@/integrations/supabase/client";
-import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
+import { CustomOrder } from "@/types/custom-order";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { format } from "date-fns";
-import { Loader2, EyeIcon, RefreshCw, SearchIcon, ArrowDownAZ, ArrowUpAZ, Filter, ImageIcon, FileText, Calendar } from "lucide-react";
-import { OrderDetailsDialog } from "./OrderDetailsDialog";
-import { Badge } from "@/components/ui/badge";
+import { Edit, Eye } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useToast } from "@/hooks/use-toast";
 import { Input } from "@/components/ui/input";
-import { 
-  Select, 
-  SelectContent, 
-  SelectItem, 
-  SelectTrigger, 
-  SelectValue 
-} from "@/components/ui/select";
-import { toast } from "sonner";
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuGroup,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
+import { Label } from "@/components/ui/label";
 import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
-import { Skeleton } from "@/components/ui/skeleton";
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Textarea } from "@/components/ui/textarea";
+import { OrderDetailsDialog } from "./OrderDetailsDialog";
 
-// Component for order media count display
-const OrderMediaCount = ({ orderId }: { orderId: string }) => {
-  const [count, setCount] = useState<number | null>(null);
-  
+interface UserOrdersListProps {
+  userId: string;
+}
+
+export const UserOrdersList = ({ userId }: UserOrdersListProps) => {
+  const [customOrders, setCustomOrders] = useState<CustomOrder[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [selectedOrder, setSelectedOrder] = useState<CustomOrder | null>(null);
+  const [open, setOpen] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
+  const [editedRemark, setEditedRemark] = useState("");
+  const [editedAdminNotes, setEditedAdminNotes] = useState("");
+  const router = useRouter();
+  const { toast } = useToast();
+
   useEffect(() => {
-    const fetchMediaCount = async () => {
-      const { count, error } = await supabase
-        .from("custom_order_media")
-        .select("*", { count: 'exact', head: true })
-        .eq("order_id", orderId);
-      
-      if (!error && count !== null) {
-        setCount(count);
+    const fetchCustomOrders = async () => {
+      setLoading(true);
+      try {
+        const { data, error } = await supabase
+          .from("custom_orders")
+          .select("*")
+          .eq("user_id", userId)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching custom orders:", error);
+          toast({
+            title: "Error",
+            description: "Failed to fetch custom orders.",
+            variant: "destructive",
+          });
+        } else {
+          setCustomOrders(data || []);
+        }
+      } finally {
+        setLoading(false);
       }
     };
-    
-    fetchMediaCount();
-  }, [orderId]);
-  
-  if (count === null) return null;
-  
-  return (
-    <TooltipProvider>
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <div className="flex items-center gap-1 text-muted-foreground">
-            <ImageIcon className="h-3.5 w-3.5" />
-            <span className="text-xs">{count}</span>
-          </div>
-        </TooltipTrigger>
-        <TooltipContent>
-          <p>{count} media files attached</p>
-        </TooltipContent>
-      </Tooltip>
-    </TooltipProvider>
-  );
-};
 
-export const UserOrdersList = () => {
-  const [orders, setOrders] = useState<CustomOrder[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [sortOrder, setSortOrder] = useState<"newest" | "oldest">("newest");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
+    fetchCustomOrders();
+  }, [userId]);
 
-  useEffect(() => {
-    fetchOrders();
+  const handleViewDetails = (order: CustomOrder) => {
+    setSelectedOrder(order);
+    setOpen(true);
+  };
 
-    // Set up realtime subscription for order updates
-    const channel = supabase
-      .channel('custom-orders-changes')
-      .on('postgres_changes', 
-        { event: 'UPDATE', schema: 'public', table: 'custom_orders' }, 
-        (payload) => {
-          const updatedOrder = payload.new as CustomOrder;
-          setOrders(prev => 
-            prev.map(order => 
-              order.id === updatedOrder.id ? updatedOrder : order
-            )
-          );
-        }
-      )
-      .subscribe();
+  const handleEditOrder = (order: CustomOrder) => {
+    setSelectedOrder(order);
+    setEditedRemark(order.remark || "");
+    setEditedAdminNotes(order.admin_notes || "");
+    setEditOpen(true);
+  };
 
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+  const handleSaveEdit = async () => {
+    if (!selectedOrder) return;
 
-  const fetchOrders = async () => {
-    setLoading(true);
-    setError(null);
     try {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from("custom_orders")
-        .select("*")
-        .order("created_at", { ascending: false });
+        .update({ remark: editedRemark, admin_notes: editedAdminNotes })
+        .eq("id", selectedOrder.id);
 
-      if (error) throw error;
-      setOrders(data as CustomOrder[]);
-    } catch (error: any) {
-      console.error("Error fetching orders:", error);
-      setError("Failed to load your orders. Please try again.");
-      toast.error("Failed to load orders");
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleRefresh = async () => {
-    setRefreshing(true);
-    await fetchOrders();
-    setRefreshing(false);
-    toast.success("Orders refreshed");
-  };
-
-  const handleViewDetails = (orderId: string) => {
-    setSelectedOrderId(orderId);
-    setDetailsOpen(true);
-  };
-
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), "PPP");
-  };
-
-  const formatShortDate = (dateString: string) => {
-    return format(new Date(dateString), "MMM d, yyyy");
-  };
-
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case "completed":
-        return <Badge variant="success">Completed</Badge>;
-      case "failed":
-      case "payment_failed":
-        return <Badge variant="destructive">Failed</Badge>;
-      case "in_progress":
-        return <Badge variant="info">In Progress</Badge>;
-      case "payment_pending":
-        return <Badge variant="warning">Payment Pending</Badge>;
-      default:
-        return <Badge variant="warning">Pending</Badge>;
-    }
-  };
-
-  // Filter and sort orders
-  const filteredOrders = useMemo(() => {
-    return orders
-      .filter(order => {
-        // Apply status filter
-        if (statusFilter !== "all" && order.status !== statusFilter) {
-          return false;
-        }
-        
-        // Apply search filter (currently on ID, but could include other fields)
-        if (searchQuery) {
-          return order.id.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                 (order.remark && order.remark.toLowerCase().includes(searchQuery.toLowerCase()));
-        }
-        
-        return true;
-      })
-      .sort((a, b) => {
-        // Sort by created_at date
-        if (sortOrder === "newest") {
-          return new Date(b.created_at).getTime() - new Date(a.created_at).getTime();
-        } else {
-          return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-        }
+      if (error) {
+        console.error("Error updating custom order:", error);
+        toast({
+          title: "Error",
+          description: "Failed to update custom order.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Success",
+          description: "Custom order updated successfully.",
+        });
+        setCustomOrders((prevOrders) =>
+          prevOrders.map((order) =>
+            order.id === selectedOrder.id
+              ? { ...order, remark: editedRemark, admin_notes: editedAdminNotes }
+              : order
+          )
+        );
+        setEditOpen(false);
+      }
+    } catch (error) {
+      console.error("Error updating custom order:", error);
+      toast({
+        title: "Error",
+        description: "Failed to update custom order.",
+        variant: "destructive",
       });
-  }, [orders, searchQuery, sortOrder, statusFilter]);
+    }
+  };
 
-  // Get status counts for the filter dropdown
-  const statusCounts = useMemo(() => {
-    const counts: Record<string, number> = { all: orders.length };
-    orders.forEach(order => {
-      counts[order.status] = (counts[order.status] || 0) + 1;
-    });
-    return counts;
-  }, [orders]);
-
-  // Generate the status filter options
-  const statusOptions = useMemo(() => {
-    const statuses = Array.from(new Set(orders.map(order => order.status)));
-    return [
-      { value: "all", label: `All Orders (${statusCounts.all || 0})` },
-      ...statuses.map(status => ({
-        value: status,
-        label: `${status.charAt(0).toUpperCase() + status.slice(1).replace("_", " ")} (${statusCounts[status] || 0})`
-      }))
-    ];
-  }, [orders, statusCounts]);
-
-  if (error) {
-    return (
-      <div className="space-y-4">
-        <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-bold">Your Custom Orders</h2>
-          <Button variant="outline" onClick={fetchOrders} size="sm">
-            <RefreshCw className="h-4 w-4 mr-2" />
-            Try Again
+  const columns: GridColDef[] = [
+    { field: "id", headerName: "ID", width: 70 },
+    { field: "created_at", headerName: "Created At", width: 150, valueFormatter: ({ value }) => value ? new Date(value).toLocaleString() : '' },
+    { field: "status", headerName: "Status", width: 120 },
+    { field: "remark", headerName: "Remark", width: 200 },
+    { field: "admin_notes", headerName: "Admin Notes", width: 200 },
+    {
+      field: "actions",
+      headerName: "Actions",
+      width: 150,
+      renderCell: (params: GridRenderCellParams<CustomOrder>) => (
+        <div>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleViewDetails(params.row)}
+          >
+            <Eye className="h-4 w-4" />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => handleEditOrder(params.row)}
+          >
+            <Edit className="h-4 w-4" />
           </Button>
         </div>
-        
-        <Card className="border-red-200 bg-red-50 dark:bg-red-900/10">
-          <CardContent className="py-6 flex flex-col items-center justify-center text-center">
-            <p className="text-red-600 dark:text-red-400 mb-2">
-              {error}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
-    );
-  }
+      ),
+    },
+  ];
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center mb-4">
-        <h2 className="text-xl font-bold">Your Custom Orders</h2>
-        <Button 
-          variant="outline" 
-          onClick={handleRefresh} 
-          size="sm"
-          disabled={refreshing || loading}
-        >
-          <RefreshCw className={`h-4 w-4 mr-2 ${refreshing ? 'animate-spin' : ''}`} />
-          Refresh
-        </Button>
-      </div>
-
+    <div>
+      <h2 className="text-2xl font-bold mb-4">User Orders</h2>
       {loading ? (
-        <div className="space-y-4">
-          {[1, 2, 3].map((i) => (
-            <Card key={i} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex justify-between">
-                  <Skeleton className="h-5 w-32" />
-                  <Skeleton className="h-5 w-20" />
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-2">
-                  <div className="flex justify-between">
-                    <Skeleton className="h-4 w-24" />
-                    <Skeleton className="h-4 w-32" />
-                  </div>
-                  <div className="flex justify-between">
-                    <Skeleton className="h-4 w-20" />
-                    <Skeleton className="h-4 w-16" />
-                  </div>
-                  <Skeleton className="h-8 w-full mt-2" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      ) : orders.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 flex flex-col items-center justify-center text-center">
-            <p className="text-muted-foreground mb-2">
-              You don't have any custom orders yet.
-            </p>
-            <p className="text-sm text-muted-foreground">
-              Create a custom order from the AI Agent page.
-            </p>
-          </CardContent>
-        </Card>
+        <p>Loading orders...</p>
       ) : (
-        <>
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <div className="relative flex-1">
-              <SearchIcon className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search orders..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-9"
-              />
-            </div>
-            
-            <div className="flex gap-2">
-              <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[180px]">
-                  <SelectValue placeholder="Filter by status" />
-                </SelectTrigger>
-                <SelectContent>
-                  {statusOptions.map(option => (
-                    <SelectItem key={option.value} value={option.value}>
-                      {option.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon">
-                    {sortOrder === "newest" ? <ArrowDownAZ className="h-4 w-4" /> : <ArrowUpAZ className="h-4 w-4" />}
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuGroup>
-                    <DropdownMenuItem onClick={() => setSortOrder("newest")}>
-                      <ArrowDownAZ className="h-4 w-4 mr-2" />
-                      Newest first
-                    </DropdownMenuItem>
-                    <DropdownMenuItem onClick={() => setSortOrder("oldest")}>
-                      <ArrowUpAZ className="h-4 w-4 mr-2" />
-                      Oldest first
-                    </DropdownMenuItem>
-                  </DropdownMenuGroup>
-                </DropdownMenuContent>
-              </DropdownMenu>
-            </div>
-          </div>
-
-          {filteredOrders.length === 0 ? (
-            <Card>
-              <CardContent className="py-8 flex flex-col items-center justify-center text-center">
-                <p className="text-muted-foreground">
-                  No orders match your filters.
-                </p>
-                <Button variant="link" onClick={() => { setSearchQuery(""); setStatusFilter("all"); }}>
-                  Clear filters
-                </Button>
-              </CardContent>
-            </Card>
-          ) : (
-            <div className="grid gap-4">
-              {filteredOrders.map((order) => (
-                <Card key={order.id} className={(order.status === "payment_pending") ? "border-yellow-300 dark:border-yellow-600" : ""}>
-                  <CardHeader className="pb-2">
-                    <div className="flex justify-between items-center">
-                      <CardTitle className="text-base flex items-center gap-2">
-                        Order #{order.id.slice(0, 8)}...
-                        {(order.status === "payment_pending") && (
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger>
-                                <Badge variant="warning" className="text-xs">Payment Required</Badge>
-                              </TooltipTrigger>
-                              <TooltipContent>
-                                <p>This order requires payment to be processed</p>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        )}
-                      </CardTitle>
-                      {getStatusBadge(order.status)}
-                    </div>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="grid grid-cols-2 gap-2 text-sm mb-3">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                        <span>{formatShortDate(order.created_at)}</span>
-                      </div>
-                      <div className="flex items-center gap-1 justify-end">
-                        <span className="text-muted-foreground">Credits:</span>
-                        <span className="font-medium">{order.credits_used}</span>
-                      </div>
-                      
-                      {order.remark && (
-                        <div className="col-span-2 flex items-start gap-1 mt-1">
-                          <FileText className="h-3.5 w-3.5 text-muted-foreground mt-0.5" />
-                          <span className="text-muted-foreground line-clamp-1">
-                            {order.remark}
-                          </span>
-                        </div>
-                      )}
-                      
-                      <div className="col-span-2 flex justify-between items-center mt-1">
-                        <OrderMediaCount orderId={order.id} />
-                        
-                        {order.delivered_at && (
-                          <div className="flex items-center gap-1 text-muted-foreground">
-                            <span className="text-xs">Delivered: {formatShortDate(order.delivered_at)}</span>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                    
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="w-full"
-                      onClick={() => handleViewDetails(order.id)}
-                    >
-                      <EyeIcon className="h-4 w-4 mr-2" />
-                      View Details
-                    </Button>
-                  </CardContent>
-                </Card>
-              ))}
-            </div>
-          )}
-        </>
+        <div style={{ height: 400, width: "100%" }}>
+          <DataGrid
+            rows={customOrders}
+            columns={columns}
+            getRowId={(row) => row.id}
+            disableSelectionOnClick
+          />
+        </div>
       )}
 
       <OrderDetailsDialog
-        orderId={selectedOrderId}
-        open={detailsOpen}
-        onOpenChange={setDetailsOpen}
+        open={open}
+        onOpenChange={setOpen}
+        customOrderId={selectedOrder?.id || ""}
       />
+
+      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+        <DialogContent className="sm:max-w-[425px]">
+          <DialogHeader>
+            <DialogTitle>Edit Order</DialogTitle>
+            <DialogDescription>
+              Edit the remark and admin notes for this order.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="remark" className="text-right">
+                Remark
+              </Label>
+              <div className="col-span-3">
+                <Input
+                  id="remark"
+                  value={editedRemark}
+                  onChange={(e) => setEditedRemark(e.target.value)}
+                />
+              </div>
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="adminNotes" className="text-right">
+                Admin Notes
+              </Label>
+              <div className="col-span-3">
+                <Textarea
+                  id="adminNotes"
+                  value={editedAdminNotes}
+                  onChange={(e) => setEditedAdminNotes(e.target.value)}
+                />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end">
+            <Button type="button" onClick={handleSaveEdit}>
+              Save changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

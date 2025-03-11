@@ -99,13 +99,13 @@ export default function AIAgent() {
             isGenerating: productShotV1.state.isGenerating,
             onPromptChange: (value: string) => productShotV1.actions.setProductShotPrompt(value),
             onFileSelect: productShotV1.actions.handleFileSelect,
-            onClearFile: productShotV1.actions.clearFile,
+            onClearFile: () => productShotV1.actions.clearFile(),
             onImageSizeChange: productShotV1.actions.setImageSize,
             onInferenceStepsChange: productShotV1.actions.setInferenceSteps,
             onGuidanceScaleChange: productShotV1.actions.setGuidanceScale,
             onOutputFormatChange: productShotV1.actions.setOutputFormat,
-            onGenerate: productShotV1.actions.generate,
-            onDownload: productShotV1.actions.download,
+            onGenerate: () => productShotV1.actions.generate(),
+            onDownload: () => productShotV1.actions.download(),
             messages: messages,
             onVideoTemplatesClick: handleVideoTemplatesClick
           }}

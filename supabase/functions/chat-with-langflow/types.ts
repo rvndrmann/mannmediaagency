@@ -50,6 +50,7 @@ export interface MCPQueryPayload {
   enable_video_generation?: boolean;
   available_tools?: MCPTool[];
   suggested_tool?: string;
+  selected_tool?: string;   // Added this field for tracking which tool was used
 }
 
 export interface MCPResponse {

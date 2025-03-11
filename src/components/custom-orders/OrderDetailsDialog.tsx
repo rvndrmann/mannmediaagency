@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { CustomOrder, CustomOrderMedia, PaymentTransaction } from "@/types/custom-order";
@@ -95,12 +94,32 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
             console.warn("Error fetching payment history:", paymentError);
             setPaymentHistory([]);
           } else {
-            // Ensure payment_method is available by providing default value
-            const processedPayments = (paymentData || []).map(item => ({
-              ...item,
-              payment_method: item.payment_method || "Online Payment"
-            }));
-            setPaymentHistory(processedPayments as PaymentTransaction[]);
+            // Map payment data to fit our PaymentTransaction interface
+            const mappedPayments = (paymentData || []).map(item => {
+              // Create a payment object that matches our interface
+              const payment: PaymentTransaction = {
+                id: item.id,
+                created_at: item.created_at,
+                updated_at: item.updated_at || item.created_at,
+                user_id: item.user_id,
+                amount: item.amount,
+                status: item.status,
+                transaction_id: item.payu_transaction_id || item.id,
+                payment_processor: "payu",
+                related_order_id: item.related_order_id || orderId,
+                gateway_response: item.payment_response || {},
+                payment_method: item.payment_method || "Online Payment",
+                // Additional fields
+                payment_response: item.payment_response,
+                payment_status: item.payment_status,
+                payu_data: item.payu_data,
+                payu_transaction_id: item.payu_transaction_id,
+                webhook_received_at: item.webhook_received_at
+              };
+              return payment;
+            });
+            
+            setPaymentHistory(mappedPayments);
           }
         } catch (paymentError) {
           console.warn("Error in payment history fetch:", paymentError);
@@ -180,7 +199,6 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
     }
   };
 
-  // If this is a controlled component with open and onOpenChange props
   if (open !== undefined && onOpenChange) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
@@ -191,7 +209,6 @@ export function OrderDetailsDialog({ orderId, trigger, open, onOpenChange }: Ord
     );
   }
 
-  // Otherwise use the uncontrolled version with trigger
   return (
     <Dialog>
       <DialogTrigger asChild>{trigger}</DialogTrigger>

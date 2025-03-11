@@ -30,7 +30,7 @@ export default function AIAgent() {
     setUseMcp
   } = useAIChat();
   
-  const productShotV2 = useProductShoot();
+  const productShootV2 = useProductShoot();
   const productShotV1 = useProductShotV1();
   const imageToVideo = useImageToVideo();
   
@@ -50,6 +50,11 @@ export default function AIAgent() {
     setShowCustomOrderDialog(true);
   };
   
+  const handleSelectTemplate = () => {
+    // Placeholder for template selection handling
+    setShowVideoTemplatesDialog(false);
+  };
+  
   // Reset to default tool on desktop
   useEffect(() => {
     if (!isMobile && activeTool !== "ai-agent") {
@@ -59,7 +64,7 @@ export default function AIAgent() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      <Header />
+      <Header onBack={handleBack} />
       
       <div className="flex-1 overflow-hidden">
         <SplitScreen
@@ -71,9 +76,43 @@ export default function AIAgent() {
           activeTool={activeTool}
           onToolSelect={handleToolSelect}
           onVideoTemplatesClick={handleVideoTemplatesClick}
-          productShotV2={productShotV2}
-          productShotV1={productShotV1}
-          imageToVideo={imageToVideo}
+          productShotV2={{
+            onSubmit: productShootV2.handleGenerate,
+            isGenerating: productShootV2.isGenerating,
+            isSubmitting: productShootV2.isSubmitting,
+            availableCredits: userCredits?.credits_remaining || 0,
+            generatedImages: productShootV2.generatedImages,
+            messages: messages
+          }}
+          productShotV1={{
+            isMobile: isMobile,
+            prompt: productShotV1.state.productShotPrompt,
+            previewUrl: productShotV1.state.productShotPreview,
+            imageSize: productShotV1.state.imageSize,
+            inferenceSteps: productShotV1.state.inferenceSteps,
+            guidanceScale: productShotV1.state.guidanceScale,
+            outputFormat: productShotV1.state.outputFormat,
+            productImages: productShotV1.state.productImages,
+            imagesLoading: productShotV1.state.imagesLoading,
+            isGenerating: productShotV1.state.isGenerating,
+            onPromptChange: productShotV1.actions.updatePrompt,
+            onInferenceStepsChange: productShotV1.actions.updateInferenceSteps,
+            onGuidanceScaleChange: productShotV1.actions.updateGuidanceScale,
+            onImageSizeChange: productShotV1.actions.updateImageSize,
+            onOutputFormatChange: productShotV1.actions.updateOutputFormat,
+            onGenerate: productShotV1.actions.generateImage,
+            onVideoTemplatesClick: handleVideoTemplatesClick
+          }}
+          imageToVideo={{
+            isMobile: isMobile,
+            previewUrl: imageToVideo.previewUrl,
+            onFileSelect: imageToVideo.handleFileSelect,
+            onClearFile: imageToVideo.handleClearFile,
+            creditsRemaining: userCredits?.credits_remaining || 0,
+            isGenerating: imageToVideo.isGenerating,
+            onGenerate: imageToVideo.handleGenerate,
+            onSelectFromHistory: imageToVideo.handleSelectFromHistory
+          }}
           onInputChange={setInput}
           onSubmit={handleSubmit}
           onBack={handleBack}
@@ -95,8 +134,8 @@ export default function AIAgent() {
       <VideoTemplatesDialog
         open={showVideoTemplatesDialog}
         onOpenChange={setShowVideoTemplatesDialog}
-        onSelectTemplate={() => {}}
-        sourceImageUrl={productShotV1.previewUrl || ""}
+        onSelectTemplate={handleSelectTemplate}
+        sourceImageUrl={productShotV1.state.productShotPreview || ""}
         userCredits={userCredits?.credits_remaining || 0}
       />
       

@@ -47,6 +47,12 @@ export interface PaymentTransaction {
   gateway_response: any;
   // Added field
   payment_method?: string;
+  // Additional fields from actual DB data
+  payment_response?: any;
+  payment_status?: string;
+  payu_data?: any;
+  payu_transaction_id?: string;
+  webhook_received_at?: string;
 }
 
 export interface VideoTemplate {
@@ -54,8 +60,8 @@ export interface VideoTemplate {
   name: string;
   description: string;
   thumbnail_url: string;
-  video_url?: string;
-  preset_id: string;
+  // Make preset_id optional since it might not exist in all templates
+  preset_id?: string;
   created_at: string;
   updated_at: string;
   credits_cost: number;
@@ -63,6 +69,10 @@ export interface VideoTemplate {
   aspect_ratio: string;
   category?: string;
   service_id?: string;
+  // Additional fields from actual DB
+  prompt_template?: string;
+  duration?: string;
+  video_url?: string;
 }
 
 export interface User {

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { Header } from "@/components/ai-agent/Header";
@@ -42,7 +41,11 @@ export default function AIAgent() {
   };
   
   const handleBack = () => {
-    setActiveTool("ai-agent");
+    if (activeTool !== "ai-agent") {
+      setActiveTool("ai-agent");
+    } else {
+      navigate("/");
+    }
   };
   
   const handleVideoTemplatesClick = () => {
@@ -67,7 +70,7 @@ export default function AIAgent() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-background">
-      <Header onBack={activeTool !== "ai-agent" ? handleBack : undefined} />
+      <Header onBack={handleBack} title="AI Agent" />
       
       <div className="flex-1 overflow-hidden">
         <SplitScreen

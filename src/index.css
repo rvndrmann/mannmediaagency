@@ -31,6 +31,7 @@
 
   * {
     @apply border-border/10;
+    scroll-behavior: smooth;
   }
 
   body {
@@ -64,4 +65,14 @@
   .text-balance {
     text-wrap: balance;
   }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slideIn {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
 }

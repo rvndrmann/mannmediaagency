@@ -9,7 +9,7 @@ interface HeaderProps {
 
 export const Header = ({ onBack, title = "Chat" }: HeaderProps) => {
   return (
-    <div className="bg-[#1A1F29] border-b border-white/10">
+    <div className="bg-[#1A1F29] border-b border-white/10 sticky top-0 z-10">
       <div className="px-4 py-3 flex items-center">
         {onBack && (
           <Button

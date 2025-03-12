@@ -54,7 +54,7 @@ export const MobileToolNav = ({
   };
 
   return (
-    <div className="flex items-center justify-between bg-[#1E2432] border-t border-white/10 p-2">
+    <div className="flex items-center justify-between bg-[#1E2432] border-t border-white/10 p-2 fixed bottom-0 left-0 right-0 z-50">
       {tools.map((tool) => (
         <button
           key={tool.id}

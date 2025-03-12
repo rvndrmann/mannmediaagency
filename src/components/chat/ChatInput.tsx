@@ -44,41 +44,33 @@ export const ChatInput = ({
 
   return (
     <form onSubmit={onSubmit} className="space-y-0">
-      <div className="flex gap-3">
-        <div className="flex-1">
-          <div className="relative">
-            <Textarea
-              value={input}
-              onChange={(e) => handleChange(e.target.value)}
-              placeholder="Type your message..."
-              disabled={isLoading}
-              className="min-h-[80px] md:min-h-[100px] bg-white/5 border-white/10 text-white placeholder:text-white/50 resize-none focus:ring-2 focus:ring-[#9b87f5] focus:border-transparent pr-4"
-            />
-            <div className="absolute bottom-2 left-3 right-3">
-              <div className="flex justify-between items-center">
-                <span className={`text-xs ${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-400'}`}>
-                  {currentWords}/{MAX_WORDS}
-                </span>
-                <Progress value={progress} className="w-1/3 h-1" />
+      <div className="flex gap-2">
+        <div className="flex-1 relative">
+          <Textarea
+            value={input}
+            onChange={(e) => handleChange(e.target.value)}
+            placeholder="Type your message..."
+            disabled={isLoading}
+            className="min-h-[48px] max-h-[120px] bg-[#262B38] border-none text-white placeholder:text-white/50 resize-none rounded-3xl px-4 py-3"
+          />
+          <div className="absolute bottom-1 left-3 right-10">
+            <div className="flex justify-between items-center">
+              <span className={`text-xs ${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-400'}`}>
+                {currentWords}/{MAX_WORDS}
+              </span>
+              <div className="flex-1 mx-2">
+                <Progress value={progress} className="h-1" />
               </div>
             </div>
           </div>
         </div>
-        <div className="flex flex-col gap-2">
-          <AISettingsDialog 
-            useAssistantsApi={useAssistantsApi} 
-            setUseAssistantsApi={setUseAssistantsApi}
-            useMcp={useMcp}
-            setUseMcp={setUseMcp}
-          />
-          <Button 
-            type="submit" 
-            disabled={isLoading}
-            className="bg-[#9b87f5] hover:bg-[#7E69AB] text-white self-start px-4 h-12 transition-all duration-200 transform hover:scale-105 disabled:opacity-50 disabled:hover:scale-100"
-          >
-            <Send className="h-5 w-5" />
-          </Button>
-        </div>
+        <Button 
+          type="submit" 
+          disabled={isLoading}
+          className="bg-[#9b87f5] hover:bg-[#8a77e1] text-white self-end rounded-full h-10 w-10 p-0 flex items-center justify-center"
+        >
+          <Send className="h-5 w-5" />
+        </Button>
       </div>
     </form>
   );

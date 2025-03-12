@@ -4,7 +4,7 @@ import {
   Camera,
   Clapperboard,
   FileText,
-  Package
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -35,7 +35,7 @@ export const MobileToolNav = ({
     },
     {
       id: "product-shot-v2",
-      name: "Shot V2",
+      name: "Advanced",
       icon: FileText,
     },
     {
@@ -54,7 +54,7 @@ export const MobileToolNav = ({
   };
 
   return (
-    <div className="flex items-center justify-between bg-[#1E2432] border-t border-white/10 p-3">
+    <div className="flex items-center justify-between bg-[#1E2432] border-t border-white/10 p-2">
       {tools.map((tool) => (
         <button
           key={tool.id}
@@ -62,8 +62,8 @@ export const MobileToolNav = ({
           className={cn(
             "flex flex-col items-center justify-center px-3 py-1.5 rounded-md transition-colors",
             activeTool === tool.id
-              ? "text-white bg-white/10"
-              : "text-white/60 hover:text-white hover:bg-white/5"
+              ? "text-[#9b87f5]"
+              : "text-white/60 hover:text-white"
           )}
         >
           <tool.icon className="w-5 h-5 mb-1" />
@@ -72,9 +72,9 @@ export const MobileToolNav = ({
       ))}
       <button
         onClick={handleCustomOrderClick}
-        className="flex flex-col items-center justify-center px-3 py-1.5 rounded-md transition-colors text-white/60 hover:text-white hover:bg-white/5"
+        className="flex flex-col items-center justify-center px-3 py-1.5 rounded-md transition-colors text-white/60 hover:text-white"
       >
-        <Package className="w-5 h-5 mb-1" />
+        <ShoppingBag className="w-5 h-5 mb-1" />
         <span className="text-xs">Custom</span>
       </button>
     </div>

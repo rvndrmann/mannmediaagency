@@ -90,7 +90,7 @@ export function SplitScreen({
   setUseMcp = () => {}
 }: SplitScreenProps) {
   return (
-    <div className="h-full flex flex-col bg-[#1A1F2C]">
+    <div className="h-full flex flex-col bg-[#1A1F29]">
       <ToolSelector 
         activeTool={activeTool} 
         onToolSelect={onToolSelect} 

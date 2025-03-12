@@ -7,21 +7,23 @@ interface HeaderProps {
   title?: string;
 }
 
-export const Header = ({ onBack, title = "AI Agent" }: HeaderProps) => {
+export const Header = ({ onBack, title = "Chat" }: HeaderProps) => {
   return (
-    <div className="bg-[#1A1F2C]/95 backdrop-blur-lg border-b border-white/10">
-      <div className="px-6 py-4 flex items-center max-w-screen-2xl mx-auto">
+    <div className="bg-[#1A1F29] border-b border-white/10">
+      <div className="px-4 py-3 flex items-center">
         {onBack && (
           <Button
             variant="ghost"
-            size="icon"
+            size="sm"
             onClick={onBack}
-            className="text-white hover:bg-white/10 transition-colors"
+            className="text-white hover:bg-white/5 transition-colors mr-2 p-0 h-8 w-8"
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
         )}
-        <h1 className="text-xl font-semibold text-white ml-4">{title}</h1>
+        <h1 className="text-base font-medium text-white">
+          {title}
+        </h1>
       </div>
     </div>
   );

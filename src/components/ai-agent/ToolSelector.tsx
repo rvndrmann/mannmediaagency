@@ -5,7 +5,7 @@ import {
   Camera, 
   Clapperboard, 
   FileText,
-  PlusSquare,
+  ShoppingBag,
   VideoIcon,
   ArrowLeft,
   MessageSquare
@@ -42,8 +42,7 @@ export const ToolSelector = ({
       id: "ai-agent",
       name: "AI Chat",
       icon: MessageSquare,
-      tooltip: "Chat with AI assistant",
-      mobileOnly: true
+      tooltip: "Chat with AI assistant"
     },
     {
       id: "product-shot-v1",
@@ -65,90 +64,36 @@ export const ToolSelector = ({
     }
   ];
 
-  const filteredTools = isMobile 
-    ? tools 
-    : tools.filter(tool => !tool.mobileOnly);
-
   return (
-    <div className="border-b border-white/10 bg-[#1E2432] p-3 flex items-center justify-between">
-      <div className="flex items-center space-x-2">
-        {onBackClick && isMobile && (
+    <div className="flex items-center justify-center py-2 bg-[#1E2432] border-b border-white/10">
+      <div className="flex bg-[#262B38] rounded-lg p-1 gap-1">
+        {tools.map((tool) => (
           <Button
+            key={tool.id}
             variant="ghost"
             size="sm"
-            onClick={onBackClick}
-            className="text-xs text-white/60 hover:text-white hover:bg-white/10 mr-1"
+            onClick={() => onToolSelect(tool.id)}
+            className={cn(
+              "flex items-center gap-2 px-4 py-1.5 text-sm rounded-md",
+              activeTool === tool.id 
+                ? "bg-[#9b87f5] text-white hover:bg-[#9b87f5]/90"
+                : "text-white/70 hover:bg-[#333945] hover:text-white"
+            )}
           >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
+            <tool.icon className="h-5 w-5" />
+            <span>{tool.name}</span>
           </Button>
-        )}
+        ))}
         
-        <TooltipProvider>
-          {filteredTools.map((tool) => (
-            <Tooltip key={tool.id}>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onToolSelect(tool.id)}
-                  className={cn(
-                    "text-xs text-white/60 hover:text-white hover:bg-white/10",
-                    activeTool === tool.id && "bg-white/10 text-white"
-                  )}
-                >
-                  <tool.icon className="h-4 w-4 mr-2" />
-                  {tool.name}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>{tool.tooltip}</p>
-              </TooltipContent>
-            </Tooltip>
-          ))}
-        </TooltipProvider>
-      </div>
-      
-      <div className="flex items-center space-x-2">
-        {showVideoTemplatesButton && onVideoTemplatesClick && (
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={onVideoTemplatesClick}
-                  className="text-xs text-white/60 hover:text-white hover:bg-white/10"
-                >
-                  <VideoIcon className="h-4 w-4 mr-2" />
-                  Video Templates
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Create videos from your product shots</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        )}
-        
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={onCustomOrderClick}
-                className="text-xs text-white/60 hover:text-white hover:bg-white/10"
-              >
-                <PlusSquare className="h-4 w-4 mr-2" />
-                Custom Order
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Request a custom design with multiple images</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={onCustomOrderClick}
+          className="flex items-center gap-2 px-4 py-1.5 text-sm rounded-md text-white/70 hover:bg-[#333945] hover:text-white"
+        >
+          <ShoppingBag className="h-5 w-5" />
+          <span>Custom Order</span>
+        </Button>
       </div>
     </div>
   );

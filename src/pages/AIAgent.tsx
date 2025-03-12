@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { Header } from "@/components/ai-agent/Header";
@@ -69,8 +70,8 @@ export default function AIAgent() {
   }, [isMobile]);
 
   return (
-    <div className="flex flex-col h-full overflow-hidden bg-background">
-      <Header onBack={handleBack} title="AI Agent" />
+    <div className="flex flex-col h-full overflow-hidden bg-[#1A1F29]">
+      <Header onBack={handleBack} title={activeTool === "ai-agent" ? "Chat" : ""} />
       
       <div className="flex-1 overflow-hidden">
         <SplitScreen
@@ -104,13 +105,13 @@ export default function AIAgent() {
             isGenerating: productShotV1.state.isGenerating,
             onPromptChange: (value: string) => productShotV1.actions.setProductShotPrompt(value),
             onFileSelect: productShotV1.actions.handleFileSelect,
-            onClearFile: () => productShotV1.actions.setReferenceImage(null),
+            onClearFile: () => productShotV1.actions.setProductShotPreview(null),
             onImageSizeChange: productShotV1.actions.setImageSize,
             onInferenceStepsChange: productShotV1.actions.setInferenceSteps,
             onGuidanceScaleChange: productShotV1.actions.setGuidanceScale,
             onOutputFormatChange: productShotV1.actions.setOutputFormat,
-            onGenerate: () => productShotV1.actions.generateImage(),
-            onDownload: (url: string) => productShotV1.actions.downloadImage(url),
+            onGenerate: () => productShotV1.actions.generateImage(productShotV1.state.productShotPrompt),
+            onDownload: (url: string) => productShotV1.actions.downloadImage(url, "product-shot"),
             messages: messages,
             onVideoTemplatesClick: handleVideoTemplatesClick
           }}

@@ -64,9 +64,9 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
 
   return (
-    <Card className="bg-[#1A1F2C] border-gray-800 shadow-lg overflow-hidden">
+    <div className="bg-[#1A1F29] h-full overflow-hidden">
       <Tabs value={activeTool} className="h-[calc(100vh-8rem)]">
-        <TabsContent value="product-shot-v1" className="h-[calc(100%-3rem)] overflow-y-auto">
+        <TabsContent value="product-shot-v1" className="h-full overflow-y-auto">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 p-6">
             <InputPanel
               isMobile={productShotV1.isMobile}
@@ -142,6 +142,6 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
           <ScriptBuilderTab messages={messages} />
         </TabsContent>
       </Tabs>
-    </Card>
+    </div>
   );
 }

@@ -1,4 +1,3 @@
-
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
@@ -187,7 +186,7 @@ export const Dashboard = () => {
         </TabsContent>
 
         <TabsContent value="orders">
-          <UserOrdersList />
+          <UserOrdersList userId={session?.user?.id} />
         </TabsContent>
       </Tabs>
     </div>

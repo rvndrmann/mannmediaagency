@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { Header } from "@/components/ai-agent/Header";
@@ -36,6 +35,11 @@ export default function AIAgent() {
   const productShootV2 = useProductShoot();
   const productShotV1 = useProductShotV1();
   const imageToVideo = useImageToVideo();
+  
+  const { 
+    state: productShotV1State,
+    actions: productShotV1Actions
+  } = useProductShotV1();
   
   const handleToolSelect = (tool: string) => {
     setActiveTool(tool);
@@ -93,25 +97,25 @@ export default function AIAgent() {
           }}
           productShotV1={{
             isMobile: isMobile,
-            prompt: productShotV1.state.productShotPrompt,
-            previewUrl: productShotV1.state.productShotPreview,
-            imageSize: productShotV1.state.imageSize,
-            inferenceSteps: productShotV1.state.inferenceSteps,
-            guidanceScale: productShotV1.state.guidanceScale,
-            outputFormat: productShotV1.state.outputFormat,
-            productImages: productShotV1.state.productImages,
-            imagesLoading: productShotV1.state.imagesLoading,
+            prompt: productShotV1State.productShotPrompt,
+            previewUrl: productShotV1State.productShotPreview,
+            imageSize: productShotV1State.imageSize,
+            inferenceSteps: productShotV1State.inferenceSteps,
+            guidanceScale: productShotV1State.guidanceScale,
+            outputFormat: productShotV1State.outputFormat,
+            productImages: productShotV1State.productImages,
+            imagesLoading: productShotV1State.imagesLoading,
             creditsRemaining: userCredits?.credits_remaining || 0,
-            isGenerating: productShotV1.state.isGenerating,
-            onPromptChange: (value: string) => productShotV1.actions.setProductShotPrompt(value),
-            onFileSelect: productShotV1.actions.handleFileSelect,
-            onClearFile: () => productShotV1.actions.setProductShotPreview(null),
-            onImageSizeChange: productShotV1.actions.setImageSize,
-            onInferenceStepsChange: productShotV1.actions.setInferenceSteps,
-            onGuidanceScaleChange: productShotV1.actions.setGuidanceScale,
-            onOutputFormatChange: productShotV1.actions.setOutputFormat,
-            onGenerate: () => productShotV1.actions.generateImage(productShotV1.state.productShotPrompt),
-            onDownload: (url: string) => productShotV1.actions.downloadImage(url, "product-shot"),
+            isGenerating: productShotV1State.isGenerating,
+            onPromptChange: productShotV1Actions.setProductShotPrompt,
+            onFileSelect: productShotV1Actions.handleFileSelect,
+            onClearFile: () => productShotV1Actions.setProductShotPreview(null),
+            onImageSizeChange: productShotV1Actions.setImageSize,
+            onInferenceStepsChange: productShotV1Actions.setInferenceSteps,
+            onGuidanceScaleChange: productShotV1Actions.setGuidanceScale,
+            onOutputFormatChange: productShotV1Actions.setOutputFormat,
+            onGenerate: () => productShotV1Actions.generateImage(productShotV1State.productShotPrompt),
+            onDownload: (url: string) => productShotV1Actions.downloadImage(url, "product-shot"),
             messages: messages,
             onVideoTemplatesClick: handleVideoTemplatesClick
           }}
@@ -148,7 +152,7 @@ export default function AIAgent() {
         open={showVideoTemplatesDialog}
         onOpenChange={setShowVideoTemplatesDialog}
         onSelectTemplate={handleSelectTemplate}
-        sourceImageUrl={productShotV1.state.productShotPreview || ""}
+        sourceImageUrl={productShotV1State.productShotPreview || ""}
         userCredits={userCredits?.credits_remaining || 0}
       />
     </div>

@@ -7,9 +7,10 @@ import { Eye } from "lucide-react";
 import { OrderDetailsDialog } from "./OrderDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
 
 export interface UserOrdersListProps {
-  userId: string;
+  userId?: string;
 }
 
 export const UserOrdersList = ({ userId }: UserOrdersListProps) => {
@@ -18,9 +19,19 @@ export const UserOrdersList = ({ userId }: UserOrdersListProps) => {
   const [selectedOrder, setSelectedOrder] = useState<any>(null);
   const [showDetailsDialog, setShowDetailsDialog] = useState(false);
 
+  const { data: session } = useQuery({
+    queryKey: ["session"],
+    queryFn: async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      return session;
+    },
+  });
+
   useEffect(() => {
-    fetchOrders();
-  }, [userId]);
+    if (session?.user?.id || userId) {
+      fetchOrders();
+    }
+  }, [session, userId]);
 
   const fetchOrders = async () => {
     try {
@@ -32,7 +43,7 @@ export const UserOrdersList = ({ userId }: UserOrdersListProps) => {
           order_link_id (title, description, custom_rate),
           guest_id (name, email, phone_number)
         `)
-        .eq('user_id', userId)
+        .eq('user_id', userId || session?.user?.id)
         .order('created_at', { ascending: false });
 
       if (error) throw error;

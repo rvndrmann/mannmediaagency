@@ -14,6 +14,8 @@ import { AdminUsageStats } from "@/components/admin/AdminUsageStats";
 import { CustomOrderLinks } from "@/components/admin/CustomOrderLinks";
 import { AIToolsOverview } from "@/components/admin/AIToolsOverview";
 import { toast } from "sonner";
+import { NewMessageForm } from "@/components/admin/NewMessageForm";
+import { HeaderNotificationBell } from "@/components/messages/HeaderNotificationBell";
 
 const Admin = () => {
   const navigate = useNavigate();
@@ -97,15 +99,19 @@ const Admin = () => {
             </Button>
             <h1 className="text-xl font-bold">Admin Dashboard</h1>
           </div>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleRefresh}
-            disabled={isRefreshing}
-          >
-            <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
-            Refresh Data
-          </Button>
+          <div className="flex items-center gap-2">
+            <HeaderNotificationBell />
+            <NewMessageForm />
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? 'animate-spin' : ''}`} />
+              Refresh Data
+            </Button>
+          </div>
         </header>
 
         <div className="container mx-auto py-6">

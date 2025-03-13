@@ -30,3 +30,14 @@ export interface Command {
   tool?: string;
   selectedTool?: string;
 }
+
+export interface AdminMessage {
+  id: string;
+  sender_id: string;
+  receiver_id: string;
+  content: string;
+  read: boolean;
+  message_type: "admin_to_user" | "user_to_admin";
+  created_at: string;
+  updated_at: string;
+}

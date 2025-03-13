@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,7 +17,7 @@ import {
   Bell,
   VideoIcon,
   PlusSquare,
-  LucideIcon,
+  MessageSquare,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -40,6 +41,7 @@ export const Navigation = () => {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loadingNotifications, setLoadingNotifications] = useState(true);
   const [customOrderNotifications, setCustomOrderNotifications] = useState<number>(0);
+  const [unreadMessages, setUnreadMessages] = useState<number>(0);
 
   useEffect(() => {
     const checkAdminStatus = async () => {
@@ -93,6 +95,16 @@ export const Navigation = () => {
         if (error) throw error;
         
         setNotifications(data as unknown as Notification[]);
+        
+        // Get unread messages count
+        const { data: messagesCount, error: messagesError } = await supabase.rpc(
+          'get_unread_messages_count',
+          { user_id: session.user.id }
+        );
+        
+        if (messagesError) throw messagesError;
+        setUnreadMessages(messagesCount || 0);
+        
       } catch (error) {
         console.error("Error fetching notifications:", error);
       } finally {
@@ -103,7 +115,7 @@ export const Navigation = () => {
     fetchNotifications();
 
     const channel = supabase
-      .channel('public:user_notifications')
+      .channel('public:notifications')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'user_notifications' }, 
         (payload) => {
@@ -121,9 +133,36 @@ export const Navigation = () => {
         }
       )
       .subscribe();
+    
+    // Subscribe to message updates
+    const messagesChannel = supabase
+      .channel('message_notifications')
+      .on('postgres_changes', 
+        { event: 'INSERT', schema: 'public', table: 'admin_messages' }, 
+        (payload) => {
+          // If the current user is the receiver and message is unread
+          const { data: { session } } = supabase.auth.getSession();
+          if (payload.new.receiver_id === session?.user?.id && !payload.new.read) {
+            setUnreadMessages((prev) => prev + 1);
+          }
+        }
+      )
+      .on('postgres_changes', 
+        { event: 'UPDATE', schema: 'public', table: 'admin_messages' }, 
+        (payload) => {
+          // If a message was marked as read, recalculate unread count
+          const { data: { session } } = supabase.auth.getSession();
+          if (payload.old.read === false && payload.new.read === true && 
+              payload.new.receiver_id === session?.user?.id) {
+            setUnreadMessages((prev) => Math.max(0, prev - 1));
+          }
+        }
+      )
+      .subscribe();
 
     return () => {
       supabase.removeChannel(channel);
+      supabase.removeChannel(messagesChannel);
     };
   }, []);
 
@@ -153,6 +192,13 @@ export const Navigation = () => {
       subtext: "Intelligent Assistant",
       to: "/ai-agent",
       icon: Bot,
+    },
+    {
+      name: "Messages",
+      subtext: "Communication Center",
+      to: "/messages",
+      icon: MessageSquare,
+      badge: unreadMessages > 0 ? unreadMessages : undefined,
     },
     {
       name: "Custom Orders",
@@ -330,4 +376,4 @@ export const Navigation = () => {
       </nav>
     </>
   );
-};
+}

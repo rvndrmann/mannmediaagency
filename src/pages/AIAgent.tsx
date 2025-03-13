@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { Header } from "@/components/ai-agent/Header";
@@ -11,6 +12,7 @@ import { VideoTemplatesDialog } from "@/components/ai-agent/VideoTemplatesDialog
 import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
 import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
 import { useNavigate } from "react-router-dom";
+import { HeaderNotificationBell } from "@/components/messages/HeaderNotificationBell";
 
 export default function AIAgent() {
   const [activeTool, setActiveTool] = useState<string>("ai-agent");
@@ -75,7 +77,11 @@ export default function AIAgent() {
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[#1A1F29]">
-      <Header onBack={handleBack} title={activeTool === "ai-agent" ? "Chat" : ""} />
+      <Header 
+        onBack={handleBack} 
+        title={activeTool === "ai-agent" ? "Chat" : ""}
+        rightElement={<HeaderNotificationBell />}
+      />
       
       <div className="flex-1 overflow-hidden">
         <SplitScreen

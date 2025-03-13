@@ -19,7 +19,6 @@ import Terms from "@/pages/Terms";
 import CustomOrders from "@/pages/CustomOrders";
 import Admin from "@/pages/Admin";
 import CustomOrderForm from "@/pages/CustomOrderForm";
-import VideoTemplates from "@/pages/VideoTemplates";
 import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import Messages from "@/pages/Messages";

@@ -38,7 +38,7 @@ export interface AdminMessage {
   receiver_id: string;
   content: string;
   read: boolean;
-  message_type: "admin_to_user" | "user_to_admin";
+  message_type: "admin_to_user" | "user_to_admin" | string; // Allow string to handle dynamic values from API
   created_at: string;
   updated_at: string;
 }

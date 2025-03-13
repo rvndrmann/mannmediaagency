@@ -1,11 +1,15 @@
+
 import { useState, ChangeEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-export const useProductShotV1 = () => {
+// Define the ImageSize type that's being used across components
+export type ImageSize = "square_hd" | "square" | "portrait_4_3" | "portrait_16_9" | "landscape_4_3" | "landscape_16_9";
+
+export const useProductShotV1 = (userCredits = null) => {
   const [state, setState] = useState({
     productShotPrompt: "",
     productShotPreview: null as string | null,
-    imageSize: "1024x1024",
+    imageSize: "square_hd" as ImageSize,
     inferenceSteps: 30,
     guidanceScale: 7.5,
     outputFormat: "png",
@@ -27,7 +31,9 @@ export const useProductShotV1 = () => {
         reader.readAsDataURL(file);
       }
     },
-    setImageSize: (size: string) => 
+    setProductShotPreview: (url: string | null) => 
+      setState(prev => ({ ...prev, productShotPreview: url })),
+    setImageSize: (size: ImageSize) => 
       setState(prev => ({ ...prev, imageSize: size })),
     setInferenceSteps: (steps: number) => 
       setState(prev => ({ ...prev, inferenceSteps: steps })),
@@ -35,8 +41,6 @@ export const useProductShotV1 = () => {
       setState(prev => ({ ...prev, guidanceScale: scale })),
     setOutputFormat: (format: string) => 
       setState(prev => ({ ...prev, outputFormat: format })),
-    setProductShotPreview: (url: string | null) => 
-      setState(prev => ({ ...prev, productShotPreview: url })),
     generateImage: async (prompt: string) => {
       setState(prev => ({ ...prev, isGenerating: true }));
       try {
@@ -61,6 +65,15 @@ export const useProductShotV1 = () => {
         document.body.removeChild(link);
       } catch (error) {
         console.error('Error downloading image:', error);
+      }
+    },
+    // Add the missing functions needed by ProductShoot.tsx
+    handleClearFile: () => {
+      setState(prev => ({ ...prev, productShotPreview: null }));
+    },
+    handleGenerate: async () => {
+      if (state.productShotPrompt.trim()) {
+        await actions.generateImage(state.productShotPrompt);
       }
     }
   };

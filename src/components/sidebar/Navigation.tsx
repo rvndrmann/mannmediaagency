@@ -46,7 +46,8 @@ export const Navigation = () => {
   useEffect(() => {
     const checkAdminStatus = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResponse = await supabase.auth.getSession();
+        const session = sessionResponse.data.session;
         
         if (!session) {
           setIsAdmin(false);
@@ -79,7 +80,8 @@ export const Navigation = () => {
   useEffect(() => {
     const fetchNotifications = async () => {
       try {
-        const { data: { session } } = await supabase.auth.getSession();
+        const sessionResponse = await supabase.auth.getSession();
+        const session = sessionResponse.data.session;
         
         if (!session) {
           setLoadingNotifications(false);

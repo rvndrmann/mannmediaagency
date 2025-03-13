@@ -1,6 +1,6 @@
 
 import { useState, useEffect } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -18,7 +18,6 @@ const ProductShoot = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
   const [chatExpanded, setChatExpanded] = useState(true);
-  const queryClient = useQueryClient();
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -46,8 +45,8 @@ const ProductShoot = () => {
     enabled: !!session,
   });
 
-  // Use the same hook that's used in AIAgent
-  const { state: productShotState, actions: productShotActions } = useProductShotV1(userCredits || null);
+  // Use the same hook that's used in AIAgent without passing arguments
+  const { state: productShotState, actions: productShotActions } = useProductShotV1();
 
   const { data: images, isLoading: imagesLoading } = useQuery({
     queryKey: ["product-images"],
@@ -91,7 +90,6 @@ const ProductShoot = () => {
       link.download = `product-image-${Date.now()}.png`;
       document.body.appendChild(link);
       link.click();
-      document.body.removeChild(link);
       window.URL.revokeObjectURL(downloadUrl);
     } catch (error) {
       toast.error("Failed to download image");

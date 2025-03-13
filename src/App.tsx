@@ -1,3 +1,4 @@
+
 import React from 'react';
 import {
   createBrowserRouter,
@@ -5,21 +6,21 @@ import {
 } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import Explore from "@/pages/Explore";
-import Dashboard from "@/pages/Dashboard";
+import { Dashboard } from "@/components/Dashboard";
 import AIAgent from "@/pages/AIAgent";
 import VideoTemplates from "@/pages/VideoTemplates";
 import Plans from "@/pages/Plans";
-import Profile from "@/pages/Profile";
+import ProfileSettings from "@/pages/ProfileSettings";
 import Auth from "@/pages/Auth";
-import About from "@/pages/About";
+import AboutUs from "@/pages/AboutUs";
 import Contact from "@/pages/Contact";
 import Privacy from "@/pages/Privacy";
 import Terms from "@/pages/Terms";
 import CustomOrders from "@/pages/CustomOrders";
 import Admin from "@/pages/Admin";
-import CustomOrderDetails from "@/pages/CustomOrderDetails";
-import VideoTemplateDetails from "@/pages/VideoTemplateDetails";
-import { ThemeProvider } from "@/components/ui/theme-provider"
+import CustomOrderForm from "@/pages/CustomOrderForm";
+import VideoTemplates from "@/pages/VideoTemplates";
+import { ThemeProvider } from "@/components/ui/ThemeProvider";
 import { BottomNav } from "@/components/mobile/BottomNav";
 import Messages from "@/pages/Messages";
 
@@ -34,153 +35,93 @@ const router = createBrowserRouter([
   },
   {
     path: "/explore",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Explore />,
-      },
-    ],
+    element: <Layout>
+      <Explore />
+    </Layout>,
   },
   {
     path: "/dashboard",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Dashboard />,
-      },
-    ],
+    element: <Layout>
+      <Dashboard />
+    </Layout>,
   },
   {
     path: "/ai-agent",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <AIAgent />,
-      },
-    ],
+    element: <Layout>
+      <AIAgent />
+    </Layout>,
   },
   {
     path: "/video-templates",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <VideoTemplates />,
-      },
-    ],
+    element: <Layout>
+      <VideoTemplates />
+    </Layout>,
   },
   {
     path: "/video-templates/:id",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <VideoTemplateDetails />,
-      },
-    ],
+    element: <Layout>
+      <VideoTemplates />
+    </Layout>,
   },
   {
     path: "/plans",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Plans />,
-      },
-    ],
+    element: <Layout>
+      <Plans />
+    </Layout>,
   },
   {
     path: "/profile",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Profile />,
-      },
-    ],
+    element: <Layout>
+      <ProfileSettings />
+    </Layout>,
   },
   {
     path: "/about",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <About />,
-      },
-    ],
+    element: <Layout>
+      <AboutUs />
+    </Layout>,
   },
   {
     path: "/contact",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Contact />,
-      },
-    ],
+    element: <Layout>
+      <Contact />
+    </Layout>,
   },
   {
     path: "/privacy",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Privacy />,
-      },
-    ],
+    element: <Layout>
+      <Privacy />
+    </Layout>,
   },
   {
     path: "/terms",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Terms />,
-      },
-    ],
+    element: <Layout>
+      <Terms />
+    </Layout>,
   },
   {
     path: "/custom-orders",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <CustomOrders />,
-      },
-    ],
+    element: <Layout>
+      <CustomOrders />
+    </Layout>,
   },
   {
     path: "/custom-orders/:id",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <CustomOrderDetails />,
-      },
-    ],
+    element: <Layout>
+      <CustomOrderForm />
+    </Layout>,
   },
   {
     path: "/admin",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Admin />,
-      },
-    ],
+    element: <Layout>
+      <Admin />
+    </Layout>,
   },
   {
     path: "/messages",
-    element: <Layout />,
-    children: [
-      {
-        index: true,
-        element: <Messages />,
-      },
-    ],
+    element: <Layout>
+      <Messages />
+    </Layout>,
   },
 ]);
 
@@ -193,4 +134,4 @@ function App() {
   );
 }
 
-export default App
+export default App;

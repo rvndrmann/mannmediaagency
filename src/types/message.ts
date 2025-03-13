@@ -5,6 +5,7 @@ export interface Message {
   status?: "thinking" | "working" | "completed" | "error";
   tasks?: Task[];
   command?: Command;
+  selectedTool?: string;
 }
 
 export interface Task {

@@ -141,21 +141,25 @@ export const Navigation = () => {
       .channel('message_notifications')
       .on('postgres_changes', 
         { event: 'INSERT', schema: 'public', table: 'admin_messages' }, 
-        (payload) => {
+        async (payload) => {
           // If the current user is the receiver and message is unread
-          const { data: { session } } = supabase.auth.getSession();
-          if (payload.new.receiver_id === session?.user?.id && !payload.new.read) {
+          const { data } = await supabase.auth.getSession();
+          const session = data.session;
+          
+          if (session && payload.new.receiver_id === session.user.id && !payload.new.read) {
             setUnreadMessages((prev) => prev + 1);
           }
         }
       )
       .on('postgres_changes', 
         { event: 'UPDATE', schema: 'public', table: 'admin_messages' }, 
-        (payload) => {
+        async (payload) => {
           // If a message was marked as read, recalculate unread count
-          const { data: { session } } = supabase.auth.getSession();
-          if (payload.old.read === false && payload.new.read === true && 
-              payload.new.receiver_id === session?.user?.id) {
+          const { data } = await supabase.auth.getSession();
+          const session = data.session;
+          
+          if (session && payload.old.read === false && payload.new.read === true && 
+              payload.new.receiver_id === session.user.id) {
             setUnreadMessages((prev) => Math.max(0, prev - 1));
           }
         }

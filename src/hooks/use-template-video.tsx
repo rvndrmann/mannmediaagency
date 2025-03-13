@@ -49,7 +49,8 @@ export const useTemplateVideo = () => {
           user_id: userId,
           file_name: 'template-video.jpg',
           content_type: 'image/jpeg',
-          settings: { template_id: template.id }
+          settings: { template_id: template.id },
+          prompt: template.prompt_template // Adding the required prompt field
         })
         .select()
         .single();

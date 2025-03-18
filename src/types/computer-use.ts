@@ -22,7 +22,7 @@ export interface ComputerCall {
   call_id: string;
   action: ComputerAction;
   pending_safety_checks: SafetyCheck[];
-  status: "completed" | "failed";
+  status: "ready" | "completed" | "failed";
 }
 
 export interface ReasoningItem {
@@ -47,6 +47,7 @@ export interface ComputerSession {
   status: string;
   taskDescription: string;
   environment: string;
+  openai_response_id: string;
   createdAt: string;
   updatedAt: string;
   completedAt: string | null;

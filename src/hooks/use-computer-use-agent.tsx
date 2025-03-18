@@ -18,6 +18,7 @@ export const useComputerUseAgent = () => {
   const [pendingSafetyChecks, setPendingSafetyChecks] = useState<SafetyCheck[]>([]);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [actionHistory, setActionHistory] = useState<any[]>([]);
+  const [previousResponseId, setPreviousResponseId] = useState<string | null>(null);
   
   // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -67,6 +68,15 @@ export const useComputerUseAgent = () => {
     }
   }, [sessionId, fetchActionHistory]);
   
+  const captureScreenshot = useCallback(async () => {
+    // This is a placeholder for actual screenshot capture functionality
+    // In a real implementation, you would use APIs like MediaDevices.getDisplayMedia()
+    // or browser extensions to capture the actual screen
+    
+    console.log("Capturing simulated screenshot");
+    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+  }, []);
+  
   const startSession = useCallback(async () => {
     if (!taskDescription.trim()) {
       toast.error("Please enter a task description");
@@ -82,11 +92,18 @@ export const useComputerUseAgent = () => {
     setIsProcessing(true);
     
     try {
+      // Capture initial screenshot if browser environment
+      let initialScreenshot = null;
+      if (environment === "browser") {
+        initialScreenshot = await captureScreenshot();
+        setScreenshot(initialScreenshot);
+      }
+      
       const response = await supabase.functions.invoke("computer-use-agent", {
         body: {
           taskDescription,
           environment,
-          screenshot: screenshot || undefined
+          screenshot: initialScreenshot
         }
       });
       
@@ -94,8 +111,9 @@ export const useComputerUseAgent = () => {
         throw new Error(response.error.message || "Failed to start session");
       }
       
-      const { sessionId, output } = response.data;
+      const { sessionId, responseId, output } = response.data;
       setSessionId(sessionId);
+      setPreviousResponseId(responseId);
       setCurrentOutput(output);
       
       // Get call_id and pending_safety_checks
@@ -115,10 +133,10 @@ export const useComputerUseAgent = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [taskDescription, environment, screenshot, userCredits, refetchCredits, fetchActionHistory]);
+  }, [taskDescription, environment, userCredits, refetchCredits, fetchActionHistory, captureScreenshot]);
   
   const executeAction = useCallback(async () => {
-    if (!sessionId || !currentCallId) {
+    if (!sessionId || !currentCallId || !previousResponseId) {
       toast.error("No active action to execute");
       return;
     }
@@ -126,15 +144,17 @@ export const useComputerUseAgent = () => {
     setIsProcessing(true);
     
     try {
-      // Normally here you would execute the action in a browser environment
-      // and capture a screenshot. For now, we'll simulate this with a placeholder
-      const simulatedScreenshot = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      // Capture current screenshot
+      const currentScreenshot = await captureScreenshot();
+      setScreenshot(currentScreenshot);
       
+      // Send the screenshot back to OpenAI via our edge function
       const response = await supabase.functions.invoke("computer-use-agent", {
         body: {
           sessionId,
           callId: currentCallId,
-          screenshot: simulatedScreenshot,
+          screenshot: currentScreenshot,
+          previousResponseId,
           acknowledgedSafetyChecks: pendingSafetyChecks.length > 0 ? pendingSafetyChecks : undefined,
           currentUrl: currentUrl || undefined
         }
@@ -144,8 +164,9 @@ export const useComputerUseAgent = () => {
         throw new Error(response.error.message || "Failed to execute action");
       }
       
-      const { output } = response.data;
+      const { output, responseId } = response.data;
       setCurrentOutput(output);
+      setPreviousResponseId(responseId);
       
       // Get call_id and pending_safety_checks
       const computerCall = output.find(item => item.type === "computer_call");
@@ -165,7 +186,7 @@ export const useComputerUseAgent = () => {
     } finally {
       setIsProcessing(false);
     }
-  }, [sessionId, currentCallId, pendingSafetyChecks, currentUrl, fetchActionHistory]);
+  }, [sessionId, currentCallId, previousResponseId, pendingSafetyChecks, currentUrl, fetchActionHistory, captureScreenshot]);
   
   const clearSession = useCallback(() => {
     setSessionId(null);
@@ -175,6 +196,7 @@ export const useComputerUseAgent = () => {
     setCurrentUrl(null);
     setActionHistory([]);
     setScreenshot(null);
+    setPreviousResponseId(null);
   }, []);
   
   const acknowledgeAllSafetyChecks = useCallback(() => {
@@ -199,6 +221,7 @@ export const useComputerUseAgent = () => {
     setCurrentUrl,
     actionHistory,
     userCredits,
-    setScreenshot
+    setScreenshot,
+    captureScreenshot
   };
 };

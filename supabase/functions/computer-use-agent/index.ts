@@ -10,17 +10,18 @@ const corsHeaders = {
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
 interface ComputerUseRequest {
-  taskDescription: string;
-  environment: string;
+  taskDescription?: string;
+  environment?: string;
   sessionId?: string;
-  screenshot?: string;
   callId?: string;
+  screenshot?: string;
   acknowledgedSafetyChecks?: Array<{
     id: string;
     code: string;
     message: string;
   }>;
   currentUrl?: string;
+  previousResponseId?: string;
 }
 
 async function startNewSession(
@@ -31,13 +32,16 @@ async function startNewSession(
   screenshot?: string
 ) {
   try {
+    console.log("Starting new session with task:", taskDescription, "environment:", environment);
+    
     // Create a new session in the database
     const { data: session, error: sessionError } = await supabase
       .from('computer_automation_sessions')
       .insert({
         user_id: userId,
         task_description: taskDescription,
-        environment: environment
+        environment: environment,
+        status: 'in_progress'
       })
       .select()
       .single();
@@ -48,7 +52,7 @@ async function startNewSession(
 
     // Make initial call to OpenAI
     console.log("Making OpenAI API call with model: computer-use-preview");
-    const payload = {
+    const payload: any = {
       model: "computer-use-preview",
       tools: [{
         type: "computer_use_preview",
@@ -93,10 +97,19 @@ async function startNewSession(
     }
 
     const data = await response.json();
-    console.log("OpenAI response received:", JSON.stringify(data).substring(0, 200) + "...");
+    console.log("OpenAI response received. Response ID:", data.id);
     
     // Process the response
     const output = processOpenAIResponse(data);
+    
+    // Save the response ID to the session
+    await supabase
+      .from('computer_automation_sessions')
+      .update({ 
+        openai_response_id: data.id,
+        last_updated: new Date().toISOString()
+      })
+      .eq('id', session.id);
     
     // Save the first action if available
     if (output.length > 0) {
@@ -114,7 +127,8 @@ async function startNewSession(
             session_id: session.id,
             action_type: action.type,
             action_details: action,
-            reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null
+            reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null,
+            call_id: computerCall.call_id
           })
           .select()
           .single();
@@ -152,7 +166,7 @@ async function startNewSession(
   }
 }
 
-function processOpenAIResponse(data) {
+function processOpenAIResponse(data: any) {
   const output = [];
   
   // Handle reasoning (summary)
@@ -160,16 +174,11 @@ function processOpenAIResponse(data) {
     output.push({
       type: "reasoning",
       id: `reasoning-${Date.now()}`,
-      summary: [
-        {
-          type: "summary_text",
-          text: data.reasoning.summary
-        }
-      ]
+      summary: data.reasoning.summary
     });
   }
   
-  // Handle text messages
+  // Handle text messages and computer interactions
   if (data.output) {
     for (const item of data.output) {
       if (item.type === "text") {
@@ -194,7 +203,7 @@ function processOpenAIResponse(data) {
             ...(item.action.scrollY !== undefined && { scrollY: item.action.scrollY }),
           },
           pending_safety_checks: item.pending_safety_checks || [],
-          status: "completed"
+          status: "ready"
         });
       }
     }
@@ -207,45 +216,18 @@ async function continueSession(
   sessionId: string,
   callId: string,
   screenshot: string,
+  previousResponseId: string,
   acknowledgedSafetyChecks: any[] = [],
   currentUrl?: string,
   supabase: any
 ) {
   try {
-    // First, get the previous action
-    const { data: actions, error: actionsError } = await supabase
-      .from('computer_automation_actions')
-      .select()
-      .eq('session_id', sessionId)
-      .order('created_at', { ascending: false })
-      .limit(1);
-    
-    if (actionsError) {
-      throw new Error(`Error fetching actions: ${actionsError.message}`);
-    }
-    
-    if (!actions || actions.length === 0) {
-      throw new Error("No previous actions found for this session");
-    }
-    
-    // Update the previous action with the screenshot
-    const { error: updateError } = await supabase
-      .from('computer_automation_actions')
-      .update({
-        screenshot_url: screenshot,
-        status: 'executed',
-        executed_at: new Date().toISOString()
-      })
-      .eq('id', actions[0].id);
-    
-    if (updateError) {
-      console.error(`Error updating action: ${updateError.message}`);
-    }
+    console.log("Continuing session:", sessionId, "callId:", callId);
     
     // Get session details
     const { data: sessionData, error: sessionError } = await supabase
       .from('computer_automation_sessions')
-      .select('task_description, environment')
+      .select('task_description, environment, openai_response_id')
       .eq('id', sessionId)
       .single();
       
@@ -253,11 +235,41 @@ async function continueSession(
       throw new Error(`Error fetching session: ${sessionError.message}`);
     }
     
-    // Make call to OpenAI
-    console.log("Making OpenAI API call for session continuation");
+    // Find the previous action
+    const { data: actions, error: actionsError } = await supabase
+      .from('computer_automation_actions')
+      .select()
+      .eq('session_id', sessionId)
+      .eq('call_id', callId)
+      .order('created_at', { ascending: false })
+      .limit(1);
     
-    const payload = {
+    if (actionsError) {
+      throw new Error(`Error fetching actions: ${actionsError.message}`);
+    }
+    
+    if (actions && actions.length > 0) {
+      // Update the previous action with the screenshot
+      const { error: updateError } = await supabase
+        .from('computer_automation_actions')
+        .update({
+          screenshot_url: screenshot,
+          status: 'executed',
+          executed_at: new Date().toISOString()
+        })
+        .eq('id', actions[0].id);
+      
+      if (updateError) {
+        console.error(`Error updating action: ${updateError.message}`);
+      }
+    }
+    
+    // Make call to OpenAI using previous_response_id for continuity
+    console.log("Making OpenAI API call for session continuation with previous_response_id:", previousResponseId);
+    
+    const payload: any = {
       model: "computer-use-preview",
+      previous_response_id: previousResponseId,
       tools: [{
         type: "computer_use_preview",
         display_width: 1024,
@@ -266,22 +278,22 @@ async function continueSession(
       }],
       input: [
         {
-          role: "user", 
-          content: `I've performed the action you requested. Here's what I see now.${currentUrl ? ` Current URL: ${currentUrl}` : ''}`
-        },
-        {
-          type: "input_image",
-          image_url: screenshot
+          call_id: callId,
+          type: "computer_call_output",
+          output: {
+            type: "input_image",
+            image_url: screenshot,
+            current_url: currentUrl
+          }
         }
       ],
-      reasoning: {
-        generate_summary: "concise",
-      },
       truncation: "auto"
     };
     
     // Add acknowledged safety checks if any
     if (acknowledgedSafetyChecks && acknowledgedSafetyChecks.length > 0) {
+      console.log("Including acknowledged safety checks:", acknowledgedSafetyChecks.map(check => check.code).join(', '));
+      
       payload.input.push({
         role: "user",
         content: `I acknowledge the following safety concerns: ${acknowledgedSafetyChecks.map(check => check.message).join(', ')}`
@@ -305,7 +317,16 @@ async function continueSession(
     }
 
     const data = await response.json();
-    console.log("OpenAI response received:", JSON.stringify(data).substring(0, 200) + "...");
+    console.log("OpenAI response received. Response ID:", data.id);
+    
+    // Update session with new response id
+    await supabase
+      .from('computer_automation_sessions')
+      .update({ 
+        openai_response_id: data.id,
+        last_updated: new Date().toISOString()
+      })
+      .eq('id', sessionId);
     
     // Process the response
     const output = processOpenAIResponse(data);
@@ -326,7 +347,8 @@ async function continueSession(
             session_id: sessionId,
             action_type: action.type,
             action_details: action,
-            reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null
+            reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null,
+            call_id: computerCall.call_id
           })
           .select()
           .single();
@@ -412,6 +434,13 @@ serve(async (req) => {
     let result;
     if (!request.sessionId) {
       // Starting a new session
+      if (!request.taskDescription || !request.environment) {
+        return new Response(
+          JSON.stringify({ error: "Missing required parameters for starting a new session" }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       result = await startNewSession(
         request.taskDescription, 
         request.environment, 
@@ -421,7 +450,7 @@ serve(async (req) => {
       );
     } else {
       // Continuing an existing session
-      if (!request.callId || !request.screenshot) {
+      if (!request.callId || !request.screenshot || !request.previousResponseId) {
         return new Response(
           JSON.stringify({ error: "Missing required parameters for session continuation" }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -432,6 +461,7 @@ serve(async (req) => {
         request.sessionId,
         request.callId,
         request.screenshot,
+        request.previousResponseId,
         request.acknowledgedSafetyChecks,
         request.currentUrl,
         supabase

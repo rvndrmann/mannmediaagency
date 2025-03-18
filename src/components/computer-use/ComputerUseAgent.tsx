@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useComputerUseAgent } from "@/hooks/use-computer-use-agent";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,9 +8,10 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Play, StopCircle, RefreshCw, Check } from "lucide-react";
+import { AlertCircle, Play, StopCircle, RefreshCw, Check, CameraIcon } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import html2canvas from "html2canvas";
 
 export function ComputerUseAgent() {
   const {
@@ -29,10 +30,58 @@ export function ComputerUseAgent() {
     currentUrl,
     setCurrentUrl,
     actionHistory,
-    userCredits
+    userCredits,
+    setScreenshot
   } = useComputerUseAgent();
 
   const [activeTab, setActiveTab] = useState("input");
+  const browserViewRef = useRef<HTMLDivElement>(null);
+  
+  // Function to capture screenshot of the browser view
+  const captureScreenshot = async () => {
+    if (browserViewRef.current && environment === "browser") {
+      try {
+        const canvas = await html2canvas(browserViewRef.current, {
+          useCORS: true,
+          allowTaint: true,
+          logging: false
+        });
+        
+        const dataUrl = canvas.toDataURL("image/png");
+        setScreenshot(dataUrl);
+        return dataUrl;
+      } catch (error) {
+        console.error("Error capturing screenshot:", error);
+        // Fallback to a blank image
+        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+      }
+    }
+    return null;
+  };
+  
+  // Helper to check if an action can be executed
+  const canExecuteAction = () => {
+    if (isProcessing) return false;
+    return currentOutput.some(item => item.type === "computer_call");
+  };
+  
+  // Start session with screenshot
+  const handleStartSession = async () => {
+    // First capture a screenshot if in browser environment
+    if (environment === "browser") {
+      await captureScreenshot();
+    }
+    startSession();
+  };
+  
+  // Execute action with screenshot
+  const handleExecuteAction = async () => {
+    // Capture screenshot before executing action
+    if (environment === "browser") {
+      await captureScreenshot();
+    }
+    executeAction();
+  };
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
@@ -44,9 +93,10 @@ export function ComputerUseAgent() {
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1">
           <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-            <TabsList className="grid grid-cols-2 mb-4">
+            <TabsList className="grid grid-cols-3 mb-4">
               <TabsTrigger value="input">Input</TabsTrigger>
               <TabsTrigger value="history">Action History</TabsTrigger>
+              <TabsTrigger value="browser">Browser View</TabsTrigger>
             </TabsList>
             
             <TabsContent value="input" className="space-y-4">
@@ -109,7 +159,7 @@ export function ComputerUseAgent() {
                   
                   {!sessionId ? (
                     <Button 
-                      onClick={startSession} 
+                      onClick={handleStartSession} 
                       disabled={isProcessing || !taskDescription.trim()}
                     >
                       {isProcessing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
@@ -127,8 +177,8 @@ export function ComputerUseAgent() {
                       </Button>
                       
                       <Button 
-                        onClick={executeAction} 
-                        disabled={isProcessing || !currentOutput.some(item => item.type === "computer_call")}
+                        onClick={handleExecuteAction} 
+                        disabled={!canExecuteAction()}
                       >
                         {isProcessing ? <RefreshCw className="mr-2 h-4 w-4 animate-spin" /> : <Play className="mr-2 h-4 w-4" />}
                         Execute Next Action
@@ -171,7 +221,10 @@ export function ComputerUseAgent() {
                                 <Separator className="my-2" />
                                 <div className="text-sm text-muted-foreground">
                                   <span className="font-medium">Reasoning:</span>{" "}
-                                  {JSON.parse(action.reasoning)?.[0]?.summary?.[0]?.text || "No reasoning provided"}
+                                  {typeof action.reasoning === 'string' ? 
+                                    JSON.parse(action.reasoning)?.[0]?.summary?.[0]?.text || "No reasoning provided" :
+                                    action.reasoning?.[0]?.summary?.[0]?.text || "No reasoning provided"
+                                  }
                                 </div>
                               </>
                             )}
@@ -189,6 +242,50 @@ export function ComputerUseAgent() {
                       </div>
                     )}
                   </ScrollArea>
+                </CardContent>
+              </Card>
+            </TabsContent>
+            
+            <TabsContent value="browser">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Browser View</CardTitle>
+                  <CardDescription>
+                    Simulated browser environment for the agent
+                  </CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div 
+                    ref={browserViewRef} 
+                    className="border rounded-lg p-4 bg-white h-[400px] w-full overflow-auto"
+                  >
+                    {/* Simulated browser content */}
+                    <div className="border-b pb-2 flex items-center justify-between">
+                      <div className="flex items-center space-x-2">
+                        <div className="h-3 w-3 rounded-full bg-red-500"></div>
+                        <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
+                        <div className="h-3 w-3 rounded-full bg-green-500"></div>
+                      </div>
+                      <div className="flex-1 mx-4">
+                        <div className="bg-gray-100 rounded-full p-1 px-3 text-sm text-center truncate">
+                          {currentUrl || "about:blank"}
+                        </div>
+                      </div>
+                      <div className="text-gray-500">
+                        <CameraIcon className="h-4 w-4" />
+                      </div>
+                    </div>
+                    <div className="py-4 text-center text-gray-500">
+                      <p>This is a simulated browser view.</p>
+                      <p>In a real implementation, this would be an embedded browser or web view.</p>
+                    </div>
+                  </div>
+                  <div className="mt-4 flex justify-center">
+                    <Button onClick={captureScreenshot} disabled={isProcessing}>
+                      <CameraIcon className="mr-2 h-4 w-4" />
+                      Capture Screenshot
+                    </Button>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>

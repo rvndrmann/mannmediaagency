@@ -42,9 +42,26 @@ export const actionToJson = (action: ManusAction): Record<string, any> => {
   };
 };
 
+// Helper to normalize URLs
+export const normalizeUrl = (url: string): string => {
+  if (!url) return '';
+  
+  // Add protocol if missing
+  if (!/^https?:\/\//i.test(url)) {
+    return `https://${url}`;
+  }
+  
+  return url;
+};
+
 export const useManusAdapter = () => {
   const sendToManus = async (request: ManusRequest): Promise<ManusResponse | null> => {
     try {
+      // Normalize URL if present
+      if (request.current_url) {
+        request.current_url = normalizeUrl(request.current_url);
+      }
+      
       console.log("Sending request to Manus:", JSON.stringify(request, null, 2));
       
       // Call edge function to proxy request to OpenAI
@@ -92,6 +109,17 @@ export const useManusAdapter = () => {
         response.actions = [];
       }
       
+      // For navigate actions, normalize URLs
+      response.actions = response.actions.map(action => {
+        if (action.type === 'navigate' && action.url) {
+          return {
+            ...action,
+            url: normalizeUrl(action.url)
+          };
+        }
+        return action;
+      });
+      
       return response;
     } catch (error) {
       console.error("Exception in Manus adapter:", error);
@@ -126,6 +154,7 @@ export const useManusAdapter = () => {
   return {
     sendToManus,
     formatAction,
-    actionToJson
+    actionToJson,
+    normalizeUrl
   };
 };

@@ -28,7 +28,7 @@ export const useManusAgent = () => {
   const [taskDescription, setTaskDescription] = useState<string>("");
   const [environment, setEnvironment] = useState<ManusEnvironment>("browser");
   const [sessionId, setSessionId] = useState<string | null>(null);
-  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
+  const [currentUrl, setCurrentUrl] = useState<string | null>("https://www.google.com");
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [currentActions, setCurrentActions] = useState<ManusAction[]>([]);
   const [actionHistory, setActionHistory] = useState<ManusActionHistory[]>([]);
@@ -36,7 +36,7 @@ export const useManusAgent = () => {
   const [reasoning, setReasoning] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   
-  const { sendToManus, formatAction, actionToJson } = useManusAdapter();
+  const { sendToManus, formatAction, actionToJson, normalizeUrl } = useManusAdapter();
   
   // Get user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -163,7 +163,7 @@ export const useManusAgent = () => {
           user_id: user.id,
           task: taskDescription,
           environment: environment,
-          current_url: currentUrl || null,
+          current_url: currentUrl ? normalizeUrl(currentUrl) : null,
           status: "active"
         })
         .select()
@@ -178,7 +178,7 @@ export const useManusAgent = () => {
         task: taskDescription,
         environment: environment,
         screenshot: initialScreenshot || undefined,
-        current_url: currentUrl || undefined
+        current_url: currentUrl ? normalizeUrl(currentUrl) : undefined
       });
       
       if (!manusResponse) {
@@ -225,7 +225,8 @@ export const useManusAgent = () => {
     sendToManus, 
     fetchActionHistory, 
     refetchCredits,
-    actionToJson
+    actionToJson,
+    normalizeUrl
   ]);
   
   // Execute the next action
@@ -241,12 +242,15 @@ export const useManusAgent = () => {
       // Get the first action from the queue
       const actionToExecute = currentActions[0];
       
-      // Capture current screenshot
-      const currentScreenshot = await captureScreenshot();
+      // Handle navigate actions separately (they're handled by the UI directly)
+      if (actionToExecute.type === "navigate" && actionToExecute.url) {
+        console.log("Navigation action will be handled by the UI:", actionToExecute.url);
+        // The navigation itself happens in the UI component
+        setCurrentUrl(normalizeUrl(actionToExecute.url));
+      }
       
-      // In a real implementation, we would actually execute the action here
-      // For now, we'll just simulate the execution
-      console.log("Executing action:", actionToExecute);
+      // Capture current screenshot after navigation
+      const currentScreenshot = await captureScreenshot();
       
       // Update action status in database
       const { data: actionData, error: actionError } = await supabase
@@ -280,7 +284,7 @@ export const useManusAgent = () => {
           task: taskDescription,
           environment: environment,
           screenshot: currentScreenshot || undefined,
-          current_url: updatedUrl || undefined,
+          current_url: updatedUrl ? normalizeUrl(updatedUrl) : undefined,
           previous_actions: [actionToExecute]
         });
         
@@ -336,7 +340,8 @@ export const useManusAgent = () => {
     captureScreenshot, 
     sendToManus, 
     fetchActionHistory,
-    actionToJson
+    actionToJson,
+    normalizeUrl
   ]);
   
   // Clear the current session
@@ -347,6 +352,7 @@ export const useManusAgent = () => {
     setReasoning("");
     setScreenshot(null);
     setError(null);
+    setCurrentUrl("https://www.google.com");
     toast.info("Session ended");
   }, []);
   

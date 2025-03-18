@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useManusAgent } from "@/hooks/computer-use/use-manus-agent";
-import { Loader2, Send, Play, RotateCcw, Computer, Info, AlertCircle } from "lucide-react";
+import { Loader2, Send, Play, RotateCcw, Computer, Info, AlertCircle, ExternalLink } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -41,34 +41,66 @@ export function ManusComputerAgent() {
 
   const [activeTab, setActiveTab] = useState("browser");
   const browserViewRef = useRef<HTMLIFrameElement>(null);
+  const [iframeLoading, setIframeLoading] = useState(false);
   
   // Set up the browser environment
   useEffect(() => {
     if (activeTab === "browser" && browserViewRef.current) {
-      // Set initial URL
+      // Set initial URL if not already set
       if (!browserViewRef.current.src || browserViewRef.current.src === "about:blank") {
+        setIframeLoading(true);
         browserViewRef.current.src = "https://www.google.com";
         setCurrentUrl("https://www.google.com");
       }
-      
-      // Handle navigation within the iframe
-      browserViewRef.current.onload = () => {
-        try {
-          if (browserViewRef.current) {
-            setCurrentUrl(browserViewRef.current.contentWindow?.location.href || "");
-          }
-        } catch (e) {
-          console.error("Error getting URL from iframe:", e);
-        }
-      };
     }
   }, [activeTab, setCurrentUrl]);
+  
+  // Handle iframe navigation
+  const handleIframeLoad = useCallback(() => {
+    setIframeLoading(false);
+    if (browserViewRef.current) {
+      try {
+        // Try to get URL from iframe (may fail due to CORS)
+        const iframeUrl = browserViewRef.current.contentWindow?.location.href;
+        if (iframeUrl && iframeUrl !== "about:blank") {
+          setCurrentUrl(iframeUrl);
+          console.log("Iframe navigated to:", iframeUrl);
+        }
+      } catch (e) {
+        console.error("Error accessing iframe URL:", e);
+      }
+    }
+  }, [setCurrentUrl]);
+  
+  // Navigate to URL
+  const navigateToUrl = useCallback((url: string) => {
+    // Ensure URL has protocol
+    let navigateUrl = url;
+    if (!/^https?:\/\//i.test(navigateUrl)) {
+      navigateUrl = `https://${navigateUrl}`;
+    }
+    
+    if (browserViewRef.current) {
+      setIframeLoading(true);
+      browserViewRef.current.src = navigateUrl;
+      setCurrentUrl(navigateUrl);
+    }
+  }, [setCurrentUrl]);
   
   // Take screenshot when needed
   const handleTakeScreenshot = useCallback(async () => {
     await captureScreenshot();
     toast.success("Screenshot captured");
   }, [captureScreenshot]);
+
+  // Handle action execution effect
+  useEffect(() => {
+    // Look for navigate actions and execute them directly
+    if (currentActions.length > 0 && currentActions[0].type === "navigate" && currentActions[0].url) {
+      console.log("Executing navigate action:", currentActions[0].url);
+      navigateToUrl(currentActions[0].url);
+    }
+  }, [currentActions, navigateToUrl]);
   
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-[1400px] mx-auto">
@@ -200,8 +232,8 @@ export function ManusComputerAgent() {
                     value={currentUrl || ""}
                     onChange={(e) => setCurrentUrl(e.target.value)}
                     onKeyDown={(e) => {
-                      if (e.key === "Enter" && browserViewRef.current) {
-                        browserViewRef.current.src = currentUrl || "";
+                      if (e.key === "Enter") {
+                        navigateToUrl(currentUrl || "");
                       }
                     }}
                     placeholder="Enter URL"
@@ -211,25 +243,42 @@ export function ManusComputerAgent() {
                     variant="outline" 
                     size="icon"
                     onClick={() => {
-                      if (browserViewRef.current) {
-                        browserViewRef.current.src = currentUrl || "";
+                      if (browserViewRef.current && currentUrl) {
+                        navigateToUrl(currentUrl);
                       }
                     }}
                   >
                     <RotateCcw className="h-4 w-4" />
                   </Button>
+                  <Button
+                    variant="outline"
+                    size="icon"
+                    onClick={() => {
+                      if (currentUrl) {
+                        window.open(currentUrl, '_blank');
+                      }
+                    }}
+                    title="Open in new tab"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </Button>
                 </div>
               )}
             </div>
             
-            <TabsContent value="browser" className="flex-1 p-0 m-0">
+            <TabsContent value="browser" className="flex-1 p-0 m-0 relative">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-gray-800/50 z-10">
+                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                </div>
+              )}
               <div className="browser-view-container w-full h-full bg-white">
                 <iframe 
                   ref={browserViewRef}
                   className="w-full h-full border-0"
                   title="Browser View"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms"
-                  src="https://www.google.com"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads"
+                  onLoad={handleIframeLoad}
                 />
               </div>
             </TabsContent>

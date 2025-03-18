@@ -5,7 +5,6 @@ export interface Message {
   status?: "thinking" | "working" | "completed" | "error";
   tasks?: Task[];
   command?: Command;
-  selectedTool?: string;
 }
 
 export interface Task {
@@ -30,15 +29,4 @@ export interface Command {
   type?: string;
   tool?: string;
   selectedTool?: string;
-}
-
-export interface AdminMessage {
-  id: string;
-  sender_id: string;
-  receiver_id: string;
-  content: string;
-  read: boolean;
-  message_type: "admin_to_user" | "user_to_admin" | string; // Allow string to handle dynamic values from API
-  created_at: string;
-  updated_at: string;
 }

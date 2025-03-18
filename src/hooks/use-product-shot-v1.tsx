@@ -1,15 +1,11 @@
-
 import { useState, ChangeEvent } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-// Define the ImageSize type that's being used across components
-export type ImageSize = "square_hd" | "square" | "portrait_4_3" | "portrait_16_9" | "landscape_4_3" | "landscape_16_9";
-
-export const useProductShotV1 = (userCredits = null) => {
+export const useProductShotV1 = () => {
   const [state, setState] = useState({
     productShotPrompt: "",
     productShotPreview: null as string | null,
-    imageSize: "square_hd" as ImageSize,
+    imageSize: "1024x1024",
     inferenceSteps: 30,
     guidanceScale: 7.5,
     outputFormat: "png",
@@ -31,9 +27,7 @@ export const useProductShotV1 = (userCredits = null) => {
         reader.readAsDataURL(file);
       }
     },
-    setProductShotPreview: (url: string | null) => 
-      setState(prev => ({ ...prev, productShotPreview: url })),
-    setImageSize: (size: ImageSize) => 
+    setImageSize: (size: string) => 
       setState(prev => ({ ...prev, imageSize: size })),
     setInferenceSteps: (steps: number) => 
       setState(prev => ({ ...prev, inferenceSteps: steps })),
@@ -41,6 +35,8 @@ export const useProductShotV1 = (userCredits = null) => {
       setState(prev => ({ ...prev, guidanceScale: scale })),
     setOutputFormat: (format: string) => 
       setState(prev => ({ ...prev, outputFormat: format })),
+    setProductShotPreview: (url: string | null) => 
+      setState(prev => ({ ...prev, productShotPreview: url })),
     generateImage: async (prompt: string) => {
       setState(prev => ({ ...prev, isGenerating: true }));
       try {
@@ -65,15 +61,6 @@ export const useProductShotV1 = (userCredits = null) => {
         document.body.removeChild(link);
       } catch (error) {
         console.error('Error downloading image:', error);
-      }
-    },
-    // Add the missing functions needed by ProductShoot.tsx
-    handleClearFile: () => {
-      setState(prev => ({ ...prev, productShotPreview: null }));
-    },
-    handleGenerate: async () => {
-      if (state.productShotPrompt.trim()) {
-        await actions.generateImage(state.productShotPrompt);
       }
     }
   };

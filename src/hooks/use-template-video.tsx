@@ -29,28 +29,23 @@ export const useTemplateVideo = () => {
 
       if (creditsError) throw creditsError;
 
-      if (!userCredits || userCredits.credits_remaining < (template.credits_cost || 0)) {
+      if (!userCredits || userCredits.credits_remaining < template.credits_cost) {
         throw new Error(`Insufficient credits. You need ${template.credits_cost} credits for this template.`);
       }
-
-      // Convert duration to string if it's a number
-      const durationString = typeof template.duration === 'number' 
-        ? template.duration.toString() 
-        : template.duration;
 
       // Create the job record in the database
       const { data: jobData, error: jobError } = await supabase
         .from('video_generation_jobs')
         .insert({
+          prompt: template.prompt_template,
           source_image_url: imageUrl,
-          duration: durationString,
+          duration: template.duration,
           aspect_ratio: template.aspect_ratio,
           status: 'in_queue',
           user_id: userId,
           file_name: 'template-video.jpg',
           content_type: 'image/jpeg',
-          settings: { template_id: template.id },
-          prompt: template.prompt_template // Adding the required prompt field
+          settings: { template_id: template.id }
         })
         .select()
         .single();
@@ -63,7 +58,7 @@ export const useTemplateVideo = () => {
           job_id: jobData.id,
           prompt: template.prompt_template,
           image_url: imageUrl,
-          duration: durationString,
+          duration: template.duration,
           aspect_ratio: template.aspect_ratio,
         },
       });

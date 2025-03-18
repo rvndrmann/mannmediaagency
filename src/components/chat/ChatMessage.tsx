@@ -33,6 +33,7 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
   const isError = message.status === "error";
   const isUser = message.role === "user";
   const isAgent = message.role === "assistant" && message.agentType;
+  const hasAttachments = message.attachments && message.attachments.length > 0;
 
   return (
     <Card
@@ -52,15 +53,6 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
         </div>
       )}
       
-      {message.attachments && message.attachments.length > 0 && (
-        <div className="mb-3">
-          <AttachmentPreview 
-            attachments={message.attachments} 
-            isRemovable={false}
-          />
-        </div>
-      )}
-      
       {isAgent && message.agentType && (
         <Badge 
           variant={
@@ -69,7 +61,7 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
             message.agentType === "image" ? "warning" : 
             "success"
           }
-          className="mb-2 text-xs"
+          className="mb-3 text-xs"
         >
           {message.agentType === "main" ? "Main Assistant" : 
            message.agentType === "script" ? "Script Writer" : 
@@ -77,26 +69,37 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
         </Badge>
       )}
       
-      <ReactMarkdown
-        components={{
-          code({ children, className, ...props }) {
-            const match = /language-(\w+)/.exec(className || '');
-            return (
-              <code
-                className={`${match ? 'bg-black/30 p-2 block rounded' : 'bg-black/30 px-1 py-0.5 rounded'} ${className}`}
-                {...props}
-              >
-                {children}
-              </code>
-            );
-          },
-          p({ children }) {
-            return <p className="mb-3 last:mb-0">{children}</p>;
-          },
-        }}
-      >
-        {message.content}
-      </ReactMarkdown>
+      {hasAttachments && (
+        <div className={cn("rounded-md overflow-hidden", isUser ? "bg-white/10" : "bg-black/20")}>
+          <AttachmentPreview 
+            attachments={message.attachments} 
+            isRemovable={false}
+          />
+        </div>
+      )}
+      
+      <div className={cn(hasAttachments ? "mt-3" : "")}>
+        <ReactMarkdown
+          components={{
+            code({ children, className, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              return (
+                <code
+                  className={`${match ? 'bg-black/30 p-2 block rounded' : 'bg-black/30 px-1 py-0.5 rounded'} ${className}`}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            },
+            p({ children }) {
+              return <p className="mb-3 last:mb-0">{children}</p>;
+            },
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
+      </div>
 
       {message.tasks && message.tasks.length > 0 && (
         <div className="mt-3 pt-3 border-t border-white/10">

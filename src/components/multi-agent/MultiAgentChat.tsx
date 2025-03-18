@@ -5,8 +5,11 @@ import { AgentSelector } from "./AgentSelector";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
-import { useRef, useEffect } from "react";
+import { useRef, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { AgentInstructionsTable } from "./AgentInstructionsTable";
+import { Button } from "@/components/ui/button";
+import { ChevronDown, ChevronUp } from "lucide-react";
 
 export const MultiAgentChat = () => {
   const {
@@ -27,6 +30,7 @@ export const MultiAgentChat = () => {
   const navigate = useNavigate();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
+  const [showInstructions, setShowInstructions] = useState(false);
 
   const handleBack = () => {
     navigate("/");
@@ -47,6 +51,10 @@ export const MultiAgentChat = () => {
     scrollToBottom();
   }, [messages]);
 
+  const toggleInstructions = () => {
+    setShowInstructions(prev => !prev);
+  };
+
   return (
     <div className="flex flex-col h-full bg-gradient-to-b from-[#1A1F29] to-[#232836]">
       <ChatHeader 
@@ -61,10 +69,35 @@ export const MultiAgentChat = () => {
           className="flex-1 min-h-[calc(100vh-16rem)]"
         >
           <div className="p-4 space-y-4">
-            <AgentSelector 
-              activeAgent={activeAgent}
-              onAgentSelect={switchAgent}
-            />
+            <div className="flex flex-col space-y-2">
+              <AgentSelector 
+                activeAgent={activeAgent}
+                onAgentSelect={switchAgent}
+              />
+              
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={toggleInstructions}
+                className="self-end flex items-center gap-1 text-xs text-gray-400 hover:text-white border-gray-700"
+              >
+                {showInstructions ? (
+                  <>
+                    <ChevronUp className="h-3 w-3" />
+                    Hide Instructions
+                  </>
+                ) : (
+                  <>
+                    <ChevronDown className="h-3 w-3" />
+                    Show Instructions
+                  </>
+                )}
+              </Button>
+            </div>
+            
+            {showInstructions && (
+              <AgentInstructionsTable activeAgent={activeAgent} />
+            )}
             
             {messages.length === 0 && (
               <div className="text-center py-12 animate-fadeIn">

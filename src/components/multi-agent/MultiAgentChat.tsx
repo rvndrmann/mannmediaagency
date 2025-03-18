@@ -49,7 +49,7 @@ export const MultiAgentChat = () => {
   }, [messages]);
 
   return (
-    <div className="flex flex-col h-full bg-[#1A1F29]">
+    <div className="flex flex-col h-full bg-gradient-to-b from-[#1A1F29] to-[#232836]">
       <ChatHeader 
         onBack={handleBack} 
         onClearChat={clearChat} 
@@ -78,7 +78,9 @@ export const MultiAgentChat = () => {
             )}
             
             {messages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
+              <div key={index} className="animate-fadeIn">
+                <ChatMessage message={message} />
+              </div>
             ))}
             <div ref={lastMessageRef} className="h-px" />
           </div>
@@ -86,8 +88,8 @@ export const MultiAgentChat = () => {
       </div>
 
       <div className="sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 z-10 mb-12 md:mb-0">
-        <div className="absolute top-0 right-0 p-2 bg-white/5 backdrop-blur-lg rounded-bl-lg z-10 flex items-center space-x-2">
-          <span className="text-sm text-white/80">
+        <div className="absolute -top-10 right-4 p-2 bg-[#262B38] backdrop-blur-lg rounded-t-lg z-10 flex items-center space-x-2 border-t border-l border-r border-white/10">
+          <span className="text-sm font-medium text-white/80">
             Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
           </span>
         </div>

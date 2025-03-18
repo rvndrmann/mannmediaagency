@@ -1,7 +1,13 @@
 
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, Trash2 } from "lucide-react";
+import { ChevronLeft, Trash2, Info } from "lucide-react";
 import { type AgentType } from "@/hooks/use-multi-agent-chat";
+import { 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
+} from "@/components/ui/tooltip";
 
 interface ChatHeaderProps {
   onBack: () => void;
@@ -19,8 +25,17 @@ export const ChatHeader = ({ onBack, onClearChat, activeAgent }: ChatHeaderProps
     }
   };
 
+  const getAgentDescription = (agent: AgentType): string => {
+    switch (agent) {
+      case "script": return "Specialized in creating scripts, dialogue, and narrative content";
+      case "image": return "Creates detailed prompts for AI image generation systems";
+      case "tool": return "Helps you use tools like image-to-video conversion";
+      default: return "General-purpose AI assistant";
+    }
+  };
+
   return (
-    <div className="bg-[#1A1F29] border-b border-white/10 sticky top-0 z-10">
+    <div className="bg-gradient-to-r from-[#1A1F29] to-[#262B38] border-b border-white/10 sticky top-0 z-10">
       <div className="px-4 py-3 flex items-center justify-between">
         <div className="flex items-center">
           <Button
@@ -31,8 +46,20 @@ export const ChatHeader = ({ onBack, onClearChat, activeAgent }: ChatHeaderProps
           >
             <ChevronLeft className="h-5 w-5" />
           </Button>
-          <h1 className="text-base font-medium text-white">
+          <h1 className="text-base font-medium text-white flex items-center">
             {getAgentTitle(activeAgent)}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" size="sm" className="ml-1 p-0 h-6 w-6 text-white/60 hover:text-white/80">
+                    <Info className="h-4 w-4" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-[#333] text-white border-[#555]">
+                  <p className="text-sm">{getAgentDescription(activeAgent)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
           </h1>
         </div>
         <Button

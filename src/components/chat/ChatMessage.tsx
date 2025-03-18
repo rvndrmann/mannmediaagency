@@ -5,6 +5,8 @@ import { Message, Task } from "@/types/message";
 import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { Badge } from "@/components/ui/badge";
+import { cn } from "@/lib/utils";
 
 interface ChatMessageProps {
   message: Message;
@@ -29,16 +31,19 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
   };
 
   const isError = message.status === "error";
+  const isUser = message.role === "user";
+  const isAgent = message.role === "assistant" && message.agentType;
 
   return (
     <Card
-      className={`p-4 max-w-[80%] ${
-        message.role === "user"
-          ? "ml-auto bg-[#9b87f5] text-white"
+      className={cn(
+        "p-4 shadow-md transition-all animate-in duration-300",
+        isUser
+          ? "ml-auto bg-gradient-to-r from-[#9b87f5] to-[#8a77e1] text-white max-w-[80%] rounded-tl-lg rounded-tr-lg rounded-bl-lg rounded-br-sm"
           : isError 
-            ? "bg-red-900/30 text-white/90 border-red-500/30" 
-            : "bg-[#333333] text-white/90 border-white/10"
-      }`}
+            ? "bg-red-900/30 text-white/90 border-red-500/30 max-w-[80%] rounded-tl-lg rounded-tr-sm rounded-bl-lg rounded-br-lg" 
+            : "bg-[#333333] text-white/90 border-white/10 max-w-[80%] rounded-tl-lg rounded-tr-sm rounded-bl-lg rounded-br-lg"
+      )}
     >
       {isError && (
         <div className="mb-2 flex items-center gap-2 text-red-300">
@@ -56,6 +61,22 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
         </div>
       )}
       
+      {isAgent && message.agentType && (
+        <Badge 
+          variant={
+            message.agentType === "main" ? "default" : 
+            message.agentType === "script" ? "info" : 
+            message.agentType === "image" ? "warning" : 
+            "success"
+          }
+          className="mb-2 text-xs"
+        >
+          {message.agentType === "main" ? "Main Assistant" : 
+           message.agentType === "script" ? "Script Writer" : 
+           message.agentType === "image" ? "Image Prompt" : "Tool Orchestrator"}
+        </Badge>
+      )}
+      
       <ReactMarkdown
         components={{
           code({ children, className, ...props }) {
@@ -68,6 +89,9 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
                 {children}
               </code>
             );
+          },
+          p({ children }) {
+            return <p className="mb-3 last:mb-0">{children}</p>;
           },
         }}
       >

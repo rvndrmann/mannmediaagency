@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Send, Paperclip, Image } from "lucide-react";
+import { Send, Paperclip, Sparkles } from "lucide-react";
 import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
 import { FileAttachmentButton } from "@/components/multi-agent/FileAttachmentButton";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
@@ -46,6 +46,7 @@ export const ChatInput = ({
 
   const currentWords = countWords(input);
   const progress = (currentWords / MAX_WORDS) * 100;
+  const isWordLimitExceeded = currentWords >= MAX_WORDS;
 
   const handleChange = (value: string) => {
     const words = countWords(value);
@@ -71,15 +72,19 @@ export const ChatInput = ({
             onChange={(e) => handleChange(e.target.value)}
             placeholder="Type your message..."
             disabled={isLoading}
-            className="min-h-[48px] max-h-[120px] bg-[#262B38] border-none text-white placeholder:text-white/50 resize-none rounded-3xl px-4 py-3"
+            className="min-h-[48px] max-h-[120px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-3xl px-4 py-3 shadow-inner"
           />
           <div className="absolute bottom-1 left-3 right-10">
             <div className="flex justify-between items-center">
-              <span className={`text-xs ${currentWords >= MAX_WORDS ? 'text-red-500' : 'text-gray-400'}`}>
+              <span className={`text-xs ${isWordLimitExceeded ? 'text-red-500' : 'text-gray-400'}`}>
                 {currentWords}/{MAX_WORDS}
               </span>
               <div className="flex-1 mx-2">
-                <Progress value={progress} className="h-1" />
+                <Progress 
+                  value={progress} 
+                  className="h-1" 
+                  indicatorClassName={isWordLimitExceeded ? "bg-red-500" : undefined}
+                />
               </div>
             </div>
           </div>
@@ -91,10 +96,18 @@ export const ChatInput = ({
         
         <Button 
           type="submit" 
-          disabled={isLoading}
-          className="bg-[#9b87f5] hover:bg-[#8a77e1] text-white self-end rounded-full h-10 w-10 p-0 flex items-center justify-center"
+          disabled={isLoading || (input.trim() === '' && (!attachments || attachments.length === 0))}
+          variant="gradient"
+          size="icon"
+          className="self-end rounded-full h-12 w-12 p-0 flex items-center justify-center"
         >
-          <Send className="h-5 w-5" />
+          <span>
+            {isLoading ? (
+              <Sparkles className="h-5 w-5 animate-pulse" />
+            ) : (
+              <Send className="h-5 w-5" />
+            )}
+          </span>
         </Button>
       </div>
     </form>

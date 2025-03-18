@@ -9,6 +9,21 @@ interface UseMediaUpdatesProps {
   updateMessage: (index: number, updates: Partial<Message>) => void;
 }
 
+// Define types for the payload data to avoid TypeScript errors
+interface ImageGenerationPayload {
+  user_id?: string;
+  request_id?: string;
+  status?: string;
+  result_url?: string;
+}
+
+interface VideoGenerationPayload {
+  user_id?: string;
+  request_id?: string;
+  status?: string;
+  result_url?: string;
+}
+
 export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProps) => {
   // Subscribe to real-time updates for image generation jobs
   useEffect(() => {
@@ -35,18 +50,19 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
         (payload) => {
           // For each updated job, check if it matches any of our pending tool commands
           const { new: newData } = payload;
+          const typedData = newData as ImageGenerationPayload;
           
-          if (!newData || !newData.user_id) return;
+          if (!typedData || !typedData.user_id) return;
 
           // Process each message with image commands
           messagesWithImageCommands.forEach(({ message, index }) => {
             // Check if this job update matches our command's requestId
             const requestId = message.command?.parameters?.requestId;
-            if (requestId && requestId === newData.request_id) {
+            if (requestId && requestId === typedData.request_id) {
               // Update message based on job status
-              if (newData.status === 'completed' && newData.result_url) {
+              if (typedData.status === 'completed' && typedData.result_url) {
                 // Update the message content with the generated image
-                const imageUrl = newData.result_url;
+                const imageUrl = typedData.result_url;
                 const updatedContent = `${message.content}\n\n![Generated Image](${imageUrl})`;
                 
                 // Find and update the task status
@@ -60,7 +76,7 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
                   content: updatedContent,
                   tasks: updatedTasks
                 });
-              } else if (newData.status === 'failed') {
+              } else if (typedData.status === 'failed') {
                 // Update with failure message
                 const updatedContent = `${message.content}\n\nⓧ Image generation failed. Please try again.`;
                 
@@ -105,18 +121,19 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
           (payload) => {
             // For each updated job, check if it matches any of our pending tool commands
             const { new: newData } = payload;
+            const typedData = newData as VideoGenerationPayload;
             
-            if (!newData || !newData.user_id) return;
+            if (!typedData || !typedData.user_id) return;
 
             // Process each message with video commands
             videoMessagesWithCommands.forEach(({ message, index }) => {
               // Check if this job update matches our command's requestId
               const requestId = message.command?.parameters?.requestId;
-              if (requestId && requestId === newData.request_id) {
+              if (requestId && requestId === typedData.request_id) {
                 // Update message based on job status
-                if (newData.status === 'completed' && newData.result_url) {
+                if (typedData.status === 'completed' && typedData.result_url) {
                   // Update the message content with the generated video
-                  const videoUrl = newData.result_url;
+                  const videoUrl = typedData.result_url;
                   const updatedContent = `${message.content}\n\n<video controls src="${videoUrl}" style="max-width: 100%; border-radius: 8px;"></video>`;
                   
                   // Find and update the task status
@@ -130,7 +147,7 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
                     content: updatedContent,
                     tasks: updatedTasks
                   });
-                } else if (newData.status === 'failed') {
+                } else if (typedData.status === 'failed') {
                   // Update with failure message
                   const updatedContent = `${message.content}\n\nⓧ Video generation failed. Please try again.`;
                   

@@ -24,3 +24,17 @@ export interface CommandExecutionState {
   result?: ToolResult;
   error?: string;
 }
+
+// Add the missing ToolDefinition interface
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, {
+    type: string;
+    description: string;
+    enum?: string[];
+    default?: any;
+  }>;
+  requiredCredits: number;
+  execute: (params: any, context: ToolContext) => Promise<ToolResult>;
+}

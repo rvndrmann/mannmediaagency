@@ -29,22 +29,31 @@ export class ToolExecutor {
         status: "executing"
       });
       
-      // Get the tool
+      // Get the tool - log more information for debugging
+      console.log(`Executing tool: ${command.feature}`);
       const tool = getTool(command.feature);
       if (!tool) {
+        console.error(`Tool not found: ${command.feature}`);
         return this.handleError(commandId, `Tool '${command.feature}' not found`);
       }
       
       // Check if the user has enough credits
       if (context.creditsRemaining < tool.requiredCredits) {
+        console.log(`Insufficient credits for tool ${command.feature}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`);
         return this.handleError(
           commandId, 
           `Insufficient credits to use ${tool.name}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`
         );
       }
       
+      // Log parameters for debugging
+      console.log(`Executing tool with parameters:`, command.parameters);
+      
       // Execute the tool
       const result = await tool.execute(command.parameters || {}, context);
+      
+      // Log the result
+      console.log(`Tool execution result:`, result);
       
       // Update state with result
       this.updateExecutionState(commandId, {
@@ -56,6 +65,7 @@ export class ToolExecutor {
       
       return result;
     } catch (error) {
+      console.error("Error executing tool command:", error);
       return this.handleError(
         commandId, 
         error instanceof Error ? error.message : "An unknown error occurred"

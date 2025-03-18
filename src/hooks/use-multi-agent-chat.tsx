@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,7 +29,6 @@ export const useMultiAgentChat = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   
-  // Cache messages in localStorage
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -39,7 +37,6 @@ export const useMultiAgentChat = () => {
     }
   }, [messages]);
   
-  // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -107,7 +104,10 @@ export const useMultiAgentChat = () => {
       const toolMatch = text.match(/TOOL:\s*([a-z0-9-]+)/i);
       const paramsMatch = text.match(/PARAMETERS:\s*(\{.+\})/s);
       
-      if (!toolMatch) return null;
+      if (!toolMatch) {
+        console.log("No tool command found in text");
+        return null;
+      }
       
       const feature = toolMatch[1].toLowerCase();
       let parameters = {};
@@ -115,6 +115,7 @@ export const useMultiAgentChat = () => {
       if (paramsMatch) {
         try {
           parameters = JSON.parse(paramsMatch[1]);
+          console.log(`Parsed tool parameters:`, parameters);
         } catch (e) {
           console.error("Error parsing tool parameters:", e);
         }
@@ -139,6 +140,8 @@ export const useMultiAgentChat = () => {
       if (!user) {
         throw new Error("User not authenticated");
       }
+      
+      console.log(`Executing tool command: ${command.feature}`);
       
       // Create tool context
       const toolContext: ToolContext = {

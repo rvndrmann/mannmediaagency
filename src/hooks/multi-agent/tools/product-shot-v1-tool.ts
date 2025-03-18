@@ -85,30 +85,45 @@ export const productShotV1Tool: ToolDefinition = {
 
       if (jobError) throw jobError;
 
-      // Call the edge function to start the generation
-      const { error: functionError } = await supabase.functions.invoke(
-        "generate-product-image",
+      // Map the tool parameters to the edge function format
+      const requestBody = {
+        image_url: imageUrl,
+        scene_description: params.prompt,
+        optimize_description: true,
+        num_results: 1,
+        fast: true,
+        placement_type: 'automatic',
+        sync_mode: false
+      };
+
+      // Call the generate-product-shot edge function
+      const { data, error: functionError } = await supabase.functions.invoke(
+        "generate-product-shot",
         {
-          body: {
-            job_id: jobData?.id,
-            prompt: params.prompt,
-            image_url: imageUrl,
-            image_size: params.imageSize || "square",
-            inference_steps: params.inferenceSteps || 5,
-            guidance_scale: params.guidanceScale || 5,
-            output_format: params.outputFormat || "png",
-          },
+          body: JSON.stringify(requestBody)
         }
       );
 
       if (functionError) throw functionError;
+
+      // Update the job record with the request ID
+      if (data?.requestId) {
+        await supabase
+          .from("image_generation_jobs")
+          .update({ 
+            request_id: data.requestId,
+            status: "processing"
+          })
+          .eq("id", jobData?.id);
+      }
 
       return {
         success: true,
         message: "Product shot generation started successfully. You'll be notified when it's ready.",
         data: {
           jobId: jobData?.id,
-          status: "pending"
+          requestId: data?.requestId,
+          status: "processing"
         }
       };
     } catch (error) {

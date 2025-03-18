@@ -1,4 +1,3 @@
-
 export interface Message {
   role: "user" | "assistant";
   content: string;
@@ -36,6 +35,7 @@ export interface Command {
     prompt?: string;
     autoGenerate?: boolean;
     contextualData?: any;
+    [key: string]: any;
   };
   confidence?: number;
   type?: string;
@@ -53,7 +53,6 @@ export interface Notification {
   created_at: string;
 }
 
-// Agent system interfaces
 export interface AgentMessage {
   role: "user" | "assistant" | "system";
   content: string;

@@ -32,18 +32,48 @@ async function getAgentCompletion(
   
   const hasAttachments = contextData?.hasAttachments || false;
   const attachmentTypes = contextData?.attachmentTypes || [];
+  const availableTools = contextData?.availableTools || [];
   
   let attachmentContext = "";
   if (hasAttachments) {
     attachmentContext = "The user has shared some files with you. They are referenced in the user's message. ";
     
     if (attachmentTypes.includes("image")) {
-      attachmentContext += "For image files, look for the URL in the user's message. You can view these images and describe what you see or use them in your response. ";
+      attachmentContext += "For image files, look for the URL in the user's message. You can view these images and use them in your response. ";
     }
     
     if (attachmentTypes.includes("file")) {
       attachmentContext += "For document files, look for the URL in the user's message. You can reference the content or help analyze documents. ";
     }
+  }
+  
+  let toolsContext = "";
+  if (agentType === "tool" && availableTools.length > 0) {
+    toolsContext = "You have access to the following tools:\n\n";
+    
+    availableTools.forEach((tool: any) => {
+      toolsContext += `Tool Name: ${tool.name}\n`;
+      toolsContext += `Description: ${tool.description}\n`;
+      toolsContext += `Required Credits: ${tool.required_credits}\n`;
+      toolsContext += "Parameters:\n";
+      
+      Object.entries(tool.parameters).forEach(([key, value]: [string, any]) => {
+        toolsContext += `- ${key}: ${value.description || "No description provided"}`;
+        if (value.default !== undefined) {
+          toolsContext += ` (Default: ${value.default})`;
+        }
+        if (value.enum) {
+          toolsContext += ` (Options: ${value.enum.join(", ")})`;
+        }
+        toolsContext += "\n";
+      });
+      
+      toolsContext += "\n";
+    });
+    
+    toolsContext += "To use a tool, respond with the following format:\n";
+    toolsContext += "TOOL: [tool-name], PARAMETERS: {\"param1\": \"value1\", \"param2\": \"value2\"}\n\n";
+    toolsContext += "Only use tools when the user explicitly requests functionality that requires them. Otherwise, provide helpful information as normal.";
   }
   
   switch(agentType) {
@@ -62,7 +92,7 @@ async function getAgentCompletion(
     case "tool":
       systemMessage = {
         role: "system",
-        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. Available tools: image-to-image, image-to-video, product-shot-v1, product-shot-v2. Analyze the user request and respond with the recommended tool in this format: TOOL: [tool-name], PARAMETERS: [parameters JSON object]. ${attachmentContext}`
+        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. ${toolsContext} ${attachmentContext}`
       };
       break;
     default: // main

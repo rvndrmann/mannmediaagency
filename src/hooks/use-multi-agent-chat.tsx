@@ -5,6 +5,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { AgentMessage, Message, Task, Attachment, Command } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { ToolContext, ToolResult } from "./multi-agent/types";
+import { toolExecutor } from "./multi-agent/tool-executor";
+import { getToolsForLLM } from "./multi-agent/tools";
 
 const CHAT_CREDIT_COST = 0.07;
 const STORAGE_KEY = "multi_agent_chat_history";
@@ -129,14 +132,33 @@ export const useMultiAgentChat = () => {
     }
   };
 
-  const executeToolCommand = async (command: Command): Promise<string> => {
-    // Here would be the logic to execute different tool commands
-    // such as generating product shots or converting images to video
-    
-    const result = `The ${command.feature} tool will be executed with the provided parameters. This functionality will be implemented soon.`;
-    
-    // Return a message to display to the user
-    return result;
+  const executeToolCommand = async (command: Command): Promise<ToolResult> => {
+    try {
+      // Get user ID for context
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
+      // Create tool context
+      const toolContext: ToolContext = {
+        userId: user.id,
+        creditsRemaining: userCredits?.credits_remaining || 0,
+        attachments: pendingAttachments,
+        selectedTool: command.feature,
+        previousOutputs: {} // We could store previous outputs here if needed
+      };
+      
+      // Execute the tool
+      return await toolExecutor.executeCommand(command, toolContext);
+      
+    } catch (error) {
+      console.error("Error executing tool command:", error);
+      return {
+        success: false,
+        message: error instanceof Error ? error.message : "An unknown error occurred"
+      };
+    }
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -208,7 +230,8 @@ export const useMultiAgentChat = () => {
           userId: user.id,
           contextData: {
             hasAttachments: pendingAttachments.length > 0,
-            attachmentTypes: pendingAttachments.map(a => a.type)
+            attachmentTypes: pendingAttachments.map(a => a.type),
+            availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined
           }
         }
       });
@@ -241,7 +264,7 @@ export const useMultiAgentChat = () => {
                 {
                   id: toolTaskId,
                   name: `Executing ${command!.feature}`,
-                  status: "pending" as Task["status"]  // Fix here: explicitly type as Task["status"]
+                  status: "pending" as Task["status"]
                 }
               ];
               
@@ -259,14 +282,24 @@ export const useMultiAgentChat = () => {
             const toolResult = await executeToolCommand(command);
             
             // Update the final content to include tool execution results
-            finalContent = `${completion}\n\n${toolResult}`;
+            finalContent = `${completion}\n\n${toolResult.message}`;
             
-            // Mark the tool task as completed
-            updateTaskStatus(messageIndex, toolTaskId, "completed");
+            // Mark the tool task as completed or failed
+            updateTaskStatus(
+              messageIndex, 
+              toolTaskId, 
+              toolResult.success ? "completed" : "error", 
+              toolResult.success ? undefined : toolResult.message
+            );
           } catch (toolError) {
             console.error("Error executing tool command:", toolError);
-            updateTaskStatus(messageIndex, toolTaskId, "error", toolError.message);
-            finalContent = `${completion}\n\nError executing tool: ${toolError.message}`;
+            updateTaskStatus(
+              messageIndex, 
+              toolTaskId, 
+              "error", 
+              toolError instanceof Error ? toolError.message : "Unknown error"
+            );
+            finalContent = `${completion}\n\nError executing tool: ${toolError instanceof Error ? toolError.message : "Unknown error"}`;
           }
         }
       }

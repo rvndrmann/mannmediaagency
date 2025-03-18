@@ -4,6 +4,7 @@ import { useManusAdapter, ManusAction } from "@/hooks/computer-use/manus-adapter
 import { ComputerUseOutput, SafetyCheck, ComputerAction } from "@/types/computer-use";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export type Environment = "browser" | "mac" | "windows" | "ubuntu";
 

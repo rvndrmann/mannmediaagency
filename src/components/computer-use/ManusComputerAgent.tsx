@@ -126,7 +126,7 @@ export function ManusComputerAgent() {
               <label className="block text-sm font-medium mb-1">Environment</label>
               <Select 
                 value={environment} 
-                onValueChange={setEnvironment}
+                onValueChange={(value) => setEnvironment(value as "browser" | "desktop" | "custom")}
                 disabled={isProcessing}
               >
                 <SelectTrigger>

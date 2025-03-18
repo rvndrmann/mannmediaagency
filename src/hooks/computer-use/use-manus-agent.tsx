@@ -13,7 +13,6 @@ export interface ManusSession {
   environment: ManusEnvironment;
   currentUrl?: string;
   status: "active" | "completed" | "failed";
-  apiKey?: string;
 }
 
 export interface ManusActionHistory {
@@ -28,7 +27,6 @@ export interface ManusActionHistory {
 export const useManusAgent = () => {
   const [taskDescription, setTaskDescription] = useState<string>("");
   const [environment, setEnvironment] = useState<ManusEnvironment>("browser");
-  const [apiKey, setApiKey] = useState<string>("");
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -112,7 +110,17 @@ export const useManusAgent = () => {
       
       if (error) throw error;
       
-      setActionHistory(data || []);
+      // Transform data to match our ManusActionHistory type
+      const formattedHistory = data ? data.map(item => ({
+        id: item.id,
+        action: item.action as ManusAction,
+        reasoning: item.reasoning,
+        timestamp: new Date(item.created_at),
+        screenshot: item.screenshot,
+        status: item.status as "pending" | "executed" | "failed"
+      })) : [];
+      
+      setActionHistory(formattedHistory);
     } catch (error) {
       console.error("Error fetching action history:", error);
       toast.error("Failed to load action history");
@@ -156,8 +164,7 @@ export const useManusAgent = () => {
           task: taskDescription,
           environment: environment,
           current_url: currentUrl || null,
-          status: "active",
-          api_key: apiKey || null
+          status: "active"
         })
         .select()
         .single();
@@ -171,8 +178,7 @@ export const useManusAgent = () => {
         task: taskDescription,
         environment: environment,
         screenshot: initialScreenshot || undefined,
-        current_url: currentUrl || undefined,
-        api_key: apiKey || undefined
+        current_url: currentUrl || undefined
       });
       
       if (!manusResponse) {
@@ -214,7 +220,6 @@ export const useManusAgent = () => {
     taskDescription, 
     environment, 
     currentUrl, 
-    apiKey,
     userCredits, 
     captureScreenshot, 
     sendToManus, 
@@ -275,8 +280,7 @@ export const useManusAgent = () => {
           environment: environment,
           screenshot: currentScreenshot || undefined,
           current_url: updatedUrl || undefined,
-          previous_actions: [actionToExecute],
-          api_key: apiKey || undefined
+          previous_actions: [actionToExecute]
         });
         
         if (!manusResponse) {
@@ -328,7 +332,6 @@ export const useManusAgent = () => {
     taskDescription, 
     environment, 
     currentUrl, 
-    apiKey,
     captureScreenshot, 
     sendToManus, 
     fetchActionHistory
@@ -357,8 +360,6 @@ export const useManusAgent = () => {
     setTaskDescription,
     environment,
     setEnvironment,
-    apiKey,
-    setApiKey,
     sessionId,
     isProcessing,
     currentActions,

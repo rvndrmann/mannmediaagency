@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -27,7 +26,6 @@ async function getAgentCompletion(
   agentType: string, 
   contextData?: Record<string, any>
 ): Promise<string> {
-  // Set the system message based on agent type
   let systemMessage: AgentMessage;
   
   const hasAttachments = contextData?.hasAttachments || false;
@@ -73,10 +71,15 @@ async function getAgentCompletion(
     
     toolsContext += "To use a tool, respond with the following format:\n";
     toolsContext += "TOOL: [tool-name], PARAMETERS: {\"param1\": \"value1\", \"param2\": \"value2\"}\n\n";
-    toolsContext += "Only use tools when the user explicitly requests functionality that requires them. Otherwise, provide helpful information as normal.";
+    toolsContext += "Only use tools when the user explicitly requests functionality that requires them. Otherwise, provide helpful information as normal.\n\n";
+    
+    toolsContext += "IMPORTANT TOOL USAGE NOTES:\n";
+    toolsContext += "- For product-shot-v2, always use user-uploaded images when available. Look for image attachments in the user's message.\n";
+    toolsContext += "- The product-shot-v2 tool is more advanced than product-shot-v1, with better scene composition, customization options, and quality.\n";
+    toolsContext += "- Recommend product-shot-v2 over product-shot-v1 for higher quality product images, unless the user specifically requests otherwise.\n";
+    toolsContext += "- When using product-shot-v2, provide detailed scene descriptions for best results.\n";
   }
   
-  // Enhanced handoff instructions with clear examples
   const handoffContext = `
 You can hand off the conversation to another specialized agent when appropriate. 
 Available agents:
@@ -116,7 +119,7 @@ Only hand off when the user's request clearly falls into another agent's special
     case "tool":
       systemMessage = {
         role: "system",
-        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. ${toolsContext} ${attachmentContext} ${handoffContext}`
+        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more. ${toolsContext} ${attachmentContext} ${handoffContext}`
       };
       break;
     default: // main
@@ -126,14 +129,11 @@ Only hand off when the user's request clearly falls into another agent's special
       };
   }
   
-  // Prepend system message to the messages array
   const fullMessages = [systemMessage, ...messages];
   
   try {
-    // Configure OpenAI request parameters based on agent type
     const temperature = agentType === "tool" ? 0.1 : 0.7;
     
-    // Add explicit instructions for formatting in the API request
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -144,7 +144,6 @@ Only hand off when the user's request clearly falls into another agent's special
         model: "gpt-4o",
         messages: fullMessages,
         temperature: temperature,
-        // Add specific instructions to encourage proper format adherence
         ...(agentType !== "tool" && {
           response_format: { type: "text" }
         })
@@ -169,8 +168,6 @@ Only hand off when the user's request clearly falls into another agent's special
 function parseHandoffRequest(text: string): { targetAgent: string, reason: string } | null {
   console.log("Attempting to parse handoff from:", text.slice(-200));
   
-  // More flexible regex pattern to capture handoff requests
-  // This handles variations in spacing, capitalization, and potential line breaks
   const handoffRegex = /HANDOFF:\s*(\w+)(?:,|\s)\s*REASON:\s*(.+?)(?:\n|$)/i;
   const handoffMatch = text.match(handoffRegex);
   
@@ -180,14 +177,12 @@ function parseHandoffRequest(text: string): { targetAgent: string, reason: strin
     
     console.log(`Handoff detected: Agent=${targetAgent}, Reason=${reason}`);
     
-    // Validate the agent type
     if (['main', 'script', 'image', 'tool'].includes(targetAgent)) {
       return { targetAgent, reason };
     } else {
       console.log(`Invalid agent type in handoff: ${targetAgent}`);
     }
   } else {
-    // Check for partial handoff format to debug issues
     if (text.toLowerCase().includes("handoff:")) {
       console.log("Potential handoff format detected but couldn't parse completely");
     }
@@ -225,7 +220,6 @@ async function logAgentInteraction(
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -238,20 +232,16 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client with service role key
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Parse request body
     const request = await req.json() as MultiAgentRequest;
     const { messages, agentType, userId, contextData } = request;
     
-    // Get user message (last message in the array)
     const userMessage = messages[messages.length - 1].content;
     const hasAttachments = contextData?.hasAttachments || false;
     
-    // Check credits before proceeding
     const { data: userCredits, error: creditsError } = await supabase
       .from('user_credits')
       .select('credits_remaining')
@@ -265,7 +255,6 @@ serve(async (req) => {
       );
     }
     
-    // Deduct credits
     const { error: deductError } = await supabase.rpc('safely_decrease_chat_credits', {
       credit_amount: 0.07
     });
@@ -278,17 +267,13 @@ serve(async (req) => {
       );
     }
     
-    // Get response from OpenAI
     const completion = await getAgentCompletion(messages, agentType, contextData);
     
-    // Check if response contains a handoff request
     const handoffRequest = parseHandoffRequest(completion);
     console.log("Handoff parsing result:", handoffRequest || "No handoff detected");
     
-    // Log the interaction
     await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);
     
-    // Return the response
     return new Response(
       JSON.stringify({ 
         completion,

@@ -1,9 +1,13 @@
 
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
-import { Send } from "lucide-react";
+import { Send, Paperclip, Image } from "lucide-react";
 import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
+import { FileAttachmentButton } from "@/components/multi-agent/FileAttachmentButton";
+import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { Attachment } from "@/types/message";
 
 interface ChatInputProps {
   input: string;
@@ -14,6 +18,10 @@ interface ChatInputProps {
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
   setUseMcp?: (value: boolean) => void;
+  attachments?: Attachment[];
+  onAttachmentAdd?: (attachments: Attachment[]) => void;
+  onAttachmentRemove?: (id: string) => void;
+  showAttachmentButton?: boolean;
 }
 
 export const ChatInput = ({ 
@@ -24,7 +32,11 @@ export const ChatInput = ({
   useAssistantsApi = false,
   setUseAssistantsApi = () => {},
   useMcp = false,
-  setUseMcp = () => {}
+  setUseMcp = () => {},
+  attachments = [],
+  onAttachmentAdd,
+  onAttachmentRemove,
+  showAttachmentButton = false
 }: ChatInputProps) => {
   const MAX_WORDS = 350;
 
@@ -43,7 +55,15 @@ export const ChatInput = ({
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-0">
+    <form onSubmit={onSubmit} className="space-y-2">
+      {attachments.length > 0 && (
+        <AttachmentPreview
+          attachments={attachments}
+          onRemove={onAttachmentRemove}
+          isRemovable={true}
+        />
+      )}
+      
       <div className="flex gap-2">
         <div className="flex-1 relative">
           <Textarea
@@ -64,6 +84,11 @@ export const ChatInput = ({
             </div>
           </div>
         </div>
+        
+        {showAttachmentButton && onAttachmentAdd && (
+          <FileAttachmentButton onAttach={onAttachmentAdd} />
+        )}
+        
         <Button 
           type="submit" 
           disabled={isLoading}

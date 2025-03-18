@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentMessage, Message, Task } from "@/types/message";
+import { AgentMessage, Message, Task, Attachment } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
@@ -25,6 +25,7 @@ export const useMultiAgentChat = () => {
   const [input, setInput] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   
   // Cache messages in localStorage
   useEffect(() => {
@@ -88,11 +89,19 @@ export const useMultiAgentChat = () => {
       return newMessages;
     });
   };
+
+  const addAttachments = useCallback((newAttachments: Attachment[]) => {
+    setPendingAttachments(prev => [...prev, ...newAttachments]);
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
-    if (!trimmedInput || isLoading) return;
+    if ((!trimmedInput && pendingAttachments.length === 0) || isLoading) return;
 
     if (!userCredits || userCredits.credits_remaining < CHAT_CREDIT_COST) {
       toast.error(`You need at least ${CHAT_CREDIT_COST} credits to send a message.`);
@@ -101,7 +110,8 @@ export const useMultiAgentChat = () => {
 
     const userMessage: Message = { 
       role: "user", 
-      content: trimmedInput 
+      content: trimmedInput,
+      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
     };
 
     const assistantMessage: Message = { 
@@ -117,6 +127,7 @@ export const useMultiAgentChat = () => {
 
     setMessages(prev => [...prev, userMessage, assistantMessage]);
     setInput("");
+    setPendingAttachments([]);
     setIsLoading(true);
     
     const messageIndex = messages.length + 1;
@@ -130,8 +141,17 @@ export const useMultiAgentChat = () => {
           content: msg.content
         }));
       
-      // Add current user message
-      apiMessages.push({ role: "user", content: trimmedInput });
+      // Add current user message with attachment info
+      let userContent = trimmedInput;
+      if (pendingAttachments.length > 0) {
+        const attachmentDescriptions = pendingAttachments.map(att => 
+          `[Attached ${att.type}: ${att.name}, URL: ${att.url}]`
+        ).join("\n");
+        
+        userContent = `${trimmedInput}\n\n${attachmentDescriptions}`;
+      }
+      
+      apiMessages.push({ role: "user", content: userContent });
       
       // Get user ID
       const { data: { user } } = await supabase.auth.getUser();
@@ -145,7 +165,10 @@ export const useMultiAgentChat = () => {
           messages: apiMessages,
           agentType: activeAgent,
           userId: user.id,
-          contextData: {}
+          contextData: {
+            hasAttachments: pendingAttachments.length > 0,
+            attachmentTypes: pendingAttachments.map(a => a.type)
+          }
         }
       });
       
@@ -211,6 +234,7 @@ export const useMultiAgentChat = () => {
   
   const clearChat = useCallback(() => {
     setMessages([]);
+    setPendingAttachments([]);
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -221,8 +245,11 @@ export const useMultiAgentChat = () => {
     isLoading,
     activeAgent,
     userCredits,
+    pendingAttachments,
     handleSubmit,
     switchAgent,
-    clearChat
+    clearChat,
+    addAttachments,
+    removeAttachment
   };
 };

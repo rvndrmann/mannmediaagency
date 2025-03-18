@@ -7,6 +7,7 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { Attachment } from "@/types/message";
 
 export const MultiAgentChat = () => {
   const {
@@ -16,9 +17,12 @@ export const MultiAgentChat = () => {
     isLoading,
     activeAgent,
     userCredits,
+    pendingAttachments,
     handleSubmit,
     switchAgent,
-    clearChat
+    clearChat,
+    addAttachments,
+    removeAttachment
   } = useMultiAgentChat();
   
   const navigate = useNavigate();
@@ -93,6 +97,10 @@ export const MultiAgentChat = () => {
           isLoading={isLoading}
           onInputChange={setInput}
           onSubmit={handleSubmit}
+          attachments={pendingAttachments}
+          onAttachmentAdd={addAttachments}
+          onAttachmentRemove={removeAttachment}
+          showAttachmentButton={true}
         />
       </div>
     </div>

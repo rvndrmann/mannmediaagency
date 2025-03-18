@@ -30,29 +30,45 @@ async function getAgentCompletion(
   // Set the system message based on agent type
   let systemMessage: AgentMessage;
   
+  const hasAttachments = contextData?.hasAttachments || false;
+  const attachmentTypes = contextData?.attachmentTypes || [];
+  
+  let attachmentContext = "";
+  if (hasAttachments) {
+    attachmentContext = "The user has shared some files with you. They are referenced in the user's message. ";
+    
+    if (attachmentTypes.includes("image")) {
+      attachmentContext += "For image files, look for the URL in the user's message. You can view these images and describe what you see or use them in your response. ";
+    }
+    
+    if (attachmentTypes.includes("file")) {
+      attachmentContext += "For document files, look for the URL in the user's message. You can reference the content or help analyze documents. ";
+    }
+  }
+  
   switch(agentType) {
     case "script":
       systemMessage = {
         role: "system",
-        content: "You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements."
+        content: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements. ${attachmentContext}`
       };
       break;
     case "image":
       systemMessage = {
         role: "system",
-        content: "You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation."
+        content: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation. ${attachmentContext}`
       };
       break;
     case "tool":
       systemMessage = {
         role: "system",
-        content: "You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. Available tools: image-to-image, image-to-video, product-shot-v1, product-shot-v2. Analyze the user request and respond with the recommended tool in this format: TOOL: [tool-name], PARAMETERS: [parameters JSON object]"
+        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. Available tools: image-to-image, image-to-video, product-shot-v1, product-shot-v2. Analyze the user request and respond with the recommended tool in this format: TOOL: [tool-name], PARAMETERS: [parameters JSON object]. ${attachmentContext}`
       };
       break;
     default: // main
       systemMessage = {
         role: "system",
-        content: "You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation."
+        content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. ${attachmentContext}`
       };
   }
   
@@ -92,7 +108,8 @@ async function logAgentInteraction(
   userId: string,
   agentType: string,
   userMessage: string,
-  assistantResponse: string
+  assistantResponse: string,
+  hasAttachments: boolean
 ) {
   try {
     const { error } = await supabase
@@ -102,6 +119,7 @@ async function logAgentInteraction(
         agent_type: agentType,
         user_message: userMessage,
         assistant_response: assistantResponse,
+        has_attachments: hasAttachments,
         timestamp: new Date().toISOString()
       });
       
@@ -138,6 +156,7 @@ serve(async (req) => {
     
     // Get user message (last message in the array)
     const userMessage = messages[messages.length - 1].content;
+    const hasAttachments = contextData?.hasAttachments || false;
     
     // Check credits before proceeding
     const { data: userCredits, error: creditsError } = await supabase
@@ -170,7 +189,7 @@ serve(async (req) => {
     const completion = await getAgentCompletion(messages, agentType, contextData);
     
     // Log the interaction
-    await logAgentInteraction(supabase, userId, agentType, userMessage, completion);
+    await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);
     
     // Return the response
     return new Response(

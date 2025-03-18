@@ -7,6 +7,16 @@ export interface Message {
   command?: Command;
   agentType?: "main" | "script" | "image" | "tool";
   selectedTool?: string;
+  attachments?: Attachment[];
+}
+
+export interface Attachment {
+  id: string;
+  type: "image" | "file";
+  url: string;
+  name: string;
+  size?: number;
+  contentType?: string;
 }
 
 export interface Task {

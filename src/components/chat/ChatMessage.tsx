@@ -4,6 +4,7 @@ import ReactMarkdown from "react-markdown";
 import { Message, Task } from "@/types/message";
 import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
 
 interface ChatMessageProps {
   message: Message;
@@ -43,6 +44,15 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
         <div className="mb-2 flex items-center gap-2 text-red-300">
           <AlertTriangle className="h-4 w-4" />
           <span className="text-sm font-medium">Error processing request</span>
+        </div>
+      )}
+      
+      {message.attachments && message.attachments.length > 0 && (
+        <div className="mb-3">
+          <AttachmentPreview 
+            attachments={message.attachments} 
+            isRemovable={false}
+          />
         </div>
       )}
       

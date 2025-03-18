@@ -16,6 +16,8 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
   const [inferenceSteps, setInferenceSteps] = useState(5);
   const [guidanceScale, setGuidanceScale] = useState(5);
   const [outputFormat, setOutputFormat] = useState("png");
+  const [productImages, setProductImages] = useState<any[]>([]);
+  const [imagesLoading, setImagesLoading] = useState(false);
 
   const handleFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
     if (event.target.files && event.target.files.length > 0) {
@@ -37,8 +39,8 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
     }
   };
 
-  const handleGenerate = async () => {
-    if (!productShotPrompt.trim() || !productShotPreview) {
+  const generateImage = async (prompt: string) => {
+    if (!prompt.trim() || !productShotPreview) {
       toast.error("Please provide both a prompt and an image");
       return;
     }
@@ -55,13 +57,13 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
       const { data: jobData, error: jobError } = await supabase
         .from("image_generation_jobs")
         .insert({
-          prompt: productShotPrompt,
+          prompt: prompt,
           source_image_url: productShotPreview,
           image_size: imageSize,
           inference_steps: inferenceSteps,
           guidance_scale: guidanceScale,
           output_format: outputFormat,
-          status: "in_queue",
+          status: "pending",
         })
         .select()
         .single();
@@ -74,7 +76,7 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
         {
           body: {
             job_id: jobData.id,
-            prompt: productShotPrompt,
+            prompt: prompt,
             image_url: productShotPreview,
             image_size: imageSize,
             inference_steps: inferenceSteps,
@@ -93,6 +95,10 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
     } finally {
       setIsGenerating(false);
     }
+  };
+
+  const handleGenerate = () => {
+    generateImage(productShotPrompt);
   };
 
   const downloadImage = async (url: string, filename: string) => {
@@ -121,6 +127,8 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
       guidanceScale,
       outputFormat,
       isGenerating,
+      productImages,
+      imagesLoading,
     },
     actions: {
       setProductShotPrompt,
@@ -132,6 +140,7 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
       setGuidanceScale,
       setOutputFormat,
       handleGenerate,
+      generateImage,
       downloadImage,
     },
   };

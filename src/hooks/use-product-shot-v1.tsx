@@ -55,7 +55,7 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
     try {
       // Insert a record in the database with correct schema
       const { data: jobData, error: jobError } = await supabase
-        .from("product_images")
+        .from("image_generation_jobs")
         .insert({
           prompt: prompt,
           settings: {
@@ -65,7 +65,8 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
             guidance_scale: guidanceScale,
             output_format: outputFormat
           },
-          status: "pending"
+          status: "pending",
+          user_id: (await supabase.auth.getUser()).data.user?.id
         })
         .select()
         .single();
@@ -77,7 +78,7 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
         "generate-product-image",
         {
           body: {
-            job_id: jobData.id,
+            job_id: jobData?.id,
             prompt: prompt,
             image_url: productShotPreview,
             image_size: imageSize,

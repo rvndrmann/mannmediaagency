@@ -67,7 +67,7 @@ export const productShotV1Tool: ToolDefinition = {
 
       // Insert a record in the database with correct schema
       const { data: jobData, error: jobError } = await supabase
-        .from("product_images")
+        .from("image_generation_jobs")
         .insert({
           prompt: params.prompt,
           settings: {
@@ -77,7 +77,8 @@ export const productShotV1Tool: ToolDefinition = {
             guidance_scale: params.guidanceScale || 5,
             output_format: params.outputFormat || "png"
           },
-          status: "pending"
+          status: "pending",
+          user_id: context.userId
         })
         .select()
         .single();
@@ -89,7 +90,7 @@ export const productShotV1Tool: ToolDefinition = {
         "generate-product-image",
         {
           body: {
-            job_id: jobData.id,
+            job_id: jobData?.id,
             prompt: params.prompt,
             image_url: imageUrl,
             image_size: params.imageSize || "square",
@@ -106,7 +107,7 @@ export const productShotV1Tool: ToolDefinition = {
         success: true,
         message: "Product shot generation started successfully. You'll be notified when it's ready.",
         data: {
-          jobId: jobData.id,
+          jobId: jobData?.id,
           status: "pending"
         }
       };

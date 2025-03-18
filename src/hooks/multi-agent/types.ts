@@ -43,3 +43,6 @@ export interface CommandExecutionState {
   endTime?: Date;
   error?: string;
 }
+
+// Task type with proper status enum values
+export type TaskStatus = "pending" | "in-progress" | "completed" | "error";

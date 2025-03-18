@@ -2,6 +2,6 @@
 {
   "imports": {
     "crypto": "https://deno.land/std@0.140.0/node/crypto.ts",
-    "playwright": "https://deno.land/x/playwright@v0.170.0/mod.ts"
+    "playwright": "https://deno.land/x/playwright@v0.3.4/mod.ts"
   }
 }

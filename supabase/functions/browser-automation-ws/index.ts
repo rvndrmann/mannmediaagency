@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
-import { chromium } from "playwright";
+import { chromium, devices } from "playwright";
 
 // Define API endpoints and environment variables
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -88,9 +88,11 @@ serve(async (req) => {
       // Navigate to initial page
       await page.goto("https://www.google.com");
       
-      // Take initial screenshot
+      // Take initial screenshot and convert it properly to base64
       const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-      const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
+      
+      // Convert the Uint8Array to a proper base64 string
+      const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode.apply(null, [...new Uint8Array(screenshot)]))}`;
       
       socket.send(JSON.stringify({
         type: "screenshot",
@@ -128,7 +130,8 @@ serve(async (req) => {
         if (message.type === "capture_screenshot") {
           try {
             const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-            const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
+            // Convert the Uint8Array to a proper base64 string
+            const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode.apply(null, [...new Uint8Array(screenshot)]))}`;
             
             socket.send(JSON.stringify({
               type: "screenshot",
@@ -212,7 +215,8 @@ serve(async (req) => {
             
             // Take a new screenshot after action
             const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-            const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
+            // Convert the Uint8Array to a proper base64 string
+            const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode.apply(null, [...new Uint8Array(screenshot)]))}`;
             
             socket.send(JSON.stringify({
               type: "screenshot",
@@ -236,7 +240,8 @@ serve(async (req) => {
             // Still try to get a screenshot if possible
             try {
               const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-              const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
+              // Convert the Uint8Array to a proper base64 string
+              const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode.apply(null, [...new Uint8Array(screenshot)]))}`;
               
               socket.send(JSON.stringify({
                 type: "screenshot",

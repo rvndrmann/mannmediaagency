@@ -1,9 +1,9 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useBrowserAutomationAdapter, BrowserAction, actionToJson, jsonToAction } from "./browser-automation-adapter";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { SUPABASE_URL } from "@/integrations/supabase/client";
 
 export type BrowserEnvironment = "browser";
 
@@ -36,10 +36,8 @@ export const useBrowserAutomation = () => {
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [browserSessionConnected, setBrowserSessionConnected] = useState<boolean>(false);
   
-  // Get the supabase project URL to create a websocket URL
-  const supabaseUrl = supabase.supabaseUrl;
-  // Create a WebSocket URL from the Supabase URL
-  const wsBaseUrl = supabaseUrl.replace('https://', 'wss://');
+  // Use the imported SUPABASE_URL constant instead of accessing supabase.supabaseUrl directly
+  const wsBaseUrl = SUPABASE_URL.replace('https://', 'wss://');
   
   const { 
     sendToBrowserAutomation, 

@@ -27,6 +27,7 @@ export interface BaseNavigationItem {
   subtext?: string;
   disabled?: boolean;
   comingSoon?: boolean;
+  current?: boolean;
 }
 
 export interface NavigationItemWithBadge extends BaseNavigationItem {

@@ -6,6 +6,7 @@ export interface Message {
   tasks?: Task[];
   command?: Command;
   agentType?: "main" | "script" | "image" | "tool";
+  selectedTool?: string;
 }
 
 export interface Task {

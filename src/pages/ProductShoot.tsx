@@ -47,7 +47,7 @@ const ProductShoot = () => {
   });
 
   // Use the same hook that's used in AIAgent
-  const { state: productShotState, actions: productShotActions } = useProductShotV1(userCredits || null);
+  const { state: productShotState, actions: productShotActions } = useProductShotV1(userCredits);
 
   const { data: images, isLoading: imagesLoading } = useQuery({
     queryKey: ["product-images"],

@@ -47,107 +47,53 @@ async function startNewSession(
     }
 
     // Make initial call to OpenAI
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    console.log("Making OpenAI API call with model: computer-use-preview");
+    const payload = {
+      model: "computer-use-preview",
+      tools: [{
+        type: "computer_use_preview",
+        display_width: 1024,
+        display_height: 768,
+        environment: environment
+      }],
+      input: [
+        {
+          role: "user",
+          content: taskDescription
+        }
+      ],
+      reasoning: {
+        generate_summary: "concise",
+      },
+      truncation: "auto"
+    };
+
+    // Add screenshot if available
+    if (screenshot) {
+      payload.input.push({
+        type: "input_image",
+        image_url: screenshot
+      });
+    }
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "OpenAI-Beta": "computer-use-tools=on"
       },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant capable of controlling computers. You're going to help the user perform tasks in a ${environment} environment. When you need to interact with the computer, use the available computer_use_tool.`
-          },
-          {
-            role: "user",
-            content: [
-              {
-                type: "text",
-                text: taskDescription
-              },
-              ...(screenshot ? [{
-                type: "image_url",
-                image_url: {
-                  url: screenshot
-                }
-              }] : [])
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "computer_use_tool",
-              description: "Perform actions on the computer",
-              parameters: {
-                type: "object",
-                properties: {
-                  action: {
-                    type: "object",
-                    properties: {
-                      type: {
-                        type: "string",
-                        enum: ["keypress", "click", "moveMouse", "scroll", "typeText"],
-                        description: "The type of action to perform"
-                      },
-                      x: {
-                        type: "number",
-                        description: "X coordinate for click or moveMouse actions"
-                      },
-                      y: {
-                        type: "number",
-                        description: "Y coordinate for click or moveMouse actions"
-                      },
-                      button: {
-                        type: "string",
-                        enum: ["left", "middle", "right"],
-                        description: "Mouse button to use for click action"
-                      },
-                      text: {
-                        type: "string",
-                        description: "Text to type for typeText action"
-                      },
-                      keys: {
-                        type: "array",
-                        items: {
-                          type: "string"
-                        },
-                        description: "Keys to press for keypress action"
-                      },
-                      scrollX: {
-                        type: "number",
-                        description: "Horizontal scroll amount"
-                      },
-                      scrollY: {
-                        type: "number",
-                        description: "Vertical scroll amount"
-                      }
-                    },
-                    required: ["type"]
-                  },
-                  reasoning: {
-                    type: "string",
-                    description: "Explanation of why this action is being performed"
-                  }
-                },
-                required: ["action", "reasoning"]
-              }
-            }
-          }
-        ],
-        tool_choice: "auto"
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const error = await response.json();
+      console.error("OpenAI API error:", error);
       throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
+    console.log("OpenAI response received:", JSON.stringify(data).substring(0, 200) + "...");
     
     // Process the response
     const output = processOpenAIResponse(data);
@@ -209,47 +155,47 @@ async function startNewSession(
 function processOpenAIResponse(data) {
   const output = [];
   
-  // Add any assistant text as a text item
-  if (data.choices[0].message?.content) {
+  // Handle reasoning (summary)
+  if (data.reasoning?.summary) {
     output.push({
-      type: "text",
-      text: data.choices[0].message.content
+      type: "reasoning",
+      id: `reasoning-${Date.now()}`,
+      summary: [
+        {
+          type: "summary_text",
+          text: data.reasoning.summary
+        }
+      ]
     });
   }
   
-  // Check for tool calls
-  if (data.choices[0].message?.tool_calls && data.choices[0].message.tool_calls.length > 0) {
-    const toolCall = data.choices[0].message.tool_calls[0];
-    
-    if (toolCall.function?.name === "computer_use_tool") {
-      try {
-        const args = JSON.parse(toolCall.function.arguments);
-        
-        // Add reasoning
-        if (args.reasoning) {
-          output.push({
-            type: "reasoning",
-            id: `reasoning-${Date.now()}`,
-            summary: [
-              {
-                type: "summary_text",
-                text: args.reasoning
-              }
-            ]
-          });
-        }
-        
-        // Add computer call
+  // Handle text messages
+  if (data.output) {
+    for (const item of data.output) {
+      if (item.type === "text") {
+        output.push({
+          type: "text",
+          text: item.text
+        });
+      } else if (item.type === "computer_interaction") {
+        // Convert OpenAI's computer_interaction to our computer_call format
         output.push({
           type: "computer_call",
           id: `call-${Date.now()}`,
-          call_id: toolCall.id,
-          action: args.action,
-          pending_safety_checks: [],
+          call_id: item.id || `interaction-${Date.now()}`,
+          action: {
+            type: item.action.type,
+            ...(item.action.x !== undefined && { x: item.action.x }),
+            ...(item.action.y !== undefined && { y: item.action.y }),
+            ...(item.action.button !== undefined && { button: item.action.button }),
+            ...(item.action.text !== undefined && { text: item.action.text }),
+            ...(item.action.keys !== undefined && { keys: item.action.keys }),
+            ...(item.action.scrollX !== undefined && { scrollX: item.action.scrollX }),
+            ...(item.action.scrollY !== undefined && { scrollY: item.action.scrollY }),
+          },
+          pending_safety_checks: item.pending_safety_checks || [],
           status: "completed"
         });
-      } catch (e) {
-        console.error("Error parsing tool call arguments:", e);
       }
     }
   }
@@ -308,107 +254,58 @@ async function continueSession(
     }
     
     // Make call to OpenAI
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
+    console.log("Making OpenAI API call for session continuation");
+    
+    const payload = {
+      model: "computer-use-preview",
+      tools: [{
+        type: "computer_use_preview",
+        display_width: 1024,
+        display_height: 768,
+        environment: sessionData.environment
+      }],
+      input: [
+        {
+          role: "user", 
+          content: `I've performed the action you requested. Here's what I see now.${currentUrl ? ` Current URL: ${currentUrl}` : ''}`
+        },
+        {
+          type: "input_image",
+          image_url: screenshot
+        }
+      ],
+      reasoning: {
+        generate_summary: "concise",
+      },
+      truncation: "auto"
+    };
+    
+    // Add acknowledged safety checks if any
+    if (acknowledgedSafetyChecks && acknowledgedSafetyChecks.length > 0) {
+      payload.input.push({
+        role: "user",
+        content: `I acknowledge the following safety concerns: ${acknowledgedSafetyChecks.map(check => check.message).join(', ')}`
+      });
+    }
+
+    const response = await fetch("https://api.openai.com/v1/responses", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "OpenAI-Beta": "computer-use-tools=on"
       },
-      body: JSON.stringify({
-        model: "gpt-4o",
-        messages: [
-          {
-            role: "system",
-            content: `You are an AI assistant capable of controlling computers. You're helping the user perform this task: "${sessionData.task_description}" in a ${sessionData.environment} environment. When you need to interact with the computer, use the available computer_use_tool.`
-          },
-          {
-            role: "user", 
-            content: [
-              {
-                type: "text",
-                text: `I've performed the action you requested. Here's what I see now.${currentUrl ? ` Current URL: ${currentUrl}` : ''}`
-              },
-              {
-                type: "image_url",
-                image_url: {
-                  url: screenshot
-                }
-              }
-            ]
-          }
-        ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "computer_use_tool",
-              description: "Perform actions on the computer",
-              parameters: {
-                type: "object",
-                properties: {
-                  action: {
-                    type: "object",
-                    properties: {
-                      type: {
-                        type: "string",
-                        enum: ["keypress", "click", "moveMouse", "scroll", "typeText"],
-                        description: "The type of action to perform"
-                      },
-                      x: {
-                        type: "number",
-                        description: "X coordinate for click or moveMouse actions"
-                      },
-                      y: {
-                        type: "number",
-                        description: "Y coordinate for click or moveMouse actions"
-                      },
-                      button: {
-                        type: "string",
-                        enum: ["left", "middle", "right"],
-                        description: "Mouse button to use for click action"
-                      },
-                      text: {
-                        type: "string",
-                        description: "Text to type for typeText action"
-                      },
-                      keys: {
-                        type: "array",
-                        items: {
-                          type: "string"
-                        },
-                        description: "Keys to press for keypress action"
-                      },
-                      scrollX: {
-                        type: "number",
-                        description: "Horizontal scroll amount"
-                      },
-                      scrollY: {
-                        type: "number",
-                        description: "Vertical scroll amount"
-                      }
-                    },
-                    required: ["type"]
-                  },
-                  reasoning: {
-                    type: "string",
-                    description: "Explanation of why this action is being performed"
-                  }
-                },
-                required: ["action", "reasoning"]
-              }
-            }
-          }
-        ],
-        tool_choice: "auto"
-      })
+      body: JSON.stringify(payload)
     });
 
     if (!response.ok) {
       const error = await response.json();
+      console.error("OpenAI API error:", error);
       throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
     }
 
     const data = await response.json();
+    console.log("OpenAI response received:", JSON.stringify(data).substring(0, 200) + "...");
     
     // Process the response
     const output = processOpenAIResponse(data);

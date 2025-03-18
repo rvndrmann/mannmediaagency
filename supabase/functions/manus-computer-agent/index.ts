@@ -116,9 +116,11 @@ serve(async (req) => {
     Based on the current state (URL and screenshot) and any previous actions, you should determine 
     the next step(s) to accomplish the task.
     
-    Respond with:
-    1. A brief reasoning explaining your thought process
-    2. A list of specific computer actions to take
+    IMPORTANT: You MUST respond with a valid JSON object containing these fields:
+    {
+      "reasoning": "your thought process explanation", 
+      "actions": [{"type": "action_type", ...action properties}]
+    }
     
     Only use the following action types:
     - click: Click at specific coordinates or on an element (provide x, y or selector)
@@ -126,6 +128,12 @@ serve(async (req) => {
     - navigate: Go to a URL (provide url)
     - press: Press specific keys (provide keys array)
     - select: Select an option from a dropdown (provide selector and value)
+    
+    If you're unable to perform the task or don't know what to do next, still respond with valid JSON:
+    {
+      "reasoning": "explanation of the limitation",
+      "actions": []
+    }
     
     Keep your actions concise and focused on the immediate next steps.`;
 
@@ -182,9 +190,13 @@ serve(async (req) => {
     messages.push({
       role: "user", 
       content: `Based on what you see, what actions should I take next to accomplish the task? 
-      Respond with a JSON object containing:
-      1. "reasoning": A string explaining your thought process
-      2. "actions": An array of action objects, each with "type" and other necessary properties`
+      IMPORTANT: You MUST respond with a valid JSON object containing:
+      {
+        "reasoning": "your detailed thought process",
+        "actions": [{"type": "action_type", ...other properties}]
+      }
+      
+      Even if you're unsure or can't complete the task, return a valid JSON with empty actions array.`
     });
 
     // Make request to OpenAI API
@@ -196,7 +208,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o", // Updated to use the correct model for vision
+        model: "gpt-4o", // Using the vision-enabled model
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000,
@@ -216,13 +228,46 @@ serve(async (req) => {
     
     // Parse response from OpenAI API
     const openAIResponse = await response.json();
+    
+    // Log the entire response for debugging
+    console.log("OpenAI API response:", JSON.stringify(openAIResponse, null, 2));
+    
     const responseContent = openAIResponse.choices[0].message.content;
+    console.log("Raw response content:", responseContent);
     
     // Parse the JSON response from the content
     let manusResponse: ManusResponse;
     try {
       // The response should be a valid JSON string now
-      const parsedContent = JSON.parse(responseContent);
+      let parsedContent;
+      
+      try {
+        parsedContent = JSON.parse(responseContent);
+      } catch (parseError) {
+        console.error("Failed to parse OpenAI response as JSON:", parseError);
+        console.log("Invalid JSON content:", responseContent);
+        
+        // Fallback with a safe default response if parsing fails
+        return new Response(
+          JSON.stringify({
+            reasoning: "Failed to parse AI response. The system encountered an error.",
+            actions: [],
+            error: "JSON parsing error: " + parseError.message
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Validate the structure of the parsed response
+      if (!parsedContent.reasoning) {
+        console.warn("Response missing reasoning field, adding default");
+        parsedContent.reasoning = "No reasoning provided";
+      }
+      
+      if (!Array.isArray(parsedContent.actions)) {
+        console.warn("Response has invalid or missing actions array, using empty array");
+        parsedContent.actions = [];
+      }
       
       manusResponse = {
         actions: parsedContent.actions || [],
@@ -237,7 +282,8 @@ serve(async (req) => {
       manusResponse.actions = manusResponse.actions.map(action => {
         // Ensure we have a valid action type
         if (!action.type) {
-          throw new Error("Action missing required 'type' property");
+          console.warn("Action missing required 'type' property, skipping");
+          return null;
         }
         
         // Return a cleansed action object
@@ -254,15 +300,15 @@ serve(async (req) => {
           ...(action.element !== undefined && { element: action.element }),
           ...(action.options !== undefined && { options: action.options })
         };
-      });
+      }).filter(action => action !== null);
       
     } catch (error) {
-      console.error("Error parsing OpenAI response:", error);
+      console.error("Error processing OpenAI response:", error);
       
       // Return a meaningful error response
       return new Response(
         JSON.stringify({ 
-          error: "Failed to parse OpenAI response", 
+          error: "Failed to process OpenAI response", 
           details: error.message,
           raw_response: responseContent 
         }),
@@ -298,7 +344,9 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ 
         error: error.message || "Internal server error",
-        stack: error.stack || null
+        stack: error.stack || null,
+        reasoning: "The system encountered an error processing your request",
+        actions: []
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

@@ -24,6 +24,7 @@ export interface ManusResponse {
     screenshot?: string;
     dom_state?: any;
   };
+  error?: string;
 }
 
 export interface ManusRequest {
@@ -47,21 +48,54 @@ export const useManusAdapter = () => {
       if (error) {
         console.error("Error calling Manus Computer Agent:", error);
         toast.error("Failed to connect to agent: " + error.message);
-        return null;
+        
+        // Return a fallback response with the error message
+        return {
+          actions: [],
+          reasoning: "Failed to connect to the AI agent. " + error.message,
+          error: error.message
+        };
       }
 
       if (!data) {
         console.error("No data returned from Manus Computer Agent");
         toast.error("No response from agent service");
-        return null;
+        
+        // Return a fallback response
+        return {
+          actions: [],
+          reasoning: "No response received from the AI agent service",
+          error: "Empty response"
+        };
       }
 
       console.log("Response from Manus:", JSON.stringify(data, null, 2));
-      return data as ManusResponse;
+      
+      // Validate the response structure
+      const response = data as ManusResponse;
+      
+      // If there's an error in the response, show it to the user
+      if (response.error) {
+        toast.error("Agent error: " + response.error);
+      }
+      
+      // Make sure actions is always an array
+      if (!Array.isArray(response.actions)) {
+        console.warn("Response actions is not an array, using empty array");
+        response.actions = [];
+      }
+      
+      return response;
     } catch (error) {
       console.error("Exception in Manus adapter:", error);
-      toast.error("Error connecting to Manus service");
-      return null;
+      toast.error("Error connecting to Manus service: " + (error instanceof Error ? error.message : String(error)));
+      
+      // Return a fallback response with the error
+      return {
+        actions: [],
+        reasoning: "An error occurred while connecting to the agent",
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
     }
   };
 

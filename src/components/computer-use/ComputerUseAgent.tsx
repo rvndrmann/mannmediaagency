@@ -1,4 +1,3 @@
-
 import { useState, useRef, useEffect } from "react";
 import { useComputerUseAgent } from "@/hooks/use-computer-use-agent";
 import { Button } from "@/components/ui/button";
@@ -18,7 +17,7 @@ import { Link } from "react-router-dom";
 
 export function ComputerUseAgent() {
   const {
-    taskDescription,
+    taskDescription, 
     setTaskDescription,
     environment,
     setEnvironment,
@@ -45,13 +44,11 @@ export function ComputerUseAgent() {
   const [browserWidth, setBrowserWidth] = useState(1024);
   const [browserHeight, setBrowserHeight] = useState(768);
   
-  // Helper to check if an action can be executed
   const canExecuteAction = () => {
     if (isProcessing) return false;
     return currentOutput.some(item => item.type === "computer_call");
   };
   
-  // Function to copy URL to clipboard
   const copyUrlToClipboard = () => {
     if (currentUrl) {
       navigator.clipboard.writeText(currentUrl);
@@ -59,41 +56,34 @@ export function ComputerUseAgent() {
     }
   };
   
-  // Start session with screenshot
   const handleStartSession = async () => {
-    // First capture a screenshot if in browser environment
     if (environment === "browser") {
       await captureScreenshot();
     }
     startSession();
   };
   
-  // Execute action with screenshot
   const handleExecuteAction = async () => {
-    // Capture screenshot before executing action
     if (environment === "browser") {
       await captureScreenshot();
     }
     executeAction();
   };
 
-  // Check if we should switch to the browser tab when a session is active
   useEffect(() => {
     if (sessionId && environment === "browser" && activeTab !== "browser") {
       setActiveTab("browser");
     }
   }, [sessionId, environment, activeTab]);
 
-  // Determine browser view dimensions based on available space
   useEffect(() => {
     if (browserViewRef.current) {
       const updateDimensions = () => {
         const container = browserViewRef.current?.parentElement;
         if (container) {
-          const availableWidth = container.clientWidth - 40; // Account for padding
+          const availableWidth = container.clientWidth - 40;
           const aspectRatio = 1920 / 1080;
           
-          // Calculate height based on available width and aspect ratio
           const calculatedHeight = availableWidth / aspectRatio;
           
           setBrowserWidth(availableWidth);
@@ -110,7 +100,6 @@ export function ComputerUseAgent() {
     }
   }, [browserViewRef.current]);
 
-  // Show auth alert if not logged in
   if (!isUserLoading && !user) {
     return (
       <div className="container mx-auto p-4 max-w-7xl">
@@ -346,7 +335,6 @@ export function ComputerUseAgent() {
                 </CardHeader>
                 <CardContent>
                   <div className="browser-view-container border rounded-lg bg-white overflow-hidden">
-                    {/* Browser chrome */}
                     <div className="border-b bg-gray-100 p-2 flex items-center space-x-2">
                       <div className="flex items-center space-x-1">
                         <div className="h-3 w-3 rounded-full bg-red-500"></div>
@@ -376,7 +364,6 @@ export function ComputerUseAgent() {
                       </Button>
                     </div>
                     
-                    {/* Browser content */}
                     <div 
                       ref={browserViewRef} 
                       className="overflow-auto p-0"
@@ -400,7 +387,6 @@ export function ComputerUseAgent() {
                             className="w-full h-auto"
                           />
                           
-                          {/* Overlay for showing pending actions */}
                           {isProcessing && (
                             <div className="absolute inset-0 bg-black/10 flex items-center justify-center">
                               <div className="bg-white p-4 rounded shadow-lg">
@@ -410,7 +396,6 @@ export function ComputerUseAgent() {
                             </div>
                           )}
                           
-                          {/* Visualize computer action (click, type, etc) */}
                           {currentOutput.find(item => item.type === "computer_call")?.action && (
                             <ActionVisualizer 
                               action={currentOutput.find(item => item.type === "computer_call")?.action} 
@@ -524,11 +509,9 @@ export function ComputerUseAgent() {
   );
 }
 
-// Component to visualize computer actions
 function ActionVisualizer({ action, containerWidth, containerHeight }) {
   if (!action) return null;
   
-  // For click actions, show a cursor
   if (action.type === 'click' && typeof action.x === 'number' && typeof action.y === 'number') {
     return (
       <div 
@@ -549,7 +532,6 @@ function ActionVisualizer({ action, containerWidth, containerHeight }) {
     );
   }
   
-  // For type actions, show a text input
   if (action.type === 'type' && action.text) {
     return (
       <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/80 text-white px-3 py-2 rounded-lg text-sm">
@@ -558,7 +540,6 @@ function ActionVisualizer({ action, containerWidth, containerHeight }) {
     );
   }
   
-  // For scroll actions, show a scroll indicator
   if (action.type === 'scroll' && (action.scrollX || action.scrollY)) {
     return (
       <div className="absolute bottom-4 right-4 bg-black/80 text-white px-3 py-2 rounded-lg text-sm">

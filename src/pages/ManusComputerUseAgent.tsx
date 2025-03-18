@@ -1,6 +1,6 @@
 
-import { ManusComputerAgent } from "@/components/computer-use/ManusComputerAgent";
+import { ComputerUseAgent } from "@/components/computer-use/ComputerUseAgent";
 
 export default function ManusComputerUseAgentPage() {
-  return <ManusComputerAgent />;
+  return <ComputerUseAgent />;
 }

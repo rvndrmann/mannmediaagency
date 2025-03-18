@@ -19,6 +19,7 @@ export const useComputerUseAgent = () => {
   const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [actionHistory, setActionHistory] = useState<any[]>([]);
   const [previousResponseId, setPreviousResponseId] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState<number>(0);
   
   // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -90,17 +91,21 @@ export const useComputerUseAgent = () => {
         useCORS: true,
         allowTaint: true,
         logging: false,
-        scale: 1,
+        scale: 1.5, // Increased scale for better quality
+        backgroundColor: '#FFFFFF',
       });
       
       // Convert to base64
       const dataUrl = canvas.toDataURL('image/png');
       console.log('Screenshot captured successfully');
+      setScreenshot(dataUrl);
       return dataUrl;
     } catch (error) {
       console.error('Error capturing screenshot:', error);
       // Return a placeholder/blank image as fallback
-      return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      const fallback = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+      setScreenshot(fallback);
+      return fallback;
     }
   }, []);
   
@@ -123,7 +128,6 @@ export const useComputerUseAgent = () => {
       let initialScreenshot = null;
       if (environment === "browser") {
         initialScreenshot = await captureScreenshot();
-        setScreenshot(initialScreenshot);
       }
       
       console.log("Sending initial request to Computer Use Agent");
@@ -145,6 +149,7 @@ export const useComputerUseAgent = () => {
       setSessionId(sessionId);
       setPreviousResponseId(responseId);
       setCurrentOutput(output);
+      setRetryCount(0);
       
       // Get call_id and pending_safety_checks
       const computerCall = output.find(item => item.type === "computer_call");
@@ -153,13 +158,20 @@ export const useComputerUseAgent = () => {
         setPendingSafetyChecks(computerCall.pending_safety_checks || []);
       }
       
-      // Decrease credits
       refetchCredits();
-      
       fetchActionHistory();
+      
+      toast.success("Session started successfully");
     } catch (error) {
       console.error("Error starting session:", error);
       toast.error(error instanceof Error ? error.message : "Failed to start session");
+      
+      // Reset state on error
+      setSessionId(null);
+      setPreviousResponseId(null);
+      setCurrentOutput([]);
+      setCurrentCallId(null);
+      setPendingSafetyChecks([]);
     } finally {
       setIsProcessing(false);
     }
@@ -176,7 +188,6 @@ export const useComputerUseAgent = () => {
     try {
       // Capture current screenshot
       const currentScreenshot = await captureScreenshot();
-      setScreenshot(currentScreenshot);
       
       console.log("Executing action:", currentCallId);
       console.log("Using previous response ID:", previousResponseId);
@@ -202,8 +213,9 @@ export const useComputerUseAgent = () => {
       
       setCurrentOutput(output);
       setPreviousResponseId(responseId);
+      setRetryCount(0);
       
-      // Get call_id and pending_safety_checks
+      // Get call_id and pending_safety_checks from the next action
       const computerCall = output.find(item => item.type === "computer_call");
       if (computerCall) {
         setCurrentCallId(computerCall.call_id);
@@ -212,16 +224,36 @@ export const useComputerUseAgent = () => {
         // If no more computer calls, we're done
         setCurrentCallId(null);
         setPendingSafetyChecks([]);
+        toast.success("Task completed successfully");
       }
       
       fetchActionHistory();
     } catch (error) {
       console.error("Error executing action:", error);
       toast.error(error instanceof Error ? error.message : "Failed to execute action");
+      
+      // If we have retries left, try again after a delay
+      if (retryCount < 3) {
+        setRetryCount(prev => prev + 1);
+        toast.info(`Retrying action... (Attempt ${retryCount + 1}/3)`);
+        setTimeout(() => {
+          executeAction();
+        }, 2000);
+        return;
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [sessionId, currentCallId, previousResponseId, pendingSafetyChecks, currentUrl, fetchActionHistory, captureScreenshot]);
+  }, [
+    sessionId, 
+    currentCallId, 
+    previousResponseId, 
+    pendingSafetyChecks, 
+    currentUrl, 
+    fetchActionHistory, 
+    captureScreenshot,
+    retryCount
+  ]);
   
   const clearSession = useCallback(() => {
     setSessionId(null);
@@ -232,10 +264,13 @@ export const useComputerUseAgent = () => {
     setActionHistory([]);
     setScreenshot(null);
     setPreviousResponseId(null);
+    setRetryCount(0);
+    toast.info("Session ended");
   }, []);
   
   const acknowledgeAllSafetyChecks = useCallback(() => {
     // This would be called when the user confirms all safety checks
+    toast.success("Safety checks acknowledged");
     executeAction();
   }, [executeAction]);
   

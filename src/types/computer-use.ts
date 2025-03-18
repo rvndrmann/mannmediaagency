@@ -8,6 +8,8 @@ export interface ComputerAction {
   keys?: string[];
   scrollX?: number;
   scrollY?: number;
+  url?: string;
+  element_id?: string;
 }
 
 export interface SafetyCheck {

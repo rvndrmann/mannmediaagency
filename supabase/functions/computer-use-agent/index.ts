@@ -56,8 +56,8 @@ async function startNewSession(
       model: "computer-use-preview",
       tools: [{
         type: "computer_use_preview",
-        display_width: 1024,
-        display_height: 768,
+        display_width: 1920, // Updated to 1920x1080 resolution
+        display_height: 1080,
         environment: environment
       }],
       input: [
@@ -205,6 +205,8 @@ function processOpenAIResponse(data: any) {
             ...(item.action.keys !== undefined && { keys: item.action.keys }),
             ...(item.action.scrollX !== undefined && { scrollX: item.action.scrollX }),
             ...(item.action.scrollY !== undefined && { scrollY: item.action.scrollY }),
+            ...(item.action.url !== undefined && { url: item.action.url }),
+            ...(item.action.element_id !== undefined && { element_id: item.action.element_id }),
           },
           pending_safety_checks: item.pending_safety_checks || [],
           status: "ready"
@@ -276,8 +278,8 @@ async function continueSession(
       previous_response_id: previousResponseId,
       tools: [{
         type: "computer_use_preview",
-        display_width: 1024,
-        display_height: 768,
+        display_width: 1920, // Updated to 1920x1080 resolution
+        display_height: 1080,
         environment: sessionData.environment
       }],
       input: [
@@ -452,6 +454,33 @@ serve(async (req) => {
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
+      
+      // Check if user has sufficient credits
+      const { data: userCredits, error: creditsError } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq("user_id", user.id)
+        .single();
+      
+      if (creditsError) {
+        return new Response(
+          JSON.stringify({ error: "Error fetching user credits" }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (!userCredits || userCredits.credits_remaining < 1) {
+        return new Response(
+          JSON.stringify({ error: "Insufficient credits. You need at least 1 credit to use the Computer Agent." }),
+          { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Deduct 1 credit for starting a new session
+      await supabase
+        .from("user_credits")
+        .update({ credits_remaining: userCredits.credits_remaining - 1 })
+        .eq("user_id", user.id);
       
       result = await startNewSession(
         request.taskDescription, 

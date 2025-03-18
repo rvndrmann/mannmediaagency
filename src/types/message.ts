@@ -8,6 +8,12 @@ export interface Message {
   agentType?: "main" | "script" | "image" | "tool";
   selectedTool?: string;
   attachments?: Attachment[];
+  handoffRequest?: HandoffRequest;
+}
+
+export interface HandoffRequest {
+  targetAgent: "main" | "script" | "image" | "tool";
+  reason: string;
 }
 
 export interface Attachment {

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -75,29 +76,44 @@ async function getAgentCompletion(
     toolsContext += "Only use tools when the user explicitly requests functionality that requires them. Otherwise, provide helpful information as normal.";
   }
   
+  // Add handoff capability to all agents
+  const handoffContext = `
+You can hand off the conversation to another specialized agent when appropriate. 
+Available agents:
+- main: General-purpose AI assistant for broad queries
+- script: Specialized in creating scripts, dialogue, and narrative content
+- image: Creates detailed prompts for AI image generation systems
+- tool: Helps users use tools like image-to-video conversion
+
+To hand off to another agent, use this format at the end of your response:
+HANDOFF: {agentType}, REASON: {short reason for handoff}
+
+Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
+`;
+  
   switch(agentType) {
     case "script":
       systemMessage = {
         role: "system",
-        content: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements. ${attachmentContext}`
+        content: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements. ${attachmentContext} ${handoffContext}`
       };
       break;
     case "image":
       systemMessage = {
         role: "system",
-        content: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation. ${attachmentContext}`
+        content: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation. ${attachmentContext} ${handoffContext}`
       };
       break;
     case "tool":
       systemMessage = {
         role: "system",
-        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. ${toolsContext} ${attachmentContext}`
+        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. ${toolsContext} ${attachmentContext} ${handoffContext}`
       };
       break;
     default: // main
       systemMessage = {
         role: "system",
-        content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. ${attachmentContext}`
+        content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. ${attachmentContext} ${handoffContext}`
       };
   }
   
@@ -130,6 +146,23 @@ async function getAgentCompletion(
     console.error(`Error in ${agentType} agent:`, error);
     throw error;
   }
+}
+
+function parseHandoffRequest(text: string): { targetAgent: string, reason: string } | null {
+  // Parse handoff format: HANDOFF: {agentType}, REASON: {reason}
+  const handoffMatch = text.match(/HANDOFF:\s*(\w+),\s*REASON:\s*(.+)$/im);
+  
+  if (handoffMatch) {
+    const targetAgent = handoffMatch[1].toLowerCase();
+    const reason = handoffMatch[2].trim();
+    
+    // Validate the agent type
+    if (['main', 'script', 'image', 'tool'].includes(targetAgent)) {
+      return { targetAgent, reason };
+    }
+  }
+  
+  return null;
 }
 
 async function logAgentInteraction(
@@ -217,6 +250,9 @@ serve(async (req) => {
     // Get response from OpenAI
     const completion = await getAgentCompletion(messages, agentType, contextData);
     
+    // Check if response contains a handoff request
+    const handoffRequest = parseHandoffRequest(completion);
+    
     // Log the interaction
     await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);
     
@@ -226,7 +262,8 @@ serve(async (req) => {
         completion,
         agentType,
         status: "completed",
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        handoffRequest
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

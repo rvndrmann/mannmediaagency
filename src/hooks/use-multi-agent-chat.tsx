@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentMessage, Message, Task, Attachment, Command } from "@/types/message";
+import { AgentMessage, Message, Task, Attachment, Command, HandoffRequest } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { ToolContext, ToolResult } from "./multi-agent/types";
@@ -161,6 +161,34 @@ export const useMultiAgentChat = () => {
     }
   };
   
+  const handleAgentHandoff = (handoffRequest: HandoffRequest) => {
+    if (!handoffRequest) return;
+    
+    // Create a handoff message
+    const handoffMessage: Message = {
+      role: "assistant",
+      content: `I'm transferring you to the ${handoffRequest.targetAgent} agent for better assistance. Reason: ${handoffRequest.reason}`,
+      status: "completed",
+      agentType: activeAgent,
+      tasks: [
+        {
+          id: uuidv4(),
+          name: `Transferring to ${handoffRequest.targetAgent} agent`,
+          status: "completed"
+        }
+      ]
+    };
+    
+    // Add the handoff message to the conversation
+    setMessages(prev => [...prev, handoffMessage]);
+    
+    // Switch the active agent
+    setActiveAgent(handoffRequest.targetAgent as AgentType);
+    
+    // Show notification to user
+    toast.info(`Transferred to ${handoffRequest.targetAgent} agent for better assistance.`);
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -244,7 +272,7 @@ export const useMultiAgentChat = () => {
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
       
       // Handle completed response
-      const { completion, status } = response.data;
+      const { completion, status, handoffRequest } = response.data;
       
       // For tool agent, try to parse and execute commands
       let finalContent = completion;
@@ -314,11 +342,17 @@ export const useMultiAgentChat = () => {
             ...newMessages[messageIndex],
             content: finalContent,
             status: "completed",
-            command: command
+            command: command,
+            handoffRequest: handoffRequest
           };
         }
         return newMessages;
       });
+      
+      // Handle agent handoff if present
+      if (handoffRequest) {
+        handleAgentHandoff(handoffRequest);
+      }
       
       // Refresh user credits
       refetchCredits();

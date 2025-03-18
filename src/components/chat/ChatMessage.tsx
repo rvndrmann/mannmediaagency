@@ -2,7 +2,7 @@
 import { Card } from "@/components/ui/card";
 import ReactMarkdown from "react-markdown";
 import { Message, Task } from "@/types/message";
-import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw } from "lucide-react";
+import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
 import { Badge } from "@/components/ui/badge";
@@ -34,6 +34,7 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
   const isUser = message.role === "user";
   const isAgent = message.role === "assistant" && message.agentType;
   const hasAttachments = message.attachments && message.attachments.length > 0;
+  const hasHandoffRequest = message.handoffRequest != null;
 
   return (
     <Card
@@ -100,6 +101,20 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
           {message.content}
         </ReactMarkdown>
       </div>
+
+      {hasHandoffRequest && (
+        <div className="mt-3 pt-2 border-t border-white/10 flex items-center gap-2 text-blue-300">
+          <ArrowRightLeft className="h-4 w-4" />
+          <span className="text-sm">
+            Transferring to{" "}
+            <Badge variant="outline" className="text-xs py-0 px-1 border-blue-400/30">
+              {message.handoffRequest?.targetAgent === "main" ? "Main Assistant" : 
+               message.handoffRequest?.targetAgent === "script" ? "Script Writer" : 
+               message.handoffRequest?.targetAgent === "image" ? "Image Prompt" : "Tool Orchestrator"}
+            </Badge>
+          </span>
+        </div>
+      )}
 
       {message.tasks && message.tasks.length > 0 && (
         <div className="mt-3 pt-3 border-t border-white/10">

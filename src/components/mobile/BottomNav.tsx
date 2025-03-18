@@ -1,5 +1,5 @@
 
-import { Bot, Compass, ScrollText, Settings, Package } from "lucide-react";
+import { Bot, Compass, ScrollText, Settings, Package, Users } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -13,7 +13,7 @@ const navItems = [
   },
   {
     label: "Multi-Agent",
-    icon: Bot,
+    icon: Users,
     href: "/multi-agent-chat"
   },
   {

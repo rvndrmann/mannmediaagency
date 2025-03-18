@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -17,7 +18,8 @@ import {
   VideoIcon,
   PlusSquare,
   LucideIcon,
-  Computer
+  Computer,
+  Users
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -154,6 +156,12 @@ export const Navigation = () => {
       subtext: "Intelligent Assistant",
       to: "/ai-agent",
       icon: Bot,
+    },
+    {
+      name: "Multi-Agent Chat",
+      subtext: "Advanced AI Collaboration",
+      to: "/multi-agent-chat",
+      icon: Users,
     },
     {
       name: "Custom Orders",

@@ -1,6 +1,6 @@
 
 import { useState, useRef, useEffect } from "react";
-import { ManusComputerAgent } from "./ManusComputerAgent";
+import { BrowserAutomationAgent } from "./BrowserAutomationAgent";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -57,7 +57,7 @@ export function ComputerUseAgent() {
           <AlertDescription>{errorMessage}</AlertDescription>
         </Alert>
       )}
-      <ManusComputerAgent />
+      <BrowserAutomationAgent />
     </div>
   );
 }

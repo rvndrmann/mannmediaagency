@@ -286,6 +286,80 @@ export type Database = {
           },
         ]
       }
+      browser_automation_actions: {
+        Row: {
+          action_details: Json
+          action_type: string
+          created_at: string
+          executed_at: string | null
+          id: string
+          reasoning: string | null
+          screenshot_url: string | null
+          session_id: string
+          status: string
+        }
+        Insert: {
+          action_details: Json
+          action_type: string
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reasoning?: string | null
+          screenshot_url?: string | null
+          session_id: string
+          status?: string
+        }
+        Update: {
+          action_details?: Json
+          action_type?: string
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reasoning?: string | null
+          screenshot_url?: string | null
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "browser_automation_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "browser_automation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      browser_automation_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          id: string
+          status: string
+          task_description: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          task_description: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          status?: string
+          task_description?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_usage: {
         Row: {
           created_at: string | null

@@ -47,36 +47,98 @@ async function startNewSession(
     }
 
     // Make initial call to OpenAI
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "computer-use-preview",
-        tools: [
+        model: "gpt-4o",
+        messages: [
           {
-            type: "computer_use_preview",
-            display_width: 1024,
-            display_height: 768,
-            environment: environment
-          }
-        ],
-        input: [
+            role: "system",
+            content: `You are an AI assistant capable of controlling computers. You're going to help the user perform tasks in a ${environment} environment. When you need to interact with the computer, use the available computer_use_tool.`
+          },
           {
             role: "user",
-            content: taskDescription
-          },
-          ...(screenshot ? [{
-            type: "input_image",
-            image_url: screenshot
-          }] : [])
+            content: [
+              {
+                type: "text",
+                text: taskDescription
+              },
+              ...(screenshot ? [{
+                type: "image_url",
+                image_url: {
+                  url: screenshot
+                }
+              }] : [])
+            ]
+          }
         ],
-        reasoning: {
-          generate_summary: "concise"
-        },
-        truncation: "auto"
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "computer_use_tool",
+              description: "Perform actions on the computer",
+              parameters: {
+                type: "object",
+                properties: {
+                  action: {
+                    type: "object",
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["keypress", "click", "moveMouse", "scroll", "typeText"],
+                        description: "The type of action to perform"
+                      },
+                      x: {
+                        type: "number",
+                        description: "X coordinate for click or moveMouse actions"
+                      },
+                      y: {
+                        type: "number",
+                        description: "Y coordinate for click or moveMouse actions"
+                      },
+                      button: {
+                        type: "string",
+                        enum: ["left", "middle", "right"],
+                        description: "Mouse button to use for click action"
+                      },
+                      text: {
+                        type: "string",
+                        description: "Text to type for typeText action"
+                      },
+                      keys: {
+                        type: "array",
+                        items: {
+                          type: "string"
+                        },
+                        description: "Keys to press for keypress action"
+                      },
+                      scrollX: {
+                        type: "number",
+                        description: "Horizontal scroll amount"
+                      },
+                      scrollY: {
+                        type: "number",
+                        description: "Vertical scroll amount"
+                      }
+                    },
+                    required: ["type"]
+                  },
+                  reasoning: {
+                    type: "string",
+                    description: "Explanation of why this action is being performed"
+                  }
+                },
+                required: ["action", "reasoning"]
+              }
+            }
+          }
+        ],
+        tool_choice: "auto"
       })
     });
 
@@ -87,44 +149,48 @@ async function startNewSession(
 
     const data = await response.json();
     
-    // Process the response and save actions
-    const computerCalls = data.output.filter((item: any) => item.type === "computer_call");
-    const reasoningItems = data.output.filter((item: any) => item.type === "reasoning");
+    // Process the response
+    const output = processOpenAIResponse(data);
     
-    if (computerCalls.length > 0) {
-      const computerCall = computerCalls[0];
-      const action = computerCall.action;
-      const pendingSafetyChecks = computerCall.pending_safety_checks || [];
+    // Save the first action if available
+    if (output.length > 0) {
+      const computerCall = output.find(item => item.type === "computer_call");
+      const reasoningItems = output.filter(item => item.type === "reasoning");
       
-      // Save the action to the database
-      const { data: actionData, error: actionError } = await supabase
-        .from('computer_automation_actions')
-        .insert({
-          session_id: session.id,
-          action_type: action.type,
-          action_details: action,
-          reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null
-        })
-        .select()
-        .single();
-      
-      if (actionError) {
-        throw new Error(`Error creating action: ${actionError.message}`);
-      }
-      
-      // Save any safety checks
-      for (const safetyCheck of pendingSafetyChecks) {
-        const { error: safetyCheckError } = await supabase
-          .from('computer_automation_safety_checks')
+      if (computerCall) {
+        const action = computerCall.action;
+        const pendingSafetyChecks = computerCall.pending_safety_checks || [];
+        
+        // Save the action to the database
+        const { data: actionData, error: actionError } = await supabase
+          .from('computer_automation_actions')
           .insert({
             session_id: session.id,
-            action_id: actionData.id,
-            check_type: safetyCheck.code,
-            check_message: safetyCheck.message
-          });
+            action_type: action.type,
+            action_details: action,
+            reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null
+          })
+          .select()
+          .single();
         
-        if (safetyCheckError) {
-          console.error(`Error creating safety check: ${safetyCheckError.message}`);
+        if (actionError) {
+          throw new Error(`Error creating action: ${actionError.message}`);
+        }
+        
+        // Save any safety checks
+        for (const safetyCheck of pendingSafetyChecks) {
+          const { error: safetyCheckError } = await supabase
+            .from('computer_automation_safety_checks')
+            .insert({
+              session_id: session.id,
+              action_id: actionData.id,
+              check_type: safetyCheck.code,
+              check_message: safetyCheck.message
+            });
+          
+          if (safetyCheckError) {
+            console.error(`Error creating safety check: ${safetyCheckError.message}`);
+          }
         }
       }
     }
@@ -132,12 +198,63 @@ async function startNewSession(
     return {
       sessionId: session.id,
       responseId: data.id,
-      output: data.output
+      output: output
     };
   } catch (error) {
     console.error("Error in startNewSession:", error);
     throw error;
   }
+}
+
+function processOpenAIResponse(data) {
+  const output = [];
+  
+  // Add any assistant text as a text item
+  if (data.choices[0].message?.content) {
+    output.push({
+      type: "text",
+      text: data.choices[0].message.content
+    });
+  }
+  
+  // Check for tool calls
+  if (data.choices[0].message?.tool_calls && data.choices[0].message.tool_calls.length > 0) {
+    const toolCall = data.choices[0].message.tool_calls[0];
+    
+    if (toolCall.function?.name === "computer_use_tool") {
+      try {
+        const args = JSON.parse(toolCall.function.arguments);
+        
+        // Add reasoning
+        if (args.reasoning) {
+          output.push({
+            type: "reasoning",
+            id: `reasoning-${Date.now()}`,
+            summary: [
+              {
+                type: "summary_text",
+                text: args.reasoning
+              }
+            ]
+          });
+        }
+        
+        // Add computer call
+        output.push({
+          type: "computer_call",
+          id: `call-${Date.now()}`,
+          call_id: toolCall.id,
+          action: args.action,
+          pending_safety_checks: [],
+          status: "completed"
+        });
+      } catch (e) {
+        console.error("Error parsing tool call arguments:", e);
+      }
+    }
+  }
+  
+  return output;
 }
 
 async function continueSession(
@@ -149,7 +266,7 @@ async function continueSession(
   supabase: any
 ) {
   try {
-    // First, get the previous response ID
+    // First, get the previous action
     const { data: actions, error: actionsError } = await supabase
       .from('computer_automation_actions')
       .select()
@@ -179,63 +296,111 @@ async function continueSession(
       console.error(`Error updating action: ${updateError.message}`);
     }
     
-    // Make call to OpenAI with computer_call_output
-    const requestBody: any = {
-      model: "computer-use-preview",
-      tools: [
-        {
-          type: "computer_use_preview",
-          display_width: 1024,
-          display_height: 768,
-          environment: actions[0].action_details.environment || "browser"
-        }
-      ],
-      input: [
-        {
-          call_id: callId,
-          type: "computer_call_output",
-          output: {
-            type: "input_image",
-            image_url: screenshot
-          }
-        }
-      ],
-      truncation: "auto"
-    };
-    
-    // Add currentUrl if provided
-    if (currentUrl) {
-      requestBody.input[0].current_url = currentUrl;
-    }
-    
-    // Add acknowledged safety checks if any
-    if (acknowledgedSafetyChecks && acknowledgedSafetyChecks.length > 0) {
-      requestBody.input[0].acknowledged_safety_checks = acknowledgedSafetyChecks;
+    // Get session details
+    const { data: sessionData, error: sessionError } = await supabase
+      .from('computer_automation_sessions')
+      .select('task_description, environment')
+      .eq('id', sessionId)
+      .single();
       
-      // Update the safety checks in the database
-      for (const check of acknowledgedSafetyChecks) {
-        const { error: updateCheckError } = await supabase
-          .from('computer_automation_safety_checks')
-          .update({
-            acknowledged: true,
-            acknowledged_at: new Date().toISOString(),
-            acknowledged_by: (await supabase.auth.getUser()).data.user.id
-          })
-          .eq('id', check.id);
-        
-        if (updateCheckError) {
-          console.error(`Error updating safety check: ${updateCheckError.message}`);
-        }
-      }
+    if (sessionError) {
+      throw new Error(`Error fetching session: ${sessionError.message}`);
     }
     
-    const response = await fetch("https://api.openai.com/v1/responses", {
+    // Make call to OpenAI
+    const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json"
       },
-      body: JSON.stringify(requestBody)
+      body: JSON.stringify({
+        model: "gpt-4o",
+        messages: [
+          {
+            role: "system",
+            content: `You are an AI assistant capable of controlling computers. You're helping the user perform this task: "${sessionData.task_description}" in a ${sessionData.environment} environment. When you need to interact with the computer, use the available computer_use_tool.`
+          },
+          {
+            role: "user", 
+            content: [
+              {
+                type: "text",
+                text: `I've performed the action you requested. Here's what I see now.${currentUrl ? ` Current URL: ${currentUrl}` : ''}`
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: screenshot
+                }
+              }
+            ]
+          }
+        ],
+        tools: [
+          {
+            type: "function",
+            function: {
+              name: "computer_use_tool",
+              description: "Perform actions on the computer",
+              parameters: {
+                type: "object",
+                properties: {
+                  action: {
+                    type: "object",
+                    properties: {
+                      type: {
+                        type: "string",
+                        enum: ["keypress", "click", "moveMouse", "scroll", "typeText"],
+                        description: "The type of action to perform"
+                      },
+                      x: {
+                        type: "number",
+                        description: "X coordinate for click or moveMouse actions"
+                      },
+                      y: {
+                        type: "number",
+                        description: "Y coordinate for click or moveMouse actions"
+                      },
+                      button: {
+                        type: "string",
+                        enum: ["left", "middle", "right"],
+                        description: "Mouse button to use for click action"
+                      },
+                      text: {
+                        type: "string",
+                        description: "Text to type for typeText action"
+                      },
+                      keys: {
+                        type: "array",
+                        items: {
+                          type: "string"
+                        },
+                        description: "Keys to press for keypress action"
+                      },
+                      scrollX: {
+                        type: "number",
+                        description: "Horizontal scroll amount"
+                      },
+                      scrollY: {
+                        type: "number",
+                        description: "Vertical scroll amount"
+                      }
+                    },
+                    required: ["type"]
+                  },
+                  reasoning: {
+                    type: "string",
+                    description: "Explanation of why this action is being performed"
+                  }
+                },
+                required: ["action", "reasoning"]
+              }
+            }
+          }
+        ],
+        tool_choice: "auto"
+      })
     });
 
     if (!response.ok) {
@@ -245,65 +410,69 @@ async function continueSession(
 
     const data = await response.json();
     
-    // Process the response and save actions
-    const computerCalls = data.output.filter((item: any) => item.type === "computer_call");
-    const reasoningItems = data.output.filter((item: any) => item.type === "reasoning");
+    // Process the response
+    const output = processOpenAIResponse(data);
     
-    if (computerCalls.length > 0) {
-      const computerCall = computerCalls[0];
-      const action = computerCall.action;
-      const pendingSafetyChecks = computerCall.pending_safety_checks || [];
+    // Save new action if available
+    if (output.length > 0) {
+      const computerCall = output.find(item => item.type === "computer_call");
+      const reasoningItems = output.filter(item => item.type === "reasoning");
       
-      // Save the action to the database
-      const { data: actionData, error: actionError } = await supabase
-        .from('computer_automation_actions')
-        .insert({
-          session_id: sessionId,
-          action_type: action.type,
-          action_details: action,
-          reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null
-        })
-        .select()
-        .single();
-      
-      if (actionError) {
-        throw new Error(`Error creating action: ${actionError.message}`);
-      }
-      
-      // Save any safety checks
-      for (const safetyCheck of pendingSafetyChecks) {
-        const { error: safetyCheckError } = await supabase
-          .from('computer_automation_safety_checks')
+      if (computerCall) {
+        const action = computerCall.action;
+        const pendingSafetyChecks = computerCall.pending_safety_checks || [];
+        
+        // Save the action to the database
+        const { data: actionData, error: actionError } = await supabase
+          .from('computer_automation_actions')
           .insert({
             session_id: sessionId,
-            action_id: actionData.id,
-            check_type: safetyCheck.code,
-            check_message: safetyCheck.message
-          });
+            action_type: action.type,
+            action_details: action,
+            reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null
+          })
+          .select()
+          .single();
         
-        if (safetyCheckError) {
-          console.error(`Error creating safety check: ${safetyCheckError.message}`);
+        if (actionError) {
+          throw new Error(`Error creating action: ${actionError.message}`);
         }
-      }
-    } else {
-      // If there are no more computer calls, mark the session as completed
-      const { error: sessionUpdateError } = await supabase
-        .from('computer_automation_sessions')
-        .update({
-          status: 'completed',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', sessionId);
-      
-      if (sessionUpdateError) {
-        console.error(`Error updating session: ${sessionUpdateError.message}`);
+        
+        // Save any safety checks
+        for (const safetyCheck of pendingSafetyChecks) {
+          const { error: safetyCheckError } = await supabase
+            .from('computer_automation_safety_checks')
+            .insert({
+              session_id: sessionId,
+              action_id: actionData.id,
+              check_type: safetyCheck.code,
+              check_message: safetyCheck.message
+            });
+          
+          if (safetyCheckError) {
+            console.error(`Error creating safety check: ${safetyCheckError.message}`);
+          }
+        }
+      } else {
+        // If there are no more computer calls, mark the session as completed
+        const { error: sessionUpdateError } = await supabase
+          .from('computer_automation_sessions')
+          .update({
+            status: 'completed',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', sessionId);
+        
+        if (sessionUpdateError) {
+          console.error(`Error updating session: ${sessionUpdateError.message}`);
+        }
       }
     }
 
     return {
       sessionId,
       responseId: data.id,
-      output: data.output
+      output
     };
   } catch (error) {
     console.error("Error in continueSession:", error);

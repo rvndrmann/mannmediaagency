@@ -12,11 +12,23 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useManusAgent } from "@/hooks/computer-use/use-manus-agent";
-import { Loader2, Send, Play, RotateCcw, Computer, Info, AlertCircle, ExternalLink, RefreshCw } from "lucide-react";
+import { 
+  Loader2, 
+  Send, 
+  Play, 
+  RotateCcw, 
+  Computer, 
+  Info, 
+  AlertCircle, 
+  ExternalLink, 
+  RefreshCw,
+  Lock,
+  Eye
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 export function ManusComputerAgent() {
   const { 
@@ -36,7 +48,10 @@ export function ManusComputerAgent() {
     captureScreenshot,
     currentUrl,
     setCurrentUrl,
-    error
+    error,
+    isEmbeddingBlocked,
+    setIsEmbeddingBlocked,
+    isLikelyToBlockIframe
   } = useManusAgent();
 
   const [activeTab, setActiveTab] = useState("browser");
@@ -45,6 +60,7 @@ export function ManusComputerAgent() {
   const [iframeError, setIframeError] = useState<string | null>(null);
   const [pageTitle, setPageTitle] = useState<string | null>(null);
   const [navigationAttempts, setNavigationAttempts] = useState<number>(0);
+  const [externalWindowOpened, setExternalWindowOpened] = useState(false);
   
   // Set up the browser environment
   useEffect(() => {
@@ -57,6 +73,17 @@ export function ManusComputerAgent() {
       }
     }
   }, [activeTab, setCurrentUrl]);
+  
+  // Pre-check URL for iframe compatibility before navigation
+  useEffect(() => {
+    if (currentUrl) {
+      const blocksIframe = isLikelyToBlockIframe(currentUrl);
+      if (blocksIframe && !isEmbeddingBlocked) {
+        console.log(`URL ${currentUrl} is likely to block iframe embedding`);
+        setIsEmbeddingBlocked(true);
+      }
+    }
+  }, [currentUrl, isLikelyToBlockIframe, isEmbeddingBlocked, setIsEmbeddingBlocked]);
   
   // Handle iframe navigation
   const handleIframeLoad = useCallback(() => {
@@ -80,6 +107,25 @@ export function ManusComputerAgent() {
           if (iframeTitle) {
             setPageTitle(iframeTitle);
             console.log("Page title:", iframeTitle);
+            
+            // Reset embedding blocked if we can get a title
+            if (isEmbeddingBlocked) {
+              setIsEmbeddingBlocked(false);
+            }
+          } else {
+            // If there's no title but we have content, check if it's empty
+            try {
+              const bodyContent = iframeWindow.document.body.innerHTML;
+              if (!bodyContent || bodyContent.trim() === "") {
+                console.log("Empty document body detected - possible iframe blocking");
+                setIsEmbeddingBlocked(true);
+                setIframeError("This site appears to block embedding in iframes. You can open it in a new tab instead.");
+              }
+            } catch (e) {
+              // If we can't access the body, it's likely CORS restrictions
+              console.log("Cannot access document body - possible CORS/iframe restriction");
+              setIsEmbeddingBlocked(true);
+            }
           }
           
           // Capture screenshot after page has loaded
@@ -87,11 +133,16 @@ export function ManusComputerAgent() {
         }
       } catch (e) {
         console.error("Error accessing iframe URL (this may be normal for cross-origin sites):", e);
+        // If we get a security error, it's likely a CORS issue from a site blocking iframe embedding
+        if (e instanceof DOMException && (e.name === "SecurityError" || e.name === "NotAllowedError")) {
+          setIsEmbeddingBlocked(true);
+          setIframeError("This site blocks iframe embedding due to security restrictions. You can open it in a new tab instead.");
+        }
         // Still try to capture screenshot even if we can't access the DOM
         setTimeout(captureScreenshot, 500);
       }
     }
-  }, [setCurrentUrl, captureScreenshot]);
+  }, [setCurrentUrl, captureScreenshot, isEmbeddingBlocked, setIsEmbeddingBlocked]);
   
   const handleIframeError = useCallback(() => {
     setIframeLoading(false);
@@ -114,9 +165,12 @@ export function ManusComputerAgent() {
     setIframeError("Failed to load the page. This may be due to security restrictions or the site blocking iframe embedding.");
     console.error("Iframe failed to load after retries:", currentUrl);
     
+    // Mark as embedding blocked
+    setIsEmbeddingBlocked(true);
+    
     // Still try to capture screenshot for AI analysis even if iframe fails
     setTimeout(captureScreenshot, 500);
-  }, [currentUrl, captureScreenshot, navigationAttempts]);
+  }, [currentUrl, captureScreenshot, navigationAttempts, setIsEmbeddingBlocked]);
   
   // Navigate to URL with validation and fallback
   const navigateToUrl = useCallback((url: string) => {
@@ -130,17 +184,57 @@ export function ManusComputerAgent() {
       navigateUrl = `https://${navigateUrl}`;
     }
     
+    // Check if this URL is likely to block iframe embedding
+    const likelyToBlock = isLikelyToBlockIframe(navigateUrl);
+    
+    if (likelyToBlock) {
+      // Ask user if they want to try iframe or open in new tab
+      const userChoice = window.confirm(
+        `${navigateUrl} is likely to block iframe embedding. \n\n` +
+        `Click OK to open in a new tab, or Cancel to try in iframe anyway.`
+      );
+      
+      if (userChoice) {
+        // Open in new tab as requested
+        window.open(navigateUrl, '_blank');
+        setExternalWindowOpened(true);
+        setCurrentUrl(navigateUrl);
+        
+        // Set iframe to a friendly fallback (Google)
+        if (browserViewRef.current && browserViewRef.current.src !== "https://www.google.com") {
+          browserViewRef.current.src = "https://www.google.com";
+        }
+        
+        setIsEmbeddingBlocked(true);
+        return;
+      }
+    }
+    
     // Reset error state and set loading
     setIframeError(null);
     setIframeLoading(true);
     setNavigationAttempts(0);
+    setIsEmbeddingBlocked(false);
+    setExternalWindowOpened(false);
     
     if (browserViewRef.current) {
       browserViewRef.current.src = navigateUrl;
       setCurrentUrl(navigateUrl);
       console.log("Navigating iframe to:", navigateUrl);
     }
-  }, [setCurrentUrl]);
+  }, [setCurrentUrl, setIsEmbeddingBlocked, isLikelyToBlockIframe]);
+  
+  // Open current URL in new tab
+  const openInNewTab = useCallback(() => {
+    if (currentUrl) {
+      window.open(currentUrl, '_blank');
+      setExternalWindowOpened(true);
+      
+      // Make sure the agent knows we've opened in a new tab
+      setIsEmbeddingBlocked(true);
+      toast.success("Opened in new tab");
+    }
+  }, [currentUrl, setIsEmbeddingBlocked]);
   
   // Take screenshot when needed
   const handleTakeScreenshot = useCallback(async () => {
@@ -155,11 +249,45 @@ export function ManusComputerAgent() {
   // Handle action execution effect
   useEffect(() => {
     // Look for navigate actions and execute them directly
-    if (currentActions.length > 0 && currentActions[0].type === "navigate" && currentActions[0].url) {
-      console.log("Executing navigate action:", currentActions[0].url);
-      navigateToUrl(currentActions[0].url);
+    if (currentActions.length > 0) {
+      const currentAction = currentActions[0];
+      
+      if (currentAction.type === "navigate" && currentAction.url) {
+        console.log("Executing navigate action:", currentAction.url);
+        
+        // Check if this URL is likely to block iframe embedding
+        const likelyToBlock = isLikelyToBlockIframe(currentAction.url);
+        
+        if (likelyToBlock && !isEmbeddingBlocked) {
+          // For URLs likely to block iframes, we'll convert to openNewTab
+          toast.info(`${currentAction.url} likely blocks iframe embedding. Opening in new tab instead.`);
+          window.open(currentAction.url, '_blank');
+          setExternalWindowOpened(true);
+          setCurrentUrl(currentAction.url);
+          setIsEmbeddingBlocked(true);
+          
+          // Still need to execute the action to progress
+          setTimeout(() => {
+            executeAction();
+          }, 500);
+        } else {
+          // For iframe-friendly URLs, navigate normally
+          navigateToUrl(currentAction.url);
+        }
+      } else if (currentAction.type === "openNewTab" && currentAction.url) {
+        console.log("Opening URL in new tab:", currentAction.url);
+        window.open(currentAction.url, '_blank');
+        setExternalWindowOpened(true);
+        setCurrentUrl(currentAction.url);
+        setIsEmbeddingBlocked(true);
+        
+        // We still need to execute the action formally to progress
+        setTimeout(() => {
+          executeAction();
+        }, 500);
+      }
     }
-  }, [currentActions, navigateToUrl]);
+  }, [currentActions, navigateToUrl, executeAction, isLikelyToBlockIframe, isEmbeddingBlocked, setIsEmbeddingBlocked]);
   
   // Retry navigation if needed
   const handleRetryNavigation = useCallback(() => {
@@ -167,13 +295,15 @@ export function ManusComputerAgent() {
       setIframeError(null);
       setIframeLoading(true);
       setNavigationAttempts(0);
+      setIsEmbeddingBlocked(false);
+      setExternalWindowOpened(false);
       
       if (browserViewRef.current) {
         browserViewRef.current.src = currentUrl;
         console.log("Retrying navigation to:", currentUrl);
       }
     }
-  }, [currentUrl]);
+  }, [currentUrl, setIsEmbeddingBlocked]);
   
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-[1400px] mx-auto">
@@ -192,6 +322,7 @@ export function ManusComputerAgent() {
             size="sm"
             onClick={handleTakeScreenshot}
           >
+            <Eye className="h-4 w-4 mr-2" />
             Take Screenshot
           </Button>
           <Button 
@@ -199,6 +330,7 @@ export function ManusComputerAgent() {
             size="sm" 
             onClick={clearSession}
           >
+            <RotateCcw className="h-4 w-4 mr-2" />
             Reset
           </Button>
         </div>
@@ -251,6 +383,31 @@ export function ManusComputerAgent() {
               </Alert>
             )}
             
+            {isEmbeddingBlocked && (
+              <Alert>
+                <Lock className="h-4 w-4" />
+                <AlertTitle>Iframe Embedding Blocked</AlertTitle>
+                <AlertDescription>
+                  {externalWindowOpened ? (
+                    "This site was opened in a new tab. The agent will continue to analyze screenshots and help guide your interaction."
+                  ) : (
+                    "This site is blocking iframe embedding. The agent can analyze the screenshot, but interactive actions may not work. Consider opening in a new tab."
+                  )}
+                </AlertDescription>
+                {!externalWindowOpened && (
+                  <Button 
+                    size="sm" 
+                    variant="outline" 
+                    className="mt-2"
+                    onClick={openInNewTab}
+                  >
+                    <ExternalLink className="h-4 w-4 mr-2" />
+                    Open in New Tab
+                  </Button>
+                )}
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Current Actions</h3>
               {currentActions.length > 0 ? (
@@ -260,17 +417,38 @@ export function ManusComputerAgent() {
                       <div className="font-medium">{formatAction(action)}</div>
                     </Card>
                   ))}
-                  <Button 
-                    onClick={executeAction}
-                    disabled={isProcessing || currentActions.length === 0}
-                    className="w-full"
-                  >
-                    {isProcessing ? (
-                      <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing</>
-                    ) : (
-                      <><Play className="h-4 w-4 mr-2" /> Execute Action</>
+                  <div className="flex gap-2">
+                    <Button 
+                      onClick={executeAction}
+                      disabled={isProcessing || currentActions.length === 0}
+                      className="flex-1"
+                    >
+                      {isProcessing ? (
+                        <><Loader2 className="h-4 w-4 animate-spin mr-2" /> Processing</>
+                      ) : (
+                        <><Play className="h-4 w-4 mr-2" /> Execute Action</>
+                      )}
+                    </Button>
+                    
+                    {currentActions.length > 0 && currentActions[0].type === "navigate" && currentActions[0].url && (
+                      <Button
+                        variant="outline"
+                        onClick={() => {
+                          if (currentActions[0].url) {
+                            window.open(currentActions[0].url, '_blank');
+                            setExternalWindowOpened(true);
+                            setIsEmbeddingBlocked(true);
+                            setTimeout(() => {
+                              executeAction();
+                            }, 500);
+                          }
+                        }}
+                        title="Open in new tab instead"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
                     )}
-                  </Button>
+                  </div>
                 </div>
               ) : (
                 <div className="text-sm text-gray-500 italic">
@@ -323,11 +501,7 @@ export function ManusComputerAgent() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={() => {
-                      if (currentUrl) {
-                        window.open(currentUrl, '_blank');
-                      }
-                    }}
+                    onClick={openInNewTab}
                     title="Open in new tab"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -356,9 +530,10 @@ export function ManusComputerAgent() {
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
                   <Alert variant="destructive" className="w-3/4 max-w-md">
                     <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Navigation Error</AlertTitle>
                     <AlertDescription>
                       {iframeError}
-                      <div className="mt-2 flex gap-2">
+                      <div className="mt-2 flex flex-wrap gap-2">
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -370,11 +545,7 @@ export function ManusComputerAgent() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={() => {
-                            if (currentUrl) {
-                              window.open(currentUrl, '_blank');
-                            }
-                          }}
+                          onClick={openInNewTab}
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open in new tab
@@ -384,9 +555,45 @@ export function ManusComputerAgent() {
                           size="sm"
                           onClick={handleTakeScreenshot}
                         >
-                          Take Screenshot Anyway
+                          Take Screenshot
+                        </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            setActiveTab("history");
+                          }}
+                        >
+                          View History
                         </Button>
                       </div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+              
+              {externalWindowOpened && !iframeError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
+                  <Alert className="w-3/4 max-w-md">
+                    <ExternalLink className="h-4 w-4" />
+                    <AlertTitle>External Window</AlertTitle>
+                    <AlertDescription>
+                      <p className="mb-2">
+                        The site has been opened in a new browser tab. Continue your task there, and then:
+                      </p>
+                      <ol className="list-decimal list-inside space-y-1 mb-4">
+                        <li>Take a screenshot here when you need the agent's help</li>
+                        <li>The agent will analyze the screenshot and suggest next steps</li>
+                        <li>Execute those steps in the external window</li>
+                      </ol>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleTakeScreenshot}
+                      >
+                        <Eye className="h-4 w-4 mr-2" />
+                        Take Screenshot Now
+                      </Button>
                     </AlertDescription>
                   </Alert>
                 </div>

@@ -18,6 +18,7 @@ interface ManusRequest {
   screenshot?: string;
   current_url?: string;
   previous_actions?: ManusAction[];
+  iframe_blocked?: boolean;
 }
 
 interface ManusAction {
@@ -117,7 +118,7 @@ serve(async (req) => {
     Based on the current state (URL and screenshot) and any previous actions, you should determine 
     the next step(s) to accomplish the task.
     
-    BROWSER LIMITATIONS: You are operating in a browser iframe which has certain limitations:
+    BROWSER LIMITATIONS: You are operating in a browser environment which has certain limitations:
     1. Many sites block iframe embedding through security policies (X-Frame-Options)
     2. You cannot access cross-origin DOM content due to CORS restrictions
     3. You are limited to simple navigation, form filling, and clicking actions
@@ -131,18 +132,29 @@ serve(async (req) => {
     DO NOT include any markdown formatting, explanations, or any text outside of the JSON structure.
     DO NOT wrap your response in code blocks or quotes. Just output pure JSON.
     
-    Only use the following action types:
+    Use the following action types:
     - click: Click at specific coordinates or on an element (provide x, y or selector)
     - type: Type text (provide text)
-    - navigate: Go to a URL (provide url) - IMPORTANT: This is the most reliable action type since it directly controls the iframe src
+    - navigate: Go to a URL (provide url) - Use for iframe navigation
     - press: Press specific keys (provide keys array)
     - select: Select an option from a dropdown (provide selector and value)
+    - openNewTab: Open a URL in a new tab (provide url) - Use when a site likely blocks iframe embedding
     
-    IMPORTANT NAVIGATION TIPS:
-    - If a site doesn't load in the iframe, suggest navigating to an alternative site that allows iframe embedding
+    IMPORTANT NAVIGATION GUIDELINES:
+    ${requestData.iframe_blocked ? 
+      `- The current site is detected as blocking iframe embedding. You should use "openNewTab" action instead of "navigate" 
+      for this site and similar sites (e-commerce, social media, productivity apps).` : 
+      `- If you see a blank or white page in the screenshot, the site is likely blocking iframe embedding. 
+      In this case, recommend using "openNewTab" instead of "navigate".`}
+    
     - Google, Bing, DuckDuckGo, Wikipedia and many government/educational sites typically work well in iframes
-    - For e-commerce, content sites, or social media, they often block iframe embedding
-    - If you see a blank page, it likely means the site has blocked iframe embedding
+    - Social media, e-commerce, and productivity sites (like Canva, Facebook, Amazon) typically block iframe embedding
+    - When in doubt about whether a site works in iframes, use "openNewTab" action
+    
+    DETECTION STRATEGIES:
+    - If the screenshot shows a completely blank/white page, the site is likely blocking iframe embedding
+    - If you see any security error messages or "Refused to connect" messages, use "openNewTab" 
+    - If the previous navigation action seemed to fail (same blank screen), suggest opening in a new tab
     
     If you're unable to perform the task or don't know what to do next, still respond with valid JSON:
     {
@@ -159,6 +171,10 @@ serve(async (req) => {
     
     if (requestData.current_url) {
       userMessage += `URL: ${requestData.current_url}\n`;
+    }
+    
+    if (requestData.iframe_blocked) {
+      userMessage += `IMPORTANT: The current site appears to be blocking iframe embedding. You should use "openNewTab" action instead of "navigate" for this site.\n`;
     }
     
     if (requestData.screenshot) {
@@ -206,10 +222,22 @@ serve(async (req) => {
       messages.push({ 
         role: "user", 
         content: `Analyze the screenshot carefully. 
-        - If you see an empty or blank page, the site likely blocks iframe embedding.
+        - If you see an empty or blank white page, the site likely blocks iframe embedding. Suggest "openNewTab" action instead.
         - If you see error messages, read and interpret them.
         - Pay attention to form elements, buttons, and interactive elements.
-        - Note any visible text content that might help complete the task.`
+        - Note any visible text content that might help complete the task.
+        - Determine if the page seems to be loading correctly or if it appears to be blocked/empty.`
+      });
+    }
+    
+    // Add explicit iframe blocking detection prompt
+    if (requestData.iframe_blocked) {
+      messages.push({
+        role: "user",
+        content: `Based on the status, this site is blocking iframe embedding. Consider:
+        1. Recommend opening this site in a new tab with "openNewTab" action
+        2. Suggest alternative sites that typically work in iframes
+        3. Provide a reasoning that explains the iframe limitation to the user`
       });
     }
     
@@ -325,7 +353,7 @@ serve(async (req) => {
         }
       };
       
-      // Validate that the actions have the correct structure
+      // Validate and enhance action types
       manusResponse.actions = manusResponse.actions.map(action => {
         // Ensure we have a valid action type
         if (!action.type) {
@@ -333,8 +361,14 @@ serve(async (req) => {
           return null;
         }
         
-        // Special handling for navigate actions - ensure URL is valid
-        if (action.type === "navigate" && action.url) {
+        // If iframe is blocked, convert navigate actions to openNewTab
+        if (requestData.iframe_blocked && action.type === "navigate" && action.url) {
+          console.log("Converting navigate action to openNewTab due to iframe blocking");
+          action.type = "openNewTab";
+        }
+        
+        // Special handling for navigate and openNewTab actions - ensure URL is valid
+        if ((action.type === "navigate" || action.type === "openNewTab") && action.url) {
           try {
             // Normalize URL
             if (!/^https?:\/\//i.test(action.url)) {
@@ -345,7 +379,7 @@ serve(async (req) => {
             new URL(action.url);
           } catch (e) {
             // If URL is invalid, convert to a Google search
-            console.warn("Invalid URL in navigate action, converting to search:", action.url);
+            console.warn("Invalid URL in action, converting to search:", action.url);
             action.url = `https://www.google.com/search?q=${encodeURIComponent(action.url)}`;
           }
         }

@@ -33,6 +33,7 @@ export interface ManusRequest {
   screenshot?: string;
   current_url?: string;
   previous_actions?: ManusAction[];
+  iframe_blocked?: boolean;
 }
 
 // Helper to convert ManusAction to Json compatible object
@@ -101,12 +102,116 @@ export const normalizeUrl = (url: string): string => {
   }
 };
 
+// Check if a domain is likely to block iframe embedding
+export const isLikelyToBlockIframe = (url: string): boolean => {
+  try {
+    const urlObj = new URL(normalizeUrl(url));
+    const domain = urlObj.hostname.toLowerCase();
+    
+    // List of domains known to frequently block iframe embedding
+    const blockedDomains = [
+      'facebook.com', 'www.facebook.com',
+      'amazon.com', 'www.amazon.com',
+      'netflix.com', 'www.netflix.com',
+      'twitter.com', 'www.twitter.com', 'x.com', 'www.x.com',
+      'instagram.com', 'www.instagram.com',
+      'linkedin.com', 'www.linkedin.com',
+      'canva.com', 'www.canva.com',
+      'figma.com', 'www.figma.com',
+      'youtube.com', 'www.youtube.com',
+      'spotify.com', 'www.spotify.com',
+      'airbnb.com', 'www.airbnb.com',
+      'notion.so', 'www.notion.so',
+      'slack.com', 'www.slack.com',
+      'microsoft.com', 'www.microsoft.com',
+      'office.com', 'www.office.com',
+      'apple.com', 'www.apple.com',
+      'dropbox.com', 'www.dropbox.com',
+      'zoom.us', 'www.zoom.us',
+      'shopify.com', 'www.shopify.com',
+      'pinterest.com', 'www.pinterest.com',
+      'ebay.com', 'www.ebay.com'
+    ];
+    
+    // Check if the domain matches any known blocked domain
+    return blockedDomains.some(blocked => 
+      domain === blocked || domain.endsWith('.' + blocked)
+    );
+  } catch (error) {
+    console.error("Error checking domain blocking:", error);
+    return false;
+  }
+};
+
+// Check if a domain is likely to support iframe embedding
+export const isSupportedForIframe = (url: string): boolean => {
+  try {
+    const urlObj = new URL(normalizeUrl(url));
+    const domain = urlObj.hostname.toLowerCase();
+    
+    // List of domains known to generally work in iframes
+    const supportedDomains = [
+      'google.com', 'www.google.com',
+      'bing.com', 'www.bing.com',
+      'duckduckgo.com', 'www.duckduckgo.com',
+      'wikipedia.org', 'www.wikipedia.org',
+      'wikimedia.org',
+      'github.io',
+      'netlify.app',
+      'vercel.app',
+      'stackblitz.com',
+      'codepen.io',
+      'jsfiddle.net',
+      'plnkr.co',
+      'replit.com',
+      'lovable.app'
+    ];
+    
+    // Check if the domain matches any supported domain
+    return supportedDomains.some(supported => 
+      domain === supported || domain.endsWith('.' + supported)
+    );
+  } catch (error) {
+    console.error("Error checking domain support:", error);
+    return false;
+  }
+};
+
+// Analyze DOM content to detect iframe blocking
+export const detectIframeBlocking = (domContent: string): boolean => {
+  if (!domContent) return false;
+  
+  const lowerContent = domContent.toLowerCase();
+  
+  // Common patterns in X-Frame-Options or CSP error messages
+  const blockingPatterns = [
+    'refused to connect',
+    'x-frame-options',
+    'content security policy',
+    'frame-ancestors',
+    'cannot be displayed in a frame',
+    'security error',
+    'access to the resource has been blocked'
+  ];
+  
+  return blockingPatterns.some(pattern => lowerContent.includes(pattern));
+};
+
 export const useManusAdapter = () => {
   const sendToManus = async (request: ManusRequest): Promise<ManusResponse | null> => {
     try {
       // Normalize URL if present
       if (request.current_url) {
         request.current_url = normalizeUrl(request.current_url);
+      }
+      
+      // Check if URL is likely to block iframe embedding
+      if (request.current_url && !request.iframe_blocked) {
+        const likelyToBlock = isLikelyToBlockIframe(request.current_url);
+        if (likelyToBlock) {
+          console.log(`URL ${request.current_url} is likely to block iframe embedding`);
+          request.iframe_blocked = true;
+        }
       }
       
       console.log("Sending request to Manus:", JSON.stringify(request, null, 2));
@@ -158,7 +263,7 @@ export const useManusAdapter = () => {
       
       // For navigate actions, normalize URLs
       response.actions = response.actions.map(action => {
-        if (action.type === 'navigate' && action.url) {
+        if ((action.type === 'navigate' || action.type === 'openNewTab') && action.url) {
           return {
             ...action,
             url: normalizeUrl(action.url)
@@ -166,6 +271,21 @@ export const useManusAdapter = () => {
         }
         return action;
       });
+      
+      // Handle iframe restriction automatically
+      if (request.iframe_blocked && response.actions.length > 0) {
+        response.actions = response.actions.map(action => {
+          // Convert navigate actions to openNewTab if iframe is blocked
+          if (action.type === 'navigate' && action.url) {
+            console.log(`Converting navigate to openNewTab due to iframe restrictions for URL: ${action.url}`);
+            return {
+              ...action,
+              type: 'openNewTab'
+            };
+          }
+          return action;
+        });
+      }
       
       return response;
     } catch (error) {
@@ -189,6 +309,8 @@ export const useManusAdapter = () => {
         return `Type: "${action.text}"`;
       case "navigate":
         return `Navigate to: ${action.url}`;
+      case "openNewTab":
+        return `Open in new tab: ${action.url}`;
       case "press":
         return `Press keys: ${action.keys?.join(' + ')}`;
       case "select":
@@ -203,6 +325,9 @@ export const useManusAdapter = () => {
     formatAction,
     actionToJson,
     jsonToAction,
-    normalizeUrl
+    normalizeUrl,
+    isLikelyToBlockIframe,
+    isSupportedForIframe,
+    detectIframeBlocking
   };
 };

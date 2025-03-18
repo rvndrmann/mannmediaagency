@@ -36,8 +36,17 @@ export const useManusAgent = () => {
   const [reasoning, setReasoning] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
+  const [isEmbeddingBlocked, setIsEmbeddingBlocked] = useState<boolean>(false);
   
-  const { sendToManus, formatAction, actionToJson, jsonToAction, normalizeUrl } = useManusAdapter();
+  const { 
+    sendToManus, 
+    formatAction, 
+    actionToJson, 
+    jsonToAction, 
+    normalizeUrl, 
+    isSupportedForIframe,
+    isLikelyToBlockIframe 
+  } = useManusAdapter();
   
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -183,11 +192,16 @@ export const useManusAgent = () => {
         throw new Error(sessionError.message);
       }
       
+      // Check if the URL is known to be iframe-friendly or likely to block
+      const urlSupportsIframe = currentUrl ? isSupportedForIframe(currentUrl) : true;
+      const urlLikelyToBlock = currentUrl ? isLikelyToBlockIframe(currentUrl) : false;
+      
       const manusResponse = await sendToManus({
         task: taskDescription,
         environment: environment,
         screenshot: initialScreenshot || undefined,
-        current_url: currentUrl ? normalizeUrl(currentUrl) : undefined
+        current_url: currentUrl ? normalizeUrl(currentUrl) : undefined,
+        iframe_blocked: isEmbeddingBlocked || urlLikelyToBlock || !urlSupportsIframe
       });
       
       if (!manusResponse) {
@@ -195,11 +209,26 @@ export const useManusAgent = () => {
       }
       
       setSessionId(sessionData.id);
-      setCurrentActions(manusResponse.actions || []);
+      
+      // If we know iframe embedding is blocked, consider converting navigate actions to openNewTab
+      let adaptedActions = manusResponse.actions || [];
+      if ((isEmbeddingBlocked || urlLikelyToBlock) && adaptedActions.length > 0) {
+        adaptedActions = adaptedActions.map(action => {
+          if (action.type === "navigate" && action.url) {
+            return {
+              ...action,
+              type: "openNewTab"
+            };
+          }
+          return action;
+        });
+      }
+      
+      setCurrentActions(adaptedActions);
       setReasoning(manusResponse.reasoning || "");
       
-      if (manusResponse.actions && manusResponse.actions.length > 0) {
-        for (const action of manusResponse.actions) {
+      if (adaptedActions.length > 0) {
+        for (const action of adaptedActions) {
           await supabase
             .from("manus_action_history")
             .insert({
@@ -244,7 +273,10 @@ export const useManusAgent = () => {
     fetchActionHistory, 
     refetchCredits,
     actionToJson,
-    normalizeUrl
+    normalizeUrl,
+    isEmbeddingBlocked,
+    isSupportedForIframe,
+    isLikelyToBlockIframe
   ]);
   
   const executeAction = useCallback(async () => {
@@ -258,12 +290,22 @@ export const useManusAgent = () => {
     try {
       const actionToExecute = currentActions[0];
       
-      // Handle navigate actions directly in UI layer
-      if (actionToExecute.type === "navigate" && actionToExecute.url) {
-        console.log("Navigation action will be handled by the UI:", actionToExecute.url);
+      // Handle navigate and openNewTab actions directly in UI layer
+      if ((actionToExecute.type === "navigate" || actionToExecute.type === "openNewTab") && actionToExecute.url) {
+        console.log(`${actionToExecute.type} action will be handled by the UI:`, actionToExecute.url);
         const normalizedUrl = normalizeUrl(actionToExecute.url);
-        setCurrentUrl(normalizedUrl);
-        // The UI component will use this URL to update the iframe
+        
+        if (actionToExecute.type === "navigate") {
+          // Check if URL is likely to block iframe embedding
+          const likelyToBlock = isLikelyToBlockIframe(normalizedUrl);
+          if (likelyToBlock && !isEmbeddingBlocked) {
+            console.log(`URL ${normalizedUrl} is likely to block iframe embedding, setting flag`);
+            setIsEmbeddingBlocked(true);
+          }
+          
+          setCurrentUrl(normalizedUrl);
+        }
+        // The UI component will use this URL to update the iframe or open in new tab
       }
       
       // Wait a moment to ensure UI updates have been applied
@@ -310,23 +352,42 @@ export const useManusAgent = () => {
         // Take a fresh screenshot after navigation
         const navigationScreenshot = await captureScreenshot();
         
+        // Check URL iframe compatibility for next actions
+        const urlSupportsIframe = updatedUrl ? isSupportedForIframe(updatedUrl) : true;
+        const urlLikelyToBlock = updatedUrl ? isLikelyToBlockIframe(updatedUrl) : false;
+        
         const manusResponse = await sendToManus({
           task: taskDescription,
           environment: environment,
           screenshot: navigationScreenshot || currentScreenshot || undefined,
           current_url: updatedUrl ? normalizeUrl(updatedUrl) : undefined,
-          previous_actions: [actionToExecute]
+          previous_actions: [actionToExecute],
+          iframe_blocked: isEmbeddingBlocked || urlLikelyToBlock || !urlSupportsIframe
         });
         
         if (!manusResponse) {
           throw new Error("Failed to get response from Manus API");
         }
         
-        setCurrentActions(manusResponse.actions || []);
+        // If we know iframe embedding is blocked, consider converting navigate actions to openNewTab
+        let adaptedActions = manusResponse.actions || [];
+        if ((isEmbeddingBlocked || urlLikelyToBlock) && adaptedActions.length > 0) {
+          adaptedActions = adaptedActions.map(action => {
+            if (action.type === "navigate" && action.url) {
+              return {
+                ...action,
+                type: "openNewTab"
+              };
+            }
+            return action;
+          });
+        }
+        
+        setCurrentActions(adaptedActions);
         setReasoning(manusResponse.reasoning || "");
         
-        if (manusResponse.actions && manusResponse.actions.length > 0) {
-          for (const action of manusResponse.actions) {
+        if (adaptedActions.length > 0) {
+          for (const action of adaptedActions) {
             await supabase
               .from("manus_action_history")
               .insert({
@@ -400,7 +461,10 @@ export const useManusAgent = () => {
     fetchActionHistory,
     actionToJson,
     normalizeUrl,
-    retryCount
+    retryCount,
+    isEmbeddingBlocked,
+    isSupportedForIframe,
+    isLikelyToBlockIframe
   ]);
   
   const clearSession = useCallback(() => {
@@ -412,6 +476,7 @@ export const useManusAgent = () => {
     setError(null);
     setCurrentUrl("https://www.google.com");
     setRetryCount(0);
+    setIsEmbeddingBlocked(false);
     toast.info("Session ended");
   }, []);
   
@@ -441,6 +506,9 @@ export const useManusAgent = () => {
     captureScreenshot,
     reasoning,
     error,
-    formatAction
+    formatAction,
+    isEmbeddingBlocked,
+    setIsEmbeddingBlocked,
+    isLikelyToBlockIframe
   };
 };

@@ -882,6 +882,86 @@ export type Database = {
         }
         Relationships: []
       }
+      manus_action_history: {
+        Row: {
+          action: Json
+          created_at: string
+          executed_at: string | null
+          id: string
+          reasoning: string | null
+          screenshot: string | null
+          session_id: string
+          status: string
+        }
+        Insert: {
+          action: Json
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reasoning?: string | null
+          screenshot?: string | null
+          session_id: string
+          status?: string
+        }
+        Update: {
+          action?: Json
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reasoning?: string | null
+          screenshot?: string | null
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "manus_action_history_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "manus_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      manus_sessions: {
+        Row: {
+          api_key: string | null
+          completed_at: string | null
+          created_at: string
+          current_url: string | null
+          environment: string
+          id: string
+          status: string
+          task: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          api_key?: string | null
+          completed_at?: string | null
+          created_at?: string
+          current_url?: string | null
+          environment: string
+          id?: string
+          status?: string
+          task: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          api_key?: string | null
+          completed_at?: string | null
+          created_at?: string
+          current_url?: string | null
+          environment?: string
+          id?: string
+          status?: string
+          task?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       oauth_states: {
         Row: {
           created_at: string

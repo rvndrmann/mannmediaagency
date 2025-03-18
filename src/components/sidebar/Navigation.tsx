@@ -17,6 +17,7 @@ import {
   VideoIcon,
   PlusSquare,
   LucideIcon,
+  Computer
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -176,6 +177,12 @@ export const Navigation = () => {
       name: "Profile Settings",
       to: "/profile",
       icon: User,
+    },
+    {
+      name: "Computer Use Agent",
+      href: "/computer-use-agent",
+      icon: Computer,
+      current: location.pathname === "/computer-use-agent",
     },
   ];
 

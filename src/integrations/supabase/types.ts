@@ -313,6 +313,134 @@ export type Database = {
         }
         Relationships: []
       }
+      computer_automation_actions: {
+        Row: {
+          action_details: Json
+          action_type: string
+          created_at: string
+          executed_at: string | null
+          id: string
+          reasoning: string | null
+          screenshot_url: string | null
+          session_id: string
+          status: string
+        }
+        Insert: {
+          action_details: Json
+          action_type: string
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reasoning?: string | null
+          screenshot_url?: string | null
+          session_id: string
+          status?: string
+        }
+        Update: {
+          action_details?: Json
+          action_type?: string
+          created_at?: string
+          executed_at?: string | null
+          id?: string
+          reasoning?: string | null
+          screenshot_url?: string | null
+          session_id?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "computer_automation_actions_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "computer_automation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      computer_automation_safety_checks: {
+        Row: {
+          acknowledged: boolean | null
+          acknowledged_at: string | null
+          acknowledged_by: string | null
+          action_id: string | null
+          check_message: string
+          check_type: string
+          created_at: string
+          id: string
+          session_id: string
+        }
+        Insert: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_id?: string | null
+          check_message: string
+          check_type: string
+          created_at?: string
+          id?: string
+          session_id: string
+        }
+        Update: {
+          acknowledged?: boolean | null
+          acknowledged_at?: string | null
+          acknowledged_by?: string | null
+          action_id?: string | null
+          check_message?: string
+          check_type?: string
+          created_at?: string
+          id?: string
+          session_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "computer_automation_safety_checks_action_id_fkey"
+            columns: ["action_id"]
+            isOneToOne: false
+            referencedRelation: "computer_automation_actions"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "computer_automation_safety_checks_session_id_fkey"
+            columns: ["session_id"]
+            isOneToOne: false
+            referencedRelation: "computer_automation_sessions"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      computer_automation_sessions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          environment: string
+          id: string
+          status: string
+          task_description: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          environment?: string
+          id?: string
+          status?: string
+          task_description: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          environment?: string
+          id?: string
+          status?: string
+          task_description?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       credit_update_logs: {
         Row: {
           created_at: string | null

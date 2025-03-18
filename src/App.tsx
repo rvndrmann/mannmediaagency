@@ -1,4 +1,3 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -36,6 +35,7 @@ import { BottomNav } from "./components/mobile/BottomNav";
 import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
 import MultiAgentChat from "./pages/MultiAgentChat";
+import ComputerUseAgentPage from "./pages/ComputerUseAgentPage";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,6 +122,7 @@ const App = () => (
               <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
               <Route path="/order/:accessCode" element={<CustomOrderForm />} />
               <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
+              <Route path="/computer-use-agent" element={<ComputerUseAgentPage />} />
             </Routes>
             <BottomNav />
           </TooltipProvider>

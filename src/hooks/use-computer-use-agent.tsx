@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { ComputerUseOutput, SafetyCheck } from "@/types/computer-use";
@@ -22,7 +21,6 @@ export const useComputerUseAgent = () => {
   const [retryCount, setRetryCount] = useState<number>(0);
   const [authError, setAuthError] = useState<string | null>(null);
   
-  // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -45,7 +43,6 @@ export const useComputerUseAgent = () => {
     },
   });
   
-  // Fetch action history for current session
   const fetchActionHistory = useCallback(async () => {
     if (!sessionId) return;
     
@@ -74,10 +71,8 @@ export const useComputerUseAgent = () => {
     if (typeof document === 'undefined') return null;
     
     try {
-      // Import html2canvas dynamically
       const html2canvas = (await import('html2canvas')).default;
       
-      // Find the element to capture
       const element = document.querySelector('.browser-view-container');
       
       if (!element) {
@@ -87,23 +82,20 @@ export const useComputerUseAgent = () => {
       
       console.log('Capturing screenshot...');
       
-      // Capture the screenshot
       const canvas = await html2canvas(element as HTMLElement, {
         useCORS: true,
         allowTaint: true,
         logging: false,
-        scale: 1.5, // Increased scale for better quality
+        scale: 1.5,
         backgroundColor: '#FFFFFF',
       });
       
-      // Convert to base64
       const dataUrl = canvas.toDataURL('image/png');
       console.log('Screenshot captured successfully');
       setScreenshot(dataUrl);
       return dataUrl;
     } catch (error) {
       console.error('Error capturing screenshot:', error);
-      // Return a placeholder/blank image as fallback
       const fallback = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
       setScreenshot(fallback);
       return fallback;
@@ -116,7 +108,6 @@ export const useComputerUseAgent = () => {
       return;
     }
     
-    // Check credits
     if (!userCredits || userCredits.credits_remaining < 1) {
       toast.error("You need at least 1 credit to use the Computer Agent");
       return;
@@ -126,7 +117,6 @@ export const useComputerUseAgent = () => {
     setAuthError(null);
     
     try {
-      // Check authentication first
       const { data: { user }, error: authCheckError } = await supabase.auth.getUser();
       if (authCheckError || !user) {
         setAuthError("You need to be signed in to use the Computer Agent");
@@ -134,7 +124,6 @@ export const useComputerUseAgent = () => {
         return;
       }
       
-      // Capture initial screenshot if browser environment
       let initialScreenshot = null;
       if (environment === "browser") {
         initialScreenshot = await captureScreenshot();
@@ -150,12 +139,10 @@ export const useComputerUseAgent = () => {
       });
       
       if (response.error) {
-        // Check if it's an authentication error
         const isAuthError = response.error.message?.includes("Authentication") || 
                            response.error.message?.includes("auth") || 
                            response.error.message?.toLowerCase().includes("sign in") ||
-                           response.error.name === "AuthApiError" ||
-                           response.error.name === "AuthError";
+                           response.error.status === 401;
                            
         if (isAuthError) {
           setAuthError("Authentication failed. Please sign in again.");
@@ -173,7 +160,6 @@ export const useComputerUseAgent = () => {
       setCurrentOutput(output);
       setRetryCount(0);
       
-      // Get call_id and pending_safety_checks
       const computerCall = output.find(item => item.type === "computer_call");
       if (computerCall) {
         setCurrentCallId(computerCall.call_id);
@@ -188,7 +174,6 @@ export const useComputerUseAgent = () => {
       console.error("Error starting session:", error);
       toast.error(error instanceof Error ? error.message : "Failed to start session");
       
-      // Reset state on error
       setSessionId(null);
       setPreviousResponseId(null);
       setCurrentOutput([]);
@@ -209,7 +194,6 @@ export const useComputerUseAgent = () => {
     setAuthError(null);
     
     try {
-      // Check authentication first
       const { data: { user }, error: authCheckError } = await supabase.auth.getUser();
       if (authCheckError || !user) {
         setAuthError("You need to be signed in to use the Computer Agent");
@@ -217,13 +201,11 @@ export const useComputerUseAgent = () => {
         return;
       }
       
-      // Capture current screenshot
       const currentScreenshot = await captureScreenshot();
       
       console.log("Executing action:", currentCallId);
       console.log("Using previous response ID:", previousResponseId);
       
-      // Send the screenshot back to OpenAI via our edge function
       const response = await supabase.functions.invoke("computer-use-agent", {
         body: {
           sessionId,
@@ -236,12 +218,10 @@ export const useComputerUseAgent = () => {
       });
       
       if (response.error) {
-        // Check if it's an authentication error
         const isAuthError = response.error.message?.includes("Authentication") || 
                            response.error.message?.includes("auth") || 
                            response.error.message?.toLowerCase().includes("sign in") ||
-                           response.error.name === "AuthApiError" ||
-                           response.error.name === "AuthError";
+                           response.error.status === 401;
                            
         if (isAuthError) {
           setAuthError("Authentication failed. Please sign in again.");
@@ -258,13 +238,11 @@ export const useComputerUseAgent = () => {
       setPreviousResponseId(responseId);
       setRetryCount(0);
       
-      // Get call_id and pending_safety_checks from the next action
       const computerCall = output.find(item => item.type === "computer_call");
       if (computerCall) {
         setCurrentCallId(computerCall.call_id);
         setPendingSafetyChecks(computerCall.pending_safety_checks || []);
       } else {
-        // If no more computer calls, we're done
         setCurrentCallId(null);
         setPendingSafetyChecks([]);
         toast.success("Task completed successfully");
@@ -275,7 +253,6 @@ export const useComputerUseAgent = () => {
       console.error("Error executing action:", error);
       toast.error(error instanceof Error ? error.message : "Failed to execute action");
       
-      // If we have retries left, try again after a delay
       if (retryCount < 3) {
         setRetryCount(prev => prev + 1);
         toast.info(`Retrying action... (Attempt ${retryCount + 1}/3)`);
@@ -313,7 +290,6 @@ export const useComputerUseAgent = () => {
   }, []);
   
   const acknowledgeAllSafetyChecks = useCallback(() => {
-    // This would be called when the user confirms all safety checks
     toast.success("Safety checks acknowledged");
     executeAction();
   }, [executeAction]);

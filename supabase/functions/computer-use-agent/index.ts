@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 import { decode as decodeJWT } from "https://deno.land/x/djwt@v2.8/mod.ts";
@@ -103,7 +102,7 @@ async function startNewSession(
       model: "computer-use-preview",
       tools: [{
         type: "computer_use_preview",
-        display_width: 1920, // Updated to 1920x1080 resolution
+        display_width: 1920,
         display_height: 1080,
         environment: environment
       }],
@@ -143,7 +142,7 @@ async function startNewSession(
     if (!response.ok) {
       const error = await response.json();
       console.error("OpenAI API error:", error);
-      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
     }
 
     const data = await response.json();
@@ -325,7 +324,7 @@ async function continueSession(
       previous_response_id: previousResponseId,
       tools: [{
         type: "computer_use_preview",
-        display_width: 1920, // Updated to 1920x1080 resolution
+        display_width: 1920,
         display_height: 1080,
         environment: sessionData.environment
       }],
@@ -373,7 +372,7 @@ async function continueSession(
     if (!response.ok) {
       const error = await response.json();
       console.error("OpenAI API error:", error);
-      throw new Error(`OpenAI API error: ${error.error?.message || response.statusText}`);
+      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
     }
 
     const data = await response.json();

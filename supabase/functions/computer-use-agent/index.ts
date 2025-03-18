@@ -2,7 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 import { decode as decodeJWT } from "https://deno.land/x/djwt@v2.8/mod.ts";
-import OpenAI from "https://esm.sh/openai@4.24.1/index.js";
+import { OpenAI } from "https://esm.sh/openai@4.24.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -98,7 +98,11 @@ async function startNewSession(
       throw new Error(`Error creating session: ${sessionError.message}`);
     }
 
-    // Initialize OpenAI client
+    // Initialize OpenAI client properly
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured");
+    }
+    
     const openai = new OpenAI({
       apiKey: OPENAI_API_KEY
     });
@@ -138,7 +142,7 @@ async function startNewSession(
 
     // Call OpenAI API using the SDK
     console.log("Sending request to OpenAI API:", JSON.stringify(payload, null, 2));
-    const response = await openai.responses.create(payload);
+    const response = await openai.chat.completions.create(payload);
     
     console.log("OpenAI response received. Response ID:", response.id);
     
@@ -311,7 +315,11 @@ async function continueSession(
       }
     }
     
-    // Initialize OpenAI client
+    // Initialize OpenAI client properly
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key is not configured");
+    }
+    
     const openai = new OpenAI({
       apiKey: OPENAI_API_KEY
     });
@@ -361,7 +369,7 @@ async function continueSession(
 
     // Call OpenAI API using the SDK
     console.log("Sending request to OpenAI API:", JSON.stringify(payload, null, 2));
-    const response = await openai.responses.create(payload);
+    const response = await openai.chat.completions.create(payload);
     
     console.log("OpenAI response received. Response ID:", response.id);
     
@@ -574,3 +582,4 @@ serve(async (req) => {
     );
   }
 });
+

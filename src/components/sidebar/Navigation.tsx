@@ -180,7 +180,7 @@ export const Navigation = () => {
     },
     {
       name: "Computer Use Agent",
-      href: "/computer-use-agent",
+      to: "/computer-use-agent",
       icon: Computer,
       current: location.pathname === "/computer-use-agent",
     },

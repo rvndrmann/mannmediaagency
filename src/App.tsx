@@ -35,7 +35,7 @@ import { BottomNav } from "./components/mobile/BottomNav";
 import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
 import MultiAgentChat from "./pages/MultiAgentChat";
-import ComputerUseAgentPage from "./pages/ComputerUseAgentPage";
+import ComputerUseAgent from "./pages/ComputerUseAgent";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -122,7 +122,7 @@ const App = () => (
               <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
               <Route path="/order/:accessCode" element={<CustomOrderForm />} />
               <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
-              <Route path="/computer-use-agent" element={<ComputerUseAgentPage />} />
+              <Route path="/computer-use-agent" element={<ComputerUseAgent />} />
             </Routes>
             <BottomNav />
           </TooltipProvider>

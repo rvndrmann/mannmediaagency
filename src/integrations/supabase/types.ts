@@ -1012,6 +1012,42 @@ export type Database = {
           },
         ]
       }
+      product_images: {
+        Row: {
+          created_at: string
+          id: string
+          prompt: string
+          result_url: string | null
+          settings: Json
+          source_image_url: string | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          prompt: string
+          result_url?: string | null
+          settings?: Json
+          source_image_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          prompt?: string
+          result_url?: string | null
+          settings?: Json
+          source_image_url?: string | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       product_shot_history: {
         Row: {
           created_at: string

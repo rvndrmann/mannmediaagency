@@ -151,7 +151,13 @@ export const useComputerUseAgent = () => {
       
       if (response.error) {
         // Check if it's an authentication error
-        if (response.error.message?.includes("Authentication") || response.status === 401) {
+        const isAuthError = response.error.message?.includes("Authentication") || 
+                           response.error.message?.includes("auth") || 
+                           response.error.message?.toLowerCase().includes("sign in") ||
+                           response.error.name === "AuthApiError" ||
+                           response.error.name === "AuthError";
+                           
+        if (isAuthError) {
           setAuthError("Authentication failed. Please sign in again.");
           toast.error("Authentication failed. Please sign in again.");
           return;
@@ -231,7 +237,13 @@ export const useComputerUseAgent = () => {
       
       if (response.error) {
         // Check if it's an authentication error
-        if (response.error.message?.includes("Authentication") || response.status === 401) {
+        const isAuthError = response.error.message?.includes("Authentication") || 
+                           response.error.message?.includes("auth") || 
+                           response.error.message?.toLowerCase().includes("sign in") ||
+                           response.error.name === "AuthApiError" ||
+                           response.error.name === "AuthError";
+                           
+        if (isAuthError) {
           setAuthError("Authentication failed. Please sign in again.");
           toast.error("Authentication failed. Please sign in again.");
           return;

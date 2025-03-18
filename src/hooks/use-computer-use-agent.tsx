@@ -69,12 +69,39 @@ export const useComputerUseAgent = () => {
   }, [sessionId, fetchActionHistory]);
   
   const captureScreenshot = useCallback(async () => {
-    // This is a placeholder for actual screenshot capture functionality
-    // In a real implementation, you would use APIs like MediaDevices.getDisplayMedia()
-    // or browser extensions to capture the actual screen
+    if (typeof document === 'undefined') return null;
     
-    console.log("Capturing simulated screenshot");
-    return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
+    try {
+      // Import html2canvas dynamically
+      const html2canvas = (await import('html2canvas')).default;
+      
+      // Find the element to capture
+      const element = document.querySelector('.browser-view-container');
+      
+      if (!element) {
+        console.error('Could not find browser view container for screenshot');
+        return null;
+      }
+      
+      console.log('Capturing screenshot...');
+      
+      // Capture the screenshot
+      const canvas = await html2canvas(element as HTMLElement, {
+        useCORS: true,
+        allowTaint: true,
+        logging: false,
+        scale: 1,
+      });
+      
+      // Convert to base64
+      const dataUrl = canvas.toDataURL('image/png');
+      console.log('Screenshot captured successfully');
+      return dataUrl;
+    } catch (error) {
+      console.error('Error capturing screenshot:', error);
+      // Return a placeholder/blank image as fallback
+      return 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    }
   }, []);
   
   const startSession = useCallback(async () => {
@@ -99,6 +126,7 @@ export const useComputerUseAgent = () => {
         setScreenshot(initialScreenshot);
       }
       
+      console.log("Sending initial request to Computer Use Agent");
       const response = await supabase.functions.invoke("computer-use-agent", {
         body: {
           taskDescription,
@@ -112,6 +140,8 @@ export const useComputerUseAgent = () => {
       }
       
       const { sessionId, responseId, output } = response.data;
+      console.log("Session started:", sessionId, "Response ID:", responseId);
+      
       setSessionId(sessionId);
       setPreviousResponseId(responseId);
       setCurrentOutput(output);
@@ -148,6 +178,9 @@ export const useComputerUseAgent = () => {
       const currentScreenshot = await captureScreenshot();
       setScreenshot(currentScreenshot);
       
+      console.log("Executing action:", currentCallId);
+      console.log("Using previous response ID:", previousResponseId);
+      
       // Send the screenshot back to OpenAI via our edge function
       const response = await supabase.functions.invoke("computer-use-agent", {
         body: {
@@ -165,6 +198,8 @@ export const useComputerUseAgent = () => {
       }
       
       const { output, responseId } = response.data;
+      console.log("Action executed, new response ID:", responseId);
+      
       setCurrentOutput(output);
       setPreviousResponseId(responseId);
       
@@ -222,6 +257,7 @@ export const useComputerUseAgent = () => {
     actionHistory,
     userCredits,
     setScreenshot,
-    captureScreenshot
+    captureScreenshot,
+    screenshot
   };
 };

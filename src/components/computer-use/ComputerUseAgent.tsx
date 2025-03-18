@@ -8,10 +8,9 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Play, StopCircle, RefreshCw, Check, CameraIcon } from "lucide-react";
+import { AlertCircle, Play, StopCircle, RefreshCw, Check, CameraIcon, ArrowLeft, ArrowRight, RotateCw } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import html2canvas from "html2canvas";
 
 export function ComputerUseAgent() {
   const {
@@ -31,33 +30,12 @@ export function ComputerUseAgent() {
     setCurrentUrl,
     actionHistory,
     userCredits,
-    setScreenshot
+    captureScreenshot,
+    screenshot
   } = useComputerUseAgent();
 
   const [activeTab, setActiveTab] = useState("input");
   const browserViewRef = useRef<HTMLDivElement>(null);
-  
-  // Function to capture screenshot of the browser view
-  const captureScreenshot = async () => {
-    if (browserViewRef.current && environment === "browser") {
-      try {
-        const canvas = await html2canvas(browserViewRef.current, {
-          useCORS: true,
-          allowTaint: true,
-          logging: false
-        });
-        
-        const dataUrl = canvas.toDataURL("image/png");
-        setScreenshot(dataUrl);
-        return dataUrl;
-      } catch (error) {
-        console.error("Error capturing screenshot:", error);
-        // Fallback to a blank image
-        return "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==";
-      }
-    }
-    return null;
-  };
   
   // Helper to check if an action can be executed
   const canExecuteAction = () => {
@@ -82,6 +60,13 @@ export function ComputerUseAgent() {
     }
     executeAction();
   };
+
+  // Check if we should switch to the browser tab when a session is active
+  useEffect(() => {
+    if (sessionId && environment === "browser" && activeTab !== "browser") {
+      setActiveTab("browser");
+    }
+  }, [sessionId, environment, activeTab]);
 
   return (
     <div className="container mx-auto p-4 max-w-6xl">
@@ -209,9 +194,15 @@ export function ComputerUseAgent() {
                           <div key={action.id} className="border rounded-lg p-4">
                             <div className="flex items-center justify-between mb-2">
                               <h4 className="font-medium capitalize">{action.action_type}</h4>
-                              <span className="text-xs text-muted-foreground">
-                                {new Date(action.created_at).toLocaleTimeString()}
-                              </span>
+                              <div className="flex items-center">
+                                <span className={`inline-block w-2 h-2 rounded-full mr-2 ${
+                                  action.status === 'executed' ? 'bg-green-500' : 
+                                  action.status === 'pending' ? 'bg-yellow-500' : 'bg-gray-500'
+                                }`}></span>
+                                <span className="text-xs text-muted-foreground">
+                                  {new Date(action.created_at).toLocaleTimeString()}
+                                </span>
+                              </div>
                             </div>
                             <pre className="bg-muted p-2 rounded text-xs overflow-auto">
                               {JSON.stringify(action.action_details, null, 2)}
@@ -255,31 +246,50 @@ export function ComputerUseAgent() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div 
-                    ref={browserViewRef} 
-                    className="border rounded-lg p-4 bg-white h-[400px] w-full overflow-auto"
-                  >
-                    {/* Simulated browser content */}
-                    <div className="border-b pb-2 flex items-center justify-between">
-                      <div className="flex items-center space-x-2">
+                  <div className="browser-view-container border rounded-lg bg-white overflow-hidden">
+                    {/* Browser chrome */}
+                    <div className="border-b bg-gray-100 p-2 flex items-center space-x-2">
+                      <div className="flex items-center space-x-1">
                         <div className="h-3 w-3 rounded-full bg-red-500"></div>
                         <div className="h-3 w-3 rounded-full bg-yellow-500"></div>
                         <div className="h-3 w-3 rounded-full bg-green-500"></div>
                       </div>
-                      <div className="flex-1 mx-4">
-                        <div className="bg-gray-100 rounded-full p-1 px-3 text-sm text-center truncate">
-                          {currentUrl || "about:blank"}
+                      
+                      <div className="flex items-center space-x-2 text-gray-500">
+                        <ArrowLeft className="h-4 w-4" />
+                        <ArrowRight className="h-4 w-4" />
+                        <RotateCw className="h-4 w-4" />
+                      </div>
+                      
+                      <div className="flex-1 px-2">
+                        <div className="bg-white rounded-full border px-3 py-1 text-sm flex items-center">
+                          <span className="truncate">{currentUrl || "about:blank"}</span>
                         </div>
                       </div>
-                      <div className="text-gray-500">
-                        <CameraIcon className="h-4 w-4" />
-                      </div>
                     </div>
-                    <div className="py-4 text-center text-gray-500">
-                      <p>This is a simulated browser view.</p>
-                      <p>In a real implementation, this would be an embedded browser or web view.</p>
+                    
+                    {/* Browser content */}
+                    <div 
+                      ref={browserViewRef} 
+                      className="h-[400px] w-full overflow-auto p-4"
+                    >
+                      {!screenshot ? (
+                        <div className="h-full flex flex-col items-center justify-center text-gray-500">
+                          <p className="mb-2">This is a simulated browser view.</p>
+                          <p>In a real implementation, this would be an embedded browser or web view.</p>
+                        </div>
+                      ) : (
+                        <div className="relative">
+                          <img 
+                            src={screenshot} 
+                            alt="Current browser view" 
+                            className="w-full h-auto"
+                          />
+                        </div>
+                      )}
                     </div>
                   </div>
+                  
                   <div className="mt-4 flex justify-center">
                     <Button onClick={captureScreenshot} disabled={isProcessing}>
                       <CameraIcon className="mr-2 h-4 w-4" />
@@ -315,7 +325,7 @@ export function ComputerUseAgent() {
                     {currentOutput.map((item, index) => {
                       if (item.type === "reasoning") {
                         return (
-                          <div key={index} className="border rounded-lg p-4 bg-muted/30">
+                          <div key={item.id || index} className="border rounded-lg p-4 bg-muted/30">
                             <h4 className="font-medium mb-2">Agent Reasoning</h4>
                             <div className="text-sm">
                               {item.summary?.[0]?.text || "No reasoning provided"}
@@ -324,8 +334,8 @@ export function ComputerUseAgent() {
                         );
                       } else if (item.type === "computer_call") {
                         return (
-                          <div key={index} className="border rounded-lg p-4 bg-primary/10">
-                            <h4 className="font-medium mb-2">Next Action</h4>
+                          <div key={item.id || index} className="border rounded-lg p-4 bg-primary/10">
+                            <h4 className="font-medium mb-2">Next Action: {item.action.type}</h4>
                             <pre className="bg-muted p-2 rounded text-xs overflow-auto">
                               {JSON.stringify(item.action, null, 2)}
                             </pre>

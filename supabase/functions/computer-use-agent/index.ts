@@ -51,7 +51,7 @@ async function startNewSession(
     }
 
     // Make initial call to OpenAI
-    console.log("Making OpenAI API call with model: computer-use-preview");
+    console.log("Making initial OpenAI API call with model: computer-use-preview");
     const payload: any = {
       model: "computer-use-preview",
       tools: [{
@@ -74,9 +74,12 @@ async function startNewSession(
 
     // Add screenshot if available
     if (screenshot) {
+      console.log("Including initial screenshot in OpenAI request");
       payload.input.push({
         type: "input_image",
-        image_url: screenshot
+        image_url: {
+          url: screenshot
+        }
       });
     }
 
@@ -128,7 +131,8 @@ async function startNewSession(
             action_type: action.type,
             action_details: action,
             reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null,
-            call_id: computerCall.call_id
+            call_id: computerCall.call_id,
+            status: 'pending'
           })
           .select()
           .single();
@@ -282,13 +286,20 @@ async function continueSession(
           type: "computer_call_output",
           output: {
             type: "input_image",
-            image_url: screenshot,
-            current_url: currentUrl
+            image_url: {
+              url: screenshot
+            }
           }
         }
       ],
       truncation: "auto"
     };
+    
+    // Add current URL if available
+    if (currentUrl) {
+      console.log("Including current URL in OpenAI request:", currentUrl);
+      payload.input[0].output.current_url = currentUrl;
+    }
     
     // Add acknowledged safety checks if any
     if (acknowledgedSafetyChecks && acknowledgedSafetyChecks.length > 0) {
@@ -348,7 +359,8 @@ async function continueSession(
             action_type: action.type,
             action_details: action,
             reasoning: reasoningItems.length > 0 ? JSON.stringify(reasoningItems) : null,
-            call_id: computerCall.call_id
+            call_id: computerCall.call_id,
+            status: 'pending'
           })
           .select()
           .single();

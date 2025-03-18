@@ -111,7 +111,7 @@ export const useManusAgent = () => {
       if (error) throw error;
       
       // Transform data to match our ManusActionHistory type
-      const formattedHistory = data ? data.map(item => ({
+      const formattedHistory: ManusActionHistory[] = data ? data.map(item => ({
         id: item.id,
         action: item.action as ManusAction,
         reasoning: item.reasoning,

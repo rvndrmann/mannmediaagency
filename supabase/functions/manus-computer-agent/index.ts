@@ -196,10 +196,11 @@ serve(async (req) => {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o", // Using the latest vision model to analyze screenshots
+        model: "gpt-4o", // Updated to use the correct model for vision
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000,
+        response_format: { type: "json_object" } // Ensure we get a valid JSON response
       }),
     });
     
@@ -220,10 +221,8 @@ serve(async (req) => {
     // Parse the JSON response from the content
     let manusResponse: ManusResponse;
     try {
-      // The response might be a string containing JSON or directly a JSON object
-      const parsedContent = typeof responseContent === 'string' 
-        ? JSON.parse(responseContent) 
-        : responseContent;
+      // The response should be a valid JSON string now
+      const parsedContent = JSON.parse(responseContent);
       
       manusResponse = {
         actions: parsedContent.actions || [],
@@ -233,21 +232,42 @@ serve(async (req) => {
           screenshot: requestData.screenshot
         }
       };
+      
+      // Validate that the actions have the correct structure
+      manusResponse.actions = manusResponse.actions.map(action => {
+        // Ensure we have a valid action type
+        if (!action.type) {
+          throw new Error("Action missing required 'type' property");
+        }
+        
+        // Return a cleansed action object
+        return {
+          type: action.type,
+          ...(action.x !== undefined && { x: action.x }),
+          ...(action.y !== undefined && { y: action.y }),
+          ...(action.text !== undefined && { text: action.text }),
+          ...(action.url !== undefined && { url: action.url }),
+          ...(action.keys !== undefined && { keys: action.keys }),
+          ...(action.selector !== undefined && { selector: action.selector }),
+          ...(action.value !== undefined && { value: action.value }),
+          ...(action.button !== undefined && { button: action.button }),
+          ...(action.element !== undefined && { element: action.element }),
+          ...(action.options !== undefined && { options: action.options })
+        };
+      });
+      
     } catch (error) {
       console.error("Error parsing OpenAI response:", error);
       
-      // Attempt to extract actions and reasoning using regex if JSON parsing fails
-      const actionsMatch = responseContent.match(/actions.*?[\[\{](.*?)[\]\}]/s);
-      const reasoningMatch = responseContent.match(/reasoning.*?["'](.*?)["']/s);
-      
-      manusResponse = {
-        actions: actionsMatch ? JSON.parse(`[${actionsMatch[1]}]`) : [],
-        reasoning: reasoningMatch ? reasoningMatch[1] : "Failed to parse reasoning",
-        state: {
-          current_url: requestData.current_url,
-          screenshot: requestData.screenshot
-        }
-      };
+      // Return a meaningful error response
+      return new Response(
+        JSON.stringify({ 
+          error: "Failed to parse OpenAI response", 
+          details: error.message,
+          raw_response: responseContent 
+        }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
     }
     
     // If this is a new session (no previous actions), deduct 1 credit
@@ -276,7 +296,10 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in manus-computer-agent function:", error);
     return new Response(
-      JSON.stringify({ error: error.message || "Internal server error" }),
+      JSON.stringify({ 
+        error: error.message || "Internal server error",
+        stack: error.stack || null
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

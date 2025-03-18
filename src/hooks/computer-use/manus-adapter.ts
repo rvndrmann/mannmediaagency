@@ -37,6 +37,8 @@ export interface ManusRequest {
 export const useManusAdapter = () => {
   const sendToManus = async (request: ManusRequest): Promise<ManusResponse | null> => {
     try {
+      console.log("Sending request to Manus:", JSON.stringify(request, null, 2));
+      
       // Call edge function to proxy request to OpenAI
       const { data, error } = await supabase.functions.invoke("manus-computer-agent", {
         body: request
@@ -48,6 +50,13 @@ export const useManusAdapter = () => {
         return null;
       }
 
+      if (!data) {
+        console.error("No data returned from Manus Computer Agent");
+        toast.error("No response from agent service");
+        return null;
+      }
+
+      console.log("Response from Manus:", JSON.stringify(data, null, 2));
       return data as ManusResponse;
     } catch (error) {
       console.error("Exception in Manus adapter:", error);

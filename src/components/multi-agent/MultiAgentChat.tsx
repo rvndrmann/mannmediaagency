@@ -10,6 +10,7 @@ import { useNavigate } from "react-router-dom";
 import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { Button } from "@/components/ui/button";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
 
 export const MultiAgentChat = () => {
   const {
@@ -31,6 +32,20 @@ export const MultiAgentChat = () => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
   const [showInstructions, setShowInstructions] = useState(false);
+
+  // Enable realtime for relevant tables when the component mounts
+  useEffect(() => {
+    const enableRealtime = async () => {
+      try {
+        await supabase.functions.invoke("enable-realtime");
+        console.log("Realtime enabled for media generation tables");
+      } catch (error) {
+        console.error("Error enabling realtime:", error);
+      }
+    };
+    
+    enableRealtime();
+  }, []);
 
   const handleBack = () => {
     navigate("/");

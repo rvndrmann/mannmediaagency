@@ -42,6 +42,7 @@ export interface Command {
     prompt?: string;
     autoGenerate?: boolean;
     contextualData?: any;
+    requestId?: string;
     [key: string]: any;
   };
   confidence?: number;

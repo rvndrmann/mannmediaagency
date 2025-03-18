@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -76,8 +77,9 @@ async function getAgentCompletion(
     toolsContext += "IMPORTANT TOOL USAGE NOTES:\n";
     toolsContext += "- For product-shot-v2, always use user-uploaded images when available. Look for image attachments in the user's message.\n";
     toolsContext += "- The product-shot-v2 tool is more advanced than product-shot-v1, with better scene composition, customization options, and quality.\n";
-    toolsContext += "- Recommend product-shot-v2 over product-shot-v1 for higher quality product images, unless the user specifically requests otherwise.\n";
+    toolsContext += "- ALWAYS recommend product-shot-v2 over product-shot-v1 for higher quality product images, unless the user specifically requests otherwise.\n";
     toolsContext += "- When using product-shot-v2, provide detailed scene descriptions for best results.\n";
+    toolsContext += "- Always process image generation results in real-time to show the progress and final result in the conversation.\n";
   }
   
   const handoffContext = `

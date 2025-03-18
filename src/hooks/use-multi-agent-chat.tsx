@@ -8,6 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { ToolContext, ToolResult } from "./multi-agent/types";
 import { toolExecutor } from "./multi-agent/tool-executor";
 import { getToolsForLLM } from "./multi-agent/tools";
+import { useMediaUpdates } from "./multi-agent/use-media-updates";
 
 const CHAT_CREDIT_COST = 0.07;
 const STORAGE_KEY = "multi_agent_chat_history";
@@ -29,6 +30,26 @@ export const useMultiAgentChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+
+  // Helper function to update a specific message
+  const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
+    setMessages(prev => {
+      const newMessages = [...prev];
+      if (index >= 0 && index < newMessages.length) {
+        newMessages[index] = {
+          ...newMessages[index],
+          ...updates
+        };
+      }
+      return newMessages;
+    });
+  }, []);
+  
+  // Use our new media updates hook
+  const { createMediaGenerationTask } = useMediaUpdates({
+    messages,
+    updateMessage
+  });
   
   useEffect(() => {
     try {
@@ -294,13 +315,16 @@ export const useMultiAgentChat = () => {
           setMessages(prev => {
             const newMessages = [...prev];
             if (messageIndex >= 0 && messageIndex < newMessages.length) {
+              // Add media generation task if applicable
+              const mediaTask = createMediaGenerationTask(command!);
               const updatedTasks = [
                 ...(newMessages[messageIndex].tasks || []),
                 {
                   id: toolTaskId,
                   name: `Executing ${command!.feature}`,
                   status: "pending" as Task["status"]
-                }
+                },
+                mediaTask
               ];
               
               newMessages[messageIndex] = {
@@ -326,6 +350,11 @@ export const useMultiAgentChat = () => {
               toolResult.success ? "completed" : "error", 
               toolResult.success ? undefined : toolResult.message
             );
+
+            // Add request ID to parameters for tracking
+            if (toolResult.success && toolResult.requestId && command.parameters) {
+              command.parameters.requestId = toolResult.requestId;
+            }
           } catch (toolError) {
             console.error("Error executing tool command:", toolError);
             updateTaskStatus(
@@ -415,6 +444,7 @@ export const useMultiAgentChat = () => {
     switchAgent,
     clearChat,
     addAttachments,
-    removeAttachment
+    removeAttachment,
+    updateMessage
   };
 };

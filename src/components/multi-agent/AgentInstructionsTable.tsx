@@ -56,7 +56,7 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
         type: "tool",
         name: "Tool Orchestrator",
         description: "Helps users use various tools",
-        instructions: "Guide users in using tools like image-to-video conversion, product-shot-v1 for basic product images, and product-shot-v2 for advanced product shots with scene composition and customization options."
+        instructions: "Guide users in using tools like image-to-video conversion, product-shot-v1 for basic product images, and product-shot-v2 for advanced product shots with scene composition and customization options. Recommend product-shot-v2 for higher quality product images."
       }
     ];
   });

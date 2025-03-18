@@ -432,20 +432,41 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get user ID from auth
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    // Parse request body
+    const request = await req.json() as ComputerUseRequest;
     
-    if (userError || !user) {
+    let result;
+    let userId: string | null = null;
+
+    // Try to get the user ID from auth if available, but don't require it
+    try {
+      const { data: { user }, error: userError } = await supabase.auth.getUser();
+      
+      if (!userError && user) {
+        userId = user.id;
+        console.log("Authenticated user:", userId);
+      } else {
+        console.log("No authenticated user found, or error retrieving user");
+        return new Response(
+          JSON.stringify({ error: "Authentication required. Please sign in to use this feature." }),
+          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    } catch (authError) {
+      console.error("Error getting authenticated user:", authError);
       return new Response(
-        JSON.stringify({ error: "Unauthorized" }),
+        JSON.stringify({ error: "Authentication error. Please try signing in again." }),
         { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
-    // Parse request
-    const request = await req.json() as ComputerUseRequest;
+    if (!userId) {
+      return new Response(
+        JSON.stringify({ error: "User authentication required" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
     
-    let result;
     if (!request.sessionId) {
       // Starting a new session
       if (!request.taskDescription || !request.environment) {
@@ -459,10 +480,11 @@ serve(async (req) => {
       const { data: userCredits, error: creditsError } = await supabase
         .from("user_credits")
         .select("credits_remaining")
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
         .single();
       
       if (creditsError) {
+        console.error("Error fetching user credits:", creditsError);
         return new Response(
           JSON.stringify({ error: "Error fetching user credits" }),
           { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -480,12 +502,12 @@ serve(async (req) => {
       await supabase
         .from("user_credits")
         .update({ credits_remaining: userCredits.credits_remaining - 1 })
-        .eq("user_id", user.id);
+        .eq("user_id", userId);
       
       result = await startNewSession(
         request.taskDescription, 
         request.environment, 
-        user.id,
+        userId,
         supabase,
         request.screenshot
       );

@@ -8,11 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle, Play, StopCircle, RefreshCw, Check, CameraIcon, ArrowLeft, ArrowRight, RotateCw, ExternalLink, Clipboard } from "lucide-react";
+import { AlertCircle, Play, StopCircle, RefreshCw, Check, CameraIcon, ArrowLeft, ArrowRight, RotateCw, ExternalLink, Clipboard, LogIn } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { useUser } from "@/hooks/use-user";
+import { Link } from "react-router-dom";
 
 export function ComputerUseAgent() {
   const {
@@ -33,9 +35,11 @@ export function ComputerUseAgent() {
     actionHistory,
     userCredits,
     captureScreenshot,
-    screenshot
+    screenshot,
+    authError
   } = useComputerUseAgent();
 
+  const { user, isLoading: isUserLoading } = useUser();
   const [activeTab, setActiveTab] = useState("input");
   const browserViewRef = useRef<HTMLDivElement>(null);
   const [browserWidth, setBrowserWidth] = useState(1024);
@@ -106,12 +110,43 @@ export function ComputerUseAgent() {
     }
   }, [browserViewRef.current]);
 
+  // Show auth alert if not logged in
+  if (!isUserLoading && !user) {
+    return (
+      <div className="container mx-auto p-4 max-w-7xl">
+        <h1 className="text-2xl font-bold mb-4">Computer Use Agent</h1>
+        
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Required</AlertTitle>
+          <AlertDescription className="mt-2">
+            <p>You need to be signed in to use the Computer Agent.</p>
+            <Button asChild variant="outline" className="mt-2">
+              <Link to="/auth/login">
+                <LogIn className="h-4 w-4 mr-2" />
+                Sign In
+              </Link>
+            </Button>
+          </AlertDescription>
+        </Alert>
+      </div>
+    );
+  }
+
   return (
     <div className="container mx-auto p-4 max-w-7xl">
       <h1 className="text-2xl font-bold mb-4">Computer Use Agent</h1>
       <p className="text-muted-foreground mb-6">
         Give instructions to our AI agent that can control a computer to perform tasks on your behalf.
       </p>
+      
+      {authError && (
+        <Alert variant="destructive" className="mb-6">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Error</AlertTitle>
+          <AlertDescription>{authError}</AlertDescription>
+        </Alert>
+      )}
       
       <div className="flex flex-col lg:flex-row gap-6">
         <div className="flex-1">

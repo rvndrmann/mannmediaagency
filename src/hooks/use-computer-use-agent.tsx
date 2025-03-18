@@ -20,6 +20,7 @@ export const useComputerUseAgent = () => {
   const [actionHistory, setActionHistory] = useState<any[]>([]);
   const [previousResponseId, setPreviousResponseId] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState<number>(0);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -122,8 +123,17 @@ export const useComputerUseAgent = () => {
     }
     
     setIsProcessing(true);
+    setAuthError(null);
     
     try {
+      // Check authentication first
+      const { data: { user }, error: authCheckError } = await supabase.auth.getUser();
+      if (authCheckError || !user) {
+        setAuthError("You need to be signed in to use the Computer Agent");
+        toast.error("Authentication required. Please sign in to continue.");
+        return;
+      }
+      
       // Capture initial screenshot if browser environment
       let initialScreenshot = null;
       if (environment === "browser") {
@@ -140,6 +150,12 @@ export const useComputerUseAgent = () => {
       });
       
       if (response.error) {
+        // Check if it's an authentication error
+        if (response.error.message?.includes("Authentication") || response.status === 401) {
+          setAuthError("Authentication failed. Please sign in again.");
+          toast.error("Authentication failed. Please sign in again.");
+          return;
+        }
         throw new Error(response.error.message || "Failed to start session");
       }
       
@@ -184,8 +200,17 @@ export const useComputerUseAgent = () => {
     }
     
     setIsProcessing(true);
+    setAuthError(null);
     
     try {
+      // Check authentication first
+      const { data: { user }, error: authCheckError } = await supabase.auth.getUser();
+      if (authCheckError || !user) {
+        setAuthError("You need to be signed in to use the Computer Agent");
+        toast.error("Authentication required. Please sign in to continue.");
+        return;
+      }
+      
       // Capture current screenshot
       const currentScreenshot = await captureScreenshot();
       
@@ -205,6 +230,12 @@ export const useComputerUseAgent = () => {
       });
       
       if (response.error) {
+        // Check if it's an authentication error
+        if (response.error.message?.includes("Authentication") || response.status === 401) {
+          setAuthError("Authentication failed. Please sign in again.");
+          toast.error("Authentication failed. Please sign in again.");
+          return;
+        }
         throw new Error(response.error.message || "Failed to execute action");
       }
       
@@ -265,6 +296,7 @@ export const useComputerUseAgent = () => {
     setScreenshot(null);
     setPreviousResponseId(null);
     setRetryCount(0);
+    setAuthError(null);
     toast.info("Session ended");
   }, []);
   
@@ -293,6 +325,7 @@ export const useComputerUseAgent = () => {
     userCredits,
     setScreenshot,
     captureScreenshot,
-    screenshot
+    screenshot,
+    authError
   };
 };

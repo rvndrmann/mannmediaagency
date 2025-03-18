@@ -42,6 +42,7 @@ interface ManusResponse {
     screenshot?: string;
     dom_state?: any;
   };
+  error?: string;
 }
 
 serve(async (req) => {
@@ -116,11 +117,14 @@ serve(async (req) => {
     Based on the current state (URL and screenshot) and any previous actions, you should determine 
     the next step(s) to accomplish the task.
     
-    IMPORTANT: You MUST respond with a valid JSON object containing these fields:
+    CRITICAL: You MUST respond with a VALID JSON object containing:
     {
       "reasoning": "your thought process explanation", 
       "actions": [{"type": "action_type", ...action properties}]
     }
+    
+    DO NOT include any markdown formatting, explanations, or any text outside of the JSON structure.
+    DO NOT wrap your response in code blocks or quotes. Just output pure JSON.
     
     Only use the following action types:
     - click: Click at specific coordinates or on an element (provide x, y or selector)
@@ -190,13 +194,15 @@ serve(async (req) => {
     messages.push({
       role: "user", 
       content: `Based on what you see, what actions should I take next to accomplish the task? 
-      IMPORTANT: You MUST respond with a valid JSON object containing:
+      IMPORTANT: You MUST respond with ONLY a valid JSON object containing:
       {
         "reasoning": "your detailed thought process",
         "actions": [{"type": "action_type", ...other properties}]
       }
       
-      Even if you're unsure or can't complete the task, return a valid JSON with empty actions array.`
+      DO NOT add any explanatory text outside the JSON structure.
+      DO NOT use code blocks, quotes or any other formatting.
+      If you're unsure or can't complete the task, return a valid JSON with empty actions array.`
     });
 
     // Make request to OpenAI API
@@ -238,24 +244,42 @@ serve(async (req) => {
     // Parse the JSON response from the content
     let manusResponse: ManusResponse;
     try {
-      // The response should be a valid JSON string now
+      // Make sure we handle non-JSON responses gracefully
       let parsedContent;
       
       try {
-        parsedContent = JSON.parse(responseContent);
+        // Check if the response starts with text that might not be JSON
+        const cleanedResponse = responseContent.trim();
+        
+        // Try to parse the response as JSON
+        parsedContent = JSON.parse(cleanedResponse);
+        console.log("Successful JSON parse:", JSON.stringify(parsedContent, null, 2));
+        
       } catch (parseError) {
         console.error("Failed to parse OpenAI response as JSON:", parseError);
         console.log("Invalid JSON content:", responseContent);
         
-        // Fallback with a safe default response if parsing fails
-        return new Response(
-          JSON.stringify({
-            reasoning: "Failed to parse AI response. The system encountered an error.",
-            actions: [],
-            error: "JSON parsing error: " + parseError.message
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
+        // Try to extract JSON using regex if the response contains text outside a JSON structure
+        const jsonMatch = responseContent.match(/(\{[\s\S]*\})/);
+        if (jsonMatch) {
+          try {
+            console.log("Attempting to extract JSON with regex:", jsonMatch[0]);
+            parsedContent = JSON.parse(jsonMatch[0]);
+            console.log("Successfully extracted JSON with regex");
+          } catch (regexParseError) {
+            console.error("Failed to extract JSON with regex:", regexParseError);
+          }
+        }
+        
+        // If we still don't have valid JSON, create a fallback response
+        if (!parsedContent) {
+          console.log("Using fallback response structure");
+          parsedContent = {
+            reasoning: "The AI model returned an invalid response format. " + 
+                     "Original text: " + responseContent.substring(0, 100) + "...",
+            actions: []
+          };
+        }
       }
       
       // Validate the structure of the parsed response
@@ -310,7 +334,9 @@ serve(async (req) => {
         JSON.stringify({ 
           error: "Failed to process OpenAI response", 
           details: error.message,
-          raw_response: responseContent 
+          raw_response: responseContent,
+          reasoning: "The system encountered an error processing the AI response",
+          actions: []
         }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );

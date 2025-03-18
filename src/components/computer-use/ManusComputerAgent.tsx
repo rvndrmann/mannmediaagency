@@ -42,6 +42,7 @@ export function ManusComputerAgent() {
   const [activeTab, setActiveTab] = useState("browser");
   const browserViewRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoading, setIframeLoading] = useState(false);
+  const [iframeError, setIframeError] = useState<string | null>(null);
   
   // Set up the browser environment
   useEffect(() => {
@@ -58,6 +59,8 @@ export function ManusComputerAgent() {
   // Handle iframe navigation
   const handleIframeLoad = useCallback(() => {
     setIframeLoading(false);
+    setIframeError(null);
+    
     if (browserViewRef.current) {
       try {
         // Try to get URL from iframe (may fail due to CORS)
@@ -67,10 +70,16 @@ export function ManusComputerAgent() {
           console.log("Iframe navigated to:", iframeUrl);
         }
       } catch (e) {
-        console.error("Error accessing iframe URL:", e);
+        console.error("Error accessing iframe URL (this may be normal for cross-origin sites):", e);
       }
     }
   }, [setCurrentUrl]);
+  
+  const handleIframeError = useCallback(() => {
+    setIframeLoading(false);
+    setIframeError("Failed to load the page. This may be due to security restrictions or the site blocking iframe embedding.");
+    console.error("Iframe failed to load:", currentUrl);
+  }, [currentUrl]);
   
   // Navigate to URL
   const navigateToUrl = useCallback((url: string) => {
@@ -82,8 +91,10 @@ export function ManusComputerAgent() {
     
     if (browserViewRef.current) {
       setIframeLoading(true);
+      setIframeError(null);
       browserViewRef.current.src = navigateUrl;
       setCurrentUrl(navigateUrl);
+      console.log("Navigating iframe to:", navigateUrl);
     }
   }, [setCurrentUrl]);
   
@@ -272,6 +283,32 @@ export function ManusComputerAgent() {
                   <Loader2 className="h-8 w-8 animate-spin text-primary" />
                 </div>
               )}
+              
+              {iframeError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
+                  <Alert variant="destructive" className="w-3/4 max-w-md">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertDescription>
+                      {iframeError}
+                      <div className="mt-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={() => {
+                            if (currentUrl) {
+                              window.open(currentUrl, '_blank');
+                            }
+                          }}
+                        >
+                          <ExternalLink className="h-4 w-4 mr-2" />
+                          Open in new tab
+                        </Button>
+                      </div>
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
+              
               <div className="browser-view-container w-full h-full bg-white">
                 <iframe 
                   ref={browserViewRef}
@@ -279,6 +316,7 @@ export function ManusComputerAgent() {
                   title="Browser View"
                   sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads"
                   onLoad={handleIframeLoad}
+                  onError={handleIframeError}
                 />
               </div>
             </TabsContent>

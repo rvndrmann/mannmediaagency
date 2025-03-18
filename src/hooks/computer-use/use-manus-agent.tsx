@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useManusAdapter, ManusAction, actionToJson, jsonToAction } from "./manus-adapter";
@@ -238,9 +239,12 @@ export const useManusAgent = () => {
     try {
       const actionToExecute = currentActions[0];
       
+      // Handle navigate actions directly in UI layer
       if (actionToExecute.type === "navigate" && actionToExecute.url) {
         console.log("Navigation action will be handled by the UI:", actionToExecute.url);
-        setCurrentUrl(normalizeUrl(actionToExecute.url));
+        const normalizedUrl = normalizeUrl(actionToExecute.url);
+        setCurrentUrl(normalizedUrl);
+        // The UI component will use this URL to update the iframe
       }
       
       const currentScreenshot = await captureScreenshot();

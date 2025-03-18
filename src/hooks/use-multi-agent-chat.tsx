@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentMessage, Message, Task, Attachment } from "@/types/message";
+import { AgentMessage, Message, Task, Attachment, Command } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
@@ -98,6 +98,47 @@ export const useMultiAgentChat = () => {
     setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
   }, []);
   
+  const parseToolCommand = (text: string): Command | null => {
+    try {
+      // Try to extract command from format like: "TOOL: product-shot-v1, PARAMETERS: {\"prompt\": \"office desk\", \"imageUrl\": \"https://example.com/image.jpg\"}"
+      const toolMatch = text.match(/TOOL:\s*([a-z0-9-]+)/i);
+      const paramsMatch = text.match(/PARAMETERS:\s*(\{.+\})/s);
+      
+      if (!toolMatch) return null;
+      
+      const feature = toolMatch[1].toLowerCase();
+      let parameters = {};
+      
+      if (paramsMatch) {
+        try {
+          parameters = JSON.parse(paramsMatch[1]);
+        } catch (e) {
+          console.error("Error parsing tool parameters:", e);
+        }
+      }
+      
+      return {
+        feature: feature as Command["feature"],
+        action: "create",
+        parameters,
+        confidence: 0.9
+      };
+    } catch (error) {
+      console.error("Error parsing tool command:", error);
+      return null;
+    }
+  };
+
+  const executeToolCommand = async (command: Command): Promise<string> => {
+    // Here would be the logic to execute different tool commands
+    // such as generating product shots or converting images to video
+    
+    const result = `The ${command.feature} tool will be executed with the provided parameters. This functionality will be implemented soon.`;
+    
+    // Return a message to display to the user
+    return result;
+  };
+  
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
@@ -182,6 +223,54 @@ export const useMultiAgentChat = () => {
       // Handle completed response
       const { completion, status } = response.data;
       
+      // For tool agent, try to parse and execute commands
+      let finalContent = completion;
+      let command: Command | null = null;
+      
+      if (activeAgent === "tool") {
+        command = parseToolCommand(completion);
+        
+        if (command) {
+          // Add a task for executing the tool command
+          const toolTaskId = uuidv4();
+          setMessages(prev => {
+            const newMessages = [...prev];
+            if (messageIndex >= 0 && messageIndex < newMessages.length) {
+              const updatedTasks = [
+                ...(newMessages[messageIndex].tasks || []),
+                {
+                  id: toolTaskId,
+                  name: `Executing ${command!.feature}`,
+                  status: "pending"
+                }
+              ];
+              
+              newMessages[messageIndex] = {
+                ...newMessages[messageIndex],
+                tasks: updatedTasks,
+                command: command
+              };
+            }
+            return newMessages;
+          });
+          
+          try {
+            // Execute the tool command
+            const toolResult = await executeToolCommand(command);
+            
+            // Update the final content to include tool execution results
+            finalContent = `${completion}\n\n${toolResult}`;
+            
+            // Mark the tool task as completed
+            updateTaskStatus(messageIndex, toolTaskId, "completed");
+          } catch (toolError) {
+            console.error("Error executing tool command:", toolError);
+            updateTaskStatus(messageIndex, toolTaskId, "error", toolError.message);
+            finalContent = `${completion}\n\nError executing tool: ${toolError.message}`;
+          }
+        }
+      }
+      
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
       
       // Update the assistant message with the response
@@ -190,8 +279,9 @@ export const useMultiAgentChat = () => {
         if (messageIndex >= 0 && messageIndex < newMessages.length) {
           newMessages[messageIndex] = {
             ...newMessages[messageIndex],
-            content: completion,
-            status: "completed"
+            content: finalContent,
+            status: "completed",
+            command: command
           };
         }
         return newMessages;

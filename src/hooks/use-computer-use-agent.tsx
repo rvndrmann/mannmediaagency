@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect } from "react";
-import { useManusAdapter, ManusAction } from "@/hooks/computer-use/manus-adapter";
+import { useManusAdapter, ManusAction, actionToJson } from "@/hooks/computer-use/manus-adapter";
 import { ComputerUseOutput, SafetyCheck, ComputerAction } from "@/types/computer-use";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -23,7 +23,7 @@ export const useComputerUseAgent = () => {
   const [retryCount, setRetryCount] = useState<number>(0);
   const [authError, setAuthError] = useState<string | null>(null);
   
-  const { sendToManus } = useManusAdapter();
+  const { sendToManus, actionToJson } = useManusAdapter();
   
   // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -221,7 +221,7 @@ export const useComputerUseAgent = () => {
       
       // Set current call ID if available
       const computerCall = output.find(item => item.type === "computer_call");
-      if (computerCall) {
+      if (computerCall && computerCall.type === "computer_call") {
         setCurrentCallId(computerCall.call_id);
         setPendingSafetyChecks(computerCall.pending_safety_checks || []);
       }
@@ -235,7 +235,7 @@ export const useComputerUseAgent = () => {
           .insert({
             session_id: sessionData.id,
             action_type: action.type,
-            action_details: action,
+            action_details: actionToJson(action),
             reasoning: manusResponse.reasoning,
             status: "pending",
             screenshot_url: initialScreenshot
@@ -270,7 +270,8 @@ export const useComputerUseAgent = () => {
     sendToManus, 
     convertManusResponseToOutput, 
     refetchCredits, 
-    fetchActionHistory
+    fetchActionHistory,
+    actionToJson
   ]);
   
   // Execute an action
@@ -367,7 +368,7 @@ export const useComputerUseAgent = () => {
       
       // Set current call ID if available
       const computerCall = output.find(item => item.type === "computer_call");
-      if (computerCall) {
+      if (computerCall && computerCall.type === "computer_call") {
         setCurrentCallId(computerCall.call_id);
         setPendingSafetyChecks(computerCall.pending_safety_checks || []);
         
@@ -380,7 +381,7 @@ export const useComputerUseAgent = () => {
             .insert({
               session_id: sessionId,
               action_type: action.type,
-              action_details: action,
+              action_details: actionToJson(action),
               reasoning: manusResponse.reasoning,
               status: "pending",
             });
@@ -429,7 +430,8 @@ export const useComputerUseAgent = () => {
     convertManusResponseToOutput, 
     fetchActionHistory,
     currentOutput,
-    retryCount
+    retryCount,
+    actionToJson
   ]);
   
   // Clear the current session

@@ -35,6 +35,13 @@ export interface ManusRequest {
   previous_actions?: ManusAction[];
 }
 
+// Helper to convert ManusAction to Json compatible object
+export const actionToJson = (action: ManusAction): Record<string, any> => {
+  return {
+    ...action
+  };
+};
+
 export const useManusAdapter = () => {
   const sendToManus = async (request: ManusRequest): Promise<ManusResponse | null> => {
     try {
@@ -118,6 +125,7 @@ export const useManusAdapter = () => {
 
   return {
     sendToManus,
-    formatAction
+    formatAction,
+    actionToJson
   };
 };

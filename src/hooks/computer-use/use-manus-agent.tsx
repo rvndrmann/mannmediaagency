@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useManusAdapter, ManusAction } from "./manus-adapter";
+import { useManusAdapter, ManusAction, actionToJson } from "./manus-adapter";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
@@ -36,7 +36,7 @@ export const useManusAgent = () => {
   const [reasoning, setReasoning] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   
-  const { sendToManus, formatAction } = useManusAdapter();
+  const { sendToManus, formatAction, actionToJson } = useManusAdapter();
   
   // Get user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
@@ -197,7 +197,7 @@ export const useManusAgent = () => {
             .from("manus_action_history")
             .insert({
               session_id: sessionData.id,
-              action: action,
+              action: actionToJson(action),
               reasoning: manusResponse.reasoning,
               status: "pending",
               screenshot: initialScreenshot
@@ -224,7 +224,8 @@ export const useManusAgent = () => {
     captureScreenshot, 
     sendToManus, 
     fetchActionHistory, 
-    refetchCredits
+    refetchCredits,
+    actionToJson
   ]);
   
   // Execute the next action
@@ -298,7 +299,7 @@ export const useManusAgent = () => {
               .from("manus_action_history")
               .insert({
                 session_id: sessionId,
-                action: action,
+                action: actionToJson(action),
                 reasoning: manusResponse.reasoning,
                 status: "pending"
               });
@@ -334,7 +335,8 @@ export const useManusAgent = () => {
     currentUrl, 
     captureScreenshot, 
     sendToManus, 
-    fetchActionHistory
+    fetchActionHistory,
+    actionToJson
   ]);
   
   // Clear the current session

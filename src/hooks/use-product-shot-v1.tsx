@@ -53,17 +53,19 @@ export const useProductShotV1 = (userCredits: { credits_remaining: number } | nu
     setIsGenerating(true);
 
     try {
-      // Insert a record in the database
+      // Insert a record in the database with correct schema
       const { data: jobData, error: jobError } = await supabase
-        .from("image_generation_jobs")
+        .from("product_images")
         .insert({
           prompt: prompt,
-          source_image_url: productShotPreview,
-          image_size: imageSize,
-          inference_steps: inferenceSteps,
-          guidance_scale: guidanceScale,
-          output_format: outputFormat,
-          status: "pending",
+          settings: {
+            source_image_url: productShotPreview,
+            image_size: imageSize,
+            inference_steps: inferenceSteps,
+            guidance_scale: guidanceScale,
+            output_format: outputFormat
+          },
+          status: "pending"
         })
         .select()
         .single();

@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { SplitScreen } from "@/components/ai-agent/SplitScreen";
 import { Header } from "@/components/ai-agent/Header";
@@ -11,6 +12,8 @@ import { VideoTemplatesDialog } from "@/components/ai-agent/VideoTemplatesDialog
 import { CustomOrderDialog } from "@/components/ai-agent/CustomOrderDialog";
 import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
 import { useNavigate } from "react-router-dom";
+import { useQuery } from "@tanstack/react-query";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function AIAgent() {
   const [activeTool, setActiveTool] = useState<string>("ai-agent");
@@ -19,13 +22,36 @@ export default function AIAgent() {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   
+  // Get user credits
+  const { data: userCredits } = useQuery({
+    queryKey: ["userCredits"],
+    queryFn: async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+
+        const { data, error } = await supabase
+          .from("user_credits")
+          .select("credits_remaining")
+          .eq("user_id", user.id)
+          .single();
+
+        if (error) throw error;
+        return data;
+      } catch (error) {
+        console.error("Error fetching user credits:", error);
+        return { credits_remaining: 0 };
+      }
+    },
+  });
+  
   const { 
     messages, 
     input, 
     setInput, 
     isLoading, 
     handleSubmit, 
-    userCredits, 
+    userCredits: aiChatCredits, 
     useAssistantsApi,
     setUseAssistantsApi,
     useMcp,
@@ -33,13 +59,13 @@ export default function AIAgent() {
   } = useAIChat();
   
   const productShootV2 = useProductShoot();
-  const productShotV1 = useProductShotV1();
+  const productShotV1 = useProductShotV1(userCredits);
   const imageToVideo = useImageToVideo();
   
   const { 
     state: productShotV1State,
     actions: productShotV1Actions
-  } = useProductShotV1();
+  } = productShotV1;
   
   const handleToolSelect = (tool: string) => {
     setActiveTool(tool);
@@ -83,7 +109,7 @@ export default function AIAgent() {
           messages={messages}
           input={input}
           isLoading={isLoading}
-          userCredits={userCredits}
+          userCredits={aiChatCredits || userCredits}
           activeTool={activeTool}
           onToolSelect={handleToolSelect}
           onVideoTemplatesClick={handleVideoTemplatesClick}

@@ -241,7 +241,7 @@ export const useMultiAgentChat = () => {
                 {
                   id: toolTaskId,
                   name: `Executing ${command!.feature}`,
-                  status: "pending"
+                  status: "pending" as Task["status"]  // Fix here: explicitly type as Task["status"]
                 }
               ];
               

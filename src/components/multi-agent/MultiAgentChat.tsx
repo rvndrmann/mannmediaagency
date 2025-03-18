@@ -7,7 +7,6 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { Attachment } from "@/types/message";
 
 export const MultiAgentChat = () => {
   const {
@@ -68,7 +67,7 @@ export const MultiAgentChat = () => {
             />
             
             {messages.length === 0 && (
-              <div className="text-center py-12">
+              <div className="text-center py-12 animate-fadeIn">
                 <h3 className="text-white/70 text-lg font-medium mb-2">Welcome to Multi-Agent Chat</h3>
                 <p className="text-white/50 max-w-md mx-auto">
                   Select an agent type and start chatting. Each agent specializes in different tasks:
@@ -87,8 +86,8 @@ export const MultiAgentChat = () => {
         </ScrollArea>
       </div>
 
-      <div className="sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 z-10 mb-12 md:mb-0">
-        <div className="absolute -top-10 right-4 p-2 bg-[#262B38] backdrop-blur-lg rounded-t-lg z-10 flex items-center space-x-2 border-t border-l border-r border-white/10">
+      <div className="sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 z-10 mb-12 md:mb-0 shadow-lg">
+        <div className="absolute -top-10 right-4 p-2 bg-[#262B38] backdrop-blur-lg rounded-t-lg z-10 flex items-center space-x-2 border-t border-l border-r border-white/10 shadow-md">
           <span className="text-sm font-medium text-white/80">
             Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
           </span>

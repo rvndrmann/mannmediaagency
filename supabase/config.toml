@@ -30,3 +30,7 @@ verify_jwt = false
 verify_jwt = false
 [functions.manus-computer-agent]
 verify_jwt = true
+[functions.browser-automation]
+verify_jwt = true
+[functions.browser-automation-ws]
+verify_jwt = true

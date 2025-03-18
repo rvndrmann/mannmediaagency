@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
-import { chromium } from "https://deno.land/x/playwright@v0.170.0/mod.ts";
+import { chromium } from "playwright";
 
 // Define API endpoints and environment variables
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
@@ -77,9 +77,6 @@ serve(async (req) => {
       
       page = await context.newPage();
       console.log("Browser launched successfully");
-      
-      // Navigate to initial page
-      await page.goto("https://google.com");
       isConnected = true;
       
       // Send confirmation message
@@ -88,9 +85,12 @@ serve(async (req) => {
         message: "Connected to browser automation service"
       }));
       
+      // Navigate to initial page
+      await page.goto("https://www.google.com");
+      
       // Take initial screenshot
       const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-      const base64Screenshot = `data:image/jpeg;base64,${Buffer.from(screenshot).toString('base64')}`;
+      const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
       
       socket.send(JSON.stringify({
         type: "screenshot",
@@ -99,7 +99,7 @@ serve(async (req) => {
       
       socket.send(JSON.stringify({
         type: "navigation",
-        url: "https://google.com"
+        url: "https://www.google.com"
       }));
     } catch (error) {
       console.error("Error initializing browser:", error);
@@ -128,7 +128,7 @@ serve(async (req) => {
         if (message.type === "capture_screenshot") {
           try {
             const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-            const base64Screenshot = `data:image/jpeg;base64,${Buffer.from(screenshot).toString('base64')}`;
+            const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
             
             socket.send(JSON.stringify({
               type: "screenshot",
@@ -164,7 +164,7 @@ serve(async (req) => {
                 
               case "openUrl":
               case "navigate":
-                const url = action.url || "https://google.com";
+                const url = action.url || "https://www.google.com";
                 await page.goto(url);
                 // Send the new URL to the client
                 socket.send(JSON.stringify({
@@ -212,7 +212,7 @@ serve(async (req) => {
             
             // Take a new screenshot after action
             const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-            const base64Screenshot = `data:image/jpeg;base64,${Buffer.from(screenshot).toString('base64')}`;
+            const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
             
             socket.send(JSON.stringify({
               type: "screenshot",
@@ -236,7 +236,7 @@ serve(async (req) => {
             // Still try to get a screenshot if possible
             try {
               const screenshot = await page.screenshot({ type: "jpeg", quality: 80 });
-              const base64Screenshot = `data:image/jpeg;base64,${Buffer.from(screenshot).toString('base64')}`;
+              const base64Screenshot = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshot)))}`;
               
               socket.send(JSON.stringify({
                 type: "screenshot",

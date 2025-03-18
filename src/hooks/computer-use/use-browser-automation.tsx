@@ -37,9 +37,9 @@ export const useBrowserAutomation = () => {
   const [browserSessionConnected, setBrowserSessionConnected] = useState<boolean>(false);
   
   // Get the supabase project URL to create a websocket URL
-  const supabaseUrl = new URL(supabase.supabaseUrl);
+  const supabaseUrl = supabase.supabaseUrl;
   // Create a WebSocket URL from the Supabase URL
-  const wsBaseUrl = `wss://${supabaseUrl.hostname}`;
+  const wsBaseUrl = supabaseUrl.replace('https://', 'wss://');
   
   const { 
     sendToBrowserAutomation, 
@@ -72,20 +72,24 @@ export const useBrowserAutomation = () => {
   });
   
   // Initialize WebSocket connection to browser automation service
-  const initializeWebSocket = useCallback((session_id: string) => {
-    const token = supabase.auth.getSession().then(({ data }) => {
-      return data.session?.access_token;
-    });
-    
-    // Once we have the token, create the WebSocket connection
-    token.then(accessToken => {
+  const initializeWebSocket = useCallback(async (session_id: string) => {
+    try {
+      const { data } = await supabase.auth.getSession();
+      const accessToken = data.session?.access_token;
+      
       if (!accessToken) {
         console.error("No access token available for WebSocket authentication");
+        toast.error("Authentication error. Please sign in again.");
         return;
       }
       
       const wsUrl = `${wsBaseUrl}/functions/v1/browser-automation-ws?session_id=${session_id}&token=${accessToken}`;
       console.log("Connecting to WebSocket:", wsUrl);
+      
+      // Close any existing connection
+      if (wsConnection && wsConnection.readyState !== WebSocket.CLOSED) {
+        wsConnection.close();
+      }
       
       const ws = new WebSocket(wsUrl);
       
@@ -96,80 +100,102 @@ export const useBrowserAutomation = () => {
       };
       
       ws.onmessage = (event) => {
-        const data = JSON.parse(event.data);
-        console.log("WebSocket message received:", data);
-        
-        if (data.type === "screenshot") {
-          setScreenshot(data.data);
-          // Also capture this in the database for history
-          if (sessionId) {
-            supabase
-              .from("browser_automation_actions")
-              .update({
-                screenshot_url: data.data
-              })
-              .eq("session_id", sessionId)
-              .eq("status", "pending")
-              .order("created_at", { ascending: true })
-              .limit(1);
-          }
-        } else if (data.type === "navigation") {
-          setCurrentUrl(data.url);
-        } else if (data.type === "action_status") {
-          if (data.status === "completed") {
-            toast.success(`Action completed: ${data.action_type}`);
-            // Update action status in database
+        try {
+          const data = JSON.parse(event.data);
+          console.log("WebSocket message received:", data);
+          
+          if (data.type === "screenshot") {
+            setScreenshot(data.data);
+            // Also capture this in the database for history
             if (sessionId) {
               supabase
                 .from("browser_automation_actions")
                 .update({
-                  status: "executed",
-                  executed_at: new Date().toISOString()
-                })
-                .eq("session_id", sessionId)
-                .eq("status", "pending")
-                .order("created_at", { ascending: true })
-                .limit(1);
-              
-              // Fetch the next action
-              fetchNextAction();
-            }
-          } else if (data.status === "failed") {
-            toast.error(`Action failed: ${data.action_type} - ${data.error}`);
-            // Update action status in database
-            if (sessionId) {
-              supabase
-                .from("browser_automation_actions")
-                .update({
-                  status: "failed",
-                  executed_at: new Date().toISOString()
+                  screenshot_url: data.data
                 })
                 .eq("session_id", sessionId)
                 .eq("status", "pending")
                 .order("created_at", { ascending: true })
                 .limit(1);
             }
+          } else if (data.type === "navigation") {
+            setCurrentUrl(data.url);
+          } else if (data.type === "action_status") {
+            if (data.status === "completed") {
+              toast.success(`Action completed: ${data.action_type}`);
+              // Update action status in database
+              if (sessionId) {
+                supabase
+                  .from("browser_automation_actions")
+                  .update({
+                    status: "executed",
+                    executed_at: new Date().toISOString()
+                  })
+                  .eq("session_id", sessionId)
+                  .eq("status", "pending")
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+                
+                // Fetch the next action
+                fetchNextAction();
+              }
+            } else if (data.status === "failed") {
+              toast.error(`Action failed: ${data.action_type} - ${data.error}`);
+              // Update action status in database
+              if (sessionId) {
+                supabase
+                  .from("browser_automation_actions")
+                  .update({
+                    status: "failed",
+                    executed_at: new Date().toISOString()
+                  })
+                  .eq("session_id", sessionId)
+                  .eq("status", "pending")
+                  .order("created_at", { ascending: true })
+                  .limit(1);
+              }
+            }
+          } else if (data.type === "error") {
+            toast.error(`Browser automation error: ${data.message}`);
+            setError(data.message);
+          } else if (data.type === "connected") {
+            toast.success(data.message || "Connected to browser");
+            setBrowserSessionConnected(true);
           }
-        } else if (data.type === "error") {
-          toast.error(`Browser automation error: ${data.message}`);
-          setError(data.message);
+        } catch (error) {
+          console.error("Error parsing WebSocket message:", error);
         }
       };
       
-      ws.onerror = (error) => {
-        console.error("WebSocket error:", error);
+      ws.onerror = (event) => {
+        console.error("WebSocket error:", event);
         setBrowserSessionConnected(false);
         toast.error("Connection to browser automation service failed");
+        setError("Failed to connect to browser service. Please try again.");
       };
       
       ws.onclose = () => {
         console.log("WebSocket connection closed");
         setBrowserSessionConnected(false);
+        
+        // Auto-reconnect logic
+        if (sessionId) {
+          setTimeout(() => {
+            if (sessionId === session_id) { // Make sure we're still in the same session
+              console.log("Attempting to reconnect WebSocket...");
+              initializeWebSocket(session_id);
+            }
+          }, 5000);
+        }
       };
       
       setWsConnection(ws);
-    });
-  }, [wsBaseUrl, supabase.auth]);
+    } catch (error) {
+      console.error("Error initializing WebSocket:", error);
+      toast.error("Failed to connect to browser automation service");
+      setError("Failed to initialize browser service. Please try again.");
+    }
+  }, [wsBaseUrl, sessionId]);
   
   // Cleanup WebSocket connection on unmount
   useEffect(() => {
@@ -184,12 +210,19 @@ export const useBrowserAutomation = () => {
   const captureScreenshot = useCallback(async () => {
     if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
       wsConnection.send(JSON.stringify({ type: "capture_screenshot" }));
-      return "requested";
+      return true;
     } else {
       console.error("WebSocket not connected for screenshot capture");
-      return null;
+      
+      if (sessionId) {
+        // Try to reconnect if we have a session
+        initializeWebSocket(sessionId);
+        toast.error("Connection lost. Reconnecting...");
+      }
+      
+      return false;
     }
-  }, [wsConnection]);
+  }, [wsConnection, sessionId, initializeWebSocket]);
   
   const fetchActionHistory = useCallback(async () => {
     if (!sessionId) return;
@@ -385,7 +418,7 @@ export const useBrowserAutomation = () => {
       setSessionId(sessionData.id);
       
       // Initialize WebSocket connection with the new session ID
-      initializeWebSocket(sessionData.id);
+      await initializeWebSocket(sessionData.id);
       
       // Once connected, get the first actions from the AI
       setTimeout(async () => {
@@ -443,6 +476,12 @@ export const useBrowserAutomation = () => {
   const executeAction = useCallback(async () => {
     if (!sessionId || currentActions.length === 0 || !wsConnection) {
       toast.error("No actions to execute or no connection to browser");
+      return;
+    }
+    
+    if (wsConnection.readyState !== WebSocket.OPEN) {
+      toast.error("Browser connection lost. Reconnecting...");
+      initializeWebSocket(sessionId);
       return;
     }
     
@@ -505,7 +544,8 @@ export const useBrowserAutomation = () => {
     currentActions, 
     wsConnection, 
     fetchNextAction,
-    retryCount
+    retryCount,
+    initializeWebSocket
   ]);
   
   const clearSession = useCallback(() => {

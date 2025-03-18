@@ -21,6 +21,16 @@ interface ManusRequest {
   api_key?: string;
 }
 
+interface ManusResponse {
+  actions: any[];
+  reasoning: string;
+  state?: {
+    current_url?: string;
+    screenshot?: string;
+    dom_state?: any;
+  };
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -58,6 +68,7 @@ serve(async (req) => {
       .single();
     
     if (creditsError) {
+      console.error("Error checking user credits:", creditsError);
       return new Response(
         JSON.stringify({ error: "Error checking user credits" }),
         { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -88,10 +99,10 @@ serve(async (req) => {
     // Prepare the request for the Manus API
     const manusPayload = {
       ...requestData,
-      api_key: apiKey,
     };
     
-    delete manusPayload.api_key; // Remove from payload
+    // If api_key is in the request, delete it from payload
+    delete manusPayload.api_key;
     
     // Make request to Manus API
     console.log("Sending request to Manus API");
@@ -115,7 +126,7 @@ serve(async (req) => {
     }
     
     // Parse response from Manus API
-    const manusResponse = await response.json();
+    const manusResponse = await response.json() as ManusResponse;
     
     // If this is a new session (no previous actions), deduct 1 credit
     if (!requestData.previous_actions || requestData.previous_actions.length === 0) {

@@ -28,5 +28,5 @@ verify_jwt = true
 verify_jwt = false
 [functions.check-generation-status]
 verify_jwt = false
-[functions.computer-use-agent]
-verify_jwt = false
+[functions.manus-computer-agent]
+verify_jwt = true

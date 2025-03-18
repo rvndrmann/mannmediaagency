@@ -32,20 +32,19 @@ export interface ManusRequest {
   screenshot?: string;
   current_url?: string;
   previous_actions?: ManusAction[];
-  api_key?: string;
 }
 
 export const useManusAdapter = () => {
   const sendToManus = async (request: ManusRequest): Promise<ManusResponse | null> => {
     try {
-      // Call edge function to proxy request to Manus API
+      // Call edge function to proxy request to OpenAI
       const { data, error } = await supabase.functions.invoke("manus-computer-agent", {
         body: request
       });
 
       if (error) {
-        console.error("Error calling Manus API:", error);
-        toast.error("Failed to connect to Manus: " + error.message);
+        console.error("Error calling Manus Computer Agent:", error);
+        toast.error("Failed to connect to agent: " + error.message);
         return null;
       }
 

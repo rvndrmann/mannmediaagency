@@ -12,6 +12,11 @@ const navItems = [
     href: "/ai-agent"
   },
   {
+    label: "Multi-Agent",
+    icon: Bot,
+    href: "/multi-agent-chat"
+  },
+  {
     label: "Explore",
     icon: Compass,
     href: "/explore"

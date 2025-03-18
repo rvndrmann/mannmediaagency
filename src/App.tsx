@@ -35,6 +35,7 @@ import ProfileSettings from "@/pages/ProfileSettings";
 import { BottomNav } from "./components/mobile/BottomNav";
 import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
+import MultiAgentChat from "./pages/MultiAgentChat";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -112,6 +113,7 @@ const App = () => (
               <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
               <Route path="/ai-agent" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
+              <Route path="/multi-agent-chat" element={<ProtectedRoute><MultiAgentChat /></ProtectedRoute>} />
               <Route path="/custom-orders" element={<ProtectedRoute><CustomOrders /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
               <Route path="/payment" element={<Payment />} />

@@ -5,6 +5,7 @@ export interface Message {
   status?: "thinking" | "working" | "completed" | "error";
   tasks?: Task[];
   command?: Command;
+  agentType?: "main" | "script" | "image" | "tool";
 }
 
 export interface Task {
@@ -29,4 +30,29 @@ export interface Command {
   type?: string;
   tool?: string;
   selectedTool?: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  created_at: string;
+}
+
+// Agent system interfaces
+export interface AgentMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  name?: string;
+}
+
+export interface AgentCompletion {
+  id: string;
+  agentType: "script" | "image" | "tool" | "main";
+  content: string;
+  status: "completed" | "processing" | "error";
+  createdAt: string;
 }

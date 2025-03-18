@@ -9,6 +9,39 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
+      admin_messages: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          message_type: string
+          read: boolean
+          receiver_id: string
+          sender_id: string
+          updated_at: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          message_type: string
+          read?: boolean
+          receiver_id: string
+          sender_id: string
+          updated_at?: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          message_type?: string
+          read?: boolean
+          receiver_id?: string
+          sender_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       admin_users: {
         Row: {
           created_at: string
@@ -2047,6 +2080,10 @@ export type Database = {
           user_id: string
         }[]
       }
+      get_admin_users_for_messaging: {
+        Args: Record<PropertyKey, never>
+        Returns: unknown[]
+      }
       get_pending_custom_orders_count: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -2054,6 +2091,12 @@ export type Database = {
       get_table_count: {
         Args: {
           table_name: string
+        }
+        Returns: number
+      }
+      get_unread_messages_count: {
+        Args: {
+          user_id: string
         }
         Returns: number
       }

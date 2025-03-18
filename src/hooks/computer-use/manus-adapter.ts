@@ -42,6 +42,39 @@ export const actionToJson = (action: ManusAction): Record<string, any> => {
   };
 };
 
+// Helper to convert from Json to ManusAction with type safety
+export const jsonToAction = (json: any): ManusAction | null => {
+  if (!json || typeof json !== 'object') {
+    console.error('Invalid JSON for action conversion:', json);
+    return null;
+  }
+  
+  // Check if the JSON has a type property, which is required for ManusAction
+  if (!json.type || typeof json.type !== 'string') {
+    console.error('JSON missing required "type" property for ManusAction:', json);
+    return null;
+  }
+  
+  // Create a valid ManusAction object with type safety
+  const action: ManusAction = {
+    type: json.type,
+  };
+  
+  // Add optional properties if they exist
+  if (json.x !== undefined) action.x = Number(json.x);
+  if (json.y !== undefined) action.y = Number(json.y);
+  if (json.text !== undefined) action.text = String(json.text);
+  if (json.url !== undefined) action.url = String(json.url);
+  if (json.element !== undefined) action.element = String(json.element);
+  if (json.keys !== undefined && Array.isArray(json.keys)) action.keys = json.keys.map(String);
+  if (json.button !== undefined) action.button = json.button as "left" | "right" | "middle";
+  if (json.selector !== undefined) action.selector = String(json.selector);
+  if (json.value !== undefined) action.value = String(json.value);
+  if (json.options !== undefined) action.options = json.options;
+  
+  return action;
+};
+
 // Helper to normalize URLs
 export const normalizeUrl = (url: string): string => {
   if (!url) return '';
@@ -155,6 +188,7 @@ export const useManusAdapter = () => {
     sendToManus,
     formatAction,
     actionToJson,
+    jsonToAction,
     normalizeUrl
   };
 };

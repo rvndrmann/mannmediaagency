@@ -1,6 +1,5 @@
-
 import { useState, useCallback, useEffect } from "react";
-import { useManusAdapter, ManusAction, actionToJson } from "@/hooks/computer-use/manus-adapter";
+import { useManusAdapter, ManusAction, actionToJson, jsonToAction } from "@/hooks/computer-use/manus-adapter";
 import { ComputerUseOutput, SafetyCheck, ComputerAction } from "@/types/computer-use";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
@@ -23,9 +22,8 @@ export const useComputerUseAgent = () => {
   const [retryCount, setRetryCount] = useState<number>(0);
   const [authError, setAuthError] = useState<string | null>(null);
   
-  const { sendToManus, actionToJson } = useManusAdapter();
+  const { sendToManus, actionToJson, jsonToAction } = useManusAdapter();
   
-  // Fetch user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -48,7 +46,6 @@ export const useComputerUseAgent = () => {
     },
   });
   
-  // Fetch action history from database
   const fetchActionHistory = useCallback(async () => {
     if (!sessionId) return;
     
@@ -60,21 +57,25 @@ export const useComputerUseAgent = () => {
         .order("created_at", { ascending: true });
       
       if (error) throw error;
-      setActionHistory(data || []);
+      
+      const transformedData = data?.map(item => ({
+        ...item,
+        action_details: jsonToAction(item.action_details) || {} 
+      }));
+      
+      setActionHistory(transformedData || []);
     } catch (error) {
       console.error("Error fetching action history:", error);
       toast.error("Failed to load action history");
     }
-  }, [sessionId]);
+  }, [sessionId, jsonToAction]);
   
-  // Effect to fetch action history when sessionId changes
   useEffect(() => {
     if (sessionId) {
       fetchActionHistory();
     }
   }, [sessionId, fetchActionHistory]);
   
-  // Capture a screenshot
   const captureScreenshot = useCallback(async () => {
     if (typeof document === 'undefined') return null;
     
@@ -110,11 +111,9 @@ export const useComputerUseAgent = () => {
     }
   }, []);
   
-  // Convert Manus response to Computer Use Output
   const convertManusResponseToOutput = useCallback((response: any, actionId?: string): ComputerUseOutput => {
     const output: ComputerUseOutput = [];
     
-    // Add reasoning if available
     if (response.reasoning) {
       output.push({
         type: "reasoning",
@@ -126,16 +125,13 @@ export const useComputerUseAgent = () => {
       });
     }
     
-    // Add computer call action if actions available
     if (response.actions && response.actions.length > 0) {
       const action = response.actions[0];
       
-      // Convert the Manus action to a Computer action
       const computerAction: ComputerAction = {
         type: action.type,
       };
       
-      // Map specific properties based on action type
       if (action.x !== undefined) computerAction.x = action.x;
       if (action.y !== undefined) computerAction.y = action.y;
       if (action.button !== undefined) computerAction.button = action.button;
@@ -155,8 +151,7 @@ export const useComputerUseAgent = () => {
     
     return output;
   }, []);
-
-  // Start a new session
+  
   const startSession = useCallback(async () => {
     if (!taskDescription.trim()) {
       toast.error("Please enter a task description");
@@ -180,13 +175,11 @@ export const useComputerUseAgent = () => {
         return;
       }
       
-      // Capture screenshot if in browser environment
       let initialScreenshot = null;
       if (environment === "browser") {
         initialScreenshot = await captureScreenshot();
       }
       
-      // Create session in database
       const { data: sessionData, error: sessionError } = await supabase
         .from("computer_automation_sessions")
         .insert({
@@ -202,7 +195,6 @@ export const useComputerUseAgent = () => {
         throw new Error(sessionError.message);
       }
       
-      // Send request to Manus adapter
       const manusResponse = await sendToManus({
         task: taskDescription,
         environment: environment,
@@ -214,19 +206,16 @@ export const useComputerUseAgent = () => {
         throw new Error("Failed to get response from Manus API");
       }
       
-      // Set session ID and convert response to output format
       setSessionId(sessionData.id);
       const output = convertManusResponseToOutput(manusResponse);
       setCurrentOutput(output);
       
-      // Set current call ID if available
       const computerCall = output.find(item => item.type === "computer_call");
       if (computerCall && computerCall.type === "computer_call") {
         setCurrentCallId(computerCall.call_id);
         setPendingSafetyChecks(computerCall.pending_safety_checks || []);
       }
       
-      // Save first action to database
       if (manusResponse.actions && manusResponse.actions.length > 0) {
         const action = manusResponse.actions[0];
         
@@ -241,7 +230,6 @@ export const useComputerUseAgent = () => {
             screenshot_url: initialScreenshot
           });
         
-        // Add first action to previous actions list
         setPreviousActions([action]);
       }
       
@@ -274,7 +262,6 @@ export const useComputerUseAgent = () => {
     actionToJson
   ]);
   
-  // Execute an action
   const executeAction = useCallback(async () => {
     if (!sessionId || !currentCallId) {
       toast.error("No active action to execute");
@@ -292,10 +279,8 @@ export const useComputerUseAgent = () => {
         return;
       }
       
-      // Capture current screenshot
       const currentScreenshot = await captureScreenshot();
       
-      // Mark current action as executed
       const { data: actionData, error: actionError } = await supabase
         .from("computer_automation_actions")
         .update({
@@ -313,32 +298,26 @@ export const useComputerUseAgent = () => {
         throw new Error(actionError.message);
       }
       
-      // Get the executed action to add to previous actions
       if (actionData && actionData.length > 0) {
-        // Get the current action that was just executed
         const executedAction = currentOutput.find(item => 
           item.type === "computer_call" && item.call_id === currentCallId
         );
         
         if (executedAction && executedAction.type === "computer_call") {
-          // Add to previous actions
           const actionToAdd: ManusAction = {
             type: executedAction.action.type,
           };
           
-          // Add additional properties based on action type
           if (executedAction.action.x !== undefined) actionToAdd.x = executedAction.action.x;
           if (executedAction.action.y !== undefined) actionToAdd.y = executedAction.action.y;
           if (executedAction.action.text !== undefined) actionToAdd.text = executedAction.action.text;
           if (executedAction.action.keys !== undefined) actionToAdd.keys = executedAction.action.keys;
           if (executedAction.action.url !== undefined) actionToAdd.url = executedAction.action.url;
           
-          // Add to the previous actions list
           setPreviousActions(prev => [...prev, actionToAdd]);
         }
       }
       
-      // Update the URL if the action was "navigate"
       const currentAction = currentOutput.find(item => 
         item.type === "computer_call" && item.call_id === currentCallId
       );
@@ -348,7 +327,6 @@ export const useComputerUseAgent = () => {
         setCurrentUrl(currentAction.action.url);
       }
       
-      // Send request to Manus adapter for next action
       const manusResponse = await sendToManus({
         task: taskDescription,
         environment: environment,
@@ -361,18 +339,15 @@ export const useComputerUseAgent = () => {
         throw new Error("Failed to get response from Manus API");
       }
       
-      // Convert response to output and set as current
       const newActionId = crypto.randomUUID();
       const output = convertManusResponseToOutput(manusResponse, newActionId);
       setCurrentOutput(output);
       
-      // Set current call ID if available
       const computerCall = output.find(item => item.type === "computer_call");
       if (computerCall && computerCall.type === "computer_call") {
         setCurrentCallId(computerCall.call_id);
         setPendingSafetyChecks(computerCall.pending_safety_checks || []);
         
-        // Save new action to database
         if (manusResponse.actions && manusResponse.actions.length > 0) {
           const action = manusResponse.actions[0];
           
@@ -387,7 +362,6 @@ export const useComputerUseAgent = () => {
             });
         }
       } else {
-        // No more actions, mark session as completed
         await supabase
           .from("computer_automation_sessions")
           .update({
@@ -434,7 +408,6 @@ export const useComputerUseAgent = () => {
     actionToJson
   ]);
   
-  // Clear the current session
   const clearSession = useCallback(() => {
     setSessionId(null);
     setCurrentOutput([]);
@@ -449,7 +422,6 @@ export const useComputerUseAgent = () => {
     toast.info("Session ended");
   }, []);
   
-  // Acknowledge all safety checks
   const acknowledgeAllSafetyChecks = useCallback(() => {
     toast.success("Safety checks acknowledged");
     executeAction();

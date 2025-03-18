@@ -1,7 +1,6 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useManusAdapter, ManusAction, actionToJson } from "./manus-adapter";
+import { useManusAdapter, ManusAction, actionToJson, jsonToAction } from "./manus-adapter";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 
@@ -36,9 +35,8 @@ export const useManusAgent = () => {
   const [reasoning, setReasoning] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
   
-  const { sendToManus, formatAction, actionToJson, normalizeUrl } = useManusAdapter();
+  const { sendToManus, formatAction, actionToJson, jsonToAction, normalizeUrl } = useManusAdapter();
   
-  // Get user credits
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
     queryFn: async () => {
@@ -61,7 +59,6 @@ export const useManusAgent = () => {
     },
   });
   
-  // Capture screenshot of the browser view
   const captureScreenshot = useCallback(async () => {
     if (typeof document === 'undefined') return null;
     
@@ -97,7 +94,6 @@ export const useManusAgent = () => {
     }
   }, []);
   
-  // Fetch action history from the database
   const fetchActionHistory = useCallback(async () => {
     if (!sessionId) return;
     
@@ -110,24 +106,31 @@ export const useManusAgent = () => {
       
       if (error) throw error;
       
-      // Transform data to match our ManusActionHistory type
-      const formattedHistory: ManusActionHistory[] = data ? data.map(item => ({
-        id: item.id,
-        action: item.action as ManusAction,
-        reasoning: item.reasoning,
-        timestamp: new Date(item.created_at),
-        screenshot: item.screenshot,
-        status: item.status as "pending" | "executed" | "failed"
-      })) : [];
+      const formattedHistory: ManusActionHistory[] = data ? data.map(item => {
+        const actionData = jsonToAction(item.action);
+        
+        if (!actionData) {
+          console.error("Invalid action data in history:", item.action);
+          return null;
+        }
+        
+        return {
+          id: item.id,
+          action: actionData,
+          reasoning: item.reasoning,
+          timestamp: new Date(item.created_at),
+          screenshot: item.screenshot,
+          status: item.status as "pending" | "executed" | "failed"
+        };
+      }).filter(Boolean) as ManusActionHistory[] : [];
       
       setActionHistory(formattedHistory);
     } catch (error) {
       console.error("Error fetching action history:", error);
       toast.error("Failed to load action history");
     }
-  }, [sessionId]);
+  }, [sessionId, jsonToAction]);
   
-  // Start a new session
   const startSession = useCallback(async () => {
     if (!taskDescription.trim()) {
       toast.error("Please enter a task description");
@@ -150,13 +153,11 @@ export const useManusAgent = () => {
         return;
       }
       
-      // Capture initial screenshot for browser environment
       let initialScreenshot = null;
       if (environment === "browser") {
         initialScreenshot = await captureScreenshot();
       }
       
-      // Create session in database
       const { data: sessionData, error: sessionError } = await supabase
         .from("manus_sessions")
         .insert({
@@ -173,7 +174,6 @@ export const useManusAgent = () => {
         throw new Error(sessionError.message);
       }
       
-      // Send initial request to Manus API
       const manusResponse = await sendToManus({
         task: taskDescription,
         environment: environment,
@@ -185,12 +185,10 @@ export const useManusAgent = () => {
         throw new Error("Failed to get response from Manus API");
       }
       
-      // Store the session ID and set the current actions
       setSessionId(sessionData.id);
       setCurrentActions(manusResponse.actions || []);
       setReasoning(manusResponse.reasoning || "");
       
-      // Save actions to the database
       if (manusResponse.actions && manusResponse.actions.length > 0) {
         for (const action of manusResponse.actions) {
           await supabase
@@ -229,7 +227,6 @@ export const useManusAgent = () => {
     normalizeUrl
   ]);
   
-  // Execute the next action
   const executeAction = useCallback(async () => {
     if (!sessionId || currentActions.length === 0) {
       toast.error("No actions to execute");
@@ -239,20 +236,15 @@ export const useManusAgent = () => {
     setIsProcessing(true);
     
     try {
-      // Get the first action from the queue
       const actionToExecute = currentActions[0];
       
-      // Handle navigate actions separately (they're handled by the UI directly)
       if (actionToExecute.type === "navigate" && actionToExecute.url) {
         console.log("Navigation action will be handled by the UI:", actionToExecute.url);
-        // The navigation itself happens in the UI component
         setCurrentUrl(normalizeUrl(actionToExecute.url));
       }
       
-      // Capture current screenshot after navigation
       const currentScreenshot = await captureScreenshot();
       
-      // Update action status in database
       const { data: actionData, error: actionError } = await supabase
         .from("manus_action_history")
         .update({
@@ -270,16 +262,12 @@ export const useManusAgent = () => {
         throw new Error(actionError.message);
       }
       
-      // Remove the executed action from the queue
       const remainingActions = currentActions.slice(1);
       setCurrentActions(remainingActions);
       
-      // If there are no more actions, get the next set from Manus
       if (remainingActions.length === 0) {
-        // Get current URL (which might have changed due to the action)
         const updatedUrl = currentUrl;
         
-        // Send request to Manus API for next actions
         const manusResponse = await sendToManus({
           task: taskDescription,
           environment: environment,
@@ -292,11 +280,9 @@ export const useManusAgent = () => {
           throw new Error("Failed to get response from Manus API");
         }
         
-        // Set the new actions and reasoning
         setCurrentActions(manusResponse.actions || []);
         setReasoning(manusResponse.reasoning || "");
         
-        // Save new actions to the database
         if (manusResponse.actions && manusResponse.actions.length > 0) {
           for (const action of manusResponse.actions) {
             await supabase
@@ -309,7 +295,6 @@ export const useManusAgent = () => {
               });
           }
         } else {
-          // If no more actions, mark the session as completed
           await supabase
             .from("manus_sessions")
             .update({
@@ -322,7 +307,6 @@ export const useManusAgent = () => {
         }
       }
       
-      // Refresh action history
       await fetchActionHistory();
     } catch (error) {
       console.error("Error executing action:", error);
@@ -344,7 +328,6 @@ export const useManusAgent = () => {
     normalizeUrl
   ]);
   
-  // Clear the current session
   const clearSession = useCallback(() => {
     setSessionId(null);
     setCurrentActions([]);
@@ -356,7 +339,6 @@ export const useManusAgent = () => {
     toast.info("Session ended");
   }, []);
   
-  // Load session and action history on component mount
   useEffect(() => {
     if (sessionId) {
       fetchActionHistory();

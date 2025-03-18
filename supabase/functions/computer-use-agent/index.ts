@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
+import { decode as decodeJWT } from "https://deno.land/x/djwt@v2.8/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -22,6 +23,52 @@ interface ComputerUseRequest {
   }>;
   currentUrl?: string;
   previousResponseId?: string;
+}
+
+// Helper function to extract user ID from authorization header
+async function getUserIdFromRequest(req: Request): Promise<string | null> {
+  try {
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      console.log('Missing or invalid Authorization header');
+      return null;
+    }
+
+    const token = authHeader.split(' ')[1];
+    
+    try {
+      // Attempt to decode the JWT to get the user ID
+      // Note: This doesn't verify the signature, just extracts the payload
+      const payload = (await decodeJWT(token))[1];
+      if (payload && payload.sub) {
+        console.log('Extracted user ID from JWT:', payload.sub);
+        return payload.sub as string;
+      }
+    } catch (jwtError) {
+      console.error('Error decoding JWT:', jwtError);
+    }
+    
+    // Fallback to using Supabase client to get user
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseKey);
+    
+    const { data: { user }, error } = await supabase.auth.getUser(token);
+    if (error) {
+      console.error('Error getting user from token:', error);
+      return null;
+    }
+    
+    if (user) {
+      console.log('Got user from Supabase auth:', user.id);
+      return user.id;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error('Error in getUserIdFromRequest:', error);
+    return null;
+  }
 }
 
 async function startNewSession(
@@ -432,40 +479,23 @@ serve(async (req) => {
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
     
+    // Get user ID from request
+    const userId = await getUserIdFromRequest(req);
+    
+    if (!userId) {
+      console.error("Authentication failed: No valid user ID found in request");
+      return new Response(
+        JSON.stringify({ error: "Authentication required. Please sign in to use this feature." }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    console.log("Authenticated user:", userId);
+    
     // Parse request body
     const request = await req.json() as ComputerUseRequest;
     
     let result;
-    let userId: string | null = null;
-
-    // Try to get the user ID from auth if available, but don't require it
-    try {
-      const { data: { user }, error: userError } = await supabase.auth.getUser();
-      
-      if (!userError && user) {
-        userId = user.id;
-        console.log("Authenticated user:", userId);
-      } else {
-        console.log("No authenticated user found, or error retrieving user");
-        return new Response(
-          JSON.stringify({ error: "Authentication required. Please sign in to use this feature." }),
-          { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-    } catch (authError) {
-      console.error("Error getting authenticated user:", authError);
-      return new Response(
-        JSON.stringify({ error: "Authentication error. Please try signing in again." }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    if (!userId) {
-      return new Response(
-        JSON.stringify({ error: "User authentication required" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
     
     if (!request.sessionId) {
       // Starting a new session

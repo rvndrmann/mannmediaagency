@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 import { decode as decodeJWT } from "https://deno.land/x/djwt@v2.8/mod.ts";
+import OpenAI from "https://esm.sh/openai@4.24.1/index.js";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -97,6 +98,11 @@ async function startNewSession(
       throw new Error(`Error creating session: ${sessionError.message}`);
     }
 
+    // Initialize OpenAI client
+    const openai = new OpenAI({
+      apiKey: OPENAI_API_KEY
+    });
+    
     // Make initial call to OpenAI
     console.log("Making initial OpenAI API call with model: computer-use-preview");
     const payload: any = {
@@ -130,33 +136,20 @@ async function startNewSession(
       });
     }
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-        "OpenAI-Beta": "computer-use-tools=on"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error("OpenAI API error:", error);
-      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
-    }
-
-    const data = await response.json();
-    console.log("OpenAI response received. Response ID:", data.id);
+    // Call OpenAI API using the SDK
+    console.log("Sending request to OpenAI API:", JSON.stringify(payload, null, 2));
+    const response = await openai.responses.create(payload);
+    
+    console.log("OpenAI response received. Response ID:", response.id);
     
     // Process the response
-    const output = processOpenAIResponse(data);
+    const output = processOpenAIResponse(response);
     
     // Save the response ID to the session
     await supabase
       .from('computer_automation_sessions')
       .update({ 
-        openai_response_id: data.id,
+        openai_response_id: response.id,
         last_updated: new Date().toISOString()
       })
       .eq('id', session.id);
@@ -208,7 +201,7 @@ async function startNewSession(
 
     return {
       sessionId: session.id,
-      responseId: data.id,
+      responseId: response.id,
       output: output
     };
   } catch (error) {
@@ -217,21 +210,22 @@ async function startNewSession(
   }
 }
 
-function processOpenAIResponse(data: any) {
+function processOpenAIResponse(response: any) {
+  console.log("Processing OpenAI response:", JSON.stringify(response, null, 2));
   const output = [];
   
   // Handle reasoning (summary)
-  if (data.reasoning?.summary) {
+  if (response.reasoning?.summary) {
     output.push({
       type: "reasoning",
       id: `reasoning-${Date.now()}`,
-      summary: data.reasoning.summary
+      summary: response.reasoning.summary
     });
   }
   
   // Handle text messages and computer interactions
-  if (data.output) {
-    for (const item of data.output) {
+  if (response.output) {
+    for (const item of response.output) {
       if (item.type === "text") {
         output.push({
           type: "text",
@@ -317,6 +311,11 @@ async function continueSession(
       }
     }
     
+    // Initialize OpenAI client
+    const openai = new OpenAI({
+      apiKey: OPENAI_API_KEY
+    });
+    
     // Make call to OpenAI using previous_response_id for continuity
     console.log("Making OpenAI API call for session continuation with previous_response_id:", previousResponseId);
     
@@ -360,36 +359,23 @@ async function continueSession(
       });
     }
 
-    const response = await fetch("https://api.openai.com/v1/responses", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-        "OpenAI-Beta": "computer-use-tools=on"
-      },
-      body: JSON.stringify(payload)
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      console.error("OpenAI API error:", error);
-      throw new Error(`OpenAI API error: ${JSON.stringify(error)}`);
-    }
-
-    const data = await response.json();
-    console.log("OpenAI response received. Response ID:", data.id);
+    // Call OpenAI API using the SDK
+    console.log("Sending request to OpenAI API:", JSON.stringify(payload, null, 2));
+    const response = await openai.responses.create(payload);
+    
+    console.log("OpenAI response received. Response ID:", response.id);
     
     // Update session with new response id
     await supabase
       .from('computer_automation_sessions')
       .update({ 
-        openai_response_id: data.id,
+        openai_response_id: response.id,
         last_updated: new Date().toISOString()
       })
       .eq('id', sessionId);
     
     // Process the response
-    const output = processOpenAIResponse(data);
+    const output = processOpenAIResponse(response);
     
     // Save new action if available
     if (output.length > 0) {
@@ -451,7 +437,7 @@ async function continueSession(
 
     return {
       sessionId,
-      responseId: data.id,
+      responseId: response.id,
       output
     };
   } catch (error) {
@@ -567,9 +553,24 @@ serve(async (req) => {
     );
   } catch (error) {
     console.error("Error in computer-use-agent function:", error);
+    
+    // Check if the error is from OpenAI API
+    const errorMessage = error.message || "Unknown error";
+    const isOpenAIError = errorMessage.includes("OpenAI") || 
+                          errorMessage.includes("API") ||
+                          error.status === 429 ||
+                          error.status === 401;
+    
+    const status = isOpenAIError ? (error.status || 500) : 500;
+    const errorResponse = {
+      error: errorMessage,
+      details: error.details || null,
+      type: isOpenAIError ? "openai_error" : "server_error"
+    };
+    
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(errorResponse),
+      { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }
 });

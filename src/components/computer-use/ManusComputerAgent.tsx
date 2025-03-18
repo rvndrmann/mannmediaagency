@@ -12,7 +12,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useManusAgent } from "@/hooks/computer-use/use-manus-agent";
-import { Loader2, Send, Play, RotateCcw, Computer, Info, AlertCircle, ExternalLink } from "lucide-react";
+import { Loader2, Send, Play, RotateCcw, Computer, Info, AlertCircle, ExternalLink, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -43,6 +43,8 @@ export function ManusComputerAgent() {
   const browserViewRef = useRef<HTMLIFrameElement>(null);
   const [iframeLoading, setIframeLoading] = useState(false);
   const [iframeError, setIframeError] = useState<string | null>(null);
+  const [pageTitle, setPageTitle] = useState<string | null>(null);
+  const [navigationAttempts, setNavigationAttempts] = useState<number>(0);
   
   // Set up the browser environment
   useEffect(() => {
@@ -60,38 +62,80 @@ export function ManusComputerAgent() {
   const handleIframeLoad = useCallback(() => {
     setIframeLoading(false);
     setIframeError(null);
+    setNavigationAttempts(0);
     
     if (browserViewRef.current) {
       try {
-        // Try to get URL from iframe (may fail due to CORS)
-        const iframeUrl = browserViewRef.current.contentWindow?.location.href;
-        if (iframeUrl && iframeUrl !== "about:blank") {
-          setCurrentUrl(iframeUrl);
-          console.log("Iframe navigated to:", iframeUrl);
+        // Try to get URL and title from iframe (may fail due to CORS)
+        const iframeWindow = browserViewRef.current.contentWindow;
+        if (iframeWindow) {
+          const iframeUrl = iframeWindow.location.href;
+          const iframeTitle = iframeWindow.document.title;
+          
+          if (iframeUrl && iframeUrl !== "about:blank") {
+            setCurrentUrl(iframeUrl);
+            console.log("Iframe navigated to:", iframeUrl);
+          }
+          
+          if (iframeTitle) {
+            setPageTitle(iframeTitle);
+            console.log("Page title:", iframeTitle);
+          }
+          
+          // Capture screenshot after page has loaded
+          setTimeout(captureScreenshot, 500);
         }
       } catch (e) {
         console.error("Error accessing iframe URL (this may be normal for cross-origin sites):", e);
+        // Still try to capture screenshot even if we can't access the DOM
+        setTimeout(captureScreenshot, 500);
       }
     }
-  }, [setCurrentUrl]);
+  }, [setCurrentUrl, captureScreenshot]);
   
   const handleIframeError = useCallback(() => {
     setIframeLoading(false);
+    
+    if (navigationAttempts < 2) {
+      // Try to reload the page once more before showing error
+      setNavigationAttempts(prev => prev + 1);
+      console.log(`Retry attempt ${navigationAttempts + 1} for URL:`, currentUrl);
+      
+      if (browserViewRef.current && currentUrl) {
+        setTimeout(() => {
+          if (browserViewRef.current) {
+            browserViewRef.current.src = currentUrl;
+          }
+        }, 1000);
+      }
+      return;
+    }
+    
     setIframeError("Failed to load the page. This may be due to security restrictions or the site blocking iframe embedding.");
-    console.error("Iframe failed to load:", currentUrl);
-  }, [currentUrl]);
+    console.error("Iframe failed to load after retries:", currentUrl);
+    
+    // Still try to capture screenshot for AI analysis even if iframe fails
+    setTimeout(captureScreenshot, 500);
+  }, [currentUrl, captureScreenshot, navigationAttempts]);
   
-  // Navigate to URL
+  // Navigate to URL with validation and fallback
   const navigateToUrl = useCallback((url: string) => {
     // Ensure URL has protocol
-    let navigateUrl = url;
-    if (!/^https?:\/\//i.test(navigateUrl)) {
+    let navigateUrl = url.trim();
+    
+    // Handle special cases for search queries
+    if (!navigateUrl.includes(".") && !navigateUrl.startsWith("http")) {
+      navigateUrl = `https://www.google.com/search?q=${encodeURIComponent(navigateUrl)}`;
+    } else if (!/^https?:\/\//i.test(navigateUrl)) {
       navigateUrl = `https://${navigateUrl}`;
     }
     
+    // Reset error state and set loading
+    setIframeError(null);
+    setIframeLoading(true);
+    setNavigationAttempts(0);
+    
     if (browserViewRef.current) {
-      setIframeLoading(true);
-      setIframeError(null);
       browserViewRef.current.src = navigateUrl;
       setCurrentUrl(navigateUrl);
       console.log("Navigating iframe to:", navigateUrl);
@@ -100,8 +144,12 @@ export function ManusComputerAgent() {
   
   // Take screenshot when needed
   const handleTakeScreenshot = useCallback(async () => {
-    await captureScreenshot();
-    toast.success("Screenshot captured");
+    const screenshot = await captureScreenshot();
+    if (screenshot) {
+      toast.success("Screenshot captured");
+    } else {
+      toast.error("Failed to capture screenshot");
+    }
   }, [captureScreenshot]);
 
   // Handle action execution effect
@@ -112,6 +160,20 @@ export function ManusComputerAgent() {
       navigateToUrl(currentActions[0].url);
     }
   }, [currentActions, navigateToUrl]);
+  
+  // Retry navigation if needed
+  const handleRetryNavigation = useCallback(() => {
+    if (currentUrl) {
+      setIframeError(null);
+      setIframeLoading(true);
+      setNavigationAttempts(0);
+      
+      if (browserViewRef.current) {
+        browserViewRef.current.src = currentUrl;
+        console.log("Retrying navigation to:", currentUrl);
+      }
+    }
+  }, [currentUrl]);
   
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-[1400px] mx-auto">
@@ -253,13 +315,10 @@ export function ManusComputerAgent() {
                   <Button 
                     variant="outline" 
                     size="icon"
-                    onClick={() => {
-                      if (browserViewRef.current && currentUrl) {
-                        navigateToUrl(currentUrl);
-                      }
-                    }}
+                    onClick={handleRetryNavigation}
+                    title="Reload page"
                   >
-                    <RotateCcw className="h-4 w-4" />
+                    <RefreshCw className="h-4 w-4" />
                   </Button>
                   <Button
                     variant="outline"
@@ -278,9 +337,18 @@ export function ManusComputerAgent() {
             </div>
             
             <TabsContent value="browser" className="flex-1 p-0 m-0 relative">
+              {pageTitle && (
+                <div className="absolute top-0 left-0 right-0 bg-gray-100 dark:bg-gray-800 px-4 py-1 text-xs text-gray-600 dark:text-gray-300 truncate z-10 border-b">
+                  {pageTitle}
+                </div>
+              )}
+              
               {iframeLoading && (
                 <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-gray-800/50 z-10">
-                  <Loader2 className="h-8 w-8 animate-spin text-primary" />
+                  <div className="text-center">
+                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
+                    <p className="text-sm text-gray-600 dark:text-gray-300">Loading {currentUrl}...</p>
+                  </div>
                 </div>
               )}
               
@@ -290,7 +358,15 @@ export function ManusComputerAgent() {
                     <AlertCircle className="h-4 w-4" />
                     <AlertDescription>
                       {iframeError}
-                      <div className="mt-2">
+                      <div className="mt-2 flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          size="sm"
+                          onClick={handleRetryNavigation}
+                        >
+                          <RefreshCw className="h-4 w-4 mr-2" />
+                          Retry
+                        </Button>
                         <Button 
                           variant="outline" 
                           size="sm"
@@ -303,6 +379,13 @@ export function ManusComputerAgent() {
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open in new tab
                         </Button>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={handleTakeScreenshot}
+                        >
+                          Take Screenshot Anyway
+                        </Button>
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -314,7 +397,7 @@ export function ManusComputerAgent() {
                   ref={browserViewRef}
                   className="w-full h-full border-0"
                   title="Browser View"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-modals allow-orientation-lock allow-pointer-lock"
                   onLoad={handleIframeLoad}
                   onError={handleIframeError}
                 />

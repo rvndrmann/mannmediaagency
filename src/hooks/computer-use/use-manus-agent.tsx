@@ -35,6 +35,7 @@ export const useManusAgent = () => {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [reasoning, setReasoning] = useState<string>("");
   const [error, setError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState<number>(0);
   
   const { sendToManus, formatAction, actionToJson, jsonToAction, normalizeUrl } = useManusAdapter();
   
@@ -145,6 +146,7 @@ export const useManusAgent = () => {
     
     setIsProcessing(true);
     setError(null);
+    setRetryCount(0);
     
     try {
       const { data: { user }, error: authCheckError } = await supabase.auth.getUser();
@@ -157,6 +159,12 @@ export const useManusAgent = () => {
       let initialScreenshot = null;
       if (environment === "browser") {
         initialScreenshot = await captureScreenshot();
+        // If screenshot fails, retry once
+        if (!initialScreenshot || initialScreenshot.length < 1000) {
+          console.log("Initial screenshot failed or too small, retrying...");
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          initialScreenshot = await captureScreenshot();
+        }
       }
       
       const { data: sessionData, error: sessionError } = await supabase
@@ -202,6 +210,17 @@ export const useManusAgent = () => {
               screenshot: initialScreenshot
             });
         }
+      } else {
+        // If no actions were returned, log this as a completed action with reasoning
+        await supabase
+          .from("manus_action_history")
+          .insert({
+            session_id: sessionData.id,
+            action: actionToJson({ type: "analysis" }),
+            reasoning: manusResponse.reasoning,
+            status: "executed",
+            screenshot: initialScreenshot
+          });
       }
       
       await fetchActionHistory();
@@ -247,7 +266,20 @@ export const useManusAgent = () => {
         // The UI component will use this URL to update the iframe
       }
       
+      // Wait a moment to ensure UI updates have been applied
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
       const currentScreenshot = await captureScreenshot();
+      
+      // If screenshot fails, retry once with delay
+      if (!currentScreenshot || currentScreenshot.length < 1000) {
+        console.log("Screenshot failed or too small, retrying after delay...");
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        const retryScreenshot = await captureScreenshot();
+        if (retryScreenshot && retryScreenshot.length > 1000) {
+          console.log("Retry screenshot successful");
+        }
+      }
       
       const { data: actionData, error: actionError } = await supabase
         .from("manus_action_history")
@@ -272,10 +304,16 @@ export const useManusAgent = () => {
       if (remainingActions.length === 0) {
         const updatedUrl = currentUrl;
         
+        // Wait a moment to ensure navigation has completed
+        await new Promise(resolve => setTimeout(resolve, 2000));
+        
+        // Take a fresh screenshot after navigation
+        const navigationScreenshot = await captureScreenshot();
+        
         const manusResponse = await sendToManus({
           task: taskDescription,
           environment: environment,
-          screenshot: currentScreenshot || undefined,
+          screenshot: navigationScreenshot || currentScreenshot || undefined,
           current_url: updatedUrl ? normalizeUrl(updatedUrl) : undefined,
           previous_actions: [actionToExecute]
         });
@@ -312,10 +350,42 @@ export const useManusAgent = () => {
       }
       
       await fetchActionHistory();
+      setRetryCount(0);
     } catch (error) {
       console.error("Error executing action:", error);
       setError(error instanceof Error ? error.message : "Failed to execute action");
       toast.error(error instanceof Error ? error.message : "Failed to execute action");
+      
+      // Implement retry mechanism for failed actions
+      if (retryCount < 2) {
+        setRetryCount(prev => prev + 1);
+        toast.info(`Action failed. Retrying (${retryCount + 1}/3)...`);
+        
+        // Wait before retrying
+        setTimeout(() => {
+          executeAction();
+        }, 3000);
+        return;
+      } else {
+        // Mark the action as failed after max retries
+        if (sessionId) {
+          await supabase
+            .from("manus_action_history")
+            .update({
+              status: "failed",
+              executed_at: new Date().toISOString()
+            })
+            .eq("session_id", sessionId)
+            .eq("status", "pending")
+            .order("created_at", { ascending: true })
+            .limit(1);
+            
+          // Reset retry count and move to next action
+          setRetryCount(0);
+          setCurrentActions(currentActions.slice(1));
+          await fetchActionHistory();
+        }
+      }
     } finally {
       setIsProcessing(false);
     }
@@ -329,7 +399,8 @@ export const useManusAgent = () => {
     sendToManus, 
     fetchActionHistory,
     actionToJson,
-    normalizeUrl
+    normalizeUrl,
+    retryCount
   ]);
   
   const clearSession = useCallback(() => {
@@ -340,6 +411,7 @@ export const useManusAgent = () => {
     setScreenshot(null);
     setError(null);
     setCurrentUrl("https://www.google.com");
+    setRetryCount(0);
     toast.info("Session ended");
   }, []);
   

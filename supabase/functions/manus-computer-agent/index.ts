@@ -108,7 +108,7 @@ serve(async (req) => {
     // Parse request body
     const requestData: ManusRequest = await req.json();
     
-    // Prepare the context for OpenAI based on previous actions and current state
+    // Enhanced system prompt with more detailed instructions
     let systemPrompt = `You are an AI agent that helps users automate computer tasks. 
     You are operating in a ${requestData.environment} environment.
     
@@ -116,6 +116,11 @@ serve(async (req) => {
     
     Based on the current state (URL and screenshot) and any previous actions, you should determine 
     the next step(s) to accomplish the task.
+    
+    BROWSER LIMITATIONS: You are operating in a browser iframe which has certain limitations:
+    1. Many sites block iframe embedding through security policies (X-Frame-Options)
+    2. You cannot access cross-origin DOM content due to CORS restrictions
+    3. You are limited to simple navigation, form filling, and clicking actions
     
     CRITICAL: You MUST respond with a VALID JSON object containing:
     {
@@ -129,9 +134,15 @@ serve(async (req) => {
     Only use the following action types:
     - click: Click at specific coordinates or on an element (provide x, y or selector)
     - type: Type text (provide text)
-    - navigate: Go to a URL (provide url)
+    - navigate: Go to a URL (provide url) - IMPORTANT: This is the most reliable action type since it directly controls the iframe src
     - press: Press specific keys (provide keys array)
     - select: Select an option from a dropdown (provide selector and value)
+    
+    IMPORTANT NAVIGATION TIPS:
+    - If a site doesn't load in the iframe, suggest navigating to an alternative site that allows iframe embedding
+    - Google, Bing, DuckDuckGo, Wikipedia and many government/educational sites typically work well in iframes
+    - For e-commerce, content sites, or social media, they often block iframe embedding
+    - If you see a blank page, it likely means the site has blocked iframe embedding
     
     If you're unable to perform the task or don't know what to do next, still respond with valid JSON:
     {
@@ -190,6 +201,18 @@ serve(async (req) => {
       messages.push({ role: "user", content: actionsMessage });
     }
     
+    // Add vision analysis instructions
+    if (requestData.screenshot) {
+      messages.push({ 
+        role: "user", 
+        content: `Analyze the screenshot carefully. 
+        - If you see an empty or blank page, the site likely blocks iframe embedding.
+        - If you see error messages, read and interpret them.
+        - Pay attention to form elements, buttons, and interactive elements.
+        - Note any visible text content that might help complete the task.`
+      });
+    }
+    
     // Final instruction to get appropriate response format
     messages.push({
       role: "user", 
@@ -202,7 +225,7 @@ serve(async (req) => {
       
       DO NOT add any explanatory text outside the JSON structure.
       DO NOT use code blocks, quotes or any other formatting.
-      If you're unsure or can't complete the task, return a valid JSON with empty actions array.`
+      If you're unsure or can't complete the task, return a valid JSON with empty actions array and explain in the reasoning why.`
     });
 
     // Make request to OpenAI API
@@ -308,6 +331,23 @@ serve(async (req) => {
         if (!action.type) {
           console.warn("Action missing required 'type' property, skipping");
           return null;
+        }
+        
+        // Special handling for navigate actions - ensure URL is valid
+        if (action.type === "navigate" && action.url) {
+          try {
+            // Normalize URL
+            if (!/^https?:\/\//i.test(action.url)) {
+              action.url = `https://${action.url}`;
+            }
+            
+            // Validate URL
+            new URL(action.url);
+          } catch (e) {
+            // If URL is invalid, convert to a Google search
+            console.warn("Invalid URL in navigate action, converting to search:", action.url);
+            action.url = `https://www.google.com/search?q=${encodeURIComponent(action.url)}`;
+          }
         }
         
         // Return a cleansed action object

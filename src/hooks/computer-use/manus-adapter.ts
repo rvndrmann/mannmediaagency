@@ -79,12 +79,26 @@ export const jsonToAction = (json: any): ManusAction | null => {
 export const normalizeUrl = (url: string): string => {
   if (!url) return '';
   
-  // Add protocol if missing
-  if (!/^https?:\/\//i.test(url)) {
-    return `https://${url}`;
+  try {
+    // Handle search queries
+    if (!url.includes(".") && !url.startsWith("http")) {
+      return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
+    }
+    
+    // Add protocol if missing
+    if (!/^https?:\/\//i.test(url)) {
+      url = `https://${url}`;
+    }
+    
+    // Try to create a URL object to validate
+    new URL(url);
+    
+    return url;
+  } catch (error) {
+    console.error("Error normalizing URL:", error);
+    // Fall back to Google search if URL is invalid
+    return `https://www.google.com/search?q=${encodeURIComponent(url)}`;
   }
-  
-  return url;
 };
 
 export const useManusAdapter = () => {

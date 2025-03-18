@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -182,6 +183,8 @@ export const useMultiAgentChat = () => {
       ]
     };
     
+    console.log(`Handoff in progress: From ${activeAgent} to ${handoffRequest.targetAgent}`);
+    
     // Add the handoff message to the conversation
     setMessages(prev => [...prev, handoffMessage]);
     
@@ -276,6 +279,7 @@ export const useMultiAgentChat = () => {
       
       // Handle completed response
       const { completion, status, handoffRequest } = response.data;
+      console.log("API response:", { completion: completion.slice(0, 100) + "...", status, handoffRequest });
       
       // For tool agent, try to parse and execute commands
       let finalContent = completion;
@@ -354,6 +358,7 @@ export const useMultiAgentChat = () => {
       
       // Handle agent handoff if present
       if (handoffRequest) {
+        console.log("Handoff request detected:", handoffRequest);
         handleAgentHandoff(handoffRequest);
       }
       

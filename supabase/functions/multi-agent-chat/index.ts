@@ -76,7 +76,7 @@ async function getAgentCompletion(
     toolsContext += "Only use tools when the user explicitly requests functionality that requires them. Otherwise, provide helpful information as normal.";
   }
   
-  // Add handoff capability to all agents
+  // Enhanced handoff instructions with clear examples
   const handoffContext = `
 You can hand off the conversation to another specialized agent when appropriate. 
 Available agents:
@@ -85,8 +85,17 @@ Available agents:
 - image: Creates detailed prompts for AI image generation systems
 - tool: Helps users use tools like image-to-video conversion
 
-To hand off to another agent, use this format at the end of your response:
+IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with the EXACT format:
+
 HANDOFF: {agentType}, REASON: {short reason for handoff}
+
+For example:
+"I can help with basic information about images, but for creating detailed image prompts...
+HANDOFF: image, REASON: User needs specialized image prompt creation"
+
+OR:
+"Here's some general information about video creation. For using our video tools...
+HANDOFF: tool, REASON: User needs to access video conversion tools"
 
 Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
 `;
@@ -113,7 +122,7 @@ Only hand off when the user's request clearly falls into another agent's special
     default: // main
       systemMessage = {
         role: "system",
-        content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. ${attachmentContext} ${handoffContext}`
+        content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. When you identify that a user's request would be better handled by a specialized agent, use the handoff format at the end of your message. ${attachmentContext} ${handoffContext}`
       };
   }
   
@@ -121,6 +130,10 @@ Only hand off when the user's request clearly falls into another agent's special
   const fullMessages = [systemMessage, ...messages];
   
   try {
+    // Configure OpenAI request parameters based on agent type
+    const temperature = agentType === "tool" ? 0.1 : 0.7;
+    
+    // Add explicit instructions for formatting in the API request
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -130,7 +143,11 @@ Only hand off when the user's request clearly falls into another agent's special
       body: JSON.stringify({
         model: "gpt-4o",
         messages: fullMessages,
-        temperature: agentType === "tool" ? 0.1 : 0.7,
+        temperature: temperature,
+        // Add specific instructions to encourage proper format adherence
+        ...(agentType !== "tool" && {
+          response_format: { type: "text" }
+        })
       })
     });
     
@@ -141,6 +158,7 @@ Only hand off when the user's request clearly falls into another agent's special
     }
     
     const data = await response.json();
+    console.log(`${agentType} agent response:`, data.choices[0].message.content.slice(0, 150) + "...");
     return data.choices[0].message.content;
   } catch (error) {
     console.error(`Error in ${agentType} agent:`, error);
@@ -149,16 +167,29 @@ Only hand off when the user's request clearly falls into another agent's special
 }
 
 function parseHandoffRequest(text: string): { targetAgent: string, reason: string } | null {
-  // Parse handoff format: HANDOFF: {agentType}, REASON: {reason}
-  const handoffMatch = text.match(/HANDOFF:\s*(\w+),\s*REASON:\s*(.+)$/im);
+  console.log("Attempting to parse handoff from:", text.slice(-200));
+  
+  // More flexible regex pattern to capture handoff requests
+  // This handles variations in spacing, capitalization, and potential line breaks
+  const handoffRegex = /HANDOFF:\s*(\w+)(?:,|\s)\s*REASON:\s*(.+?)(?:\n|$)/i;
+  const handoffMatch = text.match(handoffRegex);
   
   if (handoffMatch) {
     const targetAgent = handoffMatch[1].toLowerCase();
     const reason = handoffMatch[2].trim();
     
+    console.log(`Handoff detected: Agent=${targetAgent}, Reason=${reason}`);
+    
     // Validate the agent type
     if (['main', 'script', 'image', 'tool'].includes(targetAgent)) {
       return { targetAgent, reason };
+    } else {
+      console.log(`Invalid agent type in handoff: ${targetAgent}`);
+    }
+  } else {
+    // Check for partial handoff format to debug issues
+    if (text.toLowerCase().includes("handoff:")) {
+      console.log("Potential handoff format detected but couldn't parse completely");
     }
   }
   
@@ -252,6 +283,7 @@ serve(async (req) => {
     
     // Check if response contains a handoff request
     const handoffRequest = parseHandoffRequest(completion);
+    console.log("Handoff parsing result:", handoffRequest || "No handoff detected");
     
     // Log the interaction
     await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);

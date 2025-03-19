@@ -31,8 +31,9 @@ export function useTaskMonitoring(
     setError,
   } = stateSetters;
   
-  const pollingIntervalRef = useRef<number | null>(null);
-  const urlCheckIntervalRef = useRef<number | null>(null);
+  // Change from number to NodeJS.Timeout
+  const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const urlCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   
   // Clear intervals on unmount
   useEffect(() => {
@@ -480,7 +481,7 @@ export function useTaskMonitoring(
     fetchTaskDetails();
     
     // Set up polling interval (every 5 seconds)
-    pollingIntervalRef.current = setInterval(fetchTaskDetails, 5000) as unknown as number;
+    pollingIntervalRef.current = setInterval(fetchTaskDetails, 5000);
     
     return () => {
       if (pollingIntervalRef.current) {

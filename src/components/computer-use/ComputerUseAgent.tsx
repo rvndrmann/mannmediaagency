@@ -1,6 +1,6 @@
 
 import { ManusComputerAgent } from "./ManusComputerAgent";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle } from "lucide-react";
@@ -33,7 +33,7 @@ export function ComputerUseAgent() {
           </Button>
         </Alert>
       )}
-      <ManusComputerAgent onError={(errorMessage) => setError(errorMessage)} />
+      <ManusComputerAgent />
     </div>
   );
 }

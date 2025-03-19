@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -62,12 +61,9 @@ export function ManusComputerAgent() {
   
   const [activeTab, setActiveTab] = useState("browser");
   const [debugMode, setDebugMode] = useState(false);
-  // Track if an action is currently being processed
   const isProcessingAction = useRef<boolean>(false);
   
-  // Open URL in new tab with deduplication
   const openInNewTab = useCallback((url: string) => {
-    // Skip if URL was recently opened to prevent duplicates
     if (hasRecentlyOpened(url)) {
       console.log(`Skipping duplicate tab open for: ${url}`);
       return;
@@ -75,30 +71,25 @@ export function ManusComputerAgent() {
     
     console.log(`Opening URL in new tab: ${url}`);
     
-    // Add to recently opened set
     markAsOpened(url);
     
     window.open(url, '_blank');
     setExternalWindowOpened(true);
     setCurrentUrl(url);
     
-    // Show feedback to user
     toast.success("Opened in new tab");
   }, [setCurrentUrl, hasRecentlyOpened, markAsOpened, setExternalWindowOpened]);
   
   const handleBrowseUrl = useCallback((url: string) => {
     let navigateUrl = normalizeUrl(url);
     
-    // Open in new tab
     openInNewTab(navigateUrl);
     
-    // Capture screenshot after delay to allow user to switch back
     setTimeout(() => {
       captureScreenshot();
     }, 2000);
   }, [openInNewTab, captureScreenshot]);
   
-  // Handle screenshot capture
   const handleTakeScreenshot = useCallback(async () => {
     const screenshot = await captureScreenshot();
     if (screenshot) {
@@ -112,7 +103,6 @@ export function ManusComputerAgent() {
     if (currentActions.length > 0 && !isProcessingAction.current) {
       const currentAction = currentActions[0];
       
-      // Set processing flag to prevent multiple tab opens
       isProcessingAction.current = true;
       
       if ((currentAction.type === "navigate" || currentAction.type === "openNewTab") && currentAction.url) {
@@ -120,7 +110,6 @@ export function ManusComputerAgent() {
         
         handleBrowseUrl(currentAction.url);
         
-        // Short delay before executing the action to ensure state is updated
         setTimeout(() => {
           executeAction();
           isProcessingAction.current = false;

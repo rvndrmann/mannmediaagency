@@ -80,7 +80,7 @@ export function BrowserUseApp() {
                 </div>
                 
                 <TaskControls
-                  taskStatus={taskStatus as "idle" | "created" | "running" | "paused" | "finished" | "failed" | "stopped"}
+                  taskStatus={taskStatus}
                   isProcessing={isProcessing}
                   userCredits={userCredits}
                   onStart={startTask}

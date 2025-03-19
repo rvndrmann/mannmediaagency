@@ -1,15 +1,13 @@
 
 import { Button } from "@/components/ui/button";
-import { UserCredits } from "@/hooks/browser-use/types";
+import { UserCredits, TaskStatus } from "@/hooks/browser-use/types";
 import { Play, Pause, Square, Download, Camera } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/components/ui/use-toast";
 import { useEffect } from "react";
 
 interface TaskControlsProps {
-  taskInput?: string;
-  setTaskInput?: (input: string) => void;
-  taskStatus: string;
+  taskStatus: TaskStatus;
   isProcessing: boolean;
   userCredits: UserCredits | null;
   onStart: () => Promise<void>;

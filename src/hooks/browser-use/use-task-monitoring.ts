@@ -79,7 +79,7 @@ export function useTaskMonitoring(
         
         // Update state with task data
         setProgress(taskData.progress || 0);
-        setTaskStatus(taskData.status);
+        setTaskStatus(taskData.status as TaskStatus);
         
         if (taskData.current_url) {
           setCurrentUrl(taskData.current_url);
@@ -268,7 +268,7 @@ export function useTaskMonitoring(
                 
               // Update state
               setProgress(calculatedProgress);
-              setTaskStatus(mappedStatus);
+              setTaskStatus(mappedStatus as TaskStatus);
               
               if (currentUrl) {
                 setCurrentUrl(currentUrl);

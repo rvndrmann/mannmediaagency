@@ -50,8 +50,8 @@ serve(async (req) => {
       console.log(`Pausing task with ID: ${task_id}`);
       
       try {
-        const response = await fetch(`${API_BASE_URL}/task/${task_id}/pause`, {
-          method: "POST",
+        const response = await fetch(`${API_BASE_URL}/pause-task`, {
+          method: "PUT",
           headers: apiHeaders
         });
         
@@ -81,8 +81,8 @@ serve(async (req) => {
       console.log(`Resuming task with ID: ${task_id}`);
       
       try {
-        const response = await fetch(`${API_BASE_URL}/task/${task_id}/resume`, {
-          method: "POST",
+        const response = await fetch(`${API_BASE_URL}/resume-task`, {
+          method: "PUT",
           headers: apiHeaders
         });
         
@@ -112,8 +112,8 @@ serve(async (req) => {
       console.log(`Stopping task with ID: ${task_id}`);
       
       try {
-        const response = await fetch(`${API_BASE_URL}/task/${task_id}/stop`, {
-          method: "POST",
+        const response = await fetch(`${API_BASE_URL}/stop-task`, {
+          method: "PUT",
           headers: apiHeaders
         });
         
@@ -156,7 +156,7 @@ serve(async (req) => {
       }, null, 2)}`);
       
       try {
-        console.log(`Sending request to: ${API_BASE_URL}/task`);
+        console.log(`Sending request to: ${API_BASE_URL}/run-task`);
         console.log(`Headers: ${JSON.stringify(apiHeaders, null, 2)}`);
         
         // Add detailed logging for the request
@@ -166,7 +166,7 @@ serve(async (req) => {
           ...browser_config
         }, null, 2)}`);
         
-        const response = await fetch(`${API_BASE_URL}/task`, {
+        const response = await fetch(`${API_BASE_URL}/run-task`, {
           method: "POST",
           headers: apiHeaders,
           body: JSON.stringify({
@@ -191,7 +191,7 @@ serve(async (req) => {
               error: `Failed to create task: ${response.status}`, 
               details: responseText,
               request_info: {
-                url: `${API_BASE_URL}/task`,
+                url: `${API_BASE_URL}/run-task`,
                 method: "POST",
                 // Do not log sensitive data
               }

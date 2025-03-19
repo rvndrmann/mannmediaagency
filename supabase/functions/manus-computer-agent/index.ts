@@ -265,7 +265,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o", // Updated to use the current model instead of deprecated gpt-4o
+        model: "gpt-4o", // Using the current model instead of deprecated models
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000,

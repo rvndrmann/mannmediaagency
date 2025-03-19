@@ -164,8 +164,8 @@ export function useTaskMonitoring(
               setTaskSteps(stepsData.map(step => ({
                 ...step,
                 details: typeof step.details === 'string' ? step.details : 
-                         step.details ? JSON.stringify(step.details) : null,
-                status: step.status || 'pending'
+                        step.details ? JSON.stringify(step.details) : null,
+                status: (step.status as 'pending' | 'completed' | 'failed') || 'pending'
               })));
             }
             

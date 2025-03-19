@@ -53,3 +53,16 @@ export interface BrowserConfig {
   darkMode?: boolean;
   persistentSession?: boolean;
 }
+
+export interface UserCredits {
+  free_credits: number;
+  paid_credits: number;
+  used_credits: number;
+  total_remaining: number;
+}
+
+export interface CaptureWebsiteResponse {
+  url: string;
+  imageUrl: string;
+  error?: string;
+}

@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserTheme } from "./types";
+import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, CaptureWebsiteResponse } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
@@ -12,7 +12,7 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   persistentSession: false,
   useOwnBrowser: false,
   resolution: "1920x1080",
-  theme: "Ocean",
+  theme: "light",
   darkMode: false,
   
   // Core settings
@@ -39,7 +39,7 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
   
   // Copy over user settings, using defaults for missing values
   Object.keys(config).forEach(key => {
-    validConfig[key] = config[key];
+    validConfig[key as keyof BrowserConfig] = config[key as keyof BrowserConfig];
   });
   
   // Ensure contextConfig exists and has required fields
@@ -106,8 +106,6 @@ export function useBrowserUseTask() {
     taskOutput,
     taskStatus,
     currentUrl,
-    screenshot,
-    userCredits,
     error,
     browserConfig,
     liveUrl
@@ -122,7 +120,6 @@ export function useBrowserUseTask() {
     setTaskOutput,
     setTaskStatus,
     setCurrentUrl,
-    setScreenshot,
     setUserCredits,
     setError,
     setBrowserConfig: updateBrowserConfig,

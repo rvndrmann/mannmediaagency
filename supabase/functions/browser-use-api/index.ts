@@ -252,7 +252,8 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     
     console.log(`Checking status for task: ${taskId}`);
     
-    // Updated to use the correct status endpoint as specified in the API docs
+    // Updated to use the correct task endpoint as specified in the API docs
+    // The new documentation points to /task/{task_id}
     const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}`, {
       method: 'GET',
       headers: {
@@ -305,7 +306,7 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
     
     console.log(`Fetching media for task: ${taskId}`);
     
-    // Updated to use the new API endpoint
+    // Updated to use the correct API endpoint
     const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
       method: 'GET',
       headers: {

@@ -99,7 +99,7 @@ export function BrowserUseApp() {
                 <TaskControls
                   taskStatus={taskStatus}
                   isProcessing={isProcessing}
-                  userCredits={userCredits}
+                  userCredits={userCredits?.credits_remaining || null}
                   onStart={startTask}
                   onPause={pauseTask}
                   onResume={resumeTask}

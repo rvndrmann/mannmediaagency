@@ -27,6 +27,22 @@ export interface CaptureWebsiteResponse {
   error?: string;
 }
 
+export interface BrowserUseApiRequest {
+  task: string;
+  save_browser_data: boolean;
+  task_id?: string;
+  action?: 'pause' | 'resume' | 'stop';
+}
+
+export interface BrowserUseApiResponse {
+  success: boolean;
+  task_id?: string;
+  status?: string;
+  message?: string;
+  result?: any;
+  error?: string;
+}
+
 export type TaskStatus = 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
 
 export interface BrowserTaskState {

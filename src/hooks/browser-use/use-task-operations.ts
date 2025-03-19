@@ -63,7 +63,7 @@ export function useTaskOperations(
       if (updatedCreditsError) throw updatedCreditsError;
       setUserCredits(updatedCredits);
       
-      // Insert new task with explicit column selection in the response
+      // Create a task record in our database
       const { data, error } = await supabase
         .from('browser_automation_tasks')
         .insert([{ 
@@ -78,6 +78,18 @@ export function useTaskOperations(
       
       setCurrentTaskId(data.id);
       setTaskStatus('running');
+      
+      // Call Browser Use API to start the task
+      const response = await supabase.functions.invoke('browser-use-api', {
+        body: { 
+          task: taskInput,
+          save_browser_data: true,
+          task_id: data.id
+        }
+      });
+      
+      if (response.error) throw new Error(response.error.message);
+      
       toast.success("Task Started!", {
         description: "Your browser automation task has started."
       });
@@ -106,6 +118,16 @@ export function useTaskOperations(
         .eq('id', currentTaskId);
       
       if (error) throw error;
+      
+      // Call Browser Use API to pause the task
+      const response = await supabase.functions.invoke('browser-use-api', {
+        body: { 
+          action: 'pause',
+          task_id: currentTaskId
+        }
+      });
+      
+      if (response.error) throw new Error(response.error.message);
       
       setTaskStatus('paused');
       toast.success("Task Paused!", {
@@ -137,6 +159,16 @@ export function useTaskOperations(
       
       if (error) throw error;
       
+      // Call Browser Use API to resume the task
+      const response = await supabase.functions.invoke('browser-use-api', {
+        body: { 
+          action: 'resume',
+          task_id: currentTaskId
+        }
+      });
+      
+      if (response.error) throw new Error(response.error.message);
+      
       setTaskStatus('running');
       toast.success("Task Resumed!", {
         description: "Your browser automation task has been resumed."
@@ -166,6 +198,16 @@ export function useTaskOperations(
         .eq('id', currentTaskId);
       
       if (error) throw error;
+      
+      // Call Browser Use API to stop the task
+      const response = await supabase.functions.invoke('browser-use-api', {
+        body: { 
+          action: 'stop',
+          task_id: currentTaskId
+        }
+      });
+      
+      if (response.error) throw new Error(response.error.message);
       
       setTaskStatus('stopped');
       setProgress(0);

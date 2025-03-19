@@ -1,249 +1,243 @@
-import { useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { BrowserTaskState } from "./types";
 
+import { supabase } from "@/integrations/supabase/client";
+import { BrowserConfig, TaskStatus } from "./types";
+
+// Define the structure of the state and setter functions passed to this hook
+interface TaskState {
+  taskInput: string;
+  currentTaskId: string | null;
+  isProcessing: boolean;
+  taskStatus: TaskStatus;
+  browserConfig: BrowserConfig;
+}
+
+interface StateSetters {
+  setCurrentTaskId: (id: string | null) => void;
+  setIsProcessing: (isProcessing: boolean) => void;
+  setTaskStatus: (status: TaskStatus) => void;
+  setProgress: (progress: number) => void;
+  setError: (error: string | null) => void;
+}
+
+// This hook contains the operations for task management
 export function useTaskOperations(
-  state: BrowserTaskState,
-  setState: {
-    setIsProcessing: (value: boolean) => void;
-    setCurrentTaskId: (value: string | null) => void;
-    setTaskStatus: (value: any) => void;
-    setProgress: (value: number) => void;
-    setTaskSteps: (value: any[]) => void;
-    setTaskOutput: (value: string | null) => void;
-    setCurrentUrl: (value: string | null) => void;
-    setScreenshot: (value: string | null) => void;
-    setUserCredits: (value: any) => void;
-    setError: (value: string | null) => void;
-    setTaskInput: (value: string) => void;
-    setBrowserConfig: (value: any) => void;
-  }
+  state: TaskState,
+  stateSetters: StateSetters
 ) {
-  const {
-    taskInput,
-    currentTaskId,
-    browserConfig
+  const { 
+    taskInput, 
+    currentTaskId, 
+    isProcessing, 
+    taskStatus, 
+    browserConfig 
   } = state;
 
-  const {
-    setIsProcessing,
-    setCurrentTaskId,
-    setTaskStatus,
-    setProgress,
-    setTaskSteps,
-    setTaskOutput,
-    setCurrentUrl,
-    setScreenshot,
-    setUserCredits,
-    setError,
-    setTaskInput,
-  } = setState;
+  const { 
+    setCurrentTaskId, 
+    setIsProcessing, 
+    setTaskStatus, 
+    setProgress, 
+    setError 
+  } = stateSetters;
 
-  const startTask = useCallback(async () => {
-    setIsProcessing(true);
-    setError(null);
+  // Start a new task
+  const startTask = async () => {
+    if (isProcessing) return;
+    if (!taskInput.trim()) {
+      setError("Please enter a task description");
+      return;
+    }
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-      
-      const { error: creditError } = await supabase.rpc('deduct_credits', { 
-        user_id: user.id, 
-        credits_to_deduct: 1 
-      });
-      
-      if (creditError) throw creditError;
-      
-      // Get updated user credits with explicit column selection
-      const { data: updatedCredits, error: updatedCreditsError } = await supabase
-        .from('user_credits')
-        .select('id, user_id, credits_remaining, last_refill, created_at, updated_at')
-        .eq('user_id', user.id)
-        .single();
-      
-      if (updatedCreditsError) throw updatedCreditsError;
-      setUserCredits(updatedCredits);
-      
-      // Create a task record in our database
-      const { data, error } = await supabase
+      setIsProcessing(true);
+      setProgress(0);
+      setError(null);
+
+      // First, create a new task record in the database
+      const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
-        .insert([{ 
-          user_id: user.id, 
-          input: taskInput,
-          status: 'running'
-        }])
-        .select('id, user_id, input, status, progress, current_url, output, created_at, updated_at')
+        .insert({
+          description: taskInput.substring(0, 255), // Limit to 255 chars for the description field
+          full_input: taskInput,
+          status: 'pending'
+        })
+        .select('id')
         .single();
-      
-      if (error) throw error;
-      
-      setCurrentTaskId(data.id);
-      setTaskStatus('running');
-      
-      // Call Browser Use API to start the task
-      const response = await supabase.functions.invoke('browser-use-api', {
-        body: { 
+
+      if (taskError) {
+        console.error("Error creating task:", taskError);
+        setError(`Failed to create task: ${taskError.message}`);
+        setIsProcessing(false);
+        return;
+      }
+
+      const taskId = taskData.id;
+      console.log("Created task with ID:", taskId);
+      setCurrentTaskId(taskId);
+
+      // Now call the edge function to start the browser automation
+      const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
+        body: {
           task: taskInput,
+          task_id: taskId,
           save_browser_data: true,
-          task_id: data.id,
           browser_config: browserConfig
         }
       });
+
+      if (apiError) {
+        console.error("Edge function error:", apiError);
+        
+        // Update the task status to failed
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: 'failed', 
+            output: JSON.stringify({ error: apiError.message }) 
+          })
+          .eq('id', taskId);
+        
+        setError(`API Error: ${apiError.message}`);
+        setTaskStatus('failed');
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log("Browser Use API response:", apiResponse);
       
-      if (response.error) throw new Error(response.error.message);
-      
-      toast.success("Task Started!", {
-        description: "Your browser automation task has started."
-      });
-    } catch (err: any) {
-      console.error("Error starting task:", err);
-      setError(err.message || "Failed to start task");
-      toast.error("Error Starting Task", {
-        description: err.message || "Failed to start task."
-      });
-    } finally {
+      if (apiResponse.error) {
+        console.error("Browser Use API returned error:", apiResponse.error);
+        
+        // Update the task status to failed
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: 'failed', 
+            output: JSON.stringify({ error: apiResponse.error }) 
+          })
+          .eq('id', taskId);
+        
+        setError(`Task Error: ${apiResponse.error}`);
+        setTaskStatus('failed');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Task started successfully
+      setTaskStatus('running');
+    } catch (error) {
+      console.error("Error starting task:", error);
+      setError(`Unexpected error: ${error.message}`);
       setIsProcessing(false);
+      setTaskStatus('failed');
     }
-  }, [taskInput, browserConfig, setIsProcessing, setError, setUserCredits, setCurrentTaskId, setTaskStatus]);
-  
-  const pauseTask = useCallback(async () => {
-    if (!currentTaskId) return;
-    
-    setIsProcessing(true);
+  };
+
+  // Pause a running task
+  const pauseTask = async () => {
+    if (!currentTaskId || taskStatus !== 'running') return;
+
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
+      // Call the edge function to pause the task
+      const { data, error } = await supabase.functions.invoke('browser-use-api', {
+        body: {
+          task_id: currentTaskId,
+          action: 'pause'
+        }
+      });
+
+      if (error) {
+        console.error("Error pausing task:", error);
+        setError(`Failed to pause task: ${error.message}`);
+        return;
+      }
+
+      console.log("Pause task response:", data);
       
-      const { error } = await supabase
+      // Update the local task status
+      setTaskStatus('paused');
+      
+      // Update the task status in the database
+      await supabase
         .from('browser_automation_tasks')
         .update({ status: 'paused' })
         .eq('id', currentTaskId);
-      
-      if (error) throw error;
-      
-      // Call Browser Use API to pause the task
-      const response = await supabase.functions.invoke('browser-use-api', {
-        body: { 
-          action: 'pause',
-          task_id: currentTaskId
+    } catch (error) {
+      console.error("Error in pauseTask:", error);
+      setError(`Pause error: ${error.message}`);
+    }
+  };
+
+  // Resume a paused task
+  const resumeTask = async () => {
+    if (!currentTaskId || taskStatus !== 'paused') return;
+
+    try {
+      // Call the edge function to resume the task
+      const { data, error } = await supabase.functions.invoke('browser-use-api', {
+        body: {
+          task_id: currentTaskId,
+          action: 'resume'
         }
       });
+
+      if (error) {
+        console.error("Error resuming task:", error);
+        setError(`Failed to resume task: ${error.message}`);
+        return;
+      }
+
+      console.log("Resume task response:", data);
       
-      if (response.error) throw new Error(response.error.message);
+      // Update the local task status
+      setTaskStatus('running');
       
-      setTaskStatus('paused');
-      toast.success("Task Paused!", {
-        description: "Your browser automation task has been paused."
-      });
-    } catch (err: any) {
-      console.error("Error pausing task:", err);
-      setError(err.message || "Failed to pause task");
-      toast.error("Error Pausing Task", {
-        description: err.message || "Failed to pause task"
-      });
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [currentTaskId, setIsProcessing, setTaskStatus, setError]);
-  
-  const resumeTask = useCallback(async () => {
-    if (!currentTaskId) return;
-    
-    setIsProcessing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
-      
-      const { error } = await supabase
+      // Update the task status in the database
+      await supabase
         .from('browser_automation_tasks')
         .update({ status: 'running' })
         .eq('id', currentTaskId);
-      
-      if (error) throw error;
-      
-      // Call Browser Use API to resume the task
-      const response = await supabase.functions.invoke('browser-use-api', {
-        body: { 
-          action: 'resume',
-          task_id: currentTaskId
+    } catch (error) {
+      console.error("Error in resumeTask:", error);
+      setError(`Resume error: ${error.message}`);
+    }
+  };
+
+  // Stop a running or paused task
+  const stopTask = async () => {
+    if (!currentTaskId || (taskStatus !== 'running' && taskStatus !== 'paused')) return;
+
+    try {
+      // Call the edge function to stop the task
+      const { data, error } = await supabase.functions.invoke('browser-use-api', {
+        body: {
+          task_id: currentTaskId,
+          action: 'stop'
         }
       });
+
+      if (error) {
+        console.error("Error stopping task:", error);
+        setError(`Failed to stop task: ${error.message}`);
+        return;
+      }
+
+      console.log("Stop task response:", data);
       
-      if (response.error) throw new Error(response.error.message);
-      
-      setTaskStatus('running');
-      toast.success("Task Resumed!", {
-        description: "Your browser automation task has been resumed."
-      });
-    } catch (err: any) {
-      console.error("Error resuming task:", err);
-      setError(err.message || "Failed to resume task");
-      toast.error("Error Resuming Task", {
-        description: err.message || "Failed to resume task"
-      });
-    } finally {
+      // Update the local task status
+      setTaskStatus('stopped');
       setIsProcessing(false);
-    }
-  }, [currentTaskId, setIsProcessing, setTaskStatus, setError]);
-  
-  const stopTask = useCallback(async () => {
-    if (!currentTaskId) return;
-    
-    setIsProcessing(true);
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("Not authenticated");
       
-      const { error } = await supabase
+      // Update the task status in the database
+      await supabase
         .from('browser_automation_tasks')
         .update({ status: 'stopped' })
         .eq('id', currentTaskId);
-      
-      if (error) throw error;
-      
-      // Call Browser Use API to stop the task
-      const response = await supabase.functions.invoke('browser-use-api', {
-        body: { 
-          action: 'stop',
-          task_id: currentTaskId
-        }
-      });
-      
-      if (response.error) throw new Error(response.error.message);
-      
-      setTaskStatus('stopped');
-      setProgress(0);
-      setTaskSteps([]);
-      setTaskOutput(null);
-      setCurrentUrl(null);
-      setScreenshot(null);
-      setCurrentTaskId(null);
-      setTaskInput("");
-      toast.success("Task Stopped!", {
-        description: "Your browser automation task has been stopped."
-      });
-    } catch (err: any) {
-      console.error("Error stopping task:", err);
-      setError(err.message || "Failed to stop task");
-      toast.error("Error Stopping Task", {
-        description: err.message || "Failed to stop task."
-      });
-    } finally {
-      setIsProcessing(false);
+    } catch (error) {
+      console.error("Error in stopTask:", error);
+      setError(`Stop error: ${error.message}`);
     }
-  }, [
-    currentTaskId,
-    setIsProcessing,
-    setTaskStatus,
-    setProgress,
-    setTaskSteps,
-    setTaskOutput,
-    setCurrentUrl,
-    setScreenshot,
-    setCurrentTaskId,
-    setTaskInput,
-    setError
-  ]);
+  };
 
   return {
     startTask,

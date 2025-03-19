@@ -132,26 +132,98 @@ serve(async (req) => {
     if (isControlAction) {
       logInfo(`[${requestId}] Processing control action: ${requestData.action} for task ${requestData.task_id}`);
       
-      // For control actions, we'd normally call the Browser Use API with the action
-      // But for now, just update our database status as the API may not support these directly
-      
-      return new Response(
-        JSON.stringify({ 
-          success: true, 
-          message: `Task ${requestData.action} request sent` 
-        }),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      // Make a direct call to the Browser Use API for control actions
+      try {
+        const controlUrl = `${BROWSER_USE_API_URL.replace('/run-task', '')}/control-task`;
+        logInfo(`[${requestId}] Calling Browser Use API control endpoint: ${controlUrl}`);
+        
+        const controlResponse = await fetch(controlUrl, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            task_id: requestData.task_id,
+            action: requestData.action
+          })
+        });
+        
+        if (!controlResponse.ok) {
+          const errorText = await controlResponse.text();
+          logError(`[${requestId}] Error from Browser Use API Control:`, { 
+            status: controlResponse.status, 
+            error: errorText 
+          });
+          
+          // Update task status based on action even if API call fails
+          await supabase
+            .from('browser_automation_tasks')
+            .update({ 
+              status: requestData.action === 'stop' ? 'stopped' : requestData.action === 'pause' ? 'paused' : 'running' 
+            })
+            .eq('id', requestData.task_id);
+            
+          return new Response(
+            JSON.stringify({ 
+              success: true, 
+              message: `Task ${requestData.action} request sent, but API returned error: ${errorText}` 
+            }),
+            { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Process successful control response
+        const controlResult = await controlResponse.json();
+        logInfo(`[${requestId}] Browser Use API control response:`, controlResult);
+        
+        // Update task status in database
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: requestData.action === 'stop' ? 'stopped' : requestData.action === 'pause' ? 'paused' : 'running',
+            output: JSON.stringify(controlResult)
+          })
+          .eq('id', requestData.task_id);
+          
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Task ${requestData.action} request processed successfully`,
+            result: controlResult
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (controlError) {
+        logError(`[${requestId}] Error in control action:`, controlError);
+        
+        // Still update task status based on action even if API call fails
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: requestData.action === 'stop' ? 'stopped' : requestData.action === 'pause' ? 'paused' : 'running' 
+          })
+          .eq('id', requestData.task_id);
+          
+        return new Response(
+          JSON.stringify({ 
+            success: true, 
+            message: `Task ${requestData.action} request sent, but error occurred: ${controlError.message}` 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
     } else {
       // This is a new task, call the Browser Use API
       logInfo(`[${requestId}] Starting new browser automation task`, {
         taskSummary: requestData.task.substring(0, 100) + (requestData.task.length > 100 ? '...' : '')
       });
       
-      // Prepare request body with browser configuration
+      // Prepare request body with browser configuration and explicitly request live preview
       const apiRequestBody = {
         task: requestData.task,
         save_browser_data: requestData.save_browser_data || true,
+        enable_live_preview: true, // Explicitly request live preview
         browser_config: requestData.browser_config || {
           headless: false,
           disable_security: true,
@@ -166,7 +238,7 @@ serve(async (req) => {
       logDebug(`[${requestId}] API Request Body:`, apiRequestBody);
       
       // Call the Browser Use API
-      logInfo(`[${requestId}] Calling Browser Use API`);
+      logInfo(`[${requestId}] Calling Browser Use API with enable_live_preview=true`);
       let response;
       try {
         response = await fetch(BROWSER_USE_API_URL, {
@@ -235,6 +307,13 @@ serve(async (req) => {
         browserUseResponse = await response.json();
         logInfo(`[${requestId}] Browser Use API response received successfully`);
         logDebug(`[${requestId}] Browser Use API response:`, browserUseResponse);
+        
+        // Check specifically for live_url in the response
+        if (browserUseResponse.live_url) {
+          logInfo(`[${requestId}] Live URL found in response: ${browserUseResponse.live_url}`);
+        } else {
+          logWarning(`[${requestId}] No live_url found in API response`);
+        }
       } catch (jsonError) {
         logError(`[${requestId}] Error parsing Browser Use API response:`, jsonError);
         return new Response(
@@ -250,7 +329,7 @@ serve(async (req) => {
       if (requestData.task_id) {
         logDebug(`[${requestId}] Updating task ${requestData.task_id} with response data`);
         try {
-          const updateData = { 
+          const updateData: any = { 
             status: 'running',
             output: JSON.stringify(browserUseResponse)
           };
@@ -258,6 +337,7 @@ serve(async (req) => {
           // Add live_url if it exists in the response
           if (browserUseResponse.live_url) {
             updateData.live_url = browserUseResponse.live_url;
+            logInfo(`[${requestId}] Setting live_url in database: ${browserUseResponse.live_url}`);
           }
           
           const { error: updateError } = await supabase
@@ -267,6 +347,8 @@ serve(async (req) => {
           
           if (updateError) {
             logError(`[${requestId}] Error updating task status:`, updateError);
+          } else {
+            logInfo(`[${requestId}] Task updated successfully with live_url: ${updateData.live_url || 'none'}`);
           }
         
           // Create a task step to record the API response

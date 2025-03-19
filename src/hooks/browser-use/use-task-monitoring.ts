@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserTaskState, TaskStatus } from "./types";
@@ -303,10 +304,13 @@ export function useTaskMonitoring(
           if (data.steps && Array.isArray(data.steps)) {
             setTaskSteps(data.steps);
             
+            // Fix: Convert steps to JSON string before storing
+            const stepsJson = JSON.stringify({ steps: data.steps });
+            
             await supabase
               .from('browser_automation_tasks')
               .update({ 
-                output: JSON.stringify({ steps: JSON.parse(stepsJson) }) 
+                output: stepsJson
               })
               .eq('id', currentTaskId);
           }

@@ -1,3 +1,4 @@
+
 import { Compass, ScrollText, Settings, Package, Users, Globe } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -26,7 +27,7 @@ const navItems = [
     href: "/custom-orders"
   },
   {
-    label: "Browser API",
+    label: "Browser Use",
     icon: Globe,
     href: "/browser-use"
   },

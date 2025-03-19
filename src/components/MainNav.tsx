@@ -14,7 +14,7 @@ export function MainNav() {
       active: location.pathname === "/",
     },
     {
-      name: "Browser API",
+      name: "Browser Use - Operator",
       href: "/browser-use",
       active: location.pathname === "/browser-use",
       icon: <Globe className="w-4 h-4 mr-2" />,

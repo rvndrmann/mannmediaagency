@@ -1,3 +1,4 @@
+
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -172,7 +173,7 @@ export const Navigation = () => {
       icon: User,
     },
     {
-      name: "Browser Use API",
+      name: "Browser Use - Operator",
       subtext: "Web Browser Automation",
       to: "/browser-use",
       icon: Globe,

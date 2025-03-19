@@ -1,247 +1,208 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2, ExternalLink, RefreshCw, PlayCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "sonner";
+import { Loader2, AlertCircle, ExternalLink, RefreshCw } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface LivePreviewProps {
   liveUrl: string | null;
   isRunning: boolean;
+  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
-export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const [isVideo, setIsVideo] = useState(false);
+export function LivePreview({ liveUrl, isRunning, connectionStatus = 'disconnected' }: LivePreviewProps) {
+  const [isLoading, setIsLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [loadAttempts, setLoadAttempts] = useState(0);
-  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
-  const [lastSeenUrl, setLastSeenUrl] = useState<string | null>(null);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [lastLoadedUrl, setLastLoadedUrl] = useState<string | null>(null);
   
-  // Log live URL changes to help with debugging
+  // Force reload iframe when liveUrl changes
   useEffect(() => {
-    console.log(`LivePreview: liveUrl changed to ${liveUrl}`);
-    
-    // Reset load attempts when URL changes
-    if (liveUrl && liveUrl !== lastSeenUrl) {
-      setLastSeenUrl(liveUrl);
-      setLoadAttempts(0);
-      setLoadError(null);
-      // Auto refresh when we get a new URL
-      setRefreshKey(prev => prev + 1);
-      
-      // Re-enable auto-refresh for new URLs
-      setAutoRefreshEnabled(true);
-      
-      // Show a toast for new URLs
-      toast.success(
-        isVideo ? "Recording available! Loading now..." : "Live preview available! Loading now..."
-      );
-    }
-  }, [liveUrl, lastSeenUrl, isVideo]);
-  
-  // Detect if the URL is for a recording (usually mp4 or webm)
-  useEffect(() => {
-    if (liveUrl) {
-      const isVideoUrl = 
-        liveUrl.endsWith('.mp4') || 
-        liveUrl.endsWith('.webm') || 
-        liveUrl.includes('recording') ||
-        liveUrl.includes('media');
-      
-      setIsVideo(isVideoUrl);
-      console.log(`URL type detection: ${liveUrl} is ${isVideoUrl ? 'video' : 'iframe'}`);
-      
-      // Auto-refresh iframe a few times when we first get a URL
-      // This helps with cases where the preview might not be ready immediately
-      if (!isVideoUrl && autoRefreshEnabled) {
-        // Initial refresh on URL change
-        setRefreshKey(prev => prev + 1);
-        
-        // Set up auto-refresh for the first minute (every 5 seconds)
-        const initialRefreshes = setInterval(() => {
-          if (loadAttempts < 12) { // 12 attempts = 1 minute (5s intervals)
-            console.log(`Auto-refreshing iframe (attempt ${loadAttempts + 1}/12)`);
-            setRefreshKey(prev => prev + 1);
-            setLoadAttempts(prev => prev + 1);
-          } else {
-            console.log('Stopping auto-refresh after 12 attempts');
-            clearInterval(initialRefreshes);
-            setAutoRefreshEnabled(false);
-          }
-        }, 5000);
-        
-        return () => clearInterval(initialRefreshes);
-      }
-    } else {
-      setIsVideo(false);
-    }
-  }, [liveUrl, loadAttempts, autoRefreshEnabled]);
-  
-  // Add effect to handle iframe load events
-  useEffect(() => {
-    if (liveUrl) {
+    if (liveUrl && liveUrl !== lastLoadedUrl) {
+      console.log(`LivePreview: New URL detected: ${liveUrl}`);
       setIsLoading(true);
+      setLoadError(null);
+      setRefreshKey(prev => prev + 1);
+      setLastLoadedUrl(liveUrl);
     }
-  }, [liveUrl, refreshKey]);
+  }, [liveUrl, lastLoadedUrl]);
+  
+  // Handle connection status changes
+  useEffect(() => {
+    if (connectionStatus === 'error' && isLoading) {
+      setLoadError("Connection to browser failed. Please check settings or try again.");
+      setIsLoading(false);
+    }
+  }, [connectionStatus, isLoading]);
+  
+  // Handle loading timeout
+  useEffect(() => {
+    if (!liveUrl || !isLoading) return;
+    
+    const timeoutId = setTimeout(() => {
+      if (isLoading) {
+        setLoadError("Preview loading timed out. The browser may still be initializing.");
+        setIsLoading(false);
+      }
+    }, 30000); // 30 second timeout
+    
+    return () => clearTimeout(timeoutId);
+  }, [liveUrl, isLoading]);
   
   const handleIframeLoad = () => {
-    console.log("Iframe loaded successfully");
+    console.log("LivePreview: iframe loaded successfully");
     setIsLoading(false);
     setLoadError(null);
-    
-    // If the iframe loaded successfully, we might not need to keep auto-refreshing
-    if (loadAttempts > 2) {
-      setAutoRefreshEnabled(false);
-    }
   };
   
   const handleIframeError = () => {
-    console.error("Failed to load iframe preview");
+    console.error("LivePreview: iframe failed to load");
     setIsLoading(false);
-    
-    if (loadAttempts < 5) {
-      // Only show error message after a few attempts
-      setLoadError("Still initializing preview. Please wait or try refreshing.");
-    } else {
-      setLoadError("Failed to load preview. The browser session might not be accessible yet.");
-      toast.error("Failed to load preview. Try refreshing in a moment.");
-    }
+    setLoadError("Failed to load preview. The browser might still be initializing.");
   };
   
-  const handleVideoError = () => {
-    console.error("Video failed to load:", liveUrl);
-    setLoadError("Video failed to load. The URL might be invalid or the video is not ready yet.");
-    toast.error("Video failed to load. Please try refreshing in a moment.");
-  };
-  
-  const refreshIframe = () => {
+  const handleRefresh = () => {
     if (!liveUrl) return;
     
+    console.log("LivePreview: Manual refresh requested");
     setIsLoading(true);
     setLoadError(null);
     setRefreshKey(prev => prev + 1);
-    setLoadAttempts(0); // Reset load attempts on manual refresh
-    toast.info("Refreshing preview...");
   };
   
-  const toggleFullscreen = () => {
-    setIsFullscreen(!isFullscreen);
+  const isVideoUrl = liveUrl?.endsWith('.mp4') || liveUrl?.endsWith('.webm') || liveUrl?.includes('recording');
+  
+  const getConnectionStatusText = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return "Browser connected";
+      case 'connecting':
+        return "Connecting to browser...";
+      case 'disconnected':
+        return "Browser disconnected";
+      case 'error':
+        return "Browser connection error";
+      default:
+        return "Browser status unknown";
+    }
   };
   
-  // Don't return null if no liveUrl - still show the component with a message
-  // This avoids layout shifts when the URL becomes available
-  
-  const fullscreenClass = isFullscreen 
-    ? "fixed top-0 left-0 right-0 bottom-0 z-50 p-4 bg-background/90 backdrop-blur" 
-    : "";
-  
-  const iframeHeight = isFullscreen ? "calc(100vh - 8rem)" : "600px";
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected':
+        return "text-green-500";
+      case 'connecting':
+        return "text-yellow-500";
+      case 'disconnected':
+        return "text-gray-500";
+      case 'error':
+        return "text-red-500";
+      default:
+        return "text-gray-500";
+    }
+  };
   
   return (
-    <div className={`${fullscreenClass} flex flex-col`}>
-      <Card className={`w-full ${isFullscreen ? "h-full" : ""}`}>
-        <CardHeader className="flex flex-row items-center justify-between p-4">
-          <CardTitle className="text-lg font-semibold flex items-center gap-2">
-            <div className={`w-2 h-2 rounded-full ${isRunning ? "bg-green-500" : "bg-gray-400"}`}></div>
-            {isVideo ? "Session Recording" : "Live Preview"}
-            {isLoading && <RefreshCw className="h-4 w-4 animate-spin ml-2" />}
+    <Card className="w-full">
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-xl">
+            {isVideoUrl ? "Session Recording" : "Live Preview"}
           </CardTitle>
-          <div className="flex gap-2">
-            {liveUrl && (
-              <Button 
-                variant="outline" 
-                size="icon"
-                onClick={refreshIframe}
-                disabled={isVideo}
-              >
-                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-              </Button>
-            )}
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={toggleFullscreen}
-              disabled={!liveUrl}
-            >
-              {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
+          <div className="flex items-center gap-2">
+            <span className={`text-sm ${getConnectionStatusColor()}`}>
+              {getConnectionStatusText()}
+            </span>
             {liveUrl && (
               <Button
                 variant="outline"
-                size="icon"
+                size="sm"
+                onClick={handleRefresh}
+                disabled={isLoading || !liveUrl}
+              >
+                <RefreshCw className="h-4 w-4 mr-2" />
+                Refresh
+              </Button>
+            )}
+            {liveUrl && (
+              <Button
+                variant="outline"
+                size="sm"
                 onClick={() => window.open(liveUrl, '_blank')}
               >
-                <ExternalLink className="h-4 w-4" />
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Open
               </Button>
             )}
           </div>
-        </CardHeader>
-        <CardContent className="p-0 overflow-hidden">
-          {liveUrl ? (
-            isVideo ? (
-              <div className="w-full h-full flex items-center justify-center bg-gray-900">
-                <video 
-                  key={`video-${refreshKey}`}
-                  src={liveUrl}
-                  controls
-                  autoPlay
-                  className="w-full h-full max-h-[600px]"
-                  style={{ height: isFullscreen ? iframeHeight : "auto" }}
-                  onError={handleVideoError}
-                >
-                  Your browser does not support video playback.
-                </video>
+        </div>
+      </CardHeader>
+      <CardContent className="browser-view-container min-h-[500px] relative">
+        {!liveUrl && !isRunning && (
+          <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <p className="text-muted-foreground">No active browser session</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              Start a new task to see live preview
+            </p>
+          </div>
+        )}
+        
+        {!liveUrl && isRunning && (
+          <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-gray-50 dark:bg-gray-900 rounded-lg">
+            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+            <p className="text-muted-foreground">Initializing browser session...</p>
+            <p className="text-sm text-muted-foreground mt-2">
+              This may take a few moments
+            </p>
+          </div>
+        )}
+        
+        {liveUrl && (
+          <div className="relative w-full h-full min-h-[500px]">
+            {isLoading && (
+              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg z-10">
+                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+                <p className="text-muted-foreground">
+                  {isVideoUrl ? "Loading recording..." : "Loading live preview..."}
+                </p>
               </div>
+            )}
+            
+            {loadError && (
+              <Alert variant="destructive" className="mb-4 absolute inset-x-0 top-0 z-20">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{loadError}</AlertDescription>
+              </Alert>
+            )}
+            
+            {isVideoUrl ? (
+              <video
+                key={refreshKey}
+                controls
+                autoPlay
+                className="w-full h-full min-h-[500px] rounded-lg"
+                onLoadStart={() => setIsLoading(true)}
+                onLoadedData={() => setIsLoading(false)}
+                onError={handleIframeError}
+                src={liveUrl}
+              />
             ) : (
-              <div className="relative">
-                {isLoading && (
-                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900/30 z-10">
-                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
-                  </div>
-                )}
-                <iframe 
-                  key={`iframe-${refreshKey}`}
-                  src={liveUrl}
-                  className="w-full border-0"
-                  style={{ height: iframeHeight }}
-                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                  title="Browser Automation Live Preview"
-                  onLoad={handleIframeLoad}
-                  onError={handleIframeError}
-                />
-              </div>
-            )
-          ) : (
-            <Alert className="m-4">
-              <AlertDescription>
-                {isRunning 
-                  ? "Live preview is initializing. Please wait a moment..."
-                  : "No preview available. Start a task to see the browser automation in real-time."}
-              </AlertDescription>
-            </Alert>
-          )}
-          
-          {loadError && (
-            <Alert className="m-4" variant="destructive">
-              <AlertDescription>{loadError}</AlertDescription>
-              <div className="mt-2 flex justify-end">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={refreshIframe}
-                  disabled={isVideo}
-                >
-                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
-                  Refresh Preview
-                </Button>
-              </div>
-            </Alert>
-          )}
-        </CardContent>
-      </Card>
-    </div>
+              <iframe
+                key={refreshKey}
+                ref={iframeRef}
+                src={liveUrl}
+                className="w-full h-full min-h-[500px] rounded-lg bg-white"
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+                allow="fullscreen"
+                sandbox="allow-same-origin allow-scripts allow-forms"
+              />
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

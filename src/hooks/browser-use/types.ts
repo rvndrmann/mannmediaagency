@@ -27,6 +27,11 @@ export interface ProxyConfig {
   bypass?: string;
 }
 
+export interface BrowserWindowSize {
+  width: number;
+  height: number;
+}
+
 export interface BrowserConfig {
   persistentSession: boolean;
   useOwnBrowser: boolean;
@@ -36,13 +41,14 @@ export interface BrowserConfig {
   headless: boolean;
   disableSecurity: boolean;
   chromePath?: string;
+  chromeUserData?: string;
   extraChromiumArgs?: string[] | string;
   proxy?: ProxyConfig | string;
   contextConfig: {
     minWaitPageLoadTime: number;
     waitForNetworkIdlePageLoadTime: number;
     maxWaitPageLoadTime: number;
-    browserWindowSize: { width: number; height: number };
+    browserWindowSize: BrowserWindowSize;
     highlightElements: boolean;
     viewportExpansion: number;
     userAgent?: string;
@@ -67,4 +73,12 @@ export interface BrowserTaskState {
   error: string | null;
   browserConfig: BrowserConfig;
   liveUrl: string | null;
+  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+}
+
+export interface BrowserUseError {
+  type: 'connection' | 'browser' | 'api' | 'unknown';
+  message: string;
+  details?: string;
+  retryable: boolean;
 }

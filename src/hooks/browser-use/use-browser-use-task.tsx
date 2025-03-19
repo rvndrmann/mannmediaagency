@@ -1,7 +1,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, CaptureWebsiteResponse } from "./types";
+import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, CaptureWebsiteResponse, BrowserUseError } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
@@ -12,7 +12,7 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   persistentSession: false,
   useOwnBrowser: false,
   resolution: "1920x1080",
-  theme: "light",
+  theme: "Ocean",
   darkMode: false,
   
   // Core settings
@@ -73,6 +73,7 @@ export function useBrowserUseTask() {
   const [error, setError] = useState<string | null>(null);
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(DEFAULT_BROWSER_CONFIG);
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<BrowserTaskState["connectionStatus"]>("disconnected");
 
   // Try to load saved browser config from localStorage
   useEffect(() => {
@@ -96,6 +97,34 @@ export function useBrowserUseTask() {
     }
   }, [browserConfig]);
 
+  // Update connection status based on task status
+  useEffect(() => {
+    if (!currentTaskId) {
+      setConnectionStatus("disconnected");
+      return;
+    }
+    
+    if (isProcessing && ['pending', 'created'].includes(taskStatus)) {
+      setConnectionStatus("connecting");
+      return;
+    }
+    
+    if (isProcessing && taskStatus === 'running') {
+      setConnectionStatus("connected");
+      return;
+    }
+    
+    if (['failed', 'stopped'].includes(taskStatus)) {
+      setConnectionStatus("error");
+      return;
+    }
+    
+    if (taskStatus === 'completed') {
+      setConnectionStatus("disconnected");
+      return;
+    }
+  }, [currentTaskId, isProcessing, taskStatus]);
+
   // Safely update browser config
   const updateBrowserConfig = useCallback((newConfig: BrowserConfig) => {
     setBrowserConfig(validateConfig(newConfig));
@@ -112,7 +141,8 @@ export function useBrowserUseTask() {
     currentUrl,
     error,
     browserConfig,
-    liveUrl
+    liveUrl,
+    connectionStatus
   };
 
   const stateSetters = {
@@ -127,7 +157,8 @@ export function useBrowserUseTask() {
     setUserCredits,
     setError,
     setBrowserConfig: updateBrowserConfig,
-    setLiveUrl
+    setLiveUrl,
+    setConnectionStatus
   };
 
   // Use the refactored hooks
@@ -153,7 +184,8 @@ export function useBrowserUseTask() {
       setTaskOutput,
       setIsProcessing,
       setLiveUrl,
-      setError
+      setError,
+      setConnectionStatus
     }
   );
 
@@ -181,6 +213,7 @@ export function useBrowserUseTask() {
     error,
     browserConfig,
     setBrowserConfig: updateBrowserConfig,
-    liveUrl
+    liveUrl,
+    connectionStatus
   };
 }

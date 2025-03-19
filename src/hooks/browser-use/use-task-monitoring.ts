@@ -13,6 +13,7 @@ interface TaskStateSetters {
   setIsProcessing: (isProcessing: boolean) => void;
   setLiveUrl: (url: string | null) => void;
   setError: (error: string | null) => void;
+  setConnectionStatus?: (status: BrowserTaskState["connectionStatus"]) => void;
 }
 
 export function useTaskMonitoring(
@@ -29,6 +30,7 @@ export function useTaskMonitoring(
     setIsProcessing,
     setLiveUrl,
     setError,
+    setConnectionStatus
   } = stateSetters;
   
   // Change from number to NodeJS.Timeout
@@ -58,6 +60,7 @@ export function useTaskMonitoring(
     }
     
     console.log(`Starting aggressive URL polling for task: ${state.currentTaskId}`);
+    if (setConnectionStatus) setConnectionStatus("connecting");
     
     // Function to check specifically for live URL
     const checkForLiveUrl = async () => {
@@ -102,6 +105,7 @@ export function useTaskMonitoring(
         if (apiResponse.browser && apiResponse.browser.live_url) {
           effectiveUrl = apiResponse.browser.live_url;
           console.log(`Found live URL in aggressive polling: ${effectiveUrl}`);
+          if (setConnectionStatus) setConnectionStatus("connected");
         } else if (apiResponse.recordings && apiResponse.recordings.length > 0) {
           // Use the most recent recording
           const latestRecording = apiResponse.recordings.reduce((latest: any, current: any) => {
@@ -158,7 +162,7 @@ export function useTaskMonitoring(
         urlCheckIntervalRef.current = null;
       }
     };
-  }, [state.currentTaskId, state.taskStatus, state.liveUrl, setLiveUrl]);
+  }, [state.currentTaskId, state.taskStatus, state.liveUrl, setLiveUrl, setConnectionStatus]);
   
   // Set up polling for task status
   useEffect(() => {
@@ -185,6 +189,7 @@ export function useTaskMonitoring(
         if (taskError) {
           console.error("Error fetching task details:", taskError);
           setError(`Error fetching task details: ${taskError.message}`);
+          if (setConnectionStatus) setConnectionStatus("error");
           return;
         }
         
@@ -257,10 +262,13 @@ export function useTaskMonitoring(
             
             toast.error(errorMsg);
             setError(errorMsg);
+            if (setConnectionStatus) setConnectionStatus("error");
           } else if (taskData.status === "completed") {
             toast.success("Task completed successfully");
+            if (setConnectionStatus) setConnectionStatus("disconnected");
           } else if (taskData.status === "stopped") {
             toast.info("Task stopped");
+            if (setConnectionStatus) setConnectionStatus("disconnected");
           }
           
           return;
@@ -269,6 +277,12 @@ export function useTaskMonitoring(
         // If task is pending or running, check with browser-use API for updates
         if (["pending", "running", "created", "paused"].includes(taskData.status)) {
           console.log(`Task ${state.currentTaskId} is active. Checking API for updates.`);
+          
+          if (taskData.status === "running" && setConnectionStatus) {
+            setConnectionStatus("connected");
+          } else if (["pending", "created", "paused"].includes(taskData.status) && setConnectionStatus) {
+            setConnectionStatus("connecting");
+          }
           
           try {
             // Check if we already have a browser_task_id, if not, we need to wait
@@ -309,6 +323,7 @@ export function useTaskMonitoring(
                 setTaskStatus("failed");
                 setIsProcessing(false);
                 setError(apiResponse.error);
+                if (setConnectionStatus) setConnectionStatus("error");
                 toast.error(apiResponse.error);
                 
                 if (pollingIntervalRef.current) {
@@ -340,6 +355,7 @@ export function useTaskMonitoring(
               if (apiResponse.browser && apiResponse.browser.live_url) {
                 liveUrl = apiResponse.browser.live_url;
                 console.log(`Live URL from API: ${liveUrl}`);
+                if (setConnectionStatus) setConnectionStatus("connected");
               }
               
               // Get current URL if available
@@ -461,19 +477,24 @@ export function useTaskMonitoring(
                 if (mappedStatus === "failed") {
                   toast.error("Task failed");
                   setError("Task failed");
+                  if (setConnectionStatus) setConnectionStatus("error");
                 } else if (mappedStatus === "completed") {
                   toast.success("Task completed successfully");
+                  if (setConnectionStatus) setConnectionStatus("disconnected");
                 } else if (mappedStatus === "stopped") {
                   toast.info("Task stopped");
+                  if (setConnectionStatus) setConnectionStatus("disconnected");
                 }
               }
             }
           } catch (apiCheckError) {
             console.error("Error checking API status:", apiCheckError);
+            if (setConnectionStatus) setConnectionStatus("error");
           }
         }
       } catch (error) {
         console.error("Error in task monitoring:", error);
+        if (setConnectionStatus) setConnectionStatus("error");
       }
     };
     
@@ -491,5 +512,18 @@ export function useTaskMonitoring(
         clearInterval(urlCheckIntervalRef.current);
       }
     };
-  }, [state.currentTaskId, state.taskStatus]);
+  }, [
+    state.currentTaskId,
+    state.taskStatus,
+    currentTaskId,
+    setCurrentUrl,
+    setError,
+    setIsProcessing,
+    setLiveUrl,
+    setProgress,
+    setTaskStatus,
+    setTaskSteps,
+    setTaskOutput,
+    setConnectionStatus
+  ]);
 }

@@ -35,7 +35,8 @@ export function BrowserUseApp() {
     setBrowserConfig,
     userCredits,
     liveUrl,
-    captureScreenshot
+    captureScreenshot,
+    connectionStatus
   } = useBrowserUseTask();
   
   // Log changes to liveUrl for debugging
@@ -138,6 +139,7 @@ export function BrowserUseApp() {
         <LivePreview 
           liveUrl={liveUrl} 
           isRunning={isProcessing && taskStatus === 'running'} 
+          connectionStatus={connectionStatus}
         />
       </div>
     </div>

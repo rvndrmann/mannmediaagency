@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BrowserConfig, BrowserTheme, ProxyConfig } from "@/hooks/browser-use/types";
 import { Separator } from "@/components/ui/separator";
-import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
+import { ChevronDown, ChevronUp, FolderOpen, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface BrowserSettingsProps {
@@ -121,6 +121,11 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
     }
   };
   
+  // File browser not available in web env, simulate file input
+  const handleBrowseFile = (field: 'chromePath' | 'chromeUserData') => {
+    toast.info(`Please enter the ${field === 'chromePath' ? 'Chrome executable path' : 'Chrome user data directory'} manually. File browser is not available.`);
+  };
+  
   return (
     <Card className="w-full">
       <CardHeader>
@@ -185,20 +190,59 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
               </div>
               
               {config.useOwnBrowser && (
-                <div className="space-y-2 col-span-1 md:col-span-2">
-                  <Label htmlFor="chromePath" className="text-sm font-medium">
-                    Chrome Executable Path
-                  </Label>
-                  <Input
-                    id="chromePath"
-                    placeholder="Path to Chrome executable"
-                    value={config.chromePath || ''}
-                    onChange={(e) => handleChange('chromePath', e.target.value)}
-                  />
-                  <p className="text-xs text-muted-foreground">
-                    Full path to your Chrome/Chromium executable
-                  </p>
-                </div>
+                <>
+                  <div className="space-y-2 col-span-1 md:col-span-2">
+                    <Label htmlFor="chromePath" className="text-sm font-medium">
+                      Chrome Executable Path
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="chromePath"
+                        placeholder="Path to Chrome executable"
+                        value={config.chromePath || ''}
+                        onChange={(e) => handleChange('chromePath', e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant="outline"
+                        size="icon"
+                        type="button"
+                        onClick={() => handleBrowseFile('chromePath')}
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Full path to your Chrome/Chromium executable
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2 col-span-1 md:col-span-2">
+                    <Label htmlFor="chromeUserData" className="text-sm font-medium">
+                      Chrome User Data Directory
+                    </Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="chromeUserData"
+                        placeholder="Path to Chrome user data directory"
+                        value={config.chromeUserData || ''}
+                        onChange={(e) => handleChange('chromeUserData', e.target.value)}
+                        className="flex-1"
+                      />
+                      <Button 
+                        variant="outline"
+                        size="icon"
+                        type="button"
+                        onClick={() => handleBrowseFile('chromeUserData')}
+                      >
+                        <FolderOpen className="h-4 w-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Path to Chrome/Chromium user data directory (leave empty for default)
+                    </p>
+                  </div>
+                </>
               )}
               
               <div className="space-y-2">

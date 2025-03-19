@@ -255,7 +255,12 @@ export function BrowserTaskHistory() {
           </p>
           <DatePickerWithRange 
             date={dateRange}
-            onDateChange={setDateRange}
+            onDateChange={(newDateRange) => {
+              setDateRange({
+                from: newDateRange?.from, 
+                to: newDateRange?.to
+              });
+            }}
           />
         </div>
       ) : null}
@@ -395,7 +400,8 @@ export function BrowserTaskHistory() {
                 <PaginationItem>
                   <PaginationPrevious 
                     onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
-                    disabled={currentPage === 1} 
+                    aria-disabled={currentPage === 1}
+                    className={currentPage === 1 ? "pointer-events-none opacity-50" : ""}
                   />
                 </PaginationItem>
                 
@@ -413,7 +419,8 @@ export function BrowserTaskHistory() {
                 <PaginationItem>
                   <PaginationNext 
                     onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
-                    disabled={currentPage === totalPages} 
+                    aria-disabled={currentPage === totalPages}
+                    className={currentPage === totalPages ? "pointer-events-none opacity-50" : ""}
                   />
                 </PaginationItem>
               </PaginationContent>

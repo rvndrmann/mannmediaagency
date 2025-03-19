@@ -1,14 +1,14 @@
 
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { BrowserTaskState, TaskState } from "./types";
+import { BrowserTaskState, TaskStatus } from "./types";
 import { toast } from "sonner";
 
 interface TaskStateSetters {
   setProgress: (progress: number) => void;
-  setTaskStatus: (status: TaskState["status"]) => void;
+  setTaskStatus: (status: TaskStatus) => void;
   setCurrentUrl: (url: string | null) => void;
-  setTaskSteps: (steps: TaskState["steps"]) => void;
+  setTaskSteps: (steps: BrowserTaskState["steps"]) => void;
   setTaskOutput: (output: string | null) => void;
   setIsProcessing: (isProcessing: boolean) => void;
   setLiveUrl: (url: string | null) => void;
@@ -50,18 +50,18 @@ export function useTaskMonitoring(
       pollingIntervalRef.current = null;
     }
     
-    if (!currentTaskId) return;
+    if (!state.currentTaskId) return;
     
-    console.log(`Starting monitoring for task: ${currentTaskId}`);
+    console.log(`Starting monitoring for task: ${state.currentTaskId}`);
     
     // Function to fetch task details and steps
     const fetchTaskDetails = async () => {
       try {
-        console.log(`Fetching task details for ID: ${currentTaskId}`);
+        console.log(`Fetching task details for ID: ${state.currentTaskId}`);
         const { data: taskData, error: taskError } = await supabase
           .from("browser_automation_tasks")
           .select("id, progress, status, current_url, output, live_url, browser_task_id, completed_at, browser_data")
-          .eq("id", currentTaskId)
+          .eq("id", state.currentTaskId)
           .single();
           
         if (taskError) {
@@ -71,7 +71,7 @@ export function useTaskMonitoring(
         }
         
         if (!taskData) {
-          console.warn(`No task data found for ID: ${currentTaskId}`);
+          console.warn(`No task data found for ID: ${state.currentTaskId}`);
           return;
         }
         
@@ -98,7 +98,7 @@ export function useTaskMonitoring(
         const { data: stepsData, error: stepsError } = await supabase
           .from("browser_automation_steps")
           .select("*")
-          .eq("task_id", currentTaskId)
+          .eq("task_id", state.currentTaskId)
           .order("created_at", { ascending: true });
           
         if (stepsError) {
@@ -109,7 +109,7 @@ export function useTaskMonitoring(
         
         // If the task is not in an active state, stop polling
         if (["completed", "failed", "stopped"].includes(taskData.status)) {
-          console.log(`Task ${currentTaskId} is in final state: ${taskData.status}. Stopping polling.`);
+          console.log(`Task ${state.currentTaskId} is in final state: ${taskData.status}. Stopping polling.`);
           
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
@@ -119,9 +119,18 @@ export function useTaskMonitoring(
           setIsProcessing(false);
           
           if (taskData.status === "failed") {
-            const errorMsg = taskData.output 
-              ? JSON.parse(taskData.output)?.error || "Task failed" 
-              : "Task failed with unknown error";
+            let errorMsg = "Task failed";
+            
+            try {
+              if (taskData.output) {
+                const parsedOutput = JSON.parse(taskData.output);
+                if (parsedOutput?.error) {
+                  errorMsg = parsedOutput.error;
+                }
+              }
+            } catch (e) {
+              console.error("Error parsing task output:", e);
+            }
             
             toast.error(errorMsg);
             setError(errorMsg);
@@ -136,12 +145,12 @@ export function useTaskMonitoring(
         
         // If task is pending or running, check with browser-use API for updates
         if (["pending", "running", "created", "paused"].includes(taskData.status)) {
-          console.log(`Task ${currentTaskId} is active. Checking API for updates.`);
+          console.log(`Task ${state.currentTaskId} is active. Checking API for updates.`);
           
           try {
             // Check if we already have a browser_task_id, if not, we need to wait
             if (!taskData.browser_task_id) {
-              console.log(`No browser_task_id yet for task ${currentTaskId}. Waiting...`);
+              console.log(`No browser_task_id yet for task ${state.currentTaskId}. Waiting...`);
               return;
             }
             
@@ -172,7 +181,7 @@ export function useTaskMonitoring(
                     output: JSON.stringify({ error: apiResponse.error }),
                     completed_at: new Date().toISOString()
                   })
-                  .eq("id", currentTaskId);
+                  .eq("id", state.currentTaskId);
                   
                 setTaskStatus("failed");
                 setIsProcessing(false);
@@ -346,5 +355,5 @@ export function useTaskMonitoring(
         clearInterval(pollingIntervalRef.current);
       }
     };
-  }, [currentTaskId, taskStatus]);
+  }, [state.currentTaskId, state.taskStatus]);
 }

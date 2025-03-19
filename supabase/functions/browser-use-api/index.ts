@@ -159,6 +159,13 @@ serve(async (req) => {
         console.log(`Sending request to: ${API_BASE_URL}/task`);
         console.log(`Headers: ${JSON.stringify(apiHeaders, null, 2)}`);
         
+        // Add detailed logging for the request
+        console.log(`Request body: ${JSON.stringify({
+          task,
+          save_browser_data,
+          ...browser_config
+        }, null, 2)}`);
+        
         const response = await fetch(`${API_BASE_URL}/task`, {
           method: "POST",
           headers: apiHeaders,
@@ -171,34 +178,43 @@ serve(async (req) => {
         
         console.log(`Response status: ${response.status}`);
         
+        // Get response body for debugging regardless of status
+        const responseText = await response.text();
+        console.log(`Raw response: ${responseText}`);
+        
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Failed to create task: ${response.status} ${errorText}`);
+          console.error(`Failed to create task: ${response.status} ${responseText}`);
           
           // Add more detailed error information
           return new Response(
             JSON.stringify({ 
               error: `Failed to create task: ${response.status}`, 
-              details: errorText,
+              details: responseText,
               request_info: {
                 url: `${API_BASE_URL}/task`,
                 method: "POST",
-                headers: {
-                  "Authorization": "Bearer [REDACTED]",
-                  "Content-Type": "application/json"
-                },
-                body: {
-                  task,
-                  save_browser_data,
-                  // Do not log sensitive data from browser_config
-                }
+                // Do not log sensitive data
               }
             }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
           );
         }
         
-        const data = await response.json();
+        // Try to parse the response as JSON
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          console.error(`Error parsing response as JSON: ${parseError.message}`);
+          return new Response(
+            JSON.stringify({ 
+              error: `Error parsing API response: ${parseError.message}`,
+              raw_response: responseText
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          );
+        }
+        
         console.log(`Task created response:`, JSON.stringify(data, null, 2));
         
         // If we have a task ID in the response, set up immediate live URL
@@ -242,6 +258,7 @@ serve(async (req) => {
         }
       } catch (error) {
         console.error(`Error creating task: ${error.message}`);
+        console.error(`Error stack: ${error.stack}`);
         return new Response(
           JSON.stringify({ 
             error: error.message,
@@ -333,8 +350,12 @@ serve(async (req) => {
     }
   } catch (error) {
     console.error(`Unexpected error: ${error.message}`);
+    console.error(`Error stack: ${error.stack}`);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ 
+        error: error.message,
+        stack: error.stack 
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
     );
   }

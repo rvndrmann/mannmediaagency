@@ -71,3 +71,29 @@ export const canOpenNewTabs = (): boolean => {
     return false;
   }
 };
+
+/**
+ * Safely get URL parameters
+ */
+export const getUrlParameter = (name: string, url?: string): string | null => {
+  const currentUrl = url || (typeof window !== 'undefined' ? window.location.href : '');
+  const parsedName = name.replace(/[[\]]/g, '\\$&');
+  const regex = new RegExp(`[?&]${parsedName}(=([^&#]*)|&|#|$)`);
+  const results = regex.exec(currentUrl);
+  
+  if (!results) return null;
+  if (!results[2]) return '';
+  
+  return decodeURIComponent(results[2].replace(/\+/g, ' '));
+};
+
+/**
+ * Builds a URL with query parameters
+ */
+export const buildUrlWithParams = (baseUrl: string, params: Record<string, string>): string => {
+  const url = new URL(normalizeUrl(baseUrl));
+  Object.entries(params).forEach(([key, value]) => {
+    url.searchParams.append(key, value);
+  });
+  return url.toString();
+};

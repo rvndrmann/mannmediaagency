@@ -16,6 +16,7 @@ interface StateSetters {
   setTaskStatus: (status: TaskStatus) => void;
   setProgress: (progress: number) => void;
   setError: (error: string | null) => void;
+  setLiveUrl: (url: string | null) => void;
 }
 
 export function useTaskOperations(
@@ -35,7 +36,8 @@ export function useTaskOperations(
     setIsProcessing, 
     setTaskStatus, 
     setProgress, 
-    setError 
+    setError,
+    setLiveUrl
   } = stateSetters;
 
   const formatConfigForApi = (config: BrowserConfig) => {
@@ -103,6 +105,7 @@ export function useTaskOperations(
       setIsProcessing(true);
       setProgress(0);
       setError(null);
+      setLiveUrl(null);
 
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
@@ -173,14 +176,20 @@ export function useTaskOperations(
         return;
       }
 
+      // Store the API task ID in the database
       if (apiResponse.task_id) {
+        console.log(`Updating task ${taskId} with browser_task_id: ${apiResponse.task_id}`);
         await supabase
           .from('browser_automation_tasks')
           .update({ browser_task_id: apiResponse.task_id })
           .eq('id', taskId);
       }
 
+      // If we immediately get a live_url, update it
       if (apiResponse.live_url) {
+        console.log(`Setting initial live URL: ${apiResponse.live_url}`);
+        setLiveUrl(apiResponse.live_url);
+        
         await supabase
           .from('browser_automation_tasks')
           .update({ live_url: apiResponse.live_url })

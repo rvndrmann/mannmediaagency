@@ -41,8 +41,10 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   
   // Add effect to handle iframe load events
   useEffect(() => {
-    setIsLoading(true);
-    setLoadError(null);
+    if (liveUrl) {
+      setIsLoading(true);
+      setLoadError(null);
+    }
   }, [liveUrl, refreshKey]);
   
   const handleIframeLoad = () => {
@@ -65,6 +67,8 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   };
   
   const refreshIframe = () => {
+    if (!liveUrl) return;
+    
     setIsLoading(true);
     setLoadError(null);
     setRefreshKey(prev => prev + 1);

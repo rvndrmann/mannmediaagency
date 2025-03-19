@@ -1,474 +1,303 @@
 
-import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.7.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
 };
 
-interface BrowserUseApiRequest {
-  task?: string;
-  task_id?: string;
-  save_browser_data?: boolean;
-  action?: 'pause' | 'resume' | 'stop';
-  browser_config?: any;
-}
-
-interface TaskMediaResponse {
-  recordings: string[] | null;
-}
-
-serve(async (req: Request) => {
+serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");
+    // Read request
+    const { action, task_id, task, save_browser_data, browser_config } = await req.json();
     
-    if (!API_KEY) {
-      throw new Error("Browser Use API key is not configured.");
-    }
-
-    // Base API URL
-    const BASE_URL = "https://api.browser-use.com/api/v1";
-    const url = new URL(req.url);
-    const pathParts = url.pathname.split('/');
+    // Get Supabase client
+    const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
+    const supabaseKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+    const supabase = createClient(supabaseUrl, supabaseKey);
     
-    console.log(`Processing request for path: ${url.pathname}, method: ${req.method}`);
+    // Get browser-use API key from env vars
+    const browserUseApiKey = Deno.env.get("BROWSER_USE_API_KEY");
     
-    // Check if this is a status endpoint call
-    if (pathParts[pathParts.length - 1] === 'status') {
-      const { data, error } = await checkTaskStatus(req);
-      
-      if (error) {
-        throw error;
-      }
-      
-      console.log("Returning status data:", data);
-      return new Response(JSON.stringify(data), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
+    if (!browserUseApiKey) {
+      console.error("BROWSER_USE_API_KEY is not set");
+      return new Response(
+        JSON.stringify({ error: "API key is not configured" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+      );
     }
     
-    // Check if this is a media endpoint call
-    if (pathParts[pathParts.length - 1] === 'media') {
-      console.log("Handling media request");
+    // Define API base URL
+    const API_BASE_URL = "https://api.browser-use.com/api/v1";
+    
+    // Set headers for all API requests
+    const apiHeaders = {
+      "Authorization": `Bearer ${browserUseApiKey}`,
+      "Content-Type": "application/json"
+    };
+    
+    // Handle different action types
+    if (action === 'pause') {
+      console.log(`Pausing task with ID: ${task_id}`);
+      
       try {
-        const requestText = await req.text();
-        console.log(`Media request body: ${requestText}`);
-        const requestBody = requestText ? JSON.parse(requestText) : {};
-        const taskId = requestBody.task_id;
-        
-        if (!taskId) {
-          throw new Error("Task ID is required for fetching media");
-        }
-        
-        console.log(`Fetching media for task ID: ${taskId}`);
-        
-        // Make sure we're using the direct API endpoint for media
-        const response = await fetch(`${BASE_URL}/task/${taskId}/media`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${API_KEY}`,
-            'Content-Type': 'application/json',
-          }
+        const response = await fetch(`${API_BASE_URL}/task/${task_id}/pause`, {
+          method: "POST",
+          headers: apiHeaders
         });
         
         if (!response.ok) {
-          const errorText = await response.text();
-          console.error(`Media API Error ${response.status}: ${errorText}`);
-          throw new Error(`Media API Error ${response.status}: ${errorText}`);
+          const errorData = await response.text();
+          console.error(`Failed to pause task: ${response.status} ${errorData}`);
+          
+          return new Response(
+            JSON.stringify({ error: `Failed to pause task: ${response.status}`, details: errorData }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
+          );
         }
         
-        const responseData = await response.json();
-        console.log("Media API Response:", JSON.stringify(responseData, null, 2));
-        
-        return new Response(JSON.stringify(responseData), {
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      } catch (mediaError) {
-        console.error("Error handling media request:", mediaError);
-        return new Response(JSON.stringify({
-          error: mediaError instanceof Error ? mediaError.message : "Unknown media error",
-          recordings: null
-        }), {
-          status: 500,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
+        const data = await response.json();
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error(`Error pausing task: ${error.message}`);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
-    }
-
-    // For standard task operations
-    let requestBody: BrowserUseApiRequest;
-    let requestText = '';
-    try {
-      requestText = await req.text();
-      console.log(`Request body received: ${requestText}`);
-      requestBody = requestText ? JSON.parse(requestText) : {};
-    } catch (parseError) {
-      console.error(`Error parsing request body: ${parseError.message}, raw text: ${requestText}`);
-      return new Response(JSON.stringify({
-        error: `Invalid JSON in request body: ${parseError.message}`
-      }), {
-        status: 400,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    }
-    
-    // Get task from database if task_id is provided but no task
-    if (requestBody.task_id && !requestBody.task && !requestBody.action) {
-      const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-      const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-      const supabase = createClient(supabaseUrl, supabaseKey);
+    } else if (action === 'resume') {
+      console.log(`Resuming task with ID: ${task_id}`);
       
-      console.log(`Looking up task with ID: ${requestBody.task_id}`);
-      const { data: taskData, error: taskError } = await supabase
-        .from('browser_automation_tasks')
-        .select('input, browser_task_id')
-        .eq('id', requestBody.task_id)
-        .single();
-      
-      if (taskError) {
-        console.error(`Error fetching task: ${taskError.message}`);
-        throw new Error(`Error fetching task: ${taskError.message}`);
-      }
-      
-      if (taskData.browser_task_id) {
-        console.log(`Found existing browser task ID: ${taskData.browser_task_id}`);
-        // Task already exists in browser-use API, get status
-        return await checkTaskStatus(req, taskData.browser_task_id);
-      }
-      
-      console.log(`Using input from database: ${taskData.input}`);
-      requestBody.task = taskData.input;
-    }
-
-    // Handle different operations based on action
-    let endpoint = '';
-    let method = 'POST';
-    let body: any = undefined;
-    
-    if (requestBody.action) {
-      // Actions for existing tasks
-      const taskId = requestBody.task_id;
-      if (!taskId) {
-        throw new Error("Task ID is required for task actions");
-      }
-      
-      endpoint = `${BASE_URL}/task/${taskId}/${requestBody.action}`;
-      method = 'POST';
-      console.log(`Performing action: ${requestBody.action} on task: ${taskId}`);
-    } else if (requestBody.task) {
-      // Creating a new task - updated to use run-task endpoint
-      endpoint = `${BASE_URL}/run-task`;
-      body = {
-        task: requestBody.task,
-        save_browser_data: true
-      };
-      
-      // Add browser configuration if provided
-      if (requestBody.browser_config) {
-        body = { ...body, ...requestBody.browser_config };
-      }
-      
-      console.log(`Creating new task with config: ${JSON.stringify(body, null, 2)}`);
-    }
-
-    console.log(`Calling Browser Use API: ${endpoint}`, body ? `with body: ${JSON.stringify(body)}` : "No body");
-    
-    try {
-      const response = await fetch(endpoint, {
-        method,
-        headers: {
-          'Authorization': `Bearer ${API_KEY}`,
-          'Content-Type': 'application/json',
-        },
-        body: body ? JSON.stringify(body) : undefined,
-      });
-
-      // Handle non-OK responses properly
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error(`API Error ${response.status}: ${errorText}`);
-        throw new Error(`API Error ${response.status}: ${errorText}`);
-      }
-      
-      // Safely parse JSON response
-      let responseData = {};
-      let responseText = '';
       try {
-        responseText = await response.text();
-        console.log(`API Response: ${responseText}`);
-        responseData = responseText ? JSON.parse(responseText) : {};
-      } catch (parseError) {
-        console.error(`Error parsing response: ${parseError.message}, raw text: ${responseText}`);
-        throw new Error(`Failed to parse API response: ${parseError.message}`);
-      }
-      
-      // Make sure we extract live_url if it's in the browser object
-      if (responseData.browser && responseData.browser.live_url) {
-        responseData.live_url = responseData.browser.live_url;
-        console.log(`Extracted live_url from browser object: ${responseData.live_url}`);
-      }
-      
-      // Update the task in database with browser_task_id if creating a new task
-      if (response.ok && requestBody.task_id && responseData.task_id && !requestBody.action) {
-        const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
-        const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-        const supabase = createClient(supabaseUrl, supabaseKey);
+        const response = await fetch(`${API_BASE_URL}/task/${task_id}/resume`, {
+          method: "POST",
+          headers: apiHeaders
+        });
         
-        console.log(`Updating task ${requestBody.task_id} with browser_task_id: ${responseData.task_id}`);
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ 
-            browser_task_id: responseData.task_id,
-            status: 'created'
-          })
-          .eq('id', requestBody.task_id);
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error(`Failed to resume task: ${response.status} ${errorData}`);
+          
+          return new Response(
+            JSON.stringify({ error: `Failed to resume task: ${response.status}`, details: errorData }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
+          );
+        }
+        
+        const data = await response.json();
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error(`Error resuming task: ${error.message}`);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
       }
-
-      return new Response(JSON.stringify(responseData), {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      });
-    } catch (fetchError) {
-      console.error(`Fetch error: ${fetchError.message}`);
-      throw new Error(`API Communication Error: ${fetchError.message}`);
+    } else if (action === 'stop') {
+      console.log(`Stopping task with ID: ${task_id}`);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/task/${task_id}/stop`, {
+          method: "POST",
+          headers: apiHeaders
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error(`Failed to stop task: ${response.status} ${errorData}`);
+          
+          if (response.status === 404 && errorData.includes("not found")) {
+            // Special handling for not found - task might have already completed
+            return new Response(
+              JSON.stringify({ status: "stopped", info: "Task may have already completed or been stopped" }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          return new Response(
+            JSON.stringify({ error: `Failed to stop task: ${response.status}`, details: errorData }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
+          );
+        }
+        
+        const data = await response.json();
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error(`Error stopping task: ${error.message}`);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+    } else if (task) {
+      // Create a new task
+      console.log(`Creating new task with config: ${JSON.stringify({
+        task,
+        save_browser_data,
+        ...browser_config
+      }, null, 2)}`);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/task`, {
+          method: "POST",
+          headers: apiHeaders,
+          body: JSON.stringify({
+            task,
+            save_browser_data,
+            ...browser_config
+          })
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error(`Failed to create task: ${response.status} ${errorData}`);
+          
+          return new Response(
+            JSON.stringify({ error: `Failed to create task: ${response.status}`, details: errorData }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
+          );
+        }
+        
+        const data = await response.json();
+        
+        // If we have a task ID in the response, set up immediate live URL
+        if (data.id) {
+          console.log(`Task created with ID: ${data.id}`);
+          
+          // Try to get a live URL immediately - some tasks set it up quickly
+          try {
+            const statusResponse = await fetch(`${API_BASE_URL}/task/${data.id}`, {
+              method: "GET",
+              headers: apiHeaders
+            });
+            
+            if (statusResponse.ok) {
+              const statusData = await statusResponse.json();
+              if (statusData && statusData.browser && statusData.browser.live_url) {
+                data.live_url = statusData.browser.live_url;
+                console.log(`Immediate live URL available: ${data.live_url}`);
+              }
+            }
+          } catch (liveUrlError) {
+            console.warn(`Non-critical error fetching initial live URL: ${liveUrlError.message}`);
+          }
+          
+          return new Response(
+            JSON.stringify({
+              id: data.id,
+              task_id: data.id,
+              live_url: data.live_url || null
+            }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+          );
+        } else {
+          console.error("Task created but no ID returned");
+          return new Response(
+            JSON.stringify({ error: "Task created but no ID returned" }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+          );
+        }
+      } catch (error) {
+        console.error(`Error creating task: ${error.message}`);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+    } else if (task_id) {
+      // If status endpoint is called with a task_id but no action
+      console.log(`Fetching status for task: ${task_id}`);
+      
+      try {
+        const response = await fetch(`${API_BASE_URL}/task/${task_id}`, {
+          method: "GET",
+          headers: apiHeaders
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.text();
+          console.error(`Failed to fetch task status: ${response.status} ${errorData}`);
+          
+          // Special handling for 404 errors - task might not exist or have been deleted
+          if (response.status === 404) {
+            return new Response(
+              JSON.stringify({ 
+                status: "failed", 
+                error: "Agent session not found - the task may have been deleted or expired"
+              }),
+              { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+            );
+          }
+          
+          return new Response(
+            JSON.stringify({ error: `Failed to fetch task status: ${response.status}`, details: errorData }),
+            { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
+          );
+        }
+        
+        const data = await response.json();
+        
+        // Also get any recordings available
+        let recordings = [];
+        try {
+          const mediaResponse = await fetch(`${API_BASE_URL}/task/${task_id}/media`, {
+            method: "GET",
+            headers: apiHeaders
+          });
+          
+          if (mediaResponse.ok) {
+            const mediaData = await mediaResponse.json();
+            if (mediaData && mediaData.recordings && mediaData.recordings.length > 0) {
+              recordings = mediaData.recordings;
+              console.log(`Found ${recordings.length} recordings for task ${task_id}`);
+            }
+          }
+        } catch (mediaError) {
+          console.warn(`Non-critical error fetching media: ${mediaError.message}`);
+        }
+        
+        // Include recordings in the response
+        return new Response(
+          JSON.stringify({
+            ...data,
+            recordings,
+            task_id: task_id
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error(`Error fetching task status: ${error.message}`);
+        return new Response(
+          JSON.stringify({ error: error.message }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+    } else {
+      return new Response(
+        JSON.stringify({ error: "Invalid request - missing task or task_id" }),
+        { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 400 }
+      );
     }
-    
   } catch (error) {
-    console.error("Browser Use API Error:", error);
-    
-    return new Response(JSON.stringify({
-      error: error instanceof Error ? error.message : "Unknown error occurred"
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
+    console.error(`Unexpected error: ${error.message}`);
+    return new Response(
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+    );
   }
 });
-
-// Helper function to check task status
-async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: any, error: Error | null }> {
-  try {
-    const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");
-    
-    if (!API_KEY) {
-      throw new Error("Browser Use API key is not configured.");
-    }
-    
-    // Get task_id from request body if not provided as parameter
-    if (!taskId) {
-      let requestText = '';
-      try {
-        requestText = await req.text();
-        console.log(`Request body for status check: ${requestText}`);
-        const requestBody = requestText ? JSON.parse(requestText) : {};
-        taskId = requestBody.task_id;
-      } catch (parseError) {
-        console.error(`Error parsing request body for status: ${parseError.message}, raw text: ${requestText}`);
-        throw new Error(`Invalid JSON in request body: ${parseError.message}`);
-      }
-      
-      if (!taskId) {
-        throw new Error("Task ID is required for checking status");
-      }
-    }
-    
-    console.log(`Checking status for task: ${taskId}`);
-    
-    // Use the correct task status endpoint
-    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/status`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch task status: ${response.status} ${errorText}`);
-      
-      // Handle 404 error (Agent session not found) more gracefully
-      if (response.status === 404) {
-        return { 
-          data: { 
-            status: 'failed',
-            error: 'Agent session not found - the task may have been deleted or expired'
-          }, 
-          error: null 
-        };
-      }
-      
-      throw new Error(`Failed to fetch task status: ${errorText}`);
-    }
-    
-    // Safely parse JSON response
-    let responseData;
-    let responseText = '';
-    try {
-      responseText = await response.text();
-      console.log(`Status response: ${responseText}`);
-      responseData = responseText ? JSON.parse(responseText) : {};
-    } catch (parseError) {
-      console.error(`Error parsing status response: ${parseError.message}, raw text: ${responseText}`);
-      throw new Error(`Failed to parse status response: ${parseError.message}`);
-    }
-    
-    // Extract live_url if available in the response or in the browser object
-    if (responseData.browser && responseData.browser.live_url) {
-      responseData.live_url = responseData.browser.live_url;
-      console.log(`Extracted live_url from browser object: ${responseData.live_url}`);
-    }
-    
-    return { data: responseData, error: null };
-  } catch (error) {
-    console.error(`Error checking task status: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return { 
-      data: null, 
-      error: error instanceof Error ? error : new Error("Unknown error checking task status") 
-    };
-  }
-}
-
-// Helper function to fetch task media using task ID directly - this is a dedicated implementation 
-// for the browser-use API's media endpoint
-async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
-  try {
-    const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");
-    
-    if (!API_KEY) {
-      throw new Error("Browser Use API key is not configured.");
-    }
-    
-    console.log(`Fetching media for task: ${taskId}`);
-    
-    // Use the correct media endpoint
-    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
-      
-      if (response.status === 404) {
-        return new Response(JSON.stringify({
-          error: 'Task media not found - the task may not have recordings yet',
-          recordings: null
-        }), {
-          status: 404,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-        });
-      }
-      
-      throw new Error(`Failed to fetch task media: ${errorText}`);
-    }
-    
-    // Parse JSON response
-    let responseData;
-    let responseText = '';
-    try {
-      responseText = await response.text();
-      console.log(`Media response: ${responseText}`);
-      responseData = responseText ? JSON.parse(responseText) : { recordings: null };
-    } catch (parseError) {
-      console.error(`Error parsing media response: ${parseError.message}, raw text: ${responseText}`);
-      throw new Error(`Failed to parse media response: ${parseError.message}`);
-    }
-    
-    return new Response(JSON.stringify(responseData), {
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  } catch (error) {
-    console.error(`Error fetching task media: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return new Response(JSON.stringify({
-      error: error instanceof Error ? error.message : "Unknown error fetching task media",
-      recordings: null
-    }), {
-      status: 500,
-      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-    });
-  }
-}
-
-// Helper function to fetch task media from request
-async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | null, error: Error | null }> {
-  try {
-    const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");
-    
-    if (!API_KEY) {
-      throw new Error("Browser Use API key is not configured.");
-    }
-    
-    // Get task_id from request body
-    let taskId;
-    let requestText = '';
-    try {
-      requestText = await req.text();
-      console.log(`Request body for media: ${requestText}`);
-      const requestBody = requestText ? JSON.parse(requestText) : {};
-      taskId = requestBody.task_id;
-    } catch (parseError) {
-      console.error(`Error parsing request body for media: ${parseError.message}, raw text: ${requestText}`);
-      throw new Error(`Invalid JSON in request body: ${parseError.message}`);
-    }
-    
-    if (!taskId) {
-      throw new Error("Task ID is required for fetching media");
-    }
-    
-    console.log(`Fetching media for task: ${taskId}`);
-    
-    // Use the correct endpoint for task media
-    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${API_KEY}`,
-        'Content-Type': 'application/json',
-      }
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
-      
-      if (response.status === 404) {
-        return { 
-          data: { recordings: null }, 
-          error: new Error('Task media not found - the task may not have recordings yet') 
-        };
-      }
-      
-      throw new Error(`Failed to fetch task media: ${errorText}`);
-    }
-    
-    // Parse JSON response
-    let responseData;
-    let responseText = '';
-    try {
-      responseText = await response.text();
-      console.log(`Media response: ${responseText}`);
-      responseData = responseText ? JSON.parse(responseText) : { recordings: null };
-    } catch (parseError) {
-      console.error(`Error parsing media response: ${parseError.message}, raw text: ${responseText}`);
-      throw new Error(`Failed to parse media response: ${parseError.message}`);
-    }
-    
-    return { data: responseData, error: null };
-  } catch (error) {
-    console.error(`Error fetching task media: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    return { 
-      data: null, 
-      error: error instanceof Error ? error : new Error("Unknown error fetching task media") 
-    };
-  }
-}

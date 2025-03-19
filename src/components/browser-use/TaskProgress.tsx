@@ -16,7 +16,7 @@ interface TaskProgressProps {
 export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgressProps) {
   const [expanded, setExpanded] = useState(false);
   
-  const statusColorMap = {
+  const statusColorMap: Record<TaskStatus, string> = {
     idle: "text-gray-500",
     pending: "text-blue-500",
     created: "text-blue-500",

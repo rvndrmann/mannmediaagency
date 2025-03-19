@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useBrowserAutomationAdapter, BrowserAction, actionToJson, jsonToAction } from "./browser-automation-adapter";
+import { useBrowserAutomationAdapter, BrowserAction } from "./browser-automation-adapter";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { SUPABASE_URL } from "@/integrations/supabase/client";
@@ -162,7 +162,7 @@ export const useBrowserAutomation = () => {
         console.error("WebSocket error:", event);
         setBrowserSessionConnected(false);
         toast.error("Connection to browser automation service failed");
-        setError("Failed to connect to browser service. Please try again.");
+        setError("Failed to connect to browser automation service. Please try again.");
       };
       
       ws.onclose = () => {

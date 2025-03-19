@@ -127,8 +127,8 @@ export const useBrowserAutomationAdapter = () => {
   const sendToBrowserAutomation = async (request: BrowserRequest): Promise<BrowserResponse | null> => {
     try {
       // Get the auth token for the request
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
+      const { data: sessionData } = await supabase.auth.getSession();
+      const token = sessionData.session?.access_token;
 
       if (!token) {
         throw new Error("Authentication required to use browser automation");
@@ -156,8 +156,8 @@ export const useBrowserAutomationAdapter = () => {
         throw new Error(`API Error (${response.status}): ${errorText}`);
       }
 
-      const data = await response.json();
-      return data as BrowserResponse;
+      const responseData = await response.json();
+      return responseData as BrowserResponse;
     } catch (error) {
       console.error("Error in browser automation request:", error);
       throw error;
@@ -172,3 +172,6 @@ export const useBrowserAutomationAdapter = () => {
     normalizeUrl
   };
 };
+
+// Export the utility functions directly so they can be imported separately
+export const { actionToJson, jsonToAction } = useBrowserAutomationAdapter();

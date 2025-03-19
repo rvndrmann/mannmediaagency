@@ -12,6 +12,7 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
 const BROWSER_USE_API_KEY = Deno.env.get("BROWSER_USE_API_KEY") || "";
 const BROWSER_USE_API_URL = "https://api.browser-use.com/api/v1/run-task";
+const BROWSER_USE_API_TASK_STATUS_URL = "https://api.browser-use.com/api/v1/task";
 
 // Helper function for consistent logging
 function logInfo(message: string, data?: any) {
@@ -85,6 +86,142 @@ serve(async (req) => {
     }
     
     logInfo(`[${requestId}] User authenticated successfully`, { userId: user.id });
+    
+    // Parse URL to determine action type
+    const url = new URL(req.url);
+    const pathParts = url.pathname.split('/').filter(Boolean);
+    
+    // Check if this is a task status check request
+    if (pathParts.length >= 2 && pathParts[1] === 'status') {
+      // Extract task_id from URL path or request body
+      let taskId;
+      
+      if (pathParts.length >= 3) {
+        // Path pattern: /browser-use-api/status/{task_id}
+        taskId = pathParts[2];
+      } else {
+        // Get task_id from request body
+        const requestData = await req.json();
+        taskId = requestData.task_id;
+      }
+      
+      if (!taskId) {
+        logWarning(`[${requestId}] Missing task_id in status request`, {});
+        return new Response(
+          JSON.stringify({ error: "Missing task_id parameter" }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Check task status in browser-use API
+      logInfo(`[${requestId}] Checking status for task ${taskId}`);
+      
+      try {
+        const statusUrl = `${BROWSER_USE_API_TASK_STATUS_URL}/${taskId}`;
+        logDebug(`[${requestId}] Calling Browser Use API status endpoint: ${statusUrl}`);
+        
+        const statusResponse = await fetch(statusUrl, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
+            'Content-Type': 'application/json'
+          }
+        });
+        
+        if (!statusResponse.ok) {
+          const errorText = await statusResponse.text();
+          logError(`[${requestId}] Error from Browser Use API Status:`, {
+            status: statusResponse.status,
+            error: errorText
+          });
+          
+          return new Response(
+            JSON.stringify({
+              error: `Error from Browser Use API: ${statusResponse.status}`,
+              details: errorText
+            }),
+            { status: statusResponse.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Process successful status response
+        const statusData = await statusResponse.json();
+        logInfo(`[${requestId}] Received task status: ${statusData.status} with live_url: ${statusData.live_url || 'none'}`);
+        
+        // Update task in database with latest status information
+        if (statusData) {
+          const updateData: any = {
+            status: statusData.status,
+            updated_at: new Date().toISOString()
+          };
+          
+          // Only update fields that exist in the response
+          if (statusData.output !== undefined) updateData.output = JSON.stringify(statusData.output);
+          if (statusData.live_url) updateData.live_url = statusData.live_url;
+          if (statusData.current_url) updateData.current_url = statusData.current_url;
+          if (statusData.browser_data) updateData.browser_data = JSON.stringify(statusData.browser_data);
+          if (statusData.finished_at) updateData.completed_at = statusData.finished_at;
+          
+          // Calculate progress based on steps completed
+          if (statusData.steps && Array.isArray(statusData.steps)) {
+            const totalSteps = statusData.steps.length;
+            const completedSteps = statusData.steps.filter(step => 
+              step.status === 'completed' || step.status === 'finished'
+            ).length;
+            
+            if (totalSteps > 0) {
+              updateData.progress = Math.round((completedSteps / totalSteps) * 100);
+            }
+            
+            // Also update steps in the browser_automation_steps table
+            await Promise.all(statusData.steps.map(async (step, index) => {
+              const { error: stepError } = await supabase
+                .from('browser_automation_steps')
+                .upsert({
+                  task_id: taskId,
+                  description: step.description || step.goal || `Step ${index + 1}`,
+                  status: step.status || 'pending',
+                  details: JSON.stringify(step),
+                  screenshot: step.screenshot || null,
+                  created_at: new Date(step.timestamp || Date.now()).toISOString()
+                }, {
+                  onConflict: 'task_id, description'
+                });
+              
+              if (stepError) {
+                logError(`[${requestId}] Error updating step:`, stepError);
+              }
+            }));
+          }
+          
+          // Update the task record
+          const { error: updateError } = await supabase
+            .from('browser_automation_tasks')
+            .update(updateData)
+            .eq('id', taskId);
+          
+          if (updateError) {
+            logError(`[${requestId}] Error updating task:`, updateError);
+          } else {
+            logInfo(`[${requestId}] Task record updated successfully`);
+          }
+        }
+        
+        return new Response(
+          JSON.stringify(statusData),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (statusError) {
+        logError(`[${requestId}] Error checking task status:`, statusError);
+        return new Response(
+          JSON.stringify({
+            error: statusError.message || "Error checking task status",
+            request_id: requestId
+          }),
+          { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
     
     // Get user credits
     logDebug(`[${requestId}] Checking user credits for user ${user.id}`);
@@ -338,6 +475,12 @@ serve(async (req) => {
           if (browserUseResponse.live_url) {
             updateData.live_url = browserUseResponse.live_url;
             logInfo(`[${requestId}] Setting live_url in database: ${browserUseResponse.live_url}`);
+          }
+          
+          // Save task ID from Browser Use API
+          if (browserUseResponse.id) {
+            updateData.browser_task_id = browserUseResponse.id;
+            logInfo(`[${requestId}] Setting browser_task_id in database: ${browserUseResponse.id}`);
           }
           
           const { error: updateError } = await supabase

@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBrowserUseTask } from "@/hooks/browser-use/use-browser-use-task";
@@ -8,6 +8,7 @@ import { TaskControls } from "./TaskControls";
 import { TaskProgress } from "./TaskProgress";
 import { TaskOutput } from "./TaskOutput";
 import { LivePreview } from "./LivePreview";
+import { toast } from "sonner";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState<string>("task");
@@ -31,6 +32,13 @@ export function BrowserUseApp() {
     userCredits,
     liveUrl
   } = useBrowserUseTask();
+  
+  // Show toast when live URL becomes available
+  useEffect(() => {
+    if (liveUrl) {
+      toast.success("Live preview is now available!");
+    }
+  }, [liveUrl]);
   
   return (
     <div className="container mx-auto py-6 space-y-6">
@@ -86,7 +94,7 @@ export function BrowserUseApp() {
           </CardContent>
         </Card>
         
-        {/* Live Preview Section */}
+        {/* Always render the LivePreview component, even when liveUrl is null */}
         <LivePreview 
           liveUrl={liveUrl} 
           isRunning={isProcessing && taskStatus === 'running'} 

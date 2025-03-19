@@ -1,4 +1,3 @@
-
 export type TaskStatus = 'idle' | 'created' | 'pending' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped' | 'completed';
 
 export interface TaskStep {
@@ -54,7 +53,6 @@ export interface BrowserConfig {
   persistentSession?: boolean;
 }
 
-// Adding these types to fix the errors in BrowserSettings
 export type BrowserTheme = 'light' | 'dark' | 'Default' | 'Soft' | 'Monochrome' | 'Glass' | 'Origin' | 'Citrus' | 'Ocean';
 
 export interface ProxyConfig {

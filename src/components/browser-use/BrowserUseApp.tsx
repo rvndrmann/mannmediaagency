@@ -13,6 +13,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
+import { TaskStatus } from "@/hooks/browser-use/types";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState<string>("task");
@@ -51,7 +52,7 @@ export function BrowserUseApp() {
   
   // Auto-switch to output tab when task is complete
   useEffect(() => {
-    if (['finished', 'failed', 'stopped'].includes(taskStatus) && isProcessing === false) {
+    if (['finished', 'failed', 'stopped', 'completed'].includes(taskStatus) && isProcessing === false) {
       setActiveTab("output");
     }
   }, [taskStatus, isProcessing]);

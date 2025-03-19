@@ -134,7 +134,6 @@ export function useTaskOperations(
       const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task: taskInput,
-          task_id: taskId,
           save_browser_data: true,
           browser_config: formattedConfig
         }
@@ -317,11 +316,114 @@ export function useTaskOperations(
       setError(`Stop error: ${error.message}`);
     }
   };
+  
+  const restartTask = async () => {
+    if (!currentTaskId || !taskInput.trim()) return;
+    
+    try {
+      setIsProcessing(true);
+      setProgress(0);
+      setError(null);
+      setLiveUrl(null);
+      
+      // Update the task status to pending
+      await supabase
+        .from('browser_automation_tasks')
+        .update({ 
+          status: 'pending',
+          browser_task_id: null,
+          live_url: null,
+          output: null,
+          progress: 0,
+          completed_at: null
+        })
+        .eq('id', currentTaskId);
+      
+      setTaskStatus('pending');
+
+      const formattedConfig = formatConfigForApi(browserConfig);
+      console.log("Sending browser config for restart:", formattedConfig);
+
+      // Send the task to Browser Use API with both task and task_id
+      const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
+        body: {
+          task: taskInput,
+          task_id: currentTaskId,
+          save_browser_data: true,
+          browser_config: formattedConfig
+        }
+      });
+
+      if (apiError) {
+        console.error("Edge function error during restart:", apiError);
+        
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: 'failed', 
+            output: JSON.stringify({ error: apiError.message }) 
+          })
+          .eq('id', currentTaskId);
+        
+        setError(`API Error: ${apiError.message}`);
+        setTaskStatus('failed');
+        setIsProcessing(false);
+        return;
+      }
+
+      console.log("Browser Use API restart response:", apiResponse);
+      
+      if (apiResponse.error) {
+        console.error("Browser Use API returned error during restart:", apiResponse.error);
+        
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: 'failed', 
+            output: JSON.stringify({ error: apiResponse.error }) 
+          })
+          .eq('id', currentTaskId);
+        
+        setError(`Task Error: ${apiResponse.error}`);
+        setTaskStatus('failed');
+        setIsProcessing(false);
+        return;
+      }
+
+      // Store the API task ID in the database
+      if (apiResponse.task_id) {
+        console.log(`Updating task ${currentTaskId} with new browser_task_id: ${apiResponse.task_id}`);
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ browser_task_id: apiResponse.task_id })
+          .eq('id', currentTaskId);
+      }
+
+      // If we immediately get a live_url, update it
+      if (apiResponse.live_url) {
+        console.log(`Setting initial live URL for restart: ${apiResponse.live_url}`);
+        setLiveUrl(apiResponse.live_url);
+        
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ live_url: apiResponse.live_url })
+          .eq('id', currentTaskId);
+      }
+
+      setTaskStatus('running');
+    } catch (error) {
+      console.error("Error restarting task:", error);
+      setError(`Unexpected error during restart: ${error.message}`);
+      setIsProcessing(false);
+      setTaskStatus('failed');
+    }
+  };
 
   return {
     startTask,
     pauseTask,
     resumeTask,
-    stopTask
+    stopTask,
+    restartTask
   };
 }

@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect } from "react";
-import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, CaptureWebsiteResponse, BrowserUseError } from "./types";
+import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserUseError } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
@@ -185,7 +185,7 @@ export function useBrowserUseTask() {
   };
 
   // Use the refactored hooks
-  const { startTask, pauseTask, resumeTask, stopTask } = useTaskOperations(
+  const { startTask, pauseTask, resumeTask, stopTask, restartTask } = useTaskOperations(
     state,
     stateSetters
   );
@@ -224,6 +224,7 @@ export function useBrowserUseTask() {
     pauseTask,
     resumeTask,
     stopTask,
+    restartTask,
     progress,
     taskSteps,
     taskOutput,

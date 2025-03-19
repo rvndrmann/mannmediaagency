@@ -1,19 +1,20 @@
 
 import { Button } from "@/components/ui/button";
 import { TaskStatus } from "@/hooks/browser-use/types";
-import { Loader2, Play, Pause, RefreshCw, Camera, Square } from "lucide-react";
-import { UserCredits } from "@/hooks/browser-use/types";
+import { Camera, Clipboard, Pause, Play, Power, RotateCw } from "lucide-react";
+import { toast } from "sonner";
 
 interface TaskControlsProps {
   taskStatus: TaskStatus;
   isProcessing: boolean;
-  userCredits: UserCredits | null;
-  onStart: () => void;
-  onPause: () => void;
-  onResume: () => void;
-  onStop: () => void;
-  onScreenshot: () => void;
-  error: string | null;
+  userCredits: number | null;
+  onStart: () => Promise<void>;
+  onPause: () => Promise<void>;
+  onResume: () => Promise<void>;
+  onStop: () => Promise<void>;
+  onScreenshot?: () => Promise<void>;
+  onRestart?: () => Promise<void>;
+  error?: string | null;
 }
 
 export function TaskControls({
@@ -25,78 +26,110 @@ export function TaskControls({
   onResume,
   onStop,
   onScreenshot,
+  onRestart,
   error
 }: TaskControlsProps) {
-  const creditsRemaining = userCredits?.credits_remaining || 0;
-  const hasCredits = creditsRemaining > 0;
+  const canStart = !isProcessing && taskStatus !== 'running';
+  const canPause = isProcessing && taskStatus === 'running';
+  const canResume = isProcessing && taskStatus === 'paused';
+  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused');
+  const canScreenshot = Boolean(onScreenshot) && taskStatus === 'running' && isProcessing;
+  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'completed' || error?.includes('expired'));
+  
+  const copyTaskError = () => {
+    if (!error) return;
+    
+    navigator.clipboard.writeText(error)
+      .then(() => {
+        toast.success("Error copied to clipboard");
+      })
+      .catch((err) => {
+        console.error("Failed to copy error:", err);
+        toast.error("Failed to copy error");
+      });
+  };
   
   return (
-    <div className="flex flex-wrap gap-2">
-      {!isProcessing && (
+    <div className="flex flex-wrap gap-2 items-center justify-start">
+      {canStart && (
         <Button 
-          onClick={onStart} 
-          disabled={!hasCredits || !!error}
-          className="flex items-center gap-2"
+          onClick={onStart}
+          disabled={isProcessing || typeof userCredits !== 'number' || userCredits <= 0}
         >
-          <Play className="h-4 w-4" />
-          Start Task
+          {!isProcessing && taskStatus === 'idle' ? 'Start Task' : 'New Task'}
         </Button>
       )}
       
-      {isProcessing && taskStatus === 'running' && (
-        <Button 
-          onClick={onPause}
+      {canPause && (
+        <Button
           variant="outline"
-          className="flex items-center gap-2"
+          onClick={onPause}
+          disabled={!canPause}
         >
-          <Pause className="h-4 w-4" />
+          <Pause className="h-4 w-4 mr-2" />
           Pause
         </Button>
       )}
       
-      {isProcessing && taskStatus === 'paused' && (
-        <Button 
-          onClick={onResume}
+      {canResume && (
+        <Button
           variant="outline"
-          className="flex items-center gap-2"
+          onClick={onResume}
+          disabled={!canResume}
         >
-          <Play className="h-4 w-4" />
+          <Play className="h-4 w-4 mr-2" />
           Resume
         </Button>
       )}
       
-      {isProcessing && ['running', 'paused'].includes(taskStatus) && (
+      {canStop && (
         <Button 
-          onClick={onStop}
           variant="destructive"
-          className="flex items-center gap-2"
+          onClick={onStop}
+          disabled={!canStop}
         >
-          <Square className="h-4 w-4" />
-          Stop
+          <Power className="h-4 w-4 mr-2" />
+          Stop Task
         </Button>
       )}
       
-      {isProcessing && taskStatus === 'running' && (
-        <Button 
+      {canScreenshot && (
+        <Button
+          variant="outline"
           onClick={onScreenshot}
-          variant="secondary"
-          className="flex items-center gap-2"
+          disabled={!canScreenshot}
         >
-          <Camera className="h-4 w-4" />
-          Screenshot
+          <Camera className="h-4 w-4 mr-2" />
+          Capture
         </Button>
       )}
       
-      {!hasCredits && (
-        <div className="text-sm text-amber-500 mt-2">
-          You have 0 credits remaining. Please purchase credits to use this feature.
-        </div>
+      {canRestart && (
+        <Button
+          variant="secondary"
+          onClick={onRestart}
+          disabled={isProcessing}
+        >
+          <RotateCw className="h-4 w-4 mr-2" />
+          Restart Task
+        </Button>
       )}
       
-      {isProcessing && ['pending', 'created'].includes(taskStatus) && (
-        <div className="flex items-center text-sm text-muted-foreground">
-          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-          Initializing browser session...
+      {error && (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={copyTaskError}
+          className="ml-auto"
+        >
+          <Clipboard className="h-4 w-4 mr-2" />
+          Copy Error
+        </Button>
+      )}
+      
+      {typeof userCredits === 'number' && (
+        <div className="ml-auto text-sm text-muted-foreground">
+          Credits: {userCredits.toFixed(2)}
         </div>
       )}
     </div>

@@ -45,44 +45,60 @@ serve(async (req) => {
         taskRequestBody.browser_config = browser_config;
       }
       
-      const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(taskRequestBody)
-      });
-      
-      if (!response.ok) {
-        // Handle API errors for task creation
-        const errorText = await response.text();
-        let errorMessage;
+      try {
+        const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(taskRequestBody)
+        });
+        
+        const responseText = await response.text();
+        let data;
         
         try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorJson.message || `API error: ${response.status}`;
+          // Try to parse as JSON
+          data = JSON.parse(responseText);
         } catch (e) {
-          errorMessage = errorText || `API error: ${response.status}`;
+          // If not valid JSON, return as is
+          data = { raw_response: responseText };
         }
         
-        console.error(`API error (${response.status}): ${errorMessage}`);
+        if (!response.ok) {
+          // Handle API errors for task creation
+          let errorMessage = data.error || data.message || `API error: ${response.status}`;
+          
+          console.error(`API error (${response.status}): ${errorMessage}`);
+          
+          return new Response(
+            JSON.stringify({ error: errorMessage, status: response.status }),
+            { 
+              status: 200, // Return 200 to handle errors gracefully on the client
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
         
+        console.log("Task started successfully:", data);
         return new Response(
-          JSON.stringify({ error: errorMessage, status: response.status }),
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (fetchError) {
+        console.error("Network error when creating task:", fetchError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Network error when communicating with Browser Use API",
+            details: fetchError.message 
+          }),
           { 
             status: 200, // Return 200 to handle errors gracefully on the client
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
-      
-      const data = await response.json();
-      console.log("Task started successfully:", data);
-      return new Response(
-        JSON.stringify(data),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
     
     // Task management actions (pause, resume, stop)
@@ -108,48 +124,64 @@ serve(async (req) => {
           );
       }
       
-      const response = await fetch(endpoint, {
-        method: 'PUT',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ task_id })
-      });
-      
-      if (!response.ok) {
-        // Handle API errors for task actions
-        const errorText = await response.text();
-        let errorMessage;
+      try {
+        const response = await fetch(endpoint, {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ task_id })
+        });
+        
+        const responseText = await response.text();
+        let data;
         
         try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorJson.message || `API error: ${response.status}`;
+          // Try to parse as JSON
+          data = JSON.parse(responseText);
         } catch (e) {
-          errorMessage = errorText || `API error: ${response.status}`;
+          // If not valid JSON, return as is
+          data = { raw_response: responseText };
         }
         
-        console.error(`API error (${response.status}) during ${action}: ${errorMessage}`);
-        
-        if (response.status === 404) {
-          errorMessage = `Task not found or expired (${task_id})`;
+        if (!response.ok) {
+          // Handle API errors for task actions
+          let errorMessage = data.error || data.message || `API error: ${response.status}`;
+          
+          console.error(`API error (${response.status}) during ${action}: ${errorMessage}`);
+          
+          if (response.status === 404) {
+            errorMessage = `Task not found or expired (${task_id})`;
+          }
+          
+          return new Response(
+            JSON.stringify({ error: errorMessage, status: response.status }),
+            { 
+              status: 200, // Return 200 to handle errors gracefully on the client
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
         }
         
+        console.log(`${action} action successful:`, data);
         return new Response(
-          JSON.stringify({ error: errorMessage, status: response.status }),
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (fetchError) {
+        console.error(`Network error during ${action}:`, fetchError);
+        return new Response(
+          JSON.stringify({ 
+            error: `Network error when performing ${action}`,
+            details: fetchError.message 
+          }),
           { 
             status: 200, // Return 200 to handle errors gracefully on the client
             headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
           }
         );
       }
-      
-      const data = await response.json();
-      console.log(`${action} action successful:`, data);
-      return new Response(
-        JSON.stringify(data),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
     }
     
     // Task status checking and URL retrieval
@@ -203,14 +235,29 @@ serve(async (req) => {
             retryCount++;
             await new Promise(r => setTimeout(r, 1000 * Math.pow(2, retryCount)));
           } else {
-            throw fetchError; // Rethrow the error if we've exhausted retries
+            return new Response(
+              JSON.stringify({ 
+                error: "Network error when communicating with Browser Use API",
+                details: fetchError.message 
+              }),
+              { 
+                status: 200, // Return 200 to handle errors gracefully on the client
+                headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+              }
+            );
           }
         }
       }
       
-      if (!response.ok) {
+      if (!response || !response.ok) {
         // Handle API errors
-        const errorText = await response.text();
+        let errorText;
+        try {
+          errorText = await response.text();
+        } catch (e) {
+          errorText = "Could not read error response";
+        }
+        
         let errorMessage;
         
         try {
@@ -252,19 +299,113 @@ serve(async (req) => {
         );
       }
       
-      // Parse successful response
-      const data = await response.json();
+      try {
+        // Parse successful response
+        const responseText = await response.text();
+        let data;
+        
+        try {
+          // Try to parse as JSON
+          data = JSON.parse(responseText);
+        } catch (e) {
+          // If not valid JSON, return as is
+          data = { raw_response: responseText };
+        }
+        
+        // For media endpoint, add a log to debug
+        if (url_check_only) {
+          console.log(`Media response status: ${response.status}`);
+        }
+        
+        // Return the API response to the client
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (parseError) {
+        console.error("Error parsing API response:", parseError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Error parsing response from Browser Use API",
+            details: parseError.message 
+          }),
+          { 
+            status: 200, // Return 200 to handle errors gracefully on the client
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
+    }
+    
+    // Handle case where we have task_id but no actual task in the external API
+    if (task && task_id) {
+      console.log(`Creating new task "${task}" and linking it to existing task_id: ${task_id}`);
       
-      // For media endpoint, add a log to debug
-      if (url_check_only) {
-        console.log(`Media response status: ${response.status}`);
+      // Prepare request body for task creation
+      const taskRequestBody: Record<string, any> = {
+        task,
+        save_browser_data: save_browser_data === true
+      };
+      
+      // Add browser configuration if provided
+      if (browser_config) {
+        taskRequestBody.browser_config = browser_config;
       }
       
-      // Return the API response to the client
-      return new Response(
-        JSON.stringify(data),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
+      try {
+        const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify(taskRequestBody)
+        });
+        
+        const responseText = await response.text();
+        let data;
+        
+        try {
+          // Try to parse as JSON
+          data = JSON.parse(responseText);
+        } catch (e) {
+          // If not valid JSON, return as is
+          data = { raw_response: responseText };
+        }
+        
+        if (!response.ok) {
+          // Handle API errors for task creation
+          let errorMessage = data.error || data.message || `API error: ${response.status}`;
+          
+          console.error(`API error (${response.status}): ${errorMessage}`);
+          
+          return new Response(
+            JSON.stringify({ error: errorMessage, status: response.status }),
+            { 
+              status: 200, // Return 200 to handle errors gracefully on the client
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
+        }
+        
+        console.log("Task restarted successfully:", data);
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (fetchError) {
+        console.error("Network error when creating task:", fetchError);
+        return new Response(
+          JSON.stringify({ 
+            error: "Network error when communicating with Browser Use API",
+            details: fetchError.message 
+          }),
+          { 
+            status: 200, // Return 200 to handle errors gracefully on the client
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+          }
+        );
+      }
     }
     
     // If we get here, the request was invalid
@@ -284,3 +425,4 @@ serve(async (req) => {
     );
   }
 });
+

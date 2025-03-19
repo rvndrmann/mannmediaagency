@@ -24,6 +24,7 @@ export function BrowserUseApp() {
     pauseTask,
     resumeTask,
     stopTask,
+    restartTask,
     isProcessing,
     progress,
     taskSteps,
@@ -103,6 +104,7 @@ export function BrowserUseApp() {
                   onPause={pauseTask}
                   onResume={resumeTask}
                   onStop={stopTask}
+                  onRestart={restartTask}
                   onScreenshot={captureScreenshot}
                   error={error}
                 />
@@ -119,7 +121,7 @@ export function BrowserUseApp() {
               
               <TabsContent value="settings" className="space-y-4 mt-4">
                 <BrowserSettings 
-                  config={browserConfig}
+                  browserConfig={browserConfig}
                   onConfigChange={setBrowserConfig}
                   isProcessing={isProcessing}
                 />

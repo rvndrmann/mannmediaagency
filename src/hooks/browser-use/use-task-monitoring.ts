@@ -33,7 +33,7 @@ export function useTaskMonitoring(
     setConnectionStatus
   } = stateSetters;
   
-  // Change from number to NodeJS.Timeout
+  // Use NodeJS.Timeout for the interval refs
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const urlCheckIntervalRef = useRef<NodeJS.Timeout | null>(null);
   

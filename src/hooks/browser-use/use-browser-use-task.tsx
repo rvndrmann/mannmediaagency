@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
 import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, CaptureWebsiteResponse, BrowserUseError } from "./types";
@@ -23,8 +22,8 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   contextConfig: {
     // Default page load settings
     minWaitPageLoadTime: 0.5,
-    waitForNetworkIdlePageLoadTime: 1.0,
-    maxWaitPageLoadTime: 5.0,
+    waitForNetworkIdlePageLoadTime: 5.0,
+    maxWaitPageLoadTime: 15.0,
     
     // Default display settings
     browserWindowSize: { width: 1280, height: 1100 },

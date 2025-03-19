@@ -1,207 +1,177 @@
 
-import { useState, useEffect, useRef } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { Loader2, AlertCircle, ExternalLink, RefreshCw } from "lucide-react";
+import { AlertCircle, Loader2, WifiOff, RefreshCw, CheckCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useEffect, useState } from "react";
 
 interface LivePreviewProps {
   liveUrl: string | null;
   isRunning: boolean;
-  connectionStatus?: 'connected' | 'connecting' | 'disconnected' | 'error';
+  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error'; 
 }
 
-export function LivePreview({ liveUrl, isRunning, connectionStatus = 'disconnected' }: LivePreviewProps) {
+export function LivePreview({ liveUrl, isRunning, connectionStatus }: LivePreviewProps) {
   const [isLoading, setIsLoading] = useState(true);
+  const [showFallback, setShowFallback] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [refreshKey, setRefreshKey] = useState(0);
-  const iframeRef = useRef<HTMLIFrameElement>(null);
-  const [lastLoadedUrl, setLastLoadedUrl] = useState<string | null>(null);
   
-  // Force reload iframe when liveUrl changes
+  // Reset loading state when URL changes
   useEffect(() => {
-    if (liveUrl && liveUrl !== lastLoadedUrl) {
-      console.log(`LivePreview: New URL detected: ${liveUrl}`);
+    if (liveUrl) {
       setIsLoading(true);
+      setShowFallback(false);
       setLoadError(null);
-      setRefreshKey(prev => prev + 1);
-      setLastLoadedUrl(liveUrl);
+      
+      // Set a timeout to show fallback UI if iframe takes too long to load
+      const timeout = setTimeout(() => {
+        if (isLoading) {
+          setShowFallback(true);
+        }
+      }, 10000);
+      
+      return () => clearTimeout(timeout);
     }
-  }, [liveUrl, lastLoadedUrl]);
-  
-  // Handle connection status changes
-  useEffect(() => {
-    if (connectionStatus === 'error' && isLoading) {
-      setLoadError("Connection to browser failed. Please check settings or try again.");
-      setIsLoading(false);
-    }
-  }, [connectionStatus, isLoading]);
-  
-  // Handle loading timeout
-  useEffect(() => {
-    if (!liveUrl || !isLoading) return;
-    
-    const timeoutId = setTimeout(() => {
-      if (isLoading) {
-        setLoadError("Preview loading timed out. The browser may still be initializing.");
-        setIsLoading(false);
-      }
-    }, 30000); // 30 second timeout
-    
-    return () => clearTimeout(timeoutId);
-  }, [liveUrl, isLoading]);
-  
+  }, [liveUrl]);
+
   const handleIframeLoad = () => {
-    console.log("LivePreview: iframe loaded successfully");
     setIsLoading(false);
-    setLoadError(null);
+    setShowFallback(false);
   };
-  
+
   const handleIframeError = () => {
-    console.error("LivePreview: iframe failed to load");
     setIsLoading(false);
-    setLoadError("Failed to load preview. The browser might still be initializing.");
+    setLoadError("Failed to load preview");
+    setShowFallback(true);
   };
   
-  const handleRefresh = () => {
-    if (!liveUrl) return;
-    
-    console.log("LivePreview: Manual refresh requested");
-    setIsLoading(true);
-    setLoadError(null);
-    setRefreshKey(prev => prev + 1);
-  };
-  
-  const isVideoUrl = liveUrl?.endsWith('.mp4') || liveUrl?.endsWith('.webm') || liveUrl?.includes('recording');
-  
-  const getConnectionStatusText = () => {
+  const renderConnectionStatus = () => {
     switch (connectionStatus) {
       case 'connected':
-        return "Browser connected";
+        return (
+          <div className="flex items-center text-green-500">
+            <CheckCircle className="w-4 h-4 mr-1" />
+            <span className="text-xs">Connected</span>
+          </div>
+        );
       case 'connecting':
-        return "Connecting to browser...";
-      case 'disconnected':
-        return "Browser disconnected";
+        return (
+          <div className="flex items-center text-amber-500">
+            <RefreshCw className="w-4 h-4 mr-1 animate-spin" />
+            <span className="text-xs">Connecting...</span>
+          </div>
+        );
       case 'error':
-        return "Browser connection error";
+        return (
+          <div className="flex items-center text-red-500">
+            <AlertCircle className="w-4 h-4 mr-1" />
+            <span className="text-xs">Connection error</span>
+          </div>
+        );
+      case 'disconnected':
       default:
-        return "Browser status unknown";
+        return (
+          <div className="flex items-center text-muted-foreground">
+            <WifiOff className="w-4 h-4 mr-1" />
+            <span className="text-xs">Disconnected</span>
+          </div>
+        );
     }
   };
-  
-  const getConnectionStatusColor = () => {
-    switch (connectionStatus) {
-      case 'connected':
-        return "text-green-500";
-      case 'connecting':
-        return "text-yellow-500";
-      case 'disconnected':
-        return "text-gray-500";
-      case 'error':
-        return "text-red-500";
-      default:
-        return "text-gray-500";
-    }
-  };
+
+  const isVideo = liveUrl?.endsWith('.mp4') || liveUrl?.endsWith('.webm') || liveUrl?.includes('recording');
   
   return (
-    <Card className="w-full">
-      <CardHeader className="pb-2">
-        <div className="flex justify-between items-center">
-          <CardTitle className="text-xl">
-            {isVideoUrl ? "Session Recording" : "Live Preview"}
+    <Card className="col-span-1">
+      <CardHeader className="px-6 py-4">
+        <div className="flex items-center justify-between">
+          <CardTitle className="text-lg font-semibold">
+            {isVideo ? "Recording" : "Live Preview"}
           </CardTitle>
-          <div className="flex items-center gap-2">
-            <span className={`text-sm ${getConnectionStatusColor()}`}>
-              {getConnectionStatusText()}
-            </span>
-            {liveUrl && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleRefresh}
-                disabled={isLoading || !liveUrl}
-              >
-                <RefreshCw className="h-4 w-4 mr-2" />
-                Refresh
-              </Button>
-            )}
-            {liveUrl && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => window.open(liveUrl, '_blank')}
-              >
-                <ExternalLink className="h-4 w-4 mr-2" />
-                Open
-              </Button>
-            )}
-          </div>
+          {renderConnectionStatus()}
         </div>
       </CardHeader>
-      <CardContent className="browser-view-container min-h-[500px] relative">
-        {!liveUrl && !isRunning && (
-          <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <p className="text-muted-foreground">No active browser session</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              Start a new task to see live preview
-            </p>
-          </div>
-        )}
-        
-        {!liveUrl && isRunning && (
-          <div className="flex flex-col items-center justify-center h-full min-h-[500px] bg-gray-50 dark:bg-gray-900 rounded-lg">
-            <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-            <p className="text-muted-foreground">Initializing browser session...</p>
-            <p className="text-sm text-muted-foreground mt-2">
-              This may take a few moments
-            </p>
-          </div>
-        )}
-        
-        {liveUrl && (
-          <div className="relative w-full h-full min-h-[500px]">
-            {isLoading && (
-              <div className="absolute inset-0 flex flex-col items-center justify-center bg-gray-50 dark:bg-gray-900 rounded-lg z-10">
-                <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
-                <p className="text-muted-foreground">
-                  {isVideoUrl ? "Loading recording..." : "Loading live preview..."}
+      <CardContent className="p-0 overflow-hidden">
+        <div className="relative w-full bg-gray-900 min-h-[400px]">
+          {!liveUrl && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center p-6 text-center">
+              {isRunning ? (
+                <>
+                  <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+                  <h3 className="text-lg font-medium mb-2">Connecting to browser...</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    A live preview will appear here once the browser is ready.
+                    This may take up to 30 seconds.
+                  </p>
+                </>
+              ) : (
+                <>
+                  <WifiOff className="w-10 h-10 text-muted-foreground mb-4" />
+                  <h3 className="text-lg font-medium mb-2">No active session</h3>
+                  <p className="text-sm text-muted-foreground max-w-md">
+                    Start a new task to see a live preview of the browser here.
+                  </p>
+                </>
+              )}
+            </div>
+          )}
+
+          {liveUrl && isLoading && (
+            <div className="absolute inset-0 flex items-center justify-center bg-background/80 backdrop-blur-sm z-10">
+              <div className="flex flex-col items-center">
+                <Loader2 className="w-10 h-10 text-primary animate-spin mb-4" />
+                <p className="text-sm text-center">
+                  {isVideo ? "Loading recording..." : "Loading live preview..."}
                 </p>
               </div>
-            )}
-            
-            {loadError && (
-              <Alert variant="destructive" className="mb-4 absolute inset-x-0 top-0 z-20">
-                <AlertCircle className="h-4 w-4" />
-                <AlertDescription>{loadError}</AlertDescription>
-              </Alert>
-            )}
-            
-            {isVideoUrl ? (
-              <video
-                key={refreshKey}
-                controls
-                autoPlay
-                className="w-full h-full min-h-[500px] rounded-lg"
-                onLoadStart={() => setIsLoading(true)}
-                onLoadedData={() => setIsLoading(false)}
-                onError={handleIframeError}
-                src={liveUrl}
-              />
-            ) : (
-              <iframe
-                key={refreshKey}
-                ref={iframeRef}
-                src={liveUrl}
-                className="w-full h-full min-h-[500px] rounded-lg bg-white"
-                onLoad={handleIframeLoad}
-                onError={handleIframeError}
-                allow="fullscreen"
-                sandbox="allow-same-origin allow-scripts allow-forms"
-              />
-            )}
-          </div>
-        )}
+            </div>
+          )}
+
+          {liveUrl && showFallback && loadError && (
+            <Alert variant="destructive" className="m-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>Error</AlertTitle>
+              <AlertDescription>
+                {loadError}
+                <div className="mt-2">
+                  <Button 
+                    size="sm" 
+                    variant="outline"
+                    onClick={() => window.open(liveUrl, '_blank')}
+                  >
+                    Open in new tab
+                  </Button>
+                </div>
+              </AlertDescription>
+            </Alert>
+          )}
+
+          {liveUrl && isVideo ? (
+            <video
+              key={liveUrl}
+              className="w-full h-full"
+              controls
+              autoPlay
+              loop
+              onLoadedData={handleIframeLoad}
+              onError={handleIframeError}
+              style={{ display: isLoading ? 'none' : 'block' }}
+            >
+              <source src={liveUrl} type="video/mp4" />
+              Your browser does not support the video tag.
+            </video>
+          ) : liveUrl ? (
+            <iframe
+              key={liveUrl}
+              src={liveUrl}
+              className="w-full h-[600px] border-none"
+              allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+              onLoad={handleIframeLoad}
+              onError={handleIframeError}
+              style={{ display: isLoading ? 'none' : 'block' }}
+            />
+          ) : null}
+        </div>
       </CardContent>
     </Card>
   );

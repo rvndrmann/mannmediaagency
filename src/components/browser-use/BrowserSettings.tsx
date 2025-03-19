@@ -1,16 +1,39 @@
 
 import { useState } from "react";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
+import { BrowserConfig } from "@/hooks/browser-use/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
-import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { BrowserConfig, BrowserTheme, ProxyConfig } from "@/hooks/browser-use/types";
-import { Separator } from "@/components/ui/separator";
-import { ChevronDown, ChevronUp, FolderOpen, RefreshCw } from "lucide-react";
-import { toast } from "sonner";
+import { Label } from "@/components/ui/label";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Slider } from "@/components/ui/slider";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BrowserTheme } from "@/hooks/browser-use/types";
+
+const RESOLUTIONS = [
+  { label: "HD (1280×720)", value: "1280x720" },
+  { label: "Full HD (1920×1080)", value: "1920x1080" },
+  { label: "2K (2560×1440)", value: "2560x1440" },
+  { label: "4K (3840×2160)", value: "3840x2160" },
+  { label: "Custom", value: "custom" }
+];
+
+const THEMES: { label: string; value: BrowserTheme }[] = [
+  { label: "Default", value: "Default" },
+  { label: "Soft", value: "Soft" },
+  { label: "Monochrome", value: "Monochrome" },
+  { label: "Glass", value: "Glass" },
+  { label: "Origin", value: "Origin" },
+  { label: "Citrus", value: "Citrus" },
+  { label: "Ocean", value: "Ocean" }
+];
 
 interface BrowserSettingsProps {
   config: BrowserConfig;
@@ -18,546 +41,369 @@ interface BrowserSettingsProps {
 }
 
 export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps) {
-  const [activeTab, setActiveTab] = useState("basic");
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [isUpdating, setIsUpdating] = useState(false);
+  const [activeTab, setActiveTab] = useState("general");
+  const [customResolution, setCustomResolution] = useState(false);
   
-  // Default proxy config
-  const defaultProxyConfig: ProxyConfig = {
-    server: '',
-    username: '',
-    password: '',
-    bypass: ''
-  };
-  
-  // Get the proxy config safely
-  const getProxyConfig = (): ProxyConfig => {
-    if (!config.proxy) return defaultProxyConfig;
-    if (typeof config.proxy === 'string') {
-      return { server: config.proxy, username: '', password: '', bypass: '' };
-    }
-    return config.proxy;
-  };
-  
-  // Get the proxy config
-  const proxy = getProxyConfig();
-  
-  const handleChange = <K extends keyof BrowserConfig>(key: K, value: BrowserConfig[K]) => {
+  const updateConfig = <K extends keyof BrowserConfig>(key: K, value: BrowserConfig[K]) => {
     onConfigChange({
       ...config,
-      [key]: value,
+      [key]: value
     });
   };
   
-  const handleContextConfigChange = <K extends keyof BrowserConfig["contextConfig"]>(
-    key: K,
+  const updateContextConfig = <K extends keyof BrowserConfig["contextConfig"]>(
+    key: K, 
     value: BrowserConfig["contextConfig"][K]
   ) => {
     onConfigChange({
       ...config,
       contextConfig: {
         ...config.contextConfig,
-        [key]: value,
-      },
+        [key]: value
+      }
     });
   };
   
-  const handleProxyConfigChange = <K extends keyof ProxyConfig>(
-    key: K,
-    value: ProxyConfig[K]
-  ) => {
-    const updatedProxy = { ...proxy, [key]: value };
-    onConfigChange({
-      ...config,
-      proxy: updatedProxy,
-    });
-  };
-  
-  const handleBrowserSizeChange = (dimension: 'width' | 'height', value: string) => {
-    const numValue = parseInt(value);
-    if (isNaN(numValue)) return;
+  const handleResolutionChange = (value: string) => {
+    if (value === "custom") {
+      setCustomResolution(true);
+      return;
+    }
     
-    onConfigChange({
-      ...config,
-      contextConfig: {
-        ...config.contextConfig,
-        browserWindowSize: {
-          ...config.contextConfig.browserWindowSize,
-          [dimension]: numValue,
-        },
-      },
-    });
-  };
-  
-  const handleResetToDefaults = () => {
-    try {
-      setIsUpdating(true);
-      const defaultConfig: BrowserConfig = {
-        persistentSession: false,
-        useOwnBrowser: false,
-        resolution: "1920x1080",
-        theme: "Ocean",
-        darkMode: false,
-        headless: false,
-        disableSecurity: true,
-        contextConfig: {
-          minWaitPageLoadTime: 0.5,
-          waitForNetworkIdlePageLoadTime: 1.0,
-          maxWaitPageLoadTime: 5.0,
-          browserWindowSize: { width: 1280, height: 1100 },
-          highlightElements: true,
-          viewportExpansion: 500
-        }
-      };
-      
-      onConfigChange(defaultConfig);
-      localStorage.setItem('browserUseConfig', JSON.stringify(defaultConfig));
-      toast.success('Browser settings reset to defaults');
-    } catch (error) {
-      console.error('Error resetting browser settings:', error);
-      toast.error('Failed to reset browser settings');
-    } finally {
-      setIsUpdating(false);
+    setCustomResolution(false);
+    updateConfig("resolution", value);
+    
+    // Also update the browserWindowSize
+    const [width, height] = value.split("x").map(Number);
+    if (width && height) {
+      updateContextConfig("browserWindowSize", { width, height });
     }
   };
   
-  // File browser not available in web env, simulate file input
-  const handleBrowseFile = (field: 'chromePath' | 'chromeUserData') => {
-    toast.info(`Please enter the ${field === 'chromePath' ? 'Chrome executable path' : 'Chrome user data directory'} manually. File browser is not available.`);
+  const handleCustomResolutionChange = (dimension: "width" | "height", value: string) => {
+    const numValue = parseInt(value, 10);
+    if (isNaN(numValue)) return;
+    
+    const newSize = {
+      ...config.contextConfig.browserWindowSize,
+      [dimension]: numValue
+    };
+    
+    updateContextConfig("browserWindowSize", newSize);
+    updateConfig("resolution", `${newSize.width}x${newSize.height}`);
+  };
+  
+  // Determine if we're using a custom resolution that's not in the presets
+  const getResolutionValue = () => {
+    if (customResolution) return "custom";
+    
+    const currentResolution = config.resolution;
+    const matchingPreset = RESOLUTIONS.find(r => r.value === currentResolution);
+    
+    return matchingPreset ? currentResolution : "custom";
   };
   
   return (
     <Card className="w-full">
-      <CardHeader>
-        <CardTitle className="text-xl flex justify-between items-center">
-          <span>Browser Settings</span>
-          <div className="flex space-x-2">
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={handleResetToDefaults}
-              disabled={isUpdating}
-            >
-              <RefreshCw className="h-4 w-4 mr-2" />
-              Reset to Defaults
-            </Button>
-          </div>
-        </CardTitle>
-        <CardDescription>
-          Configure how the browser automation works
-        </CardDescription>
+      <CardHeader className="px-4 py-3">
+        <CardTitle className="text-lg font-semibold">Browser Settings</CardTitle>
       </CardHeader>
-      <CardContent>
-        <Tabs defaultValue="basic" value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3">
-            <TabsTrigger value="basic">Basic</TabsTrigger>
-            <TabsTrigger value="appearance">Appearance</TabsTrigger>
+      <CardContent className="px-4 py-3">
+        <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="grid w-full grid-cols-3 mb-4">
+            <TabsTrigger value="general">General</TabsTrigger>
+            <TabsTrigger value="display">Display</TabsTrigger>
             <TabsTrigger value="advanced">Advanced</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="basic" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="persistentSession" className="text-sm font-medium">
-                    Persistent Session
-                  </Label>
-                  <Switch
-                    id="persistentSession"
-                    checked={config.persistentSession}
-                    onCheckedChange={(checked) => handleChange('persistentSession', checked)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Keep browser state between sessions
-                </p>
-              </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="useOwnBrowser" className="text-sm font-medium">
-                    Use Own Browser
-                  </Label>
-                  <Switch
-                    id="useOwnBrowser"
-                    checked={config.useOwnBrowser}
-                    onCheckedChange={(checked) => handleChange('useOwnBrowser', checked)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Use your own Chrome installation
-                </p>
-              </div>
-              
-              {config.useOwnBrowser && (
-                <>
-                  <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="chromePath" className="text-sm font-medium">
-                      Chrome Executable Path
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="chromePath"
-                        placeholder="Path to Chrome executable"
-                        value={config.chromePath || ''}
-                        onChange={(e) => handleChange('chromePath', e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        onClick={() => handleBrowseFile('chromePath')}
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Full path to your Chrome/Chromium executable
-                    </p>
+          <TabsContent value="general" className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="persistentSession" className="flex-1">
+                  Persistent Session
+                  <div className="text-xs text-muted-foreground">
+                    Keep browser open between tasks
                   </div>
-                  
-                  <div className="space-y-2 col-span-1 md:col-span-2">
-                    <Label htmlFor="chromeUserData" className="text-sm font-medium">
-                      Chrome User Data Directory
-                    </Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="chromeUserData"
-                        placeholder="Path to Chrome user data directory"
-                        value={config.chromeUserData || ''}
-                        onChange={(e) => handleChange('chromeUserData', e.target.value)}
-                        className="flex-1"
-                      />
-                      <Button 
-                        variant="outline"
-                        size="icon"
-                        type="button"
-                        onClick={() => handleBrowseFile('chromeUserData')}
-                      >
-                        <FolderOpen className="h-4 w-4" />
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      Path to Chrome/Chromium user data directory (leave empty for default)
-                    </p>
-                  </div>
-                </>
-              )}
-              
-              <div className="space-y-2">
-                <Label htmlFor="resolution" className="text-sm font-medium">
-                  Resolution
                 </Label>
-                <Select
-                  value={config.resolution}
-                  onValueChange={(value) => handleChange('resolution', value)}
-                >
-                  <SelectTrigger id="resolution">
-                    <SelectValue placeholder="Select resolution" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="1280x720">1280x720</SelectItem>
-                    <SelectItem value="1366x768">1366x768</SelectItem>
-                    <SelectItem value="1600x900">1600x900</SelectItem>
-                    <SelectItem value="1920x1080">1920x1080 (Full HD)</SelectItem>
-                    <SelectItem value="2560x1440">2560x1440 (2K)</SelectItem>
-                    <SelectItem value="3840x2160">3840x2160 (4K)</SelectItem>
-                  </SelectContent>
-                </Select>
+                <Switch
+                  id="persistentSession"
+                  checked={config.persistentSession}
+                  onCheckedChange={(checked) => updateConfig("persistentSession", checked)}
+                />
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="headless" className="text-sm font-medium">
-                    Headless Mode
-                  </Label>
-                  <Switch
-                    id="headless"
-                    checked={config.headless || false}
-                    onCheckedChange={(checked) => handleChange('headless', checked)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Run browser without visible UI (faster)
-                </p>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="useOwnBrowser" className="flex-1">
+                  Use Own Browser
+                  <div className="text-xs text-muted-foreground">
+                    Use your locally installed browser
+                  </div>
+                </Label>
+                <Switch
+                  id="useOwnBrowser"
+                  checked={config.useOwnBrowser}
+                  onCheckedChange={(checked) => updateConfig("useOwnBrowser", checked)}
+                />
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="disableSecurity" className="text-sm font-medium">
-                    Disable Security Features
-                  </Label>
-                  <Switch
-                    id="disableSecurity"
-                    checked={config.disableSecurity || false}
-                    onCheckedChange={(checked) => handleChange('disableSecurity', checked)}
+            </div>
+            
+            {config.useOwnBrowser && (
+              <div className="space-y-3 mt-3 p-3 border rounded-md">
+                <div className="space-y-2">
+                  <Label htmlFor="chromePath">Chrome Path</Label>
+                  <Input
+                    id="chromePath"
+                    placeholder="e.g., C:\Program Files\Google\Chrome\Application\chrome.exe"
+                    value={config.chromePath || ""}
+                    onChange={(e) => updateConfig("chromePath", e.target.value)}
                   />
+                  <div className="text-xs text-muted-foreground">
+                    Full path to Chrome executable on your system
+                  </div>
                 </div>
-                <p className="text-xs text-muted-foreground">
-                  Disable browser security features (helps with some websites)
-                </p>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="chromeUserData">User Data Directory (Optional)</Label>
+                  <Input
+                    id="chromeUserData"
+                    placeholder="Path to Chrome user data folder"
+                    value={config.chromeUserData || ""}
+                    onChange={(e) => updateConfig("chromeUserData", e.target.value)}
+                  />
+                  <div className="text-xs text-muted-foreground">
+                    Path to Chrome User Data folder to use existing profile
+                  </div>
+                </div>
+                
+                <Alert variant="warning" className="mt-2">
+                  <AlertDescription>
+                    Close all Chrome windows before using this feature.
+                  </AlertDescription>
+                </Alert>
+              </div>
+            )}
+            
+            <div className="space-y-2">
+              <Label htmlFor="theme">Theme</Label>
+              <Select 
+                value={config.theme as string} 
+                onValueChange={(value) => updateConfig("theme", value as BrowserTheme)}
+              >
+                <SelectTrigger id="theme">
+                  <SelectValue placeholder="Select theme" />
+                </SelectTrigger>
+                <SelectContent>
+                  {THEMES.map((theme) => (
+                    <SelectItem key={theme.value} value={theme.value}>
+                      {theme.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="darkMode" className="flex-1">
+                  Dark Mode
+                  <div className="text-xs text-muted-foreground">
+                    Use dark theme in browser
+                  </div>
+                </Label>
+                <Switch
+                  id="darkMode"
+                  checked={config.darkMode}
+                  onCheckedChange={(checked) => updateConfig("darkMode", checked)}
+                />
               </div>
             </div>
           </TabsContent>
           
-          <TabsContent value="appearance" className="space-y-4 mt-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="theme" className="text-sm font-medium">
-                  Theme
+          <TabsContent value="display" className="space-y-4">
+            <div className="space-y-2">
+              <Label>Resolution</Label>
+              <Select value={getResolutionValue()} onValueChange={handleResolutionChange}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select resolution" />
+                </SelectTrigger>
+                <SelectContent>
+                  {RESOLUTIONS.map((resolution) => (
+                    <SelectItem key={resolution.value} value={resolution.value}>
+                      {resolution.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              
+              {(customResolution || getResolutionValue() === "custom") && (
+                <div className="grid grid-cols-2 gap-2 mt-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="resolutionWidth" className="text-xs">Width</Label>
+                    <Input
+                      id="resolutionWidth"
+                      type="number"
+                      min={800}
+                      max={3840}
+                      value={config.contextConfig.browserWindowSize.width}
+                      onChange={(e) => handleCustomResolutionChange("width", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="resolutionHeight" className="text-xs">Height</Label>
+                    <Input
+                      id="resolutionHeight"
+                      type="number"
+                      min={600}
+                      max={2160}
+                      value={config.contextConfig.browserWindowSize.height}
+                      onChange={(e) => handleCustomResolutionChange("height", e.target.value)}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="viewportExpansion">
+                  Viewport Expansion
+                  <div className="text-xs text-muted-foreground">
+                    Extra pixels to add to viewport height for scrolling
+                  </div>
                 </Label>
-                <Select
-                  value={config.theme || 'Default'}
-                  onValueChange={(value) => handleChange('theme', value as BrowserTheme)}
-                >
-                  <SelectTrigger id="theme">
-                    <SelectValue placeholder="Select theme" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Default">Default</SelectItem>
-                    <SelectItem value="Soft">Soft</SelectItem>
-                    <SelectItem value="Monochrome">Monochrome</SelectItem>
-                    <SelectItem value="Glass">Glass</SelectItem>
-                    <SelectItem value="Origin">Origin</SelectItem>
-                    <SelectItem value="Citrus">Citrus</SelectItem>
-                    <SelectItem value="Ocean">Ocean</SelectItem>
-                  </SelectContent>
-                </Select>
+                <span className="text-sm">{config.contextConfig.viewportExpansion}px</span>
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="darkMode" className="text-sm font-medium">
-                    Dark Mode
-                  </Label>
-                  <Switch
-                    id="darkMode"
-                    checked={config.darkMode || false}
-                    onCheckedChange={(checked) => handleChange('darkMode', checked)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Use dark theme in the live preview
-                </p>
+              <Slider
+                id="viewportExpansion"
+                min={0}
+                max={2000}
+                step={100}
+                value={[config.contextConfig.viewportExpansion]}
+                onValueChange={([value]) => updateContextConfig("viewportExpansion", value)}
+              />
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="highlightElements" className="flex-1">
+                  Highlight Elements
+                  <div className="text-xs text-muted-foreground">
+                    Visually highlight elements when interacting
+                  </div>
+                </Label>
+                <Switch
+                  id="highlightElements"
+                  checked={config.contextConfig.highlightElements}
+                  onCheckedChange={(checked) => updateContextConfig("highlightElements", checked)}
+                />
               </div>
-              
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <Label htmlFor="highlightElements" className="text-sm font-medium">
-                    Highlight Elements
-                  </Label>
-                  <Switch
-                    id="highlightElements"
-                    checked={config.contextConfig.highlightElements || false}
-                    onCheckedChange={(checked) => handleContextConfigChange('highlightElements', checked)}
-                  />
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  Highlight elements that the browser is interacting with
-                </p>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="advanced" className="space-y-4">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="headless" className="flex-1">
+                  Headless Mode
+                  <div className="text-xs text-muted-foreground">
+                    Run without visible browser window
+                  </div>
+                </Label>
+                <Switch
+                  id="headless"
+                  checked={config.headless}
+                  onCheckedChange={(checked) => updateConfig("headless", checked)}
+                />
+              </div>
+            </div>
+            
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <Label htmlFor="disableSecurity" className="flex-1">
+                  Disable Security
+                  <div className="text-xs text-muted-foreground">
+                    Disable web security features for testing
+                  </div>
+                </Label>
+                <Switch
+                  id="disableSecurity"
+                  checked={config.disableSecurity}
+                  onCheckedChange={(checked) => updateConfig("disableSecurity", checked)}
+                />
               </div>
             </div>
             
             <div className="space-y-2">
-              <Label className="text-sm font-medium">Browser Window Size</Label>
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="width" className="text-xs text-muted-foreground">Width</Label>
-                  <Input
-                    id="width"
-                    type="number"
-                    value={config.contextConfig.browserWindowSize.width || 1280}
-                    onChange={(e) => handleBrowserSizeChange('width', e.target.value)}
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="height" className="text-xs text-muted-foreground">Height</Label>
-                  <Input
-                    id="height"
-                    type="number"
-                    value={config.contextConfig.browserWindowSize.height || 800}
-                    onChange={(e) => handleBrowserSizeChange('height', e.target.value)}
-                  />
-                </div>
+              <div className="flex justify-between">
+                <Label htmlFor="minWaitPageLoadTime">
+                  Min. Page Load Wait
+                  <div className="text-xs text-muted-foreground">
+                    Minimum time to wait (in seconds)
+                  </div>
+                </Label>
+                <span className="text-sm">{config.contextConfig.minWaitPageLoadTime}s</span>
               </div>
+              <Slider
+                id="minWaitPageLoadTime"
+                min={0}
+                max={5}
+                step={0.1}
+                value={[config.contextConfig.minWaitPageLoadTime]}
+                onValueChange={([value]) => updateContextConfig("minWaitPageLoadTime", value)}
+              />
             </div>
-          </TabsContent>
-          
-          <TabsContent value="advanced" className="space-y-4 mt-4">
-            <Button 
-              variant="outline" 
-              type="button" 
-              className="w-full justify-between"
-              onClick={() => setShowAdvanced(!showAdvanced)}
-            >
-              Advanced Settings
-              {showAdvanced ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
             
-            {showAdvanced && (
-              <div className="space-y-6">
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Page Load Timing</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="minWaitPageLoadTime" className="text-xs">
-                        Min Wait Time (seconds)
-                      </Label>
-                      <Input
-                        id="minWaitPageLoadTime"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={config.contextConfig.minWaitPageLoadTime || 0.5}
-                        onChange={(e) => handleContextConfigChange('minWaitPageLoadTime', parseFloat(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="waitForNetworkIdlePageLoadTime" className="text-xs">
-                        Network Idle Wait (seconds)
-                      </Label>
-                      <Input
-                        id="waitForNetworkIdlePageLoadTime"
-                        type="number"
-                        step="0.1"
-                        min="0"
-                        value={config.contextConfig.waitForNetworkIdlePageLoadTime || 1.0}
-                        onChange={(e) => handleContextConfigChange('waitForNetworkIdlePageLoadTime', parseFloat(e.target.value))}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="maxWaitPageLoadTime" className="text-xs">
-                        Max Wait Time (seconds)
-                      </Label>
-                      <Input
-                        id="maxWaitPageLoadTime"
-                        type="number"
-                        step="0.1"
-                        min="1"
-                        value={config.contextConfig.maxWaitPageLoadTime || 5.0}
-                        onChange={(e) => handleContextConfigChange('maxWaitPageLoadTime', parseFloat(e.target.value))}
-                      />
-                    </div>
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="waitForNetworkIdlePageLoadTime">
+                  Network Idle Wait
+                  <div className="text-xs text-muted-foreground">
+                    Time to wait for network idle (in seconds)
                   </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Proxy Settings</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="proxyServer" className="text-xs">
-                        Proxy Server (required)
-                      </Label>
-                      <Input
-                        id="proxyServer"
-                        placeholder="e.g., http://proxy.example.com:8080"
-                        value={proxy.server}
-                        onChange={(e) => handleProxyConfigChange('server', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="proxyUsername" className="text-xs">
-                          Username
-                        </Label>
-                        <Input
-                          id="proxyUsername"
-                          placeholder="Proxy username"
-                          value={proxy.username || ''}
-                          onChange={(e) => handleProxyConfigChange('username', e.target.value)}
-                        />
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <Label htmlFor="proxyPassword" className="text-xs">
-                          Password
-                        </Label>
-                        <Input
-                          id="proxyPassword"
-                          type="password"
-                          placeholder="Proxy password"
-                          value={proxy.password || ''}
-                          onChange={(e) => handleProxyConfigChange('password', e.target.value)}
-                        />
-                      </div>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="proxyBypass" className="text-xs">
-                        Bypass List
-                      </Label>
-                      <Input
-                        id="proxyBypass"
-                        placeholder="e.g., localhost,*.internal.domain"
-                        value={proxy.bypass || ''}
-                        onChange={(e) => handleProxyConfigChange('bypass', e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Comma-separated list of hosts to bypass proxy
-                      </p>
-                    </div>
-                  </div>
-                </div>
-                
-                <Separator />
-                
-                <div className="space-y-4">
-                  <h3 className="text-sm font-medium">Advanced Browser Settings</h3>
-                  <div className="grid grid-cols-1 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor="extraChromiumArgs" className="text-xs">
-                        Extra Chromium Arguments
-                      </Label>
-                      <Input
-                        id="extraChromiumArgs"
-                        placeholder="e.g., --no-sandbox,--disable-gpu"
-                        value={Array.isArray(config.extraChromiumArgs) 
-                          ? config.extraChromiumArgs.join(',') 
-                          : config.extraChromiumArgs || ''}
-                        onChange={(e) => handleChange('extraChromiumArgs', e.target.value.split(',').filter(Boolean))}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Comma-separated list of additional Chromium command-line arguments
-                      </p>
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="userAgent" className="text-xs">
-                        Custom User Agent
-                      </Label>
-                      <Input
-                        id="userAgent"
-                        placeholder="Custom User-Agent string"
-                        value={config.contextConfig.userAgent || ''}
-                        onChange={(e) => handleContextConfigChange('userAgent', e.target.value)}
-                      />
-                    </div>
-                    
-                    <div className="space-y-2">
-                      <Label htmlFor="viewportExpansion" className="text-xs">
-                        Viewport Expansion (px)
-                      </Label>
-                      <Input
-                        id="viewportExpansion"
-                        type="number"
-                        min="0"
-                        value={config.contextConfig.viewportExpansion || 0}
-                        onChange={(e) => handleContextConfigChange('viewportExpansion', parseInt(e.target.value))}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Extra space added beyond the visible viewport for scrolling
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                </Label>
+                <span className="text-sm">{config.contextConfig.waitForNetworkIdlePageLoadTime}s</span>
               </div>
-            )}
+              <Slider
+                id="waitForNetworkIdlePageLoadTime"
+                min={0}
+                max={30}
+                step={0.5}
+                value={[config.contextConfig.waitForNetworkIdlePageLoadTime]}
+                onValueChange={([value]) => updateContextConfig("waitForNetworkIdlePageLoadTime", value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <div className="flex justify-between">
+                <Label htmlFor="maxWaitPageLoadTime">
+                  Max. Page Load Wait
+                  <div className="text-xs text-muted-foreground">
+                    Maximum time to wait (in seconds)
+                  </div>
+                </Label>
+                <span className="text-sm">{config.contextConfig.maxWaitPageLoadTime}s</span>
+              </div>
+              <Slider
+                id="maxWaitPageLoadTime"
+                min={1}
+                max={60}
+                step={1}
+                value={[config.contextConfig.maxWaitPageLoadTime]}
+                onValueChange={([value]) => updateContextConfig("maxWaitPageLoadTime", value)}
+              />
+            </div>
+            
+            <div className="space-y-2">
+              <Label htmlFor="userAgent">User Agent (Optional)</Label>
+              <Input
+                id="userAgent"
+                placeholder="Custom user agent string"
+                value={config.contextConfig.userAgent || ""}
+                onChange={(e) => updateContextConfig("userAgent", e.target.value)}
+              />
+            </div>
           </TabsContent>
         </Tabs>
       </CardContent>

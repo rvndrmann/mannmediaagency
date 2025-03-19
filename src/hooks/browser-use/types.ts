@@ -52,6 +52,11 @@ export interface BrowserConfig {
     highlightElements: boolean;
     viewportExpansion: number;
     userAgent?: string;
+    locale?: string;
+    allowedDomains?: string[] | string;
+    saveRecordingPath?: string;
+    tracePath?: string;
+    cookiesFile?: string;
   };
 }
 

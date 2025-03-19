@@ -91,7 +91,7 @@ export interface BrowserConfig {
 }
 
 export interface ProxyConfig {
-  server: string;
+  server: string;  // Required field
   bypass?: string;
   username?: string;
   password?: string;

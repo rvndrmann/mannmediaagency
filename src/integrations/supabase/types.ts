@@ -404,6 +404,7 @@ export type Database = {
           current_url: string | null
           id: string
           input: string
+          live_url: string | null
           output: string | null
           progress: number | null
           status: string
@@ -415,6 +416,7 @@ export type Database = {
           current_url?: string | null
           id?: string
           input: string
+          live_url?: string | null
           output?: string | null
           progress?: number | null
           status?: string
@@ -426,6 +428,7 @@ export type Database = {
           current_url?: string | null
           id?: string
           input?: string
+          live_url?: string | null
           output?: string | null
           progress?: number | null
           status?: string

@@ -117,6 +117,8 @@ serve(async (req: Request) => {
       }
     }
 
+    console.log(`Calling Browser Use API: ${endpoint}`, body ? JSON.stringify(body) : "No body");
+    
     const response = await fetch(endpoint, {
       method,
       headers: {
@@ -126,7 +128,22 @@ serve(async (req: Request) => {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    const responseData = await response.json();
+    // Handle non-OK responses properly
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error(`API Error ${response.status}: ${errorText}`);
+      throw new Error(`API Error ${response.status}: ${errorText}`);
+    }
+    
+    // Safely parse JSON response
+    let responseData;
+    try {
+      const responseText = await response.text();
+      responseData = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.error("Error parsing response:", parseError);
+      throw new Error(`Failed to parse API response: ${parseError.message}`);
+    }
     
     // Update the task in database with browser_task_id if creating a new task
     if (response.ok && requestBody.task_id && responseData.task_id && !requestBody.action) {
@@ -178,6 +195,8 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
       }
     }
     
+    console.log(`Checking status for task: ${taskId}`);
+    
     const response = await fetch(`https://browser-use.com/api/v1/task/${taskId}`, {
       method: 'GET',
       headers: {
@@ -191,7 +210,15 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
       throw new Error(`Failed to fetch task status: ${errorText}`);
     }
     
-    const responseData = await response.json();
+    // Safely parse JSON response
+    let responseData;
+    try {
+      const responseText = await response.text();
+      responseData = responseText ? JSON.parse(responseText) : {};
+    } catch (parseError) {
+      console.error("Error parsing status response:", parseError);
+      throw new Error(`Failed to parse status response: ${parseError.message}`);
+    }
     
     // Extract live_url if available
     if (responseData.browser && responseData.browser.live_url) {
@@ -228,6 +255,8 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
     
     const taskId = pathParts[taskIdIndex];
     
+    console.log(`Fetching media for task: ${taskId}`);
+    
     const response = await fetch(`https://browser-use.com/api/v1/task/${taskId}/media`, {
       method: 'GET',
       headers: {
@@ -241,7 +270,16 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     
-    const responseData: TaskMediaResponse = await response.json();
+    // Safely parse JSON response
+    let responseData;
+    try {
+      const responseText = await response.text();
+      responseData = responseText ? JSON.parse(responseText) : { recordings: null };
+    } catch (parseError) {
+      console.error("Error parsing media response:", parseError);
+      throw new Error(`Failed to parse media response: ${parseError.message}`);
+    }
+    
     return { data: responseData, error: null };
   } catch (error) {
     console.error("Error fetching task media:", error);

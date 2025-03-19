@@ -9,6 +9,8 @@ import { TaskProgress } from "./TaskProgress";
 import { TaskOutput } from "./TaskOutput";
 import { LivePreview } from "./LivePreview";
 import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState<string>("task");
@@ -65,8 +67,20 @@ export function BrowserUseApp() {
               </TabsList>
               
               <TabsContent value="task" className="space-y-4 mt-4">
+                <div className="space-y-2">
+                  <Label htmlFor="task-input">Task Description</Label>
+                  <Textarea
+                    id="task-input"
+                    placeholder="Describe what you want the browser to do..."
+                    value={taskInput}
+                    onChange={(e) => setTaskInput(e.target.value)}
+                    className="min-h-[100px] resize-y"
+                    disabled={isProcessing}
+                  />
+                </div>
+                
                 <TaskControls
-                  taskStatus={taskStatus}
+                  taskStatus={taskStatus as "idle" | "created" | "running" | "paused" | "finished" | "failed" | "stopped"}
                   isProcessing={isProcessing}
                   userCredits={userCredits}
                   onStart={startTask}

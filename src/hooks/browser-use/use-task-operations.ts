@@ -196,6 +196,25 @@ export function useTaskOperations(
           .eq('id', taskId);
       }
 
+      // Immediately check for task status to get live URL sooner
+      try {
+        const { data: initialStatus } = await supabase.functions.invoke('browser-use-api', {
+          body: { task_id: apiResponse.task_id || taskId }
+        });
+        
+        if (initialStatus && initialStatus.browser && initialStatus.browser.live_url) {
+          console.log(`Found live URL in initial status check: ${initialStatus.browser.live_url}`);
+          setLiveUrl(initialStatus.browser.live_url);
+          
+          await supabase
+            .from('browser_automation_tasks')
+            .update({ live_url: initialStatus.browser.live_url })
+            .eq('id', taskId);
+        }
+      } catch (statusError) {
+        console.warn("Non-critical error checking initial status:", statusError);
+      }
+
       setTaskStatus('running');
     } catch (error) {
       console.error("Error starting task:", error);

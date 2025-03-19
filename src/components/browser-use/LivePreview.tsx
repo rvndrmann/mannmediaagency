@@ -18,13 +18,19 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   const [isVideo, setIsVideo] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState(0);
+  const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
   
   // Log live URL changes to help with debugging
   useEffect(() => {
     console.log(`LivePreview: liveUrl changed to ${liveUrl}`);
+    
     // Reset load attempts when URL changes
-    setLoadAttempts(0);
-    setLoadError(null);
+    if (liveUrl) {
+      setLoadAttempts(0);
+      setLoadError(null);
+      // Auto refresh when we get a new URL
+      setRefreshKey(prev => prev + 1);
+    }
   }, [liveUrl]);
   
   // Detect if the URL is for a recording (usually mp4 or webm)
@@ -41,29 +47,34 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
       
       // Auto-refresh iframe a few times when we first get a URL
       // This helps with cases where the preview might not be ready immediately
-      if (!isVideoUrl && loadAttempts === 0) {
+      if (!isVideoUrl && autoRefreshEnabled) {
+        // Initial refresh on URL change
+        setRefreshKey(prev => prev + 1);
+        
+        // Set up auto-refresh for the first minute (every 5 seconds)
         const initialRefreshes = setInterval(() => {
-          if (loadAttempts < 3) {
-            console.log(`Auto-refreshing iframe (attempt ${loadAttempts + 1}/3)`);
+          if (loadAttempts < 12) { // 12 attempts = 1 minute (5s intervals)
+            console.log(`Auto-refreshing iframe (attempt ${loadAttempts + 1}/12)`);
             setRefreshKey(prev => prev + 1);
             setLoadAttempts(prev => prev + 1);
           } else {
+            console.log('Stopping auto-refresh after 12 attempts');
             clearInterval(initialRefreshes);
+            setAutoRefreshEnabled(false);
           }
-        }, 3000);
+        }, 5000);
         
         return () => clearInterval(initialRefreshes);
       }
     } else {
       setIsVideo(false);
     }
-  }, [liveUrl, loadAttempts]);
+  }, [liveUrl, loadAttempts, autoRefreshEnabled]);
   
   // Add effect to handle iframe load events
   useEffect(() => {
     if (liveUrl) {
       setIsLoading(true);
-      setLoadError(null);
     }
   }, [liveUrl, refreshKey]);
   

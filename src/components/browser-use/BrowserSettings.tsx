@@ -14,17 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface BrowserSettingsProps {
-  browserConfig: BrowserConfig;
-  updateConfig: (config: BrowserConfig) => void;
-  isProcessing: boolean;
+  config: BrowserConfig;
+  onConfigChange: (config: BrowserConfig) => void;
+  isProcessing?: boolean;
 }
 
-export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: BrowserSettingsProps) {
+export function BrowserSettings({ config, onConfigChange, isProcessing = false }: BrowserSettingsProps) {
   const [activeTab, setActiveTab] = useState("basic");
   
   const handleChange = <K extends keyof BrowserConfig>(key: K, value: BrowserConfig[K]) => {
-    updateConfig({
-      ...browserConfig,
+    onConfigChange({
+      ...config,
       [key]: value
     });
   };
@@ -33,10 +33,10 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
     key: K, 
     value: BrowserConfig['contextConfig'][K]
   ) => {
-    updateConfig({
-      ...browserConfig,
+    onConfigChange({
+      ...config,
       contextConfig: {
-        ...browserConfig.contextConfig,
+        ...config.contextConfig,
         [key]: value
       }
     });
@@ -77,7 +77,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Label className="block mb-2">Browser Theme</Label>
                 <Select 
                   disabled={isProcessing}
-                  value={browserConfig.theme} 
+                  value={config.theme} 
                   onValueChange={(value) => handleChange('theme', value)}
                 >
                   <SelectTrigger>
@@ -97,7 +97,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Label className="block mb-2">Screen Resolution</Label>
                 <Select 
                   disabled={isProcessing}
-                  value={browserConfig.resolution} 
+                  value={config.resolution} 
                   onValueChange={(value) => handleChange('resolution', value)}
                 >
                   <SelectTrigger>
@@ -123,7 +123,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Switch
                   id="darkMode"
                   disabled={isProcessing}
-                  checked={browserConfig.darkMode}
+                  checked={config.darkMode}
                   onCheckedChange={(checked) => handleChange('darkMode', checked)}
                 />
               </div>
@@ -138,7 +138,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Switch
                   id="persistentSession"
                   disabled={isProcessing}
-                  checked={browserConfig.persistentSession}
+                  checked={config.persistentSession}
                   onCheckedChange={(checked) => handleChange('persistentSession', checked)}
                 />
               </div>
@@ -157,12 +157,12 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Switch
                   id="useOwnBrowser"
                   disabled={isProcessing}
-                  checked={browserConfig.useOwnBrowser}
+                  checked={config.useOwnBrowser}
                   onCheckedChange={(checked) => handleChange('useOwnBrowser', checked)}
                 />
               </div>
               
-              {browserConfig.useOwnBrowser && (
+              {config.useOwnBrowser && (
                 <>
                   <div>
                     <Label htmlFor="chromePath" className="block mb-2">
@@ -184,7 +184,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                     <Input
                       id="chromePath"
                       disabled={isProcessing}
-                      value={browserConfig.chromePath || ''}
+                      value={config.chromePath || ''}
                       onChange={(e) => handleChange('chromePath', e.target.value)}
                       placeholder="Path to Chrome executable"
                     />
@@ -210,7 +210,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                     <Input
                       id="chromeUserData"
                       disabled={isProcessing}
-                      value={browserConfig.chromeUserData || ''}
+                      value={config.chromeUserData || ''}
                       onChange={(e) => handleChange('chromeUserData', e.target.value)}
                       placeholder="Path to Chrome user data directory (optional)"
                     />
@@ -228,12 +228,12 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Switch
                   id="highlightElements"
                   disabled={isProcessing}
-                  checked={browserConfig.contextConfig.highlightElements}
+                  checked={config.contextConfig.highlightElements}
                   onCheckedChange={(checked) => handleContextConfigChange('highlightElements', checked)}
                 />
               </div>
               
-              <Alert className="bg-muted">
+              <Alert variant="default" className="bg-muted">
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Note</AlertTitle>
                 <AlertDescription>
@@ -255,7 +255,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Switch
                   id="disableSecurity"
                   disabled={isProcessing}
-                  checked={browserConfig.disableSecurity}
+                  checked={config.disableSecurity}
                   onCheckedChange={(checked) => handleChange('disableSecurity', checked)}
                 />
               </div>
@@ -270,7 +270,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Switch
                   id="headless"
                   disabled={isProcessing}
-                  checked={browserConfig.headless}
+                  checked={config.headless}
                   onCheckedChange={(checked) => handleChange('headless', checked)}
                 />
               </div>
@@ -287,7 +287,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                   min="0"
                   step="0.1"
                   disabled={isProcessing}
-                  value={browserConfig.contextConfig.minWaitPageLoadTime}
+                  value={config.contextConfig.minWaitPageLoadTime}
                   onChange={(e) => handleContextConfigChange('minWaitPageLoadTime', parseFloat(e.target.value))}
                 />
               </div>
@@ -302,7 +302,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                   min="0"
                   step="0.1"
                   disabled={isProcessing}
-                  value={browserConfig.contextConfig.waitForNetworkIdlePageLoadTime}
+                  value={config.contextConfig.waitForNetworkIdlePageLoadTime}
                   onChange={(e) => handleContextConfigChange('waitForNetworkIdlePageLoadTime', parseFloat(e.target.value))}
                 />
               </div>
@@ -317,7 +317,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                   min="0"
                   step="0.1"
                   disabled={isProcessing}
-                  value={browserConfig.contextConfig.maxWaitPageLoadTime}
+                  value={config.contextConfig.maxWaitPageLoadTime}
                   onChange={(e) => handleContextConfigChange('maxWaitPageLoadTime', parseFloat(e.target.value))}
                 />
               </div>
@@ -331,7 +331,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                   type="number"
                   min="0"
                   disabled={isProcessing}
-                  value={browserConfig.contextConfig.viewportExpansion}
+                  value={config.contextConfig.viewportExpansion}
                   onChange={(e) => handleContextConfigChange('viewportExpansion', parseInt(e.target.value))}
                 />
               </div>
@@ -343,7 +343,7 @@ export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: B
                 <Input
                   id="userAgent"
                   disabled={isProcessing}
-                  value={browserConfig.contextConfig.userAgent || ''}
+                  value={config.contextConfig.userAgent || ''}
                   onChange={(e) => handleContextConfigChange('userAgent', e.target.value)}
                   placeholder="Custom user agent string"
                 />

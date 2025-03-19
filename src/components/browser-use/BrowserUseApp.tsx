@@ -121,6 +121,7 @@ export function BrowserUseApp() {
                 <BrowserSettings 
                   config={browserConfig}
                   onConfigChange={setBrowserConfig}
+                  isProcessing={isProcessing}
                 />
               </TabsContent>
               

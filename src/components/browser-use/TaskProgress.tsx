@@ -28,7 +28,7 @@ export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgre
     }
   };
   
-  const getStatusText = (status: TaskStatus) => {
+  const getStatusText = (status: TaskStatus): string => {
     switch(status) {
       case 'running': return 'Running';
       case 'finished': return 'Finished';
@@ -39,7 +39,12 @@ export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgre
       case 'pending': return 'Pending';
       case 'created': return 'Created';
       case 'idle': return 'Idle';
-      default: return status.charAt(0).toUpperCase() + status.slice(1);
+      default: 
+        // Ensure we handle the string properly by type checking
+        if (typeof status === 'string') {
+          return status.charAt(0).toUpperCase() + status.slice(1);
+        }
+        return 'Unknown';
     }
   };
   

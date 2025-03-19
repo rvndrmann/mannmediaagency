@@ -33,3 +33,41 @@ export const extractDomain = (url: string): string => {
     return url;
   }
 };
+
+/**
+ * Safely opens a URL in a new browser tab
+ */
+export const openUrlInNewTab = (url: string): boolean => {
+  try {
+    const normalizedUrl = normalizeUrl(url);
+    // Use window.open with noopener and noreferrer for security
+    const newWindow = window.open(normalizedUrl, '_blank', 'noopener,noreferrer');
+    
+    // Check if the window was successfully opened
+    if (newWindow) {
+      newWindow.focus();
+      return true;
+    }
+    return false;
+  } catch (e) {
+    console.error("Error opening URL in new tab:", e);
+    return false;
+  }
+};
+
+/**
+ * Checks if the browser supports opening new tabs
+ */
+export const canOpenNewTabs = (): boolean => {
+  try {
+    // Try to open and immediately close a blank window to test if popups are blocked
+    const testWindow = window.open('about:blank', '_blank');
+    if (!testWindow) {
+      return false;
+    }
+    testWindow.close();
+    return true;
+  } catch (e) {
+    return false;
+  }
+};

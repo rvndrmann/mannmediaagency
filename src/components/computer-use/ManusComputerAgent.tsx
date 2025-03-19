@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -29,7 +30,7 @@ import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useBrowserSession } from "@/hooks/computer-use/use-browser-session";
-import { normalizeUrl } from "@/utils/url-utils";
+import { normalizeUrl, openUrlInNewTab, canOpenNewTabs } from "@/utils/url-utils";
 
 export function ManusComputerAgent() {
   const { 
@@ -56,38 +57,61 @@ export function ManusComputerAgent() {
     externalWindowOpened,
     setExternalWindowOpened,
     hasRecentlyOpened,
-    markAsOpened
+    markAsOpened,
+    getLastOpenedUrl
   } = useBrowserSession();
   
   const [activeTab, setActiveTab] = useState("browser");
   const [debugMode, setDebugMode] = useState(false);
   const isProcessingAction = useRef<boolean>(false);
+  const [browserSupportsPopups, setBrowserSupportsPopups] = useState<boolean>(true);
+  
+  // Check if browser supports opening popups
+  useEffect(() => {
+    setBrowserSupportsPopups(canOpenNewTabs());
+  }, []);
   
   const openInNewTab = useCallback((url: string) => {
+    if (!url) {
+      toast.error("No URL provided");
+      return false;
+    }
+    
     if (hasRecentlyOpened(url)) {
       console.log(`Skipping duplicate tab open for: ${url}`);
-      return;
+      return true;
     }
     
     console.log(`Opening URL in new tab: ${url}`);
     
-    markAsOpened(url);
+    const success = openUrlInNewTab(url);
     
-    window.open(url, '_blank');
-    setExternalWindowOpened(true);
-    setCurrentUrl(url);
-    
-    toast.success("Opened in new tab");
+    if (success) {
+      markAsOpened(url);
+      setExternalWindowOpened(true);
+      setCurrentUrl(url);
+      toast.success("Opened in new tab");
+      return true;
+    } else {
+      toast.error("Failed to open URL. Popups may be blocked.");
+      return false;
+    }
   }, [setCurrentUrl, hasRecentlyOpened, markAsOpened, setExternalWindowOpened]);
   
   const handleBrowseUrl = useCallback((url: string) => {
+    if (!url || url.trim() === '') {
+      toast.error("Please enter a valid URL");
+      return;
+    }
+    
     let navigateUrl = normalizeUrl(url);
+    const opened = openInNewTab(navigateUrl);
     
-    openInNewTab(navigateUrl);
-    
-    setTimeout(() => {
-      captureScreenshot();
-    }, 2000);
+    if (opened) {
+      setTimeout(() => {
+        captureScreenshot();
+      }, 2000);
+    }
   }, [openInNewTab, captureScreenshot]);
   
   const handleTakeScreenshot = useCallback(async () => {
@@ -99,29 +123,52 @@ export function ManusComputerAgent() {
     }
   }, [captureScreenshot]);
   
+  // Process actions automatically when they arrive
   useEffect(() => {
-    if (currentActions.length > 0 && !isProcessingAction.current) {
-      const currentAction = currentActions[0];
-      
-      isProcessingAction.current = true;
-      
-      if ((currentAction.type === "navigate" || currentAction.type === "openNewTab") && currentAction.url) {
-        console.log(`Executing ${currentAction.type} action:`, currentAction.url);
+    const processAction = async () => {
+      if (currentActions.length > 0 && !isProcessingAction.current && !isProcessing) {
+        const currentAction = currentActions[0];
         
-        handleBrowseUrl(currentAction.url);
+        isProcessingAction.current = true;
         
-        setTimeout(() => {
-          executeAction();
+        try {
+          if ((currentAction.type === "navigate" || currentAction.type === "openNewTab") && currentAction.url) {
+            console.log(`Executing ${currentAction.type} action:`, currentAction.url);
+            
+            const success = openInNewTab(currentAction.url);
+            
+            if (success) {
+              // Wait a moment for the tab to open before taking screenshot
+              await new Promise(resolve => setTimeout(resolve, 2000));
+              await captureScreenshot();
+              
+              // Now execute the action to update its status
+              executeAction();
+            } else {
+              // If opening tab failed, still try to execute action to move to next one
+              toast.error(`Failed to open ${currentAction.url}. Check popup settings.`);
+              executeAction();
+            }
+          } else {
+            // For non-navigation actions, just execute them
+            executeAction();
+          }
+        } catch (err) {
+          console.error("Error processing action:", err);
+          toast.error("Failed to process action");
+        } finally {
           isProcessingAction.current = false;
-        }, 1000);
-      } else {
-        isProcessingAction.current = false;
+        }
       }
-    }
+    };
+    
+    processAction();
   }, [
     currentActions, 
     executeAction,
-    handleBrowseUrl
+    openInNewTab,
+    captureScreenshot,
+    isProcessing
   ]);
   
   return (
@@ -201,6 +248,16 @@ export function ManusComputerAgent() {
               </Alert>
             )}
             
+            {!browserSupportsPopups && (
+              <Alert variant="warning">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Popup Blocker Detected</AlertTitle>
+                <AlertDescription>
+                  Please allow popups for this site to enable the browser automation features.
+                </AlertDescription>
+              </Alert>
+            )}
+            
             <div className="space-y-2">
               <div className="flex justify-between items-center">
                 <h3 className="text-sm font-medium">Browse Web</h3>
@@ -259,17 +316,25 @@ export function ManusComputerAgent() {
                       )}
                     </Button>
                     
-                    {currentActions.length > 0 && currentActions[0].type === "navigate" && currentActions[0].url && (
+                    {currentActions.length > 0 && 
+                     (currentActions[0].type === "navigate" || currentActions[0].type === "openNewTab") && 
+                     currentActions[0].url && (
                       <Button
                         variant="outline"
                         onClick={() => {
                           if (currentActions[0].url && !isProcessingAction.current) {
                             isProcessingAction.current = true;
-                            openInNewTab(currentActions[0].url || "");
-                            setTimeout(() => {
-                              executeAction();
+                            const success = openInNewTab(currentActions[0].url || "");
+                            if (success) {
+                              setTimeout(() => {
+                                captureScreenshot().then(() => {
+                                  executeAction();
+                                  isProcessingAction.current = false;
+                                });
+                              }, 2000);
+                            } else {
                               isProcessingAction.current = false;
-                            }, 1000);
+                            }
                           }
                         }}
                         disabled={isProcessingAction.current}

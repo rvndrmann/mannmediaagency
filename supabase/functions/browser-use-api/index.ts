@@ -42,6 +42,9 @@ serve(async (req) => {
       "Content-Type": "application/json"
     };
     
+    console.log(`API_BASE_URL: ${API_BASE_URL}`);
+    console.log(`Using authentication: Bearer ${browserUseApiKey.substring(0, 5)}...`);
+    
     // Handle different action types
     if (action === 'pause') {
       console.log(`Pausing task with ID: ${task_id}`);
@@ -153,6 +156,9 @@ serve(async (req) => {
       }, null, 2)}`);
       
       try {
+        console.log(`Sending request to: ${API_BASE_URL}/task`);
+        console.log(`Headers: ${JSON.stringify(apiHeaders, null, 2)}`);
+        
         const response = await fetch(`${API_BASE_URL}/task`, {
           method: "POST",
           headers: apiHeaders,
@@ -163,17 +169,37 @@ serve(async (req) => {
           })
         });
         
+        console.log(`Response status: ${response.status}`);
+        
         if (!response.ok) {
-          const errorData = await response.text();
-          console.error(`Failed to create task: ${response.status} ${errorData}`);
+          const errorText = await response.text();
+          console.error(`Failed to create task: ${response.status} ${errorText}`);
           
+          // Add more detailed error information
           return new Response(
-            JSON.stringify({ error: `Failed to create task: ${response.status}`, details: errorData }),
+            JSON.stringify({ 
+              error: `Failed to create task: ${response.status}`, 
+              details: errorText,
+              request_info: {
+                url: `${API_BASE_URL}/task`,
+                method: "POST",
+                headers: {
+                  "Authorization": "Bearer [REDACTED]",
+                  "Content-Type": "application/json"
+                },
+                body: {
+                  task,
+                  save_browser_data,
+                  // Do not log sensitive data from browser_config
+                }
+              }
+            }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: response.status }
           );
         }
         
         const data = await response.json();
+        console.log(`Task created response:`, JSON.stringify(data, null, 2));
         
         // If we have a task ID in the response, set up immediate live URL
         if (data.id) {
@@ -188,6 +214,8 @@ serve(async (req) => {
             
             if (statusResponse.ok) {
               const statusData = await statusResponse.json();
+              console.log(`Initial status data:`, JSON.stringify(statusData, null, 2));
+              
               if (statusData && statusData.browser && statusData.browser.live_url) {
                 data.live_url = statusData.browser.live_url;
                 console.log(`Immediate live URL available: ${data.live_url}`);
@@ -208,14 +236,17 @@ serve(async (req) => {
         } else {
           console.error("Task created but no ID returned");
           return new Response(
-            JSON.stringify({ error: "Task created but no ID returned" }),
+            JSON.stringify({ error: "Task created but no ID returned", data: data }),
             { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
           );
         }
       } catch (error) {
         console.error(`Error creating task: ${error.message}`);
         return new Response(
-          JSON.stringify({ error: error.message }),
+          JSON.stringify({ 
+            error: error.message,
+            stack: error.stack
+          }),
           { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
         );
       }
@@ -228,6 +259,8 @@ serve(async (req) => {
           method: "GET",
           headers: apiHeaders
         });
+        
+        console.log(`Status response code: ${response.status}`);
         
         if (!response.ok) {
           const errorData = await response.text();
@@ -251,6 +284,7 @@ serve(async (req) => {
         }
         
         const data = await response.json();
+        console.log(`Status data:`, JSON.stringify(data, null, 2));
         
         // Also get any recordings available
         let recordings = [];
@@ -260,8 +294,12 @@ serve(async (req) => {
             headers: apiHeaders
           });
           
+          console.log(`Media response status: ${mediaResponse.status}`);
+          
           if (mediaResponse.ok) {
             const mediaData = await mediaResponse.json();
+            console.log(`Media data:`, JSON.stringify(mediaData, null, 2));
+            
             if (mediaData && mediaData.recordings && mediaData.recordings.length > 0) {
               recordings = mediaData.recordings;
               console.log(`Found ${recordings.length} recordings for task ${task_id}`);

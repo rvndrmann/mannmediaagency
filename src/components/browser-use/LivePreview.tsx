@@ -17,10 +17,14 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isVideo, setIsVideo] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempts, setLoadAttempts] = useState(0);
   
   // Log live URL changes to help with debugging
   useEffect(() => {
     console.log(`LivePreview: liveUrl changed to ${liveUrl}`);
+    // Reset load attempts when URL changes
+    setLoadAttempts(0);
+    setLoadError(null);
   }, [liveUrl]);
   
   // Detect if the URL is for a recording (usually mp4 or webm)
@@ -34,10 +38,26 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
       
       setIsVideo(isVideoUrl);
       console.log(`URL type detection: ${liveUrl} is ${isVideoUrl ? 'video' : 'iframe'}`);
+      
+      // Auto-refresh iframe a few times when we first get a URL
+      // This helps with cases where the preview might not be ready immediately
+      if (!isVideoUrl && loadAttempts === 0) {
+        const initialRefreshes = setInterval(() => {
+          if (loadAttempts < 3) {
+            console.log(`Auto-refreshing iframe (attempt ${loadAttempts + 1}/3)`);
+            setRefreshKey(prev => prev + 1);
+            setLoadAttempts(prev => prev + 1);
+          } else {
+            clearInterval(initialRefreshes);
+          }
+        }, 3000);
+        
+        return () => clearInterval(initialRefreshes);
+      }
     } else {
       setIsVideo(false);
     }
-  }, [liveUrl]);
+  }, [liveUrl, loadAttempts]);
   
   // Add effect to handle iframe load events
   useEffect(() => {
@@ -56,8 +76,14 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   const handleIframeError = () => {
     console.error("Failed to load iframe preview");
     setIsLoading(false);
-    setLoadError("Failed to load preview. It may still be initializing.");
-    toast.error("Failed to load preview. It may still be initializing.");
+    
+    if (loadAttempts < 5) {
+      // Only show error message after a few attempts
+      setLoadError("Still initializing preview. Please wait or try refreshing.");
+    } else {
+      setLoadError("Failed to load preview. The browser session might not be accessible yet.");
+      toast.error("Failed to load preview. Try refreshing in a moment.");
+    }
   };
   
   const handleVideoError = () => {
@@ -175,6 +201,17 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
           {loadError && (
             <Alert className="m-4" variant="destructive">
               <AlertDescription>{loadError}</AlertDescription>
+              <div className="mt-2 flex justify-end">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={refreshIframe}
+                  disabled={isVideo}
+                >
+                  <RefreshCw className="h-3.5 w-3.5 mr-1" />
+                  Refresh Preview
+                </Button>
+              </div>
             </Alert>
           )}
         </CardContent>

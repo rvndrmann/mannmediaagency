@@ -1,282 +1,350 @@
 
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { BrowserTaskState, TaskStep } from "./types";
+import { BrowserTaskState, TaskState } from "./types";
 import { toast } from "sonner";
+
+interface TaskStateSetters {
+  setProgress: (progress: number) => void;
+  setTaskStatus: (status: TaskState["status"]) => void;
+  setCurrentUrl: (url: string | null) => void;
+  setTaskSteps: (steps: TaskState["steps"]) => void;
+  setTaskOutput: (output: string | null) => void;
+  setIsProcessing: (isProcessing: boolean) => void;
+  setLiveUrl: (url: string | null) => void;
+  setError: (error: string | null) => void;
+}
 
 export function useTaskMonitoring(
   state: BrowserTaskState,
-  setState: {
-    setProgress: (value: number) => void;
-    setTaskStatus: (value: any) => void;
-    setCurrentUrl: (value: string | null) => void;
-    setTaskSteps: (value: TaskStep[]) => void;
-    setTaskOutput: (value: string | null) => void;
-    setIsProcessing: (value: boolean) => void;
-    setLiveUrl: (value: string | null) => void;
-    setError: (value: string | null) => void;
-  }
+  stateSetters: TaskStateSetters
 ) {
-  const { currentTaskId } = state;
-  const { 
-    setProgress, 
-    setTaskStatus, 
-    setCurrentUrl, 
-    setTaskSteps, 
-    setTaskOutput, 
+  const { currentTaskId, taskStatus } = state;
+  const {
+    setProgress,
+    setTaskStatus,
+    setCurrentUrl,
+    setTaskSteps,
+    setTaskOutput,
     setIsProcessing,
     setLiveUrl,
-    setError
-  } = setState;
-
-  // Set up polling for task updates
+    setError,
+  } = stateSetters;
+  
+  const pollingIntervalRef = useRef<number | null>(null);
+  
+  // Clear interval on unmount
   useEffect(() => {
-    if (currentTaskId) {
-      console.log(`Setting up task monitoring for task ID: ${currentTaskId}`);
-      const intervalId = setInterval(async () => {
-        try {
-          // 1. First, check the task in the database
-          const { data: taskData, error: taskError } = await supabase
-            .from('browser_automation_tasks')
-            .select('id, progress, status, current_url, output, live_url, browser_task_id, completed_at, browser_data')
-            .eq('id', currentTaskId)
-            .maybeSingle();
-          
-          if (taskError) throw taskError;
-          
-          if (taskData) {
-            console.log(`Task data from DB:`, taskData);
-            
-            // Set available data from the database
-            setProgress(taskData.progress || 0);
-            setTaskStatus(taskData.status || 'idle');
-            
-            if (taskData.current_url && typeof taskData.current_url === 'string') {
-              setCurrentUrl(taskData.current_url);
-            }
-            
-            if (taskData.live_url && typeof taskData.live_url === 'string') {
-              console.log(`Setting live URL from DB: ${taskData.live_url}`);
-              setLiveUrl(taskData.live_url);
-            }
-            
-            if (taskData.output) {
-              setTaskOutput(taskData.output);
-            }
-            
-            // 2. If the task is still running, paused, pending, or created, call the browser-use-api to get the latest status
-            // Make sure browser_task_id is populated
-            const browserTaskId = taskData.browser_task_id;
-            
-            if (['running', 'paused', 'pending', 'created'].includes(taskData.status)) {
-              // Log task status before API call
-              console.log(`Checking status for task ${currentTaskId}, using browserTaskId: ${browserTaskId || 'undefined'}`);
-
-              if (!browserTaskId) {
-                console.warn(`No browser_task_id found for task ${currentTaskId}, using task ID as fallback`);
-              }
-
-              const taskIdToUse = browserTaskId || currentTaskId;
-              console.log(`Making API call with task_id: ${taskIdToUse}`);
-
-              // Fetch the latest task status from the API
-              const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
-                body: { task_id: taskIdToUse }
-              });
-              
-              if (apiError) {
-                console.error("Error fetching task status from API:", apiError);
-                
-                // Don't give up on first error - this could be transient
-                if (apiError.message.includes("Agent session not found")) {
-                  // Check if we have a task ID in the database but not in the API
-                  // This might happen if the task was created but the API doesn't know about it
-                  if (!browserTaskId && taskData.id) {
-                    // Try to update the browser_task_id in the database with the current task ID
-                    await supabase
-                      .from('browser_automation_tasks')
-                      .update({ browser_task_id: taskData.id })
-                      .eq('id', currentTaskId);
-                    
-                    console.log(`Updated browser_task_id to match task ID: ${taskData.id}`);
-                  }
-                }
-              } else if (apiResponse) {
-                console.log("Received task status update:", apiResponse);
-                
-                // Check for API error response
-                if (apiResponse.error) {
-                  console.error("API Error:", apiResponse.error);
-                  
-                  if (apiResponse.error.includes("Agent session not found")) {
-                    // Handle expired or deleted tasks gracefully
-                    toast.error("Task session expired or not found. Please start a new task.");
-                    setError("Task session expired or not found. Please start a new task.");
-                    
-                    // Update task status in database
-                    await supabase
-                      .from('browser_automation_tasks')
-                      .update({ 
-                        status: 'failed',
-                        output: JSON.stringify({ error: apiResponse.error }),
-                        completed_at: new Date().toISOString()
-                      })
-                      .eq('id', currentTaskId);
-                    
-                    setTaskStatus('failed');
-                    setIsProcessing(false);
-                    
-                    clearInterval(intervalId);
-                    return;
-                  }
-                }
-                
-                // Update browser_task_id if it wasn't set before but we got a task_id in the response
-                if (!browserTaskId && apiResponse.task_id) {
-                  console.log(`Setting browser_task_id from API response: ${apiResponse.task_id}`);
-                  
-                  await supabase
-                    .from('browser_automation_tasks')
-                    .update({ browser_task_id: apiResponse.task_id })
-                    .eq('id', currentTaskId);
-                }
-                
-                // Update live_url if it exists in the API response
-                if (apiResponse.live_url && typeof apiResponse.live_url === 'string') {
-                  console.log("Setting live URL from API:", apiResponse.live_url);
-                  setLiveUrl(apiResponse.live_url);
-                  
-                  // Also update the database with the live URL
-                  await supabase
-                    .from('browser_automation_tasks')
-                    .update({ live_url: apiResponse.live_url })
-                    .eq('id', currentTaskId);
-                } else if (apiResponse.browser && apiResponse.browser.live_url) {
-                  // Also check for live_url in browser object
-                  console.log("Setting live URL from browser object:", apiResponse.browser.live_url);
-                  setLiveUrl(apiResponse.browser.live_url);
-                  
-                  await supabase
-                    .from('browser_automation_tasks')
-                    .update({ live_url: apiResponse.browser.live_url })
-                    .eq('id', currentTaskId);
-                }
-
-                // Check for recordings array in the response
-                if (apiResponse.recordings && apiResponse.recordings.length > 0) {
-                  const recordingUrl = apiResponse.recordings[0];
-                  console.log("Found recording, setting as live URL:", recordingUrl);
-                  setLiveUrl(recordingUrl);
-                  
-                  await supabase
-                    .from('browser_automation_tasks')
-                    .update({ live_url: recordingUrl })
-                    .eq('id', currentTaskId);
-                }
-                
-                // Update other task data if available
-                if (apiResponse.status) {
-                  setTaskStatus(apiResponse.status);
-                  
-                  // If task is finished, update the completed_at timestamp
-                  if (['completed', 'finished', 'failed', 'stopped'].includes(apiResponse.status)) {
-                    await supabase
-                      .from('browser_automation_tasks')
-                      .update({ 
-                        status: apiResponse.status,
-                        completed_at: new Date().toISOString(),
-                        browser_data: apiResponse.browser || null
-                      })
-                      .eq('id', currentTaskId);
-                  }
-                }
-                
-                if (apiResponse.current_url) {
-                  setCurrentUrl(apiResponse.current_url);
-                  
-                  await supabase
-                    .from('browser_automation_tasks')
-                    .update({ current_url: apiResponse.current_url })
-                    .eq('id', currentTaskId);
-                }
-                
-                if (apiResponse.output) {
-                  const outputText = typeof apiResponse.output === 'string' ? 
-                                    apiResponse.output : 
-                                    JSON.stringify(apiResponse.output, null, 2);
-                  setTaskOutput(outputText);
-                  
-                  await supabase
-                    .from('browser_automation_tasks')
-                    .update({ output: outputText })
-                    .eq('id', currentTaskId);
-                }
-              }
-            } else if (['finished', 'failed', 'stopped', 'completed'].includes(taskData.status) && !taskData.live_url && browserTaskId) {
-              // For completed tasks that don't have a live URL yet, try to fetch media one more time
-              console.log(`Task ${currentTaskId} is completed but has no live URL, checking for recordings...`);
-              try {
-                const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
-                  body: { task_id: browserTaskId }
-                });
-                
-                if (!apiError && apiResponse) {
-                  if (apiResponse.recordings && apiResponse.recordings.length > 0) {
-                    console.log("Retrieved recordings for completed task:", apiResponse.recordings);
-                    const recordingUrl = apiResponse.recordings[0];
-                    console.log("Setting recording URL as live URL for completed task:", recordingUrl);
-                    setLiveUrl(recordingUrl);
-                    
-                    await supabase
-                      .from('browser_automation_tasks')
-                      .update({ live_url: recordingUrl })
-                      .eq('id', currentTaskId);
-                  }
-                  else if (apiResponse.browser && apiResponse.browser.live_url) {
-                    console.log("Setting live URL from browser object for completed task:", apiResponse.browser.live_url);
-                    setLiveUrl(apiResponse.browser.live_url);
-                    
-                    await supabase
-                      .from('browser_automation_tasks')
-                      .update({ live_url: apiResponse.browser.live_url })
-                      .eq('id', currentTaskId);
-                  }
-                }
-              } catch (mediaError) {
-                console.error("Error fetching media for completed task:", mediaError);
-              }
-            }
-            
-            // Get steps with specific column selection
-            const { data: stepsData, error: stepsError } = await supabase
-              .from('browser_automation_steps')
-              .select('id, task_id, description, status, details, screenshot, created_at')
-              .eq('task_id', currentTaskId)
-              .order('created_at', { ascending: true });
-            
-            if (stepsError) throw stepsError;
-            
-            if (stepsData) {
-              setTaskSteps(stepsData.map(step => ({
-                ...step,
-                details: typeof step.details === 'string' ? step.details : 
-                        step.details ? JSON.stringify(step.details) : null,
-                status: (step.status as 'pending' | 'completed' | 'failed') || 'pending'
-              })));
-            }
-            
-            if (['finished', 'failed', 'stopped', 'completed'].includes(taskData.status)) {
-              clearInterval(intervalId);
-              setIsProcessing(false);
-            }
-          }
-        } catch (error) {
-          console.error("Error fetching task:", error);
-          setError(`Error updating task status: ${error.message || "Unknown error"}`);
-        }
-      }, 3000);
-      
-      return () => clearInterval(intervalId);
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, []);
+  
+  // Set up polling for task status
+  useEffect(() => {
+    // Clear any existing intervals
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
     }
-  }, [currentTaskId, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing, setLiveUrl, setError]);
+    
+    if (!currentTaskId) return;
+    
+    console.log(`Starting monitoring for task: ${currentTaskId}`);
+    
+    // Function to fetch task details and steps
+    const fetchTaskDetails = async () => {
+      try {
+        console.log(`Fetching task details for ID: ${currentTaskId}`);
+        const { data: taskData, error: taskError } = await supabase
+          .from("browser_automation_tasks")
+          .select("id, progress, status, current_url, output, live_url, browser_task_id, completed_at, browser_data")
+          .eq("id", currentTaskId)
+          .single();
+          
+        if (taskError) {
+          console.error("Error fetching task details:", taskError);
+          setError(`Error fetching task details: ${taskError.message}`);
+          return;
+        }
+        
+        if (!taskData) {
+          console.warn(`No task data found for ID: ${currentTaskId}`);
+          return;
+        }
+        
+        console.log(`Task data:`, taskData);
+        
+        // Update state with task data
+        setProgress(taskData.progress || 0);
+        setTaskStatus(taskData.status);
+        
+        if (taskData.current_url) {
+          setCurrentUrl(taskData.current_url);
+        }
+        
+        if (taskData.output) {
+          setTaskOutput(taskData.output);
+        }
+        
+        if (taskData.live_url) {
+          console.log(`Setting live URL: ${taskData.live_url}`);
+          setLiveUrl(taskData.live_url);
+        }
+        
+        // Fetch steps for this task
+        const { data: stepsData, error: stepsError } = await supabase
+          .from("browser_automation_steps")
+          .select("*")
+          .eq("task_id", currentTaskId)
+          .order("created_at", { ascending: true });
+          
+        if (stepsError) {
+          console.error("Error fetching task steps:", stepsError);
+        } else if (stepsData) {
+          setTaskSteps(stepsData);
+        }
+        
+        // If the task is not in an active state, stop polling
+        if (["completed", "failed", "stopped"].includes(taskData.status)) {
+          console.log(`Task ${currentTaskId} is in final state: ${taskData.status}. Stopping polling.`);
+          
+          if (pollingIntervalRef.current) {
+            clearInterval(pollingIntervalRef.current);
+            pollingIntervalRef.current = null;
+          }
+          
+          setIsProcessing(false);
+          
+          if (taskData.status === "failed") {
+            const errorMsg = taskData.output 
+              ? JSON.parse(taskData.output)?.error || "Task failed" 
+              : "Task failed with unknown error";
+            
+            toast.error(errorMsg);
+            setError(errorMsg);
+          } else if (taskData.status === "completed") {
+            toast.success("Task completed successfully");
+          } else if (taskData.status === "stopped") {
+            toast.info("Task stopped");
+          }
+          
+          return;
+        }
+        
+        // If task is pending or running, check with browser-use API for updates
+        if (["pending", "running", "created", "paused"].includes(taskData.status)) {
+          console.log(`Task ${currentTaskId} is active. Checking API for updates.`);
+          
+          try {
+            // Check if we already have a browser_task_id, if not, we need to wait
+            if (!taskData.browser_task_id) {
+              console.log(`No browser_task_id yet for task ${currentTaskId}. Waiting...`);
+              return;
+            }
+            
+            // Use the edge function to fetch the latest status
+            const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
+              "browser-use-api",
+              {
+                body: { task_id: taskData.browser_task_id }
+              }
+            );
+            
+            console.log(`API response for task ${taskData.browser_task_id}:`, apiResponse);
+            
+            if (apiError) {
+              console.error("API error:", apiError);
+              return;
+            }
+            
+            if (apiResponse.error) {
+              console.error("API returned error:", apiResponse.error);
+              
+              // Handle expired/deleted tasks
+              if (apiResponse.error.includes("not found") || apiResponse.status === "failed") {
+                await supabase
+                  .from("browser_automation_tasks")
+                  .update({
+                    status: "failed",
+                    output: JSON.stringify({ error: apiResponse.error }),
+                    completed_at: new Date().toISOString()
+                  })
+                  .eq("id", currentTaskId);
+                  
+                setTaskStatus("failed");
+                setIsProcessing(false);
+                setError(apiResponse.error);
+                toast.error(apiResponse.error);
+                
+                if (pollingIntervalRef.current) {
+                  clearInterval(pollingIntervalRef.current);
+                  pollingIntervalRef.current = null;
+                }
+              }
+              
+              return;
+            }
+            
+            // Process API response
+            if (apiResponse) {
+              // Calculate progress
+              let calculatedProgress = 0;
+              if (apiResponse.progress) {
+                calculatedProgress = apiResponse.progress;
+              } else if (apiResponse.status === "completed") {
+                calculatedProgress = 100;
+              }
+              
+              // Get live URL if available
+              let liveUrl = null;
+              if (apiResponse.browser && apiResponse.browser.live_url) {
+                liveUrl = apiResponse.browser.live_url;
+                console.log(`Live URL from API: ${liveUrl}`);
+              }
+              
+              // Get current URL if available
+              let currentUrl = null;
+              if (apiResponse.browser && apiResponse.browser.current_url) {
+                currentUrl = apiResponse.browser.current_url;
+              }
+              
+              // Check for recordings
+              let recordingUrl = null;
+              if (apiResponse.recordings && apiResponse.recordings.length > 0) {
+                // Use the most recent recording
+                const latestRecording = apiResponse.recordings.reduce((latest, current) => {
+                  if (!latest.created_at || new Date(current.created_at) > new Date(latest.created_at)) {
+                    return current;
+                  }
+                  return latest;
+                }, {});
+                
+                recordingUrl = latestRecording.url;
+                console.log(`Recording URL: ${recordingUrl}`);
+              }
+              
+              // Determine which URL to use for the live preview (prefer live_url, then recording, then null)
+              const effectiveLiveUrl = liveUrl || recordingUrl || null;
+              
+              // Map API status to our status
+              const statusMap = {
+                "created": "created",
+                "pending": "pending",
+                "in_progress": "running",
+                "completed": "completed",
+                "failed": "failed",
+                "paused": "paused",
+                "stopped": "stopped"
+              };
+              
+              const mappedStatus = statusMap[apiResponse.status] || apiResponse.status;
+              
+              // Update task in database
+              await supabase
+                .from("browser_automation_tasks")
+                .update({
+                  progress: calculatedProgress,
+                  status: mappedStatus,
+                  current_url: currentUrl,
+                  live_url: effectiveLiveUrl,
+                  browser_data: apiResponse,
+                  ...(["completed", "failed", "stopped"].includes(mappedStatus) 
+                    ? { completed_at: new Date().toISOString() } 
+                    : {})
+                })
+                .eq("id", currentTaskId);
+                
+              // Update state
+              setProgress(calculatedProgress);
+              setTaskStatus(mappedStatus);
+              
+              if (currentUrl) {
+                setCurrentUrl(currentUrl);
+              }
+              
+              if (effectiveLiveUrl) {
+                console.log(`Setting effective live URL: ${effectiveLiveUrl}`);
+                setLiveUrl(effectiveLiveUrl);
+              }
+              
+              // If there are steps in the API response, add them to our database
+              if (apiResponse.steps && Array.isArray(apiResponse.steps)) {
+                console.log(`Processing ${apiResponse.steps.length} steps from API`);
+                
+                for (const step of apiResponse.steps) {
+                  // Check if this step already exists
+                  const { data: existingStep } = await supabase
+                    .from("browser_automation_steps")
+                    .select("id")
+                    .eq("task_id", currentTaskId)
+                    .eq("description", step.description)
+                    .maybeSingle();
+                    
+                  if (!existingStep) {
+                    await supabase.from("browser_automation_steps").insert({
+                      task_id: currentTaskId,
+                      description: step.description,
+                      status: step.status || "completed",
+                      details: step.details || null
+                    });
+                  }
+                }
+                
+                // Refresh steps after adding new ones
+                const { data: updatedSteps } = await supabase
+                  .from("browser_automation_steps")
+                  .select("*")
+                  .eq("task_id", currentTaskId)
+                  .order("created_at", { ascending: true });
+                  
+                if (updatedSteps) {
+                  setTaskSteps(updatedSteps);
+                }
+              }
+              
+              // If task is complete, stop polling
+              if (["completed", "failed", "stopped"].includes(mappedStatus)) {
+                console.log(`Task ${currentTaskId} is in final state from API: ${mappedStatus}. Stopping polling.`);
+                
+                if (pollingIntervalRef.current) {
+                  clearInterval(pollingIntervalRef.current);
+                  pollingIntervalRef.current = null;
+                }
+                
+                setIsProcessing(false);
+                
+                if (mappedStatus === "failed") {
+                  toast.error("Task failed");
+                  setError("Task failed");
+                } else if (mappedStatus === "completed") {
+                  toast.success("Task completed successfully");
+                } else if (mappedStatus === "stopped") {
+                  toast.info("Task stopped");
+                }
+              }
+            }
+          } catch (apiCheckError) {
+            console.error("Error checking API status:", apiCheckError);
+          }
+        }
+      } catch (error) {
+        console.error("Error in task monitoring:", error);
+      }
+    };
+    
+    // Immediately fetch task details
+    fetchTaskDetails();
+    
+    // Set up polling interval (every 5 seconds)
+    pollingIntervalRef.current = setInterval(fetchTaskDetails, 5000) as unknown as number;
+    
+    return () => {
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+      }
+    };
+  }, [currentTaskId, taskStatus]);
 }

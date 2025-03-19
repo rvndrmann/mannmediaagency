@@ -81,8 +81,8 @@ export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgre
             
             {expanded && (
               <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                {steps.map((step, index) => (
-                  <div key={step.id || index} className="p-2 border rounded text-sm">
+                {steps.map((step) => (
+                  <div key={step.id} className="p-2 border rounded text-sm">
                     <div className="flex justify-between">
                       <div className="font-medium">{step.description}</div>
                       <div className={

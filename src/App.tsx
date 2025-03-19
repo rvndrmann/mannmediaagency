@@ -36,6 +36,7 @@ import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
 import MultiAgentChat from "./pages/MultiAgentChat";
 import ComputerUseAgent from "./pages/ComputerUseAgent";
+import BrowserUsePage from "./pages/BrowserUse";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -123,6 +124,7 @@ const App = () => (
               <Route path="/order/:accessCode" element={<CustomOrderForm />} />
               <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
               <Route path="/computer-use-agent" element={<ComputerUseAgent />} />
+              <Route path="/browser-use" element={<BrowserUsePage />} />
             </Routes>
             <BottomNav />
           </TooltipProvider>

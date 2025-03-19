@@ -1,28 +1,29 @@
 
-import { usePathname } from "next/navigation";
-import Link from "next/link";
+import { useLocation } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Computer } from "lucide-react";
+import { Computer, Globe } from "lucide-react";
 
 export function MainNav() {
-  const pathname = usePathname();
+  const location = useLocation();
 
   const links = [
     {
       name: "Dashboard",
       href: "/",
-      active: pathname === "/",
+      active: location.pathname === "/",
     },
     {
       name: "Computer Agent",
-      href: "/computer-use",
-      active: pathname === "/computer-use",
+      href: "/computer-use-agent",
+      active: location.pathname === "/computer-use-agent",
+      icon: <Computer className="w-4 h-4 mr-2" />,
     },
     {
       name: "Browser API",
       href: "/browser-use",
-      active: pathname === "/browser-use",
-      icon: <Computer className="w-4 h-4 mr-2" />,
+      active: location.pathname === "/browser-use",
+      icon: <Globe className="w-4 h-4 mr-2" />,
     },
   ];
 
@@ -31,7 +32,7 @@ export function MainNav() {
       {links.map((link) => (
         <Link
           key={link.href}
-          href={link.href}
+          to={link.href}
           className={cn(
             "flex items-center transition-colors hover:text-foreground/80",
             link.active ? "text-foreground" : "text-foreground/60"

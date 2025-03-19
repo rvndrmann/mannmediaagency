@@ -1,383 +1,287 @@
-
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
+import { useToast } from "@/components/ui/use-toast";
 
-export interface TaskStep {
+interface TaskStep {
   id: string;
+  task_id: string;
   description: string;
   status: 'pending' | 'running' | 'completed' | 'failed';
-  details?: string;
-  screenshot?: string;
-  timestamp: Date;
+  details: string | null;
+  screenshot: string | null;
+  created_at: string;
+}
+
+interface UserCredits {
+  id: string;
+  user_id: string;
+  credits_remaining: number;
+  last_refill: string | null;
+  created_at: string;
 }
 
 export function useBrowserUseTask() {
-  const [taskInput, setTaskInput] = useState<string>("");
+  const [taskInput, setTaskInput] = useState("");
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
-  const [isProcessing, setIsProcessing] = useState<boolean>(false);
-  const [taskStatus, setTaskStatus] = useState<'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped'>('idle');
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [taskSteps, setTaskSteps] = useState<TaskStep[]>([]);
-  const [taskOutput, setTaskOutput] = useState<string>("");
-  const [progress, setProgress] = useState<number>(0);
-  const [currentUrl, setCurrentUrl] = useState<string | null>("https://www.google.com");
+  const [taskOutput, setTaskOutput] = useState<string | null>(null);
+  const [taskStatus, setTaskStatus] = useState<'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped'>('idle');
+  const [currentUrl, setCurrentUrl] = useState<string | null>(null);
   const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const pollingInterval = useRef<NodeJS.Timeout | null>(null);
+  const { toast } = useToast();
   
-  // Get user credits
-  const { data: userCredits, refetch: refetchCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return null;
-        
-        const { data, error } = await supabase
-          .from("user_credits")
-          .select("credits_remaining")
-          .eq("user_id", user.id)
-          .single();
-          
-        if (error) throw error;
-        return data;
-      } catch (error) {
-        console.error("Error fetching user credits:", error);
-        return { credits_remaining: 0 };
-      }
-    },
-  });
-  
-  // Clean up polling interval on unmount
-  useEffect(() => {
-    return () => {
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-      }
-    };
-  }, []);
-  
-  // Capture screenshot function
-  const captureScreenshot = useCallback(async () => {
-    if (typeof document === 'undefined') return false;
-    
-    try {
-      const html2canvas = (await import('html2canvas')).default;
-      
-      const element = document.querySelector('.browser-view-container');
-      
-      if (!element) {
-        console.error('Could not find browser view container for screenshot');
-        return false;
-      }
-      
-      console.log('Capturing screenshot...');
-      
-      const canvas = await html2canvas(element as HTMLElement, {
-        useCORS: true,
-        allowTaint: true,
-        logging: false,
-        scale: 1.5,
-        backgroundColor: '#FFFFFF',
-      });
-      
-      const dataUrl = canvas.toDataURL('image/png');
-      console.log('Screenshot captured successfully');
-      setScreenshot(dataUrl);
-      return true;
-    } catch (error) {
-      console.error('Error capturing screenshot:', error);
-      return false;
-    }
-  }, []);
-  
-  // Start task function
   const startTask = useCallback(async () => {
-    if (!taskInput.trim()) {
-      toast.error("Please enter a task description");
-      return;
-    }
-    
-    if (!userCredits || userCredits.credits_remaining < 1) {
-      toast.error("You need at least 1 credit to use the Browser Use API");
-      return;
-    }
-    
     setIsProcessing(true);
     setError(null);
-    setTaskSteps([]);
-    setTaskOutput("");
-    setProgress(0);
-    
     try {
-      const { data: { user }, error: authError } = await supabase.auth.getUser();
-      if (authError || !user) {
-        setError("Authentication required. Please sign in to continue.");
-        toast.error("Authentication required. Please sign in to continue.");
-        return;
-      }
-      
-      // Take initial screenshot
-      await captureScreenshot();
-      
-      // Create task in database
-      const { data: taskData, error: taskError } = await supabase
-        .from("browser_automation_sessions")
-        .insert({
-          user_id: user.id,
-          task_description: taskInput,
-          status: 'active'
-        })
-        .select()
-        .single();
-      
-      if (taskError) {
-        throw new Error(taskError.message);
-      }
-      
-      setCurrentTaskId(taskData.id);
-      setTaskStatus('running');
-      
-      // Add initial step
-      const initialStep: TaskStep = {
-        id: crypto.randomUUID(),
-        description: "Task started",
-        status: 'completed',
-        details: `Initializing task: ${taskInput}`,
-        screenshot: screenshot || undefined,
-        timestamp: new Date()
-      };
-      
-      setTaskSteps([initialStep]);
-      
-      // Start polling for task updates
-      startTaskPolling(taskData.id);
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
       
       // Deduct credits
-      await supabase.rpc('safely_decrease_credits', { amount: 1 });
-      await refetchCredits();
+      const { error: creditError } = await supabase.rpc('deduct_credits', { user_id: user.id, credits_to_deduct: 1 });
+      if (creditError) throw creditError;
       
-      toast.success("Task started successfully");
-    } catch (error) {
-      console.error("Error starting task:", error);
-      setError(error instanceof Error ? error.message : "Failed to start task");
-      toast.error(error instanceof Error ? error.message : "Failed to start task");
-      setTaskStatus('failed');
+      // Fetch updated credits
+      const { data: updatedCredits, error: updatedCreditsError } = await supabase
+        .from('user_credits')
+        .select('*')
+        .eq('user_id', user.id)
+        .single();
+      
+      if (updatedCreditsError) throw updatedCreditsError;
+      setUserCredits(updatedCredits as UserCredits);
+      
+      const { data, error } = await supabase
+        .from('browser_automation_tasks')
+        .insert([{ 
+          user_id: user.id, 
+          input: taskInput,
+          status: 'running'
+        }])
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
+      setCurrentTaskId(data.id);
+      setTaskStatus('running');
+      toast({
+        title: "Task Started!",
+        description: "Your browser automation task has started.",
+      });
+    } catch (err: any) {
+      console.error("Error starting task:", err);
+      setError(err.message || "Failed to start task");
+      toast({
+        title: "Error Starting Task",
+        description: err.message || "Failed to start task.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
-  }, [taskInput, screenshot, userCredits, captureScreenshot, refetchCredits]);
+  }, [taskInput, toast]);
   
-  // Start polling for task updates
-  const startTaskPolling = useCallback((taskId: string) => {
-    if (pollingInterval.current) {
-      clearInterval(pollingInterval.current);
-    }
-    
-    pollingInterval.current = setInterval(async () => {
-      if (!taskId) return;
-      
-      try {
-        // Get task status
-        const { data: sessionData, error: sessionError } = await supabase
-          .from("browser_automation_sessions")
-          .select("*")
-          .eq("id", taskId)
-          .single();
-        
-        if (sessionError) throw sessionError;
-        
-        // Update task status
-        if (sessionData.status === 'completed') {
-          setTaskStatus('finished');
-          setProgress(100);
-          if (pollingInterval.current) {
-            clearInterval(pollingInterval.current);
-          }
-        } else if (sessionData.status === 'failed') {
-          setTaskStatus('failed');
-          if (pollingInterval.current) {
-            clearInterval(pollingInterval.current);
-          }
-        }
-        
-        // Get task actions
-        const { data: actionsData, error: actionsError } = await supabase
-          .from("browser_automation_actions")
-          .select("*")
-          .eq("session_id", taskId)
-          .order("created_at", { ascending: true });
-        
-        if (actionsError) throw actionsError;
-        
-        if (actionsData && actionsData.length > 0) {
-          // Convert actions to steps
-          const steps: TaskStep[] = actionsData.map((action, index) => ({
-            id: action.id,
-            description: `${action.action_type}: ${JSON.stringify(action.action_details)}`,
-            status: action.status === 'executed' ? 'completed' : (action.status === 'pending' ? 'running' : (action.status === 'failed' ? 'failed' : 'pending')),
-            details: action.reasoning,
-            screenshot: action.screenshot_url,
-            timestamp: new Date(action.created_at)
-          }));
-          
-          setTaskSteps(steps);
-          
-          // Calculate progress
-          const completedSteps = steps.filter(step => step.status === 'completed').length;
-          const totalSteps = steps.length;
-          const newProgress = Math.floor((completedSteps / totalSteps) * 100);
-          setProgress(newProgress);
-          
-          // Update current URL from the latest action
-          const latestAction = actionsData[actionsData.length - 1];
-          if (latestAction.action_details.url) {
-            setCurrentUrl(latestAction.action_details.url);
-          }
-          
-          // Update task output on completion
-          if (sessionData.status === 'completed') {
-            setTaskOutput(JSON.stringify({
-              taskId: taskId,
-              description: sessionData.task_description,
-              status: sessionData.status,
-              steps: steps.length,
-              completedAt: sessionData.completed_at,
-              result: "Task completed successfully",
-              url: currentUrl
-            }, null, 2));
-          }
-        }
-      } catch (error) {
-        console.error("Error polling task:", error);
-      }
-    }, 2000);
-  }, [currentUrl]);
-  
-  // Pause task function
   const pauseTask = useCallback(async () => {
-    if (!currentTaskId) {
-      toast.error("No active task to pause");
-      return;
-    }
-    
     setIsProcessing(true);
-    
     try {
-      // Update task status in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
       const { error } = await supabase
-        .from("browser_automation_sessions")
-        .update({
-          status: 'paused'
-        })
-        .eq("id", currentTaskId);
+        .from('browser_automation_tasks')
+        .update({ status: 'paused' })
+        .eq('id', currentTaskId);
       
       if (error) throw error;
       
       setTaskStatus('paused');
-      toast.success("Task paused");
-      
-      // Pause polling
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = null;
-      }
-    } catch (error) {
-      console.error("Error pausing task:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to pause task");
+      toast({
+        title: "Task Paused!",
+        description: "Your browser automation task has been paused.",
+      });
+    } catch (err: any) {
+      console.error("Error pausing task:", err);
+      setError(err.message || "Failed to pause task");
+      toast({
+        title: "Error Pausing Task",
+        description: err.message || "Failed to pause task.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentTaskId]);
+  }, [currentTaskId, toast]);
   
-  // Resume task function
   const resumeTask = useCallback(async () => {
-    if (!currentTaskId) {
-      toast.error("No active task to resume");
-      return;
-    }
-    
     setIsProcessing(true);
-    
     try {
-      // Update task status in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
       const { error } = await supabase
-        .from("browser_automation_sessions")
-        .update({
-          status: 'active'
-        })
-        .eq("id", currentTaskId);
+        .from('browser_automation_tasks')
+        .update({ status: 'running' })
+        .eq('id', currentTaskId);
       
       if (error) throw error;
       
       setTaskStatus('running');
-      toast.success("Task resumed");
-      
-      // Resume polling
-      startTaskPolling(currentTaskId);
-    } catch (error) {
-      console.error("Error resuming task:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to resume task");
+      toast({
+        title: "Task Resumed!",
+        description: "Your browser automation task has been resumed.",
+      });
+    } catch (err: any) {
+      console.error("Error resuming task:", err);
+      setError(err.message || "Failed to resume task");
+      toast({
+        title: "Error Resuming Task",
+        description: err.message || "Failed to resume task.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentTaskId, startTaskPolling]);
+  }, [currentTaskId, toast]);
   
-  // Stop task function
   const stopTask = useCallback(async () => {
-    if (!currentTaskId) {
-      // If no current task, just reset the state
-      setTaskInput("");
-      setTaskSteps([]);
-      setTaskOutput("");
-      setProgress(0);
-      setTaskStatus('idle');
-      setCurrentTaskId(null);
-      setError(null);
-      return;
-    }
-    
     setIsProcessing(true);
-    
     try {
-      // Update task status in database
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+      
       const { error } = await supabase
-        .from("browser_automation_sessions")
-        .update({
-          status: 'stopped',
-          completed_at: new Date().toISOString()
-        })
-        .eq("id", currentTaskId);
+        .from('browser_automation_tasks')
+        .update({ status: 'stopped' })
+        .eq('id', currentTaskId);
       
       if (error) throw error;
       
       setTaskStatus('stopped');
-      toast.info("Task stopped");
-      
-      // Stop polling
-      if (pollingInterval.current) {
-        clearInterval(pollingInterval.current);
-        pollingInterval.current = null;
-      }
-      
-      // Generate final output
-      setTaskOutput(JSON.stringify({
-        taskId: currentTaskId,
-        description: taskInput,
-        status: 'stopped',
-        steps: taskSteps.length,
-        stoppedAt: new Date().toISOString(),
-        result: "Task was manually stopped",
-        url: currentUrl
-      }, null, 2));
-    } catch (error) {
-      console.error("Error stopping task:", error);
-      toast.error(error instanceof Error ? error.message : "Failed to stop task");
+      setProgress(0);
+      setTaskSteps([]);
+      setTaskOutput(null);
+      setCurrentUrl(null);
+      setScreenshot(null);
+      setCurrentTaskId(null);
+      setTaskInput("");
+      toast({
+        title: "Task Stopped!",
+        description: "Your browser automation task has been stopped.",
+      });
+    } catch (err: any) {
+      console.error("Error stopping task:", err);
+      setError(err.message || "Failed to stop task");
+      toast({
+        title: "Error Stopping Task",
+        description: err.message || "Failed to stop task.",
+        variant: "destructive",
+      });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentTaskId, taskInput, taskSteps, currentUrl]);
+  }, [currentTaskId, toast]);
+  
+  const captureScreenshot = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.functions.invoke('capture-website');
+      if (error) {
+        console.error("Function error", error);
+        return false;
+      }
+      setScreenshot(data.image_url);
+      return true;
+    } catch (err: any) {
+      console.error("Error capturing screenshot:", err);
+      setError(err.message || "Failed to capture screenshot");
+      return false;
+    }
+  }, []);
+  
+  useEffect(() => {
+    const fetchUserCredits = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) throw new Error("Not authenticated");
+        
+        const { data, error } = await supabase
+          .from('user_credits')
+          .select('*')
+          .eq('user_id', user.id)
+          .single();
+        
+        if (error) throw error;
+        
+        setUserCredits(data as UserCredits);
+      } catch (err: any) {
+        console.error("Error fetching user credits:", err);
+        setError(err.message || "Failed to fetch user credits");
+      }
+    };
+    
+    fetchUserCredits();
+  }, []);
+
+  useEffect(() => {
+    if (currentTaskId) {
+      const intervalId = setInterval(async () => {
+        try {
+          const { data: taskData, error: taskError } = await supabase
+            .from('browser_automation_tasks')
+            .select('*')
+            .eq('id', currentTaskId)
+            .single();
+          
+          if (taskError) throw taskError;
+          
+          if (taskData) {
+            setProgress(taskData.progress || 0);
+            setTaskStatus(taskData.status);
+            
+            // Fix the URL property access
+            if (taskData.current_url && typeof taskData.current_url === 'string') {
+              setCurrentUrl(taskData.current_url);
+            }
+            
+            // Get steps for this task
+            const { data: stepsData, error: stepsError } = await supabase
+              .from('browser_automation_steps')
+              .select('*')
+              .eq('task_id', currentTaskId)
+              .order('created_at', { ascending: true });
+            
+            if (stepsError) throw stepsError;
+            
+            if (stepsData) {
+              setTaskSteps(stepsData.map(step => ({
+                ...step,
+                // Handle potential JSON string in details
+                details: typeof step.details === 'string' ? step.details : JSON.stringify(step.details),
+              })));
+            }
+            
+            if (taskData.output) {
+              setTaskOutput(taskData.output);
+            }
+            
+            // If task is finished or failed, clear the interval
+            if (['finished', 'failed', 'stopped'].includes(taskData.status)) {
+              clearInterval(intervalId);
+              setIsProcessing(false);
+            }
+          }
+        } catch (error) {
+          console.error("Error fetching task:", error);
+        }
+      }, 2000);
+      
+      return () => clearInterval(intervalId);
+    }
+  }, [currentTaskId, supabase]);
   
   return {
     taskInput,
@@ -394,8 +298,8 @@ export function useBrowserUseTask() {
     taskStatus,
     currentUrl,
     setCurrentUrl,
-    captureScreenshot,
     screenshot,
+    captureScreenshot,
     userCredits,
     error,
   };

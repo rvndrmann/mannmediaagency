@@ -1,4 +1,3 @@
-
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -19,7 +18,8 @@ import {
   PlusSquare,
   LucideIcon,
   Computer,
-  Users
+  Users,
+  Globe
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -188,9 +188,17 @@ export const Navigation = () => {
     },
     {
       name: "Computer Use Agent",
+      subtext: "Control Your Computer",
       to: "/computer-use-agent",
       icon: Computer,
       current: location.pathname === "/computer-use-agent",
+    },
+    {
+      name: "Browser Use API",
+      subtext: "Web Browser Automation",
+      to: "/browser-use",
+      icon: Globe,
+      current: location.pathname === "/browser-use",
     },
   ];
 

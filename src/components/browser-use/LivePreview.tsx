@@ -16,6 +16,12 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
   const [isVideo, setIsVideo] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  
+  // Log live URL changes to help with debugging
+  useEffect(() => {
+    console.log(`LivePreview: liveUrl changed to ${liveUrl}`);
+  }, [liveUrl]);
   
   // Detect if the URL is for a recording (usually mp4 or webm)
   useEffect(() => {
@@ -27,6 +33,7 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
         liveUrl.includes('media');
       
       setIsVideo(isVideoUrl);
+      console.log(`URL type detection: ${liveUrl} is ${isVideoUrl ? 'video' : 'iframe'}`);
     } else {
       setIsVideo(false);
     }
@@ -35,19 +42,25 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   // Add effect to handle iframe load events
   useEffect(() => {
     setIsLoading(true);
+    setLoadError(null);
   }, [liveUrl, refreshKey]);
   
   const handleIframeLoad = () => {
+    console.log("Iframe loaded successfully");
     setIsLoading(false);
+    setLoadError(null);
   };
   
   const handleIframeError = () => {
+    console.error("Failed to load iframe preview");
     setIsLoading(false);
+    setLoadError("Failed to load preview. It may still be initializing.");
     toast.error("Failed to load preview. It may still be initializing.");
   };
   
   const refreshIframe = () => {
     setIsLoading(true);
+    setLoadError(null);
     setRefreshKey(prev => prev + 1);
     toast.info("Refreshing preview...");
   };
@@ -115,21 +128,32 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
                   autoPlay
                   className="w-full h-full max-h-[600px]"
                   style={{ height: isFullscreen ? iframeHeight : "auto" }}
+                  onError={() => {
+                    console.error("Video failed to load:", liveUrl);
+                    setLoadError("Video failed to load. The URL might be invalid or the video is not ready yet.");
+                  }}
                 >
                   Your browser does not support video playback.
                 </video>
               </div>
             ) : (
-              <iframe 
-                key={`iframe-${refreshKey}`}
-                src={liveUrl}
-                className="w-full border-0"
-                style={{ height: iframeHeight }}
-                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-                title="Browser Automation Live Preview"
-                onLoad={handleIframeLoad}
-                onError={handleIframeError}
-              />
+              <div className="relative">
+                {isLoading && (
+                  <div className="absolute inset-0 flex items-center justify-center bg-gray-900/30 z-10">
+                    <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+                  </div>
+                )}
+                <iframe 
+                  key={`iframe-${refreshKey}`}
+                  src={liveUrl}
+                  className="w-full border-0"
+                  style={{ height: iframeHeight }}
+                  sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                  title="Browser Automation Live Preview"
+                  onLoad={handleIframeLoad}
+                  onError={handleIframeError}
+                />
+              </div>
             )
           ) : (
             <Alert className="m-4">
@@ -138,6 +162,12 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
                   ? "Live preview is initializing. Please wait a moment..."
                   : "No preview available. Start a task to see the browser automation in real-time."}
               </AlertDescription>
+            </Alert>
+          )}
+          
+          {loadError && (
+            <Alert className="m-4" variant="destructive">
+              <AlertDescription>{loadError}</AlertDescription>
             </Alert>
           )}
         </CardContent>

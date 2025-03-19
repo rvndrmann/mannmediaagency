@@ -32,6 +32,7 @@ export function useTaskMonitoring(
   // Set up polling for task updates
   useEffect(() => {
     if (currentTaskId) {
+      console.log(`Setting up task monitoring for task ID: ${currentTaskId}`);
       const intervalId = setInterval(async () => {
         try {
           // 1. First, check the task in the database
@@ -44,6 +45,8 @@ export function useTaskMonitoring(
           if (taskError) throw taskError;
           
           if (taskData) {
+            console.log(`Task data from DB:`, taskData);
+            
             // Set available data from the database
             setProgress(taskData.progress || 0);
             setTaskStatus(taskData.status || 'idle');
@@ -53,6 +56,7 @@ export function useTaskMonitoring(
             }
             
             if (taskData.live_url && typeof taskData.live_url === 'string') {
+              console.log(`Setting live URL from DB: ${taskData.live_url}`);
               setLiveUrl(taskData.live_url);
             }
             
@@ -62,8 +66,11 @@ export function useTaskMonitoring(
             
             // 2. If the task is still running, paused, pending, or created, call the browser-use-api to get the latest status
             if (['running', 'paused', 'pending', 'created'].includes(taskData.status)) {
-              // Log the browser_task_id we're checking
               console.log(`Checking status for browser task ID: ${taskData.browser_task_id || 'undefined'}`);
+
+              if (!taskData.browser_task_id) {
+                console.warn(`No browser_task_id found for task ${currentTaskId}, using task ID as fallback`);
+              }
 
               // Fetch the latest task status from the API
               const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api/status', {
@@ -104,6 +111,7 @@ export function useTaskMonitoring(
                 
                 // Update live_url if it exists in the API response
                 if (apiResponse.live_url && typeof apiResponse.live_url === 'string') {
+                  console.log("Setting live URL from API:", apiResponse.live_url);
                   setLiveUrl(apiResponse.live_url);
                   
                   // Also update the database with the live URL
@@ -113,6 +121,17 @@ export function useTaskMonitoring(
                     .eq('id', currentTaskId);
                     
                   console.log("Updated live URL from API:", apiResponse.live_url);
+                } else if (apiResponse.browser && apiResponse.browser.live_url) {
+                  // Also check for live_url in browser object
+                  console.log("Setting live URL from browser object:", apiResponse.browser.live_url);
+                  setLiveUrl(apiResponse.browser.live_url);
+                  
+                  await supabase
+                    .from('browser_automation_tasks')
+                    .update({ live_url: apiResponse.browser.live_url })
+                    .eq('id', currentTaskId);
+                    
+                  console.log("Updated live URL from browser object:", apiResponse.browser.live_url);
                 }
                 
                 // Update other task data if available
@@ -143,6 +162,7 @@ export function useTaskMonitoring(
                           // Store the first recording URL as output if we don't have a live URL
                           if (!taskData.live_url) {
                             const recordingUrl = mediaResponse.recordings[0];
+                            console.log("Setting recording URL as live URL:", recordingUrl);
                             setLiveUrl(recordingUrl);
                             
                             await supabase

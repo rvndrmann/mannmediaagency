@@ -48,6 +48,7 @@ serve(async (req: Request) => {
         throw error;
       }
       
+      console.log("Returning status data:", data);
       return new Response(JSON.stringify(data), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
@@ -187,6 +188,12 @@ serve(async (req: Request) => {
         throw new Error(`Failed to parse API response: ${parseError.message}`);
       }
       
+      // Make sure we extract live_url if it's in the browser object
+      if (responseData.browser && responseData.browser.live_url) {
+        responseData.live_url = responseData.browser.live_url;
+        console.log(`Extracted live_url from browser object: ${responseData.live_url}`);
+      }
+      
       // Update the task in database with browser_task_id if creating a new task
       if (response.ok && requestBody.task_id && responseData.task_id && !requestBody.action) {
         const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -291,9 +298,10 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
       throw new Error(`Failed to parse status response: ${parseError.message}`);
     }
     
-    // Extract live_url if available
+    // Extract live_url if available in the response or in the browser object
     if (responseData.browser && responseData.browser.live_url) {
       responseData.live_url = responseData.browser.live_url;
+      console.log(`Extracted live_url from browser object: ${responseData.live_url}`);
     }
     
     return { data: responseData, error: null };

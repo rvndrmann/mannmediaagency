@@ -39,6 +39,11 @@ export function BrowserUseApp() {
     captureScreenshot
   } = useBrowserUseTask();
   
+  // Log changes to liveUrl for debugging
+  useEffect(() => {
+    console.log(`BrowserUseApp: liveUrl changed to: ${liveUrl}`);
+  }, [liveUrl]);
+  
   // Show toast when live URL becomes available
   useEffect(() => {
     if (liveUrl) {

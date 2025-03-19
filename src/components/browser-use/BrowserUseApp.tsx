@@ -13,7 +13,6 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { AlertCircle } from "lucide-react";
-import { TaskStatus } from "@/hooks/browser-use/types";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState<string>("task");

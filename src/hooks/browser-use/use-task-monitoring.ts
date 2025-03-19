@@ -8,7 +8,7 @@ interface TaskStateSetters {
   setProgress: (progress: number) => void;
   setTaskStatus: (status: TaskStatus) => void;
   setCurrentUrl: (url: string | null) => void;
-  setTaskSteps: (steps: BrowserTaskState["steps"]) => void;
+  setTaskSteps: (steps: BrowserTaskState["taskSteps"]) => void;
   setTaskOutput: (output: string | null) => void;
   setIsProcessing: (isProcessing: boolean) => void;
   setLiveUrl: (url: string | null) => void;
@@ -224,7 +224,7 @@ export function useTaskMonitoring(
               let recordingUrl = null;
               if (apiResponse.recordings && apiResponse.recordings.length > 0) {
                 // Use the most recent recording
-                const latestRecording = apiResponse.recordings.reduce((latest, current) => {
+                const latestRecording = apiResponse.recordings.reduce((latest: any, current: any) => {
                   if (!latest.created_at || new Date(current.created_at) > new Date(latest.created_at)) {
                     return current;
                   }
@@ -239,7 +239,7 @@ export function useTaskMonitoring(
               const effectiveLiveUrl = liveUrl || recordingUrl || null;
               
               // Map API status to our status
-              const statusMap = {
+              const statusMap: Record<string, TaskStatus> = {
                 "created": "created",
                 "pending": "pending",
                 "in_progress": "running",

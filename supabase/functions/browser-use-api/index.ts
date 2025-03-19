@@ -33,7 +33,8 @@ serve(async (req: Request) => {
       throw new Error("Browser Use API key is not configured.");
     }
 
-    const BASE_URL = "https://browser-use.com/api/v1";
+    // Base API URL changed to use browser-use.com
+    const BASE_URL = "https://api.browser-use.com/api/v1";
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
     
@@ -81,12 +82,13 @@ serve(async (req: Request) => {
 
     // For standard task operations
     let requestBody: BrowserUseApiRequest;
+    let requestText = '';
     try {
-      const requestText = await req.text();
+      requestText = await req.text();
       console.log(`Request body received: ${requestText}`);
       requestBody = requestText ? JSON.parse(requestText) : {};
     } catch (parseError) {
-      console.error(`Error parsing request body: ${parseError.message}`);
+      console.error(`Error parsing request body: ${parseError.message}, raw text: ${requestText}`);
       return new Response(JSON.stringify({
         error: `Invalid JSON in request body: ${parseError.message}`
       }), {
@@ -124,7 +126,7 @@ serve(async (req: Request) => {
     }
 
     // Handle different operations based on action
-    let endpoint = `${BASE_URL}/task`;
+    let endpoint = '';
     let method = 'POST';
     let body: any = undefined;
     
@@ -139,10 +141,11 @@ serve(async (req: Request) => {
       method = 'POST';
       console.log(`Performing action: ${requestBody.action} on task: ${taskId}`);
     } else if (requestBody.task) {
-      // Creating a new task
+      // Creating a new task - updated to use run-task endpoint
+      endpoint = `${BASE_URL}/run-task`;
       body = {
         task: requestBody.task,
-        save_recording: true
+        save_browser_data: true
       };
       
       // Add browser configuration if provided
@@ -174,12 +177,13 @@ serve(async (req: Request) => {
       
       // Safely parse JSON response
       let responseData = {};
+      let responseText = '';
       try {
-        const responseText = await response.text();
+        responseText = await response.text();
         console.log(`API Response: ${responseText}`);
         responseData = responseText ? JSON.parse(responseText) : {};
       } catch (parseError) {
-        console.error(`Error parsing response: ${parseError.message}`);
+        console.error(`Error parsing response: ${parseError.message}, raw text: ${responseText}`);
         throw new Error(`Failed to parse API response: ${parseError.message}`);
       }
       
@@ -194,7 +198,7 @@ serve(async (req: Request) => {
           .from('browser_automation_tasks')
           .update({ 
             browser_task_id: responseData.task_id,
-            status: 'running'
+            status: 'created'
           })
           .eq('id', requestBody.task_id);
       }
@@ -230,12 +234,14 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     
     // Get task_id from request body if not provided as parameter
     if (!taskId) {
+      let requestText = '';
       try {
-        const requestText = await req.text();
+        requestText = await req.text();
+        console.log(`Request body for status check: ${requestText}`);
         const requestBody = requestText ? JSON.parse(requestText) : {};
         taskId = requestBody.task_id;
       } catch (parseError) {
-        console.error(`Error parsing request body: ${parseError.message}`);
+        console.error(`Error parsing request body for status: ${parseError.message}, raw text: ${requestText}`);
         throw new Error(`Invalid JSON in request body: ${parseError.message}`);
       }
       
@@ -246,7 +252,8 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     
     console.log(`Checking status for task: ${taskId}`);
     
-    const response = await fetch(`https://browser-use.com/api/v1/task/${taskId}`, {
+    // Updated to use the new API endpoint
+    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
@@ -256,17 +263,19 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`Failed to fetch task status: ${response.status} ${errorText}`);
       throw new Error(`Failed to fetch task status: ${errorText}`);
     }
     
     // Safely parse JSON response
     let responseData;
+    let responseText = '';
     try {
-      const responseText = await response.text();
+      responseText = await response.text();
       console.log(`Status response: ${responseText}`);
       responseData = responseText ? JSON.parse(responseText) : {};
     } catch (parseError) {
-      console.error(`Error parsing status response: ${parseError.message}`);
+      console.error(`Error parsing status response: ${parseError.message}, raw text: ${responseText}`);
       throw new Error(`Failed to parse status response: ${parseError.message}`);
     }
     
@@ -296,7 +305,8 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
     
     console.log(`Fetching media for task: ${taskId}`);
     
-    const response = await fetch(`https://browser-use.com/api/v1/task/${taskId}/media`, {
+    // Updated to use the new API endpoint
+    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
@@ -306,18 +316,19 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
     
     if (!response.ok) {
       const errorText = await response.text();
-      console.error(`Failed to fetch task media: ${errorText}`);
+      console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     
     // Safely parse JSON response
     let responseData;
+    let responseText = '';
     try {
-      const responseText = await response.text();
+      responseText = await response.text();
       console.log(`Media response: ${responseText}`);
       responseData = responseText ? JSON.parse(responseText) : { recordings: null };
     } catch (parseError) {
-      console.error(`Error parsing media response: ${parseError.message}`);
+      console.error(`Error parsing media response: ${parseError.message}, raw text: ${responseText}`);
       throw new Error(`Failed to parse media response: ${parseError.message}`);
     }
     
@@ -347,12 +358,14 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
     
     // Get task_id from request body
     let taskId;
+    let requestText = '';
     try {
-      const requestText = await req.text();
+      requestText = await req.text();
+      console.log(`Request body for media: ${requestText}`);
       const requestBody = requestText ? JSON.parse(requestText) : {};
       taskId = requestBody.task_id;
     } catch (parseError) {
-      console.error(`Error parsing request body for media: ${parseError.message}`);
+      console.error(`Error parsing request body for media: ${parseError.message}, raw text: ${requestText}`);
       throw new Error(`Invalid JSON in request body: ${parseError.message}`);
     }
     
@@ -371,7 +384,8 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
     
     console.log(`Fetching media for task: ${taskId}`);
     
-    const response = await fetch(`https://browser-use.com/api/v1/task/${taskId}/media`, {
+    // Updated to use the new API endpoint
+    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,
@@ -381,17 +395,19 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
     
     if (!response.ok) {
       const errorText = await response.text();
+      console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     
     // Safely parse JSON response
     let responseData;
+    let responseText = '';
     try {
-      const responseText = await response.text();
+      responseText = await response.text();
       console.log(`Media response: ${responseText}`);
       responseData = responseText ? JSON.parse(responseText) : { recordings: null };
     } catch (parseError) {
-      console.error(`Error parsing media response: ${parseError.message}`);
+      console.error(`Error parsing media response: ${parseError.message}, raw text: ${responseText}`);
       throw new Error(`Failed to parse media response: ${parseError.message}`);
     }
     

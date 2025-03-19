@@ -9,7 +9,7 @@ import { TaskStep } from "@/hooks/browser-use/types";
 export interface TaskOutputProps {
   output: string | null;
   taskSteps: TaskStep[];
-  taskStatus?: 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
+  taskStatus?: 'idle' | 'created' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
 }
 
 export function TaskOutput({
@@ -47,7 +47,7 @@ export function TaskOutput({
           </Card>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">
-            {taskStatus === 'running' || taskStatus === 'paused' ? (
+            {taskStatus === 'running' || taskStatus === 'paused' || taskStatus === 'created' ? (
               <p>Task is in progress. Output will appear when complete.</p>
             ) : (
               <p>No output available. Run a task to generate output.</p>

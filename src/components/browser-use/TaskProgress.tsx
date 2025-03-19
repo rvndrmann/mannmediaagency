@@ -8,7 +8,7 @@ export interface TaskProgressProps {
   progress: number;
   currentUrl: string | null;
   taskSteps: TaskStep[];
-  taskStatus: 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
+  taskStatus: 'idle' | 'created' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
 }
 
 export function TaskProgress({
@@ -24,6 +24,7 @@ export function TaskProgress({
       case 'finished': return 'bg-green-500';
       case 'failed': return 'bg-red-500';
       case 'stopped': return 'bg-gray-500';
+      case 'created': return 'bg-purple-500';
       default: return 'bg-blue-500';
     }
   };
@@ -39,6 +40,7 @@ export function TaskProgress({
             taskStatus === 'paused' ? 'text-amber-500' :
             taskStatus === 'finished' ? 'text-green-500' :
             taskStatus === 'failed' ? 'text-red-500' :
+            taskStatus === 'created' ? 'text-purple-500' :
             'text-gray-500'
           }`}
         >

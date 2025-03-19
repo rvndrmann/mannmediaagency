@@ -1,3 +1,4 @@
+
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -52,15 +53,17 @@ export function useTaskOperations(
       
       if (creditError) throw creditError;
       
+      // Get updated user credits with explicit column selection
       const { data: updatedCredits, error: updatedCreditsError } = await supabase
         .from('user_credits')
-        .select('*')
-        .eq('user_credits.user_id', user.id)
+        .select('id, user_id, credits_remaining, last_refill, created_at, updated_at')
+        .eq('user_id', user.id)
         .single();
       
       if (updatedCreditsError) throw updatedCreditsError;
       setUserCredits(updatedCredits);
       
+      // Insert new task with explicit column selection in the response
       const { data, error } = await supabase
         .from('browser_automation_tasks')
         .insert([{ 
@@ -68,7 +71,7 @@ export function useTaskOperations(
           input: taskInput,
           status: 'running'
         }])
-        .select('*')
+        .select('id, user_id, input, status, progress, current_url, output, created_at, updated_at')
         .single();
       
       if (error) throw error;
@@ -100,7 +103,7 @@ export function useTaskOperations(
       const { error } = await supabase
         .from('browser_automation_tasks')
         .update({ status: 'paused' })
-        .eq('browser_automation_tasks.id', currentTaskId);
+        .eq('id', currentTaskId);
       
       if (error) throw error;
       
@@ -130,7 +133,7 @@ export function useTaskOperations(
       const { error } = await supabase
         .from('browser_automation_tasks')
         .update({ status: 'running' })
-        .eq('browser_automation_tasks.id', currentTaskId);
+        .eq('id', currentTaskId);
       
       if (error) throw error;
       
@@ -160,7 +163,7 @@ export function useTaskOperations(
       const { error } = await supabase
         .from('browser_automation_tasks')
         .update({ status: 'stopped' })
-        .eq('browser_automation_tasks.id', currentTaskId);
+        .eq('id', currentTaskId);
       
       if (error) throw error;
       

@@ -22,27 +22,28 @@ export function useTaskMonitoring(
     if (currentTaskId) {
       const intervalId = setInterval(async () => {
         try {
-          // Get task data with explicit table references to avoid ambiguous column references
+          // Get task data with specific column selection to avoid ambiguity
           const { data: taskData, error: taskError } = await supabase
             .from('browser_automation_tasks')
-            .select('*')
-            .eq('browser_automation_tasks.id', currentTaskId)
+            .select('id, progress, status, current_url, output')
+            .eq('id', currentTaskId)
             .maybeSingle();
           
           if (taskError) throw taskError;
           
           if (taskData) {
             setProgress(taskData.progress || 0);
-            setTaskStatus(taskData.status as any || 'idle');
+            setTaskStatus(taskData.status || 'idle');
             
             if (taskData.current_url && typeof taskData.current_url === 'string') {
               setCurrentUrl(taskData.current_url);
             }
             
+            // Get steps with specific column selection
             const { data: stepsData, error: stepsError } = await supabase
               .from('browser_automation_steps')
-              .select('*')
-              .eq('browser_automation_steps.task_id', currentTaskId)
+              .select('id, task_id, description, status, details, screenshot, created_at')
+              .eq('task_id', currentTaskId)
               .order('created_at', { ascending: true });
             
             if (stepsError) throw stepsError;

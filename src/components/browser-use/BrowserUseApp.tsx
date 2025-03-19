@@ -8,7 +8,7 @@ import { BrowserConfigPanel } from "./BrowserConfigPanel";
 import { TaskMonitor } from "./TaskMonitor";
 import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
-import { Robot, History, Settings, Play, Pause, StopCircle, RotateCw } from "lucide-react";
+import { Bot, History, Settings, Play, Pause, StopCircle, RotateCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 
 export function BrowserUseApp() {
@@ -34,14 +34,15 @@ export function BrowserUseApp() {
     browserConfig,
     setBrowserConfig,
     liveUrl,
-    connectionStatus
+    connectionStatus,
+    taskOutput
   } = useBrowserUseTask();
 
   return (
     <div className="container mx-auto py-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
-          <Robot className="h-6 w-6 text-primary" />
+          <Bot className="h-6 w-6 text-primary" />
           <h1 className="text-2xl font-bold">Browser Use API</h1>
           {userCredits && (
             <Badge variant="outline" className="ml-2">
@@ -162,7 +163,7 @@ export function BrowserUseApp() {
               progress={progress}
               error={error}
               isProcessing={isProcessing}
-              taskOutput={null}
+              taskOutput={taskOutput}
             />
           </div>
         </TabsContent>

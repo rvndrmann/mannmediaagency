@@ -88,3 +88,10 @@ export interface BrowserTaskHistory {
   created_at: string;
   completed_at: string | null;
 }
+
+export interface CaptureWebsiteResponse {
+  success?: boolean;
+  error?: string;
+  image_url?: string;
+  screenshot?: string;
+}

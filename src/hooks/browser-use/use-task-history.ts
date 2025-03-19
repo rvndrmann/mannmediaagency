@@ -39,9 +39,25 @@ export function useTaskHistory() {
   
   const saveTaskToHistory = async (taskData: Partial<BrowserTaskHistory>) => {
     try {
+      // Ensure required fields are present
+      if (!taskData.task_input || !taskData.status || !taskData.user_id) {
+        console.error("Missing required fields for task history");
+        return;
+      }
+      
       const { error } = await supabase
         .from('browser_task_history')
-        .insert(taskData);
+        .insert({
+          task_input: taskData.task_input,
+          status: taskData.status,
+          user_id: taskData.user_id,
+          browser_task_id: taskData.browser_task_id || null,
+          output: taskData.output || null,
+          screenshot_url: taskData.screenshot_url || null,
+          result_url: taskData.result_url || null,
+          browser_data: taskData.browser_data || null,
+          completed_at: taskData.completed_at || null
+        });
       
       if (error) {
         throw error;

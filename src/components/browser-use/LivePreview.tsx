@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,19 +18,29 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [autoRefreshEnabled, setAutoRefreshEnabled] = useState(true);
+  const [lastSeenUrl, setLastSeenUrl] = useState<string | null>(null);
   
   // Log live URL changes to help with debugging
   useEffect(() => {
     console.log(`LivePreview: liveUrl changed to ${liveUrl}`);
     
     // Reset load attempts when URL changes
-    if (liveUrl) {
+    if (liveUrl && liveUrl !== lastSeenUrl) {
+      setLastSeenUrl(liveUrl);
       setLoadAttempts(0);
       setLoadError(null);
       // Auto refresh when we get a new URL
       setRefreshKey(prev => prev + 1);
+      
+      // Re-enable auto-refresh for new URLs
+      setAutoRefreshEnabled(true);
+      
+      // Show a toast for new URLs
+      toast.success(
+        isVideo ? "Recording available! Loading now..." : "Live preview available! Loading now..."
+      );
     }
-  }, [liveUrl]);
+  }, [liveUrl, lastSeenUrl, isVideo]);
   
   // Detect if the URL is for a recording (usually mp4 or webm)
   useEffect(() => {
@@ -82,6 +91,11 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
     console.log("Iframe loaded successfully");
     setIsLoading(false);
     setLoadError(null);
+    
+    // If the iframe loaded successfully, we might not need to keep auto-refreshing
+    if (loadAttempts > 2) {
+      setAutoRefreshEnabled(false);
+    }
   };
   
   const handleIframeError = () => {
@@ -109,6 +123,7 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
     setIsLoading(true);
     setLoadError(null);
     setRefreshKey(prev => prev + 1);
+    setLoadAttempts(0); // Reset load attempts on manual refresh
     toast.info("Refreshing preview...");
   };
   

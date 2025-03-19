@@ -32,15 +32,132 @@ export function useTaskMonitoring(
   } = stateSetters;
   
   const pollingIntervalRef = useRef<number | null>(null);
+  const urlCheckIntervalRef = useRef<number | null>(null);
   
-  // Clear interval on unmount
+  // Clear intervals on unmount
   useEffect(() => {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
       }
+      if (urlCheckIntervalRef.current) {
+        clearInterval(urlCheckIntervalRef.current);
+      }
     };
   }, []);
+  
+  // Set up aggressive polling for live URL specifically
+  useEffect(() => {
+    if (!state.currentTaskId || !['pending', 'running', 'created'].includes(state.taskStatus)) return;
+    
+    // Clear any existing URL check interval
+    if (urlCheckIntervalRef.current) {
+      clearInterval(urlCheckIntervalRef.current);
+      urlCheckIntervalRef.current = null;
+    }
+    
+    console.log(`Starting aggressive URL polling for task: ${state.currentTaskId}`);
+    
+    // Function to check specifically for live URL
+    const checkForLiveUrl = async () => {
+      try {
+        const { data: taskData, error: taskError } = await supabase
+          .from("browser_automation_tasks")
+          .select("browser_task_id, live_url")
+          .eq("id", state.currentTaskId)
+          .single();
+          
+        if (taskError) {
+          console.error("Error fetching task for URL check:", taskError);
+          return;
+        }
+        
+        if (!taskData || !taskData.browser_task_id) {
+          console.log("No browser_task_id yet, waiting...");
+          return;
+        }
+        
+        // Check API directly for live URL
+        const { data: apiResponse, error: apiError } = await supabase.functions.invoke(
+          "browser-use-api",
+          {
+            body: { task_id: taskData.browser_task_id, url_check_only: true }
+          }
+        );
+        
+        if (apiError) {
+          console.error("API error during URL check:", apiError);
+          return;
+        }
+        
+        if (apiResponse.error) {
+          console.warn("API returned error during URL check:", apiResponse.error);
+          return;
+        }
+        
+        // Extract live URL or recording URL from response
+        let effectiveUrl = null;
+        
+        if (apiResponse.browser && apiResponse.browser.live_url) {
+          effectiveUrl = apiResponse.browser.live_url;
+          console.log(`Found live URL in aggressive polling: ${effectiveUrl}`);
+        } else if (apiResponse.recordings && apiResponse.recordings.length > 0) {
+          // Use the most recent recording
+          const latestRecording = apiResponse.recordings.reduce((latest: any, current: any) => {
+            if (!latest.created_at || new Date(current.created_at) > new Date(latest.created_at)) {
+              return current;
+            }
+            return latest;
+          }, {});
+          
+          effectiveUrl = latestRecording.url;
+          console.log(`Found recording URL in aggressive polling: ${effectiveUrl}`);
+        }
+        
+        // If we found a URL and it's different from what we have, update it
+        if (effectiveUrl && effectiveUrl !== state.liveUrl) {
+          console.log(`Setting new live URL from aggressive polling: ${effectiveUrl}`);
+          setLiveUrl(effectiveUrl);
+          
+          await supabase
+            .from("browser_automation_tasks")
+            .update({ live_url: effectiveUrl })
+            .eq("id", state.currentTaskId);
+            
+          // If we found a URL, we can slow down the polling
+          if (urlCheckIntervalRef.current) {
+            clearInterval(urlCheckIntervalRef.current);
+            urlCheckIntervalRef.current = setInterval(checkForLiveUrl, 10000); // Switch to 10s intervals
+            console.log("Slowing down URL polling to 10s intervals after finding URL");
+          }
+        }
+      } catch (error) {
+        console.error("Error in aggressive URL polling:", error);
+      }
+    };
+    
+    // Check immediately
+    checkForLiveUrl();
+    
+    // Check every 2 seconds for the first minute
+    urlCheckIntervalRef.current = setInterval(checkForLiveUrl, 2000);
+    
+    // After 60 seconds, clear the interval to avoid excessive API calls
+    setTimeout(() => {
+      if (urlCheckIntervalRef.current) {
+        console.log("Stopping aggressive URL polling after 60 seconds");
+        clearInterval(urlCheckIntervalRef.current);
+        urlCheckIntervalRef.current = null;
+      }
+    }, 60000);
+    
+    return () => {
+      if (urlCheckIntervalRef.current) {
+        clearInterval(urlCheckIntervalRef.current);
+        urlCheckIntervalRef.current = null;
+      }
+    };
+  }, [state.currentTaskId, state.taskStatus, state.liveUrl, setLiveUrl]);
   
   // Set up polling for task status
   useEffect(() => {
@@ -90,7 +207,7 @@ export function useTaskMonitoring(
         }
         
         if (taskData.live_url) {
-          console.log(`Setting live URL: ${taskData.live_url}`);
+          console.log(`Setting live URL from DB: ${taskData.live_url}`);
           setLiveUrl(taskData.live_url);
         }
         
@@ -114,6 +231,11 @@ export function useTaskMonitoring(
           if (pollingIntervalRef.current) {
             clearInterval(pollingIntervalRef.current);
             pollingIntervalRef.current = null;
+          }
+          
+          if (urlCheckIntervalRef.current) {
+            clearInterval(urlCheckIntervalRef.current);
+            urlCheckIntervalRef.current = null;
           }
           
           setIsProcessing(false);
@@ -191,6 +313,11 @@ export function useTaskMonitoring(
                 if (pollingIntervalRef.current) {
                   clearInterval(pollingIntervalRef.current);
                   pollingIntervalRef.current = null;
+                }
+                
+                if (urlCheckIntervalRef.current) {
+                  clearInterval(urlCheckIntervalRef.current);
+                  urlCheckIntervalRef.current = null;
                 }
               }
               
@@ -323,6 +450,11 @@ export function useTaskMonitoring(
                   pollingIntervalRef.current = null;
                 }
                 
+                if (urlCheckIntervalRef.current) {
+                  clearInterval(urlCheckIntervalRef.current);
+                  urlCheckIntervalRef.current = null;
+                }
+                
                 setIsProcessing(false);
                 
                 if (mappedStatus === "failed") {
@@ -353,6 +485,9 @@ export function useTaskMonitoring(
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+      }
+      if (urlCheckIntervalRef.current) {
+        clearInterval(urlCheckIntervalRef.current);
       }
     };
   }, [state.currentTaskId, state.taskStatus]);

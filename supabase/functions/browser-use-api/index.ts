@@ -15,7 +15,7 @@ serve(async (req) => {
 
   try {
     // Read request
-    const { action, task_id, task, save_browser_data, browser_config } = await req.json();
+    const { action, task_id, task, save_browser_data, browser_config, url_check_only } = await req.json();
     
     // Get Supabase client
     const supabaseUrl = Deno.env.get("SUPABASE_URL") || "";
@@ -44,6 +44,71 @@ serve(async (req) => {
     
     console.log(`API_BASE_URL: ${API_BASE_URL}`);
     console.log(`Using authentication: Bearer ${browserUseApiKey.substring(0, 5)}...`);
+    
+    // Handle URL check mode - quick check for task status without full details
+    if (url_check_only && task_id) {
+      console.log(`Quick URL check for task: ${task_id}`);
+      
+      try {
+        // Only fetch media for URL check mode
+        const mediaResponse = await fetch(`${API_BASE_URL}/task/${task_id}/media`, {
+          method: "GET",
+          headers: apiHeaders
+        });
+        
+        console.log(`Media response status: ${mediaResponse.status}`);
+        
+        let recordings = [];
+        if (mediaResponse.ok) {
+          const mediaData = await mediaResponse.json();
+          
+          if (mediaData && mediaData.recordings && mediaData.recordings.length > 0) {
+            recordings = mediaData.recordings;
+            console.log(`Found ${recordings.length} recordings for task ${task_id}`);
+          }
+        }
+        
+        // Also get browser info for the live URL
+        const statusResponse = await fetch(`${API_BASE_URL}/task/${task_id}/status`, {
+          method: "GET",
+          headers: apiHeaders
+        });
+        
+        let browser = {};
+        if (statusResponse.ok) {
+          const statusData = await statusResponse.json();
+          
+          // Try to fetch detailed info to get the live_url
+          const detailResponse = await fetch(`${API_BASE_URL}/task/${task_id}`, {
+            method: "GET",
+            headers: apiHeaders
+          });
+          
+          if (detailResponse.ok) {
+            const detailData = await detailResponse.json();
+            if (detailData && detailData.browser) {
+              browser = detailData.browser;
+            }
+          }
+        }
+        
+        return new Response(
+          JSON.stringify({
+            recordings,
+            browser,
+            status: "success",
+            url_check: true
+          }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+        );
+      } catch (error) {
+        console.error(`Error in URL check mode: ${error.message}`);
+        return new Response(
+          JSON.stringify({ error: error.message, url_check: true }),
+          { headers: { ...corsHeaders, "Content-Type": "application/json" }, status: 500 }
+        );
+      }
+    }
     
     // Handle different action types
     if (action === 'pause') {
@@ -239,6 +304,28 @@ serve(async (req) => {
             }
           } catch (liveUrlError) {
             console.warn(`Non-critical error fetching initial live URL: ${liveUrlError.message}`);
+          }
+          
+          // Even if no live URL found, try to get a media URL as well
+          try {
+            const mediaResponse = await fetch(`${API_BASE_URL}/task/${data.id}/media`, {
+              method: "GET",
+              headers: apiHeaders
+            });
+            
+            if (mediaResponse.ok) {
+              const mediaData = await mediaResponse.json();
+              
+              if (mediaData && mediaData.recordings && mediaData.recordings.length > 0) {
+                // Only set recording URL if we don't have a live URL yet
+                if (!data.live_url) {
+                  data.live_url = mediaData.recordings[0].url;
+                  console.log(`Using recording as live URL: ${data.live_url}`);
+                }
+              }
+            }
+          } catch (mediaError) {
+            console.warn(`Non-critical error fetching initial media: ${mediaError.message}`);
           }
           
           return new Response(

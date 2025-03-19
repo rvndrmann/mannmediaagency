@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -66,7 +65,6 @@ export function ManusComputerAgent() {
   const isProcessingAction = useRef<boolean>(false);
   const [browserSupportsPopups, setBrowserSupportsPopups] = useState<boolean>(true);
   
-  // Check if browser supports opening popups
   useEffect(() => {
     setBrowserSupportsPopups(canOpenNewTabs());
   }, []);
@@ -123,7 +121,6 @@ export function ManusComputerAgent() {
     }
   }, [captureScreenshot]);
   
-  // Process actions automatically when they arrive
   useEffect(() => {
     const processAction = async () => {
       if (currentActions.length > 0 && !isProcessingAction.current && !isProcessing) {
@@ -138,19 +135,15 @@ export function ManusComputerAgent() {
             const success = openInNewTab(currentAction.url);
             
             if (success) {
-              // Wait a moment for the tab to open before taking screenshot
               await new Promise(resolve => setTimeout(resolve, 2000));
               await captureScreenshot();
               
-              // Now execute the action to update its status
               executeAction();
             } else {
-              // If opening tab failed, still try to execute action to move to next one
               toast.error(`Failed to open ${currentAction.url}. Check popup settings.`);
               executeAction();
             }
           } else {
-            // For non-navigation actions, just execute them
             executeAction();
           }
         } catch (err) {
@@ -249,7 +242,7 @@ export function ManusComputerAgent() {
             )}
             
             {!browserSupportsPopups && (
-              <Alert variant="warning">
+              <Alert>
                 <AlertCircle className="h-4 w-4" />
                 <AlertTitle>Popup Blocker Detected</AlertTitle>
                 <AlertDescription>
@@ -421,7 +414,7 @@ export function ManusComputerAgent() {
                     </>
                   )}
                     
-                  <Alert className="mt-6">
+                  <Alert>
                     <Info className="h-4 w-4" />
                     <AlertTitle>How It Works</AlertTitle>
                     <AlertDescription className="text-left text-sm">

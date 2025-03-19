@@ -264,6 +264,18 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to fetch task status: ${response.status} ${errorText}`);
+      
+      // Handle 404 error (Agent session not found) more gracefully
+      if (response.status === 404) {
+        return { 
+          data: { 
+            status: 'failed',
+            error: 'Agent session not found - the task may have been deleted or expired'
+          }, 
+          error: null 
+        };
+      }
+      
       throw new Error(`Failed to fetch task status: ${errorText}`);
     }
     
@@ -317,6 +329,18 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
+      
+      // Handle 404 error (Agent session not found) more gracefully
+      if (response.status === 404) {
+        return new Response(JSON.stringify({
+          error: 'Agent session not found - the task may have been deleted or expired',
+          recordings: null
+        }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     
@@ -396,6 +420,15 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
+      
+      // Handle 404 error (Agent session not found) more gracefully
+      if (response.status === 404) {
+        return { 
+          data: { recordings: null }, 
+          error: new Error('Agent session not found - the task may have been deleted or expired') 
+        };
+      }
+      
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     

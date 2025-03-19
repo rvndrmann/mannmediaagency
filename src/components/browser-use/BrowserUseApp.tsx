@@ -11,6 +11,8 @@ import { LivePreview } from "./LivePreview";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState<string>("task");
@@ -67,6 +69,14 @@ export function BrowserUseApp() {
               </TabsList>
               
               <TabsContent value="task" className="space-y-4 mt-4">
+                {error && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertCircle className="h-4 w-4" />
+                    <AlertTitle>Error</AlertTitle>
+                    <AlertDescription>{error}</AlertDescription>
+                  </Alert>
+                )}
+                
                 <div className="space-y-2">
                   <Label htmlFor="task-input">Task Description</Label>
                   <Textarea

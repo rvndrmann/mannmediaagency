@@ -152,7 +152,8 @@ export function useBrowserUseTask() {
       setTaskSteps,
       setTaskOutput,
       setIsProcessing,
-      setLiveUrl
+      setLiveUrl,
+      setError
     }
   );
 

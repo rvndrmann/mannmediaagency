@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserTaskState, TaskStep } from "./types";
+import { toast } from "sonner";
 
 export function useTaskMonitoring(
   state: BrowserTaskState,
@@ -13,6 +14,7 @@ export function useTaskMonitoring(
     setTaskOutput: (value: string | null) => void;
     setIsProcessing: (value: boolean) => void;
     setLiveUrl: (value: string | null) => void;
+    setError: (value: string | null) => void;
   }
 ) {
   const { currentTaskId } = state;
@@ -23,7 +25,8 @@ export function useTaskMonitoring(
     setTaskSteps, 
     setTaskOutput, 
     setIsProcessing,
-    setLiveUrl 
+    setLiveUrl,
+    setError
   } = setState;
 
   // Set up polling for task updates
@@ -71,6 +74,33 @@ export function useTaskMonitoring(
                 console.error("Error fetching task status from API:", apiError);
               } else if (apiResponse) {
                 console.log("Received task status update:", apiResponse);
+                
+                // Check for API error response
+                if (apiResponse.error) {
+                  console.error("API Error:", apiResponse.error);
+                  
+                  if (apiResponse.error.includes("Agent session not found")) {
+                    // Handle expired or deleted tasks gracefully
+                    toast.error("Task session expired or not found. Please start a new task.");
+                    setError("Task session expired or not found. Please start a new task.");
+                    
+                    // Update task status in database
+                    await supabase
+                      .from('browser_automation_tasks')
+                      .update({ 
+                        status: 'failed',
+                        output: JSON.stringify({ error: apiResponse.error }),
+                        completed_at: new Date().toISOString()
+                      })
+                      .eq('id', currentTaskId);
+                    
+                    setTaskStatus('failed');
+                    setIsProcessing(false);
+                    
+                    clearInterval(intervalId);
+                    return;
+                  }
+                }
                 
                 // Update live_url if it exists in the API response
                 if (apiResponse.live_url && typeof apiResponse.live_url === 'string') {
@@ -176,10 +206,11 @@ export function useTaskMonitoring(
           }
         } catch (error) {
           console.error("Error fetching task:", error);
+          setError(`Error updating task status: ${error.message || "Unknown error"}`);
         }
       }, 3000);
       
       return () => clearInterval(intervalId);
     }
-  }, [currentTaskId, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing, setLiveUrl]);
+  }, [currentTaskId, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing, setLiveUrl, setError]);
 }

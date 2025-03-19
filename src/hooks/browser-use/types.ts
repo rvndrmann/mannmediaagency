@@ -32,8 +32,8 @@ export interface BrowserConfig {
   cdpUrl?: string;
   useOwnBrowser: boolean;
   chromePath?: string;
-  extraChromiumArgs?: string;
-  proxy?: string;
+  extraChromiumArgs?: string[] | string;
+  proxy?: ProxyConfig | string;
   resolution: string; // e.g. "1920x1080"
   contextConfig?: {
     minWaitPageLoadTime?: number;
@@ -49,22 +49,23 @@ export interface BrowserConfig {
     tracePath?: string;
     cookiesFile?: string;
   };
-  theme?: 'light' | 'dark';
+  theme?: BrowserTheme;
   darkMode?: boolean;
   persistentSession?: boolean;
 }
 
 // Adding these types to fix the errors in BrowserSettings
-export type BrowserTheme = 'light' | 'dark';
+export type BrowserTheme = 'light' | 'dark' | 'Default' | 'Soft' | 'Monochrome' | 'Glass' | 'Origin' | 'Citrus' | 'Ocean';
+
 export interface ProxyConfig {
-  enabled: boolean;
-  url: string;
+  server: string;
+  username?: string;
+  password?: string;
+  bypass?: string;
 }
 
 export interface UserCredits {
-  free_credits: number;
-  paid_credits: number;
-  used_credits: number;
+  credits_remaining: number;
   total_remaining: number;
 }
 

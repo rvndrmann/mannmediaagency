@@ -9,9 +9,10 @@ interface TaskProgressProps {
   progress: number;
   status: string;
   steps: TaskStep[];
+  currentUrl?: string | null;
 }
 
-export function TaskProgress({ progress, status, steps }: TaskProgressProps) {
+export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgressProps) {
   const sortedSteps = [...steps].sort((a, b) => 
     new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
   );
@@ -34,6 +35,12 @@ export function TaskProgress({ progress, status, steps }: TaskProgressProps) {
       </CardHeader>
       <CardContent>
         <Progress value={progress} className="h-2 mb-4" />
+        
+        {currentUrl && (
+          <div className="text-sm text-muted-foreground mb-4 truncate">
+            Current URL: <span className="font-mono">{currentUrl}</span>
+          </div>
+        )}
         
         <ScrollArea className="h-[400px] pr-4">
           <div className="space-y-4">

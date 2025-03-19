@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { BrowserConfig, BrowserTheme, ProxyConfig } from "@/hooks/browser-use/types";
 import { Separator } from "@/components/ui/separator";
-import { ChevronDown, ChevronUp, RefreshCw, Save } from "lucide-react";
+import { ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
 interface BrowserSettingsProps {
@@ -22,7 +22,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
   
-  // Default proxy config with required server field
+  // Default proxy config
   const defaultProxyConfig: ProxyConfig = {
     server: '',
     username: '',
@@ -30,8 +30,17 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
     bypass: ''
   };
   
-  // Ensure proxy object always exists with the server property
-  const proxy = config.proxy || defaultProxyConfig;
+  // Get the proxy config safely
+  const getProxyConfig = (): ProxyConfig => {
+    if (!config.proxy) return defaultProxyConfig;
+    if (typeof config.proxy === 'string') {
+      return { server: config.proxy, username: '', password: '', bypass: '' };
+    }
+    return config.proxy;
+  };
+  
+  // Get the proxy config
+  const proxy = getProxyConfig();
   
   const handleChange = <K extends keyof BrowserConfig>(key: K, value: BrowserConfig[K]) => {
     onConfigChange({
@@ -57,12 +66,10 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
     key: K,
     value: ProxyConfig[K]
   ) => {
+    const updatedProxy = { ...proxy, [key]: value };
     onConfigChange({
       ...config,
-      proxy: {
-        ...proxy,
-        [key]: value,
-      },
+      proxy: updatedProxy,
     });
   };
   
@@ -466,7 +473,9 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                       <Input
                         id="extraChromiumArgs"
                         placeholder="e.g., --no-sandbox,--disable-gpu"
-                        value={(config.extraChromiumArgs || []).join(',')}
+                        value={Array.isArray(config.extraChromiumArgs) 
+                          ? config.extraChromiumArgs.join(',') 
+                          : config.extraChromiumArgs || ''}
                         onChange={(e) => handleChange('extraChromiumArgs', e.target.value.split(',').filter(Boolean))}
                       />
                       <p className="text-xs text-muted-foreground">

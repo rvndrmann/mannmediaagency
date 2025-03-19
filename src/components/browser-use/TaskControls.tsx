@@ -7,6 +7,8 @@ import { useToast } from "@/components/ui/use-toast";
 import { useEffect } from "react";
 
 interface TaskControlsProps {
+  taskInput?: string;
+  setTaskInput?: (input: string) => void;
   taskStatus: string;
   isProcessing: boolean;
   userCredits: UserCredits | null;
@@ -14,7 +16,7 @@ interface TaskControlsProps {
   onPause: () => Promise<void>;
   onResume: () => Promise<void>;
   onStop: () => Promise<void>;
-  onScreenshot: () => Promise<void>;
+  onScreenshot?: () => Promise<void>;
   error: string | null;
 }
 
@@ -117,15 +119,17 @@ export function TaskControls({
         )}
         
         {/* Screenshot button */}
-        <Button 
-          onClick={onScreenshot}
-          variant="secondary"
-          className="w-full sm:w-auto"
-          disabled={!isProcessing && taskStatus !== 'paused'}
-        >
-          <Camera className="mr-2 h-4 w-4" />
-          Screenshot
-        </Button>
+        {onScreenshot && (
+          <Button 
+            onClick={onScreenshot}
+            variant="secondary"
+            className="w-full sm:w-auto"
+            disabled={!isProcessing && taskStatus !== 'paused'}
+          >
+            <Camera className="mr-2 h-4 w-4" />
+            Screenshot
+          </Button>
+        )}
       </div>
     </div>
   );

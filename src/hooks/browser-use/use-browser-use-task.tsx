@@ -41,7 +41,8 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
   Object.keys(config).forEach(key => {
     const typedKey = key as keyof BrowserConfig;
     if (typedKey in DEFAULT_BROWSER_CONFIG) {
-      validConfig[typedKey] = config[typedKey] as any;
+      // Type assertion to handle the assignment
+      (validConfig[typedKey] as unknown) = config[typedKey];
     }
   });
   

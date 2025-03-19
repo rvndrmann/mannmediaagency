@@ -30,10 +30,8 @@ export function useUserData(
         
         if (data) {
           const credits: UserCredits = {
-            free_credits: data.free_credits || 0,
-            paid_credits: data.paid_credits || 0,
-            used_credits: data.used_credits || 0,
-            total_remaining: (data.free_credits || 0) + (data.paid_credits || 0) - (data.used_credits || 0)
+            credits_remaining: data.credits_remaining || 0,
+            total_remaining: data.credits_remaining || 0
           };
           
           setUserCredits(credits);
@@ -43,9 +41,7 @@ export function useUserData(
             .from('user_credits')
             .insert({
               user_id: user.id,
-              free_credits: 10, // Default free credits
-              paid_credits: 0,
-              used_credits: 0
+              credits_remaining: 10 // Default free credits
             })
             .select()
             .single();
@@ -57,10 +53,8 @@ export function useUserData(
           
           if (newCredits) {
             const credits: UserCredits = {
-              free_credits: newCredits.free_credits || 10,
-              paid_credits: newCredits.paid_credits || 0,
-              used_credits: newCredits.used_credits || 0,
-              total_remaining: (newCredits.free_credits || 10) + (newCredits.paid_credits || 0)
+              credits_remaining: newCredits.credits_remaining || 10,
+              total_remaining: newCredits.credits_remaining || 10
             };
             
             setUserCredits(credits);

@@ -30,7 +30,8 @@ export function BrowserUseApp() {
     browserConfig,
     setBrowserConfig,
     userCredits,
-    liveUrl
+    liveUrl,
+    captureScreenshot
   } = useBrowserUseTask();
   
   // Show toast when live URL becomes available
@@ -65,24 +66,23 @@ export function BrowserUseApp() {
               
               <TabsContent value="task" className="space-y-4 mt-4">
                 <TaskControls
-                  taskInput={taskInput}
-                  setTaskInput={setTaskInput}
-                  startTask={startTask}
-                  pauseTask={pauseTask}
-                  resumeTask={resumeTask}
-                  stopTask={stopTask}
-                  isProcessing={isProcessing}
                   taskStatus={taskStatus}
+                  isProcessing={isProcessing}
                   userCredits={userCredits}
+                  onStart={startTask}
+                  onPause={pauseTask}
+                  onResume={resumeTask}
+                  onStop={stopTask}
+                  onScreenshot={captureScreenshot}
                   error={error}
                 />
                 
                 {isProcessing && (
                   <TaskProgress 
                     progress={progress} 
+                    status={taskStatus}
+                    steps={taskSteps}
                     currentUrl={currentUrl}
-                    taskSteps={taskSteps}
-                    taskStatus={taskStatus}
                   />
                 )}
               </TabsContent>

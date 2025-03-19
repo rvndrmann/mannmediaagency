@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,20 +60,24 @@ export function ManusComputerAgent() {
   const [pageTitle, setPageTitle] = useState<string | null>(null);
   const [navigationAttempts, setNavigationAttempts] = useState<number>(0);
   const [externalWindowOpened, setExternalWindowOpened] = useState(false);
+  const [debugMode, setDebugMode] = useState(false);
   
-  // Set up the browser environment
   useEffect(() => {
     if (activeTab === "browser" && browserViewRef.current) {
-      // Set initial URL if not already set
-      if (!browserViewRef.current.src || browserViewRef.current.src === "about:blank") {
-        setIframeLoading(true);
-        browserViewRef.current.src = "https://www.google.com";
-        setCurrentUrl("https://www.google.com");
+      try {
+        if (!browserViewRef.current.src || browserViewRef.current.src === "about:blank") {
+          console.log("Setting initial browser URL to Google");
+          setIframeLoading(true);
+          browserViewRef.current.src = "https://www.google.com";
+          setCurrentUrl("https://www.google.com");
+        }
+      } catch (error) {
+        console.error("Error initializing browser view:", error);
+        setIframeError("Failed to initialize browser view. Please try refreshing the page.");
       }
     }
   }, [activeTab, setCurrentUrl]);
   
-  // Pre-check URL for iframe compatibility before navigation
   useEffect(() => {
     if (currentUrl) {
       const blocksIframe = isLikelyToBlockIframe(currentUrl);
@@ -85,7 +88,6 @@ export function ManusComputerAgent() {
     }
   }, [currentUrl, isLikelyToBlockIframe, isEmbeddingBlocked, setIsEmbeddingBlocked]);
   
-  // Handle iframe navigation
   const handleIframeLoad = useCallback(() => {
     setIframeLoading(false);
     setIframeError(null);
@@ -93,62 +95,61 @@ export function ManusComputerAgent() {
     
     if (browserViewRef.current) {
       try {
-        // Try to get URL and title from iframe (may fail due to CORS)
         const iframeWindow = browserViewRef.current.contentWindow;
         if (iframeWindow) {
-          const iframeUrl = iframeWindow.location.href;
-          const iframeTitle = iframeWindow.document.title;
-          
-          if (iframeUrl && iframeUrl !== "about:blank") {
-            setCurrentUrl(iframeUrl);
-            console.log("Iframe navigated to:", iframeUrl);
-          }
-          
-          if (iframeTitle) {
-            setPageTitle(iframeTitle);
-            console.log("Page title:", iframeTitle);
+          try {
+            const iframeUrl = iframeWindow.location.href;
+            const iframeTitle = iframeWindow.document.title;
             
-            // Reset embedding blocked if we can get a title
-            if (isEmbeddingBlocked) {
-              setIsEmbeddingBlocked(false);
+            if (iframeUrl && iframeUrl !== "about:blank") {
+              setCurrentUrl(iframeUrl);
+              console.log("Iframe navigated to:", iframeUrl);
             }
-          } else {
-            // If there's no title but we have content, check if it's empty
-            try {
-              const bodyContent = iframeWindow.document.body.innerHTML;
-              if (!bodyContent || bodyContent.trim() === "") {
-                console.log("Empty document body detected - possible iframe blocking");
-                setIsEmbeddingBlocked(true);
-                setIframeError("This site appears to block embedding in iframes. You can open it in a new tab instead.");
+            
+            if (iframeTitle) {
+              setPageTitle(iframeTitle);
+              console.log("Page title:", iframeTitle);
+              
+              if (isEmbeddingBlocked) {
+                setIsEmbeddingBlocked(false);
               }
-            } catch (e) {
-              // If we can't access the body, it's likely CORS restrictions
-              console.log("Cannot access document body - possible CORS/iframe restriction");
-              setIsEmbeddingBlocked(true);
+            } else {
+              try {
+                const bodyContent = iframeWindow.document.body.innerHTML;
+                if (!bodyContent || bodyContent.trim() === "") {
+                  console.log("Empty document body detected - possible iframe blocking");
+                  setIsEmbeddingBlocked(true);
+                  setIframeError("This site appears to block embedding in iframes. You can open it in a new tab instead.");
+                }
+              } catch (e) {
+                console.log("Cannot access document body - possible CORS/iframe restriction");
+                setIsEmbeddingBlocked(true);
+              }
+            }
+          } catch (e) {
+            console.log("CORS error accessing iframe content:", e);
+            if (debugMode) {
+              toast.info("CORS restrictions detected - cannot access iframe content");
             }
           }
           
-          // Capture screenshot after page has loaded
           setTimeout(captureScreenshot, 500);
         }
       } catch (e) {
         console.error("Error accessing iframe URL (this may be normal for cross-origin sites):", e);
-        // If we get a security error, it's likely a CORS issue from a site blocking iframe embedding
         if (e instanceof DOMException && (e.name === "SecurityError" || e.name === "NotAllowedError")) {
           setIsEmbeddingBlocked(true);
           setIframeError("This site blocks iframe embedding due to security restrictions. You can open it in a new tab instead.");
         }
-        // Still try to capture screenshot even if we can't access the DOM
         setTimeout(captureScreenshot, 500);
       }
     }
-  }, [setCurrentUrl, captureScreenshot, isEmbeddingBlocked, setIsEmbeddingBlocked]);
+  }, [setCurrentUrl, captureScreenshot, isEmbeddingBlocked, setIsEmbeddingBlocked, debugMode]);
   
   const handleIframeError = useCallback(() => {
     setIframeLoading(false);
     
     if (navigationAttempts < 2) {
-      // Try to reload the page once more before showing error
       setNavigationAttempts(prev => prev + 1);
       console.log(`Retry attempt ${navigationAttempts + 1} for URL:`, currentUrl);
       
@@ -165,52 +166,36 @@ export function ManusComputerAgent() {
     setIframeError("Failed to load the page. This may be due to security restrictions or the site blocking iframe embedding.");
     console.error("Iframe failed to load after retries:", currentUrl);
     
-    // Mark as embedding blocked
     setIsEmbeddingBlocked(true);
-    
-    // Still try to capture screenshot for AI analysis even if iframe fails
     setTimeout(captureScreenshot, 500);
   }, [currentUrl, captureScreenshot, navigationAttempts, setIsEmbeddingBlocked]);
   
-  // Navigate to URL with validation and fallback
   const navigateToUrl = useCallback((url: string) => {
-    // Ensure URL has protocol
     let navigateUrl = url.trim();
     
-    // Handle special cases for search queries
     if (!navigateUrl.includes(".") && !navigateUrl.startsWith("http")) {
       navigateUrl = `https://www.google.com/search?q=${encodeURIComponent(navigateUrl)}`;
     } else if (!/^https?:\/\//i.test(navigateUrl)) {
       navigateUrl = `https://${navigateUrl}`;
     }
     
-    // Check if this URL is likely to block iframe embedding
     const likelyToBlock = isLikelyToBlockIframe(navigateUrl);
     
     if (likelyToBlock) {
-      // Ask user if they want to try iframe or open in new tab
       const userChoice = window.confirm(
         `${navigateUrl} is likely to block iframe embedding. \n\n` +
         `Click OK to open in a new tab, or Cancel to try in iframe anyway.`
       );
       
       if (userChoice) {
-        // Open in new tab as requested
         window.open(navigateUrl, '_blank');
         setExternalWindowOpened(true);
         setCurrentUrl(navigateUrl);
-        
-        // Set iframe to a friendly fallback (Google)
-        if (browserViewRef.current && browserViewRef.current.src !== "https://www.google.com") {
-          browserViewRef.current.src = "https://www.google.com";
-        }
-        
         setIsEmbeddingBlocked(true);
         return;
       }
     }
     
-    // Reset error state and set loading
     setIframeError(null);
     setIframeLoading(true);
     setNavigationAttempts(0);
@@ -224,19 +209,15 @@ export function ManusComputerAgent() {
     }
   }, [setCurrentUrl, setIsEmbeddingBlocked, isLikelyToBlockIframe]);
   
-  // Open current URL in new tab
   const openInNewTab = useCallback(() => {
     if (currentUrl) {
       window.open(currentUrl, '_blank');
       setExternalWindowOpened(true);
-      
-      // Make sure the agent knows we've opened in a new tab
       setIsEmbeddingBlocked(true);
       toast.success("Opened in new tab");
     }
   }, [currentUrl, setIsEmbeddingBlocked]);
   
-  // Take screenshot when needed
   const handleTakeScreenshot = useCallback(async () => {
     const screenshot = await captureScreenshot();
     if (screenshot) {
@@ -245,33 +226,27 @@ export function ManusComputerAgent() {
       toast.error("Failed to capture screenshot");
     }
   }, [captureScreenshot]);
-
-  // Handle action execution effect
+  
   useEffect(() => {
-    // Look for navigate actions and execute them directly
     if (currentActions.length > 0) {
       const currentAction = currentActions[0];
       
       if (currentAction.type === "navigate" && currentAction.url) {
         console.log("Executing navigate action:", currentAction.url);
         
-        // Check if this URL is likely to block iframe embedding
         const likelyToBlock = isLikelyToBlockIframe(currentAction.url);
         
         if (likelyToBlock && !isEmbeddingBlocked) {
-          // For URLs likely to block iframes, we'll convert to openNewTab
           toast.info(`${currentAction.url} likely blocks iframe embedding. Opening in new tab instead.`);
           window.open(currentAction.url, '_blank');
           setExternalWindowOpened(true);
           setCurrentUrl(currentAction.url);
           setIsEmbeddingBlocked(true);
           
-          // Still need to execute the action to progress
           setTimeout(() => {
             executeAction();
           }, 500);
         } else {
-          // For iframe-friendly URLs, navigate normally
           navigateToUrl(currentAction.url);
         }
       } else if (currentAction.type === "openNewTab" && currentAction.url) {
@@ -281,7 +256,6 @@ export function ManusComputerAgent() {
         setCurrentUrl(currentAction.url);
         setIsEmbeddingBlocked(true);
         
-        // We still need to execute the action formally to progress
         setTimeout(() => {
           executeAction();
         }, 500);
@@ -289,7 +263,6 @@ export function ManusComputerAgent() {
     }
   }, [currentActions, navigateToUrl, executeAction, isLikelyToBlockIframe, isEmbeddingBlocked, setIsEmbeddingBlocked]);
   
-  // Retry navigation if needed
   const handleRetryNavigation = useCallback(() => {
     if (currentUrl) {
       setIframeError(null);
@@ -337,7 +310,6 @@ export function ManusComputerAgent() {
       </div>
       
       <div className="grid grid-cols-1 md:grid-cols-3 flex-1 overflow-hidden">
-        {/* Left Panel: Task Configuration */}
         <div className="p-4 bg-gray-50 dark:bg-gray-900 overflow-y-auto border-r">
           <div className="space-y-4">
             <div>
@@ -468,7 +440,6 @@ export function ManusComputerAgent() {
           </div>
         </div>
         
-        {/* Middle and Right Panels: Browser View and Action History */}
         <div className="col-span-2 flex flex-col overflow-hidden">
           <Tabs defaultValue="browser" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-4 pt-2 border-b">
@@ -557,15 +528,6 @@ export function ManusComputerAgent() {
                         >
                           Take Screenshot
                         </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            setActiveTab("history");
-                          }}
-                        >
-                          View History
-                        </Button>
                       </div>
                     </AlertDescription>
                   </Alert>
@@ -604,7 +566,7 @@ export function ManusComputerAgent() {
                   ref={browserViewRef}
                   className="w-full h-full border-0"
                   title="Browser View"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-modals allow-orientation-lock allow-pointer-lock"
+                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-top-navigation"
                   onLoad={handleIframeLoad}
                   onError={handleIframeError}
                 />
@@ -653,6 +615,17 @@ export function ManusComputerAgent() {
             </TabsContent>
           </Tabs>
         </div>
+      </div>
+      
+      <div className="p-2 border-t text-right">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={() => setDebugMode(!debugMode)}
+          className="text-xs"
+        >
+          {debugMode ? 'Disable Debug Mode' : 'Enable Debug Mode'}
+        </Button>
       </div>
     </div>
   );

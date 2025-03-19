@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useManusAdapter, ManusAction, actionToJson, jsonToAction } from "./manus-adapter";
@@ -74,27 +73,61 @@ export const useManusAgent = () => {
     if (typeof document === 'undefined') return null;
     
     try {
+      console.log('Starting screenshot capture...');
       const html2canvas = (await import('html2canvas')).default;
       
+      // Find the browser view container
       const element = document.querySelector('.browser-view-container');
       
       if (!element) {
         console.error('Could not find browser view container for screenshot');
-        return null;
+        
+        // Try to find iframe directly as fallback
+        const iframe = document.querySelector('iframe[title="Browser View"]');
+        if (iframe) {
+          console.log('Found iframe directly, using it for screenshot');
+          const canvas = await html2canvas(iframe as HTMLElement, {
+            useCORS: true,
+            allowTaint: true,
+            logging: true,
+            scale: 1.5,
+            backgroundColor: '#FFFFFF',
+          });
+          
+          const dataUrl = canvas.toDataURL('image/png');
+          console.log('Screenshot captured from iframe directly');
+          setScreenshot(dataUrl);
+          return dataUrl;
+        }
+        
+        // If still no element found, return a simple fallback
+        const fallback = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+        setScreenshot(fallback);
+        return fallback;
       }
       
-      console.log('Capturing screenshot...');
+      console.log('Browser view container found, dimensions:', element.clientWidth, 'x', element.clientHeight);
       
+      // Wait a moment to ensure content is loaded
+      await new Promise(resolve => setTimeout(resolve, 200));
+      
+      // Take screenshot with improved settings
       const canvas = await html2canvas(element as HTMLElement, {
         useCORS: true,
         allowTaint: true,
         logging: false,
         scale: 1.5,
         backgroundColor: '#FFFFFF',
+        ignoreElements: (element) => {
+          // Ignore error messages and overlays that might be showing
+          return element.classList.contains('absolute') && 
+                 (element.textContent?.includes('Error') || 
+                  element.textContent?.includes('Failed to load'));
+        }
       });
       
       const dataUrl = canvas.toDataURL('image/png');
-      console.log('Screenshot captured successfully');
+      console.log('Screenshot captured successfully, size:', dataUrl.length);
       setScreenshot(dataUrl);
       return dataUrl;
     } catch (error) {
@@ -103,7 +136,7 @@ export const useManusAgent = () => {
       setScreenshot(fallback);
       return fallback;
     }
-  }, []);
+  }, [setScreenshot]);
   
   const fetchActionHistory = useCallback(async () => {
     if (!sessionId) return;

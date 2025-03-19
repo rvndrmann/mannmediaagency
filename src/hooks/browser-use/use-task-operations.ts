@@ -57,9 +57,9 @@ export function useTaskOperations(
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
         .insert({
-          description: taskInput.substring(0, 255), // Limit to 255 chars for the description field
-          full_input: taskInput,
-          status: 'pending'
+          input: taskInput, // Changed from 'description' to 'input' to match the database schema
+          status: 'pending',
+          user_id: (await supabase.auth.getUser()).data.user?.id // Adding user_id as it's required
         })
         .select('id')
         .single();

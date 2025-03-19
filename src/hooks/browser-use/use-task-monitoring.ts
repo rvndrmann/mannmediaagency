@@ -1,3 +1,4 @@
+
 import { useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserTaskState, TaskStatus } from "./types";
@@ -150,10 +151,12 @@ export function useTaskMonitoring(
           
           // Update status from the response
           if (data.status) {
-            setTaskStatus(data.status as TaskStatus);
+            // Map finished to completed for consistency
+            const normalizedStatus = data.status === 'finished' ? 'completed' : data.status;
+            setTaskStatus(normalizedStatus as TaskStatus);
             
             // Update processing flag based on status
-            if (["completed", "failed", "stopped"].includes(data.status)) {
+            if (["completed", "failed", "stopped"].includes(normalizedStatus)) {
               setIsProcessing(false);
             }
           }

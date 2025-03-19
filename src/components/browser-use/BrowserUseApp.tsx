@@ -58,7 +58,7 @@ export function BrowserUseApp() {
   
   // Auto-switch to output tab when task is complete
   useEffect(() => {
-    if (['finished', 'failed', 'stopped', 'completed', 'expired'].includes(taskStatus) && isProcessing === false) {
+    if (['completed', 'failed', 'stopped', 'expired'].includes(taskStatus) && isProcessing === false) {
       setActiveTab("output");
     }
   }, [taskStatus, isProcessing]);
@@ -92,7 +92,7 @@ export function BrowserUseApp() {
                     value={taskInput}
                     onChange={(e) => setTaskInput(e.target.value)}
                     className="min-h-[100px] resize-y"
-                    disabled={isProcessing}
+                    disabled={isProcessing && taskStatus !== 'expired'}
                   />
                 </div>
                 
@@ -123,7 +123,7 @@ export function BrowserUseApp() {
                 <BrowserSettings 
                   browserConfig={browserConfig}
                   onConfigChange={setBrowserConfig}
-                  isProcessing={isProcessing}
+                  isProcessing={isProcessing && taskStatus !== 'expired'}
                 />
               </TabsContent>
               

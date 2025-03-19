@@ -57,6 +57,8 @@ export interface TaskStep {
   description?: string;
   screenshot?: string;
   created_at?: string;
+  status?: 'pending' | 'running' | 'completed' | 'failed';
+  details?: string;
 }
 
 export interface BrowserTaskState {
@@ -81,4 +83,10 @@ export interface BrowserUseError {
   details?: string;
   task_expired?: boolean;
   message?: string;
+}
+
+export interface CaptureWebsiteResponse {
+  url?: string;
+  screenshot?: string;
+  error?: string;
 }

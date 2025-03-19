@@ -14,7 +14,6 @@ interface TaskOutputProps {
 export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
   const getStatusBadge = (status: TaskStatus) => {
     switch(status) {
-      case 'finished':
       case 'completed':
         return <Badge className="bg-green-500">Completed</Badge>;
       case 'failed':
@@ -25,6 +24,8 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
         return <Badge className="bg-blue-500">Running</Badge>;
       case 'paused':
         return <Badge className="bg-yellow-500">Paused</Badge>;
+      case 'expired':
+        return <Badge className="bg-red-500">Expired</Badge>;
       case 'pending':
       case 'created':
       case 'idle':
@@ -49,7 +50,7 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
         </div>
       )}
       
-      {['finished', 'completed'].includes(taskStatus) && output && (
+      {taskStatus === 'completed' && output && (
         <div className="rounded-md border p-4 bg-muted/50">
           <div className="flex gap-2 items-center mb-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
@@ -61,24 +62,26 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
         </div>
       )}
       
-      {['failed', 'stopped'].includes(taskStatus) && (
-        <Alert variant={taskStatus === 'failed' ? 'destructive' : 'default'}>
+      {['failed', 'stopped', 'expired'].includes(taskStatus) && (
+        <Alert variant={taskStatus === 'failed' || taskStatus === 'expired' ? 'destructive' : 'default'}>
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             {taskStatus === 'failed' 
               ? "Task failed to complete. Check the logs below for details." 
+              : taskStatus === 'expired'
+              ? "Task has expired. Please restart the task to continue."
               : "Task was manually stopped."}
           </AlertDescription>
         </Alert>
       )}
       
-      {!output && ['finished', 'completed', 'failed', 'stopped'].includes(taskStatus) && (
+      {!output && ['completed', 'failed', 'stopped', 'expired'].includes(taskStatus) && (
         <div className="bg-muted rounded-md p-4">
           <p className="text-muted-foreground text-sm">No output available.</p>
         </div>
       )}
       
-      {output && ['failed', 'stopped'].includes(taskStatus) && (
+      {output && ['failed', 'stopped', 'expired'].includes(taskStatus) && (
         <div className="rounded-md border p-4 bg-muted/50">
           <ScrollArea className="h-[300px] w-full">
             <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
@@ -97,10 +100,11 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
                     <Badge 
                       className={`mr-2 ${
                         step.status === 'completed' ? 'bg-green-500' : 
-                        step.status === 'failed' ? 'bg-red-500' : 'bg-gray-500'
+                        step.status === 'failed' ? 'bg-red-500' : 
+                        step.status === 'running' ? 'bg-blue-500' : 'bg-gray-500'
                       }`}
                     >
-                      {step.status.charAt(0).toUpperCase() + step.status.slice(1)}
+                      {step.status ? step.status.charAt(0).toUpperCase() + step.status.slice(1) : 'Pending'}
                     </Badge>
                     <div className="flex-1">
                       <p className="font-medium text-sm">{step.description}</p>

@@ -24,8 +24,8 @@ export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgre
     paused: "text-yellow-500",
     failed: "text-red-500",
     stopped: "text-orange-500",
-    finished: "text-purple-500",
-    completed: "text-emerald-500"
+    completed: "text-emerald-500",
+    expired: "text-red-500"
   };
   
   const statusColor = statusColorMap[status] || "text-gray-500";
@@ -87,7 +87,8 @@ export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgre
                       <div className="font-medium">{step.description}</div>
                       <div className={
                         step.status === 'completed' ? 'text-green-500' : 
-                        step.status === 'failed' ? 'text-red-500' : 'text-blue-500'
+                        step.status === 'failed' ? 'text-red-500' : 
+                        step.status === 'running' ? 'text-blue-500' : 'text-gray-500'
                       }>
                         {step.status}
                       </div>

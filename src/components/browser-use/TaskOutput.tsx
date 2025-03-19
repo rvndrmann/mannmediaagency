@@ -4,19 +4,22 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Copy } from "lucide-react";
 import { toast } from "sonner";
+import { TaskStep } from "@/hooks/browser-use/types";
 
-interface TaskOutputProps {
-  taskOutput: string;
-  taskStatus: 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
+export interface TaskOutputProps {
+  output: string | null;
+  taskSteps: TaskStep[];
+  taskStatus?: 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
 }
 
 export function TaskOutput({
-  taskOutput,
-  taskStatus
+  output,
+  taskSteps,
+  taskStatus = 'idle'
 }: TaskOutputProps) {
   const copyToClipboard = () => {
-    if (taskOutput) {
-      navigator.clipboard.writeText(taskOutput);
+    if (output) {
+      navigator.clipboard.writeText(output);
       toast.success("Output copied to clipboard");
     }
   };
@@ -25,7 +28,7 @@ export function TaskOutput({
     <div className="h-full flex flex-col">
       <div className="flex justify-between items-center mb-3">
         <h3 className="text-sm font-medium">Task Output</h3>
-        {taskOutput && (
+        {output && (
           <Button 
             variant="outline" 
             size="sm" 
@@ -38,9 +41,9 @@ export function TaskOutput({
       </div>
       
       <ScrollArea className="flex-1">
-        {taskOutput ? (
+        {output ? (
           <Card className="p-4 bg-gray-50 dark:bg-gray-900 whitespace-pre-wrap font-mono text-sm">
-            {taskOutput}
+            {output}
           </Card>
         ) : (
           <div className="h-full flex items-center justify-center text-gray-500">

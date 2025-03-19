@@ -79,6 +79,7 @@ export function BrowserUseApp() {
                 <TaskOutput 
                   output={taskOutput}
                   taskSteps={taskSteps}
+                  taskStatus={taskStatus}
                 />
               </TabsContent>
             </Tabs>

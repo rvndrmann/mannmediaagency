@@ -151,11 +151,15 @@ serve(async (req) => {
       // Prepare request body with browser configuration
       const apiRequestBody = {
         task: requestData.task,
-        save_browser_data: true,
+        save_browser_data: requestData.save_browser_data || true,
         browser_config: requestData.browser_config || {
-          persistentSession: false,
-          resolution: "1920x1080",
-          useOwnBrowser: false
+          headless: false,
+          disable_security: true,
+          context_config: {
+            browser_window_size: { width: 1280, height: 1100 },
+            highlight_elements: true,
+            viewport_expansion: 500
+          }
         }
       };
 

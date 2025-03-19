@@ -40,6 +40,69 @@ export function useTaskOperations(
     setError 
   } = stateSetters;
 
+  // Format browser config for API submission
+  const formatConfigForApi = (config: BrowserConfig) => {
+    // Create a deep copy to avoid modifying the original
+    const formattedConfig = JSON.parse(JSON.stringify(config));
+    
+    // Transform resolution into browserWindowSize if not already set
+    if (formattedConfig.resolution && !formattedConfig.contextConfig?.browserWindowSize) {
+      const parts = formattedConfig.resolution.split('x');
+      if (parts.length === 2) {
+        const width = parseInt(parts[0].trim());
+        const height = parseInt(parts[1].trim());
+        
+        if (!isNaN(width) && !isNaN(height)) {
+          if (!formattedConfig.contextConfig) {
+            formattedConfig.contextConfig = {};
+          }
+          
+          formattedConfig.contextConfig.browserWindowSize = { 
+            width, 
+            height 
+          };
+        }
+      }
+    }
+    
+    // Map our config structure to browser-use.com expected format
+    return {
+      // Core settings
+      headless: formattedConfig.headless,
+      disable_security: formattedConfig.disableSecurity,
+      
+      // Alternative initialization
+      wss_url: formattedConfig.wssUrl,
+      cdp_url: formattedConfig.cdpUrl,
+      chrome_instance_path: formattedConfig.useOwnBrowser ? formattedConfig.chromePath : undefined,
+      
+      // Additional settings
+      extra_chromium_args: formattedConfig.extraChromiumArgs,
+      proxy: formattedConfig.proxy,
+      
+      // Context configuration
+      context_config: formattedConfig.contextConfig ? {
+        minimum_wait_page_load_time: formattedConfig.contextConfig.minWaitPageLoadTime,
+        wait_for_network_idle_page_load_time: formattedConfig.contextConfig.waitForNetworkIdlePageLoadTime,
+        maximum_wait_page_load_time: formattedConfig.contextConfig.maxWaitPageLoadTime,
+        browser_window_size: formattedConfig.contextConfig.browserWindowSize,
+        locale: formattedConfig.contextConfig.locale,
+        user_agent: formattedConfig.contextConfig.userAgent,
+        highlight_elements: formattedConfig.contextConfig.highlightElements,
+        viewport_expansion: formattedConfig.contextConfig.viewportExpansion,
+        allowed_domains: formattedConfig.contextConfig.allowedDomains,
+        save_recording_path: formattedConfig.contextConfig.saveRecordingPath,
+        trace_path: formattedConfig.contextConfig.tracePath,
+        cookies_file: formattedConfig.contextConfig.cookiesFile
+      } : undefined,
+      
+      // UI theme settings (for our frontend only, not used by API)
+      theme: formattedConfig.theme,
+      dark_mode: formattedConfig.darkMode,
+      persistent_session: formattedConfig.persistentSession
+    };
+  };
+
   // Start a new task
   const startTask = async () => {
     if (isProcessing) return;
@@ -75,13 +138,17 @@ export function useTaskOperations(
       console.log("Created task with ID:", taskId);
       setCurrentTaskId(taskId);
 
+      // Format the browser config for the API
+      const formattedConfig = formatConfigForApi(browserConfig);
+      console.log("Sending browser config:", formattedConfig);
+
       // Now call the edge function to start the browser automation
       const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task: taskInput,
           task_id: taskId,
           save_browser_data: true,
-          browser_config: browserConfig
+          browser_config: formattedConfig
         }
       });
 

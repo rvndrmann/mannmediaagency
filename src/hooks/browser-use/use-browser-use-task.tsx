@@ -8,11 +8,51 @@ import { useTaskMonitoring } from "./use-task-monitoring";
 import { useUserData } from "./use-user-data";
 
 const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
+  // Basic settings
   persistentSession: false,
   useOwnBrowser: false,
   resolution: "1920x1080",
   theme: "Ocean",
-  darkMode: false
+  darkMode: false,
+  
+  // Core settings
+  headless: false,
+  disableSecurity: true,
+  
+  // Context configuration
+  contextConfig: {
+    // Default page load settings
+    minWaitPageLoadTime: 0.5,
+    waitForNetworkIdlePageLoadTime: 1.0,
+    maxWaitPageLoadTime: 5.0,
+    
+    // Default display settings
+    browserWindowSize: { width: 1280, height: 1100 },
+    highlightElements: true,
+    viewportExpansion: 500
+  }
+};
+
+// Validate browser config to ensure all required fields are present
+const validateConfig = (config: BrowserConfig): BrowserConfig => {
+  const validConfig = { ...DEFAULT_BROWSER_CONFIG };
+  
+  // Copy over user settings, using defaults for missing values
+  Object.keys(config).forEach(key => {
+    validConfig[key] = config[key];
+  });
+  
+  // Ensure contextConfig exists and has required fields
+  if (!validConfig.contextConfig) {
+    validConfig.contextConfig = { ...DEFAULT_BROWSER_CONFIG.contextConfig };
+  } else {
+    validConfig.contextConfig = {
+      ...DEFAULT_BROWSER_CONFIG.contextConfig,
+      ...validConfig.contextConfig
+    };
+  }
+  
+  return validConfig;
 };
 
 export function useBrowserUseTask() {
@@ -35,7 +75,7 @@ export function useBrowserUseTask() {
       const savedConfig = localStorage.getItem('browserUseConfig');
       if (savedConfig) {
         const parsedConfig = JSON.parse(savedConfig);
-        setBrowserConfig(parsedConfig);
+        setBrowserConfig(validateConfig(parsedConfig));
       }
     } catch (err) {
       console.error("Error loading saved browser config:", err);
@@ -50,6 +90,11 @@ export function useBrowserUseTask() {
       console.error("Error saving browser config:", err);
     }
   }, [browserConfig]);
+
+  // Safely update browser config
+  const updateBrowserConfig = useCallback((newConfig: BrowserConfig) => {
+    setBrowserConfig(validateConfig(newConfig));
+  }, []);
 
   const state: BrowserTaskState = {
     taskInput,
@@ -78,7 +123,7 @@ export function useBrowserUseTask() {
     setScreenshot,
     setUserCredits,
     setError,
-    setBrowserConfig
+    setBrowserConfig: updateBrowserConfig
   };
 
   // Use the refactored hooks
@@ -129,6 +174,6 @@ export function useBrowserUseTask() {
     userCredits,
     error,
     browserConfig,
-    setBrowserConfig
+    setBrowserConfig: updateBrowserConfig
   };
 }

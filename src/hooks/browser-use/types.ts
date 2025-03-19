@@ -61,7 +61,9 @@ export interface BrowserTaskState {
   browserConfig: BrowserConfig;
 }
 
+// Enhanced BrowserConfig interface with additional options from documentation
 export interface BrowserConfig {
+  // Basic browser settings
   persistentSession: boolean;
   useOwnBrowser: boolean;
   resolution: string;
@@ -69,6 +71,52 @@ export interface BrowserConfig {
   chromeUserData?: string;
   theme?: BrowserTheme;
   darkMode?: boolean;
+  
+  // Core settings
+  headless?: boolean;
+  disableSecurity?: boolean;
+  
+  // Alternative initialization
+  wssUrl?: string;
+  cdpUrl?: string;
+  
+  // Additional settings
+  extraChromiumArgs?: string[];
+  proxy?: ProxyConfig;
+  
+  // Context configuration
+  contextConfig?: BrowserContextConfig;
+}
+
+export interface ProxyConfig {
+  server: string;
+  bypass?: string;
+  username?: string;
+  password?: string;
+}
+
+export interface BrowserContextConfig {
+  // Page load settings
+  minWaitPageLoadTime?: number;
+  waitForNetworkIdlePageLoadTime?: number;
+  maxWaitPageLoadTime?: number;
+  
+  // Display settings
+  browserWindowSize?: { width: number; height: number };
+  locale?: string;
+  userAgent?: string;
+  highlightElements?: boolean;
+  viewportExpansion?: number;
+  
+  // Restrict URLs
+  allowedDomains?: string[];
+  
+  // Debug and recording
+  saveRecordingPath?: string;
+  tracePath?: string;
+  
+  // Cookies
+  cookiesFile?: string;
 }
 
 export type BrowserTheme = 'Default' | 'Soft' | 'Monochrome' | 'Glass' | 'Origin' | 'Citrus' | 'Ocean';

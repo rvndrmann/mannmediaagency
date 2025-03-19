@@ -34,7 +34,7 @@ export function TaskControls({
   const canResume = isProcessing && taskStatus === 'paused';
   const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused');
   const canScreenshot = Boolean(onScreenshot) && taskStatus === 'running' && isProcessing;
-  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'completed' || error?.includes('expired'));
+  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'completed' || taskStatus === 'expired' || error?.includes('expired'));
   
   const copyTaskError = () => {
     if (!error) return;

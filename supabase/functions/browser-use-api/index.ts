@@ -156,7 +156,12 @@ serve(async (req) => {
           }
           
           return new Response(
-            JSON.stringify({ error: errorMessage, status: response.status }),
+            JSON.stringify({ 
+              error: errorMessage, 
+              status: response.status,
+              task_expired: response.status === 404,
+              message: response.status === 404 ? "This task may have expired or been deleted. You can restart the task to continue." : undefined
+            }),
             { 
               status: 200, // Return 200 to handle errors gracefully on the client
               headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
@@ -278,8 +283,9 @@ serve(async (req) => {
             JSON.stringify({ 
               error: "Task not found or expired", 
               status: 404,
-              message: "This task may have expired or been deleted. Please start a new task.",
-              task_id: task_id
+              task_expired: true,
+              task_id: task_id,
+              message: "This task may have expired or been deleted. You can restart the task to continue."
             }),
             { 
               status: 200, // Return 200 so we can handle errors gracefully on the client
@@ -425,4 +431,3 @@ serve(async (req) => {
     );
   }
 });
-

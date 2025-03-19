@@ -1,15 +1,5 @@
 
-export type TaskStatus = 'idle' | 'created' | 'pending' | 'running' | 'paused' | 'completed' | 'failed' | 'stopped' | 'finished';
-
-export interface TaskStep {
-  id: string;
-  task_id: string;
-  description: string;
-  status: string;
-  details?: string | null;
-  created_at: string;
-}
-
+// User credits info from the database
 export interface UserCredits {
   id: string;
   user_id: string;
@@ -18,52 +8,55 @@ export interface UserCredits {
   updated_at: string;
 }
 
-export type BrowserTheme = 'Default' | 'Soft' | 'Monochrome' | 'Glass' | 'Origin' | 'Citrus' | 'Ocean';
-
-export interface ProxyConfig {
-  server: string;
-  username?: string;
-  password?: string;
-  bypass?: string;
-}
-
-export interface BrowserWindowSize {
-  width: number;
-  height: number;
+// Browser configuration types
+export interface BrowserContextConfig {
+  minWaitPageLoadTime?: number;
+  waitForNetworkIdlePageLoadTime?: number;
+  maxWaitPageLoadTime?: number;
+  browserWindowSize?: { width: number; height: number };
+  locale?: string;
+  userAgent?: string;
+  highlightElements?: boolean;
+  viewportExpansion?: number;
+  allowedDomains?: string[] | string;
+  saveRecordingPath?: string;
+  tracePath?: string;
+  cookiesFile?: string;
 }
 
 export interface BrowserConfig {
+  // Basic settings
   persistentSession: boolean;
   useOwnBrowser: boolean;
   resolution: string;
-  theme: BrowserTheme | string;
-  darkMode: boolean;
-  headless: boolean;
-  disableSecurity: boolean;
+  theme?: string;
+  darkMode?: boolean;
+  
+  // Advanced settings
+  headless?: boolean;
+  disableSecurity?: boolean;
   chromePath?: string;
   chromeUserData?: string;
-  extraChromiumArgs?: string[] | string;
-  proxy?: ProxyConfig | string;
-  contextConfig: {
-    minWaitPageLoadTime: number;
-    waitForNetworkIdlePageLoadTime: number;
-    maxWaitPageLoadTime: number;
-    browserWindowSize: BrowserWindowSize;
-    highlightElements: boolean;
-    viewportExpansion: number;
-    userAgent?: string;
-    locale?: string;
-    allowedDomains?: string[] | string;
-    saveRecordingPath?: string;
-    tracePath?: string;
-    cookiesFile?: string;
-  };
+  extraChromiumArgs?: string[];
+  cdpUrl?: string;
+  wssUrl?: string;
+  proxy?: string;
+  
+  // Context configuration
+  contextConfig?: BrowserContextConfig;
 }
 
-export interface CaptureWebsiteResponse {
-  url: string;
-  imageUrl: string;
-  error?: string;
+// Browser automation task state
+export type TaskStatus = 'idle' | 'pending' | 'created' | 'running' | 'paused' | 'stopped' | 'failed' | 'completed' | 'expired';
+
+export interface TaskStep {
+  id: string;
+  step: number;
+  evaluation_previous_goal?: string;
+  next_goal?: string;
+  description?: string;
+  screenshot?: string;
+  created_at?: string;
 }
 
 export interface BrowserTaskState {
@@ -78,12 +71,14 @@ export interface BrowserTaskState {
   error: string | null;
   browserConfig: BrowserConfig;
   liveUrl: string | null;
-  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
 }
 
+// API responses
 export interface BrowserUseError {
-  type: 'connection' | 'browser' | 'api' | 'unknown';
-  message: string;
+  error: string;
+  status?: number;
   details?: string;
-  retryable: boolean;
+  task_expired?: boolean;
+  message?: string;
 }

@@ -2,17 +2,11 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 import * as playwright from "playwright";
+import { corsHeaders } from "https://deno.land/x/cors@v1.2.2/mod.ts";
 
 // Define API endpoints and environment variables
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
 const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
-
-// Configure CORS headers
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-  'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
-};
 
 interface BrowserAction {
   type: string;
@@ -29,6 +23,8 @@ interface BrowserAction {
 console.log("Browser Automation WebSocket function loaded");
 
 serve(async (req) => {
+  console.log("WebSocket endpoint called with method:", req.method);
+  
   // Handle preflight CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders, status: 204 });
@@ -36,6 +32,7 @@ serve(async (req) => {
 
   const upgrade = req.headers.get("upgrade") || "";
   if (upgrade.toLowerCase() != "websocket") {
+    console.error("Request is not a WebSocket upgrade:", upgrade);
     return new Response("Request is not a WebSocket upgrade", { 
       status: 400,
       headers: { ...corsHeaders }
@@ -50,7 +47,10 @@ serve(async (req) => {
     const session_id = url.searchParams.get("session_id");
     const token = url.searchParams.get("token");
     
+    console.log("Query parameters:", { session_id, tokenLength: token?.length || 0 });
+    
     if (!session_id || !token) {
+      console.error("Missing required parameters");
       return new Response("Missing required parameters: session_id and token", { 
         status: 400,
         headers: { ...corsHeaders }
@@ -59,8 +59,10 @@ serve(async (req) => {
     
     // Create Supabase client
     const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    console.log("Supabase client created");
     
     // Verify token
+    console.log("Verifying token...");
     const { data: { user }, error: authError } = await supabase.auth.getUser(token);
     if (authError || !user) {
       console.error("Authentication failed:", authError);
@@ -69,8 +71,10 @@ serve(async (req) => {
         headers: { ...corsHeaders }
       });
     }
+    console.log("Token verified for user:", user.id);
     
     // Verify session belongs to user
+    console.log("Verifying session...");
     const { data: session, error: sessionError } = await supabase
       .from("browser_automation_sessions")
       .select("*")
@@ -85,11 +89,13 @@ serve(async (req) => {
         headers: { ...corsHeaders }
       });
     }
+    console.log("Session verified:", session.id);
     
     console.log("Upgrading connection to WebSocket");
     
     // Establish WebSocket connection
     const { socket, response } = Deno.upgradeWebSocket(req);
+    console.log("WebSocket connection initialized");
     
     // Initialize browser
     let browser;

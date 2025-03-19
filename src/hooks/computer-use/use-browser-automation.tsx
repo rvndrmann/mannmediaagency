@@ -36,7 +36,6 @@ export const useBrowserAutomation = () => {
   const [wsConnection, setWsConnection] = useState<WebSocket | null>(null);
   const [browserSessionConnected, setBrowserSessionConnected] = useState<boolean>(false);
   
-  // Use the imported SUPABASE_URL constant instead of accessing supabase.supabaseUrl directly
   const wsBaseUrl = SUPABASE_URL.replace('https://', 'wss://');
   
   const { 
@@ -69,7 +68,6 @@ export const useBrowserAutomation = () => {
     },
   });
   
-  // Initialize WebSocket connection to browser automation service
   const initializeWebSocket = useCallback(async (session_id: string) => {
     try {
       const { data } = await supabase.auth.getSession();
@@ -84,7 +82,6 @@ export const useBrowserAutomation = () => {
       const wsUrl = `${wsBaseUrl}/functions/v1/browser-automation-ws?session_id=${session_id}&token=${accessToken}`;
       console.log("Connecting to WebSocket:", wsUrl);
       
-      // Close any existing connection
       if (wsConnection && wsConnection.readyState !== WebSocket.CLOSED) {
         wsConnection.close();
       }
@@ -104,7 +101,6 @@ export const useBrowserAutomation = () => {
           
           if (data.type === "screenshot") {
             setScreenshot(data.data);
-            // Also capture this in the database for history
             if (sessionId) {
               supabase
                 .from("browser_automation_actions")
@@ -121,7 +117,6 @@ export const useBrowserAutomation = () => {
           } else if (data.type === "action_status") {
             if (data.status === "completed") {
               toast.success(`Action completed: ${data.action_type}`);
-              // Update action status in database
               if (sessionId) {
                 supabase
                   .from("browser_automation_actions")
@@ -134,12 +129,10 @@ export const useBrowserAutomation = () => {
                   .order("created_at", { ascending: true })
                   .limit(1);
                 
-                // Fetch the next action
                 fetchNextAction();
               }
             } else if (data.status === "failed") {
               toast.error(`Action failed: ${data.action_type} - ${data.error}`);
-              // Update action status in database
               if (sessionId) {
                 supabase
                   .from("browser_automation_actions")
@@ -176,10 +169,9 @@ export const useBrowserAutomation = () => {
         console.log("WebSocket connection closed");
         setBrowserSessionConnected(false);
         
-        // Auto-reconnect logic
         if (sessionId) {
           setTimeout(() => {
-            if (sessionId === session_id) { // Make sure we're still in the same session
+            if (sessionId === session_id) {
               console.log("Attempting to reconnect WebSocket...");
               initializeWebSocket(session_id);
             }
@@ -195,7 +187,6 @@ export const useBrowserAutomation = () => {
     }
   }, [wsBaseUrl, sessionId]);
   
-  // Cleanup WebSocket connection on unmount
   useEffect(() => {
     return () => {
       if (wsConnection) {
@@ -213,7 +204,6 @@ export const useBrowserAutomation = () => {
       console.error("WebSocket not connected for screenshot capture");
       
       if (sessionId) {
-        // Try to reconnect if we have a session
         initializeWebSocket(sessionId);
         toast.error("Connection lost. Reconnecting...");
       }
@@ -263,7 +253,6 @@ export const useBrowserAutomation = () => {
     if (!sessionId) return;
     
     try {
-      // Get the next pending action for this session
       const { data, error } = await supabase
         .from("browser_automation_actions")
         .select("*")
@@ -282,7 +271,6 @@ export const useBrowserAutomation = () => {
           setReasoning(data.reasoning || "");
         }
       } else {
-        // No pending actions, get next steps from AI
         await getNextActions();
       }
       
@@ -302,14 +290,11 @@ export const useBrowserAutomation = () => {
     setIsProcessing(true);
     
     try {
-      // First take a screenshot if we have a WebSocket connection
       if (wsConnection && wsConnection.readyState === WebSocket.OPEN) {
         wsConnection.send(JSON.stringify({ type: "capture_screenshot" }));
-        // Wait a bit for the screenshot to come back
         await new Promise(resolve => setTimeout(resolve, 1000));
       }
       
-      // Get the previous action to provide context
       const previousAction = actionHistory.length > 0 
         ? actionHistory[actionHistory.length - 1].action 
         : null;
@@ -330,7 +315,6 @@ export const useBrowserAutomation = () => {
         setCurrentActions(browserResponse.actions);
         setReasoning(browserResponse.reasoning || "");
         
-        // Store the actions in the database
         for (const action of browserResponse.actions) {
           await supabase
             .from("browser_automation_actions")
@@ -343,7 +327,6 @@ export const useBrowserAutomation = () => {
             });
         }
       } else {
-        // If no actions, update session as completed
         await supabase
           .from("browser_automation_sessions")
           .update({
@@ -398,7 +381,6 @@ export const useBrowserAutomation = () => {
         return;
       }
       
-      // Create a new browser automation session
       const { data: sessionData, error: sessionError } = await supabase
         .from("browser_automation_sessions")
         .insert({
@@ -415,10 +397,8 @@ export const useBrowserAutomation = () => {
       
       setSessionId(sessionData.id);
       
-      // Initialize WebSocket connection with the new session ID
       await initializeWebSocket(sessionData.id);
       
-      // Once connected, get the first actions from the AI
       setTimeout(async () => {
         const browserResponse = await sendToBrowserAutomation({
           task: taskDescription,
@@ -430,7 +410,6 @@ export const useBrowserAutomation = () => {
           throw new Error("Failed to get response from browser automation service");
         }
         
-        // Store the first set of actions
         setCurrentActions(browserResponse.actions);
         setReasoning(browserResponse.reasoning || "");
         
@@ -488,16 +467,11 @@ export const useBrowserAutomation = () => {
     try {
       const actionToExecute = currentActions[0];
       
-      // Send the action to the WebSocket server
       wsConnection.send(JSON.stringify({
         type: "execute_action",
         action: actionToExecute
       }));
       
-      // The response will be handled by the WebSocket onmessage event
-      // Which will trigger fetchNextAction() when the action is completed
-      
-      // Remove the current action from the list
       setCurrentActions(currentActions.slice(1));
       
     } catch (error) {
@@ -505,18 +479,15 @@ export const useBrowserAutomation = () => {
       setError(error instanceof Error ? error.message : "Failed to execute action");
       toast.error(error instanceof Error ? error.message : "Failed to execute action");
       
-      // Implement retry mechanism for failed actions
       if (retryCount < 2) {
         setRetryCount(prev => prev + 1);
         toast.info(`Action failed. Retrying (${retryCount + 1}/3)...`);
         
-        // Wait before retrying
         setTimeout(() => {
           executeAction();
         }, 3000);
         return;
       } else {
-        // Mark the action as failed after max retries
         if (sessionId) {
           await supabase
             .from("browser_automation_actions")
@@ -529,7 +500,6 @@ export const useBrowserAutomation = () => {
             .order("created_at", { ascending: true })
             .limit(1);
             
-          // Reset retry count and move to next action
           setRetryCount(0);
           await fetchNextAction();
         }
@@ -547,7 +517,6 @@ export const useBrowserAutomation = () => {
   ]);
   
   const clearSession = useCallback(() => {
-    // Close the WebSocket connection if exists
     if (wsConnection) {
       wsConnection.close();
       setWsConnection(null);

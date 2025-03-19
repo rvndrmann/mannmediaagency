@@ -57,8 +57,11 @@ export function useTaskMonitoring(
               setTaskOutput(taskData.output);
             }
             
-            // 2. If the task is still running or paused, call the browser-use-api to get the latest status
-            if (['running', 'paused', 'pending'].includes(taskData.status)) {
+            // 2. If the task is still running, paused, pending, or created, call the browser-use-api to get the latest status
+            if (['running', 'paused', 'pending', 'created'].includes(taskData.status)) {
+              // Log the browser_task_id we're checking
+              console.log(`Checking status for browser task ID: ${taskData.browser_task_id || 'undefined'}`);
+
               // Fetch the latest task status from the API
               const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api/status', {
                 body: { task_id: taskData.browser_task_id || currentTaskId }

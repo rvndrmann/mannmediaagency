@@ -52,6 +52,18 @@ serve(async (req: Request) => {
     
     // Check if this is a media endpoint call
     if (pathParts[pathParts.length - 1] === 'media') {
+      // Make sure this is a GET request
+      if (req.method !== 'GET') {
+        const taskId = pathParts[pathParts.indexOf('task') + 1];
+        
+        // Forward the request as a GET request by constructing a new URL
+        if (taskId) {
+          return await getTaskMediaByTaskId(taskId);
+        } else {
+          throw new Error("Task ID is required for media endpoint");
+        }
+      }
+      
       const { data, error } = await getTaskMedia(req);
       
       if (error) {
@@ -235,7 +247,56 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
   }
 }
 
-// Helper function to fetch task media
+// Helper function to fetch task media using task ID directly
+async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
+  try {
+    const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");
+    
+    if (!API_KEY) {
+      throw new Error("Browser Use API key is not configured.");
+    }
+    
+    console.log(`Fetching media for task: ${taskId}`);
+    
+    const response = await fetch(`https://browser-use.com/api/v1/task/${taskId}/media`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${API_KEY}`,
+        'Content-Type': 'application/json',
+      }
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to fetch task media: ${errorText}`);
+    }
+    
+    // Safely parse JSON response
+    let responseData;
+    try {
+      const responseText = await response.text();
+      responseData = responseText ? JSON.parse(responseText) : { recordings: null };
+    } catch (parseError) {
+      console.error("Error parsing media response:", parseError);
+      throw new Error(`Failed to parse media response: ${parseError.message}`);
+    }
+    
+    return new Response(JSON.stringify(responseData), {
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  } catch (error) {
+    console.error("Error fetching task media:", error);
+    return new Response(JSON.stringify({
+      error: error instanceof Error ? error.message : "Unknown error fetching task media",
+      recordings: null
+    }), {
+      status: 500,
+      headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+    });
+  }
+}
+
+// Helper function to fetch task media from request
 async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | null, error: Error | null }> {
   try {
     const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");

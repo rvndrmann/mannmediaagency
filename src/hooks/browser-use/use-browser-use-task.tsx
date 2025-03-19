@@ -1,11 +1,19 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useToast } from "@/components/ui/use-toast";
-import { BrowserTaskState, TaskStep, TaskStatus, UserCredits } from "./types";
+import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserTheme } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
 import { useUserData } from "./use-user-data";
+
+const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
+  persistentSession: false,
+  useOwnBrowser: false,
+  resolution: "1920x1080",
+  theme: "Ocean",
+  darkMode: false
+};
 
 export function useBrowserUseTask() {
   const [taskInput, setTaskInput] = useState("");
@@ -19,6 +27,29 @@ export function useBrowserUseTask() {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(DEFAULT_BROWSER_CONFIG);
+
+  // Try to load saved browser config from localStorage
+  useEffect(() => {
+    try {
+      const savedConfig = localStorage.getItem('browserUseConfig');
+      if (savedConfig) {
+        const parsedConfig = JSON.parse(savedConfig);
+        setBrowserConfig(parsedConfig);
+      }
+    } catch (err) {
+      console.error("Error loading saved browser config:", err);
+    }
+  }, []);
+
+  // Save browser config to localStorage when it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('browserUseConfig', JSON.stringify(browserConfig));
+    } catch (err) {
+      console.error("Error saving browser config:", err);
+    }
+  }, [browserConfig]);
 
   const state: BrowserTaskState = {
     taskInput,
@@ -31,7 +62,8 @@ export function useBrowserUseTask() {
     currentUrl,
     screenshot,
     userCredits,
-    error
+    error,
+    browserConfig
   };
 
   const stateSetters = {
@@ -45,7 +77,8 @@ export function useBrowserUseTask() {
     setCurrentUrl,
     setScreenshot,
     setUserCredits,
-    setError
+    setError,
+    setBrowserConfig
   };
 
   // Use the refactored hooks
@@ -95,5 +128,7 @@ export function useBrowserUseTask() {
     captureScreenshot,
     userCredits,
     error,
+    browserConfig,
+    setBrowserConfig
   };
 }

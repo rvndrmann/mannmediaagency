@@ -1,11 +1,17 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import puppeteer from "https://deno.land/x/puppeteer@16.2.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
+
+// Define API endpoints and environment variables
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") || "";
+const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") || "";
+const BROWSER_USE_API_KEY = Deno.env.get("BROWSER_USE_API_KEY") || "";
+const BROWSER_USE_API_URL = "https://api.browser-use.com/api/v1/capture-website";
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -14,7 +20,39 @@ serve(async (req) => {
   }
 
   try {
-    const { url, save_browser_data = true } = await req.json();
+    // Validate API key
+    if (!BROWSER_USE_API_KEY) {
+      return new Response(
+        JSON.stringify({ error: "Browser Use API key is not configured" }),
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Create Supabase client for database operations
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    
+    // Authenticate the request
+    const authHeader = req.headers.get('Authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+      return new Response(
+        JSON.stringify({ error: "Missing or invalid Authorization header" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    const token = authHeader.split(' ')[1];
+    const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+    
+    if (authError || !user) {
+      return new Response(
+        JSON.stringify({ error: "Authentication failed" }),
+        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get request data
+    const requestData = await req.json();
+    const url = requestData.url;
     
     if (!url) {
       return new Response(
@@ -22,90 +60,54 @@ serve(async (req) => {
         { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
-
-    // Use Browser Use API if API key is available
-    const apiKey = Deno.env.get("BROWSER_USE_API_KEY");
-    if (apiKey) {
-      try {
-        console.log("Using Browser Use API to capture website");
-        const options = {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${apiKey}`, 
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            "url": url,
-            "save_browser_data": save_browser_data
-          })
-        };
-
-        const response = await fetch('https://api.browser-use.com/api/v1/capture-website', options);
-        
-        if (!response.ok) {
-          const errorText = await response.text();
-          throw new Error(`Browser Use API Error (${response.status}): ${errorText}`);
-        }
-        
-        const apiResponse = await response.json();
-        
-        return new Response(
-          JSON.stringify(apiResponse),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } catch (apiError) {
-        console.error("Browser Use API Error:", apiError);
-        console.log("Falling back to local puppeteer implementation");
-        // Continue to fallback solution if API fails
-      }
-    }
-
-    // Fallback: Launch local puppeteer if API key is not available or API call failed
-    console.log("Using local puppeteer implementation");
-    const browser = await puppeteer.launch({
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage'
-      ]
+    
+    console.log("Capturing screenshot for URL:", url);
+    
+    // Call the Browser Use API to capture a screenshot
+    const response = await fetch(BROWSER_USE_API_URL, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        url: url,
+        save_browser_data: true
+      })
     });
     
-    try {
-      const page = await browser.newPage();
-      await page.setViewport({ width: 1280, height: 800 });
-      await page.goto(url, { timeout: 30000, waitUntil: 'networkidle2' });
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Error from Browser Use API:", response.status, errorText);
       
-      // Wait for a short time to allow any animations to complete
-      await new Promise(r => setTimeout(r, 1000));
-      
-      // Take screenshot
-      const screenshotBuffer = await page.screenshot({ 
-        type: 'jpeg',
-        quality: 80,
-        fullPage: false 
-      });
-      
-      // Convert screenshot to base64
-      const base64Image = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshotBuffer)))}`;
-      
-      const responseData = {
-        image_url: base64Image,
-        url: page.url(),
-        saved: save_browser_data
-      };
-
       return new Response(
-        JSON.stringify(responseData),
-        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ 
+          error: `Error from Browser Use API: ${response.status}`, 
+          details: errorText 
+        }),
+        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
-    } finally {
-      await browser.close();
     }
-  } catch (error) {
-    console.error("Error capturing website:", error);
+    
+    // Process successful response
+    const screenshotResponse = await response.json();
+    console.log("Screenshot capture response:", JSON.stringify(screenshotResponse));
     
     return new Response(
-      JSON.stringify({ error: error.message || "Failed to capture website" }),
+      JSON.stringify({
+        success: true,
+        image_url: screenshotResponse.image_url,
+        url: url
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error("Error in capture-website function:", error);
+    return new Response(
+      JSON.stringify({ 
+        error: error.message || "Internal server error",
+        stack: error.stack || null
+      }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -18,11 +17,13 @@ export function useTaskOperations(
     setUserCredits: (value: any) => void;
     setError: (value: string | null) => void;
     setTaskInput: (value: string) => void;
+    setBrowserConfig: (value: any) => void;
   }
 ) {
   const {
     taskInput,
     currentTaskId,
+    browserConfig
   } = state;
 
   const {
@@ -84,7 +85,8 @@ export function useTaskOperations(
         body: { 
           task: taskInput,
           save_browser_data: true,
-          task_id: data.id
+          task_id: data.id,
+          browser_config: browserConfig
         }
       });
       
@@ -102,7 +104,7 @@ export function useTaskOperations(
     } finally {
       setIsProcessing(false);
     }
-  }, [taskInput, setIsProcessing, setError, setUserCredits, setCurrentTaskId, setTaskStatus]);
+  }, [taskInput, browserConfig, setIsProcessing, setError, setUserCredits, setCurrentTaskId, setTaskStatus]);
   
   const pauseTask = useCallback(async () => {
     if (!currentTaskId) return;
@@ -137,7 +139,7 @@ export function useTaskOperations(
       console.error("Error pausing task:", err);
       setError(err.message || "Failed to pause task");
       toast.error("Error Pausing Task", {
-        description: err.message || "Failed to pause task."
+        description: err.message || "Failed to pause task"
       });
     } finally {
       setIsProcessing(false);

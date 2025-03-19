@@ -97,6 +97,19 @@ serve(async (req) => {
       // This is a new task, call the Browser Use API
       console.log("Starting new browser automation task:", requestData.task);
       
+      // Prepare request body with browser configuration
+      const apiRequestBody = {
+        task: requestData.task,
+        save_browser_data: true,
+        browser_config: requestData.browser_config || {
+          persistentSession: false,
+          resolution: "1920x1080",
+          useOwnBrowser: false
+        }
+      };
+
+      console.log("API Request Body:", JSON.stringify(apiRequestBody));
+      
       // Call the Browser Use API
       const response = await fetch(BROWSER_USE_API_URL, {
         method: 'POST',
@@ -104,10 +117,7 @@ serve(async (req) => {
           'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          task: requestData.task,
-          save_browser_data: true
-        })
+        body: JSON.stringify(apiRequestBody)
       });
       
       if (!response.ok) {

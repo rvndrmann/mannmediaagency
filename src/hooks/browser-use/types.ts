@@ -32,6 +32,7 @@ export interface BrowserUseApiRequest {
   save_browser_data: boolean;
   task_id?: string;
   action?: 'pause' | 'resume' | 'stop';
+  browser_config?: BrowserConfig;
 }
 
 export interface BrowserUseApiResponse {
@@ -57,4 +58,17 @@ export interface BrowserTaskState {
   screenshot: string | null;
   userCredits: UserCredits | null;
   error: string | null;
+  browserConfig: BrowserConfig;
 }
+
+export interface BrowserConfig {
+  persistentSession: boolean;
+  useOwnBrowser: boolean;
+  resolution: string;
+  chromePath?: string;
+  chromeUserData?: string;
+  theme?: BrowserTheme;
+  darkMode?: boolean;
+}
+
+export type BrowserTheme = 'Default' | 'Soft' | 'Monochrome' | 'Glass' | 'Origin' | 'Citrus' | 'Ocean';

@@ -39,7 +39,10 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
   
   // Copy over user settings, using defaults for missing values
   Object.keys(config).forEach(key => {
-    validConfig[key as keyof BrowserConfig] = config[key as keyof BrowserConfig];
+    const typedKey = key as keyof BrowserConfig;
+    if (typedKey in DEFAULT_BROWSER_CONFIG) {
+      validConfig[typedKey] = config[typedKey] as any;
+    }
   });
   
   // Ensure contextConfig exists and has required fields

@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserConfig, TaskStatus } from "./types";
 
@@ -76,7 +77,11 @@ export function useTaskOperations(
         user_agent: formattedConfig.contextConfig.userAgent,
         highlight_elements: formattedConfig.contextConfig.highlightElements,
         viewport_expansion: formattedConfig.contextConfig.viewportExpansion,
-        allowed_domains: formattedConfig.contextConfig.allowedDomains,
+        allowed_domains: formattedConfig.contextConfig.allowedDomains ? 
+          (Array.isArray(formattedConfig.contextConfig.allowedDomains) ? 
+            formattedConfig.contextConfig.allowedDomains : 
+            [formattedConfig.contextConfig.allowedDomains]) : 
+          undefined,
         save_recording_path: formattedConfig.contextConfig.saveRecordingPath,
         trace_path: formattedConfig.contextConfig.tracePath,
         cookies_file: formattedConfig.contextConfig.cookiesFile

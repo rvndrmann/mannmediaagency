@@ -54,6 +54,13 @@ export interface BrowserConfig {
   persistentSession?: boolean;
 }
 
+// Adding these types to fix the errors in BrowserSettings
+export type BrowserTheme = 'light' | 'dark';
+export interface ProxyConfig {
+  enabled: boolean;
+  url: string;
+}
+
 export interface UserCredits {
   free_credits: number;
   paid_credits: number;

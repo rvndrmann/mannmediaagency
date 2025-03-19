@@ -19,11 +19,11 @@ export function useUserData(
         
         const { data, error } = await supabase
           .from('user_credits')
-          .select('free_credits, paid_credits, used_credits')
+          .select('*')
           .eq('user_id', user.id)
           .maybeSingle();
         
-        if (error) {
+        if (error && !error.message.includes('does not exist')) {
           console.error("Error fetching user credits:", error);
           throw error;
         }
@@ -47,7 +47,7 @@ export function useUserData(
               paid_credits: 0,
               used_credits: 0
             })
-            .select('free_credits, paid_credits, used_credits')
+            .select()
             .single();
           
           if (insertError) {

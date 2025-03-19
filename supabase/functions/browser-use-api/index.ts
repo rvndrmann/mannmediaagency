@@ -252,9 +252,8 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     
     console.log(`Checking status for task: ${taskId}`);
     
-    // Updated to use the correct task endpoint as specified in the API docs
-    // The new documentation points to /task/{task_id}
-    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}`, {
+    // Updated to use the correct task status endpoint as specified in the API docs
+    const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${API_KEY}`,

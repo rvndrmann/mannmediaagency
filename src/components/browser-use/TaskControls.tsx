@@ -1,100 +1,131 @@
 
 import { Button } from "@/components/ui/button";
-import { Play, Pause, Square } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
-import { AlertCircle } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
 import { UserCredits } from "@/hooks/browser-use/types";
+import { Play, Pause, Square, Download, Camera } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/components/ui/use-toast";
+import { useEffect } from "react";
 
-export interface TaskControlsProps {
-  taskInput: string;
-  setTaskInput: (input: string) => void;
-  startTask: () => void;
-  pauseTask: () => void;
-  resumeTask: () => void;
-  stopTask: () => void;
+interface TaskControlsProps {
+  taskStatus: string;
   isProcessing: boolean;
-  taskStatus: 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
   userCredits: UserCredits | null;
+  onStart: () => Promise<void>;
+  onPause: () => Promise<void>;
+  onResume: () => Promise<void>;
+  onStop: () => Promise<void>;
+  onScreenshot: () => Promise<void>;
   error: string | null;
 }
 
-export function TaskControls({ 
-  taskInput,
-  setTaskInput,
-  startTask, 
-  pauseTask, 
-  resumeTask, 
-  stopTask,
-  isProcessing,
+export function TaskControls({
   taskStatus,
+  isProcessing,
   userCredits,
+  onStart,
+  onPause,
+  onResume,
+  onStop,
+  onScreenshot,
   error
 }: TaskControlsProps) {
+  const { toast } = useToast();
+  
+  // Show error toast if error exists
+  useEffect(() => {
+    if (error) {
+      toast({
+        title: "Error",
+        description: error,
+        variant: "destructive"
+      });
+    }
+  }, [error, toast]);
+  
   return (
-    <div className="space-y-4">
-      <h3 className="text-sm font-medium">Task Instructions</h3>
-      
-      <Textarea
-        placeholder="Enter task instructions (e.g., 'Go to google.com and search for AI news')"
-        value={taskInput}
-        onChange={(e) => setTaskInput(e.target.value)}
-        className="min-h-[100px]"
-        disabled={isProcessing && ['running', 'paused'].includes(taskStatus)}
-      />
-      
-      {error && (
-        <Alert variant="destructive">
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>{error}</AlertDescription>
-        </Alert>
-      )}
-      
-      <div className="flex gap-2">
-        {taskStatus === 'idle' || taskStatus === 'finished' || taskStatus === 'failed' || taskStatus === 'stopped' ? (
-          <Button 
-            onClick={startTask}
-            disabled={isProcessing || !taskInput.trim() || (userCredits && userCredits.credits_remaining < 1)}
-            className="flex-1"
-          >
-            <Play className="h-4 w-4 mr-2" />
-            Start Task {userCredits && `(${userCredits.credits_remaining} credits)`}
-          </Button>
-        ) : null}
+    <div className="flex flex-col space-y-4">
+      <div className="flex items-center space-x-4">
+        {/* Status badge */}
+        <Badge 
+          variant={
+            taskStatus === 'running' ? 'default' :
+            taskStatus === 'paused' ? 'outline' :
+            taskStatus === 'completed' || taskStatus === 'finished' ? 'success' :
+            taskStatus === 'failed' || taskStatus === 'stopped' ? 'destructive' :
+            'secondary'
+          }
+          className="text-xs capitalize px-2 py-1"
+        >
+          {taskStatus}
+        </Badge>
         
-        {taskStatus === 'running' ? (
+        {/* Credits display */}
+        {userCredits && (
+          <Badge variant="outline" className="ml-auto">
+            Credits: {userCredits.total_remaining}
+          </Badge>
+        )}
+      </div>
+      
+      <div className="flex flex-wrap gap-2">
+        {/* Start button */}
+        {!isProcessing && (taskStatus === 'idle' || taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'finished' || taskStatus === 'completed') && (
           <Button 
-            onClick={pauseTask}
-            disabled={isProcessing && taskStatus !== 'running'}
-            variant="outline"
-            className="flex-1"
+            onClick={onStart}
+            disabled={isProcessing || (userCredits && userCredits.total_remaining <= 0)}
+            className="w-full sm:w-auto"
           >
-            <Pause className="h-4 w-4 mr-2" />
-            Pause
+            <Play className="mr-2 h-4 w-4" />
+            Start Task
           </Button>
-        ) : taskStatus === 'paused' ? (
+        )}
+        
+        {/* Resume button */}
+        {taskStatus === 'paused' && (
           <Button 
-            onClick={resumeTask}
-            disabled={isProcessing && taskStatus !== 'paused'}
+            onClick={onResume}
             variant="outline"
-            className="flex-1"
+            className="w-full sm:w-auto"
           >
-            <Play className="h-4 w-4 mr-2" />
+            <Play className="mr-2 h-4 w-4" />
             Resume
           </Button>
-        ) : null}
+        )}
         
-        {['running', 'paused'].includes(taskStatus) && (
+        {/* Pause button */}
+        {taskStatus === 'running' && (
           <Button 
-            onClick={stopTask}
-            disabled={!['running', 'paused'].includes(taskStatus)}
-            variant="destructive"
-            className="flex-1"
+            onClick={onPause}
+            variant="outline"
+            className="w-full sm:w-auto"
           >
-            <Square className="h-4 w-4 mr-2" />
+            <Pause className="mr-2 h-4 w-4" />
+            Pause
+          </Button>
+        )}
+        
+        {/* Stop button */}
+        {(taskStatus === 'running' || taskStatus === 'paused') && (
+          <Button 
+            onClick={onStop}
+            variant="destructive"
+            className="w-full sm:w-auto"
+          >
+            <Square className="mr-2 h-4 w-4" />
             Stop
           </Button>
         )}
+        
+        {/* Screenshot button */}
+        <Button 
+          onClick={onScreenshot}
+          variant="secondary"
+          className="w-full sm:w-auto"
+          disabled={!isProcessing && taskStatus !== 'paused'}
+        >
+          <Camera className="mr-2 h-4 w-4" />
+          Screenshot
+        </Button>
       </div>
     </div>
   );

@@ -81,9 +81,17 @@ serve(async (req) => {
           );
         }
         
+        // Log the successful response
         console.log("Task started successfully:", data);
+        
+        // CRUCIAL: Return external API's task_id to the client
+        // This ensures we're using the correct ID from the Browser Use API
         return new Response(
-          JSON.stringify(data),
+          JSON.stringify({
+            task_id: data.id || data.task_id,
+            status: data.status || 'created',
+            live_url: data.live_url || data.browser?.live_url || null
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (fetchError) {
@@ -395,8 +403,14 @@ serve(async (req) => {
         }
         
         console.log("Task restarted successfully:", data);
+        
+        // CRUCIAL: Return the task_id from the external API
         return new Response(
-          JSON.stringify(data),
+          JSON.stringify({
+            task_id: data.id || data.task_id,
+            status: data.status || 'created',
+            live_url: data.live_url || data.browser?.live_url || null
+          }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } catch (fetchError) {

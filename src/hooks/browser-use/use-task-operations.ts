@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserConfig, TaskStatus } from "./types";
 
@@ -106,7 +105,8 @@ export function useTaskOperations(
       setProgress(0);
       setError(null);
       setLiveUrl(null);
-
+      
+      // First, create a local database entry for our task
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
         .insert({
@@ -124,13 +124,16 @@ export function useTaskOperations(
         return;
       }
 
-      const taskId = taskData.id;
-      console.log("Created task with ID:", taskId);
-      setCurrentTaskId(taskId);
+      // This is our local database task ID
+      const localTaskId = taskData.id;
+      console.log("Created task with local ID:", localTaskId);
+      setCurrentTaskId(localTaskId);
 
+      // Format the browser config for the API
       const formattedConfig = formatConfigForApi(browserConfig);
       console.log("Sending browser config:", formattedConfig);
 
+      // Call the edge function to create a task in the Browser Use API
       const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task: taskInput,
@@ -148,7 +151,7 @@ export function useTaskOperations(
             status: 'failed', 
             output: JSON.stringify({ error: apiError.message }) 
           })
-          .eq('id', taskId);
+          .eq('id', localTaskId);
         
         setError(`API Error: ${apiError.message}`);
         setTaskStatus('failed');
@@ -167,7 +170,7 @@ export function useTaskOperations(
             status: 'failed', 
             output: JSON.stringify({ error: apiResponse.error }) 
           })
-          .eq('id', taskId);
+          .eq('id', localTaskId);
         
         setError(`Task Error: ${apiResponse.error}`);
         setTaskStatus('failed');
@@ -175,13 +178,25 @@ export function useTaskOperations(
         return;
       }
 
-      // Store the API task ID in the database
+      // CRUCIAL: Store the API task ID from the response
+      // This is the ID from the Browser Use API that we need for all future API calls
       if (apiResponse.task_id) {
-        console.log(`Updating task ${taskId} with browser_task_id: ${apiResponse.task_id}`);
+        console.log(`Updating task ${localTaskId} with browser_task_id: ${apiResponse.task_id}`);
+        
         await supabase
           .from('browser_automation_tasks')
-          .update({ browser_task_id: apiResponse.task_id })
-          .eq('id', taskId);
+          .update({ 
+            browser_task_id: apiResponse.task_id,
+            // Store the current task status if provided
+            status: apiResponse.status || 'running'
+          })
+          .eq('id', localTaskId);
+        
+        // We don't update the currentTaskId here because we want to keep using
+        // our local database ID for database operations, but when we make API calls
+        // the task monitoring system will use the stored browser_task_id from the database
+      } else {
+        console.warn("No task_id returned from API. This may cause issues with task monitoring.");
       }
 
       // If we immediately get a live_url, update it
@@ -192,13 +207,16 @@ export function useTaskOperations(
         await supabase
           .from('browser_automation_tasks')
           .update({ live_url: apiResponse.live_url })
-          .eq('id', taskId);
+          .eq('id', localTaskId);
       }
 
       // Immediately check for task status to get live URL sooner
       try {
+        // IMPORTANT: Use the Browser Use API task ID for status checks, not our database ID
+        const apiTaskId = apiResponse.task_id || localTaskId;
+        
         const { data: initialStatus } = await supabase.functions.invoke('browser-use-api', {
-          body: { task_id: apiResponse.task_id || taskId }
+          body: { task_id: apiTaskId }
         });
         
         if (initialStatus && initialStatus.browser && initialStatus.browser.live_url) {
@@ -208,7 +226,7 @@ export function useTaskOperations(
           await supabase
             .from('browser_automation_tasks')
             .update({ live_url: initialStatus.browser.live_url })
-            .eq('id', taskId);
+            .eq('id', localTaskId);
         }
       } catch (statusError) {
         console.warn("Non-critical error checking initial status:", statusError);
@@ -227,9 +245,27 @@ export function useTaskOperations(
     if (!currentTaskId || taskStatus !== 'running') return;
 
     try {
+      // Get the browser_task_id from our database
+      const { data: taskData, error: taskError } = await supabase
+        .from('browser_automation_tasks')
+        .select('browser_task_id')
+        .eq('id', currentTaskId)
+        .single();
+        
+      if (taskError || !taskData?.browser_task_id) {
+        const errorMsg = taskError?.message || "Browser task ID not found";
+        console.error("Error retrieving browser task ID:", errorMsg);
+        setError(`Failed to pause task: ${errorMsg}`);
+        return;
+      }
+      
+      // Use the Browser Use API task ID for the API call
+      const browserTaskId = taskData.browser_task_id;
+      console.log(`Using browser task ID for pause: ${browserTaskId}`);
+
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
-          task_id: currentTaskId,
+          task_id: browserTaskId,
           action: 'pause'
         }
       });
@@ -258,9 +294,27 @@ export function useTaskOperations(
     if (!currentTaskId || taskStatus !== 'paused') return;
 
     try {
+      // Get the browser_task_id from our database
+      const { data: taskData, error: taskError } = await supabase
+        .from('browser_automation_tasks')
+        .select('browser_task_id')
+        .eq('id', currentTaskId)
+        .single();
+        
+      if (taskError || !taskData?.browser_task_id) {
+        const errorMsg = taskError?.message || "Browser task ID not found";
+        console.error("Error retrieving browser task ID:", errorMsg);
+        setError(`Failed to resume task: ${errorMsg}`);
+        return;
+      }
+      
+      // Use the Browser Use API task ID for the API call
+      const browserTaskId = taskData.browser_task_id;
+      console.log(`Using browser task ID for resume: ${browserTaskId}`);
+
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
-          task_id: currentTaskId,
+          task_id: browserTaskId,
           action: 'resume'
         }
       });
@@ -289,9 +343,27 @@ export function useTaskOperations(
     if (!currentTaskId || (taskStatus !== 'running' && taskStatus !== 'paused')) return;
 
     try {
+      // Get the browser_task_id from our database
+      const { data: taskData, error: taskError } = await supabase
+        .from('browser_automation_tasks')
+        .select('browser_task_id')
+        .eq('id', currentTaskId)
+        .single();
+        
+      if (taskError || !taskData?.browser_task_id) {
+        const errorMsg = taskError?.message || "Browser task ID not found";
+        console.error("Error retrieving browser task ID:", errorMsg);
+        setError(`Failed to stop task: ${errorMsg}`);
+        return;
+      }
+      
+      // Use the Browser Use API task ID for the API call
+      const browserTaskId = taskData.browser_task_id;
+      console.log(`Using browser task ID for stop: ${browserTaskId}`);
+
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
-          task_id: currentTaskId,
+          task_id: browserTaskId,
           action: 'stop'
         }
       });
@@ -331,7 +403,7 @@ export function useTaskOperations(
         .from('browser_automation_tasks')
         .update({ 
           status: 'pending',
-          browser_task_id: null,
+          browser_task_id: null, // Reset the Browser Use API task ID
           live_url: null,
           output: null,
           progress: 0,
@@ -344,11 +416,11 @@ export function useTaskOperations(
       const formattedConfig = formatConfigForApi(browserConfig);
       console.log("Sending browser config for restart:", formattedConfig);
 
-      // Send the task to Browser Use API with both task and task_id
+      // Create a new task in the Browser Use API
       const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task: taskInput,
-          task_id: currentTaskId,
+          task_id: currentTaskId, // Include our local task ID for reference
           save_browser_data: true,
           browser_config: formattedConfig
         }
@@ -390,13 +462,18 @@ export function useTaskOperations(
         return;
       }
 
-      // Store the API task ID in the database
+      // Store the API task ID in the database - this is crucial!
       if (apiResponse.task_id) {
         console.log(`Updating task ${currentTaskId} with new browser_task_id: ${apiResponse.task_id}`);
         await supabase
           .from('browser_automation_tasks')
-          .update({ browser_task_id: apiResponse.task_id })
+          .update({ 
+            browser_task_id: apiResponse.task_id,
+            status: apiResponse.status || 'running'
+          })
           .eq('id', currentTaskId);
+      } else {
+        console.warn("No task_id returned from API during restart. This may cause issues with task monitoring.");
       }
 
       // If we immediately get a live_url, update it

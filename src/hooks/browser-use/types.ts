@@ -43,9 +43,10 @@ export interface BrowserUseApiResponse {
   result?: any;
   error?: string;
   live_url?: string;
+  recordings?: string[];
 }
 
-export type TaskStatus = 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
+export type TaskStatus = 'idle' | 'running' | 'paused' | 'finished' | 'completed' | 'failed' | 'stopped';
 
 export interface BrowserTaskState {
   taskInput: string;

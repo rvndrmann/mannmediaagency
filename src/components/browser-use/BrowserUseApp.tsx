@@ -36,9 +36,20 @@ export function BrowserUseApp() {
   // Show toast when live URL becomes available
   useEffect(() => {
     if (liveUrl) {
-      toast.success("Live preview is now available!");
+      if (liveUrl.endsWith('.mp4') || liveUrl.endsWith('.webm') || liveUrl.includes('recording')) {
+        toast.success("Session recording is now available!");
+      } else {
+        toast.success("Live preview is now available!");
+      }
     }
   }, [liveUrl]);
+  
+  // Auto-switch to output tab when task is complete
+  useEffect(() => {
+    if (['finished', 'failed', 'stopped', 'completed'].includes(taskStatus) && isProcessing === false) {
+      setActiveTab("output");
+    }
+  }, [taskStatus, isProcessing]);
   
   return (
     <div className="container mx-auto py-6 space-y-6">

@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Maximize2, Minimize2, ExternalLink, RefreshCw } from "lucide-react";
+import { Maximize2, Minimize2, ExternalLink, RefreshCw, PlayCircle } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 
@@ -15,6 +15,22 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
+  const [isVideo, setIsVideo] = useState(false);
+  
+  // Detect if the URL is for a recording (usually mp4 or webm)
+  useEffect(() => {
+    if (liveUrl) {
+      const isVideoUrl = 
+        liveUrl.endsWith('.mp4') || 
+        liveUrl.endsWith('.webm') || 
+        liveUrl.includes('recording') ||
+        liveUrl.includes('media');
+      
+      setIsVideo(isVideoUrl);
+    } else {
+      setIsVideo(false);
+    }
+  }, [liveUrl]);
   
   // Add effect to handle iframe load events
   useEffect(() => {
@@ -27,13 +43,13 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
   
   const handleIframeError = () => {
     setIsLoading(false);
-    toast.error("Failed to load live preview. It may still be initializing.");
+    toast.error("Failed to load preview. It may still be initializing.");
   };
   
   const refreshIframe = () => {
     setIsLoading(true);
     setRefreshKey(prev => prev + 1);
-    toast.info("Refreshing live preview...");
+    toast.info("Refreshing preview...");
   };
   
   const toggleFullscreen = () => {
@@ -55,18 +71,20 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
         <CardHeader className="flex flex-row items-center justify-between p-4">
           <CardTitle className="text-lg font-semibold flex items-center gap-2">
             <div className={`w-2 h-2 rounded-full ${isRunning ? "bg-green-500" : "bg-gray-400"}`}></div>
-            Live Preview
+            {isVideo ? "Session Recording" : "Live Preview"}
             {isLoading && <RefreshCw className="h-4 w-4 animate-spin ml-2" />}
           </CardTitle>
           <div className="flex gap-2">
-            <Button 
-              variant="outline" 
-              size="icon"
-              onClick={refreshIframe}
-              disabled={!liveUrl}
-            >
-              <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
-            </Button>
+            {liveUrl && (
+              <Button 
+                variant="outline" 
+                size="icon"
+                onClick={refreshIframe}
+                disabled={isVideo}
+              >
+                <RefreshCw className={`h-4 w-4 ${isLoading ? "animate-spin" : ""}`} />
+              </Button>
+            )}
             <Button 
               variant="outline" 
               size="icon"
@@ -88,22 +106,37 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
         </CardHeader>
         <CardContent className="p-0 overflow-hidden">
           {liveUrl ? (
-            <iframe 
-              key={`iframe-${refreshKey}`}
-              src={liveUrl}
-              className="w-full border-0"
-              style={{ height: iframeHeight }}
-              sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
-              title="Browser Automation Live Preview"
-              onLoad={handleIframeLoad}
-              onError={handleIframeError}
-            />
+            isVideo ? (
+              <div className="w-full h-full flex items-center justify-center bg-gray-900">
+                <video 
+                  key={`video-${refreshKey}`}
+                  src={liveUrl}
+                  controls
+                  autoPlay
+                  className="w-full h-full max-h-[600px]"
+                  style={{ height: isFullscreen ? iframeHeight : "auto" }}
+                >
+                  Your browser does not support video playback.
+                </video>
+              </div>
+            ) : (
+              <iframe 
+                key={`iframe-${refreshKey}`}
+                src={liveUrl}
+                className="w-full border-0"
+                style={{ height: iframeHeight }}
+                sandbox="allow-scripts allow-same-origin allow-forms allow-popups"
+                title="Browser Automation Live Preview"
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+              />
+            )
           ) : (
             <Alert className="m-4">
               <AlertDescription>
                 {isRunning 
                   ? "Live preview is initializing. Please wait a moment..."
-                  : "No live preview available. Start a task to see the browser automation in real-time."}
+                  : "No preview available. Start a task to see the browser automation in real-time."}
               </AlertDescription>
             </Alert>
           )}

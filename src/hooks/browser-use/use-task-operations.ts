@@ -1,8 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserConfig, TaskStatus } from "./types";
 
-// Define the structure of the state and setter functions passed to this hook
 interface TaskState {
   taskInput: string;
   currentTaskId: string | null;
@@ -19,7 +17,6 @@ interface StateSetters {
   setError: (error: string | null) => void;
 }
 
-// This hook contains the operations for task management
 export function useTaskOperations(
   state: TaskState,
   stateSetters: StateSetters
@@ -40,12 +37,9 @@ export function useTaskOperations(
     setError 
   } = stateSetters;
 
-  // Format browser config for API submission
   const formatConfigForApi = (config: BrowserConfig) => {
-    // Create a deep copy to avoid modifying the original
     const formattedConfig = JSON.parse(JSON.stringify(config));
     
-    // Transform resolution into browserWindowSize if not already set
     if (formattedConfig.resolution && !formattedConfig.contextConfig?.browserWindowSize) {
       const parts = formattedConfig.resolution.split('x');
       if (parts.length === 2) {
@@ -65,22 +59,14 @@ export function useTaskOperations(
       }
     }
     
-    // Map our config structure to browser-use.com expected format
     return {
-      // Core settings
       headless: formattedConfig.headless,
       disable_security: formattedConfig.disableSecurity,
-      
-      // Alternative initialization
       wss_url: formattedConfig.wssUrl,
       cdp_url: formattedConfig.cdpUrl,
       chrome_instance_path: formattedConfig.useOwnBrowser ? formattedConfig.chromePath : undefined,
-      
-      // Additional settings
       extra_chromium_args: formattedConfig.extraChromiumArgs,
       proxy: formattedConfig.proxy,
-      
-      // Context configuration
       context_config: formattedConfig.contextConfig ? {
         minimum_wait_page_load_time: formattedConfig.contextConfig.minWaitPageLoadTime,
         wait_for_network_idle_page_load_time: formattedConfig.contextConfig.waitForNetworkIdlePageLoadTime,
@@ -95,15 +81,12 @@ export function useTaskOperations(
         trace_path: formattedConfig.contextConfig.tracePath,
         cookies_file: formattedConfig.contextConfig.cookiesFile
       } : undefined,
-      
-      // UI theme settings (for our frontend only, not used by API)
       theme: formattedConfig.theme,
       dark_mode: formattedConfig.darkMode,
       persistent_session: formattedConfig.persistentSession
     };
   };
 
-  // Start a new task
   const startTask = async () => {
     if (isProcessing) return;
     if (!taskInput.trim()) {
@@ -116,13 +99,12 @@ export function useTaskOperations(
       setProgress(0);
       setError(null);
 
-      // First, create a new task record in the database
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
         .insert({
-          input: taskInput, // Changed from 'description' to 'input' to match the database schema
+          input: taskInput,
           status: 'pending',
-          user_id: (await supabase.auth.getUser()).data.user?.id // Adding user_id as it's required
+          user_id: (await supabase.auth.getUser()).data.user?.id
         })
         .select('id')
         .single();
@@ -138,11 +120,9 @@ export function useTaskOperations(
       console.log("Created task with ID:", taskId);
       setCurrentTaskId(taskId);
 
-      // Format the browser config for the API
       const formattedConfig = formatConfigForApi(browserConfig);
       console.log("Sending browser config:", formattedConfig);
 
-      // Now call the edge function to start the browser automation
       const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task: taskInput,
@@ -155,7 +135,6 @@ export function useTaskOperations(
       if (apiError) {
         console.error("Edge function error:", apiError);
         
-        // Update the task status to failed
         await supabase
           .from('browser_automation_tasks')
           .update({ 
@@ -175,7 +154,6 @@ export function useTaskOperations(
       if (apiResponse.error) {
         console.error("Browser Use API returned error:", apiResponse.error);
         
-        // Update the task status to failed
         await supabase
           .from('browser_automation_tasks')
           .update({ 
@@ -190,7 +168,20 @@ export function useTaskOperations(
         return;
       }
 
-      // Task started successfully
+      if (apiResponse.task_id) {
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ browser_task_id: apiResponse.task_id })
+          .eq('id', taskId);
+      }
+
+      if (apiResponse.live_url) {
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ live_url: apiResponse.live_url })
+          .eq('id', taskId);
+      }
+
       setTaskStatus('running');
     } catch (error) {
       console.error("Error starting task:", error);
@@ -200,12 +191,10 @@ export function useTaskOperations(
     }
   };
 
-  // Pause a running task
   const pauseTask = async () => {
     if (!currentTaskId || taskStatus !== 'running') return;
 
     try {
-      // Call the edge function to pause the task
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task_id: currentTaskId,
@@ -221,10 +210,8 @@ export function useTaskOperations(
 
       console.log("Pause task response:", data);
       
-      // Update the local task status
       setTaskStatus('paused');
       
-      // Update the task status in the database
       await supabase
         .from('browser_automation_tasks')
         .update({ status: 'paused' })
@@ -235,12 +222,10 @@ export function useTaskOperations(
     }
   };
 
-  // Resume a paused task
   const resumeTask = async () => {
     if (!currentTaskId || taskStatus !== 'paused') return;
 
     try {
-      // Call the edge function to resume the task
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task_id: currentTaskId,
@@ -256,10 +241,8 @@ export function useTaskOperations(
 
       console.log("Resume task response:", data);
       
-      // Update the local task status
       setTaskStatus('running');
       
-      // Update the task status in the database
       await supabase
         .from('browser_automation_tasks')
         .update({ status: 'running' })
@@ -270,12 +253,10 @@ export function useTaskOperations(
     }
   };
 
-  // Stop a running or paused task
   const stopTask = async () => {
     if (!currentTaskId || (taskStatus !== 'running' && taskStatus !== 'paused')) return;
 
     try {
-      // Call the edge function to stop the task
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
           task_id: currentTaskId,
@@ -291,11 +272,9 @@ export function useTaskOperations(
 
       console.log("Stop task response:", data);
       
-      // Update the local task status
       setTaskStatus('stopped');
       setIsProcessing(false);
       
-      // Update the task status in the database
       await supabase
         .from('browser_automation_tasks')
         .update({ status: 'stopped' })

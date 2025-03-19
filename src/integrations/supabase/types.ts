@@ -400,6 +400,9 @@ export type Database = {
       }
       browser_automation_tasks: {
         Row: {
+          browser_data: Json | null
+          browser_task_id: string | null
+          completed_at: string | null
           created_at: string | null
           current_url: string | null
           id: string
@@ -412,6 +415,9 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          browser_data?: Json | null
+          browser_task_id?: string | null
+          completed_at?: string | null
           created_at?: string | null
           current_url?: string | null
           id?: string
@@ -424,6 +430,9 @@ export type Database = {
           user_id: string
         }
         Update: {
+          browser_data?: Json | null
+          browser_task_id?: string | null
+          completed_at?: string | null
           created_at?: string | null
           current_url?: string | null
           id?: string

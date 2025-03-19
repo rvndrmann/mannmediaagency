@@ -110,6 +110,17 @@ serve(async (req) => {
     // Parse request body
     const requestData: ManusRequest = await req.json();
     
+    // Example of a valid response structure to show the AI
+    const responseExample = {
+      reasoning: "This is my reasoning for the next steps...",
+      actions: [
+        {
+          type: "openNewTab",
+          url: "https://example.com"
+        }
+      ]
+    };
+    
     // Make request to OpenAI API
     console.log("Sending request to OpenAI API");
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -119,11 +130,11 @@ serve(async (req) => {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4o", // Using the current model instead of deprecated models
+        model: "gpt-4o", // Using the latest model
         messages: [
           {
             role: "system", 
-            content: `You are an AI agent that helps users automate computer tasks. 
+            content: `You are an AI agent that helps users automate computer tasks in JSON format. 
             You are operating in a ${requestData.environment} environment.
             
             Your task is to: ${requestData.task}
@@ -151,11 +162,20 @@ serve(async (req) => {
             - If you see a form, give specific instructions for filling it out
             - If you're unsure what's on screen, ask the user to take another screenshot
             
-            RESPONSE FORMAT: Please provide your response as a valid JSON object with 'reasoning' and 'actions' fields.`
+            RESPONSE FORMAT: Your response MUST be a valid JSON object with exactly these fields:
+            1. "reasoning": A string explaining your thought process
+            2. "actions": An array of action objects, each with a "type" field and appropriate parameters
+            
+            Example of valid JSON response format:
+            ${JSON.stringify(responseExample, null, 2)}
+            `
           },
           {
             role: "user",
-            content: `Current task: ${requestData.task}\n${requestData.current_url ? `Current URL: ${requestData.current_url}` : ""}\n\nPlease respond with valid JSON that includes a 'reasoning' field and an 'actions' array.`
+            content: `Current task: ${requestData.task}
+${requestData.current_url ? `Current URL: ${requestData.current_url}` : ""}
+
+Please respond with valid JSON that includes a "reasoning" field and an "actions" array with at least one action that has a "type" property.`
           }
         ],
         temperature: 0.7,
@@ -219,7 +239,12 @@ serve(async (req) => {
           parsedContent = {
             reasoning: "The AI model returned an invalid response format. " + 
                      "Original text: " + responseContent.substring(0, 100) + "...",
-            actions: []
+            actions: [
+              {
+                type: "openNewTab",
+                url: "https://www.google.com",
+              }
+            ]
           };
         }
       }
@@ -231,9 +256,42 @@ serve(async (req) => {
       }
       
       if (!Array.isArray(parsedContent.actions)) {
-        console.warn("Response has invalid or missing actions array, using empty array");
-        parsedContent.actions = [];
+        console.warn("Response has invalid or missing actions array, using default");
+        parsedContent.actions = [
+          {
+            type: "openNewTab",
+            url: "https://www.google.com"
+          }
+        ];
+      } else if (parsedContent.actions.length === 0) {
+        console.warn("Actions array is empty, adding default action");
+        parsedContent.actions.push({
+          type: "openNewTab",
+          url: "https://www.google.com"
+        });
       }
+      
+      // Ensure each action has a valid type
+      parsedContent.actions = parsedContent.actions.map(action => {
+        if (!action || typeof action !== 'object') {
+          console.warn("Invalid action object, using default");
+          return {
+            type: "openNewTab",
+            url: "https://www.google.com"
+          };
+        }
+        
+        if (!action.type) {
+          console.warn("Action missing type, adding default type");
+          action.type = "openNewTab";
+          
+          if (!action.url) {
+            action.url = "https://www.google.com";
+          }
+        }
+        
+        return action;
+      });
       
       manusResponse = {
         actions: parsedContent.actions || [],
@@ -246,12 +304,6 @@ serve(async (req) => {
       
       // Validate and enhance action types
       manusResponse.actions = manusResponse.actions.map(action => {
-        // Ensure we have a valid action type
-        if (!action.type) {
-          console.warn("Action missing required 'type' property, skipping");
-          return null;
-        }
-        
         // If iframe is blocked, convert navigate actions to openNewTab
         if (requestData.iframe_blocked && action.type === "navigate" && action.url) {
           console.log("Converting navigate action to openNewTab due to iframe blocking");
@@ -289,7 +341,7 @@ serve(async (req) => {
           ...(action.element !== undefined && { element: action.element }),
           ...(action.options !== undefined && { options: action.options })
         };
-      }).filter(action => action !== null);
+      });
       
     } catch (error) {
       console.error("Error processing OpenAI response:", error);
@@ -301,7 +353,12 @@ serve(async (req) => {
           details: error.message,
           raw_response: responseContent,
           reasoning: "The system encountered an error processing the AI response",
-          actions: []
+          actions: [
+            {
+              type: "openNewTab",
+              url: "https://www.google.com"
+            }
+          ]
         }),
         { status: 500, headers: corsHeaders }
       );
@@ -337,7 +394,12 @@ serve(async (req) => {
         error: error.message || "Internal server error",
         stack: error.stack || null,
         reasoning: "The system encountered an error processing your request",
-        actions: []
+        actions: [
+          {
+            type: "openNewTab",
+            url: "https://www.google.com"
+          }
+        ]
       }),
       { status: 500, headers: corsHeaders }
     );

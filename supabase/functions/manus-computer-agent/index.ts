@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -148,11 +149,13 @@ serve(async (req) => {
             - Be specific about what elements the user should interact with
             - Provide clear step-by-step guidance based on what you see in the screenshot
             - If you see a form, give specific instructions for filling it out
-            - If you're unsure what's on screen, ask the user to take another screenshot`
+            - If you're unsure what's on screen, ask the user to take another screenshot
+            
+            RESPONSE FORMAT: Please provide your response as a valid JSON object with 'reasoning' and 'actions' fields.`
           },
           {
             role: "user",
-            content: `Current task: ${requestData.task}\n${requestData.current_url ? `Current URL: ${requestData.current_url}` : ""}`
+            content: `Current task: ${requestData.task}\n${requestData.current_url ? `Current URL: ${requestData.current_url}` : ""}\n\nPlease respond with valid JSON that includes a 'reasoning' field and an 'actions' array.`
           }
         ],
         temperature: 0.7,

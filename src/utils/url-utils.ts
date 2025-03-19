@@ -18,53 +18,31 @@ export const normalizeUrl = (url: string): string => {
 };
 
 /**
- * Common domains known to block iframe embedding
+ * Checks if a URL is for a website suitable for the agent to analyze
  */
-export const IFRAME_BLOCKING_DOMAINS = [
-  'facebook.com',
-  'google.com',
-  'youtube.com',
-  'instagram.com',
-  'twitter.com',
-  'linkedin.com',
-  'microsoft.com',
-  'apple.com',
-  'amazon.com',
-  'netflix.com',
-  'canva.com',
-  'pinterest.com',
-  'reddit.com',
-  'zoom.us',
-  'spotify.com',
-  'github.com',
-  'office.com',
-  'outlook.com',
-  'gmail.com',
-  'stripe.com',
-  'paypal.com',
-  'chase.com',
-  'bankofamerica.com',
-  'wellsfargo.com',
-  'citibank.com',
-  'discord.com',
-  'slack.com',
-  'notion.so',
-  'twitch.tv'
-];
-
-/**
- * Checks if a URL is likely to block iframe embedding
- */
-export const isLikelyToBlockIframe = (url: string): boolean => {
+export const isAnalyzableWebsite = (url: string): boolean => {
   try {
     const urlObj = new URL(normalizeUrl(url));
     const domain = urlObj.hostname.replace(/^www\./i, '');
     
-    return IFRAME_BLOCKING_DOMAINS.some(blockingDomain => 
-      domain === blockingDomain || domain.endsWith(`.${blockingDomain}`)
+    // List of domains known to be problematic for automation
+    const problematicDomains = [
+      'recaptcha.net',
+      'captcha.com'
+    ];
+    
+    return !problematicDomains.some(blockedDomain => 
+      domain === blockedDomain || domain.endsWith(`.${blockedDomain}`)
     );
   } catch (e) {
     console.error("Error parsing URL:", e);
-    return false;
+    return true;
   }
+};
+
+/**
+ * Determine if URL is appropriate for direct browser integration
+ */
+export const isSuitableForDirectNavigation = (url: string): boolean => {
+  return true; // All URLs are suitable since we're opening in new tabs
 };

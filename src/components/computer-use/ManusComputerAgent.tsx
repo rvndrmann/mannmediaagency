@@ -20,15 +20,17 @@ import {
   Computer, 
   Info, 
   AlertCircle, 
-  ExternalLink, 
+  ExternalLink,
   RefreshCw,
-  Lock,
-  Eye
+  Eye,
+  Globe
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { useBrowserSession } from "@/hooks/computer-use/use-browser-session";
+import { normalizeUrl } from "@/utils/url-utils";
 
 export function ManusComputerAgent() {
   const { 
@@ -49,182 +51,24 @@ export function ManusComputerAgent() {
     currentUrl,
     setCurrentUrl,
     error,
-    isEmbeddingBlocked,
-    setIsEmbeddingBlocked,
-    isLikelyToBlockIframe
   } = useManusAgent();
 
-  const [activeTab, setActiveTab] = useState("browser");
-  const browserViewRef = useRef<HTMLIFrameElement>(null);
-  const [iframeLoading, setIframeLoading] = useState(false);
-  const [iframeError, setIframeError] = useState<string | null>(null);
-  const [pageTitle, setPageTitle] = useState<string | null>(null);
-  const [navigationAttempts, setNavigationAttempts] = useState<number>(0);
-  const [externalWindowOpened, setExternalWindowOpened] = useState(false);
-  const [debugMode, setDebugMode] = useState(false);
+  const {
+    externalWindowOpened,
+    setExternalWindowOpened,
+    hasRecentlyOpened,
+    markAsOpened
+  } = useBrowserSession();
   
-  // Track recently opened URLs to prevent duplicate tabs
-  const recentlyOpenedUrls = useRef<Set<string>>(new Set());
+  const [activeTab, setActiveTab] = useState("browser");
+  const [debugMode, setDebugMode] = useState(false);
   // Track if an action is currently being processed
   const isProcessingAction = useRef<boolean>(false);
   
-  // Clean up recently opened URLs after a delay
-  useEffect(() => {
-    const cleanupInterval = setInterval(() => {
-      recentlyOpenedUrls.current.clear();
-    }, 5000); // Clear cache every 5 seconds
-    
-    return () => clearInterval(cleanupInterval);
-  }, []);
-  
-  useEffect(() => {
-    if (activeTab === "browser" && browserViewRef.current) {
-      try {
-        if (!browserViewRef.current.src || browserViewRef.current.src === "about:blank") {
-          console.log("Setting initial browser URL to Google");
-          setIframeLoading(true);
-          browserViewRef.current.src = "https://www.google.com";
-          setCurrentUrl("https://www.google.com");
-        }
-      } catch (error) {
-        console.error("Error initializing browser view:", error);
-        setIframeError("Failed to initialize browser view. Please try refreshing the page.");
-      }
-    }
-  }, [activeTab, setCurrentUrl]);
-  
-  useEffect(() => {
-    if (currentUrl) {
-      const blocksIframe = isLikelyToBlockIframe(currentUrl);
-      if (blocksIframe && !isEmbeddingBlocked) {
-        console.log(`URL ${currentUrl} is likely to block iframe embedding`);
-        setIsEmbeddingBlocked(true);
-      }
-    }
-  }, [currentUrl, isLikelyToBlockIframe, isEmbeddingBlocked, setIsEmbeddingBlocked]);
-  
-  const handleIframeLoad = useCallback(() => {
-    setIframeLoading(false);
-    setIframeError(null);
-    setNavigationAttempts(0);
-    
-    if (browserViewRef.current) {
-      try {
-        const iframeWindow = browserViewRef.current.contentWindow;
-        if (iframeWindow) {
-          try {
-            const iframeUrl = iframeWindow.location.href;
-            const iframeTitle = iframeWindow.document.title;
-            
-            if (iframeUrl && iframeUrl !== "about:blank") {
-              setCurrentUrl(iframeUrl);
-              console.log("Iframe navigated to:", iframeUrl);
-            }
-            
-            if (iframeTitle) {
-              setPageTitle(iframeTitle);
-              console.log("Page title:", iframeTitle);
-              
-              if (isEmbeddingBlocked) {
-                setIsEmbeddingBlocked(false);
-              }
-            } else {
-              try {
-                const bodyContent = iframeWindow.document.body.innerHTML;
-                if (!bodyContent || bodyContent.trim() === "") {
-                  console.log("Empty document body detected - possible iframe blocking");
-                  setIsEmbeddingBlocked(true);
-                  setIframeError("This site appears to block embedding in iframes. You can open it in a new tab instead.");
-                }
-              } catch (e) {
-                console.log("Cannot access document body - possible CORS/iframe restriction");
-                setIsEmbeddingBlocked(true);
-              }
-            }
-          } catch (e) {
-            console.log("CORS error accessing iframe content:", e);
-            if (debugMode) {
-              toast.info("CORS restrictions detected - cannot access iframe content");
-            }
-          }
-          
-          setTimeout(captureScreenshot, 500);
-        }
-      } catch (e) {
-        console.error("Error accessing iframe URL (this may be normal for cross-origin sites):", e);
-        if (e instanceof DOMException && (e.name === "SecurityError" || e.name === "NotAllowedError")) {
-          setIsEmbeddingBlocked(true);
-          setIframeError("This site blocks iframe embedding due to security restrictions. You can open it in a new tab instead.");
-        }
-        setTimeout(captureScreenshot, 500);
-      }
-    }
-  }, [setCurrentUrl, captureScreenshot, isEmbeddingBlocked, setIsEmbeddingBlocked, debugMode]);
-  
-  const handleIframeError = useCallback(() => {
-    setIframeLoading(false);
-    
-    if (navigationAttempts < 2) {
-      setNavigationAttempts(prev => prev + 1);
-      console.log(`Retry attempt ${navigationAttempts + 1} for URL:`, currentUrl);
-      
-      if (browserViewRef.current && currentUrl) {
-        setTimeout(() => {
-          if (browserViewRef.current) {
-            browserViewRef.current.src = currentUrl;
-          }
-        }, 1000);
-      }
-      return;
-    }
-    
-    setIframeError("Failed to load the page. This may be due to security restrictions or the site blocking iframe embedding.");
-    console.error("Iframe failed to load after retries:", currentUrl);
-    
-    setIsEmbeddingBlocked(true);
-    setTimeout(captureScreenshot, 500);
-  }, [currentUrl, captureScreenshot, navigationAttempts, setIsEmbeddingBlocked]);
-  
-  const navigateToUrl = useCallback((url: string) => {
-    let navigateUrl = url.trim();
-    
-    if (!navigateUrl.includes(".") && !navigateUrl.startsWith("http")) {
-      navigateUrl = `https://www.google.com/search?q=${encodeURIComponent(navigateUrl)}`;
-    } else if (!/^https?:\/\//i.test(navigateUrl)) {
-      navigateUrl = `https://${navigateUrl}`;
-    }
-    
-    const likelyToBlock = isLikelyToBlockIframe(navigateUrl);
-    
-    if (likelyToBlock) {
-      const userChoice = window.confirm(
-        `${navigateUrl} is likely to block iframe embedding. \n\n` +
-        `Click OK to open in a new tab, or Cancel to try in iframe anyway.`
-      );
-      
-      if (userChoice) {
-        openInNewTab(navigateUrl);
-        return;
-      }
-    }
-    
-    setIframeError(null);
-    setIframeLoading(true);
-    setNavigationAttempts(0);
-    setIsEmbeddingBlocked(false);
-    setExternalWindowOpened(false);
-    
-    if (browserViewRef.current) {
-      browserViewRef.current.src = navigateUrl;
-      setCurrentUrl(navigateUrl);
-      console.log("Navigating iframe to:", navigateUrl);
-    }
-  }, [setCurrentUrl, setIsEmbeddingBlocked, isLikelyToBlockIframe]);
-  
-  // Consolidated function to open URL in new tab with deduplication
+  // Open URL in new tab with deduplication
   const openInNewTab = useCallback((url: string) => {
     // Skip if URL was recently opened to prevent duplicates
-    if (recentlyOpenedUrls.current.has(url)) {
+    if (hasRecentlyOpened(url)) {
       console.log(`Skipping duplicate tab open for: ${url}`);
       return;
     }
@@ -232,17 +76,29 @@ export function ManusComputerAgent() {
     console.log(`Opening URL in new tab: ${url}`);
     
     // Add to recently opened set
-    recentlyOpenedUrls.current.add(url);
+    markAsOpened(url);
     
     window.open(url, '_blank');
     setExternalWindowOpened(true);
     setCurrentUrl(url);
-    setIsEmbeddingBlocked(true);
     
     // Show feedback to user
     toast.success("Opened in new tab");
-  }, [setCurrentUrl, setIsEmbeddingBlocked]);
+  }, [setCurrentUrl, hasRecentlyOpened, markAsOpened, setExternalWindowOpened]);
   
+  const handleBrowseUrl = useCallback((url: string) => {
+    let navigateUrl = normalizeUrl(url);
+    
+    // Open in new tab
+    openInNewTab(navigateUrl);
+    
+    // Capture screenshot after delay to allow user to switch back
+    setTimeout(() => {
+      captureScreenshot();
+    }, 2000);
+  }, [openInNewTab, captureScreenshot]);
+  
+  // Handle screenshot capture
   const handleTakeScreenshot = useCallback(async () => {
     const screenshot = await captureScreenshot();
     if (screenshot) {
@@ -259,27 +115,10 @@ export function ManusComputerAgent() {
       // Set processing flag to prevent multiple tab opens
       isProcessingAction.current = true;
       
-      if (currentAction.type === "navigate" && currentAction.url) {
-        console.log("Executing navigate action:", currentAction.url);
+      if ((currentAction.type === "navigate" || currentAction.type === "openNewTab") && currentAction.url) {
+        console.log(`Executing ${currentAction.type} action:`, currentAction.url);
         
-        const likelyToBlock = isLikelyToBlockIframe(currentAction.url);
-        
-        if (likelyToBlock && !isEmbeddingBlocked) {
-          toast.info(`${currentAction.url} likely blocks iframe embedding. Opening in new tab instead.`);
-          openInNewTab(currentAction.url);
-          
-          // Short delay before executing the action to ensure state is updated
-          setTimeout(() => {
-            executeAction();
-            isProcessingAction.current = false;
-          }, 1000);
-        } else {
-          navigateToUrl(currentAction.url);
-          isProcessingAction.current = false;
-        }
-      } else if (currentAction.type === "openNewTab" && currentAction.url) {
-        console.log("Opening URL in new tab:", currentAction.url);
-        openInNewTab(currentAction.url);
+        handleBrowseUrl(currentAction.url);
         
         // Short delay before executing the action to ensure state is updated
         setTimeout(() => {
@@ -292,27 +131,9 @@ export function ManusComputerAgent() {
     }
   }, [
     currentActions, 
-    navigateToUrl, 
-    executeAction, 
-    isLikelyToBlockIframe, 
-    isEmbeddingBlocked, 
-    openInNewTab
+    executeAction,
+    handleBrowseUrl
   ]);
-  
-  const handleRetryNavigation = useCallback(() => {
-    if (currentUrl) {
-      setIframeError(null);
-      setIframeLoading(true);
-      setNavigationAttempts(0);
-      setIsEmbeddingBlocked(false);
-      setExternalWindowOpened(false);
-      
-      if (browserViewRef.current) {
-        browserViewRef.current.src = currentUrl;
-        console.log("Retrying navigation to:", currentUrl);
-      }
-    }
-  }, [currentUrl, setIsEmbeddingBlocked]);
   
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-[1400px] mx-auto">
@@ -391,30 +212,37 @@ export function ManusComputerAgent() {
               </Alert>
             )}
             
-            {isEmbeddingBlocked && (
-              <Alert>
-                <Lock className="h-4 w-4" />
-                <AlertTitle>Iframe Embedding Blocked</AlertTitle>
-                <AlertDescription>
-                  {externalWindowOpened ? (
-                    "This site was opened in a new tab. The agent will continue to analyze screenshots and help guide your interaction."
-                  ) : (
-                    "This site is blocking iframe embedding. The agent can analyze the screenshot, but interactive actions may not work. Consider opening in a new tab."
-                  )}
-                </AlertDescription>
-                {!externalWindowOpened && (
-                  <Button 
-                    size="sm" 
-                    variant="outline" 
-                    className="mt-2"
-                    onClick={() => openInNewTab(currentUrl || "")}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open in New Tab
-                  </Button>
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <h3 className="text-sm font-medium">Browse Web</h3>
+                {currentUrl && (
+                  <Badge variant="outline" className="text-xs">
+                    Current: {currentUrl.length > 25 ? currentUrl.substring(0, 25) + '...' : currentUrl}
+                  </Badge>
                 )}
-              </Alert>
-            )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Input 
+                  value={currentUrl || ""}
+                  onChange={(e) => setCurrentUrl(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      handleBrowseUrl(currentUrl || "");
+                    }
+                  }}
+                  placeholder="Enter URL"
+                  className="flex-1"
+                />
+                <Button
+                  variant="outline"
+                  size="icon"
+                  onClick={() => handleBrowseUrl(currentUrl || "")}
+                  title="Open in browser"
+                >
+                  <Globe className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
             
             <div className="space-y-2">
               <h3 className="text-sm font-medium">Current Actions</h3>
@@ -456,7 +284,7 @@ export function ManusComputerAgent() {
                           }
                         }}
                         disabled={isProcessingAction.current}
-                        title="Open in new tab instead"
+                        title="Open in new tab"
                       >
                         <ExternalLink className="h-4 w-4" />
                       </Button>
@@ -485,132 +313,73 @@ export function ManusComputerAgent() {
           <Tabs defaultValue="browser" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-4 pt-2 border-b">
               <TabsList className="w-full">
-                <TabsTrigger value="browser" className="flex-1">Browser View</TabsTrigger>
+                <TabsTrigger value="browser" className="flex-1">Browser Overview</TabsTrigger>
                 <TabsTrigger value="history" className="flex-1">Action History</TabsTrigger>
               </TabsList>
-              
-              {activeTab === "browser" && (
-                <div className="flex items-center gap-2 py-2">
-                  <Input 
-                    value={currentUrl || ""}
-                    onChange={(e) => setCurrentUrl(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        navigateToUrl(currentUrl || "");
-                      }
-                    }}
-                    placeholder="Enter URL"
-                    className="flex-1"
-                  />
-                  <Button 
-                    variant="outline" 
-                    size="icon"
-                    onClick={handleRetryNavigation}
-                    title="Reload page"
-                  >
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="icon"
-                    onClick={() => openInNewTab(currentUrl || "")}
-                    title="Open in new tab"
-                  >
-                    <ExternalLink className="h-4 w-4" />
-                  </Button>
-                </div>
-              )}
             </div>
             
-            <TabsContent value="browser" className="flex-1 p-0 m-0 relative">
-              {pageTitle && (
-                <div className="absolute top-0 left-0 right-0 bg-gray-100 dark:bg-gray-800 px-4 py-1 text-xs text-gray-600 dark:text-gray-300 truncate z-10 border-b">
-                  {pageTitle}
-                </div>
-              )}
-              
-              {iframeLoading && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/50 dark:bg-gray-800/50 z-10">
-                  <div className="text-center">
-                    <Loader2 className="h-8 w-8 animate-spin text-primary mx-auto mb-2" />
-                    <p className="text-sm text-gray-600 dark:text-gray-300">Loading {currentUrl}...</p>
-                  </div>
-                </div>
-              )}
-              
-              {iframeError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
-                  <Alert variant="destructive" className="w-3/4 max-w-md">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Navigation Error</AlertTitle>
-                    <AlertDescription>
-                      {iframeError}
-                      <div className="mt-2 flex flex-wrap gap-2">
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={handleRetryNavigation}
-                        >
-                          <RefreshCw className="h-4 w-4 mr-2" />
-                          Retry
+            <TabsContent value="browser" className="flex-1 p-0 m-0 relative overflow-auto">
+              <div className="p-8 flex flex-col items-center justify-center h-full">
+                <div className="text-center max-w-lg">
+                  <Globe className="h-16 w-16 text-gray-400 mx-auto mb-4" />
+                  <h2 className="text-2xl font-bold mb-2">Web Browser Mode</h2>
+                  
+                  {externalWindowOpened ? (
+                    <>
+                      <p className="text-gray-500 mb-4">
+                        A website is currently open in a separate browser tab. Continue your task there, then come back here when you need the agent's help.
+                      </p>
+                      <div className="flex flex-col space-y-3">
+                        <Button onClick={handleTakeScreenshot}>
+                          <Eye className="h-4 w-4 mr-2" />
+                          Take Screenshot Now
                         </Button>
-                        <Button 
-                          variant="outline" 
-                          size="sm"
-                          onClick={() => openInNewTab(currentUrl || "")}
-                        >
-                          <ExternalLink className="h-4 w-4 mr-2" />
-                          Open in new tab
-                        </Button>
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleTakeScreenshot}
-                        >
-                          Take Screenshot
+                        {currentUrl && (
+                          <Button variant="outline" onClick={() => handleBrowseUrl(currentUrl)}>
+                            <ExternalLink className="h-4 w-4 mr-2" />
+                            Reopen Current URL
+                          </Button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <p className="text-gray-500 mb-4">
+                        Enter a URL in the input field on the left or use the box below to quickly visit a website.
+                      </p>
+                      <div className="flex w-full mb-4">
+                        <Input
+                          placeholder="Enter website URL (e.g., google.com)"
+                          className="flex-1 mr-2"
+                          value={currentUrl || ""}
+                          onChange={(e) => setCurrentUrl(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") {
+                              handleBrowseUrl(currentUrl || "");
+                            }
+                          }}
+                        />
+                        <Button onClick={() => handleBrowseUrl(currentUrl || "")}>
+                          <Globe className="h-4 w-4 mr-2" />
+                          Browse
                         </Button>
                       </div>
-                    </AlertDescription>
-                  </Alert>
-                </div>
-              )}
-              
-              {externalWindowOpened && !iframeError && (
-                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 dark:bg-gray-800/80 z-10">
-                  <Alert className="w-3/4 max-w-md">
-                    <ExternalLink className="h-4 w-4" />
-                    <AlertTitle>External Window</AlertTitle>
-                    <AlertDescription>
-                      <p className="mb-2">
-                        The site has been opened in a new browser tab. Continue your task there, and then:
-                      </p>
-                      <ol className="list-decimal list-inside space-y-1 mb-4">
-                        <li>Take a screenshot here when you need the agent's help</li>
-                        <li>The agent will analyze the screenshot and suggest next steps</li>
-                        <li>Execute those steps in the external window</li>
+                    </>
+                  )}
+                    
+                  <Alert className="mt-6">
+                    <Info className="h-4 w-4" />
+                    <AlertTitle>How It Works</AlertTitle>
+                    <AlertDescription className="text-left text-sm">
+                      <ol className="list-decimal list-inside space-y-1">
+                        <li>The agent will open websites in new browser tabs</li>
+                        <li>Complete your browsing tasks in those tabs</li>
+                        <li>Return here and click "Take Screenshot" when you need help</li>
+                        <li>The agent will analyze your screenshot and suggest next steps</li>
                       </ol>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={handleTakeScreenshot}
-                      >
-                        <Eye className="h-4 w-4 mr-2" />
-                        Take Screenshot Now
-                      </Button>
                     </AlertDescription>
                   </Alert>
                 </div>
-              )}
-              
-              <div className="browser-view-container w-full h-full bg-white">
-                <iframe 
-                  ref={browserViewRef}
-                  className="w-full h-full border-0"
-                  title="Browser View"
-                  sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-downloads allow-modals allow-orientation-lock allow-pointer-lock allow-presentation allow-top-navigation"
-                  onLoad={handleIframeLoad}
-                  onError={handleIframeError}
-                />
               </div>
             </TabsContent>
             

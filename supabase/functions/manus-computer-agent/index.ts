@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -109,7 +108,7 @@ serve(async (req) => {
     // Parse request body
     const requestData: ManusRequest = await req.json();
     
-    // Enhanced system prompt with more detailed instructions
+    // Enhanced system prompt with updated browser instructions
     let systemPrompt = `You are an AI agent that helps users automate computer tasks. 
     You are operating in a ${requestData.environment} environment.
     
@@ -118,10 +117,11 @@ serve(async (req) => {
     Based on the current state (URL and screenshot) and any previous actions, you should determine 
     the next step(s) to accomplish the task.
     
-    BROWSER LIMITATIONS: You are operating in a browser environment which has certain limitations:
-    1. Many sites block iframe embedding through security policies (X-Frame-Options)
-    2. You cannot access cross-origin DOM content due to CORS restrictions
-    3. You are limited to simple navigation, form filling, and clicking actions
+    BROWSER APPROACH: You are operating in a model where websites open in separate browser tabs:
+    1. The user will interact with websites in separate browser tabs
+    2. You can suggest to open websites and the system will open them in new tabs
+    3. You analyze screenshots to understand what the user is seeing
+    4. You provide guidance based on the screenshots and task context
     
     CRITICAL: You MUST respond with a VALID JSON object containing:
     {
@@ -133,28 +133,18 @@ serve(async (req) => {
     DO NOT wrap your response in code blocks or quotes. Just output pure JSON.
     
     Use the following action types:
-    - click: Click at specific coordinates or on an element (provide x, y or selector)
-    - type: Type text (provide text)
-    - navigate: Go to a URL (provide url) - Use for iframe navigation
-    - press: Press specific keys (provide keys array)
-    - select: Select an option from a dropdown (provide selector and value)
-    - openNewTab: Open a URL in a new tab (provide url) - Use when a site likely blocks iframe embedding
+    - openNewTab: Open a URL in a new tab (provide url) - This is the PRIMARY navigation action
+    - click: Suggest where to click (provide description)
+    - type: Suggest text to type (provide text and description of where)
+    - press: Suggest keys to press (provide keys array)
+    - select: Suggest selection from a dropdown (provide details)
     
-    IMPORTANT NAVIGATION GUIDELINES:
-    ${requestData.iframe_blocked ? 
-      `- The current site is detected as blocking iframe embedding. You should use "openNewTab" action instead of "navigate" 
-      for this site and similar sites (e-commerce, social media, productivity apps).` : 
-      `- If you see a blank or white page in the screenshot, the site is likely blocking iframe embedding. 
-      In this case, recommend using "openNewTab" instead of "navigate".`}
-    
-    - Google, Bing, DuckDuckGo, Wikipedia and many government/educational sites typically work well in iframes
-    - Social media, e-commerce, and productivity sites (like Canva, Facebook, Amazon) typically block iframe embedding
-    - When in doubt about whether a site works in iframes, use "openNewTab" action
-    
-    DETECTION STRATEGIES:
-    - If the screenshot shows a completely blank/white page, the site is likely blocking iframe embedding
-    - If you see any security error messages or "Refused to connect" messages, use "openNewTab" 
-    - If the previous navigation action seemed to fail (same blank screen), suggest opening in a new tab
+    IMPORTANT GUIDELINES:
+    - When suggesting navigation, ALWAYS use "openNewTab" action
+    - Be specific about what elements the user should interact with
+    - Provide clear step-by-step guidance based on what you see in the screenshot
+    - If you see a form, give specific instructions for filling it out
+    - If you're unsure what's on screen, ask the user to take another screenshot
     
     If you're unable to perform the task or don't know what to do next, still respond with valid JSON:
     {

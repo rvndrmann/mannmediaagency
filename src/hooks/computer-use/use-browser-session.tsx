@@ -2,10 +2,6 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 
 export const useBrowserSession = () => {
-  const [iframeLoading, setIframeLoading] = useState(false);
-  const [iframeError, setIframeError] = useState<string | null>(null);
-  const [pageTitle, setPageTitle] = useState<string | null>(null);
-  const [navigationAttempts, setNavigationAttempts] = useState<number>(0);
   const [externalWindowOpened, setExternalWindowOpened] = useState(false);
   
   // Track recently opened URLs to prevent duplicate tabs
@@ -29,14 +25,6 @@ export const useBrowserSession = () => {
   }, []);
   
   return {
-    iframeLoading,
-    setIframeLoading,
-    iframeError,
-    setIframeError,
-    pageTitle,
-    setPageTitle,
-    navigationAttempts,
-    setNavigationAttempts,
     externalWindowOpened,
     setExternalWindowOpened,
     hasRecentlyOpened,

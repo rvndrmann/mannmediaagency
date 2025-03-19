@@ -1,16 +1,10 @@
-
-import { Bot, Compass, ScrollText, Settings, Package, Users } from "lucide-react";
+import { Compass, ScrollText, Settings, Package, Users, Globe } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
-  {
-    label: "AI Agent",
-    icon: Bot,
-    href: "/ai-agent"
-  },
   {
     label: "Multi-Agent",
     icon: Users,
@@ -30,6 +24,11 @@ const navItems = [
     label: "Custom Orders",
     icon: Package,
     href: "/custom-orders"
+  },
+  {
+    label: "Browser API",
+    icon: Globe,
+    href: "/browser-use"
   },
   {
     label: "Settings",

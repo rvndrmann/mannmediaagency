@@ -12,12 +12,9 @@ import {
   Compass,
   User,
   Menu,
-  Bot,
   Bell,
-  VideoIcon,
   PlusSquare,
   LucideIcon,
-  Computer,
   Users,
   Globe
 } from "lucide-react";
@@ -152,12 +149,6 @@ export const Navigation = () => {
       badge: notifications.length > 0 ? notifications.length : undefined,
     },
     {
-      name: "AI Agent",
-      subtext: "Intelligent Assistant",
-      to: "/ai-agent",
-      icon: Bot,
-    },
-    {
       name: "Multi-Agent Chat",
       subtext: "Advanced AI Collaboration",
       to: "/multi-agent-chat",
@@ -171,12 +162,6 @@ export const Navigation = () => {
       badge: customOrderNotifications > 0 ? customOrderNotifications : undefined,
     },
     {
-      name: "Video Templates",
-      subtext: "Create Amazing Videos",
-      to: "/video-templates",
-      icon: VideoIcon,
-    },
-    {
       name: "Plans & Billing",
       to: "/plans",
       icon: CreditCard,
@@ -185,13 +170,6 @@ export const Navigation = () => {
       name: "Profile Settings",
       to: "/profile",
       icon: User,
-    },
-    {
-      name: "Computer Use Agent",
-      subtext: "Control Your Computer",
-      to: "/computer-use-agent",
-      icon: Computer,
-      current: location.pathname === "/computer-use-agent",
     },
     {
       name: "Browser Use API",

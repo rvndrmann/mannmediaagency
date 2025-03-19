@@ -17,7 +17,6 @@ import Payment from "./pages/Payment";
 import PaymentSuccess from "./pages/PaymentSuccess";
 import PaymentFailure from "./pages/PaymentFailure";
 import PaymentCancel from "./pages/PaymentCancel";
-import AIAgent from "./pages/AIAgent";
 import ProductShoot from "./pages/ProductShoot";
 import ProductShootV2 from "./pages/ProductShootV2";
 import Metadata from "./pages/Metadata";
@@ -28,14 +27,12 @@ import Privacy from "./pages/Privacy";
 import Terms from "./pages/Terms";
 import Explore from "./pages/Explore";
 import Admin from "./pages/Admin";
-import VideoTemplates from "./pages/VideoTemplates";
 import { ThemeProvider } from "next-themes";
 import ProfileSettings from "@/pages/ProfileSettings";
 import { BottomNav } from "./components/mobile/BottomNav";
 import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
 import MultiAgentChat from "./pages/MultiAgentChat";
-import ComputerUseAgent from "./pages/ComputerUseAgent";
 import BrowserUsePage from "./pages/BrowserUse";
 
 const queryClient = new QueryClient({
@@ -110,10 +107,8 @@ const App = () => (
               <Route path="/product-shoot" element={<ProtectedRoute><ProductShoot /></ProtectedRoute>} />
               <Route path="/product-shoot-v2" element={<ProtectedRoute><ProductShootV2 /></ProtectedRoute>} />
               <Route path="/image-to-video" element={<ProtectedRoute><ImageToVideo /></ProtectedRoute>} />
-              <Route path="/video-templates" element={<ProtectedRoute><VideoTemplates /></ProtectedRoute>} />
               <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
               <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-              <Route path="/ai-agent" element={<ProtectedRoute><AIAgent /></ProtectedRoute>} />
               <Route path="/multi-agent-chat" element={<ProtectedRoute><MultiAgentChat /></ProtectedRoute>} />
               <Route path="/custom-orders" element={<ProtectedRoute><CustomOrders /></ProtectedRoute>} />
               <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
@@ -123,7 +118,6 @@ const App = () => (
               <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
               <Route path="/order/:accessCode" element={<CustomOrderForm />} />
               <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
-              <Route path="/computer-use-agent" element={<ComputerUseAgent />} />
               <Route path="/browser-use" element={<BrowserUsePage />} />
             </Routes>
             <BottomNav />

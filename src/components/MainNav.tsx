@@ -2,7 +2,7 @@
 import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { Computer, Globe } from "lucide-react";
+import { Globe } from "lucide-react";
 
 export function MainNav() {
   const location = useLocation();
@@ -12,12 +12,6 @@ export function MainNav() {
       name: "Dashboard",
       href: "/",
       active: location.pathname === "/",
-    },
-    {
-      name: "Computer Agent",
-      href: "/computer-use-agent",
-      active: location.pathname === "/computer-use-agent",
-      icon: <Computer className="w-4 h-4 mr-2" />,
     },
     {
       name: "Browser API",

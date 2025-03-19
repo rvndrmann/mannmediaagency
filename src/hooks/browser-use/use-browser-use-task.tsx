@@ -1,6 +1,8 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { toast } from "sonner";
 
 interface TaskStep {
   id: string;
@@ -32,7 +34,7 @@ export function useBrowserUseTask() {
   const [screenshot, setScreenshot] = useState<string | null>(null);
   const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const { toast } = useToast();
+  const { toast: useToastFn } = useToast();
   
   const startTask = useCallback(async () => {
     setIsProcessing(true);
@@ -69,22 +71,19 @@ export function useBrowserUseTask() {
       
       setCurrentTaskId(data.id);
       setTaskStatus('running');
-      toast({
-        title: "Task Started!",
-        description: "Your browser automation task has started.",
+      toast.success("Task Started!", {
+        description: "Your browser automation task has started."
       });
     } catch (err: any) {
       console.error("Error starting task:", err);
       setError(err.message || "Failed to start task");
-      toast({
-        title: "Error Starting Task",
-        description: err.message || "Failed to start task.",
-        variant: "destructive",
+      toast.error("Error Starting Task", {
+        description: err.message || "Failed to start task."
       });
     } finally {
       setIsProcessing(false);
     }
-  }, [taskInput, toast]);
+  }, [taskInput]);
   
   const pauseTask = useCallback(async () => {
     setIsProcessing(true);
@@ -100,22 +99,19 @@ export function useBrowserUseTask() {
       if (error) throw error;
       
       setTaskStatus('paused');
-      toast({
-        title: "Task Paused!",
-        description: "Your browser automation task has been paused.",
+      toast.success("Task Paused!", {
+        description: "Your browser automation task has been paused."
       });
     } catch (err: any) {
       console.error("Error pausing task:", err);
       setError(err.message || "Failed to pause task");
-      toast({
-        title: "Error Pausing Task",
-        description: err.message || "Failed to pause task.",
-        variant: "destructive",
+      toast.error("Error Pausing Task", {
+        description: err.message || "Failed to pause task."
       });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentTaskId, toast]);
+  }, [currentTaskId]);
   
   const resumeTask = useCallback(async () => {
     setIsProcessing(true);
@@ -131,22 +127,19 @@ export function useBrowserUseTask() {
       if (error) throw error;
       
       setTaskStatus('running');
-      toast({
-        title: "Task Resumed!",
-        description: "Your browser automation task has been resumed.",
+      toast.success("Task Resumed!", {
+        description: "Your browser automation task has been resumed."
       });
     } catch (err: any) {
       console.error("Error resuming task:", err);
       setError(err.message || "Failed to resume task");
-      toast({
-        title: "Error Resuming Task",
-        description: err.message || "Failed to resume task.",
-        variant: "destructive",
+      toast.error("Error Resuming Task", {
+        description: err.message || "Failed to resume task."
       });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentTaskId, toast]);
+  }, [currentTaskId]);
   
   const stopTask = useCallback(async () => {
     setIsProcessing(true);
@@ -169,38 +162,43 @@ export function useBrowserUseTask() {
       setScreenshot(null);
       setCurrentTaskId(null);
       setTaskInput("");
-      toast({
-        title: "Task Stopped!",
-        description: "Your browser automation task has been stopped.",
+      toast.success("Task Stopped!", {
+        description: "Your browser automation task has been stopped."
       });
     } catch (err: any) {
       console.error("Error stopping task:", err);
       setError(err.message || "Failed to stop task");
-      toast({
-        title: "Error Stopping Task",
-        description: err.message || "Failed to stop task.",
-        variant: "destructive",
+      toast.error("Error Stopping Task", {
+        description: err.message || "Failed to stop task."
       });
     } finally {
       setIsProcessing(false);
     }
-  }, [currentTaskId, toast]);
+  }, [currentTaskId]);
   
   const captureScreenshot = useCallback(async () => {
     try {
-      const { data, error } = await supabase.functions.invoke('capture-website');
+      const { data, error } = await supabase.functions.invoke('capture-website', {
+        body: { url: currentUrl }
+      });
+      
       if (error) {
         console.error("Function error", error);
         return false;
       }
-      setScreenshot(data.image_url);
-      return true;
+      
+      if (data && data.image_url) {
+        setScreenshot(data.image_url);
+        return true;
+      }
+      
+      return false;
     } catch (err: any) {
       console.error("Error capturing screenshot:", err);
       setError(err.message || "Failed to capture screenshot");
       return false;
     }
-  }, []);
+  }, [currentUrl]);
   
   useEffect(() => {
     const fetchUserCredits = async () => {
@@ -242,7 +240,7 @@ export function useBrowserUseTask() {
             setProgress(taskData.progress || 0);
             setTaskStatus(taskData.status);
             
-            // Fix the URL property access
+            // Handle current URL properly
             if (taskData.current_url && typeof taskData.current_url === 'string') {
               setCurrentUrl(taskData.current_url);
             }
@@ -281,7 +279,7 @@ export function useBrowserUseTask() {
       
       return () => clearInterval(intervalId);
     }
-  }, [currentTaskId, supabase]);
+  }, [currentTaskId]);
   
   return {
     taskInput,

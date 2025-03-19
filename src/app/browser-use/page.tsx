@@ -1,8 +1,8 @@
 
 "use client";
 
-import { BrowserUseApp } from "@/components/browser-use/BrowserUseApp";
+import BrowserUsePage from "@/pages/BrowserUse";
 
-export default function BrowserUsePage() {
-  return <BrowserUseApp />;
+export default function Page() {
+  return <BrowserUsePage />;
 }

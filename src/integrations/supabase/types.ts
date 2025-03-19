@@ -360,6 +360,80 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_automation_steps: {
+        Row: {
+          created_at: string | null
+          description: string
+          details: string | null
+          id: string
+          screenshot: string | null
+          status: string
+          task_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          description: string
+          details?: string | null
+          id?: string
+          screenshot?: string | null
+          status?: string
+          task_id: string
+        }
+        Update: {
+          created_at?: string | null
+          description?: string
+          details?: string | null
+          id?: string
+          screenshot?: string | null
+          status?: string
+          task_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "browser_automation_steps_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "browser_automation_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      browser_automation_tasks: {
+        Row: {
+          created_at: string | null
+          current_url: string | null
+          id: string
+          input: string
+          output: string | null
+          progress: number | null
+          status: string
+          updated_at: string | null
+          user_id: string
+        }
+        Insert: {
+          created_at?: string | null
+          current_url?: string | null
+          id?: string
+          input: string
+          output?: string | null
+          progress?: number | null
+          status?: string
+          updated_at?: string | null
+          user_id: string
+        }
+        Update: {
+          created_at?: string | null
+          current_url?: string | null
+          id?: string
+          input?: string
+          output?: string | null
+          progress?: number | null
+          status?: string
+          updated_at?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_usage: {
         Row: {
           created_at: string | null
@@ -2380,6 +2454,13 @@ export type Database = {
           updated_at: string
           user_id: string
         }
+      }
+      deduct_credits: {
+        Args: {
+          user_id: string
+          credits_to_deduct: number
+        }
+        Returns: undefined
       }
       deliver_custom_order: {
         Args: {

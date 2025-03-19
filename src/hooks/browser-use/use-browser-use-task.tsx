@@ -68,6 +68,7 @@ export function useBrowserUseTask() {
   const [userCredits, setUserCredits] = useState<UserCredits | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(DEFAULT_BROWSER_CONFIG);
+  const [liveUrl, setLiveUrl] = useState<string | null>(null);
 
   // Try to load saved browser config from localStorage
   useEffect(() => {
@@ -108,7 +109,8 @@ export function useBrowserUseTask() {
     screenshot,
     userCredits,
     error,
-    browserConfig
+    browserConfig,
+    liveUrl
   };
 
   const stateSetters = {
@@ -123,7 +125,8 @@ export function useBrowserUseTask() {
     setScreenshot,
     setUserCredits,
     setError,
-    setBrowserConfig: updateBrowserConfig
+    setBrowserConfig: updateBrowserConfig,
+    setLiveUrl
   };
 
   // Use the refactored hooks
@@ -147,7 +150,8 @@ export function useBrowserUseTask() {
       setCurrentUrl,
       setTaskSteps,
       setTaskOutput,
-      setIsProcessing
+      setIsProcessing,
+      setLiveUrl
     }
   );
 
@@ -174,6 +178,7 @@ export function useBrowserUseTask() {
     userCredits,
     error,
     browserConfig,
-    setBrowserConfig: updateBrowserConfig
+    setBrowserConfig: updateBrowserConfig,
+    liveUrl
   };
 }

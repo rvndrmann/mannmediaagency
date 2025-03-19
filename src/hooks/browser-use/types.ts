@@ -42,6 +42,7 @@ export interface BrowserUseApiResponse {
   message?: string;
   result?: any;
   error?: string;
+  live_url?: string;
 }
 
 export type TaskStatus = 'idle' | 'running' | 'paused' | 'finished' | 'failed' | 'stopped';
@@ -59,6 +60,7 @@ export interface BrowserTaskState {
   userCredits: UserCredits | null;
   error: string | null;
   browserConfig: BrowserConfig;
+  liveUrl: string | null;
 }
 
 // Enhanced BrowserConfig interface with additional options from documentation

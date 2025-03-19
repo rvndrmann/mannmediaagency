@@ -250,12 +250,19 @@ serve(async (req) => {
       if (requestData.task_id) {
         logDebug(`[${requestId}] Updating task ${requestData.task_id} with response data`);
         try {
+          const updateData = { 
+            status: 'running',
+            output: JSON.stringify(browserUseResponse)
+          };
+          
+          // Add live_url if it exists in the response
+          if (browserUseResponse.live_url) {
+            updateData.live_url = browserUseResponse.live_url;
+          }
+          
           const { error: updateError } = await supabase
             .from('browser_automation_tasks')
-            .update({ 
-              status: 'running',
-              output: JSON.stringify(browserUseResponse)
-            })
+            .update(updateData)
             .eq('id', requestData.task_id);
           
           if (updateError) {
@@ -263,14 +270,16 @@ serve(async (req) => {
           }
         
           // Create a task step to record the API response
+          const stepData = {
+            task_id: requestData.task_id,
+            description: 'Task started via Browser Use API',
+            status: 'completed',
+            details: JSON.stringify(browserUseResponse)
+          };
+          
           const { error: stepError } = await supabase
             .from('browser_automation_steps')
-            .insert({
-              task_id: requestData.task_id,
-              description: 'Task started via Browser Use API',
-              status: 'completed',
-              details: JSON.stringify(browserUseResponse)
-            });
+            .insert(stepData);
           
           if (stepError) {
             logError(`[${requestId}] Error creating task step:`, stepError);

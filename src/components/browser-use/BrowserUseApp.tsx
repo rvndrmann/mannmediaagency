@@ -13,6 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TaskControls } from "./TaskControls";
 import { TaskProgress } from "./TaskProgress";
 import { TaskOutput } from "./TaskOutput";
+import { LivePreview } from "./LivePreview";
 import { BrowserSettings } from "./BrowserSettings";
 import { BrowserConfig } from "@/hooks/browser-use/types";
 import { normalizeUrl, openUrlInNewTab, canOpenNewTabs, isValidUrl } from "@/utils/url-utils";
@@ -38,7 +39,8 @@ export function BrowserUseApp() {
     userCredits,
     error,
     browserConfig,
-    setBrowserConfig
+    setBrowserConfig,
+    liveUrl
   } = useBrowserUseTask();
   
   const [activeTab, setActiveTab] = useState("browser");
@@ -255,6 +257,15 @@ export function BrowserUseApp() {
         </div>
         
         <div className="col-span-2 flex flex-col overflow-hidden">
+          {liveUrl && taskStatus === 'running' && (
+            <div className="p-4">
+              <LivePreview 
+                liveUrl={liveUrl} 
+                isRunning={taskStatus === 'running'}
+              />
+            </div>
+          )}
+          
           <Tabs defaultValue="browser" value={activeTab} onValueChange={setActiveTab} className="flex-1 flex flex-col">
             <div className="px-4 pt-2 border-b">
               <TabsList className="w-full">

@@ -12,10 +12,19 @@ export function useTaskMonitoring(
     setTaskSteps: (value: TaskStep[]) => void;
     setTaskOutput: (value: string | null) => void;
     setIsProcessing: (value: boolean) => void;
+    setLiveUrl: (value: string | null) => void;
   }
 ) {
   const { currentTaskId } = state;
-  const { setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing } = setState;
+  const { 
+    setProgress, 
+    setTaskStatus, 
+    setCurrentUrl, 
+    setTaskSteps, 
+    setTaskOutput, 
+    setIsProcessing,
+    setLiveUrl 
+  } = setState;
 
   // Set up polling for task updates
   useEffect(() => {
@@ -25,7 +34,7 @@ export function useTaskMonitoring(
           // Get task data with specific column selection to avoid ambiguity
           const { data: taskData, error: taskError } = await supabase
             .from('browser_automation_tasks')
-            .select('id, progress, status, current_url, output')
+            .select('id, progress, status, current_url, output, live_url')
             .eq('id', currentTaskId)
             .maybeSingle();
           
@@ -37,6 +46,10 @@ export function useTaskMonitoring(
             
             if (taskData.current_url && typeof taskData.current_url === 'string') {
               setCurrentUrl(taskData.current_url);
+            }
+            
+            if (taskData.live_url && typeof taskData.live_url === 'string') {
+              setLiveUrl(taskData.live_url);
             }
             
             // Get steps with specific column selection
@@ -73,5 +86,5 @@ export function useTaskMonitoring(
       
       return () => clearInterval(intervalId);
     }
-  }, [currentTaskId, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing]);
+  }, [currentTaskId, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing, setLiveUrl]);
 }

@@ -64,44 +64,24 @@ export const jsonToAction = (json: any): ManusAction | null => {
 export const useManusAdapter = () => {
   const sendToManus = async (request: ManusApiRequest) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error("Authentication required");
-      }
-      
       console.log("Sending request to Manus API:", JSON.stringify(request, null, 2));
       
-      const response = await fetch('/api/functions/v1/manus-computer-agent', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify(request)
+      // Use Supabase Functions.invoke instead of fetch
+      const { data, error } = await supabase.functions.invoke('manus-computer-agent', {
+        body: request
       });
       
-      // Check if response is OK
-      if (!response.ok) {
-        const errorText = await response.text();
-        console.error("Error from Manus API:", response.status, errorText);
-        throw new Error(`Error from Manus API: ${response.status}`);
+      if (error) {
+        console.error("Error from Supabase Functions:", error);
+        throw new Error(`Error from Manus API: ${error.message}`);
       }
       
-      // Check content type to ensure we're getting JSON
-      const contentType = response.headers.get('content-type');
-      if (!contentType || !contentType.includes('application/json')) {
-        const text = await response.text();
-        console.error("Received non-JSON response:", text);
-        throw new Error(`Expected JSON response but got ${contentType || 'unknown content type'}`);
+      if (!data) {
+        console.error("No data returned from Manus API");
+        throw new Error("No data returned from Manus API");
       }
       
-      try {
-        const data = await response.json();
-        return data;
-      } catch (jsonError) {
-        console.error("Error parsing JSON response:", jsonError);
-        throw new Error("Failed to parse API response as JSON");
-      }
+      return data;
     } catch (error) {
       console.error("Error sending request to Manus:", error);
       throw error;

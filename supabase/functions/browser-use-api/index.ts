@@ -33,7 +33,7 @@ serve(async (req: Request) => {
       throw new Error("Browser Use API key is not configured.");
     }
 
-    // Base API URL changed to use browser-use.com
+    // Base API URL changed to use api.browser-use.com
     const BASE_URL = "https://api.browser-use.com/api/v1";
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 import { decode as decodeJWT } from "https://deno.land/x/djwt@v2.8/mod.ts";
@@ -26,7 +25,6 @@ interface ComputerUseRequest {
   previousResponseId?: string;
 }
 
-// Helper function to extract user ID from authorization header
 async function getUserIdFromRequest(req: Request): Promise<string | null> {
   try {
     const authHeader = req.headers.get('Authorization');
@@ -38,8 +36,6 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
     const token = authHeader.split(' ')[1];
     
     try {
-      // Attempt to decode the JWT to get the user ID
-      // Note: This doesn't verify the signature, just extracts the payload
       const payload = (await decodeJWT(token))[1];
       if (payload && payload.sub) {
         console.log('Extracted user ID from JWT:', payload.sub);
@@ -49,7 +45,6 @@ async function getUserIdFromRequest(req: Request): Promise<string | null> {
       console.error('Error decoding JWT:', jwtError);
     }
     
-    // Fallback to using Supabase client to get user
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -82,7 +77,6 @@ async function startNewSession(
   try {
     console.log("Starting new session with task:", taskDescription, "environment:", environment);
     
-    // Create a new session in the database
     const { data: session, error: sessionError } = await supabase
       .from('computer_automation_sessions')
       .insert({
@@ -98,7 +92,6 @@ async function startNewSession(
       throw new Error(`Error creating session: ${sessionError.message}`);
     }
 
-    // Initialize OpenAI client properly
     if (!OPENAI_API_KEY) {
       throw new Error("OpenAI API key is not configured");
     }
@@ -107,8 +100,6 @@ async function startNewSession(
       apiKey: OPENAI_API_KEY
     });
     
-    // Make initial call to OpenAI
-    console.log("Making initial OpenAI API call with model: computer-use-preview");
     const payload: any = {
       model: "computer-use-preview",
       tools: [{
@@ -129,7 +120,6 @@ async function startNewSession(
       truncation: "auto"
     };
 
-    // Add screenshot if available
     if (screenshot) {
       console.log("Including initial screenshot in OpenAI request");
       payload.input.push({
@@ -140,16 +130,13 @@ async function startNewSession(
       });
     }
 
-    // Call OpenAI API using the SDK
     console.log("Sending request to OpenAI API:", JSON.stringify(payload, null, 2));
     const response = await openai.chat.completions.create(payload);
     
     console.log("OpenAI response received. Response ID:", response.id);
     
-    // Process the response
     const output = processOpenAIResponse(response);
     
-    // Save the response ID to the session
     await supabase
       .from('computer_automation_sessions')
       .update({ 
@@ -158,7 +145,6 @@ async function startNewSession(
       })
       .eq('id', session.id);
     
-    // Save the first action if available
     if (output.length > 0) {
       const computerCall = output.find(item => item.type === "computer_call");
       const reasoningItems = output.filter(item => item.type === "reasoning");
@@ -167,7 +153,6 @@ async function startNewSession(
         const action = computerCall.action;
         const pendingSafetyChecks = computerCall.pending_safety_checks || [];
         
-        // Save the action to the database
         const { data: actionData, error: actionError } = await supabase
           .from('computer_automation_actions')
           .insert({
@@ -185,7 +170,6 @@ async function startNewSession(
           throw new Error(`Error creating action: ${actionError.message}`);
         }
         
-        // Save any safety checks
         for (const safetyCheck of pendingSafetyChecks) {
           const { error: safetyCheckError } = await supabase
             .from('computer_automation_safety_checks')
@@ -218,7 +202,6 @@ function processOpenAIResponse(response: any) {
   console.log("Processing OpenAI response:", JSON.stringify(response, null, 2));
   const output = [];
   
-  // Handle reasoning (summary)
   if (response.reasoning?.summary) {
     output.push({
       type: "reasoning",
@@ -227,7 +210,6 @@ function processOpenAIResponse(response: any) {
     });
   }
   
-  // Handle text messages and computer interactions
   if (response.output) {
     for (const item of response.output) {
       if (item.type === "text") {
@@ -236,7 +218,6 @@ function processOpenAIResponse(response: any) {
           text: item.text
         });
       } else if (item.type === "computer_interaction") {
-        // Convert OpenAI's computer_interaction to our computer_call format
         output.push({
           type: "computer_call",
           id: `call-${Date.now()}`,
@@ -275,7 +256,6 @@ async function continueSession(
   try {
     console.log("Continuing session:", sessionId, "callId:", callId);
     
-    // Get session details
     const { data: sessionData, error: sessionError } = await supabase
       .from('computer_automation_sessions')
       .select('task_description, environment, openai_response_id')
@@ -286,7 +266,6 @@ async function continueSession(
       throw new Error(`Error fetching session: ${sessionError.message}`);
     }
     
-    // Find the previous action
     const { data: actions, error: actionsError } = await supabase
       .from('computer_automation_actions')
       .select()
@@ -300,7 +279,6 @@ async function continueSession(
     }
     
     if (actions && actions.length > 0) {
-      // Update the previous action with the screenshot
       const { error: updateError } = await supabase
         .from('computer_automation_actions')
         .update({
@@ -315,7 +293,6 @@ async function continueSession(
       }
     }
     
-    // Initialize OpenAI client properly
     if (!OPENAI_API_KEY) {
       throw new Error("OpenAI API key is not configured");
     }
@@ -323,9 +300,6 @@ async function continueSession(
     const openai = new OpenAI({
       apiKey: OPENAI_API_KEY
     });
-    
-    // Make call to OpenAI using previous_response_id for continuity
-    console.log("Making OpenAI API call for session continuation with previous_response_id:", previousResponseId);
     
     const payload: any = {
       model: "computer-use-preview",
@@ -351,13 +325,11 @@ async function continueSession(
       truncation: "auto"
     };
     
-    // Add current URL if available
     if (currentUrl) {
       console.log("Including current URL in OpenAI request:", currentUrl);
       payload.input[0].output.current_url = currentUrl;
     }
     
-    // Add acknowledged safety checks if any
     if (acknowledgedSafetyChecks && acknowledgedSafetyChecks.length > 0) {
       console.log("Including acknowledged safety checks:", acknowledgedSafetyChecks.map(check => check.code).join(', '));
       
@@ -367,13 +339,11 @@ async function continueSession(
       });
     }
 
-    // Call OpenAI API using the SDK
     console.log("Sending request to OpenAI API:", JSON.stringify(payload, null, 2));
     const response = await openai.chat.completions.create(payload);
     
     console.log("OpenAI response received. Response ID:", response.id);
     
-    // Update session with new response id
     await supabase
       .from('computer_automation_sessions')
       .update({ 
@@ -382,10 +352,8 @@ async function continueSession(
       })
       .eq('id', sessionId);
     
-    // Process the response
     const output = processOpenAIResponse(response);
     
-    // Save new action if available
     if (output.length > 0) {
       const computerCall = output.find(item => item.type === "computer_call");
       const reasoningItems = output.filter(item => item.type === "reasoning");
@@ -394,7 +362,6 @@ async function continueSession(
         const action = computerCall.action;
         const pendingSafetyChecks = computerCall.pending_safety_checks || [];
         
-        // Save the action to the database
         const { data: actionData, error: actionError } = await supabase
           .from('computer_automation_actions')
           .insert({
@@ -412,7 +379,6 @@ async function continueSession(
           throw new Error(`Error creating action: ${actionError.message}`);
         }
         
-        // Save any safety checks
         for (const safetyCheck of pendingSafetyChecks) {
           const { error: safetyCheckError } = await supabase
             .from('computer_automation_safety_checks')
@@ -428,7 +394,6 @@ async function continueSession(
           }
         }
       } else {
-        // If there are no more computer calls, mark the session as completed
         const { error: sessionUpdateError } = await supabase
           .from('computer_automation_sessions')
           .update({
@@ -455,7 +420,6 @@ async function continueSession(
 }
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -468,12 +432,10 @@ serve(async (req) => {
   }
 
   try {
-    // Create Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
     
-    // Get user ID from request
     const userId = await getUserIdFromRequest(req);
     
     if (!userId) {
@@ -486,13 +448,11 @@ serve(async (req) => {
     
     console.log("Authenticated user:", userId);
     
-    // Parse request body
     const request = await req.json() as ComputerUseRequest;
     
     let result;
     
     if (!request.sessionId) {
-      // Starting a new session
       if (!request.taskDescription || !request.environment) {
         return new Response(
           JSON.stringify({ error: "Missing required parameters for starting a new session" }),
@@ -500,7 +460,6 @@ serve(async (req) => {
         );
       }
       
-      // Check if user has sufficient credits
       const { data: userCredits, error: creditsError } = await supabase
         .from("user_credits")
         .select("credits_remaining")
@@ -522,7 +481,6 @@ serve(async (req) => {
         );
       }
       
-      // Deduct 1 credit for starting a new session
       await supabase
         .from("user_credits")
         .update({ credits_remaining: userCredits.credits_remaining - 1 })
@@ -536,7 +494,6 @@ serve(async (req) => {
         request.screenshot
       );
     } else {
-      // Continuing an existing session
       if (!request.callId || !request.screenshot || !request.previousResponseId) {
         return new Response(
           JSON.stringify({ error: "Missing required parameters for session continuation" }),
@@ -562,7 +519,6 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in computer-use-agent function:", error);
     
-    // Check if the error is from OpenAI API
     const errorMessage = error.message || "Unknown error";
     const isOpenAIError = errorMessage.includes("OpenAI") || 
                           errorMessage.includes("API") ||
@@ -582,4 +538,3 @@ serve(async (req) => {
     );
   }
 });
-

@@ -224,7 +224,7 @@ serve(async (req) => {
         "Authorization": `Bearer ${OPENAI_API_KEY}`,
       },
       body: JSON.stringify({
-        model: "gpt-4-vision-preview", // Updated to use vision model
+        model: "gpt-4o", // Updated to use the current model instead of the deprecated gpt-4-vision-preview
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000,

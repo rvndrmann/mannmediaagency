@@ -26,7 +26,7 @@ export function useTaskMonitoring(
           const { data: taskData, error: taskError } = await supabase
             .from('browser_automation_tasks')
             .select('*')
-            .eq('id', currentTaskId)
+            .eq('browser_automation_tasks.id', currentTaskId)
             .maybeSingle();
           
           if (taskError) throw taskError;
@@ -42,7 +42,7 @@ export function useTaskMonitoring(
             const { data: stepsData, error: stepsError } = await supabase
               .from('browser_automation_steps')
               .select('*')
-              .eq('task_id', currentTaskId)
+              .eq('browser_automation_steps.task_id', currentTaskId)
               .order('created_at', { ascending: true });
             
             if (stepsError) throw stepsError;

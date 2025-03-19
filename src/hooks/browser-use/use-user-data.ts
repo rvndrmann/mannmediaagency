@@ -15,7 +15,7 @@ export function useUserData(setUserCredits: (credits: UserCredits | null) => voi
         const { data, error } = await supabase
           .from('user_credits')
           .select('*')
-          .eq('user_id', user.id)
+          .eq('user_credits.user_id', user.id)
           .maybeSingle();
         
         if (error) throw error;

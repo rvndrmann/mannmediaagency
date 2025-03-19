@@ -1,4 +1,3 @@
-
 import { useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -56,7 +55,7 @@ export function useTaskOperations(
       const { data: updatedCredits, error: updatedCreditsError } = await supabase
         .from('user_credits')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_credits.user_id', user.id)
         .single();
       
       if (updatedCreditsError) throw updatedCreditsError;
@@ -101,7 +100,7 @@ export function useTaskOperations(
       const { error } = await supabase
         .from('browser_automation_tasks')
         .update({ status: 'paused' })
-        .eq('id', currentTaskId);
+        .eq('browser_automation_tasks.id', currentTaskId);
       
       if (error) throw error;
       
@@ -131,7 +130,7 @@ export function useTaskOperations(
       const { error } = await supabase
         .from('browser_automation_tasks')
         .update({ status: 'running' })
-        .eq('id', currentTaskId);
+        .eq('browser_automation_tasks.id', currentTaskId);
       
       if (error) throw error;
       
@@ -161,7 +160,7 @@ export function useTaskOperations(
       const { error } = await supabase
         .from('browser_automation_tasks')
         .update({ status: 'stopped' })
-        .eq('id', currentTaskId);
+        .eq('browser_automation_tasks.id', currentTaskId);
       
       if (error) throw error;
       

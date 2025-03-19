@@ -446,6 +446,48 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_task_history: {
+        Row: {
+          browser_data: Json | null
+          browser_task_id: string | null
+          completed_at: string | null
+          created_at: string
+          id: string
+          output: string | null
+          result_url: string | null
+          screenshot_url: string | null
+          status: string
+          task_input: string
+          user_id: string
+        }
+        Insert: {
+          browser_data?: Json | null
+          browser_task_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          output?: string | null
+          result_url?: string | null
+          screenshot_url?: string | null
+          status: string
+          task_input: string
+          user_id: string
+        }
+        Update: {
+          browser_data?: Json | null
+          browser_task_id?: string | null
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          output?: string | null
+          result_url?: string | null
+          screenshot_url?: string | null
+          status?: string
+          task_input?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_usage: {
         Row: {
           created_at: string | null

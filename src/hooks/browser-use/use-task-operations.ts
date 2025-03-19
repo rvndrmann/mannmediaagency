@@ -1,5 +1,7 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserConfig, TaskStatus } from "./types";
+import { toast } from "sonner";
 
 interface TaskState {
   taskInput: string;
@@ -17,6 +19,49 @@ interface StateSetters {
   setError: (error: string | null) => void;
   setLiveUrl: (url: string | null) => void;
 }
+
+// This helper function will save task to history and return the history ID
+const saveTaskHistory = async (taskInput: string, userId: string, status: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('browser_task_history')
+      .insert({
+        user_id: userId,
+        task_input: taskInput,
+        status: status
+      })
+      .select('id')
+      .single();
+      
+    if (error) {
+      console.error("Error saving task to history:", error);
+      return null;
+    }
+    
+    return data.id;
+  } catch (err) {
+    console.error("Error in saveTaskHistory:", err);
+    return null;
+  }
+};
+
+// This helper function will update task history
+const updateTaskHistory = async (historyId: string, updates: any) => {
+  if (!historyId) return;
+  
+  try {
+    const { error } = await supabase
+      .from('browser_task_history')
+      .update(updates)
+      .eq('id', historyId);
+      
+    if (error) {
+      console.error("Error updating task history:", error);
+    }
+  } catch (err) {
+    console.error("Error in updateTaskHistory:", err);
+  }
+};
 
 export function useTaskOperations(
   state: TaskState,
@@ -106,13 +151,24 @@ export function useTaskOperations(
       setError(null);
       setLiveUrl(null);
       
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be logged in to use this feature");
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Save initial history record
+      const historyId = await saveTaskHistory(taskInput, user.id, 'pending');
+      
       // First, create a local database entry for our task
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
         .insert({
           input: taskInput,
           status: 'pending',
-          user_id: (await supabase.auth.getUser()).data.user?.id
+          user_id: user.id
         })
         .select('id')
         .single();
@@ -121,6 +177,14 @@ export function useTaskOperations(
         console.error("Error creating task:", taskError);
         setError(`Failed to create task: ${taskError.message}`);
         setIsProcessing(false);
+        
+        // Update history record with failure
+        if (historyId) {
+          await updateTaskHistory(historyId, { 
+            status: 'failed',
+            output: JSON.stringify({ error: taskError.message })
+          });
+        }
         return;
       }
 
@@ -153,6 +217,14 @@ export function useTaskOperations(
           })
           .eq('id', localTaskId);
         
+        // Update history record with failure
+        if (historyId) {
+          await updateTaskHistory(historyId, { 
+            status: 'failed',
+            output: JSON.stringify({ error: apiError.message })
+          });
+        }
+        
         setError(`API Error: ${apiError.message}`);
         setTaskStatus('failed');
         setIsProcessing(false);
@@ -171,6 +243,14 @@ export function useTaskOperations(
             output: JSON.stringify({ error: apiResponse.error }) 
           })
           .eq('id', localTaskId);
+        
+        // Update history record with failure
+        if (historyId) {
+          await updateTaskHistory(historyId, { 
+            status: 'failed',
+            output: JSON.stringify({ error: apiResponse.error })
+          });
+        }
         
         setError(`Task Error: ${apiResponse.error}`);
         setTaskStatus('failed');
@@ -192,9 +272,13 @@ export function useTaskOperations(
           })
           .eq('id', localTaskId);
         
-        // We don't update the currentTaskId here because we want to keep using
-        // our local database ID for database operations, but when we make API calls
-        // the task monitoring system will use the stored browser_task_id from the database
+        // Update history record with browser task ID
+        if (historyId) {
+          await updateTaskHistory(historyId, { 
+            browser_task_id: apiResponse.task_id,
+            status: apiResponse.status || 'running'
+          });
+        }
       } else {
         console.warn("No task_id returned from API. This may cause issues with task monitoring.");
       }
@@ -208,6 +292,13 @@ export function useTaskOperations(
           .from('browser_automation_tasks')
           .update({ live_url: apiResponse.live_url })
           .eq('id', localTaskId);
+          
+        // Update history record with live URL
+        if (historyId) {
+          await updateTaskHistory(historyId, { 
+            result_url: apiResponse.live_url
+          });
+        }
       }
 
       // Immediately check for task status to get live URL sooner
@@ -227,12 +318,21 @@ export function useTaskOperations(
             .from('browser_automation_tasks')
             .update({ live_url: initialStatus.browser.live_url })
             .eq('id', localTaskId);
+            
+          // Update history record with live URL
+          if (historyId) {
+            await updateTaskHistory(historyId, { 
+              result_url: initialStatus.browser.live_url
+            });
+          }
         }
       } catch (statusError) {
         console.warn("Non-critical error checking initial status:", statusError);
       }
 
       setTaskStatus('running');
+      toast.success("Task started successfully. 1 credit has been deducted from your account.");
+      
     } catch (error) {
       console.error("Error starting task:", error);
       setError(`Unexpected error: ${error.message}`);
@@ -346,7 +446,7 @@ export function useTaskOperations(
       // Get the browser_task_id from our database
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
-        .select('browser_task_id')
+        .select('browser_task_id, output')
         .eq('id', currentTaskId)
         .single();
         
@@ -381,8 +481,22 @@ export function useTaskOperations(
       
       await supabase
         .from('browser_automation_tasks')
-        .update({ status: 'stopped' })
+        .update({ 
+          status: 'stopped',
+          completed_at: new Date().toISOString()
+        })
         .eq('id', currentTaskId);
+        
+      // Update task history with stopped status
+      await supabase
+        .from('browser_task_history')
+        .update({ 
+          status: 'stopped',
+          completed_at: new Date().toISOString(),
+          output: taskData.output
+        })
+        .eq('browser_task_id', browserTaskId);
+        
     } catch (error) {
       console.error("Error in stopTask:", error);
       setError(`Stop error: ${error.message}`);
@@ -397,6 +511,17 @@ export function useTaskOperations(
       setProgress(0);
       setError(null);
       setLiveUrl(null);
+      
+      // Get current user
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("You must be logged in to use this feature");
+        setIsProcessing(false);
+        return;
+      }
+      
+      // Save new history record for restart
+      const historyId = await saveTaskHistory(taskInput, user.id, 'pending');
       
       // Update the task status to pending
       await supabase
@@ -437,6 +562,15 @@ export function useTaskOperations(
           })
           .eq('id', currentTaskId);
         
+        // Update history with error
+        if (historyId) {
+          await updateTaskHistory(historyId, {
+            status: 'failed',
+            output: JSON.stringify({ error: apiError.message }),
+            completed_at: new Date().toISOString()
+          });
+        }
+        
         setError(`API Error: ${apiError.message}`);
         setTaskStatus('failed');
         setIsProcessing(false);
@@ -456,6 +590,15 @@ export function useTaskOperations(
           })
           .eq('id', currentTaskId);
         
+        // Update history with error
+        if (historyId) {
+          await updateTaskHistory(historyId, {
+            status: 'failed',
+            output: JSON.stringify({ error: apiResponse.error }),
+            completed_at: new Date().toISOString()
+          });
+        }
+        
         setError(`Task Error: ${apiResponse.error}`);
         setTaskStatus('failed');
         setIsProcessing(false);
@@ -472,6 +615,14 @@ export function useTaskOperations(
             status: apiResponse.status || 'running'
           })
           .eq('id', currentTaskId);
+          
+        // Update history with browser task ID
+        if (historyId) {
+          await updateTaskHistory(historyId, {
+            browser_task_id: apiResponse.task_id,
+            status: apiResponse.status || 'running'
+          });
+        }
       } else {
         console.warn("No task_id returned from API during restart. This may cause issues with task monitoring.");
       }
@@ -485,9 +636,17 @@ export function useTaskOperations(
           .from('browser_automation_tasks')
           .update({ live_url: apiResponse.live_url })
           .eq('id', currentTaskId);
+          
+        // Update history with live URL
+        if (historyId) {
+          await updateTaskHistory(historyId, {
+            result_url: apiResponse.live_url
+          });
+        }
       }
 
       setTaskStatus('running');
+      toast.success("Task restarted successfully. 1 credit has been deducted from your account.");
     } catch (error) {
       console.error("Error restarting task:", error);
       setError(`Unexpected error during restart: ${error.message}`);

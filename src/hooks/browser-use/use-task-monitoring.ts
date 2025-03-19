@@ -216,6 +216,16 @@ export function useTaskMonitoring(
                 completed_at: new Date().toISOString()
               })
               .eq('id', currentTaskId);
+              
+            // Also update the history table
+            await supabase
+              .from('browser_task_history')
+              .update({ 
+                status: 'expired',
+                completed_at: new Date().toISOString(),
+                output: JSON.stringify({ error: errorMsg })
+              })
+              .eq('browser_task_id', browserTaskId);
             
             // Clear the interval
             if (intervalRef.current) {
@@ -256,6 +266,20 @@ export function useTaskMonitoring(
                 })
                 .eq('id', currentTaskId);
                 
+              // Also update the history table
+              const outputData = data.output ? 
+                (typeof data.output === 'string' ? data.output : JSON.stringify(data.output)) : 
+                null;
+                
+              await supabase
+                .from('browser_task_history')
+                .update({ 
+                  status: normalizedStatus,
+                  completed_at: new Date().toISOString(),
+                  output: outputData
+                })
+                .eq('browser_task_id', browserTaskId);
+                
               // Clear the interval on completion
               if (intervalRef.current) {
                 clearInterval(intervalRef.current);
@@ -274,6 +298,12 @@ export function useTaskMonitoring(
               .from('browser_automation_tasks')
               .update({ live_url: data.live_url })
               .eq('id', currentTaskId);
+              
+            // Also update the history table
+            await supabase
+              .from('browser_task_history')
+              .update({ result_url: data.live_url })
+              .eq('browser_task_id', browserTaskId);
           } else if (data.browser?.live_url && !state.liveUrl) {
             console.log("Setting live URL from browser data:", data.browser.live_url);
             setLiveUrl(data.browser.live_url);
@@ -283,6 +313,12 @@ export function useTaskMonitoring(
               .from('browser_automation_tasks')
               .update({ live_url: data.browser.live_url })
               .eq('id', currentTaskId);
+              
+            // Also update the history table
+            await supabase
+              .from('browser_task_history')
+              .update({ result_url: data.browser.live_url })
+              .eq('browser_task_id', browserTaskId);
           }
           
           // Set current browsing URL if available
@@ -355,6 +391,12 @@ export function useTaskMonitoring(
               .from('browser_automation_tasks')
               .update({ output: formattedOutput })
               .eq('id', currentTaskId);
+              
+            // Also update the history table
+            await supabase
+              .from('browser_task_history')
+              .update({ output: formattedOutput })
+              .eq('browser_task_id', browserTaskId);
           }
         }
       } catch (error) {

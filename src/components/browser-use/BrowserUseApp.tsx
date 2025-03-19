@@ -1,153 +1,184 @@
 
-import { useState, useEffect } from "react";
-import { Card, CardContent } from "@/components/ui/card";
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useBrowserUseTask } from "@/hooks/browser-use/use-browser-use-task";
-import { BrowserSettings } from "./BrowserSettings";
-import { TaskControls } from "./TaskControls";
-import { TaskProgress } from "./TaskProgress";
-import { TaskOutput } from "./TaskOutput";
-import { LivePreview } from "./LivePreview";
-import { toast } from "sonner";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { AlertCircle } from "lucide-react";
+import { BrowserConfigPanel } from "./BrowserConfigPanel";
+import { TaskMonitor } from "./TaskMonitor";
+import { BrowserTaskHistory } from "./BrowserTaskHistory";
+import { BrowserView } from "./BrowserView";
+import { Robot, History, Settings, Play, Pause, StopCircle, RotateCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 
 export function BrowserUseApp() {
-  const [activeTab, setActiveTab] = useState<string>("task");
+  const [activeTab, setActiveTab] = useState("task");
   
   const {
     taskInput,
     setTaskInput,
+    isProcessing,
     startTask,
     pauseTask,
     resumeTask,
     stopTask,
     restartTask,
-    isProcessing,
     progress,
-    taskSteps,
     taskStatus,
     currentUrl,
-    taskOutput,
+    setCurrentUrl,
+    screenshot,
+    captureScreenshot,
+    userCredits,
     error,
     browserConfig,
     setBrowserConfig,
-    userCredits,
     liveUrl,
-    captureScreenshot,
     connectionStatus
   } = useBrowserUseTask();
-  
-  // Log changes to liveUrl for debugging
-  useEffect(() => {
-    console.log(`BrowserUseApp: liveUrl changed to: ${liveUrl}`);
-  }, [liveUrl]);
-  
-  // Show toast when live URL becomes available
-  useEffect(() => {
-    if (liveUrl) {
-      if (liveUrl.endsWith('.mp4') || liveUrl.endsWith('.webm') || liveUrl.includes('recording')) {
-        toast.success("Session recording is now available!");
-      } else {
-        toast.success("Live preview is now available!");
-      }
-    }
-  }, [liveUrl]);
-  
-  // Auto-switch to output tab when task is complete
-  useEffect(() => {
-    if (['completed', 'failed', 'stopped', 'expired'].includes(taskStatus) && isProcessing === false) {
-      setActiveTab("output");
-    }
-  }, [taskStatus, isProcessing]);
-  
-  // Determine if the task input should be editable
-  const isTaskInputEditable = !isProcessing || taskStatus === 'expired';
-  
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <div className="grid grid-cols-1 gap-6">
-        <Card className="col-span-1">
-          <CardContent className="p-6">
-            <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="task">Task</TabsTrigger>
-                <TabsTrigger value="settings">Settings</TabsTrigger>
-                <TabsTrigger value="output">Output</TabsTrigger>
-              </TabsList>
-              
-              <TabsContent value="task" className="space-y-4 mt-4">
-                {error && (
-                  <Alert variant="destructive" className="mb-4">
-                    <AlertCircle className="h-4 w-4" />
-                    <AlertTitle>Error</AlertTitle>
-                    <AlertDescription>{error}</AlertDescription>
-                  </Alert>
-                )}
-                
-                <div className="space-y-2">
-                  <Label htmlFor="task-input">Task Description</Label>
-                  <Textarea
+    <div className="container mx-auto py-6 max-w-6xl">
+      <div className="flex items-center justify-between mb-6">
+        <div className="flex items-center gap-2">
+          <Robot className="h-6 w-6 text-primary" />
+          <h1 className="text-2xl font-bold">Browser Use API</h1>
+          {userCredits && (
+            <Badge variant="outline" className="ml-2">
+              Credits: {userCredits.credits_remaining}
+            </Badge>
+          )}
+        </div>
+      </div>
+
+      <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab}>
+        <TabsList className="grid grid-cols-3 mb-4">
+          <TabsTrigger value="task" className="flex items-center gap-2">
+            <Play className="h-4 w-4" />
+            <span>Task Execution</span>
+          </TabsTrigger>
+          <TabsTrigger value="history" className="flex items-center gap-2">
+            <History className="h-4 w-4" />
+            <span>Task History</span>
+          </TabsTrigger>
+          <TabsTrigger value="settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            <span>Settings</span>
+          </TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="task" className="space-y-4">
+          <Card className="p-4">
+            <div className="space-y-4">
+              <div>
+                <label htmlFor="task-input" className="block text-sm font-medium mb-1">
+                  Task Description
+                </label>
+                <div className="flex gap-2">
+                  <textarea
                     id="task-input"
-                    placeholder="Describe what you want the browser to do..."
                     value={taskInput}
                     onChange={(e) => setTaskInput(e.target.value)}
-                    className="min-h-[100px] resize-y"
-                    disabled={!isTaskInputEditable}
+                    className="flex-1 min-h-[80px] p-2 border rounded-md"
+                    placeholder="Describe what you want the browser to do..."
+                    disabled={isProcessing}
                   />
                 </div>
-                
-                <TaskControls
-                  taskStatus={taskStatus}
-                  isProcessing={isProcessing}
-                  userCredits={userCredits?.credits_remaining || null}
-                  onStart={startTask}
-                  onPause={pauseTask}
-                  onResume={resumeTask}
-                  onStop={stopTask}
-                  onRestart={restartTask}
-                  onScreenshot={captureScreenshot}
-                  error={error}
-                />
-                
-                {isProcessing && (
-                  <TaskProgress 
-                    progress={progress} 
-                    status={taskStatus}
-                    steps={taskSteps}
-                    currentUrl={currentUrl}
-                  />
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={startTask}
+                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
+                  className="flex items-center gap-2"
+                >
+                  <Play className="h-4 w-4" />
+                  Start Task (1 Credit)
+                </Button>
+
+                {taskStatus === 'running' && (
+                  <Button
+                    onClick={pauseTask}
+                    disabled={taskStatus !== 'running'}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Pause className="h-4 w-4" />
+                    Pause
+                  </Button>
                 )}
-              </TabsContent>
-              
-              <TabsContent value="settings" className="space-y-4 mt-4">
-                <BrowserSettings 
-                  browserConfig={browserConfig}
-                  onConfigChange={setBrowserConfig}
-                  isProcessing={isProcessing && taskStatus !== 'expired'}
-                />
-              </TabsContent>
-              
-              <TabsContent value="output" className="space-y-4 mt-4">
-                <TaskOutput 
-                  output={taskOutput}
-                  taskSteps={taskSteps}
-                  taskStatus={taskStatus}
-                />
-              </TabsContent>
-            </Tabs>
-          </CardContent>
-        </Card>
-        
-        {/* Always render the LivePreview component, even when liveUrl is null */}
-        <LivePreview 
-          liveUrl={liveUrl} 
-          isRunning={isProcessing && taskStatus === 'running'} 
-          connectionStatus={connectionStatus}
-        />
-      </div>
+
+                {taskStatus === 'paused' && (
+                  <Button
+                    onClick={resumeTask}
+                    disabled={taskStatus !== 'paused'}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <Play className="h-4 w-4" />
+                    Resume
+                  </Button>
+                )}
+
+                {(taskStatus === 'running' || taskStatus === 'paused') && (
+                  <Button
+                    onClick={stopTask}
+                    disabled={taskStatus !== 'running' && taskStatus !== 'paused'}
+                    variant="destructive"
+                    className="flex items-center gap-2"
+                  >
+                    <StopCircle className="h-4 w-4" />
+                    Stop
+                  </Button>
+                )}
+
+                {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
+                  <Button
+                    onClick={restartTask}
+                    disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
+                    variant="outline"
+                    className="flex items-center gap-2"
+                  >
+                    <RotateCw className="h-4 w-4" />
+                    Restart Task (1 Credit)
+                  </Button>
+                )}
+              </div>
+            </div>
+          </Card>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <BrowserView
+              liveUrl={liveUrl}
+              currentUrl={currentUrl}
+              setCurrentUrl={setCurrentUrl}
+              screenshot={screenshot}
+              captureScreenshot={captureScreenshot}
+              connectionStatus={connectionStatus}
+            />
+
+            <TaskMonitor
+              taskStatus={taskStatus}
+              progress={progress}
+              error={error}
+              isProcessing={isProcessing}
+              taskOutput={null}
+            />
+          </div>
+        </TabsContent>
+
+        <TabsContent value="history">
+          <BrowserTaskHistory />
+        </TabsContent>
+
+        <TabsContent value="settings">
+          <BrowserConfigPanel
+            config={browserConfig}
+            setConfig={setBrowserConfig}
+            disabled={isProcessing}
+          />
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

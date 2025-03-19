@@ -33,7 +33,7 @@ serve(async (req: Request) => {
       throw new Error("Browser Use API key is not configured.");
     }
 
-    // Base API URL changed to use api.browser-use.com
+    // Base API URL
     const BASE_URL = "https://api.browser-use.com/api/v1";
     const url = new URL(req.url);
     const pathParts = url.pathname.split('/');
@@ -56,26 +56,47 @@ serve(async (req: Request) => {
     
     // Check if this is a media endpoint call
     if (pathParts[pathParts.length - 1] === 'media') {
-      // Extract task ID from URL path
-      const taskIdIndex = pathParts.indexOf('task') + 1;
-      let taskId: string | null = null;
-      
-      if (taskIdIndex < pathParts.length) {
-        taskId = pathParts[taskIdIndex];
-      }
-      
-      if (taskId) {
-        console.log(`Fetching media for task ID: ${taskId}`);
-        return await getTaskMediaByTaskId(taskId);
-      } else {
-        console.log("No task ID found in URL, trying to parse from request body");
-        const { data, error } = await getTaskMedia(req);
+      console.log("Handling media request");
+      try {
+        const requestText = await req.text();
+        console.log(`Media request body: ${requestText}`);
+        const requestBody = requestText ? JSON.parse(requestText) : {};
+        const taskId = requestBody.task_id;
         
-        if (error) {
-          throw error;
+        if (!taskId) {
+          throw new Error("Task ID is required for fetching media");
         }
         
-        return new Response(JSON.stringify(data), {
+        console.log(`Fetching media for task ID: ${taskId}`);
+        
+        // Make sure we're using the direct API endpoint for media
+        const response = await fetch(`${BASE_URL}/task/${taskId}/media`, {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${API_KEY}`,
+            'Content-Type': 'application/json',
+          }
+        });
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error(`Media API Error ${response.status}: ${errorText}`);
+          throw new Error(`Media API Error ${response.status}: ${errorText}`);
+        }
+        
+        const responseData = await response.json();
+        console.log("Media API Response:", JSON.stringify(responseData, null, 2));
+        
+        return new Response(JSON.stringify(responseData), {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      } catch (mediaError) {
+        console.error("Error handling media request:", mediaError);
+        return new Response(JSON.stringify({
+          error: mediaError instanceof Error ? mediaError.message : "Unknown media error",
+          recordings: null
+        }), {
+          status: 500,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         });
       }
@@ -259,7 +280,7 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
     
     console.log(`Checking status for task: ${taskId}`);
     
-    // Updated to use the correct task status endpoint as specified in the API docs
+    // Use the correct task status endpoint
     const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/status`, {
       method: 'GET',
       headers: {
@@ -314,7 +335,8 @@ async function checkTaskStatus(req: Request, taskId?: string): Promise<{ data: a
   }
 }
 
-// Helper function to fetch task media using task ID directly
+// Helper function to fetch task media using task ID directly - this is a dedicated implementation 
+// for the browser-use API's media endpoint
 async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
   try {
     const API_KEY = Deno.env.get("BROWSER_USE_API_KEY");
@@ -325,7 +347,7 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
     
     console.log(`Fetching media for task: ${taskId}`);
     
-    // Updated to use the correct API endpoint
+    // Use the correct media endpoint
     const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
       method: 'GET',
       headers: {
@@ -338,10 +360,9 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
       const errorText = await response.text();
       console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
       
-      // Handle 404 error (Agent session not found) more gracefully
       if (response.status === 404) {
         return new Response(JSON.stringify({
-          error: 'Agent session not found - the task may have been deleted or expired',
+          error: 'Task media not found - the task may not have recordings yet',
           recordings: null
         }), {
           status: 404,
@@ -352,7 +373,7 @@ async function getTaskMediaByTaskId(taskId: string): Promise<Response> {
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     
-    // Safely parse JSON response
+    // Parse JSON response
     let responseData;
     let responseText = '';
     try {
@@ -402,21 +423,12 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
     }
     
     if (!taskId) {
-      // Try to get task_id from URL path
-      const url = new URL(req.url);
-      const pathParts = url.pathname.split('/');
-      const taskIdIndex = pathParts.indexOf('task') + 1;
-      
-      if (taskIdIndex >= pathParts.length) {
-        throw new Error("Task ID is required for fetching media");
-      }
-      
-      taskId = pathParts[taskIdIndex];
+      throw new Error("Task ID is required for fetching media");
     }
     
     console.log(`Fetching media for task: ${taskId}`);
     
-    // Updated to use the new API endpoint
+    // Use the correct endpoint for task media
     const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskId}/media`, {
       method: 'GET',
       headers: {
@@ -429,18 +441,17 @@ async function getTaskMedia(req: Request): Promise<{ data: TaskMediaResponse | n
       const errorText = await response.text();
       console.error(`Failed to fetch task media: ${response.status} ${errorText}`);
       
-      // Handle 404 error (Agent session not found) more gracefully
       if (response.status === 404) {
         return { 
           data: { recordings: null }, 
-          error: new Error('Agent session not found - the task may have been deleted or expired') 
+          error: new Error('Task media not found - the task may not have recordings yet') 
         };
       }
       
       throw new Error(`Failed to fetch task media: ${errorText}`);
     }
     
-    // Safely parse JSON response
+    // Parse JSON response
     let responseData;
     let responseText = '';
     try {

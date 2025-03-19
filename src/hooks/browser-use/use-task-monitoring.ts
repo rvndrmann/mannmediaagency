@@ -65,16 +65,19 @@ export function useTaskMonitoring(
             }
             
             // 2. If the task is still running, paused, pending, or created, call the browser-use-api to get the latest status
+            // Make sure browser_task_id is populated
+            const browserTaskId = taskData.browser_task_id;
+            
             if (['running', 'paused', 'pending', 'created'].includes(taskData.status)) {
-              console.log(`Checking status for browser task ID: ${taskData.browser_task_id || 'undefined'}`);
+              console.log(`Checking status for browser task ID: ${browserTaskId || 'undefined'}`);
 
-              if (!taskData.browser_task_id) {
+              if (!browserTaskId) {
                 console.warn(`No browser_task_id found for task ${currentTaskId}, using task ID as fallback`);
               }
 
               // Fetch the latest task status from the API
               const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api/status', {
-                body: { task_id: taskData.browser_task_id || currentTaskId }
+                body: { task_id: browserTaskId || currentTaskId }
               });
               
               if (apiError) {
@@ -148,33 +151,6 @@ export function useTaskMonitoring(
                         browser_data: apiResponse.browser || null
                       })
                       .eq('id', currentTaskId);
-                      
-                    // Try to fetch recordings/media if the task is complete
-                    if (taskData.browser_task_id) {
-                      try {
-                        const { data: mediaResponse } = await supabase.functions.invoke('browser-use-api/media', {
-                          body: { task_id: taskData.browser_task_id }
-                        });
-                        
-                        if (mediaResponse && mediaResponse.recordings && mediaResponse.recordings.length > 0) {
-                          console.log("Retrieved recordings:", mediaResponse.recordings);
-                          
-                          // Store the first recording URL as output if we don't have a live URL
-                          if (!taskData.live_url) {
-                            const recordingUrl = mediaResponse.recordings[0];
-                            console.log("Setting recording URL as live URL:", recordingUrl);
-                            setLiveUrl(recordingUrl);
-                            
-                            await supabase
-                              .from('browser_automation_tasks')
-                              .update({ live_url: recordingUrl })
-                              .eq('id', currentTaskId);
-                          }
-                        }
-                      } catch (mediaError) {
-                        console.error("Error fetching media:", mediaError);
-                      }
-                    }
                   }
                 }
                 
@@ -198,6 +174,56 @@ export function useTaskMonitoring(
                     .update({ output: outputText })
                     .eq('id', currentTaskId);
                 }
+              }
+              
+              // Try to fetch media/recordings if we have a task ID and status is active
+              if (browserTaskId) {
+                try {
+                  const { data: mediaResponse, error: mediaError } = await supabase.functions.invoke('browser-use-api/media', {
+                    body: { task_id: browserTaskId }
+                  });
+                  
+                  if (mediaError) {
+                    console.error("Error fetching media:", mediaError);
+                  } else if (mediaResponse && mediaResponse.recordings && mediaResponse.recordings.length > 0) {
+                    console.log("Retrieved recordings:", mediaResponse.recordings);
+                    
+                    // If we have recordings and no live URL yet, use the recording URL
+                    if (!taskData.live_url) {
+                      const recordingUrl = mediaResponse.recordings[0];
+                      console.log("Setting recording URL as live URL:", recordingUrl);
+                      setLiveUrl(recordingUrl);
+                      
+                      await supabase
+                        .from('browser_automation_tasks')
+                        .update({ live_url: recordingUrl })
+                        .eq('id', currentTaskId);
+                    }
+                  }
+                } catch (mediaError) {
+                  console.error("Error fetching media:", mediaError);
+                }
+              }
+            } else if (['finished', 'failed', 'stopped', 'completed'].includes(taskData.status) && !taskData.live_url && browserTaskId) {
+              // For completed tasks that don't have a live URL yet, try to fetch media one more time
+              try {
+                const { data: mediaResponse, error: mediaError } = await supabase.functions.invoke('browser-use-api/media', {
+                  body: { task_id: browserTaskId }
+                });
+                
+                if (!mediaError && mediaResponse && mediaResponse.recordings && mediaResponse.recordings.length > 0) {
+                  console.log("Retrieved recordings for completed task:", mediaResponse.recordings);
+                  const recordingUrl = mediaResponse.recordings[0];
+                  console.log("Setting recording URL as live URL for completed task:", recordingUrl);
+                  setLiveUrl(recordingUrl);
+                  
+                  await supabase
+                    .from('browser_automation_tasks')
+                    .update({ live_url: recordingUrl })
+                    .eq('id', currentTaskId);
+                }
+              } catch (mediaError) {
+                console.error("Error fetching media for completed task:", mediaError);
               }
             }
             

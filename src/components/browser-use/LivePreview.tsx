@@ -58,6 +58,12 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
     toast.error("Failed to load preview. It may still be initializing.");
   };
   
+  const handleVideoError = () => {
+    console.error("Video failed to load:", liveUrl);
+    setLoadError("Video failed to load. The URL might be invalid or the video is not ready yet.");
+    toast.error("Video failed to load. Please try refreshing in a moment.");
+  };
+  
   const refreshIframe = () => {
     setIsLoading(true);
     setLoadError(null);
@@ -128,10 +134,7 @@ export function LivePreview({ liveUrl, isRunning }: LivePreviewProps) {
                   autoPlay
                   className="w-full h-full max-h-[600px]"
                   style={{ height: isFullscreen ? iframeHeight : "auto" }}
-                  onError={() => {
-                    console.error("Video failed to load:", liveUrl);
-                    setLoadError("Video failed to load. The URL might be invalid or the video is not ready yet.");
-                  }}
+                  onError={handleVideoError}
                 >
                   Your browser does not support video playback.
                 </video>

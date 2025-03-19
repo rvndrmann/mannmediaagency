@@ -29,12 +29,7 @@ export function useUserData(
         }
         
         if (data) {
-          const credits: UserCredits = {
-            credits_remaining: data.credits_remaining || 0,
-            total_remaining: data.credits_remaining || 0
-          };
-          
-          setUserCredits(credits);
+          setUserCredits(data as UserCredits);
         } else {
           // Create new user credits record if not exists
           const { data: newCredits, error: insertError } = await supabase
@@ -52,12 +47,7 @@ export function useUserData(
           }
           
           if (newCredits) {
-            const credits: UserCredits = {
-              credits_remaining: newCredits.credits_remaining || 10,
-              total_remaining: newCredits.credits_remaining || 10
-            };
-            
-            setUserCredits(credits);
+            setUserCredits(newCredits as UserCredits);
           }
         }
       } catch (error) {

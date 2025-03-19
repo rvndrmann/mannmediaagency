@@ -56,7 +56,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
     onConfigChange({
       ...config,
       contextConfig: {
-        ...(config.contextConfig || {}),
+        ...config.contextConfig,
         [key]: value,
       },
     });
@@ -80,9 +80,9 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
     onConfigChange({
       ...config,
       contextConfig: {
-        ...(config.contextConfig || {}),
+        ...config.contextConfig,
         browserWindowSize: {
-          ...(config.contextConfig?.browserWindowSize || { width: 1280, height: 800 }),
+          ...config.contextConfig.browserWindowSize,
           [dimension]: numValue,
         },
       },
@@ -305,7 +305,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                   </Label>
                   <Switch
                     id="highlightElements"
-                    checked={config.contextConfig?.highlightElements || false}
+                    checked={config.contextConfig.highlightElements || false}
                     onCheckedChange={(checked) => handleContextConfigChange('highlightElements', checked)}
                   />
                 </div>
@@ -323,7 +323,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                   <Input
                     id="width"
                     type="number"
-                    value={config.contextConfig?.browserWindowSize?.width || 1280}
+                    value={config.contextConfig.browserWindowSize.width || 1280}
                     onChange={(e) => handleBrowserSizeChange('width', e.target.value)}
                   />
                 </div>
@@ -332,7 +332,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                   <Input
                     id="height"
                     type="number"
-                    value={config.contextConfig?.browserWindowSize?.height || 800}
+                    value={config.contextConfig.browserWindowSize.height || 800}
                     onChange={(e) => handleBrowserSizeChange('height', e.target.value)}
                   />
                 </div>
@@ -365,7 +365,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                         type="number"
                         step="0.1"
                         min="0"
-                        value={config.contextConfig?.minWaitPageLoadTime || 0.5}
+                        value={config.contextConfig.minWaitPageLoadTime || 0.5}
                         onChange={(e) => handleContextConfigChange('minWaitPageLoadTime', parseFloat(e.target.value))}
                       />
                     </div>
@@ -379,7 +379,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                         type="number"
                         step="0.1"
                         min="0"
-                        value={config.contextConfig?.waitForNetworkIdlePageLoadTime || 1.0}
+                        value={config.contextConfig.waitForNetworkIdlePageLoadTime || 1.0}
                         onChange={(e) => handleContextConfigChange('waitForNetworkIdlePageLoadTime', parseFloat(e.target.value))}
                       />
                     </div>
@@ -393,7 +393,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                         type="number"
                         step="0.1"
                         min="1"
-                        value={config.contextConfig?.maxWaitPageLoadTime || 5.0}
+                        value={config.contextConfig.maxWaitPageLoadTime || 5.0}
                         onChange={(e) => handleContextConfigChange('maxWaitPageLoadTime', parseFloat(e.target.value))}
                       />
                     </div>
@@ -490,7 +490,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                       <Input
                         id="userAgent"
                         placeholder="Custom User-Agent string"
-                        value={config.contextConfig?.userAgent || ''}
+                        value={config.contextConfig.userAgent || ''}
                         onChange={(e) => handleContextConfigChange('userAgent', e.target.value)}
                       />
                     </div>
@@ -503,7 +503,7 @@ export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps
                         id="viewportExpansion"
                         type="number"
                         min="0"
-                        value={config.contextConfig?.viewportExpansion || 0}
+                        value={config.contextConfig.viewportExpansion || 0}
                         onChange={(e) => handleContextConfigChange('viewportExpansion', parseInt(e.target.value))}
                       />
                       <p className="text-xs text-muted-foreground">

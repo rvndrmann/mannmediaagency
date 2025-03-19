@@ -18,14 +18,26 @@ export interface UserCredits {
   updated_at: string;
 }
 
+export type BrowserTheme = 'Default' | 'Soft' | 'Monochrome' | 'Glass' | 'Origin' | 'Citrus' | 'Ocean';
+
+export interface ProxyConfig {
+  server: string;
+  username?: string;
+  password?: string;
+  bypass?: string;
+}
+
 export interface BrowserConfig {
   persistentSession: boolean;
   useOwnBrowser: boolean;
   resolution: string;
-  theme: string;
+  theme: BrowserTheme | string;
   darkMode: boolean;
   headless: boolean;
   disableSecurity: boolean;
+  chromePath?: string;
+  extraChromiumArgs?: string[] | string;
+  proxy?: ProxyConfig | string;
   contextConfig: {
     minWaitPageLoadTime: number;
     waitForNetworkIdlePageLoadTime: number;
@@ -33,12 +45,14 @@ export interface BrowserConfig {
     browserWindowSize: { width: number; height: number };
     highlightElements: boolean;
     viewportExpansion: number;
+    userAgent?: string;
   };
 }
 
 export interface CaptureWebsiteResponse {
   url: string;
   imageUrl: string;
+  error?: string;
 }
 
 export interface BrowserTaskState {

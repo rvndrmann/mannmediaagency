@@ -94,6 +94,12 @@ export function useTaskMonitoring(
           return;
         }
         
+        // Handle task not found or expired errors
+        if (apiResponse.error && (apiResponse.status === 404 || apiResponse.error.includes("not found") || apiResponse.error.includes("expired"))) {
+          console.warn("Task expired or not found during URL check:", apiResponse.error);
+          return;
+        }
+        
         if (apiResponse.error) {
           console.warn("API returned error during URL check:", apiResponse.error);
           return;
@@ -306,37 +312,44 @@ export function useTaskMonitoring(
               return;
             }
             
-            if (apiResponse.error) {
-              console.error("API returned error:", apiResponse.error);
+            // Handle task not found or expired errors
+            if (apiResponse.error && (apiResponse.status === 404 || apiResponse.error.includes("not found") || apiResponse.error.includes("expired"))) {
+              console.error("Task not found or expired:", apiResponse.error);
               
-              // Handle expired/deleted tasks
-              if (apiResponse.error.includes("not found") || apiResponse.status === "failed") {
-                await supabase
-                  .from("browser_automation_tasks")
-                  .update({
-                    status: "failed",
-                    output: JSON.stringify({ error: apiResponse.error }),
-                    completed_at: new Date().toISOString()
-                  })
-                  .eq("id", state.currentTaskId);
-                  
-                setTaskStatus("failed");
-                setIsProcessing(false);
-                setError(apiResponse.error);
-                if (setConnectionStatus) setConnectionStatus("error");
-                toast.error(apiResponse.error);
+              // Mark the task as failed with proper error message
+              await supabase
+                .from("browser_automation_tasks")
+                .update({
+                  status: "failed",
+                  output: JSON.stringify({ 
+                    error: "Task expired or not found", 
+                    details: "The browser task has expired or was not found. Tasks typically expire after 30 minutes of inactivity."
+                  }),
+                  completed_at: new Date().toISOString()
+                })
+                .eq("id", state.currentTaskId);
                 
-                if (pollingIntervalRef.current) {
-                  clearInterval(pollingIntervalRef.current);
-                  pollingIntervalRef.current = null;
-                }
-                
-                if (urlCheckIntervalRef.current) {
-                  clearInterval(urlCheckIntervalRef.current);
-                  urlCheckIntervalRef.current = null;
-                }
+              setTaskStatus("failed");
+              setIsProcessing(false);
+              setError("Task expired or not found. Browser sessions typically expire after 30 minutes of inactivity.");
+              if (setConnectionStatus) setConnectionStatus("error");
+              toast.error("Task expired or not found");
+              
+              if (pollingIntervalRef.current) {
+                clearInterval(pollingIntervalRef.current);
+                pollingIntervalRef.current = null;
               }
               
+              if (urlCheckIntervalRef.current) {
+                clearInterval(urlCheckIntervalRef.current);
+                urlCheckIntervalRef.current = null;
+              }
+              
+              return;
+            }
+            
+            if (apiResponse.error) {
+              console.error("API returned error:", apiResponse.error);
               return;
             }
             

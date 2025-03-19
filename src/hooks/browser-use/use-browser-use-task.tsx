@@ -1,5 +1,5 @@
+
 import { useState, useCallback, useEffect } from "react";
-import { useToast } from "@/components/ui/use-toast";
 import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, CaptureWebsiteResponse, BrowserUseError } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
@@ -17,6 +17,9 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   // Core settings
   headless: false,
   disableSecurity: true,
+  chromePath: "",
+  chromeUserData: "",
+  extraChromiumArgs: [],
   
   // Context configuration
   contextConfig: {
@@ -28,7 +31,12 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
     // Default display settings
     browserWindowSize: { width: 1280, height: 1100 },
     highlightElements: true,
-    viewportExpansion: 500
+    viewportExpansion: 500,
+    
+    // Optional settings
+    userAgent: "",
+    locale: "",
+    allowedDomains: []
   }
 };
 
@@ -53,6 +61,22 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
       ...DEFAULT_BROWSER_CONFIG.contextConfig,
       ...validConfig.contextConfig
     };
+  }
+  
+  // Set browser window size from resolution if it exists
+  if (validConfig.resolution) {
+    const parts = validConfig.resolution.split('x');
+    if (parts.length >= 2) {
+      const width = parseInt(parts[0]);
+      const height = parseInt(parts[1]);
+      
+      if (!isNaN(width) && !isNaN(height)) {
+        validConfig.contextConfig.browserWindowSize = {
+          width,
+          height
+        };
+      }
+    }
   }
   
   return validConfig;

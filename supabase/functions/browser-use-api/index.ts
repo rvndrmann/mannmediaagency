@@ -167,7 +167,6 @@ serve(async (req) => {
         : `https://api.browser-use.com/api/v1/task/${task_id}`;
       
       console.log(`Checking ${url_check_only ? 'media for' : 'status of'} task: ${task_id}`);
-      console.log(`Using authentication: Bearer ${apiKey.substring(0, 4)}...`);
       
       // Implement retries for transient errors
       const maxRetries = 2;
@@ -225,7 +224,21 @@ serve(async (req) => {
         
         // Special handling for not found errors
         if (response.status === 404) {
-          errorMessage = "Task not found or expired";
+          console.error(`Task not found or expired (${task_id}). This could be because the task expired naturally, was deleted, or was never created.`);
+          
+          // Return a standardized response for task not found errors
+          return new Response(
+            JSON.stringify({ 
+              error: "Task not found or expired", 
+              status: 404,
+              message: "This task may have expired or been deleted. Please start a new task.",
+              task_id: task_id
+            }),
+            { 
+              status: 200, // Return 200 so we can handle errors gracefully on the client
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+            }
+          );
         }
         
         console.error(`API error (${response.status}): ${errorMessage}`);
@@ -241,6 +254,11 @@ serve(async (req) => {
       
       // Parse successful response
       const data = await response.json();
+      
+      // For media endpoint, add a log to debug
+      if (url_check_only) {
+        console.log(`Media response status: ${response.status}`);
+      }
       
       // Return the API response to the client
       return new Response(

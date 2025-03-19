@@ -1,408 +1,353 @@
 
 import { useState } from "react";
-import { BrowserConfig } from "@/hooks/browser-use/types";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
+import { Separator } from "@/components/ui/separator";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Info, AlertCircle } from "lucide-react";
+import { BrowserConfig, BrowserTheme } from "@/hooks/browser-use/types";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Slider } from "@/components/ui/slider";
-import { 
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue
-} from "@/components/ui/select";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BrowserTheme } from "@/hooks/browser-use/types";
-
-const RESOLUTIONS = [
-  { label: "HD (1280×720)", value: "1280x720" },
-  { label: "Full HD (1920×1080)", value: "1920x1080" },
-  { label: "2K (2560×1440)", value: "2560x1440" },
-  { label: "4K (3840×2160)", value: "3840x2160" },
-  { label: "Custom", value: "custom" }
-];
-
-const THEMES: { label: string; value: BrowserTheme }[] = [
-  { label: "Default", value: "Default" },
-  { label: "Soft", value: "Soft" },
-  { label: "Monochrome", value: "Monochrome" },
-  { label: "Glass", value: "Glass" },
-  { label: "Origin", value: "Origin" },
-  { label: "Citrus", value: "Citrus" },
-  { label: "Ocean", value: "Ocean" }
-];
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface BrowserSettingsProps {
-  config: BrowserConfig;
-  onConfigChange: (config: BrowserConfig) => void;
+  browserConfig: BrowserConfig;
+  updateConfig: (config: BrowserConfig) => void;
+  isProcessing: boolean;
 }
 
-export function BrowserSettings({ config, onConfigChange }: BrowserSettingsProps) {
-  const [activeTab, setActiveTab] = useState("general");
-  const [customResolution, setCustomResolution] = useState(false);
+export function BrowserSettings({ browserConfig, updateConfig, isProcessing }: BrowserSettingsProps) {
+  const [activeTab, setActiveTab] = useState("basic");
   
-  const updateConfig = <K extends keyof BrowserConfig>(key: K, value: BrowserConfig[K]) => {
-    onConfigChange({
-      ...config,
+  const handleChange = <K extends keyof BrowserConfig>(key: K, value: BrowserConfig[K]) => {
+    updateConfig({
+      ...browserConfig,
       [key]: value
     });
   };
   
-  const updateContextConfig = <K extends keyof BrowserConfig["contextConfig"]>(
+  const handleContextConfigChange = <K extends keyof BrowserConfig['contextConfig']>(
     key: K, 
-    value: BrowserConfig["contextConfig"][K]
+    value: BrowserConfig['contextConfig'][K]
   ) => {
-    onConfigChange({
-      ...config,
+    updateConfig({
+      ...browserConfig,
       contextConfig: {
-        ...config.contextConfig,
+        ...browserConfig.contextConfig,
         [key]: value
       }
     });
   };
   
-  const handleResolutionChange = (value: string) => {
-    if (value === "custom") {
-      setCustomResolution(true);
-      return;
-    }
-    
-    setCustomResolution(false);
-    updateConfig("resolution", value);
-    
-    // Also update the browserWindowSize
-    const [width, height] = value.split("x").map(Number);
-    if (width && height) {
-      updateContextConfig("browserWindowSize", { width, height });
-    }
-  };
+  const themes: BrowserTheme[] = [
+    "Default", "Soft", "Monochrome", "Glass", "Origin", "Citrus", "Ocean"
+  ];
   
-  const handleCustomResolutionChange = (dimension: "width" | "height", value: string) => {
-    const numValue = parseInt(value, 10);
-    if (isNaN(numValue)) return;
-    
-    const newSize = {
-      ...config.contextConfig.browserWindowSize,
-      [dimension]: numValue
-    };
-    
-    updateContextConfig("browserWindowSize", newSize);
-    updateConfig("resolution", `${newSize.width}x${newSize.height}`);
-  };
-  
-  // Determine if we're using a custom resolution that's not in the presets
-  const getResolutionValue = () => {
-    if (customResolution) return "custom";
-    
-    const currentResolution = config.resolution;
-    const matchingPreset = RESOLUTIONS.find(r => r.value === currentResolution);
-    
-    return matchingPreset ? currentResolution : "custom";
-  };
+  const resolutions = [
+    "1920x1080",
+    "1600x900",
+    "1366x768",
+    "1280x720",
+    "3840x2160",
+    "2560x1440"
+  ];
   
   return (
-    <Card className="w-full">
-      <CardHeader className="px-4 py-3">
+    <Card className="col-span-1">
+      <CardHeader className="space-y-1">
         <CardTitle className="text-lg font-semibold">Browser Settings</CardTitle>
+        <CardDescription>
+          Configure how the browser behaves during the task
+        </CardDescription>
       </CardHeader>
-      <CardContent className="px-4 py-3">
-        <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="grid w-full grid-cols-3 mb-4">
-            <TabsTrigger value="general">General</TabsTrigger>
-            <TabsTrigger value="display">Display</TabsTrigger>
+      <CardContent>
+        <Tabs defaultValue="basic" value={activeTab} onValueChange={setActiveTab}>
+          <TabsList className="w-full grid grid-cols-3 mb-4">
+            <TabsTrigger value="basic">Basic</TabsTrigger>
             <TabsTrigger value="advanced">Advanced</TabsTrigger>
+            <TabsTrigger value="developer">Developer</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="general" className="space-y-4">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="persistentSession" className="flex-1">
-                  Persistent Session
-                  <div className="text-xs text-muted-foreground">
-                    Keep browser open between tasks
-                  </div>
-                </Label>
-                <Switch
-                  id="persistentSession"
-                  checked={config.persistentSession}
-                  onCheckedChange={(checked) => updateConfig("persistentSession", checked)}
-                />
+          <TabsContent value="basic" className="space-y-4">
+            <div className="grid gap-4">
+              <div>
+                <Label className="block mb-2">Browser Theme</Label>
+                <Select 
+                  disabled={isProcessing}
+                  value={browserConfig.theme} 
+                  onValueChange={(value) => handleChange('theme', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select theme" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {themes.map(theme => (
+                      <SelectItem key={theme} value={theme}>
+                        {theme}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="useOwnBrowser" className="flex-1">
-                  Use Own Browser
-                  <div className="text-xs text-muted-foreground">
-                    Use your locally installed browser
-                  </div>
-                </Label>
-                <Switch
-                  id="useOwnBrowser"
-                  checked={config.useOwnBrowser}
-                  onCheckedChange={(checked) => updateConfig("useOwnBrowser", checked)}
-                />
+              
+              <div>
+                <Label className="block mb-2">Screen Resolution</Label>
+                <Select 
+                  disabled={isProcessing}
+                  value={browserConfig.resolution} 
+                  onValueChange={(value) => handleChange('resolution', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select resolution" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {resolutions.map(res => (
+                      <SelectItem key={res} value={res}>
+                        {res}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
-            </div>
-            
-            {config.useOwnBrowser && (
-              <div className="space-y-3 mt-3 p-3 border rounded-md">
-                <div className="space-y-2">
-                  <Label htmlFor="chromePath">Chrome Path</Label>
-                  <Input
-                    id="chromePath"
-                    placeholder="e.g., C:\Program Files\Google\Chrome\Application\chrome.exe"
-                    value={config.chromePath || ""}
-                    onChange={(e) => updateConfig("chromePath", e.target.value)}
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    Full path to Chrome executable on your system
-                  </div>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="darkMode">Dark Mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Enable dark mode for the browser
+                  </p>
                 </div>
-                
-                <div className="space-y-2">
-                  <Label htmlFor="chromeUserData">User Data Directory (Optional)</Label>
-                  <Input
-                    id="chromeUserData"
-                    placeholder="Path to Chrome user data folder"
-                    value={config.chromeUserData || ""}
-                    onChange={(e) => updateConfig("chromeUserData", e.target.value)}
-                  />
-                  <div className="text-xs text-muted-foreground">
-                    Path to Chrome User Data folder to use existing profile
-                  </div>
-                </div>
-                
-                <Alert variant="warning" className="mt-2">
-                  <AlertDescription>
-                    Close all Chrome windows before using this feature.
-                  </AlertDescription>
-                </Alert>
-              </div>
-            )}
-            
-            <div className="space-y-2">
-              <Label htmlFor="theme">Theme</Label>
-              <Select 
-                value={config.theme as string} 
-                onValueChange={(value) => updateConfig("theme", value as BrowserTheme)}
-              >
-                <SelectTrigger id="theme">
-                  <SelectValue placeholder="Select theme" />
-                </SelectTrigger>
-                <SelectContent>
-                  {THEMES.map((theme) => (
-                    <SelectItem key={theme.value} value={theme.value}>
-                      {theme.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="darkMode" className="flex-1">
-                  Dark Mode
-                  <div className="text-xs text-muted-foreground">
-                    Use dark theme in browser
-                  </div>
-                </Label>
                 <Switch
                   id="darkMode"
-                  checked={config.darkMode}
-                  onCheckedChange={(checked) => updateConfig("darkMode", checked)}
+                  disabled={isProcessing}
+                  checked={browserConfig.darkMode}
+                  onCheckedChange={(checked) => handleChange('darkMode', checked)}
                 />
               </div>
-            </div>
-          </TabsContent>
-          
-          <TabsContent value="display" className="space-y-4">
-            <div className="space-y-2">
-              <Label>Resolution</Label>
-              <Select value={getResolutionValue()} onValueChange={handleResolutionChange}>
-                <SelectTrigger>
-                  <SelectValue placeholder="Select resolution" />
-                </SelectTrigger>
-                <SelectContent>
-                  {RESOLUTIONS.map((resolution) => (
-                    <SelectItem key={resolution.value} value={resolution.value}>
-                      {resolution.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
               
-              {(customResolution || getResolutionValue() === "custom") && (
-                <div className="grid grid-cols-2 gap-2 mt-2">
-                  <div className="space-y-1">
-                    <Label htmlFor="resolutionWidth" className="text-xs">Width</Label>
-                    <Input
-                      id="resolutionWidth"
-                      type="number"
-                      min={800}
-                      max={3840}
-                      value={config.contextConfig.browserWindowSize.width}
-                      onChange={(e) => handleCustomResolutionChange("width", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <Label htmlFor="resolutionHeight" className="text-xs">Height</Label>
-                    <Input
-                      id="resolutionHeight"
-                      type="number"
-                      min={600}
-                      max={2160}
-                      value={config.contextConfig.browserWindowSize.height}
-                      onChange={(e) => handleCustomResolutionChange("height", e.target.value)}
-                    />
-                  </div>
-                </div>
-              )}
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="viewportExpansion">
-                  Viewport Expansion
-                  <div className="text-xs text-muted-foreground">
-                    Extra pixels to add to viewport height for scrolling
-                  </div>
-                </Label>
-                <span className="text-sm">{config.contextConfig.viewportExpansion}px</span>
-              </div>
-              <Slider
-                id="viewportExpansion"
-                min={0}
-                max={2000}
-                step={100}
-                value={[config.contextConfig.viewportExpansion]}
-                onValueChange={([value]) => updateContextConfig("viewportExpansion", value)}
-              />
-            </div>
-            
-            <div className="space-y-1">
               <div className="flex items-center justify-between">
-                <Label htmlFor="highlightElements" className="flex-1">
-                  Highlight Elements
-                  <div className="text-xs text-muted-foreground">
-                    Visually highlight elements when interacting
-                  </div>
-                </Label>
+                <div className="space-y-0.5">
+                  <Label htmlFor="persistentSession">Persistent Session</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Keep browser state between sessions
+                  </p>
+                </div>
                 <Switch
-                  id="highlightElements"
-                  checked={config.contextConfig.highlightElements}
-                  onCheckedChange={(checked) => updateContextConfig("highlightElements", checked)}
+                  id="persistentSession"
+                  disabled={isProcessing}
+                  checked={browserConfig.persistentSession}
+                  onCheckedChange={(checked) => handleChange('persistentSession', checked)}
                 />
               </div>
             </div>
           </TabsContent>
           
           <TabsContent value="advanced" className="space-y-4">
-            <div className="space-y-1">
+            <div className="grid gap-4">
               <div className="flex items-center justify-between">
-                <Label htmlFor="headless" className="flex-1">
-                  Headless Mode
-                  <div className="text-xs text-muted-foreground">
-                    Run without visible browser window
-                  </div>
-                </Label>
+                <div className="space-y-0.5">
+                  <Label htmlFor="useOwnBrowser">Use Own Browser</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Use your local Chrome browser
+                  </p>
+                </div>
                 <Switch
-                  id="headless"
-                  checked={config.headless}
-                  onCheckedChange={(checked) => updateConfig("headless", checked)}
+                  id="useOwnBrowser"
+                  disabled={isProcessing}
+                  checked={browserConfig.useOwnBrowser}
+                  onCheckedChange={(checked) => handleChange('useOwnBrowser', checked)}
                 />
               </div>
-            </div>
-            
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label htmlFor="disableSecurity" className="flex-1">
-                  Disable Security
-                  <div className="text-xs text-muted-foreground">
-                    Disable web security features for testing
+              
+              {browserConfig.useOwnBrowser && (
+                <>
+                  <div>
+                    <Label htmlFor="chromePath" className="block mb-2">
+                      Chrome Path
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 inline-block ml-1 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm">
+                            <p>Path to Chrome executable. Example:<br />
+                              Windows: C:\Program Files\Google\Chrome\Application\chrome.exe<br />
+                              Mac: /Applications/Google Chrome.app/Contents/MacOS/Google Chrome
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Label>
+                    <Input
+                      id="chromePath"
+                      disabled={isProcessing}
+                      value={browserConfig.chromePath || ''}
+                      onChange={(e) => handleChange('chromePath', e.target.value)}
+                      placeholder="Path to Chrome executable"
+                    />
                   </div>
-                </Label>
+                  
+                  <div>
+                    <Label htmlFor="chromeUserData" className="block mb-2">
+                      Chrome User Data Path
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Info className="h-4 w-4 inline-block ml-1 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent className="max-w-sm">
+                            <p>Path to Chrome user data directory. Example:<br />
+                              Windows: C:\Users\YourUsername\AppData\Local\Google\Chrome\User Data<br />
+                              Mac: /Users/YourUsername/Library/Application Support/Google/Chrome
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </Label>
+                    <Input
+                      id="chromeUserData"
+                      disabled={isProcessing}
+                      value={browserConfig.chromeUserData || ''}
+                      onChange={(e) => handleChange('chromeUserData', e.target.value)}
+                      placeholder="Path to Chrome user data directory (optional)"
+                    />
+                  </div>
+                </>
+              )}
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="highlightElements">Highlight Elements</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Highlight elements that AI interacts with
+                  </p>
+                </div>
+                <Switch
+                  id="highlightElements"
+                  disabled={isProcessing}
+                  checked={browserConfig.contextConfig.highlightElements}
+                  onCheckedChange={(checked) => handleContextConfigChange('highlightElements', checked)}
+                />
+              </div>
+              
+              <Alert className="bg-muted">
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>Note</AlertTitle>
+                <AlertDescription>
+                  When using your own browser, close all Chrome windows before starting a task.
+                </AlertDescription>
+              </Alert>
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="developer" className="space-y-4">
+            <div className="grid gap-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="disableSecurity">Disable Security</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Disable web security (CORS, SSL)
+                  </p>
+                </div>
                 <Switch
                   id="disableSecurity"
-                  checked={config.disableSecurity}
-                  onCheckedChange={(checked) => updateConfig("disableSecurity", checked)}
+                  disabled={isProcessing}
+                  checked={browserConfig.disableSecurity}
+                  onCheckedChange={(checked) => handleChange('disableSecurity', checked)}
                 />
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="minWaitPageLoadTime">
-                  Min. Page Load Wait
-                  <div className="text-xs text-muted-foreground">
-                    Minimum time to wait (in seconds)
-                  </div>
-                </Label>
-                <span className="text-sm">{config.contextConfig.minWaitPageLoadTime}s</span>
+              
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <Label htmlFor="headless">Headless Mode</Label>
+                  <p className="text-sm text-muted-foreground">
+                    Run browser without visible UI
+                  </p>
+                </div>
+                <Switch
+                  id="headless"
+                  disabled={isProcessing}
+                  checked={browserConfig.headless}
+                  onCheckedChange={(checked) => handleChange('headless', checked)}
+                />
               </div>
-              <Slider
-                id="minWaitPageLoadTime"
-                min={0}
-                max={5}
-                step={0.1}
-                value={[config.contextConfig.minWaitPageLoadTime]}
-                onValueChange={([value]) => updateContextConfig("minWaitPageLoadTime", value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="waitForNetworkIdlePageLoadTime">
-                  Network Idle Wait
-                  <div className="text-xs text-muted-foreground">
-                    Time to wait for network idle (in seconds)
-                  </div>
+              
+              <Separator />
+              
+              <div>
+                <Label htmlFor="minWaitPageLoadTime" className="block mb-2">
+                  Min Page Load Time (seconds)
                 </Label>
-                <span className="text-sm">{config.contextConfig.waitForNetworkIdlePageLoadTime}s</span>
+                <Input
+                  id="minWaitPageLoadTime"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  disabled={isProcessing}
+                  value={browserConfig.contextConfig.minWaitPageLoadTime}
+                  onChange={(e) => handleContextConfigChange('minWaitPageLoadTime', parseFloat(e.target.value))}
+                />
               </div>
-              <Slider
-                id="waitForNetworkIdlePageLoadTime"
-                min={0}
-                max={30}
-                step={0.5}
-                value={[config.contextConfig.waitForNetworkIdlePageLoadTime]}
-                onValueChange={([value]) => updateContextConfig("waitForNetworkIdlePageLoadTime", value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <div className="flex justify-between">
-                <Label htmlFor="maxWaitPageLoadTime">
-                  Max. Page Load Wait
-                  <div className="text-xs text-muted-foreground">
-                    Maximum time to wait (in seconds)
-                  </div>
+              
+              <div>
+                <Label htmlFor="waitForNetworkIdlePageLoadTime" className="block mb-2">
+                  Network Idle Wait Time (seconds)
                 </Label>
-                <span className="text-sm">{config.contextConfig.maxWaitPageLoadTime}s</span>
+                <Input
+                  id="waitForNetworkIdlePageLoadTime"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  disabled={isProcessing}
+                  value={browserConfig.contextConfig.waitForNetworkIdlePageLoadTime}
+                  onChange={(e) => handleContextConfigChange('waitForNetworkIdlePageLoadTime', parseFloat(e.target.value))}
+                />
               </div>
-              <Slider
-                id="maxWaitPageLoadTime"
-                min={1}
-                max={60}
-                step={1}
-                value={[config.contextConfig.maxWaitPageLoadTime]}
-                onValueChange={([value]) => updateContextConfig("maxWaitPageLoadTime", value)}
-              />
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="userAgent">User Agent (Optional)</Label>
-              <Input
-                id="userAgent"
-                placeholder="Custom user agent string"
-                value={config.contextConfig.userAgent || ""}
-                onChange={(e) => updateContextConfig("userAgent", e.target.value)}
-              />
+              
+              <div>
+                <Label htmlFor="maxWaitPageLoadTime" className="block mb-2">
+                  Max Page Load Time (seconds)
+                </Label>
+                <Input
+                  id="maxWaitPageLoadTime"
+                  type="number"
+                  min="0"
+                  step="0.1"
+                  disabled={isProcessing}
+                  value={browserConfig.contextConfig.maxWaitPageLoadTime}
+                  onChange={(e) => handleContextConfigChange('maxWaitPageLoadTime', parseFloat(e.target.value))}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="viewportExpansion" className="block mb-2">
+                  Viewport Expansion (pixels)
+                </Label>
+                <Input
+                  id="viewportExpansion"
+                  type="number"
+                  min="0"
+                  disabled={isProcessing}
+                  value={browserConfig.contextConfig.viewportExpansion}
+                  onChange={(e) => handleContextConfigChange('viewportExpansion', parseInt(e.target.value))}
+                />
+              </div>
+              
+              <div>
+                <Label htmlFor="userAgent" className="block mb-2">
+                  User Agent (optional)
+                </Label>
+                <Input
+                  id="userAgent"
+                  disabled={isProcessing}
+                  value={browserConfig.contextConfig.userAgent || ''}
+                  onChange={(e) => handleContextConfigChange('userAgent', e.target.value)}
+                  placeholder="Custom user agent string"
+                />
+              </div>
             </div>
           </TabsContent>
         </Tabs>

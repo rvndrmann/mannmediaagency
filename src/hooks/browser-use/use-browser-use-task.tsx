@@ -20,6 +20,14 @@ interface UserCredits {
   credits_remaining: number;
   last_refill: string | null;
   created_at: string;
+  updated_at?: string;
+}
+
+interface CaptureWebsiteResponse {
+  image_url: string;
+  url: string;
+  saved?: boolean;
+  error?: string;
 }
 
 export function useBrowserUseTask() {
@@ -44,7 +52,11 @@ export function useBrowserUseTask() {
       if (!user) throw new Error("Not authenticated");
       
       // Deduct credits
-      const { error: creditError } = await supabase.rpc('deduct_credits', { user_id: user.id, credits_to_deduct: 1 });
+      const { error: creditError } = await supabase.rpc('deduct_credits', { 
+        user_id: user.id, 
+        credits_to_deduct: 1 
+      });
+      
       if (creditError) throw creditError;
       
       // Fetch updated credits
@@ -86,6 +98,8 @@ export function useBrowserUseTask() {
   }, [taskInput]);
   
   const pauseTask = useCallback(async () => {
+    if (!currentTaskId) return;
+    
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -114,6 +128,8 @@ export function useBrowserUseTask() {
   }, [currentTaskId]);
   
   const resumeTask = useCallback(async () => {
+    if (!currentTaskId) return;
+    
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -142,6 +158,8 @@ export function useBrowserUseTask() {
   }, [currentTaskId]);
   
   const stopTask = useCallback(async () => {
+    if (!currentTaskId) return;
+    
     setIsProcessing(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
@@ -177,9 +195,14 @@ export function useBrowserUseTask() {
   }, [currentTaskId]);
   
   const captureScreenshot = useCallback(async () => {
+    if (!currentUrl) return false;
+    
     try {
       const { data, error } = await supabase.functions.invoke('capture-website', {
-        body: { url: currentUrl }
+        body: { 
+          url: currentUrl,
+          save_browser_data: true 
+        }
       });
       
       if (error) {
@@ -187,8 +210,15 @@ export function useBrowserUseTask() {
         return false;
       }
       
-      if (data && data.image_url) {
-        setScreenshot(data.image_url);
+      const response = data as CaptureWebsiteResponse;
+      
+      if (response.error) {
+        console.error("Screenshot error:", response.error);
+        return false;
+      }
+      
+      if (response.image_url) {
+        setScreenshot(response.image_url);
         return true;
       }
       
@@ -204,17 +234,16 @@ export function useBrowserUseTask() {
     const fetchUserCredits = async () => {
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        if (!user) throw new Error("Not authenticated");
+        if (!user) return;
         
         const { data, error } = await supabase
           .from('user_credits')
           .select('*')
           .eq('user_id', user.id)
-          .single();
+          .maybeSingle();
         
         if (error) throw error;
-        
-        setUserCredits(data as UserCredits);
+        if (data) setUserCredits(data as UserCredits);
       } catch (err: any) {
         console.error("Error fetching user credits:", err);
         setError(err.message || "Failed to fetch user credits");
@@ -232,13 +261,13 @@ export function useBrowserUseTask() {
             .from('browser_automation_tasks')
             .select('*')
             .eq('id', currentTaskId)
-            .single();
+            .maybeSingle();
           
           if (taskError) throw taskError;
           
           if (taskData) {
             setProgress(taskData.progress || 0);
-            setTaskStatus(taskData.status);
+            setTaskStatus(taskData.status as any || 'idle');
             
             // Handle current URL properly
             if (taskData.current_url && typeof taskData.current_url === 'string') {
@@ -258,7 +287,8 @@ export function useBrowserUseTask() {
               setTaskSteps(stepsData.map(step => ({
                 ...step,
                 // Handle potential JSON string in details
-                details: typeof step.details === 'string' ? step.details : JSON.stringify(step.details),
+                details: typeof step.details === 'string' ? step.details : 
+                         step.details ? JSON.stringify(step.details) : null
               })));
             }
             

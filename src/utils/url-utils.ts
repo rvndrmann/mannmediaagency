@@ -52,3 +52,29 @@ export function openUrlInNewTab(url: string): boolean {
     return false;
   }
 }
+
+/**
+ * Validates a URL string
+ */
+export function isValidUrl(url: string): boolean {
+  if (!url) return false;
+  
+  try {
+    new URL(normalizeUrl(url));
+    return true;
+  } catch (e) {
+    return false;
+  }
+}
+
+/**
+ * Extracts domain from URL
+ */
+export function getDomainFromUrl(url: string): string {
+  try {
+    const parsedUrl = new URL(normalizeUrl(url));
+    return parsedUrl.hostname;
+  } catch (e) {
+    return "";
+  }
+}

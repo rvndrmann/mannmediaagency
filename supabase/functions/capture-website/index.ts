@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { url } = await req.json();
+    const { url, save_browser_data = true } = await req.json();
     
     if (!url) {
       return new Response(
@@ -50,11 +50,14 @@ serve(async (req) => {
       // Convert screenshot to base64
       const base64Image = `data:image/jpeg;base64,${btoa(String.fromCharCode(...new Uint8Array(screenshotBuffer)))}`;
       
+      const responseData = {
+        image_url: base64Image,
+        url: page.url(),
+        saved: save_browser_data
+      };
+
       return new Response(
-        JSON.stringify({ 
-          image_url: base64Image,
-          url: page.url()
-        }),
+        JSON.stringify(responseData),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     } finally {

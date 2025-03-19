@@ -4,7 +4,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useBrowserUseTask } from "@/hooks/browser-use/use-browser-use-task";
 import { Loader2, Send, Play, Pause, RotateCcw, Computer, Info, AlertCircle, ExternalLink, RefreshCw, Eye, Globe } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -14,7 +13,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { TaskControls } from "./TaskControls";
 import { TaskProgress } from "./TaskProgress";
 import { TaskOutput } from "./TaskOutput";
-import { normalizeUrl, openUrlInNewTab, canOpenNewTabs } from "@/utils/url-utils";
+import { normalizeUrl, openUrlInNewTab, canOpenNewTabs, isValidUrl } from "@/utils/url-utils";
 
 export function BrowserUseApp() {
   const { 
@@ -51,24 +50,44 @@ export function BrowserUseApp() {
       return;
     }
     
+    if (!isValidUrl(url)) {
+      toast.error("Please enter a valid URL");
+      return;
+    }
+    
     let navigateUrl = normalizeUrl(url);
     const opened = openUrlInNewTab(navigateUrl);
     
     if (opened) {
+      toast.success("URL opened in a new tab");
       setTimeout(() => {
         captureScreenshot();
       }, 2000);
+    } else {
+      toast.error("Failed to open URL. Please check your popup blocker settings.");
     }
   }, [captureScreenshot]);
   
   const handleTakeScreenshot = useCallback(async () => {
+    if (!currentUrl) {
+      toast.error("Please enter a URL first");
+      return;
+    }
+    
+    if (!isValidUrl(currentUrl)) {
+      toast.error("Please enter a valid URL");
+      return;
+    }
+    
+    toast.info("Capturing screenshot...");
     const success = await captureScreenshot();
+    
     if (success) {
       toast.success("Screenshot captured");
     } else {
       toast.error("Failed to capture screenshot");
     }
-  }, [captureScreenshot]);
+  }, [captureScreenshot, currentUrl]);
   
   return (
     <div className="flex flex-col h-[calc(100vh-5rem)] max-w-[1400px] mx-auto">

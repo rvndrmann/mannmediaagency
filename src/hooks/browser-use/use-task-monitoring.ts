@@ -47,9 +47,23 @@ export function useTaskMonitoring(
   // Track the last error seen to avoid repeating
   const lastErrorRef = useRef<string | null>(null);
 
+  // Track if task is expired to avoid repeated status checks
+  const taskExpiredRef = useRef<boolean>(false);
+
+  useEffect(() => {
+    // If task status changes to expired, update the ref
+    if (taskStatus === 'expired') {
+      taskExpiredRef.current = true;
+    } else if (taskStatus === 'running' || taskStatus === 'created' || taskStatus === 'pending') {
+      // Reset expired flag when a new task starts
+      taskExpiredRef.current = false;
+    }
+  }, [taskStatus]);
+
   useEffect(() => {
     // Only set up polling if there's a task ID and the task is processing
-    if (!currentTaskId || !isProcessing) {
+    // and the task is not already known to be expired
+    if (!currentTaskId || !isProcessing || taskExpiredRef.current) {
       if (intervalRef.current) {
         clearInterval(intervalRef.current);
         intervalRef.current = null;
@@ -118,6 +132,9 @@ export function useTaskMonitoring(
           // Check if this is a task expired error
           if (data.task_expired || data.error.includes("not found") || data.error.includes("expired")) {
             const errorMsg = data.message || "Task has expired. Please restart the task to continue.";
+            
+            // Mark task as expired to prevent additional status checks
+            taskExpiredRef.current = true;
             
             // Only show the error once
             if (lastErrorRef.current !== errorMsg) {

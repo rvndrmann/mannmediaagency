@@ -87,6 +87,7 @@ export interface BrowserUseError {
 
 export interface CaptureWebsiteResponse {
   url?: string;
+  image_url?: string;
   screenshot?: string;
   error?: string;
 }

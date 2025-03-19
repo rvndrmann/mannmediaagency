@@ -63,6 +63,9 @@ export function BrowserUseApp() {
     }
   }, [taskStatus, isProcessing]);
   
+  // Determine if the task input should be editable
+  const isTaskInputEditable = !isProcessing || taskStatus === 'expired';
+  
   return (
     <div className="container mx-auto py-6 space-y-6">
       <div className="grid grid-cols-1 gap-6">
@@ -92,7 +95,7 @@ export function BrowserUseApp() {
                     value={taskInput}
                     onChange={(e) => setTaskInput(e.target.value)}
                     className="min-h-[100px] resize-y"
-                    disabled={isProcessing && taskStatus !== 'expired'}
+                    disabled={!isTaskInputEditable}
                   />
                 </div>
                 

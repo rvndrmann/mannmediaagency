@@ -177,7 +177,7 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         success: true,
-        image_url: screenshotResponse.image_url,
+        image_url: screenshotResponse.image_url || screenshotResponse.screenshot,
         url: url
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

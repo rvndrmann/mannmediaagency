@@ -35,8 +35,11 @@ export function useScreenshot(
         return;
       }
       
-      if (response.imageUrl) {
-        setScreenshot(response.imageUrl);
+      // Handle both image_url (from API) and screenshot (for backwards compatibility)
+      if (response.image_url) {
+        setScreenshot(response.image_url);
+      } else if (response.screenshot) {
+        setScreenshot(response.screenshot);
       } else {
         setError("No screenshot URL returned");
       }

@@ -11,11 +11,11 @@ export function useUserData(setUserCredits: (credits: UserCredits | null) => voi
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
         
-        // Make sure to specify table alias in the query to avoid ambiguous column references
+        // Query the user_credits table directly without any joins
         const { data, error } = await supabase
           .from('user_credits')
-          .select('*')
-          .eq('user_credits.user_id', user.id)
+          .select()
+          .eq('user_id', user.id)
           .maybeSingle();
         
         if (error) throw error;

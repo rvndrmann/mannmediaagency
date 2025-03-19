@@ -46,7 +46,7 @@ export function BrowserUseApp() {
   
   // Auto-switch to output tab when task is complete
   useEffect(() => {
-    if (['finished', 'failed', 'stopped', 'completed'].includes(taskStatus) && isProcessing === false) {
+    if (['finished', 'completed', 'failed', 'stopped'].includes(taskStatus) && isProcessing === false) {
       setActiveTab("output");
     }
   }, [taskStatus, isProcessing]);

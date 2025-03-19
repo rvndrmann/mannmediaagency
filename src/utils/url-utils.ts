@@ -37,6 +37,11 @@ export function canOpenNewTabs(): boolean {
  * Attempts to open a URL in a new tab
  */
 export function openUrlInNewTab(url: string): boolean {
+  if (!url || url.trim() === '') {
+    console.error("Cannot open empty URL");
+    return false;
+  }
+  
   try {
     const normalizedUrl = normalizeUrl(url);
     const newWindow = window.open(normalizedUrl, '_blank');

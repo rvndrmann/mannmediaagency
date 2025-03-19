@@ -23,7 +23,45 @@ serve(async (req) => {
       );
     }
 
-    // Launch browser
+    // Use Browser Use API if API key is available
+    const apiKey = Deno.env.get("BROWSER_USE_API_KEY");
+    if (apiKey) {
+      try {
+        console.log("Using Browser Use API to capture website");
+        const options = {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${apiKey}`, 
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            "url": url,
+            "save_browser_data": save_browser_data
+          })
+        };
+
+        const response = await fetch('https://api.browser-use.com/api/v1/capture-website', options);
+        
+        if (!response.ok) {
+          const errorText = await response.text();
+          throw new Error(`Browser Use API Error (${response.status}): ${errorText}`);
+        }
+        
+        const apiResponse = await response.json();
+        
+        return new Response(
+          JSON.stringify(apiResponse),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } catch (apiError) {
+        console.error("Browser Use API Error:", apiError);
+        console.log("Falling back to local puppeteer implementation");
+        // Continue to fallback solution if API fails
+      }
+    }
+
+    // Fallback: Launch local puppeteer if API key is not available or API call failed
+    console.log("Using local puppeteer implementation");
     const browser = await puppeteer.launch({
       args: [
         '--no-sandbox',

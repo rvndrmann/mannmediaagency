@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
@@ -8,7 +7,7 @@ interface TaskStep {
   id: string;
   task_id: string;
   description: string;
-  status: 'pending' | 'running' | 'completed' | 'failed';
+  status: 'pending' | 'running' | 'completed' | 'failed' | string;
   details: string | null;
   screenshot: string | null;
   created_at: string;
@@ -51,7 +50,6 @@ export function useBrowserUseTask() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       
-      // Deduct credits
       const { error: creditError } = await supabase.rpc('deduct_credits', { 
         user_id: user.id, 
         credits_to_deduct: 1 
@@ -59,7 +57,6 @@ export function useBrowserUseTask() {
       
       if (creditError) throw creditError;
       
-      // Fetch updated credits
       const { data: updatedCredits, error: updatedCreditsError } = await supabase
         .from('user_credits')
         .select('*')
@@ -150,7 +147,7 @@ export function useBrowserUseTask() {
       console.error("Error resuming task:", err);
       setError(err.message || "Failed to resume task");
       toast.error("Error Resuming Task", {
-        description: err.message || "Failed to resume task."
+        description: err.message || "Failed to resume task"
       });
     } finally {
       setIsProcessing(false);
@@ -269,12 +266,10 @@ export function useBrowserUseTask() {
             setProgress(taskData.progress || 0);
             setTaskStatus(taskData.status as any || 'idle');
             
-            // Handle current URL properly
             if (taskData.current_url && typeof taskData.current_url === 'string') {
               setCurrentUrl(taskData.current_url);
             }
             
-            // Get steps for this task
             const { data: stepsData, error: stepsError } = await supabase
               .from('browser_automation_steps')
               .select('*')
@@ -286,9 +281,9 @@ export function useBrowserUseTask() {
             if (stepsData) {
               setTaskSteps(stepsData.map(step => ({
                 ...step,
-                // Handle potential JSON string in details
                 details: typeof step.details === 'string' ? step.details : 
-                         step.details ? JSON.stringify(step.details) : null
+                         step.details ? JSON.stringify(step.details) : null,
+                status: step.status || 'pending'
               })));
             }
             
@@ -296,7 +291,6 @@ export function useBrowserUseTask() {
               setTaskOutput(taskData.output);
             }
             
-            // If task is finished or failed, clear the interval
             if (['finished', 'failed', 'stopped'].includes(taskData.status)) {
               clearInterval(intervalId);
               setIsProcessing(false);

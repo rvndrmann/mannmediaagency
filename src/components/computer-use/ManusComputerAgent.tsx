@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,20 @@ export function ManusComputerAgent() {
   const [navigationAttempts, setNavigationAttempts] = useState<number>(0);
   const [externalWindowOpened, setExternalWindowOpened] = useState(false);
   const [debugMode, setDebugMode] = useState(false);
+  
+  // Track recently opened URLs to prevent duplicate tabs
+  const recentlyOpenedUrls = useRef<Set<string>>(new Set());
+  // Track if an action is currently being processed
+  const isProcessingAction = useRef<boolean>(false);
+  
+  // Clean up recently opened URLs after a delay
+  useEffect(() => {
+    const cleanupInterval = setInterval(() => {
+      recentlyOpenedUrls.current.clear();
+    }, 5000); // Clear cache every 5 seconds
+    
+    return () => clearInterval(cleanupInterval);
+  }, []);
   
   useEffect(() => {
     if (activeTab === "browser" && browserViewRef.current) {
@@ -188,10 +203,7 @@ export function ManusComputerAgent() {
       );
       
       if (userChoice) {
-        window.open(navigateUrl, '_blank');
-        setExternalWindowOpened(true);
-        setCurrentUrl(navigateUrl);
-        setIsEmbeddingBlocked(true);
+        openInNewTab(navigateUrl);
         return;
       }
     }
@@ -209,14 +221,27 @@ export function ManusComputerAgent() {
     }
   }, [setCurrentUrl, setIsEmbeddingBlocked, isLikelyToBlockIframe]);
   
-  const openInNewTab = useCallback(() => {
-    if (currentUrl) {
-      window.open(currentUrl, '_blank');
-      setExternalWindowOpened(true);
-      setIsEmbeddingBlocked(true);
-      toast.success("Opened in new tab");
+  // Consolidated function to open URL in new tab with deduplication
+  const openInNewTab = useCallback((url: string) => {
+    // Skip if URL was recently opened to prevent duplicates
+    if (recentlyOpenedUrls.current.has(url)) {
+      console.log(`Skipping duplicate tab open for: ${url}`);
+      return;
     }
-  }, [currentUrl, setIsEmbeddingBlocked]);
+    
+    console.log(`Opening URL in new tab: ${url}`);
+    
+    // Add to recently opened set
+    recentlyOpenedUrls.current.add(url);
+    
+    window.open(url, '_blank');
+    setExternalWindowOpened(true);
+    setCurrentUrl(url);
+    setIsEmbeddingBlocked(true);
+    
+    // Show feedback to user
+    toast.success("Opened in new tab");
+  }, [setCurrentUrl, setIsEmbeddingBlocked]);
   
   const handleTakeScreenshot = useCallback(async () => {
     const screenshot = await captureScreenshot();
@@ -228,8 +253,11 @@ export function ManusComputerAgent() {
   }, [captureScreenshot]);
   
   useEffect(() => {
-    if (currentActions.length > 0) {
+    if (currentActions.length > 0 && !isProcessingAction.current) {
       const currentAction = currentActions[0];
+      
+      // Set processing flag to prevent multiple tab opens
+      isProcessingAction.current = true;
       
       if (currentAction.type === "navigate" && currentAction.url) {
         console.log("Executing navigate action:", currentAction.url);
@@ -238,30 +266,38 @@ export function ManusComputerAgent() {
         
         if (likelyToBlock && !isEmbeddingBlocked) {
           toast.info(`${currentAction.url} likely blocks iframe embedding. Opening in new tab instead.`);
-          window.open(currentAction.url, '_blank');
-          setExternalWindowOpened(true);
-          setCurrentUrl(currentAction.url);
-          setIsEmbeddingBlocked(true);
+          openInNewTab(currentAction.url);
           
+          // Short delay before executing the action to ensure state is updated
           setTimeout(() => {
             executeAction();
-          }, 500);
+            isProcessingAction.current = false;
+          }, 1000);
         } else {
           navigateToUrl(currentAction.url);
+          isProcessingAction.current = false;
         }
       } else if (currentAction.type === "openNewTab" && currentAction.url) {
         console.log("Opening URL in new tab:", currentAction.url);
-        window.open(currentAction.url, '_blank');
-        setExternalWindowOpened(true);
-        setCurrentUrl(currentAction.url);
-        setIsEmbeddingBlocked(true);
+        openInNewTab(currentAction.url);
         
+        // Short delay before executing the action to ensure state is updated
         setTimeout(() => {
           executeAction();
-        }, 500);
+          isProcessingAction.current = false;
+        }, 1000);
+      } else {
+        isProcessingAction.current = false;
       }
     }
-  }, [currentActions, navigateToUrl, executeAction, isLikelyToBlockIframe, isEmbeddingBlocked, setIsEmbeddingBlocked]);
+  }, [
+    currentActions, 
+    navigateToUrl, 
+    executeAction, 
+    isLikelyToBlockIframe, 
+    isEmbeddingBlocked, 
+    openInNewTab
+  ]);
   
   const handleRetryNavigation = useCallback(() => {
     if (currentUrl) {
@@ -371,7 +407,7 @@ export function ManusComputerAgent() {
                     size="sm" 
                     variant="outline" 
                     className="mt-2"
-                    onClick={openInNewTab}
+                    onClick={() => openInNewTab(currentUrl || "")}
                   >
                     <ExternalLink className="h-4 w-4 mr-2" />
                     Open in New Tab
@@ -391,8 +427,12 @@ export function ManusComputerAgent() {
                   ))}
                   <div className="flex gap-2">
                     <Button 
-                      onClick={executeAction}
-                      disabled={isProcessing || currentActions.length === 0}
+                      onClick={() => {
+                        if (!isProcessingAction.current) {
+                          executeAction();
+                        }
+                      }}
+                      disabled={isProcessing || currentActions.length === 0 || isProcessingAction.current}
                       className="flex-1"
                     >
                       {isProcessing ? (
@@ -406,15 +446,16 @@ export function ManusComputerAgent() {
                       <Button
                         variant="outline"
                         onClick={() => {
-                          if (currentActions[0].url) {
-                            window.open(currentActions[0].url, '_blank');
-                            setExternalWindowOpened(true);
-                            setIsEmbeddingBlocked(true);
+                          if (currentActions[0].url && !isProcessingAction.current) {
+                            isProcessingAction.current = true;
+                            openInNewTab(currentActions[0].url || "");
                             setTimeout(() => {
                               executeAction();
-                            }, 500);
+                              isProcessingAction.current = false;
+                            }, 1000);
                           }
                         }}
+                        disabled={isProcessingAction.current}
                         title="Open in new tab instead"
                       >
                         <ExternalLink className="h-4 w-4" />
@@ -472,7 +513,7 @@ export function ManusComputerAgent() {
                   <Button
                     variant="outline"
                     size="icon"
-                    onClick={openInNewTab}
+                    onClick={() => openInNewTab(currentUrl || "")}
                     title="Open in new tab"
                   >
                     <ExternalLink className="h-4 w-4" />
@@ -516,7 +557,7 @@ export function ManusComputerAgent() {
                         <Button 
                           variant="outline" 
                           size="sm"
-                          onClick={openInNewTab}
+                          onClick={() => openInNewTab(currentUrl || "")}
                         >
                           <ExternalLink className="h-4 w-4 mr-2" />
                           Open in new tab

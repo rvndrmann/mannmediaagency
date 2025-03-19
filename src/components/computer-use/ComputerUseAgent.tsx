@@ -1,6 +1,6 @@
 
 import { ManusComputerAgent } from "./ManusComputerAgent";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { AlertTriangle, ExternalLink } from "lucide-react";
@@ -8,6 +8,8 @@ import { AlertTriangle, ExternalLink } from "lucide-react";
 export function ComputerUseAgent() {
   const [supportsIframes, setSupportsIframes] = useState<boolean>(true);
   const [showFallbackMessage, setShowFallbackMessage] = useState<boolean>(false);
+  const [browserInitialized, setBrowserInitialized] = useState<boolean>(false);
+  const detectionAttempts = useRef<number>(0);
   
   useEffect(() => {
     // Check if browser supports iframe properly
@@ -24,26 +26,37 @@ export function ComputerUseAgent() {
         
         // Clean up
         document.body.removeChild(iframe);
+        setBrowserInitialized(true);
       } catch (error) {
         console.error('Error testing iframe support:', error);
         setSupportsIframes(false);
+        setBrowserInitialized(true);
       }
     };
     
-    testIframe();
+    // Only run this once
+    if (!browserInitialized) {
+      testIframe();
+    }
     
     // Check for browser compatibility issues after a delay
     const fallbackTimer = setTimeout(() => {
+      if (detectionAttempts.current > 2) return; // Limit detection attempts
+      
       const container = document.querySelector('.browser-view-container');
       const iframe = document.querySelector('iframe[title="Browser View"]');
       
       if (!container || !iframe || iframe.clientWidth < 10) {
         setShowFallbackMessage(true);
+      } else {
+        setShowFallbackMessage(false);
       }
+      
+      detectionAttempts.current += 1;
     }, 2000);
     
     return () => clearTimeout(fallbackTimer);
-  }, []);
+  }, [browserInitialized]);
   
   if (!supportsIframes) {
     return (

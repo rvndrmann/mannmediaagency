@@ -4,6 +4,7 @@ import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Content-Type': 'application/json'
 };
 
 // Define API endpoints and environment variables
@@ -56,7 +57,7 @@ serve(async (req) => {
     if (!OPENAI_API_KEY) {
       return new Response(
         JSON.stringify({ error: "OpenAI API key is not configured" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: corsHeaders }
       );
     }
 
@@ -68,7 +69,7 @@ serve(async (req) => {
     if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return new Response(
         JSON.stringify({ error: "Missing or invalid Authorization header" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: corsHeaders }
       );
     }
 
@@ -78,7 +79,7 @@ serve(async (req) => {
     if (authError || !user) {
       return new Response(
         JSON.stringify({ error: "Authentication failed" }),
-        { status: 401, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 401, headers: corsHeaders }
       );
     }
     
@@ -93,7 +94,7 @@ serve(async (req) => {
       console.error("Error checking user credits:", creditsError);
       return new Response(
         JSON.stringify({ error: "Error checking user credits" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: corsHeaders }
       );
     }
     
@@ -101,151 +102,13 @@ serve(async (req) => {
     if (!userCredits || userCredits.credits_remaining < 1) {
       return new Response(
         JSON.stringify({ error: "Insufficient credits. You need at least 1 credit to use the Computer Agent." }),
-        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 403, headers: corsHeaders }
       );
     }
     
     // Parse request body
     const requestData: ManusRequest = await req.json();
     
-    // Enhanced system prompt with updated browser instructions
-    let systemPrompt = `You are an AI agent that helps users automate computer tasks. 
-    You are operating in a ${requestData.environment} environment.
-    
-    Your task is to: ${requestData.task}
-    
-    Based on the current state (URL and screenshot) and any previous actions, you should determine 
-    the next step(s) to accomplish the task.
-    
-    BROWSER APPROACH: You are operating in a model where websites open in separate browser tabs:
-    1. The user will interact with websites in separate browser tabs
-    2. You can suggest to open websites and the system will open them in new tabs
-    3. You analyze screenshots to understand what the user is seeing
-    4. You provide guidance based on the screenshots and task context
-    
-    CRITICAL: You MUST respond with a VALID JSON object containing:
-    {
-      "reasoning": "your thought process explanation", 
-      "actions": [{"type": "action_type", ...action properties}]
-    }
-    
-    DO NOT include any markdown formatting, explanations, or any text outside of the JSON structure.
-    DO NOT wrap your response in code blocks or quotes. Just output pure JSON.
-    
-    Use the following action types:
-    - openNewTab: Open a URL in a new tab (provide url) - This is the PRIMARY navigation action
-    - click: Suggest where to click (provide description)
-    - type: Suggest text to type (provide text and description of where)
-    - press: Suggest keys to press (provide keys array)
-    - select: Suggest selection from a dropdown (provide details)
-    
-    IMPORTANT GUIDELINES:
-    - When suggesting navigation, ALWAYS use "openNewTab" action
-    - Be specific about what elements the user should interact with
-    - Provide clear step-by-step guidance based on what you see in the screenshot
-    - If you see a form, give specific instructions for filling it out
-    - If you're unsure what's on screen, ask the user to take another screenshot
-    
-    If you're unable to perform the task or don't know what to do next, still respond with valid JSON:
-    {
-      "reasoning": "explanation of the limitation",
-      "actions": []
-    }
-    
-    Keep your actions concise and focused on the immediate next steps.`;
-
-    let messages = [{ role: "system", content: systemPrompt }];
-    
-    // Add current state information
-    let userMessage = `Current state:\n`;
-    
-    if (requestData.current_url) {
-      userMessage += `URL: ${requestData.current_url}\n`;
-    }
-    
-    if (requestData.iframe_blocked) {
-      userMessage += `IMPORTANT: The current site appears to be blocking iframe embedding. You should use "openNewTab" action instead of "navigate" for this site.\n`;
-    }
-    
-    if (requestData.screenshot) {
-      userMessage += `Screenshot is available.\n`;
-      
-      // Add the screenshot as a base64 image for vision capabilities
-      messages.push({
-        role: "user",
-        content: [
-          { type: "text", text: userMessage },
-          {
-            type: "image_url",
-            image_url: {
-              url: requestData.screenshot,
-              detail: "high"
-            }
-          }
-        ]
-      });
-    } else {
-      messages.push({ role: "user", content: userMessage });
-    }
-    
-    // Add previous actions context if available
-    if (requestData.previous_actions && requestData.previous_actions.length > 0) {
-      let actionsMessage = `Previous actions:\n`;
-      requestData.previous_actions.forEach((action, index) => {
-        actionsMessage += `${index + 1}. Type: ${action.type}, `;
-        
-        if (action.x && action.y) actionsMessage += `Coords: (${action.x}, ${action.y}), `;
-        if (action.text) actionsMessage += `Text: "${action.text}", `;
-        if (action.url) actionsMessage += `URL: ${action.url}, `;
-        if (action.keys) actionsMessage += `Keys: ${action.keys.join('+')}, `;
-        if (action.selector) actionsMessage += `Selector: ${action.selector}, `;
-        if (action.value) actionsMessage += `Value: ${action.value}, `;
-        
-        actionsMessage = actionsMessage.replace(/, $/, '\n');
-      });
-      
-      messages.push({ role: "user", content: actionsMessage });
-    }
-    
-    // Add vision analysis instructions
-    if (requestData.screenshot) {
-      messages.push({ 
-        role: "user", 
-        content: `Analyze the screenshot carefully. 
-        - If you see an empty or blank white page, the site likely blocks iframe embedding. Suggest "openNewTab" action instead.
-        - If you see error messages, read and interpret them.
-        - Pay attention to form elements, buttons, and interactive elements.
-        - Note any visible text content that might help complete the task.
-        - Determine if the page seems to be loading correctly or if it appears to be blocked/empty.`
-      });
-    }
-    
-    // Add explicit iframe blocking detection prompt
-    if (requestData.iframe_blocked) {
-      messages.push({
-        role: "user",
-        content: `Based on the status, this site is blocking iframe embedding. Consider:
-        1. Recommend opening this site in a new tab with "openNewTab" action
-        2. Suggest alternative sites that typically work in iframes
-        3. Provide a reasoning that explains the iframe limitation to the user`
-      });
-    }
-    
-    // Final instruction to get appropriate response format
-    messages.push({
-      role: "user", 
-      content: `Based on what you see, what actions should I take next to accomplish the task? 
-      IMPORTANT: You MUST respond with ONLY a valid JSON object containing:
-      {
-        "reasoning": "your detailed thought process",
-        "actions": [{"type": "action_type", ...other properties}]
-      }
-      
-      DO NOT add any explanatory text outside the JSON structure.
-      DO NOT use code blocks, quotes or any other formatting.
-      If you're unsure or can't complete the task, return a valid JSON with empty actions array and explain in the reasoning why.`
-    });
-
     // Make request to OpenAI API
     console.log("Sending request to OpenAI API");
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -256,7 +119,42 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: "gpt-4o", // Using the current model instead of deprecated models
-        messages: messages,
+        messages: [
+          {
+            role: "system", 
+            content: `You are an AI agent that helps users automate computer tasks. 
+            You are operating in a ${requestData.environment} environment.
+            
+            Your task is to: ${requestData.task}
+            
+            Based on the current state (URL and screenshot) and any previous actions, you should determine 
+            the next step(s) to accomplish the task.
+            
+            BROWSER APPROACH: You are operating in a model where websites open in separate browser tabs:
+            1. The user will interact with websites in separate browser tabs
+            2. You can suggest to open websites and the system will open them in new tabs
+            3. You analyze screenshots to understand what the user is seeing
+            4. You provide guidance based on the screenshots and task context
+            
+            Use the following action types:
+            - openNewTab: Open a URL in a new tab (provide url) - This is the PRIMARY navigation action
+            - click: Suggest where to click (provide description)
+            - type: Suggest text to type (provide description of where)
+            - press: Suggest keys to press (provide keys array)
+            - select: Suggest selection from a dropdown (provide details)
+            
+            IMPORTANT GUIDELINES:
+            - When suggesting navigation, ALWAYS use "openNewTab" action
+            - Be specific about what elements the user should interact with
+            - Provide clear step-by-step guidance based on what you see in the screenshot
+            - If you see a form, give specific instructions for filling it out
+            - If you're unsure what's on screen, ask the user to take another screenshot`
+          },
+          {
+            role: "user",
+            content: `Current task: ${requestData.task}\n${requestData.current_url ? `Current URL: ${requestData.current_url}` : ""}`
+          }
+        ],
         temperature: 0.7,
         max_tokens: 1000,
         response_format: { type: "json_object" } // Ensure we get a valid JSON response
@@ -269,7 +167,7 @@ serve(async (req) => {
       console.error("Error from OpenAI API:", response.status, errorText);
       return new Response(
         JSON.stringify({ error: `Error from OpenAI API: ${response.status}`, details: errorText }),
-        { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: response.status, headers: corsHeaders }
       );
     }
     
@@ -402,7 +300,7 @@ serve(async (req) => {
           reasoning: "The system encountered an error processing the AI response",
           actions: []
         }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        { status: 500, headers: corsHeaders }
       );
     }
     
@@ -427,7 +325,7 @@ serve(async (req) => {
     
     return new Response(
       JSON.stringify(manusResponse),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { headers: corsHeaders }
     );
   } catch (error) {
     console.error("Error in manus-computer-agent function:", error);
@@ -438,7 +336,7 @@ serve(async (req) => {
         reasoning: "The system encountered an error processing your request",
         actions: []
       }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: corsHeaders }
     );
   }
 });

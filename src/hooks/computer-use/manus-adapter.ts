@@ -69,6 +69,8 @@ export const useManusAdapter = () => {
         throw new Error("Authentication required");
       }
       
+      console.log("Sending request to Manus API:", JSON.stringify(request, null, 2));
+      
       const response = await fetch('/api/functions/v1/manus-computer-agent', {
         method: 'POST',
         headers: {
@@ -78,14 +80,28 @@ export const useManusAdapter = () => {
         body: JSON.stringify(request)
       });
       
+      // Check if response is OK
       if (!response.ok) {
         const errorText = await response.text();
         console.error("Error from Manus API:", response.status, errorText);
         throw new Error(`Error from Manus API: ${response.status}`);
       }
       
-      const data = await response.json();
-      return data;
+      // Check content type to ensure we're getting JSON
+      const contentType = response.headers.get('content-type');
+      if (!contentType || !contentType.includes('application/json')) {
+        const text = await response.text();
+        console.error("Received non-JSON response:", text);
+        throw new Error(`Expected JSON response but got ${contentType || 'unknown content type'}`);
+      }
+      
+      try {
+        const data = await response.json();
+        return data;
+      } catch (jsonError) {
+        console.error("Error parsing JSON response:", jsonError);
+        throw new Error("Failed to parse API response as JSON");
+      }
     } catch (error) {
       console.error("Error sending request to Manus:", error);
       throw error;

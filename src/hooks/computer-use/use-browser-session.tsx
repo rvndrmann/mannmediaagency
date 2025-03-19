@@ -6,6 +6,7 @@ export const useBrowserSession = () => {
   
   // Track recently opened URLs to prevent duplicate tabs
   const recentlyOpenedUrls = useRef<Set<string>>(new Set());
+  const lastOpenedUrl = useRef<string | null>(null);
   
   // Clean up recently opened URLs after a delay
   useEffect(() => {
@@ -22,12 +23,18 @@ export const useBrowserSession = () => {
   
   const markAsOpened = useCallback((url: string): void => {
     recentlyOpenedUrls.current.add(url);
+    lastOpenedUrl.current = url;
+  }, []);
+  
+  const getLastOpenedUrl = useCallback((): string | null => {
+    return lastOpenedUrl.current;
   }, []);
   
   return {
     externalWindowOpened,
     setExternalWindowOpened,
     hasRecentlyOpened,
-    markAsOpened
+    markAsOpened,
+    getLastOpenedUrl
   };
 };

@@ -7,6 +7,7 @@ import { AlertTriangle } from "lucide-react";
 
 export function ComputerUseAgent() {
   const [browserInitialized, setBrowserInitialized] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
   
   useEffect(() => {
     // Initialize browser state
@@ -17,7 +18,22 @@ export function ComputerUseAgent() {
   
   return (
     <div className="relative">
-      <ManusComputerAgent />
+      {error && (
+        <Alert variant="destructive" className="mb-4">
+          <AlertTriangle className="h-4 w-4" />
+          <AlertTitle>Error</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+          <Button 
+            variant="outline" 
+            size="sm" 
+            className="mt-2"
+            onClick={() => setError(null)}
+          >
+            Dismiss
+          </Button>
+        </Alert>
+      )}
+      <ManusComputerAgent onError={(errorMessage) => setError(errorMessage)} />
     </div>
   );
 }

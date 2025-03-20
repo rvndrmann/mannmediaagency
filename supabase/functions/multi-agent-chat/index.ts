@@ -29,6 +29,13 @@ interface CustomAgent {
   instructions: string;
 }
 
+interface HandoffInputData {
+  input_history: string | any[];
+  pre_handoff_items: any[];
+  new_items: any[];
+  all_items?: any[];
+}
+
 async function getCustomAgentInstructions(supabase: any, agentType: string): Promise<string | null> {
   try {
     const { data, error } = await supabase
@@ -281,6 +288,11 @@ async function getAgentCompletion(
 }
 
 function parseHandoffRequest(text: string): { targetAgent: string, reason: string } | null {
+  if (!text || typeof text !== 'string') {
+    console.log("Invalid input to parseHandoffRequest:", text);
+    return null;
+  }
+
   console.log("Attempting to parse handoff from:", text.slice(-200));
   
   const handoffRegex = /HANDOFF:\s*(\w+)(?:,|\s)\s*REASON:\s*(.+?)(?:\n|$)/i;
@@ -403,7 +415,28 @@ serve(async (req) => {
     const request = await req.json() as MultiAgentRequest;
     const { messages, agentType, userId, contextData } = request;
     
-    const userMessage = messages[messages.length - 1].content;
+    if (!messages || !Array.isArray(messages) || messages.length === 0) {
+      return new Response(
+        JSON.stringify({ error: "Invalid messages array" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!agentType || typeof agentType !== 'string') {
+      return new Response(
+        JSON.stringify({ error: "Invalid agent type" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    if (!userId || typeof userId !== 'string') {
+      return new Response(
+        JSON.stringify({ error: "Invalid user ID" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const userMessage = messages[messages.length - 1]?.content || '';
     const hasAttachments = contextData?.hasAttachments || false;
     const isCustomAgent = contextData?.isCustomAgent || false;
     

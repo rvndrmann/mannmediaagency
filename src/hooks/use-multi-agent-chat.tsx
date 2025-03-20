@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -187,33 +188,43 @@ export const useMultiAgentChat = () => {
   
   // Enhanced handler for agent handoffs that works with custom agents
   const handleAgentHandoff = (handoffRequest: HandoffRequest) => {
-    if (!handoffRequest) return;
+    if (!handoffRequest || !handoffRequest.targetAgent) {
+      console.log("Invalid handoff request:", handoffRequest);
+      return;
+    }
+    
+    // Validate target agent
+    const targetAgent = handoffRequest.targetAgent.trim();
+    if (!targetAgent) {
+      console.error("Empty target agent in handoff request");
+      return;
+    }
     
     // Create a handoff message
     const handoffMessage: Message = {
       role: "assistant",
-      content: `I'm transferring you to the ${handoffRequest.targetAgent} agent for better assistance. Reason: ${handoffRequest.reason}`,
+      content: `I'm transferring you to the ${targetAgent} agent for better assistance. Reason: ${handoffRequest.reason || "Specialized knowledge required"}`,
       status: "completed",
       agentType: activeAgent,
       tasks: [
         {
           id: uuidv4(),
-          name: `Transferring to ${handoffRequest.targetAgent} agent`,
+          name: `Transferring to ${targetAgent} agent`,
           status: "completed"
         }
       ]
     };
     
-    console.log(`Handoff in progress: From ${activeAgent} to ${handoffRequest.targetAgent}`);
+    console.log(`Handoff in progress: From ${activeAgent} to ${targetAgent}`);
     
     // Add the handoff message to the conversation
     setMessages(prev => [...prev, handoffMessage]);
     
     // Switch the active agent
-    setActiveAgent(handoffRequest.targetAgent);
+    setActiveAgent(targetAgent);
     
     // Show notification to user
-    toast.info(`Transferred to ${handoffRequest.targetAgent} agent for better assistance.`);
+    toast.info(`Transferred to ${targetAgent} agent for better assistance.`);
   };
   
   const handleSubmit = async (e: React.FormEvent) => {
@@ -280,6 +291,13 @@ export const useMultiAgentChat = () => {
       // Determine if the active agent is a custom agent
       const isCustomAgent = !['main', 'script', 'image', 'tool'].includes(activeAgent);
       
+      console.log("Sending request to multi-agent-chat function:", {
+        agentType: activeAgent, 
+        isCustomAgent, 
+        messageCount: apiMessages.length,
+        hasAttachments: pendingAttachments.length > 0
+      });
+      
       // Call the multi-agent-chat function
       const response = await supabase.functions.invoke("multi-agent-chat", {
         body: {
@@ -304,7 +322,11 @@ export const useMultiAgentChat = () => {
       
       // Handle completed response
       const { completion, status, handoffRequest } = response.data;
-      console.log("API response:", { completion: completion.slice(0, 100) + "...", status, handoffRequest });
+      console.log("API response:", { 
+        completionPreview: completion ? completion.slice(0, 100) + "..." : "No completion", 
+        status, 
+        handoffRequest 
+      });
       
       // For tool agent, try to parse and execute commands
       let finalContent = completion;

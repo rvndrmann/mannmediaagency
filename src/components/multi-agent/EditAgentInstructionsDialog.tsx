@@ -51,7 +51,7 @@ export function EditAgentInstructionsDialog({
     }
   };
 
-  // Reset form when dialog opens
+  // Reset form when dialog opens with current values
   const resetForm = () => {
     form.reset({
       instructions: initialInstructions || "",

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -69,7 +68,7 @@ function isValidUUID(id: string): boolean {
   return uuidRegex.test(id);
 }
 
-// Check if the agent type is a built-in type that doesn't need UUID validation
+// Check if the agent type is a built-in type
 function isBuiltInAgentType(agentType: string): boolean {
   return BUILT_IN_AGENT_TYPES.includes(agentType.toLowerCase());
 }
@@ -78,13 +77,13 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
   try {
     console.log(`Fetching custom agent instructions for: ${agentType}`);
     
-    // Skip UUID validation for built-in agent types
+    // First check if this is a built-in agent type - if so, no need to fetch custom instructions
     if (isBuiltInAgentType(agentType)) {
       console.log(`${agentType} is a built-in agent type, no need to fetch custom instructions`);
       return null;
     }
     
-    // Validate if the agentType is a valid UUID before querying
+    // Only validate UUID format for custom agents
     if (!isValidUUID(agentType)) {
       console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
       return null;
@@ -366,8 +365,8 @@ async function getAgentCompletion(
   const isHandoffContinuation = contextData?.isHandoffContinuation || false;
   const usePerformanceModel = contextData?.usePerformanceModel || false;
   
-  // Determine if this is a built-in agent even if it's passed as custom
-  const isActuallyBuiltIn = BUILT_IN_AGENT_TYPES.includes(agentType.toLowerCase());
+  // First determine if this is a built-in agent type
+  const isActuallyBuiltIn = isBuiltInAgentType(agentType);
   
   console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}, hasAttachments: ${hasAttachments}`);
   
@@ -429,13 +428,14 @@ async function getAgentCompletion(
   let systemMessage: AgentMessage;
   let temperature = 0.7; // Default temperature
   
-  // Determine base agent type for custom agents
+  // Determine base agent type and temperature
   let baseAgentType = "main";
   if (isCustomAgent && !isActuallyBuiltIn) {
     // For custom agents, we'll still clone from a base template
     // but we'll use the custom instructions to override the base template
+    console.log(`Using base template for custom agent ${agentType}`);
   } else if (isActuallyBuiltIn) {
-    // If it's actually a built-in agent even if passed as custom
+    // If it's a built-in agent even if passed as custom
     baseAgentType = agentType.toLowerCase();
     console.log(`Using built-in agent template for ${agentType}`);
     temperature = agentTemplates[agentType.toLowerCase() as keyof typeof agentTemplates]?.temperature || 0.7;
@@ -722,7 +722,7 @@ serve(async (req) => {
     console.log(`Agent ${agentType} is built-in: ${isBuiltIn}`);
     
     // Check if custom agent exists when isCustomAgent is true and not a built-in type
-    if (isCustomAgent && !isBuiltIn) {
+    if (contextData?.isCustomAgent && !isBuiltIn) {
       // First, validate if the agentType is a valid UUID before querying
       if (!isValidUUID(agentType)) {
         console.error(`Invalid UUID format for custom agent ID: ${agentType}`);

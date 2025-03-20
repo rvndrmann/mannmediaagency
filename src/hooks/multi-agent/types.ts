@@ -133,6 +133,8 @@ export type HandoffInputFilter = (context: HandoffInputContext) => Message[];
 export interface ToolResult {
   content: string;
   metadata?: Record<string, any>;
+  success?: boolean;
+  message?: string;
 }
 
 /**
@@ -142,6 +144,7 @@ export interface ToolContext {
   userId?: string;
   sessionId?: string;
   metadata?: Record<string, any>;
+  creditsRemaining?: number;
 }
 
 /**
@@ -156,4 +159,17 @@ export interface Tool<T = any> {
     required: boolean;
   }>;
   execute: (params: T) => Promise<ToolResult>;
+  requiredCredits?: number;
+}
+
+/**
+ * State of a command execution
+ */
+export interface CommandExecutionState {
+  commandId: string;
+  status: "pending" | "executing" | "completed" | "failed";
+  startTime: Date;
+  endTime?: Date;
+  result?: ToolResult;
+  error?: string;
 }

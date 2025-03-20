@@ -1,7 +1,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import { Message, Task } from "@/types/message";
+import { Message, Task, Agent, AgentIconType } from "@/types/message";
 import { useCompletion } from "../use-completion";
 import { useTools } from "../use-tools";
 import { ToolResult } from "../types";
@@ -68,7 +68,12 @@ export const useAgentRunner = ({
       while (currentMessage.role !== 'assistant' && loopCount < 10) {
         loopCount++;
         // Get Completion
-        const completion = await getCompletion(agent, allMessages);
+        const adaptedAgent: Agent = {
+          ...agent,
+          icon: agent.icon as AgentIconType // Type assertion to fix icon type issue
+        };
+        
+        const completion = await getCompletion(adaptedAgent, allMessages);
 
         if (!completion) {
           console.error("Completion failed, stopping agent.");

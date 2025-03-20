@@ -1,45 +1,85 @@
-import { v4 as uuidv4 } from 'uuid';
-import { Tool } from "@/hooks/multi-agent/types";
 
-export const productShotV2Tool: Tool = {
-  name: "product-shot-v2",
-  description: `This tool generates an enhanced product image based on a detailed product description.
-  It requires a product description and returns a URL to the generated image.`,
+import { supabase } from "@/integrations/supabase/client";
+import { ToolResult } from "../types";
+
+export const productShotV2Tool = {
+  name: "product_shot_v2",
+  description: "Generate a product photo using AI by providing a reference image and description",
   parameters: {
-    type: "object",
-    properties: {
-      productDescription: {
-        type: "string",
-        description: "A detailed description of the product for which to generate an image."
-      },
-      requestId: {
-        type: "string",
-        description: "Unique identifier for the request (UUID)."
-      }
+    prompt: {
+      type: "string",
+      description: "Detailed description of the product and scene",
+      required: true
     },
-    required: ["productDescription"]
+    productDescription: {
+      type: "string",
+      description: "Brief description of the product",
+      required: true
+    },
+    imageUrl: {
+      type: "string",
+      description: "URL of the reference product image",
+      required: true
+    },
+    style: {
+      type: "string",
+      description: "Style of the image (e.g., minimalist, luxurious, etc.)",
+      required: false
+    },
+    additionalSettings: {
+      type: "object",
+      description: "Additional settings for image generation",
+      required: false
+    }
   },
-  async execute(args, runId) {
-    const { productDescription } = args;
-    const requestId = uuidv4();
-
-    // Construct the message to send to the assistant
-    const promptMessage = `
-    Generate an enhanced, visually appealing product image based on the following description:
-    ${productDescription}
-    
-    Instructions:
-    - Focus on creating a high-quality, photorealistic image.
-    - Ensure the product is the central focus and is visually striking.
-    - Pay attention to detail to accurately represent the product.
-    - Use professional photography techniques to enhance the image.
-    - Ensure the image is suitable for marketing and promotional purposes.
-    `;
-
-    // Return the tool's instructions and the initial message
-    return {
-      content: `Initializing enhanced product image generation...`,
-      metadata: { requestId: requestId },
-    };
+  requiredCredits: 2,
+  
+  execute: async (params: any): Promise<ToolResult> => {
+    try {
+      const requestId = `ps2-${Date.now()}-${Math.random().toString(36).substring(2, 6)}`;
+      
+      // Check for required parameters
+      if (!params.prompt || !params.imageUrl || !params.productDescription) {
+        return {
+          content: "Missing required parameters. Please provide prompt, productDescription, and imageUrl.",
+          metadata: { error: "Missing parameters", requestId }
+        };
+      }
+      
+      console.log("Executing product-shot-v2 with params:", params);
+      
+      // Call the edge function to generate the image
+      const { data, error } = await supabase.functions.invoke("generate-product-shot", {
+        body: {
+          prompt: params.prompt,
+          sourceImageUrl: params.imageUrl,
+          requestId,
+          additionalSettings: params.additionalSettings || {},
+          productDescription: params.productDescription,
+          style: params.style || "product photography"
+        }
+      });
+      
+      if (error) {
+        console.error("Error generating product shot:", error);
+        return {
+          content: `Error generating product shot: ${error.message || error}`,
+          metadata: { error: error.message, requestId }
+        };
+      }
+      
+      console.log("Product shot generation initiated:", data);
+      
+      return {
+        content: "Product shot generation has been initiated. This may take a moment. The image will be available shortly.",
+        metadata: { requestId, generationId: data?.jobId }
+      };
+    } catch (error: any) {
+      console.error("Error in product shot v2 tool:", error);
+      return {
+        content: `Error in product shot generation: ${error.message || "Unknown error"}`,
+        metadata: { error: error.message || "Unknown error" }
+      };
+    }
   }
 };

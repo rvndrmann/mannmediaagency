@@ -13,6 +13,7 @@ export interface Message {
   handoffRequest?: HandoffRequest;
   modelUsed?: string;
   createdAt?: Date;
+  metadata?: Record<string, any>;
 }
 
 export interface HandoffRequest {
@@ -31,6 +32,16 @@ export interface Agent {
   instructions: string;
   isCustom?: boolean;
   autoRun?: boolean;
+}
+
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: AgentIconType;
+  color: string;
+  instructions: string;
+  isCustom?: boolean;
 }
 
 export interface Attachment {

@@ -38,7 +38,9 @@ export class ToolExecutor {
       }
       
       // Check if the user has enough credits
-      if (context.creditsRemaining < tool.requiredCredits) {
+      if (context.creditsRemaining !== undefined && 
+          tool.requiredCredits !== undefined && 
+          context.creditsRemaining < tool.requiredCredits) {
         console.log(`Insufficient credits for tool ${command.feature}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`);
         return this.handleError(
           commandId, 
@@ -50,7 +52,7 @@ export class ToolExecutor {
       console.log(`Executing tool with parameters:`, command.parameters);
       
       // Execute the tool
-      const result = await tool.execute(command.parameters || {}, context);
+      const result = await tool.execute(command.parameters || {});
       
       // Log the result
       console.log(`Tool execution result:`, result);
@@ -60,7 +62,7 @@ export class ToolExecutor {
         status: result.success ? "completed" : "failed",
         result,
         endTime: new Date(),
-        error: result.success ? undefined : result.message
+        error: result.success === false ? result.message : undefined
       });
       
       return result;
@@ -102,8 +104,10 @@ export class ToolExecutor {
     });
     
     return {
+      content: errorMessage,
       success: false,
-      message: errorMessage
+      message: errorMessage,
+      metadata: { error: errorMessage }
     };
   }
 }

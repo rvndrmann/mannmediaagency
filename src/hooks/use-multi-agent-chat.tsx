@@ -185,6 +185,7 @@ export const useMultiAgentChat = () => {
     }
   };
   
+  // Enhanced handler for agent handoffs that works with custom agents
   const handleAgentHandoff = (handoffRequest: HandoffRequest) => {
     if (!handoffRequest) return;
     

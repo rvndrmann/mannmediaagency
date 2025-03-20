@@ -220,11 +220,8 @@ function parseHandoffRequest(text: string): { targetAgent: string, reason: strin
     
     console.log(`Handoff detected: Agent=${targetAgent}, Reason=${reason}`);
     
-    if (['main', 'script', 'image', 'tool'].includes(targetAgent)) {
-      return { targetAgent, reason };
-    } else {
-      console.log(`Invalid agent type in handoff: ${targetAgent}`);
-    }
+    // Allow handoff to any agent including custom agents
+    return { targetAgent, reason };
   } else {
     if (text.toLowerCase().includes("handoff:")) {
       console.log("Potential handoff format detected but couldn't parse completely");

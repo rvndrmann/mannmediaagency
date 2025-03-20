@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { AgentRunner } from "./multi-agent/runner/AgentRunner";
+import { AgentRunner } from "./multi-agent/runner";
 
 // Define built-in agent types
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];

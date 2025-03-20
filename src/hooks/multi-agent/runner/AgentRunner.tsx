@@ -1,7 +1,9 @@
-
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Message } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
+import { useState, useEffect, useCallback } from "react";
+import { useCompletion } from "../use-completion";
+import { useTools } from "../use-tools";
 
 interface AgentRunnerOptions {
   usePerformanceModel?: boolean;
@@ -74,3 +76,70 @@ export class AgentRunner {
     }
   }
 }
+
+export const useAgentRunner = ({ 
+  agent, 
+  initialMessage, 
+  onNewMessage, 
+  onUpdateMessage, 
+  onAgentStatusUpdate, 
+  allMessages 
+}) => {
+  const [tasks, setTasks] = useState([]);
+  const [isRunning, setIsRunning] = useState(false);
+  const { getCompletion } = useCompletion();
+  const { executeTool } = useTools();
+  
+  const isLastCompletedTask = useCallback((taskId) => {
+    const taskIndex = tasks.findIndex(t => t.id === taskId);
+    if (taskIndex === -1) return false;
+    
+    // Check if this is the last task or if all subsequent tasks are completed
+    for (let i = taskIndex + 1; i < tasks.length; i++) {
+      if (tasks[i].status !== 'completed') return false;
+    }
+    return true;
+  }, [tasks]);
+  
+  const runAgent = useCallback(async (message, context = {}) => {
+    setIsRunning(true);
+    try {
+      // Process the message with the agent
+      const completion = await getCompletion(agent, message, context);
+      
+      // Handle the agent's response
+      if (completion) {
+        onNewMessage(completion);
+        
+        // Check for tool calls or handoffs
+        if (completion.command && completion.command.tool) {
+          const toolResult = await executeTool(completion.command.tool, completion.command.parameters);
+          onUpdateMessage(completion.id, { status: 'completed' });
+          
+          // Send tool result back to agent
+          return runAgent(`Tool result: ${JSON.stringify(toolResult)}`, {
+            previousMessage: completion
+          });
+        }
+      }
+    } catch (error) {
+      console.error("Agent runner error:", error);
+      onAgentStatusUpdate('error', error.message);
+    } finally {
+      setIsRunning(false);
+    }
+  }, [agent, getCompletion, executeTool, onNewMessage, onUpdateMessage, onAgentStatusUpdate]);
+  
+  useEffect(() => {
+    if (initialMessage && !isRunning) {
+      runAgent(initialMessage);
+    }
+  }, [initialMessage, isRunning, runAgent]);
+  
+  return {
+    tasks,
+    isRunning,
+    runAgent,
+    isLastCompletedTask
+  };
+};

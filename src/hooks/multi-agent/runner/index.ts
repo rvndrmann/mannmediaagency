@@ -1,3 +1,3 @@
 
-export { AgentRunner } from './AgentRunner';
-export { useAgentRunner } from './AgentRunner.ts';
+export { AgentRunner } from './AgentRunner.tsx';
+export { useAgentRunner } from './AgentRunner.tsx';

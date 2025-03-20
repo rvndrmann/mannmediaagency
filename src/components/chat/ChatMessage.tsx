@@ -11,9 +11,10 @@ import { cn } from "@/lib/utils";
 interface ChatMessageProps {
   message: Message;
   onRetry?: () => void;
+  showAgentName?: boolean;
 }
 
-export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
+export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProps) => {
   // Helper to render task status icon
   const getTaskStatusIcon = (status: Task["status"]) => {
     switch (status) {
@@ -54,7 +55,7 @@ export const ChatMessage = ({ message, onRetry }: ChatMessageProps) => {
         </div>
       )}
       
-      {isAgent && message.agentType && (
+      {isAgent && message.agentType && showAgentName && (
         <Badge 
           variant={
             message.agentType === "main" ? "default" : 

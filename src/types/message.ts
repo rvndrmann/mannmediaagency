@@ -1,4 +1,3 @@
-
 export interface Message {
   role: "user" | "assistant";
   content: string;
@@ -9,6 +8,7 @@ export interface Message {
   selectedTool?: string;
   attachments?: Attachment[];
   handoffRequest?: HandoffRequest;
+  modelUsed?: string;
 }
 
 export interface HandoffRequest {

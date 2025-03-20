@@ -44,6 +44,8 @@ declare global {
     check_credits_before_work_request: (args: { 
       credit_amount: number 
     }) => null;
+    get_admin_users: () => any[];
+    get_admin_users_for_messaging: () => any[];
   }
 }
 

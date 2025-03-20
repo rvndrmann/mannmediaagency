@@ -21,4 +21,8 @@ export const supabase = {
   ) {
     return originalClient.rpc(fn, args) as ReturnType<typeof originalClient.rpc> & { data: T };
   },
+  // Add missing properties from the original client to ensure all methods are available
+  from: originalClient.from.bind(originalClient),
+  storage: originalClient.storage.bind(originalClient),
+  functions: originalClient.functions.bind(originalClient)
 };

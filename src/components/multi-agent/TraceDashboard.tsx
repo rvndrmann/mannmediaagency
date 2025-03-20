@@ -37,7 +37,11 @@ interface ConversationData {
   model_used: string;
 }
 
-export const TraceDashboard = () => {
+interface TraceDashboardProps {
+  userId?: string;
+}
+
+export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
   const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
   const [conversations, setConversations] = useState<ConversationData[]>([]);
   const [loading, setLoading] = useState(true);
@@ -47,13 +51,18 @@ export const TraceDashboard = () => {
       try {
         setLoading(true);
 
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
+        // Use provided userId or get the current authenticated user
+        let userIdToUse = userId;
+        if (!userIdToUse) {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          userIdToUse = user.id;
+        }
 
         // Fetch analytics data
         const { data: analyticsData, error: analyticsError } = await supabase.rpc<AnalyticsData>(
           "get_agent_trace_analytics",
-          { user_id_param: user.id }
+          { user_id_param: userIdToUse }
         );
 
         if (analyticsError) {
@@ -65,7 +74,7 @@ export const TraceDashboard = () => {
         // Fetch conversation list
         const { data: convoData, error: convoError } = await supabase.rpc<ConversationData[]>(
           "get_user_conversations",
-          { user_id_param: user.id }
+          { user_id_param: userIdToUse }
         );
 
         if (convoError) {
@@ -81,18 +90,23 @@ export const TraceDashboard = () => {
     }
 
     fetchData();
-  }, []);
+  }, [userId]);
 
   const fetchConversationDetail = async (conversationId: string) => {
     try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
+      // Use provided userId or get the current authenticated user
+      let userIdToUse = userId;
+      if (!userIdToUse) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return null;
+        userIdToUse = user.id;
+      }
 
       const { data, error } = await supabase.rpc(
         "get_conversation_trace",
         { 
           conversation_id: conversationId,
-          user_id_param: user.id
+          user_id_param: userIdToUse
         }
       );
 

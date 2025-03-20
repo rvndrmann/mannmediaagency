@@ -50,7 +50,7 @@ export function EditAgentInstructionsDialog({
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      instructions: currentInstructions
+      instructions: currentInstructions || "" // Ensure instructions is never undefined
     }
   });
 
@@ -62,7 +62,10 @@ export function EditAgentInstructionsDialog({
   React.useEffect(() => {
     if (open) {
       // Reset form with current instructions when dialog opens
-      form.reset({ instructions: currentInstructions });
+      // Make sure instructions is always a string
+      form.reset({ 
+        instructions: currentInstructions || "" 
+      });
     }
   }, [open, currentInstructions, form]);
 

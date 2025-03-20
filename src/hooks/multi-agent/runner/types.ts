@@ -23,6 +23,9 @@ export interface RunConfig {
   groupId?: string;
 }
 
+// Define a union type for run status to ensure type safety
+export type RunStatus = "pending" | "running" | "completed" | "error";
+
 /**
  * State of an agent run
  */
@@ -36,7 +39,7 @@ export interface RunState {
   // Current turn number
   turnCount: number;
   // Status of the run
-  status: "pending" | "running" | "completed" | "error";
+  status: RunStatus;
   // The last message index (for referencing response messages)
   lastMessageIndex: number;
   // The last result from a tool execution

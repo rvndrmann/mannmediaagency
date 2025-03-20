@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Command, Message, Task } from "@/types/message";
-import { RunConfig, RunEvent, RunHooks, RunResult, RunState } from "./types";
+import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus } from "./types";
 import { parseToolCommand } from "../tool-parser";
 import { toolExecutor } from "../tool-executor";
 import { getToolsForLLM } from "../tools";
@@ -443,5 +443,179 @@ export class AgentRunner {
         this.hooks.onCompleted?.(event.result);
         break;
     }
+  }
+  
+  private async executeTurn() {
+    this.emitEvent({ type: "thinking", agentType: this.state.currentAgentType });
+    
+    const assistantMessage: Message = {
+      role: "assistant",
+      content: "Processing your request...",
+      status: "thinking",
+      agentType: this.state.currentAgentType,
+      tasks: [
+        this.createTask(`Consulting ${this.state.currentAgentType} agent`),
+        this.createTask("Preparing response")
+      ]
+    };
+    
+    this.state.messages.push(assistantMessage);
+    this.state.lastMessageIndex = this.state.messages.length - 1;
+    
+    try {
+      // Get agent response from API
+      const response = await this.getAgentResponse();
+      
+      // Update tasks
+      this.updateTaskStatus(0, "completed");
+      this.updateTaskStatus(1, "in-progress");
+      
+      // Parse response
+      const toolCommand = this.state.currentAgentType === "tool" ? 
+        parseToolCommand(response.completion) : null;
+      
+      // Update message
+      this.updateMessage(this.state.lastMessageIndex, {
+        content: response.completion,
+        status: "completed",
+        handoffRequest: response.handoffRequest,
+        command: toolCommand,
+        modelUsed: response.modelUsed
+      });
+      
+      return {
+        handoff: response.handoffRequest,
+        toolCommand
+      };
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      this.updateMessage(this.state.lastMessageIndex, {
+        content: `Error: ${errorMessage}`,
+        status: "error"
+      });
+      
+      throw error;
+    }
+  }
+  
+  private async getAgentResponse() {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("User not authenticated");
+    
+    const response = await supabase.functions.invoke("multi-agent-chat", {
+      body: {
+        messages: this.formatMessages(),
+        agentType: this.state.currentAgentType,
+        userId: user.id,
+        contextData: {
+          hasAttachments: this.hasAttachments(),
+          attachmentTypes: this.getAttachmentTypes(),
+          availableTools: this.state.currentAgentType === "tool" ? 
+            getToolsForLLM() : undefined,
+          usePerformanceModel: this.config.usePerformanceModel,
+          isHandoffContinuation: this.state.handoffInProgress
+        }
+      }
+    });
+    
+    if (response.error) {
+      throw new Error(response.error.message || "Failed to get response from agent");
+    }
+    
+    return response.data;
+  }
+  
+  private async executeToolCommand(command: Command) {
+    this.emitEvent({ type: "tool_start", command });
+    
+    const toolTaskId = uuidv4();
+    const toolTask = {
+      id: toolTaskId,
+      name: `Executing ${command.feature}`,
+      status: "pending" as Task["status"]
+    };
+    
+    this.updateMessage(this.state.lastMessageIndex, {
+      tasks: [...(this.state.messages[this.state.lastMessageIndex].tasks || []), toolTask]
+    });
+    
+    try {
+      // Set up tool context
+      const toolContext: ToolContext = {
+        userId: this.userId || "",
+        creditsRemaining: 0, // TODO: Get actual credits
+        attachments: this.getAttachments(),
+        selectedTool: command.feature,
+        previousOutputs: {}
+      };
+      
+      // Execute tool
+      const result = await toolExecutor.executeCommand(command, toolContext);
+      this.emitEvent({ type: "tool_end", result });
+      
+      // Update message with tool result
+      const content = `${this.state.messages[this.state.lastMessageIndex].content}\n\n${result.message}`;
+      
+      this.updateMessage(this.state.lastMessageIndex, {
+        content,
+        status: "completed",
+        tasks: this.state.messages[this.state.lastMessageIndex].tasks?.map(task =>
+          task.id === toolTaskId ? {
+            ...task,
+            status: result.success ? "completed" : "error",
+            details: result.success ? undefined : result.message
+          } : task
+        )
+      });
+      
+      this.state.lastToolResult = result;
+      this.state.lastCommand = command;
+      
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      this.updateMessage(this.state.lastMessageIndex, {
+        tasks: this.state.messages[this.state.lastMessageIndex].tasks?.map(task =>
+          task.id === toolTaskId ? {
+            ...task,
+            status: "error",
+            details: errorMessage
+          } : task
+        )
+      });
+      
+      throw error;
+    }
+  }
+  
+  private async handleHandoff(targetAgent: AgentType, reason: string) {
+    this.emitEvent({ 
+      type: "handoff_start", 
+      from: this.state.currentAgentType,
+      to: targetAgent,
+      reason 
+    });
+    
+    const handoffMessage: Message = {
+      role: "assistant",
+      content: `I'm transferring you to the ${targetAgent} agent for better assistance.\n\nReason: ${reason}`,
+      status: "completed",
+      agentType: this.state.currentAgentType,
+      tasks: [{
+        id: uuidv4(),
+        name: `Transferring to ${targetAgent} agent`,
+        status: "completed"
+      }]
+    };
+    
+    this.state.messages.push(handoffMessage);
+    this.state.currentAgentType = targetAgent;
+    this.state.handoffInProgress = true;
+    
+    this.emitEvent({ type: "handoff_end", to: targetAgent });
+    
+    toast.info(`Transferred to ${targetAgent} agent for better assistance.`);
   }
 }

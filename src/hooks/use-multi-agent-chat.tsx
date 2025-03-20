@@ -205,7 +205,7 @@ export const useMultiAgentChat = () => {
     // Create a handoff message
     const handoffMessage: Message = {
       role: "assistant",
-      content: `I'm transferring you to the ${targetAgent} agent for better assistance. Reason: ${handoffRequest.reason || "Specialized knowledge required"}`,
+      content: `I'm transferring you to the ${targetAgent} agent for better assistance.\n\nReason: ${handoffRequest.reason || "Specialized knowledge required"}`,
       status: "completed",
       agentType: activeAgent,
       tasks: [

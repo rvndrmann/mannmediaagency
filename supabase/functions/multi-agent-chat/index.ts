@@ -126,18 +126,24 @@ Available agents:
   });
 
   handoffContext += `
-IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with the EXACT format:
+IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with this EXACT format:
 
-HANDOFF: {agentType}, REASON: {short reason for handoff}
+HANDOFF: {agentType}
+REASON: {short reason for handoff}
 
 For example:
 "I can help with basic information about images, but for creating detailed image prompts...
-HANDOFF: image, REASON: User needs specialized image prompt creation"
+
+HANDOFF: image
+REASON: User needs specialized image prompt creation"
 
 OR:
 "Here's some general information about video creation. For using our video tools...
-HANDOFF: tool, REASON: User needs to access video conversion tools"
 
+HANDOFF: tool
+REASON: User needs to access video conversion tools"
+
+Make sure to place the HANDOFF and REASON on separate lines exactly as shown above.
 Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
 `;
 
@@ -409,13 +415,15 @@ function parseHandoffRequest(text: string): { targetAgent: string, reason: strin
     return null;
   }
 
-  console.log("Attempting to parse handoff from:", text.slice(-200));
+  console.log("Attempting to parse handoff from:", text.slice(-300));
   
-  const handoffRegex = /HANDOFF:\s*(\w+)(?:,|\s)\s*REASON:\s*(.+?)(?:\n|$)/i;
+  // More flexible regex that can handle variations in format
+  // This handles cases with or without comma, with different spacing, and different capitalization
+  const handoffRegex = /HANDOFF:\s*([a-z0-9_-]+)(?:[,\s]\s*REASON:|\s+REASON:)\s*(.+?)(?:$|[\n\r])/is;
   const handoffMatch = text.match(handoffRegex);
   
   if (handoffMatch) {
-    const targetAgent = handoffMatch[1].toLowerCase();
+    const targetAgent = handoffMatch[1].toLowerCase().trim();
     const reason = handoffMatch[2].trim();
     
     console.log(`Handoff detected: Agent=${targetAgent}, Reason=${reason}`);
@@ -423,7 +431,31 @@ function parseHandoffRequest(text: string): { targetAgent: string, reason: strin
     // Allow handoff to any agent including custom agents
     return { targetAgent, reason };
   } else {
-    if (text.toLowerCase().includes("handoff:")) {
+    // Check if there's a partial match that needs more flexible parsing
+    if (text.toLowerCase().includes("handoff")) {
+      console.log("Potential handoff detected. Trying alternative parsing method.");
+      
+      // Try a two-step approach
+      const handoffPart = text.match(/HANDOFF:\s*([a-z0-9_-]+)/i);
+      const reasonPart = text.match(/REASON:\s*(.+?)(?:$|[\n\r])/i);
+      
+      if (handoffPart && reasonPart) {
+        const targetAgent = handoffPart[1].toLowerCase().trim();
+        const reason = reasonPart[1].trim();
+        
+        console.log(`Handoff detected using alternative parsing: Agent=${targetAgent}, Reason=${reason}`);
+        return { targetAgent, reason };
+      }
+      
+      // If we have just the agent but no reason, provide a default reason
+      if (handoffPart) {
+        const targetAgent = handoffPart[1].toLowerCase().trim();
+        const reason = "Specialized assistance required";
+        
+        console.log(`Partial handoff detected, using default reason: Agent=${targetAgent}, Reason=${reason}`);
+        return { targetAgent, reason };
+      }
+      
       console.log("Potential handoff format detected but couldn't parse completely");
     }
   }

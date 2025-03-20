@@ -122,14 +122,14 @@ export const MultiAgentChat = () => {
         </div>
       </header>
       
-      <div className="flex-1 container mx-auto max-w-4xl px-4 pb-3 pt-2 flex flex-col">
+      <div className="flex-1 container mx-auto max-w-4xl px-4 pb-3 pt-2 flex flex-col h-full overflow-hidden">
         <AgentSelector activeAgent={activeAgent} onAgentSelect={switchAgent} />
         
         {showInstructions && <AgentInstructionsTable activeAgent={activeAgent} />}
         
-        <div className="flex-1 overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 shadow-lg">
+        <div className="flex-1 flex flex-col overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 shadow-lg">
           {messages.length > 0 ? (
-            <ScrollArea ref={scrollAreaRef} className="h-[calc(100vh-16rem)]">
+            <ScrollArea ref={scrollAreaRef} className="flex-1">
               <div className="p-4 space-y-6">
                 {messages.map((message, index) => (
                   <ChatMessage 
@@ -142,7 +142,7 @@ export const MultiAgentChat = () => {
               </div>
             </ScrollArea>
           ) : (
-            <div className="h-[calc(100vh-16rem)] flex flex-col items-center justify-center p-4 text-center">
+            <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
               <div className="mb-4 bg-gradient-to-r from-blue-400 to-indigo-500 w-14 h-14 rounded-full flex items-center justify-center shadow-lg">
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
@@ -178,7 +178,7 @@ export const MultiAgentChat = () => {
             </div>
           )}
           
-          <div className="flex items-end gap-2">
+          <div className="flex items-end gap-2 w-full">
             <div className="flex-1">
               <ChatInput
                 input={input}

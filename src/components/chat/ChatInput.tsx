@@ -56,7 +56,7 @@ export const ChatInput = ({
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-1">
+    <form onSubmit={onSubmit} className="space-y-1 w-full">
       {attachments.length > 0 && (
         <AttachmentPreview
           attachments={attachments}
@@ -65,14 +65,14 @@ export const ChatInput = ({
         />
       )}
       
-      <div className="flex gap-2 items-end">
+      <div className="flex gap-2 items-end w-full">
         <div className="flex-1 relative">
           <Textarea
             value={input}
             onChange={(e) => handleChange(e.target.value)}
             placeholder="Type your message..."
             disabled={isLoading}
-            className="min-h-[44px] max-h-[100px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-2xl px-3 py-2.5 shadow-inner"
+            className="min-h-[40px] max-h-[100px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-2xl px-3 py-2 shadow-inner"
           />
           <div className="absolute bottom-1 left-3 right-10">
             <div className="flex justify-between items-center">

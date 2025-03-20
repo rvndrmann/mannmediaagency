@@ -1,107 +1,109 @@
 
-import React from "react";
-import { z } from "zod";
-import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { 
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter
-} from "@/components/ui/dialog";
-import {
-  Form,
-  FormControl,
-  FormField,
-  FormItem,
-  FormMessage
-} from "@/components/ui/form";
-import { Textarea } from "@/components/ui/textarea";
+import { useState } from "react";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Form, FormControl, FormField, FormItem, FormLabel } from "@/components/ui/form";
+import { useForm } from "react-hook-form";
+import { Textarea } from "@/components/ui/textarea";
+import { z } from "zod";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 
-// Validation schema for the form
 const formSchema = z.object({
-  instructions: z.string()
-    .min(10, "Instructions must be at least 10 characters")
-    .max(2000, "Instructions must be less than 2000 characters")
+  instructions: z.string().min(1, "Instructions are required"),
 });
+
+type FormValues = z.infer<typeof formSchema>;
 
 interface EditAgentInstructionsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (data: { instructions: string }) => void;
   agentType: AgentType;
-  currentInstructions: string;
-  title?: string;
+  initialInstructions?: string;
+  onSave: (agentType: AgentType, instructions: string) => void;
 }
 
 export function EditAgentInstructionsDialog({
   open,
   onOpenChange,
-  onSubmit,
   agentType,
-  currentInstructions,
-  title = "Edit Agent Instructions"
+  initialInstructions = "",
+  onSave,
 }: EditAgentInstructionsDialogProps) {
-  // Initialize form with current instructions
-  const form = useForm<z.infer<typeof formSchema>>({
+  const [saving, setSaving] = useState(false);
+
+  const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
     defaultValues: {
-      instructions: currentInstructions || "" // Ensure instructions is never undefined
-    }
+      instructions: initialInstructions,
+    },
   });
 
-  // Handle form submission
-  const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    onSubmit(values);
+  const handleSave = async (data: FormValues) => {
+    setSaving(true);
+    try {
+      onSave(agentType, data.instructions);
+      onOpenChange(false);
+    } catch (error) {
+      console.error("Error saving instructions:", error);
+    } finally {
+      setSaving(false);
+    }
   };
 
-  React.useEffect(() => {
-    if (open) {
-      // Reset form with current instructions when dialog opens
-      // Make sure instructions is always a string
-      form.reset({ 
-        instructions: currentInstructions || "" 
-      });
-    }
-  }, [open, currentInstructions, form]);
+  // Fix the TypeScript error by ensuring instructions is always a string
+  const resetForm = () => {
+    form.reset({
+      instructions: initialInstructions || "",
+    });
+  };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+    <Dialog open={open} onOpenChange={(isOpen) => {
+      if (isOpen) {
+        resetForm();
+      }
+      onOpenChange(isOpen);
+    }}>
+      <DialogContent className="sm:max-w-[625px] bg-[#1A1F29] text-white border-white/10">
         <DialogHeader>
-          <DialogTitle>{title}</DialogTitle>
-          <DialogDescription>
-            Customize how this agent behaves by editing its instructions. 
-            These instructions guide the agent's responses and capabilities.
-          </DialogDescription>
+          <DialogTitle className="text-white">Edit {agentType.toUpperCase()} Agent Instructions</DialogTitle>
         </DialogHeader>
-
+        
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
             <FormField
               control={form.control}
               name="instructions"
               render={({ field }) => (
                 <FormItem>
+                  <FormLabel>Custom Instructions</FormLabel>
                   <FormControl>
-                    <Textarea 
-                      placeholder="Enter detailed instructions for how the agent should behave and respond..." 
-                      className="min-h-[250px] font-mono text-sm"
-                      {...field} 
+                    <Textarea
+                      {...field}
+                      placeholder="Enter custom instructions for this agent..."
+                      className="h-64 border-white/20 bg-[#21283B] resize-none"
                     />
                   </FormControl>
-                  <FormMessage />
                 </FormItem>
               )}
             />
             
             <DialogFooter>
-              <Button type="submit" className="w-full">
-                Save Instructions
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => onOpenChange(false)}
+                className="border-white/20 hover:bg-white/10"
+              >
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                disabled={saving}
+                className="bg-gradient-to-r from-blue-600 to-indigo-600"
+              >
+                {saving ? "Saving..." : "Save Instructions"}
               </Button>
             </DialogFooter>
           </form>

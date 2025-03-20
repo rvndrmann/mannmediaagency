@@ -81,14 +81,14 @@ export function FileAttachmentButton({ onAttach }: FileAttachmentButtonProps) {
         type="button" 
         variant="ghost" 
         size="icon" 
-        className="text-white/70 hover:text-white hover:bg-white/10"
+        className="text-white/70 hover:text-white hover:bg-white/10 h-8 w-8"
         onClick={triggerFileInput}
         disabled={isUploading}
       >
         {isUploading ? (
-          <Upload className="h-5 w-5 animate-pulse" />
+          <Upload className="h-4 w-4 animate-pulse" />
         ) : (
-          <Paperclip className="h-5 w-5" />
+          <Paperclip className="h-4 w-4" />
         )}
       </Button>
       <input

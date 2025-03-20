@@ -1,3 +1,3 @@
 
-export { AgentRunner } from './AgentRunner.tsx';
-export { useAgentRunner } from './AgentRunner.tsx';
+// Properly export both the AgentRunner class and the useAgentRunner hook
+export { AgentRunner, useAgentRunner } from './AgentRunner';

@@ -21,6 +21,7 @@ interface AgentRunnerHooks {
   onHandoffEnd?: (toAgent: AgentType) => void;
 }
 
+// Make sure to export the class properly
 export class AgentRunner {
   private agentType: AgentType;
   private options: AgentRunnerOptions;

@@ -1,31 +1,8 @@
 
 import { createClient } from '@supabase/supabase-js';
-import { Database } from '@/lib/types/supabase';
 
-export const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+// Use import.meta.env instead of process.env for Vite projects
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || '';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || '';
 
-const originalClient = createClient<Database>(SUPABASE_URL, supabaseAnonKey, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-  },
-});
-
-// Extend the supabase client with typed RPC functions
-export const supabase = {
-  ...originalClient,
-  rpc: function<T = any>(
-    fn: keyof SupabaseRpcFunctions,
-    args?: Parameters<SupabaseRpcFunctions[typeof fn]>[0]
-  ) {
-    return originalClient.rpc(fn, args) as ReturnType<typeof originalClient.rpc> & { data: T };
-  },
-  // Add missing properties from the original client to ensure all methods are available
-  from: originalClient.from,
-  storage: originalClient.storage,
-  functions: originalClient.functions,
-  // Add Realtime specific methods
-  channel: originalClient.channel.bind(originalClient),
-  removeChannel: originalClient.removeChannel.bind(originalClient)
-};
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);

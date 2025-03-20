@@ -8,7 +8,7 @@ import { AgentSelector } from "./AgentSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { Zap, Trash2, Hammer } from "lucide-react";
+import { Zap, Trash2, Hammer, BarChartBig } from "lucide-react";
 import { toast } from "sonner";
 import { 
   Tooltip, 
@@ -29,13 +29,15 @@ export const MultiAgentChat = () => {
     pendingAttachments,
     usePerformanceModel,
     enableDirectToolExecution,
+    tracingEnabled,
     handleSubmit, 
     switchAgent, 
     clearChat,
     addAttachments,
     removeAttachment,
     togglePerformanceMode,
-    toggleDirectToolExecution
+    toggleDirectToolExecution,
+    toggleTracing
   } = useMultiAgentChat();
   
   const [showInstructions, setShowInstructions] = useState(false);
@@ -111,6 +113,29 @@ export const MultiAgentChat = () => {
               </TooltipTrigger>
               <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
                 <p className="text-xs">{enableDirectToolExecution ? "Any agent can use tools directly" : "Tools require handoff to tool agent"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={tracingEnabled ? "default" : "outline"} 
+                  size="sm"
+                  onClick={toggleTracing}
+                  className={`flex items-center gap-1 text-xs h-6 px-2 ${
+                    tracingEnabled 
+                      ? "bg-gradient-to-r from-purple-600 to-pink-600" 
+                      : "border-purple-600 bg-purple-800/20 text-purple-500 hover:bg-purple-800/30"
+                  }`}
+                >
+                  <BarChartBig className="h-3 w-3" />
+                  {tracingEnabled ? "Tracing On" : "Tracing Off"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
+                <p className="text-xs">{tracingEnabled ? "Detailed interaction tracing is enabled" : "Interaction tracing is disabled"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -229,6 +254,9 @@ export const MultiAgentChat = () => {
               </div>
               <div>
                 Tool Access: {enableDirectToolExecution ? "Direct (any agent)" : "Via Tool Agent"}
+              </div>
+              <div>
+                Tracing: {tracingEnabled ? "Enabled" : "Disabled"}
               </div>
             </div>
           </div>

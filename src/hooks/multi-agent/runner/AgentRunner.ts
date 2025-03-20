@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Command, Message, Task } from "@/types/message";
-import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus } from "./types";
+import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceManager, Trace } from "../types";
 import { parseToolCommand } from "../tool-parser";
 import { toolExecutor } from "../tool-executor";
 import { getToolsForLLM } from "../tools";
@@ -22,6 +22,8 @@ export class AgentRunner {
   private config: RunConfig;
   private hooks: RunHooks;
   private userId?: string;
+  private traceManager: TraceManager;
+  private runStartTime: number;
   
   constructor(
     initialAgentType: AgentType,
@@ -49,6 +51,8 @@ export class AgentRunner {
     };
     
     this.hooks = hooks;
+    this.traceManager = new TraceManager(!this.config.tracingDisabled);
+    this.runStartTime = Date.now();
   }
   
   /**
@@ -61,11 +65,18 @@ export class AgentRunner {
   ): Promise<RunResult> {
     this.userId = userId;
     
+    // Start trace if user ID is provided and tracing is enabled
+    if (userId && this.traceManager.isTracingEnabled()) {
+      this.traceManager.startTrace(userId, this.config.runId!);
+      console.log(`Started trace for run ${this.config.runId}`);
+    }
+    
     try {
       // Check credits
       if (userId) {
         const hasCredits = await this.checkCredits(userId);
         if (!hasCredits) {
+          this.recordTraceEvent("error", "Insufficient credits");
           throw new Error("Insufficient credits");
         }
       }
@@ -79,10 +90,18 @@ export class AgentRunner {
       
       this.state.messages.push(userMessage);
       this.emitEvent({ type: "message", message: userMessage });
+      this.recordTraceEvent("user_message", userMessage);
       
       // Start the run loop
       this.state.status = "running";
       await this.runLoop();
+      
+      // Calculate metrics
+      const totalDuration = Date.now() - this.runStartTime;
+      
+      // Count tool calls and handoffs from the message history
+      const toolCalls = this.state.messages.filter(m => m.command).length;
+      const handoffs = this.state.messages.filter(m => m.handoffRequest).length;
       
       // Build result
       const result: RunResult = {
@@ -90,12 +109,21 @@ export class AgentRunner {
         output: this.state.messages,
         success: this.state.status === "completed",
         metrics: {
-          totalDuration: 0, // TODO: Track duration
+          totalDuration,
           turnCount: this.state.turnCount,
-          toolCalls: 0, // TODO: Track tool calls
-          handoffs: 0  // TODO: Track handoffs
+          toolCalls,
+          handoffs
         }
       };
+      
+      // Record trace completion
+      if (this.traceManager.isTracingEnabled()) {
+        const trace = this.traceManager.finishTrace();
+        if (trace) {
+          await this.saveTraceToDatabase(trace);
+          console.log(`Completed trace ${trace.traceId} for run ${this.config.runId}`);
+        }
+      }
       
       this.emitEvent({ type: "completed", result });
       return result;
@@ -103,6 +131,18 @@ export class AgentRunner {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       this.state.status = "error";
+      this.recordTraceEvent("error", { message: errorMessage });
+      
+      // Finish trace with error
+      if (this.traceManager.isTracingEnabled()) {
+        const trace = this.traceManager.finishTrace();
+        if (trace) {
+          trace.summary!.success = false;
+          await this.saveTraceToDatabase(trace);
+          console.log(`Completed trace ${trace.traceId} with error`);
+        }
+      }
+      
       this.emitEvent({ type: "error", error: errorMessage });
       
       return {
@@ -124,6 +164,7 @@ export class AgentRunner {
     ) {
       
       this.state.turnCount++;
+      this.recordTraceEvent("turn_start", { turnNumber: this.state.turnCount });
       
       // Execute current turn
       const turnResult = await this.executeTurn();
@@ -141,12 +182,15 @@ export class AgentRunner {
         continue;
       }
       
+      this.recordTraceEvent("turn_end", { turnNumber: this.state.turnCount });
+      
       // No more actions needed, complete the run
       this.state.status = "completed";
       break;
     }
     
     if (this.state.turnCount >= (this.config.maxTurns || DEFAULT_MAX_TURNS)) {
+      this.recordTraceEvent("max_turns_exceeded", { maxTurns: this.config.maxTurns || DEFAULT_MAX_TURNS });
       throw new Error("Maximum turns exceeded");
     }
   }
@@ -156,6 +200,7 @@ export class AgentRunner {
    */
   private async executeTurn() {
     this.emitEvent({ type: "thinking", agentType: this.state.currentAgentType });
+    this.recordTraceEvent("thinking", { agentType: this.state.currentAgentType });
     
     const assistantMessage: Message = {
       role: "assistant",
@@ -174,6 +219,9 @@ export class AgentRunner {
     try {
       // Get agent response from API
       const response = await this.getAgentResponse();
+      
+      // Record model usage in trace
+      this.recordTraceEvent("model_used", { model: response.modelUsed || "unknown" });
       
       // Update tasks
       this.updateTaskStatus(0, "completed");
@@ -221,6 +269,14 @@ export class AgentRunner {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) throw new Error("User not authenticated");
     
+    // Record API call in trace
+    this.recordTraceEvent("api_call_start", { 
+      agentType: this.state.currentAgentType,
+      messageCount: this.state.messages.length
+    });
+    
+    const startTime = Date.now();
+    
     const response = await supabase.functions.invoke("multi-agent-chat", {
       body: {
         messages: this.formatMessages(),
@@ -234,12 +290,24 @@ export class AgentRunner {
           usePerformanceModel: this.config.usePerformanceModel,
           isHandoffContinuation: this.state.handoffInProgress,
           isCustomAgent: this.state.isCustomAgent,
-          enableDirectToolExecution: this.state.enableDirectToolExecution
+          enableDirectToolExecution: this.state.enableDirectToolExecution,
+          traceId: this.traceManager.getCurrentTrace()?.traceId
         }
       }
     });
     
+    const duration = Date.now() - startTime;
+    
+    // Record API call completion in trace
+    this.recordTraceEvent("api_call_end", { 
+      duration,
+      modelUsed: response.data?.modelUsed || "unknown",
+      hasHandoff: !!response.data?.handoffRequest,
+      contentLength: response.data?.completion?.length || 0
+    });
+    
     if (response.error) {
+      this.recordTraceEvent("api_call_error", { error: response.error });
       throw new Error(response.error.message || "Failed to get response from agent");
     }
     
@@ -251,6 +319,7 @@ export class AgentRunner {
    */
   private async executeToolCommand(command: Command) {
     this.emitEvent({ type: "tool_start", command });
+    this.recordTraceEvent("tool_start", { command });
     
     const toolTaskId = uuidv4();
     const toolTask = {
@@ -273,9 +342,19 @@ export class AgentRunner {
         previousOutputs: {}
       };
       
+      const startTime = Date.now();
+      
       // Execute tool
       const result = await toolExecutor.executeCommand(command, toolContext);
+      
+      const duration = Date.now() - startTime;
+      
       this.emitEvent({ type: "tool_end", result });
+      this.recordTraceEvent("tool_end", { 
+        result,
+        duration,
+        success: result.success
+      });
       
       // Update message with tool result
       const content = `${this.state.messages[this.state.lastMessageIndex].content}\n\n${result.message}`;
@@ -297,6 +376,8 @@ export class AgentRunner {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      
+      this.recordTraceEvent("tool_error", { error: errorMessage });
       
       this.updateMessage(this.state.lastMessageIndex, {
         tasks: this.state.messages[this.state.lastMessageIndex].tasks?.map(task =>
@@ -321,6 +402,12 @@ export class AgentRunner {
       from: this.state.currentAgentType,
       to: targetAgent,
       reason 
+    });
+    
+    this.recordTraceEvent("handoff", { 
+      from: this.state.currentAgentType,
+      to: targetAgent,
+      reason
     });
     
     const handoffMessage: Message = {
@@ -457,6 +544,49 @@ export class AgentRunner {
       case "completed":
         this.hooks.onCompleted?.(event.result);
         break;
+    }
+  }
+  
+  /**
+   * Record an event in the trace
+   */
+  private recordTraceEvent(eventType: string, data: any) {
+    if (!this.traceManager.isTracingEnabled()) return;
+    
+    this.traceManager.recordEvent(
+      eventType, 
+      this.state.currentAgentType,
+      data
+    );
+  }
+  
+  /**
+   * Save the trace to the database
+   */
+  private async saveTraceToDatabase(trace: Trace) {
+    if (!this.userId) return;
+    
+    try {
+      // Store trace data in the agent_interactions metadata
+      await supabase.from("agent_interactions").insert({
+        user_id: this.userId,
+        agent_type: this.state.currentAgentType,
+        user_message: this.state.messages.find(m => m.role === "user")?.content || "",
+        assistant_response: this.state.messages.find(m => m.role === "assistant")?.content || "",
+        has_attachments: this.hasAttachments(),
+        metadata: {
+          trace: {
+            id: trace.traceId,
+            summary: trace.summary,
+            duration: trace.duration,
+            runId: this.config.runId
+          }
+        }
+      });
+      
+      console.log(`Saved trace ${trace.traceId} to database`);
+    } catch (error) {
+      console.error("Error saving trace to database:", error);
     }
   }
 }

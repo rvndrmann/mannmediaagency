@@ -30,6 +30,8 @@ export const useMultiAgentChat = () => {
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [usePerformanceModel, setUsePerformanceModel] = useState(false);
   const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(true);
+  const [tracingEnabled, setTracingEnabled] = useState(true);
+  const [currentConversationId, setCurrentConversationId] = useState<string>(uuidv4());
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -95,10 +97,13 @@ export const useMultiAgentChat = () => {
       const runner = new AgentRunner(activeAgent, {
         usePerformanceModel,
         enableDirectToolExecution,
+        tracingDisabled: !tracingEnabled,
         metadata: {
           userId: user.id,
-          sessionId: uuidv4()
-        }
+          sessionId: currentConversationId
+        },
+        runId: uuidv4(),
+        groupId: currentConversationId
       }, {
         onMessage: (message) => {
           setMessages(prev => [...prev, message]);
@@ -147,6 +152,7 @@ export const useMultiAgentChat = () => {
   const clearChat = useCallback(() => {
     setMessages([]);
     setPendingAttachments([]);
+    setCurrentConversationId(uuidv4());
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
@@ -166,6 +172,14 @@ export const useMultiAgentChat = () => {
     );
   }, [enableDirectToolExecution]);
 
+  const toggleTracing = useCallback(() => {
+    setTracingEnabled(prev => !prev);
+    toast.info(tracingEnabled ? 
+      "Tracing disabled for this session." : 
+      "Tracing enabled for this session."
+    );
+  }, [tracingEnabled]);
+
   return {
     messages,
     input,
@@ -176,6 +190,8 @@ export const useMultiAgentChat = () => {
     pendingAttachments,
     usePerformanceModel,
     enableDirectToolExecution,
+    tracingEnabled,
+    currentConversationId,
     handleSubmit,
     switchAgent,
     clearChat,
@@ -183,6 +199,7 @@ export const useMultiAgentChat = () => {
     removeAttachment,
     updateMessage,
     togglePerformanceMode,
-    toggleDirectToolExecution
+    toggleDirectToolExecution,
+    toggleTracing
   };
 };

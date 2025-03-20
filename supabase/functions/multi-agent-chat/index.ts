@@ -793,4 +793,3 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Failed to process credits" }),
         {
-          status

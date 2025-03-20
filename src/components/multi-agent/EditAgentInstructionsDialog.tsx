@@ -51,7 +51,7 @@ export function EditAgentInstructionsDialog({
     }
   };
 
-  // Fix the TypeScript error by ensuring instructions is always a string
+  // Reset form when dialog opens
   const resetForm = () => {
     form.reset({
       instructions: initialInstructions || "",
@@ -65,43 +65,43 @@ export function EditAgentInstructionsDialog({
       }
       onOpenChange(isOpen);
     }}>
-      <DialogContent className="sm:max-w-[625px] bg-[#1A1F29] text-white border-white/10">
+      <DialogContent className="sm:max-w-[500px] bg-[#1A1F29] text-white border-white/10">
         <DialogHeader>
-          <DialogTitle className="text-white">Edit {agentType.toUpperCase()} Agent Instructions</DialogTitle>
+          <DialogTitle className="text-white text-sm">Edit {agentType.toUpperCase()} Agent Instructions</DialogTitle>
         </DialogHeader>
         
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-4">
+          <form onSubmit={form.handleSubmit(handleSave)} className="space-y-3">
             <FormField
               control={form.control}
               name="instructions"
               render={({ field }) => (
                 <FormItem>
-                  <FormLabel>Custom Instructions</FormLabel>
+                  <FormLabel className="text-xs">Custom Instructions</FormLabel>
                   <FormControl>
                     <Textarea
                       {...field}
                       placeholder="Enter custom instructions for this agent..."
-                      className="h-64 border-white/20 bg-[#21283B] resize-none"
+                      className="h-48 border-white/20 bg-[#21283B] resize-none text-xs"
                     />
                   </FormControl>
                 </FormItem>
               )}
             />
             
-            <DialogFooter>
+            <DialogFooter className="mt-2">
               <Button
                 type="button"
                 variant="outline"
                 onClick={() => onOpenChange(false)}
-                className="border-white/20 hover:bg-white/10"
+                className="border-white/20 hover:bg-white/10 text-xs h-7"
               >
                 Cancel
               </Button>
               <Button
                 type="submit"
                 disabled={saving}
-                className="bg-gradient-to-r from-blue-600 to-indigo-600"
+                className="bg-gradient-to-r from-blue-600 to-indigo-600 text-xs h-7"
               >
                 {saving ? "Saving..." : "Save Instructions"}
               </Button>

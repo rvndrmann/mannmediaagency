@@ -131,15 +131,15 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#262B38]/80 to-[#323845]/80 backdrop-blur-sm rounded-xl p-3 mb-4 border border-white/10 shadow-lg animate-fadeIn">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-white text-sm font-semibold flex items-center">
+    <div className="bg-gradient-to-r from-[#262B38]/80 to-[#323845]/80 backdrop-blur-sm rounded-xl p-2 mb-3 border border-white/10 shadow-lg animate-fadeIn">
+      <div className="flex justify-between items-center mb-1">
+        <h3 className="text-white text-xs font-semibold flex items-center">
           Select Agent Type
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="ml-1 p-0 h-5 w-5 text-white/60 hover:text-white/80">
-                  <Info className="h-3 w-3" />
+                <Button variant="ghost" size="sm" className="ml-1 p-0 h-4 w-4 text-white/60 hover:text-white/80">
+                  <Info className="h-2.5 w-2.5" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-[#333] text-white border-[#555] max-w-xs">
@@ -153,14 +153,14 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
           variant="outline" 
           size="sm" 
           onClick={() => setShowAddDialog(true)}
-          className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-7 px-2 py-1"
+          className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-5 px-1.5 py-0.5"
         >
-          <Plus className="h-3 w-3" />
+          <Plus className="h-2.5 w-2.5" />
           Add Agent
         </Button>
       </div>
       
-      <div className="grid grid-cols-3 gap-2">
+      <div className="grid grid-cols-3 gap-1">
         {allAgents.map((agent) => {
           const isActive = activeAgent === agent.id;
           const IconComponent = getIconComponent(agent.icon);
@@ -175,7 +175,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                     <Button
                       variant={isActive ? "default" : "outline"}
                       className={cn(
-                        "relative flex flex-col items-center justify-center h-[90px] w-full px-2 py-2 overflow-hidden group transition-all duration-300",
+                        "relative flex flex-col items-center justify-center h-[40px] w-full px-1 py-1 overflow-hidden group transition-all duration-300",
                         isActive 
                           ? `bg-gradient-to-br ${agent.color} border border-white/20 shadow-lg` 
                           : "bg-[#333]/70 hover:bg-[#444]/90 text-white border-[#555] hover:border-[#666]"
@@ -183,32 +183,28 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                       onClick={() => onAgentSelect(agent.id)}
                     >
                       {isActive && (
-                        <div className="absolute top-0 left-0 h-1 w-full bg-white/30"></div>
+                        <div className="absolute top-0 left-0 h-0.5 w-full bg-white/30"></div>
                       )}
                       
                       <div className={cn(
-                        "rounded-full p-2 mb-1 transition-all duration-300",
+                        "rounded-full p-1 mb-0.5 transition-all duration-300",
                         isActive 
                           ? "bg-white/20" 
                           : "bg-[#444]/50 group-hover:bg-[#555]/50"
                       )}>
-                        <IconComponent className={cn("h-4 w-4", isActive ? "text-white" : "text-white/80 group-hover:text-white")} />
+                        <IconComponent className={cn("h-3 w-3", isActive ? "text-white" : "text-white/80 group-hover:text-white")} />
                       </div>
                       
                       <span className={cn(
-                        "font-medium text-xs mb-0.5 transition-all duration-300",
+                        "font-medium text-[8px] transition-all duration-300",
                         isActive ? "text-white" : "text-white/90 group-hover:text-white"
                       )}>
                         {agent.name}
                       </span>
                       
-                      <span className="text-[10px] text-center line-clamp-1 transition-all duration-300 opacity-80 group-hover:opacity-100">
-                        {agent.description}
-                      </span>
-                      
                       {isActive && (
                         <div className="absolute bottom-0 left-0 w-full">
-                          <Progress value={100} className="h-1 rounded-none" indicatorClassName={`bg-white/30`} />
+                          <Progress value={100} className="h-0.5 rounded-none" indicatorClassName={`bg-white/30`} />
                         </div>
                       )}
                     </Button>
@@ -226,7 +222,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="absolute top-1 right-1 h-5 w-5 bg-black/20 hover:bg-black/40 text-white/70 p-0"
+                      className="absolute top-0.5 right-0.5 h-3.5 w-3.5 bg-black/20 hover:bg-black/40 text-white/70 p-0"
                     >
                       <span className="sr-only">Open menu</span>
                       <svg 
@@ -235,7 +231,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                         viewBox="0 0 15 15" 
                         fill="none" 
                         xmlns="http://www.w3.org/2000/svg" 
-                        className="h-3 w-3"
+                        className="h-2 w-2"
                       >
                         <path 
                           d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z" 
@@ -251,14 +247,14 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                       className="flex items-center gap-2 cursor-pointer hover:bg-gray-800"
                       onClick={() => setAgentToEdit(agent)}
                     >
-                      <Edit className="h-3.5 w-3.5" />
+                      <Edit className="h-3 w-3" />
                       <span>Edit</span>
                     </DropdownMenuItem>
                     <DropdownMenuItem 
                       className="flex items-center gap-2 text-red-400 cursor-pointer hover:bg-gray-800 hover:text-red-300"
                       onClick={() => setAgentToDelete(agent.id)}
                     >
-                      <Trash className="h-3.5 w-3.5" />
+                      <Trash className="h-3 w-3" />
                       <span>Delete</span>
                     </DropdownMenuItem>
                   </DropdownMenuContent>

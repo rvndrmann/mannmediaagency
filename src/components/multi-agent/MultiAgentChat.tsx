@@ -1,4 +1,3 @@
-
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -60,13 +59,13 @@ export const MultiAgentChat = () => {
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827]">
-      <header className="p-3 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
+      <header className="p-2 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
         <div>
-          <h1 className="text-xl font-semibold text-white">AI Multi-Agent Chat</h1>
+          <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
           <p className="text-xs text-gray-400">Interact with specialized AI agents</p>
         </div>
         
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -74,7 +73,7 @@ export const MultiAgentChat = () => {
                   variant={usePerformanceModel ? "outline" : "default"} 
                   size="sm"
                   onClick={togglePerformanceMode}
-                  className={`flex items-center gap-1 text-xs h-7 px-2 ${
+                  className={`flex items-center gap-1 text-xs h-6 px-2 ${
                     usePerformanceModel 
                       ? "border-yellow-600 bg-yellow-800/20 text-yellow-500 hover:bg-yellow-800/30" 
                       : "bg-gradient-to-r from-blue-600 to-indigo-600"
@@ -94,7 +93,7 @@ export const MultiAgentChat = () => {
             variant="outline"
             size="sm"
             onClick={toggleInstructions}
-            className="border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 text-white text-xs h-7 px-2"
+            className="border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 text-white text-xs h-6 px-2"
           >
             {showInstructions ? "Hide" : "Show"} Instructions
           </Button>
@@ -109,9 +108,9 @@ export const MultiAgentChat = () => {
                     clearChat();
                     toast.success("Chat history cleared");
                   }}
-                  className="bg-red-900/50 hover:bg-red-800/70 text-white h-7 w-7 p-0"
+                  className="bg-red-900/50 hover:bg-red-800/70 text-white h-6 w-6 p-0"
                 >
-                  <Trash2 className="h-3.5 w-3.5" />
+                  <Trash2 className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
@@ -122,7 +121,7 @@ export const MultiAgentChat = () => {
         </div>
       </header>
       
-      <div className="flex-1 container mx-auto max-w-4xl px-4 pb-3 pt-2 flex flex-col h-full overflow-hidden">
+      <div className="flex-1 container mx-auto max-w-4xl px-4 pb-2 pt-2 flex flex-col h-full overflow-hidden">
         <AgentSelector activeAgent={activeAgent} onAgentSelect={switchAgent} />
         
         {showInstructions && <AgentInstructionsTable activeAgent={activeAgent} />}
@@ -143,7 +142,7 @@ export const MultiAgentChat = () => {
             </ScrollArea>
           ) : (
             <div className="flex-1 flex flex-col items-center justify-center p-4 text-center">
-              <div className="mb-4 bg-gradient-to-r from-blue-400 to-indigo-500 w-14 h-14 rounded-full flex items-center justify-center shadow-lg">
+              <div className="mb-3 bg-gradient-to-r from-blue-400 to-indigo-500 w-10 h-10 rounded-full flex items-center justify-center shadow-lg">
                 <svg 
                   xmlns="http://www.w3.org/2000/svg" 
                   viewBox="0 0 24 24" 
@@ -152,24 +151,24 @@ export const MultiAgentChat = () => {
                   strokeWidth="2" 
                   strokeLinecap="round" 
                   strokeLinejoin="round" 
-                  className="w-7 h-7 text-white"
+                  className="w-5 h-5 text-white"
                 >
                   <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
                   <path d="M13 8H7" />
                   <path d="M17 12H7" />
                 </svg>
               </div>
-              <h2 className="text-lg font-semibold text-white mb-2">Multi-Agent AI Chat</h2>
-              <p className="text-sm text-gray-400 max-w-md">
+              <h2 className="text-base font-semibold text-white mb-1">Multi-Agent AI Chat</h2>
+              <p className="text-xs text-gray-400 max-w-md">
                 Choose an agent type above and start chatting. Each agent specializes in different tasks - use the main assistant for general help, or select a specialized agent for specific needs.
               </p>
             </div>
           )}
         </div>
         
-        <div className="mt-3 bg-[#21283B]/40 backdrop-blur-sm rounded-xl border border-white/10 p-3">
+        <div className="mt-2 bg-[#21283B]/40 backdrop-blur-sm rounded-xl border border-white/10 p-2">
           {pendingAttachments.length > 0 && (
-            <div className="mb-2">
+            <div className="mb-1.5">
               <AttachmentPreview
                 attachments={pendingAttachments}
                 onRemove={removeAttachment}
@@ -178,7 +177,7 @@ export const MultiAgentChat = () => {
             </div>
           )}
           
-          <div className="flex items-end gap-2 w-full">
+          <div className="flex items-end gap-1 w-full">
             <div className="flex-1">
               <ChatInput
                 input={input}
@@ -189,10 +188,12 @@ export const MultiAgentChat = () => {
               />
             </div>
             
-            <FileAttachmentButton onAttach={addAttachments} />
+            <div className="flex-shrink-0 flex items-end mb-1.5 mr-1.5">
+              <FileAttachmentButton onAttach={addAttachments} />
+            </div>
           </div>
           
-          <div className="mt-2 text-xs text-gray-500 flex justify-between">
+          <div className="mt-1 text-[10px] text-gray-500 flex justify-between">
             <div>
               Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
             </div>

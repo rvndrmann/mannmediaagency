@@ -1,4 +1,3 @@
-
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Message, Task } from "@/types/message";
@@ -57,7 +56,7 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
           // Process each message with image commands
           messagesWithImageCommands.forEach(({ message, index }) => {
             // Check if this job update matches our command's requestId
-            const requestId = message.command?.parameters?.requestId;
+            const requestId = message.command?.parameters?.requestId || message.metadata?.requestId;
             if (requestId && requestId === typedData.request_id) {
               // Update message based on job status
               if (typedData.status === 'completed' && typedData.result_url) {
@@ -128,7 +127,7 @@ export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProp
             // Process each message with video commands
             videoMessagesWithCommands.forEach(({ message, index }) => {
               // Check if this job update matches our command's requestId
-              const requestId = message.command?.parameters?.requestId;
+              const requestId = message.command?.parameters?.requestId || message.metadata?.requestId;
               if (requestId && requestId === typedData.request_id) {
                 // Update message based on job status
                 if (typedData.status === 'completed' && typedData.result_url) {

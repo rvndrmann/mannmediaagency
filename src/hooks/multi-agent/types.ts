@@ -1,4 +1,3 @@
-
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
 
@@ -147,9 +146,8 @@ export interface ToolContext {
  * Result from a tool execution
  */
 export interface ToolResult {
-  success: boolean;
-  message: string;
-  data?: any;
+  content: string;
+  metadata?: Record<string, any>; // Add metadata field to store additional information
 }
 
 /**

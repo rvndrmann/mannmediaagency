@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +31,7 @@ export const useMultiAgentChat = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [handoffComplete, setHandoffComplete] = useState(false);
+  const [usePerformanceModel, setUsePerformanceModel] = useState(false);
 
   const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
     setMessages(prev => {
@@ -258,7 +260,7 @@ export const useMultiAgentChat = () => {
         isCustomAgent, 
         messageCount: apiMessages.length,
         isHandoffContinuation: true,
-        usePerformanceModel
+        usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
       });
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -275,7 +277,7 @@ export const useMultiAgentChat = () => {
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
             isCustomAgent,
             isHandoffContinuation: true,
-            usePerformanceModel
+            usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
           }
         }
       });
@@ -291,12 +293,19 @@ export const useMultiAgentChat = () => {
       updateTaskStatus(messageIndex, continuationMessage.tasks![0].id, "completed");
       updateTaskStatus(messageIndex, continuationMessage.tasks![1].id, "in-progress");
       
-      const { completion, status, handoffRequest } = response.data;
+      const { completion, status, handoffRequest, modelUsed, fallbackUsed } = response.data;
       console.log("API response on continuation:", { 
         completionPreview: completion ? completion.slice(0, 100) + "..." : "No completion", 
         status, 
-        handoffRequest 
+        handoffRequest,
+        modelUsed,
+        fallbackUsed
       });
+      
+      // Show a toast if fallback model was used
+      if (fallbackUsed) {
+        toast.info(`Using alternative model for better reliability.`);
+      }
       
       let finalContent = completion;
       let command: Command | null = null;
@@ -323,7 +332,8 @@ export const useMultiAgentChat = () => {
               newMessages[messageIndex] = {
                 ...newMessages[messageIndex],
                 tasks: updatedTasks,
-                command: command
+                command: command,
+                modelUsed
               };
             }
             return newMessages;
@@ -367,7 +377,8 @@ export const useMultiAgentChat = () => {
             content: finalContent,
             status: "completed",
             command: command,
-            handoffRequest: handoffRequest
+            handoffRequest: handoffRequest,
+            modelUsed
           };
         }
         return newMessages;
@@ -508,7 +519,8 @@ export const useMultiAgentChat = () => {
         agentType: activeAgent, 
         isCustomAgent, 
         messageCount: apiMessages.length,
-        hasAttachments: pendingAttachments.length > 0
+        hasAttachments: pendingAttachments.length > 0,
+        usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
       });
       
       const response = await supabase.functions.invoke("multi-agent-chat", {
@@ -520,7 +532,8 @@ export const useMultiAgentChat = () => {
             hasAttachments: pendingAttachments.length > 0,
             attachmentTypes: pendingAttachments.map(a => a.type),
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
-            isCustomAgent
+            isCustomAgent,
+            usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
           }
         }
       });
@@ -532,12 +545,19 @@ export const useMultiAgentChat = () => {
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
       updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
       
-      const { completion, status, handoffRequest } = response.data;
+      const { completion, status, handoffRequest, modelUsed, fallbackUsed } = response.data;
       console.log("API response:", { 
         completionPreview: completion ? completion.slice(0, 100) + "..." : "No completion", 
         status, 
-        handoffRequest 
+        handoffRequest,
+        modelUsed,
+        fallbackUsed
       });
+      
+      // Show a toast if fallback model was used
+      if (fallbackUsed) {
+        toast.info(`Using alternative model for better reliability.`);
+      }
       
       let finalContent = completion;
       let command: Command | null = null;
@@ -564,7 +584,8 @@ export const useMultiAgentChat = () => {
               newMessages[messageIndex] = {
                 ...newMessages[messageIndex],
                 tasks: updatedTasks,
-                command: command
+                command: command,
+                modelUsed
               };
             }
             return newMessages;
@@ -608,7 +629,8 @@ export const useMultiAgentChat = () => {
             content: finalContent,
             status: "completed",
             command: command,
-            handoffRequest: handoffRequest
+            handoffRequest: handoffRequest,
+            modelUsed
           };
         }
         return newMessages;
@@ -662,6 +684,14 @@ export const useMultiAgentChat = () => {
     localStorage.removeItem(STORAGE_KEY);
   }, []);
 
+  const togglePerformanceMode = useCallback(() => {
+    setUsePerformanceModel(prev => !prev);
+    toast.info(usePerformanceModel ? 
+      "Using standard model for higher quality responses." : 
+      "Using performance model for faster responses."
+    );
+  }, [usePerformanceModel]);
+
   return {
     messages,
     input,
@@ -670,11 +700,13 @@ export const useMultiAgentChat = () => {
     activeAgent,
     userCredits,
     pendingAttachments,
+    usePerformanceModel,
     handleSubmit,
     switchAgent,
     clearChat,
     addAttachments,
     removeAttachment,
-    updateMessage
+    updateMessage,
+    togglePerformanceMode
   };
 };

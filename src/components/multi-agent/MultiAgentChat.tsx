@@ -1,60 +1,45 @@
 
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
-import { ChatHeader } from "./ChatHeader";
-import { AgentSelector } from "./AgentSelector";
+import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
-import { ChatInput } from "@/components/chat/ChatInput";
-import { useRef, useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { AgentInstructionsTable } from "./AgentInstructionsTable";
+import { useState, useRef, useEffect } from "react";
+import { AgentSelector } from "./AgentSelector";
+import { FileAttachmentButton } from "./FileAttachmentButton";
+import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { ChevronDown, ChevronUp } from "lucide-react";
-import { supabase } from "@/integrations/supabase/client";
+import { Zap, Trash2 } from "lucide-react";
+import { toast } from "sonner";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
+import { AgentInstructionsTable } from "./AgentInstructionsTable";
 
 export const MultiAgentChat = () => {
-  const {
-    messages,
-    input,
-    setInput,
-    isLoading,
+  const { 
+    messages, 
+    input, 
+    setInput, 
+    isLoading, 
     activeAgent,
-    userCredits,
+    userCredits, 
     pendingAttachments,
-    handleSubmit,
-    switchAgent,
+    usePerformanceModel,
+    handleSubmit, 
+    switchAgent, 
     clearChat,
     addAttachments,
-    removeAttachment
+    removeAttachment,
+    togglePerformanceMode
   } = useMultiAgentChat();
   
-  const navigate = useNavigate();
+  const [showInstructions, setShowInstructions] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
-  const [showInstructions, setShowInstructions] = useState(false);
 
-  // Enable realtime for relevant tables when the component mounts
-  useEffect(() => {
-    const enableRealtime = async () => {
-      try {
-        await supabase.functions.invoke("enable-realtime", {
-          body: {
-            tables: ["custom_agents", "user_notifications", "media_generation_jobs"]
-          }
-        });
-        console.log("Realtime enabled for required tables");
-      } catch (error) {
-        console.error("Error enabling realtime:", error);
-      }
-    };
-    
-    enableRealtime();
-  }, []);
-
-  const handleBack = () => {
-    navigate("/");
-  };
-  
   const scrollToBottom = () => {
     if (lastMessageRef.current && scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
@@ -65,96 +50,155 @@ export const MultiAgentChat = () => {
     }
   };
 
-  // Scroll to bottom when messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
   const toggleInstructions = () => {
-    setShowInstructions(prev => !prev);
+    setShowInstructions(!showInstructions);
   };
 
   return (
-    <div className="flex flex-col h-full bg-gradient-to-b from-[#1A1F29] to-[#232836]">
-      <ChatHeader 
-        onBack={handleBack} 
-        onClearChat={clearChat} 
-        activeAgent={activeAgent}
-      />
-      
-      <div className="flex-1 overflow-hidden flex flex-col">
-        <ScrollArea 
-          ref={scrollAreaRef}
-          className="flex-1 min-h-[calc(100vh-16rem)]"
-        >
-          <div className="p-4 space-y-4">
-            <div className="flex flex-col space-y-2">
-              <AgentSelector 
-                activeAgent={activeAgent}
-                onAgentSelect={switchAgent}
-              />
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={toggleInstructions}
-                className="self-end flex items-center gap-1 text-xs text-gray-400 hover:text-white border-gray-700"
-              >
-                {showInstructions ? (
-                  <>
-                    <ChevronUp className="h-3 w-3" />
-                    Hide Instructions
-                  </>
-                ) : (
-                  <>
-                    <ChevronDown className="h-3 w-3" />
-                    Show Instructions
-                  </>
-                )}
-              </Button>
-            </div>
-            
-            {showInstructions && (
-              <AgentInstructionsTable activeAgent={activeAgent} />
-            )}
-            
-            {messages.length === 0 && (
-              <div className="text-center py-12 animate-fadeIn">
-                <h3 className="text-white/70 text-lg font-medium mb-2">Welcome to Multi-Agent Chat</h3>
-                <p className="text-white/50 max-w-md mx-auto">
-                  Select an agent type and start chatting. Each agent specializes in different tasks:
-                  script writing, image prompts, or tool orchestration. You can also create your own custom agents!
-                </p>
-              </div>
-            )}
-            
-            {messages.map((message, index) => (
-              <div key={index} className="animate-fadeIn">
-                <ChatMessage message={message} />
-              </div>
-            ))}
-            <div ref={lastMessageRef} className="h-px" />
-          </div>
-        </ScrollArea>
-      </div>
-
-      <div className="sticky bottom-0 left-0 right-0 w-full bg-[#1A1F2C]/95 backdrop-blur-xl border-t border-white/10 p-4 z-10 mb-12 md:mb-0 shadow-lg">
-        <div className="absolute -top-10 right-4 p-2 bg-[#262B38] backdrop-blur-lg rounded-t-lg z-10 flex items-center space-x-2 border-t border-l border-r border-white/10 shadow-md">
-          <span className="text-sm font-medium text-white/80">
-            Credits: {userCredits?.credits_remaining.toFixed(2) || 0}
-          </span>
+    <div className="flex flex-col h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827]">
+      <header className="p-4 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
+        <div>
+          <h1 className="text-2xl font-semibold text-white">AI Multi-Agent Chat</h1>
+          <p className="text-gray-400">Interact with specialized AI agents</p>
         </div>
         
-        <ChatInput
-          input={input}
-          isLoading={isLoading}
-          onInputChange={setInput}
-          onSubmit={handleSubmit}
-          attachments={pendingAttachments}
-          onAttachmentAdd={addAttachments}
-          onAttachmentRemove={removeAttachment}
-          showAttachmentButton={true}
-        />
+        <div className="flex items-center gap-2">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={usePerformanceModel ? "outline" : "default"} 
+                  size="sm"
+                  onClick={togglePerformanceMode}
+                  className={`flex items-center gap-1 ${
+                    usePerformanceModel 
+                      ? "border-yellow-600 bg-yellow-800/20 text-yellow-500 hover:bg-yellow-800/30" 
+                      : "bg-gradient-to-r from-blue-600 to-indigo-600"
+                  }`}
+                >
+                  <Zap className="h-4 w-4" />
+                  {usePerformanceModel ? "Performance" : "High Quality"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
+                <p>{usePerformanceModel ? "Faster responses with GPT-4o-mini" : "Higher quality responses with GPT-4o"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleInstructions}
+            className="border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 text-white"
+          >
+            {showInstructions ? "Hide" : "Show"} Agent Instructions
+          </Button>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    clearChat();
+                    toast.success("Chat history cleared");
+                  }}
+                  className="bg-red-900/50 hover:bg-red-800/70 text-white"
+                >
+                  <Trash2 className="h-4 w-4" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
+                <p>Clear chat history</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
+      </header>
+      
+      <div className="flex-1 container mx-auto max-w-4xl px-4 pb-4 pt-2 flex flex-col">
+        <AgentSelector activeAgent={activeAgent} onAgentSelect={switchAgent} />
+        
+        {showInstructions && <AgentInstructionsTable activeAgent={activeAgent} />}
+        
+        <div className="flex-1 overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 shadow-lg">
+          {messages.length > 0 ? (
+            <ScrollArea ref={scrollAreaRef} className="h-[calc(100vh-22rem)]">
+              <div className="p-4 space-y-6">
+                {messages.map((message, index) => (
+                  <ChatMessage 
+                    key={index} 
+                    message={message} 
+                    showAgentName={message.role === "assistant" && message.agentType !== undefined}
+                  />
+                ))}
+                <div ref={lastMessageRef} className="h-px" />
+              </div>
+            </ScrollArea>
+          ) : (
+            <div className="h-[calc(100vh-22rem)] flex flex-col items-center justify-center p-4 text-center">
+              <div className="mb-4 bg-gradient-to-r from-blue-400 to-indigo-500 w-16 h-16 rounded-full flex items-center justify-center shadow-lg">
+                <svg 
+                  xmlns="http://www.w3.org/2000/svg" 
+                  viewBox="0 0 24 24" 
+                  fill="none" 
+                  stroke="currentColor" 
+                  strokeWidth="2" 
+                  strokeLinecap="round" 
+                  strokeLinejoin="round" 
+                  className="w-8 h-8 text-white"
+                >
+                  <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z" />
+                  <path d="M13 8H7" />
+                  <path d="M17 12H7" />
+                </svg>
+              </div>
+              <h2 className="text-xl font-semibold text-white mb-2">Multi-Agent AI Chat</h2>
+              <p className="text-gray-400 max-w-md">
+                Choose an agent type above and start chatting. Each agent specializes in different tasks - use the main assistant for general help, or select a specialized agent for specific needs.
+              </p>
+            </div>
+          )}
+        </div>
+        
+        <div className="mt-4">
+          {pendingAttachments.length > 0 && (
+            <AttachmentPreview
+              attachments={pendingAttachments}
+              onRemove={removeAttachment}
+              isRemovable={true}
+            />
+          )}
+          
+          <div className="flex items-end gap-2">
+            <div className="flex-1 relative">
+              <ChatInput
+                input={input}
+                isLoading={isLoading}
+                onInputChange={setInput}
+                onSubmit={handleSubmit}
+                showAttachmentButton={false}
+              />
+            </div>
+            
+            <FileAttachmentButton onAttach={addAttachments} />
+          </div>
+          
+          <div className="mt-2 text-xs text-gray-500 flex justify-between">
+            <div>
+              Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
+            </div>
+            <div>
+              Model: {usePerformanceModel ? "GPT-4o-mini (faster)" : "GPT-4o (higher quality)"}
+            </div>
+          </div>
+        </div>
       </div>
     </div>
   );

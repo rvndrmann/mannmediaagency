@@ -101,42 +101,42 @@ BEGIN
       'summary', jsonb_build_object(
         'agent_types', (
           SELECT jsonb_agg(DISTINCT agent_type)
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
         ),
         'duration', (
           SELECT MAX((metadata->'trace'->>'duration')::numeric)
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
         ),
         'handoffs', (
           SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'handoffs')::numeric, 0))
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
         ),
         'tool_calls', (
           SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'toolCalls')::numeric, 0))
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
         ),
         'message_count', (
           SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'messageCount')::numeric, 0))
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
         ),
         'model_used', (
           SELECT metadata->'trace'->'summary'->>'modelUsed'
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
@@ -149,14 +149,14 @@ BEGIN
               ELSE false
             END
           )
-          FROM agent_interactions
+          FROM public.agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
             user_id = user_id_param
         )
       )
     ) INTO result
-  FROM agent_interactions
+  FROM public.agent_interactions
   WHERE 
     metadata->'trace'->>'runId' = conversation_id AND
     user_id = user_id_param;
@@ -182,7 +182,7 @@ BEGIN
       COUNT(*) as message_count,
       ARRAY_AGG(DISTINCT agent_type) as agent_types,
       MAX(COALESCE((metadata->'trace'->'summary'->>'modelUsed')::text, 'unknown')) as model_used
-    FROM agent_interactions
+    FROM public.agent_interactions
     WHERE 
       user_id = user_id_param AND
       metadata->'trace'->>'runId' IS NOT NULL

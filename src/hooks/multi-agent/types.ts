@@ -1,6 +1,6 @@
+
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
-import { ToolContext, ToolResult } from "../types";
 
 /**
  * Configuration for an agent run
@@ -131,6 +131,49 @@ export interface HandoffInputContext {
  * Function to filter inputs for handoffs
  */
 export type HandoffInputFilter = (context: HandoffInputContext) => Message[];
+
+/**
+ * Context for tool execution
+ */
+export interface ToolContext {
+  userId: string;
+  creditsRemaining: number;
+  attachments?: any[];
+  selectedTool?: string;
+  previousOutputs: Record<string, any>;
+}
+
+/**
+ * Result from a tool execution
+ */
+export interface ToolResult {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+
+/**
+ * Tool definition
+ */
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  requiredCredits: number;
+  execute: (params: any, context: ToolContext) => Promise<ToolResult>;
+}
+
+/**
+ * Command execution state
+ */
+export interface CommandExecutionState {
+  commandId: string;
+  status: "pending" | "executing" | "completed" | "failed";
+  startTime: Date;
+  endTime?: Date;
+  result?: ToolResult;
+  error?: string;
+}
 
 /**
  * Trace represents a collection of events that occurred during an agent run

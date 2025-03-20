@@ -43,19 +43,19 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
       setIsLoading(true);
       
       try {
-        // Fetch analytics data
+        // Fetch analytics data - using the function query
         const { data: analyticsData, error: analyticsError } = await supabase
-          .rpc('get_agent_trace_analytics', { user_id_param: userId });
+          .rpc<AnalyticsData>("get_agent_trace_analytics", { user_id_param: userId });
         
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
         } else {
-          setAnalytics(analyticsData);
+          setAnalytics(analyticsData as AnalyticsData);
         }
         
         // Fetch conversations list
         const { data: conversationsData, error: conversationsError } = await supabase
-          .rpc('get_user_conversations', { user_id_param: userId });
+          .rpc<ConversationData[]>("get_user_conversations", { user_id_param: userId });
         
         if (conversationsError) {
           console.error("Error fetching conversations:", conversationsError);
@@ -75,7 +75,7 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
   const fetchConversationDetails = async (conversationId: string) => {
     try {
       const { data, error } = await supabase
-        .rpc('get_conversation_trace', { 
+        .rpc("get_conversation_trace", { 
           conversation_id: conversationId,
           user_id_param: userId
         });

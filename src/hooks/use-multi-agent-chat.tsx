@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -260,7 +259,7 @@ export const useMultiAgentChat = () => {
         isCustomAgent, 
         messageCount: apiMessages.length,
         isHandoffContinuation: true,
-        usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
+        usePerformanceModel: usePerformanceModel
       });
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -277,7 +276,7 @@ export const useMultiAgentChat = () => {
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
             isCustomAgent,
             isHandoffContinuation: true,
-            usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
+            usePerformanceModel
           }
         }
       });
@@ -302,7 +301,6 @@ export const useMultiAgentChat = () => {
         fallbackUsed
       });
       
-      // Show a toast if fallback model was used
       if (fallbackUsed) {
         toast.info(`Using alternative model for better reliability.`);
       }
@@ -392,58 +390,25 @@ export const useMultiAgentChat = () => {
       refetchCredits();
     } catch (error) {
       console.error("Error in continueConversationAfterHandoff:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
       
-      if (errorMessage.includes("custom agent") || errorMessage.includes("handoff")) {
-        setActiveAgent("main");
-        
-        const friendlyError = errorMessage.includes("not found") ? 
-          "I couldn't transfer to the requested agent as it doesn't exist. I'll help you instead." : 
-          `I encountered an issue transferring to the specialized agent: ${errorMessage}. I'll help you instead.`;
-        
-        setMessages(prev => {
-          const newMessages = [...prev];
-          if (messageIndex >= 0 && messageIndex < newMessages.length) {
-            const tasks = newMessages[messageIndex].tasks?.map(task => ({
-              ...task,
-              status: task.status === "completed" ? "completed" as const : "error" as const
-            }));
-            
-            newMessages[messageIndex] = {
-              ...newMessages[messageIndex],
-              content: friendlyError,
-              status: "error",
-              tasks,
-              agentType: "main"
-            };
+      updateMessage(messageIndex, {
+        content: `I tried to transfer you to the ${activeAgent} agent, but encountered an issue. ${error instanceof Error ? error.message : "Please try another agent or continue with me."}\n\nHow else can I assist you?`,
+        status: "error",
+        tasks: [
+          {
+            id: uuidv4(),
+            name: `Handoff to ${activeAgent} failed`,
+            status: "error",
+            details: error instanceof Error ? error.message : "Unknown error"
           }
-          return newMessages;
-        });
-        
-        toast.error("Could not transfer to requested agent. The main assistant will continue to help you.");
-      } else {
-        setMessages(prev => {
-          const newMessages = [...prev];
-          if (messageIndex >= 0 && messageIndex < newMessages.length) {
-            const tasks = newMessages[messageIndex].tasks?.map(task => ({
-              ...task,
-              status: task.status === "completed" ? "completed" as const : "error" as const
-            }));
-            
-            newMessages[messageIndex] = {
-              ...newMessages[messageIndex],
-              content: `Sorry, an error occurred while trying to continue the conversation: ${errorMessage}`,
-              status: "error",
-              tasks
-            };
-          }
-          return newMessages;
-        });
-        
-        toast.error(errorMessage);
-      }
-    } finally {
+        ]
+      });
+      
+      setActiveAgent("main");
+      setHandoffComplete(false);
       setIsLoading(false);
+      
+      toast.error(`Could not connect to the ${activeAgent} agent. Falling back to main assistant.`);
     }
   };
 
@@ -520,7 +485,7 @@ export const useMultiAgentChat = () => {
         isCustomAgent, 
         messageCount: apiMessages.length,
         hasAttachments: pendingAttachments.length > 0,
-        usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
+        usePerformanceModel: usePerformanceModel
       });
       
       const response = await supabase.functions.invoke("multi-agent-chat", {
@@ -533,7 +498,7 @@ export const useMultiAgentChat = () => {
             attachmentTypes: pendingAttachments.map(a => a.type),
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
             isCustomAgent,
-            usePerformanceModel: usePerformanceModel // Fix: use the value, not shorthand
+            usePerformanceModel
           }
         }
       });
@@ -554,7 +519,6 @@ export const useMultiAgentChat = () => {
         fallbackUsed
       });
       
-      // Show a toast if fallback model was used
       if (fallbackUsed) {
         toast.info(`Using alternative model for better reliability.`);
       }

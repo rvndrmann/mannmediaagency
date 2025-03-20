@@ -29,7 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { AgentInfo } from "@/types/message";
+import { AgentInfo, AgentIconType } from "@/types/message";
 import { CustomAgentFormData } from "@/hooks/use-custom-agents";
 
 // Available icon options
@@ -60,7 +60,7 @@ const colorOptions = [
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
   description: z.string().min(5, "Description must be at least 5 characters").max(150, "Description must be less than 150 characters"),
-  icon: z.string().min(1, "Please select an icon"),
+  icon: z.enum(["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music"]),
   color: z.string().min(1, "Please select a color"),
   instructions: z.string().min(10, "Instructions must be at least 10 characters").max(1000, "Instructions must be less than 1000 characters")
 });
@@ -100,7 +100,7 @@ export function AddAgentDialog({
 
   // Handle form submission
   const handleSubmit = (values: z.infer<typeof formSchema>) => {
-    onSubmit(values);
+    onSubmit(values as CustomAgentFormData);
     if (!editAgent) {
       form.reset(); // Only reset if creating a new agent, not editing
     }

@@ -1,10 +1,11 @@
+
 export interface Message {
   role: "user" | "assistant";
   content: string;
   status?: "thinking" | "working" | "completed" | "error";
   tasks?: Task[];
   command?: Command;
-  agentType?: "main" | "script" | "image" | "tool";
+  agentType?: string;
   selectedTool?: string;
   attachments?: Attachment[];
   handoffRequest?: HandoffRequest;
@@ -15,11 +16,13 @@ export interface HandoffRequest {
   reason: string;
 }
 
+export type AgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music";
+
 export interface AgentInfo {
   id: string;
   name: string;
   description: string;
-  icon: string;
+  icon: AgentIconType;
   color: string;
   instructions: string;
   isCustom?: boolean;
@@ -78,7 +81,7 @@ export interface AgentMessage {
 
 export interface AgentCompletion {
   id: string;
-  agentType: "script" | "image" | "tool" | "main";
+  agentType: string;
   content: string;
   status: "completed" | "processing" | "error";
   createdAt: string;

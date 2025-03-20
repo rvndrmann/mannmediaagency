@@ -2,12 +2,12 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { AgentInfo } from "@/types/message";
+import { AgentInfo, AgentIconType } from "@/types/message";
 
 export interface CustomAgentFormData {
   name: string;
   description: string;
-  icon: string;
+  icon: AgentIconType;
   color: string;
   instructions: string;
 }
@@ -38,7 +38,7 @@ export function useCustomAgents() {
         id: agent.id,
         name: agent.name,
         description: agent.description,
-        icon: agent.icon,
+        icon: agent.icon as AgentIconType,
         color: agent.color,
         instructions: agent.instructions,
         isCustom: true
@@ -82,7 +82,7 @@ export function useCustomAgents() {
         id: data.id,
         name: data.name,
         description: data.description,
-        icon: data.icon,
+        icon: data.icon as AgentIconType,
         color: data.color,
         instructions: data.instructions,
         isCustom: true

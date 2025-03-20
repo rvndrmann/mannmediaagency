@@ -33,7 +33,7 @@ export class AgentRunner {
       messages: [],
       handoffInProgress: false,
       turnCount: 0,
-      status: "pending",
+      status: "pending" as RunStatus,
       lastMessageIndex: -1
     };
     
@@ -115,8 +115,10 @@ export class AgentRunner {
    * Main run loop that handles agent execution
    */
   private async runLoop() {
-    while (this.state.status === "running" && 
-           this.state.turnCount < (this.config.maxTurns || DEFAULT_MAX_TURNS)) {
+    while (
+      this.state.status === "running" && 
+      this.state.turnCount < (this.config.maxTurns || DEFAULT_MAX_TURNS)
+    ) {
       
       this.state.turnCount++;
       

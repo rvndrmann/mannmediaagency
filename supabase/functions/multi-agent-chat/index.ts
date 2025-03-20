@@ -160,21 +160,41 @@ async function createAgentWithCustomInstructions(
   customInstructions: string | null, 
   attachmentContext: string,
   handoffContext: string,
-  toolsContext: string = ""
+  toolsContext: string = "",
+  isHandoffContinuation: boolean = false
 ): Promise<AgentMessage> {
   // Get the base template
   const baseTemplate = agentTemplates[baseAgentType as keyof typeof agentTemplates] || agentTemplates.main;
+  
+  // Create context-specific instructions for handoff continuation
+  let handoffContinuationContext = "";
+  if (isHandoffContinuation) {
+    handoffContinuationContext = `
+You are continuing a conversation that was handed off to you from another agent. 
+The previous agent determined that you would be better suited to handle this request.
+Review the conversation history provided to understand the user's needs and respond accordingly.
+Focus on your specialization and provide a helpful response without asking the user to repeat information.
+
+IMPORTANT: Messages marked as 'previous_agent_*' in the conversation are from other agents. You should consider 
+this context but respond as yourself, the current agent.
+`;
+  }
   
   // If no custom instructions, return the base template with contexts
   if (!customInstructions) {
     return {
       role: "system",
-      content: `${baseTemplate.systemMessage} ${attachmentContext} ${handoffContext} ${toolsContext}`.trim()
+      content: `${baseTemplate.systemMessage} ${handoffContinuationContext} ${attachmentContext} ${handoffContext} ${toolsContext}`.trim()
     };
   }
 
   // Merge custom instructions with base capabilities
   let mergedContent = customInstructions;
+  
+  // Add handoff continuation context first if applicable
+  if (isHandoffContinuation) {
+    mergedContent = `${handoffContinuationContext}\n\n${mergedContent}`;
+  }
   
   // Add essential contexts for full functionality
   mergedContent += `\n\n${attachmentContext}\n\n${handoffContext}`;
@@ -184,12 +204,60 @@ async function createAgentWithCustomInstructions(
     mergedContent += `\n\n${toolsContext}`;
   }
   
-  console.log(`Created custom agent with merged instructions: ${mergedContent.slice(0, 100)}...`);
+  console.log(`Created agent with merged instructions: ${mergedContent.slice(0, 100)}...`);
   
   return {
     role: "system",
     content: mergedContent
   };
+}
+
+// Process messages to optimize for the current agent context
+function processMessagesForContext(messages: AgentMessage[], agentType: string, isHandoffContinuation: boolean): AgentMessage[] {
+  if (!isHandoffContinuation) {
+    // For regular interactions, maintain all messages but ensure they're properly formatted
+    return messages.map(msg => {
+      // Make sure all messages have the correct properties
+      return {
+        role: msg.role,
+        content: msg.content,
+        ...(msg.name ? { name: msg.name } : {})
+      };
+    });
+  }
+  
+  // For handoff continuation, we need to make the context clear to the AI
+  console.log("Processing messages for handoff continuation");
+  
+  // Add a special system message explaining the context continuation
+  const contextMessage: AgentMessage = {
+    role: "system",
+    content: `The conversation is being continued by the ${agentType} agent after a handoff. Review the previous messages to understand context. Focus on responding to the user's needs without asking for information they've already provided.`
+  };
+  
+  // For handoff continuation, we need to enhance the AI's understanding
+  const enhancedMessages = messages.map(msg => {
+    // If the message is from a previous agent, make it clearer
+    if (msg.name && msg.name.startsWith('previous_agent_')) {
+      return {
+        ...msg,
+        content: `[From previous agent]: ${msg.content}`
+      };
+    }
+    return msg;
+  });
+  
+  // Insert the context message after the main system message (which should be first)
+  if (enhancedMessages.length > 0 && enhancedMessages[0].role === 'system') {
+    return [
+      enhancedMessages[0],
+      contextMessage,
+      ...enhancedMessages.slice(1)
+    ];
+  }
+  
+  // Or prepend it if there's no system message
+  return [contextMessage, ...enhancedMessages];
 }
 
 async function getAgentCompletion(
@@ -202,8 +270,9 @@ async function getAgentCompletion(
   const attachmentTypes = contextData?.attachmentTypes || [];
   const availableTools = contextData?.availableTools || [];
   const isCustomAgent = contextData?.isCustomAgent || false;
+  const isHandoffContinuation = contextData?.isHandoffContinuation || false;
   
-  console.log(`Agent type: ${agentType}, isCustomAgent: ${isCustomAgent}`);
+  console.log(`Agent type: ${agentType}, isCustomAgent: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}`);
   
   // Build attachment context
   let attachmentContext = "";
@@ -294,11 +363,22 @@ async function getAgentCompletion(
     customInstructions,
     attachmentContext,
     handoffContext,
-    toolsContext
+    toolsContext,
+    isHandoffContinuation
   );
   
-  const fullMessages = [systemMessage, ...messages];
+  // Process messages to optimize them for the current context
+  const processedMessages = processMessagesForContext(messages, agentType, isHandoffContinuation);
+  
+  // Add our system message at the beginning
+  const fullMessages = [systemMessage, ...processedMessages];
   console.log(`System message first 150 chars: ${systemMessage.content.slice(0, 150)}...`);
+  console.log(`Sending ${fullMessages.length} messages to OpenAI`);
+  
+  // If this is a handoff continuation, add a special log
+  if (isHandoffContinuation) {
+    console.log(`This is a handoff continuation to ${agentType} agent`);
+  }
   
   try {
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -481,11 +561,22 @@ serve(async (req) => {
       );
     }
     
-    const userMessage = messages[messages.length - 1]?.content || '';
+    // Get the latest user message for logging
+    const isHandoffContinuation = contextData?.isHandoffContinuation || false;
+    let userMessage = '';
+    
+    // Find the last user message to log
+    for (let i = messages.length - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userMessage = messages[i].content;
+        break;
+      }
+    }
+    
     const hasAttachments = contextData?.hasAttachments || false;
     const isCustomAgent = contextData?.isCustomAgent || false;
     
-    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}`);
+    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}`);
     
     // Check if custom agent exists when isCustomAgent is true
     if (isCustomAgent) {

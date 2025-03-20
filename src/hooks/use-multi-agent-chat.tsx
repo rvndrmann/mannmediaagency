@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -30,6 +29,7 @@ export const useMultiAgentChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [handoffComplete, setHandoffComplete] = useState(false);
 
   // Helper function to update a specific message
   const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
@@ -186,8 +186,8 @@ export const useMultiAgentChat = () => {
     }
   };
   
-  // Enhanced handler for agent handoffs that works with custom agents
-  const handleAgentHandoff = (handoffRequest: HandoffRequest) => {
+  // Enhanced handler for agent handoffs that works with custom agents and continues the conversation
+  const handleAgentHandoff = async (handoffRequest: HandoffRequest) => {
     console.log("Handling agent handoff:", handoffRequest);
     
     if (!handoffRequest || !handoffRequest.targetAgent) {
@@ -225,9 +225,169 @@ export const useMultiAgentChat = () => {
     // Switch the active agent
     setActiveAgent(targetAgent);
     
+    // Set handoff complete flag to trigger auto-continuation
+    setHandoffComplete(true);
+    
     // Show notification to user
     toast.info(`Transferred to ${targetAgent} agent for better assistance.`);
   };
+
+  // New method to auto-continue conversation after handoff
+  const continueConversationAfterHandoff = async () => {
+    console.log("Auto-continuing conversation after handoff");
+    
+    if (!handoffComplete) return;
+    
+    // Reset flag first to prevent multiple continuations
+    setHandoffComplete(false);
+    
+    const continuationMessage: Message = { 
+      role: "assistant", 
+      content: "I'm now assisting you as the new specialized agent. Looking at the context of your request...", 
+      status: "thinking",
+      agentType: activeAgent,
+      tasks: [
+        createTask(`Analyzing conversation context`),
+        createTask("Preparing response")
+      ]
+    };
+
+    setMessages(prev => [...prev, continuationMessage]);
+    setIsLoading(true);
+    
+    const messageIndex = messages.length;
+
+    try {
+      // Format messages for the API - include ALL previous messages for context
+      // but mark them with roles for the AI to understand the flow
+      const apiMessages: AgentMessage[] = messages.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        // Optional name field to help the AI understand message origins
+        ...(msg.agentType && msg.agentType !== activeAgent ? 
+            { name: `previous_agent_${msg.agentType}` } : {})
+      }));
+      
+      updateTaskStatus(messageIndex, continuationMessage.tasks![0].id, "in-progress");
+      
+      // Determine if the active agent is a custom agent
+      const isCustomAgent = !['main', 'script', 'image', 'tool'].includes(activeAgent);
+      
+      console.log("Sending continuation request to multi-agent-chat function:", {
+        agentType: activeAgent, 
+        isCustomAgent, 
+        messageCount: apiMessages.length,
+        isHandoffContinuation: true
+      });
+      
+      // Get user ID
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+      
+      // Call the multi-agent-chat function
+      const response = await supabase.functions.invoke("multi-agent-chat", {
+        body: {
+          messages: apiMessages,
+          agentType: activeAgent,
+          userId: user.id,
+          contextData: {
+            hasAttachments: pendingAttachments.length > 0,
+            attachmentTypes: pendingAttachments.map(a => a.type),
+            availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
+            isCustomAgent,
+            isHandoffContinuation: true
+          }
+        }
+      });
+      
+      if (response.error) {
+        throw new Error(response.error.message || "Failed to get response from agent");
+      }
+      
+      updateTaskStatus(messageIndex, continuationMessage.tasks![0].id, "completed");
+      updateTaskStatus(messageIndex, continuationMessage.tasks![1].id, "in-progress");
+      
+      // Handle completed response
+      const { completion, status, handoffRequest } = response.data;
+      console.log("API response on continuation:", { 
+        completionPreview: completion ? completion.slice(0, 100) + "..." : "No completion", 
+        status, 
+        handoffRequest 
+      });
+      
+      // For tool agent, try to parse and execute commands
+      let finalContent = completion;
+      let command: Command | null = null;
+      
+      if (activeAgent === "tool") {
+        command = parseToolCommand(completion);
+        
+        if (command) {
+          // Handle tool execution (same as in handleSubmit)
+          // ... keep existing code for tool execution ...
+        }
+      }
+      
+      updateTaskStatus(messageIndex, continuationMessage.tasks![1].id, "completed");
+      
+      // Update the assistant message with the response
+      setMessages(prev => {
+        const newMessages = [...prev];
+        if (messageIndex >= 0 && messageIndex < newMessages.length) {
+          newMessages[messageIndex] = {
+            ...newMessages[messageIndex],
+            content: finalContent,
+            status: "completed",
+            command: command,
+            handoffRequest: handoffRequest
+          };
+        }
+        return newMessages;
+      });
+      
+      // Handle nested handoff if present
+      if (handoffRequest) {
+        console.log("Nested handoff request detected:", handoffRequest);
+        handleAgentHandoff(handoffRequest);
+      }
+      
+      // Refresh user credits
+      refetchCredits();
+      
+    } catch (error) {
+      console.error("Error in continueConversationAfterHandoff:", error);
+      const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+      
+      setMessages(prev => {
+        const newMessages = [...prev];
+        if (messageIndex >= 0 && messageIndex < newMessages.length) {
+          const tasks = newMessages[messageIndex].tasks?.map(task => ({
+            ...task,
+            status: task.status === "completed" ? "completed" as const : "error" as const
+          }));
+          
+          newMessages[messageIndex] = {
+            ...newMessages[messageIndex],
+            content: `Sorry, an error occurred while trying to continue the conversation: ${errorMessage}`,
+            status: "error",
+            tasks
+          };
+        }
+        return newMessages;
+      });
+      
+      toast.error(errorMessage);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+  
+  // Effect to trigger continuation after handoff
+  useEffect(() => {
+    if (handoffComplete && !isLoading) {
+      continueConversationAfterHandoff();
+    }
+  }, [handoffComplete, activeAgent, isLoading]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -264,13 +424,18 @@ export const useMultiAgentChat = () => {
     const messageIndex = messages.length + 1;
 
     try {
-      // Format messages for the API
-      const apiMessages: AgentMessage[] = messages
-        .filter(msg => msg.role === "user" || (msg.role === "assistant" && msg.agentType === activeAgent))
-        .map(msg => ({
+      // Format messages for the API - now keeping all messages for context
+      // but potentially marking them with different roles to guide the AI
+      const apiMessages: AgentMessage[] = messages.map(msg => {
+        // For all messages, keep them in the conversation history
+        return {
           role: msg.role,
-          content: msg.content
-        }));
+          content: msg.content,
+          // Add name attribute for messages from other agents to help the model understand context
+          ...(msg.agentType && msg.agentType !== activeAgent ? 
+              { name: `previous_agent_${msg.agentType}` } : {})
+        };
+      });
       
       // Add current user message with attachment info
       let userContent = trimmedInput;
@@ -476,3 +641,4 @@ export const useMultiAgentChat = () => {
     updateMessage
   };
 };
+

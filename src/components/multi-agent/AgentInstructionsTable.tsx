@@ -1,4 +1,3 @@
-
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { useCustomAgents } from "@/hooks/use-custom-agents";
 import { useMemo, useState } from "react";
@@ -7,7 +6,6 @@ import { Edit } from "lucide-react";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { toast } from "sonner";
 
-// Define the agent instructions table props
 interface AgentInstructionsTableProps {
   activeAgent: AgentType;
 }
@@ -16,7 +14,6 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
   const { customAgents, updateCustomAgent } = useCustomAgents();
   const [showEditDialog, setShowEditDialog] = useState(false);
   const [builtInInstructions, setBuiltInInstructions] = useState<Record<string, string>>(() => {
-    // Get saved instructions from local storage or use defaults
     const savedInstructions = localStorage.getItem('built_in_agent_instructions');
     const defaultInstructions = {
       main: `I am a helpful assistant that orchestrates specialized agents for creative content generation. I can help with scriptwriting, image prompt creation, and using tools for visual content creation. I can analyze images you upload and provide insights. When a request would be better handled by a specialized agent, I'll hand off the conversation to that agent.`,
@@ -33,28 +30,24 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
     return savedInstructions ? JSON.parse(savedInstructions) : defaultInstructions;
   });
 
-  // Handle editing built-in agent instructions
-  const handleUpdateBuiltInInstructions = (data: { instructions: string }) => {
-    // Don't allow editing tool agent instructions
-    if (activeAgent === 'tool') {
+  const handleUpdateBuiltInInstructions = (agentType: AgentType, instructions: string) => {
+    if (agentType === 'tool') {
       toast.error("Tool agent instructions cannot be modified");
       return;
     }
     
     const updatedInstructions = {
       ...builtInInstructions,
-      [activeAgent]: data.instructions
+      [agentType]: instructions
     };
     
     setBuiltInInstructions(updatedInstructions);
     localStorage.setItem('built_in_agent_instructions', JSON.stringify(updatedInstructions));
-    setShowEditDialog(false);
     toast.success("Agent instructions updated successfully");
   };
 
-  // Handle editing custom agent instructions
-  const handleUpdateCustomAgentInstructions = async (data: { instructions: string }) => {
-    const customAgent = customAgents.find(agent => agent.id === activeAgent);
+  const handleUpdateCustomAgentInstructions = async (agentType: AgentType, instructions: string) => {
+    const customAgent = customAgents.find(agent => agent.id === agentType);
     
     if (customAgent) {
       await updateCustomAgent(customAgent.id, {
@@ -62,22 +55,18 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
         description: customAgent.description,
         icon: customAgent.icon,
         color: customAgent.color,
-        instructions: data.instructions
+        instructions: instructions
       });
-      setShowEditDialog(false);
       toast.success("Agent instructions updated successfully");
     }
   };
 
-  // Get the active agent instructions
   const agentInstructions = useMemo(() => {
-    // First check if this is a custom agent
     const customAgent = customAgents.find(agent => agent.id === activeAgent);
     if (customAgent) {
       return customAgent.instructions;
     }
 
-    // Otherwise look for built-in agent instructions
     const builtInInstructions: Record<string, string> = {
       main: `I am a helpful assistant that orchestrates specialized agents for creative content generation. I can help with scriptwriting, image prompt creation, and using tools for visual content creation. I can analyze images you upload and provide insights. When a request would be better handled by a specialized agent, I'll hand off the conversation to that agent.`,
       
@@ -93,17 +82,15 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
     return builtInInstructions[activeAgent] || "No instructions available for this agent.";
   }, [activeAgent, customAgents, builtInInstructions]);
 
-  // Determine if we can edit this agent (all except tool agent)
   const canEditInstructions = activeAgent !== 'tool';
   
-  // Determine which update handler to use based on agent type
-  const handleUpdateInstructions = (data: { instructions: string }) => {
-    const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
+  const handleSaveInstructions = (agentType: AgentType, instructions: string) => {
+    const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(agentType);
     
     if (isCustomAgent) {
-      handleUpdateCustomAgentInstructions(data);
+      handleUpdateCustomAgentInstructions(agentType, instructions);
     } else {
-      handleUpdateBuiltInInstructions(data);
+      handleUpdateBuiltInInstructions(agentType, instructions);
     }
   };
 
@@ -129,14 +116,12 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
         <p className="whitespace-pre-wrap">{agentInstructions}</p>
       </div>
 
-      {/* Edit Instructions Dialog */}
       <EditAgentInstructionsDialog
         open={showEditDialog}
         onOpenChange={setShowEditDialog}
-        onSubmit={handleUpdateInstructions}
+        onSave={handleSaveInstructions}
         agentType={activeAgent}
-        currentInstructions={agentInstructions}
-        title={`Edit ${activeAgent.charAt(0).toUpperCase() + activeAgent.slice(1)} Agent Instructions`}
+        initialInstructions={agentInstructions}
       />
     </div>
   );

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -56,9 +55,22 @@ const agentTemplates = {
   }
 };
 
+// Add a utility function to validate UUID format
+function isValidUUID(id: string): boolean {
+  const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  return uuidRegex.test(id);
+}
+
 async function getCustomAgentInstructions(supabase: any, agentType: string): Promise<string | null> {
   try {
     console.log(`Fetching custom agent instructions for: ${agentType}`);
+    
+    // Validate if the agentType is a valid UUID before querying
+    if (!isValidUUID(agentType)) {
+      console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
+      return null;
+    }
+    
     const { data, error } = await supabase
       .from('custom_agents')
       .select('instructions')
@@ -603,6 +615,18 @@ serve(async (req) => {
     
     // Check if custom agent exists when isCustomAgent is true
     if (isCustomAgent) {
+      // First, validate if the agentType is a valid UUID before querying
+      if (!isValidUUID(agentType)) {
+        console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
+        return new Response(
+          JSON.stringify({ 
+            error: "Invalid custom agent ID format. Custom agent IDs must be valid UUIDs.",
+            handoffFailed: true
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       const { data: agentData, error: agentError } = await supabase
         .from('custom_agents')
         .select('id, name')
@@ -612,7 +636,10 @@ serve(async (req) => {
       if (agentError || !agentData) {
         console.error(`Custom agent not found: ${agentType}`, agentError);
         return new Response(
-          JSON.stringify({ error: "Custom agent not found" }),
+          JSON.stringify({ 
+            error: "Custom agent not found",
+            handoffFailed: true
+          }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else {

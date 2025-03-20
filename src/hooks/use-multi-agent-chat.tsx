@@ -87,6 +87,9 @@ export const useMultiAgentChat = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
+      // Check if the active agent is a custom agent
+      const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
+
       // Create AgentRunner instance
       const runner = new AgentRunner(activeAgent, {
         usePerformanceModel,

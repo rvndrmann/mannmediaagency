@@ -50,6 +50,8 @@ export interface RunState {
   toolContext?: ToolContext;
   // Last handoff request
   handoffRequest?: HandoffRequest;
+  // Whether the current agent is a custom agent
+  isCustomAgent?: boolean;
 }
 
 /**

@@ -1,7 +1,7 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Command, Message, Task } from "@/types/message";
 import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus } from "./types";
 import { parseToolCommand } from "../tool-parser";
@@ -34,7 +34,8 @@ export class AgentRunner {
       handoffInProgress: false,
       turnCount: 0,
       status: "pending" as RunStatus,
-      lastMessageIndex: -1
+      lastMessageIndex: -1,
+      isCustomAgent: !BUILT_IN_AGENT_TYPES.includes(initialAgentType)
     };
     
     this.config = {
@@ -224,7 +225,8 @@ export class AgentRunner {
           availableTools: this.state.currentAgentType === "tool" ? 
             getToolsForLLM() : undefined,
           usePerformanceModel: this.config.usePerformanceModel,
-          isHandoffContinuation: this.state.handoffInProgress
+          isHandoffContinuation: this.state.handoffInProgress,
+          isCustomAgent: this.state.isCustomAgent
         }
       }
     });
@@ -328,6 +330,9 @@ export class AgentRunner {
     this.state.messages.push(handoffMessage);
     this.state.currentAgentType = targetAgent;
     this.state.handoffInProgress = true;
+    
+    // Check if the target agent is a custom agent
+    this.state.isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(targetAgent);
     
     this.emitEvent({ type: "handoff_end", to: targetAgent });
     

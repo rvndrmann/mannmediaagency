@@ -149,12 +149,22 @@ async function generateHandoffContextWithCustomAgents(supabase: any): Promise<st
   let handoffContext = `
 You can hand off the conversation to another specialized agent when appropriate. 
 Available agents:
+
+BUILT-IN AGENTS:
 `;
 
-  // Add all agents to the context
-  allAgents.forEach(agent => {
+  // Add built-in agents to the context
+  builtInAgents.forEach(agent => {
     handoffContext += `- ${agent.name} (${agent.id}): ${agent.description}\n`;
   });
+
+  // Add custom agents separately if any exist
+  if (customAgents.length > 0) {
+    handoffContext += `\nCUSTOM AGENTS:\n`;
+    customAgents.forEach(agent => {
+      handoffContext += `- ${agent.name} (${agent.id}): ${agent.description}\n`;
+    });
+  }
 
   handoffContext += `
 IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with this EXACT format:
@@ -173,6 +183,12 @@ OR:
 
 HANDOFF: scene
 REASON: User needs specialized scene description assistance"
+
+For custom agents, use their exact ID for the handoff:
+"This looks like a specialized request that I'm not equipped to handle best...
+
+HANDOFF: 123e4567-e89b-12d3-a456-426614174000
+REASON: User needs help with this specific domain"
 
 Make sure to place the HANDOFF and REASON on separate lines exactly as shown above.
 Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
@@ -431,11 +447,10 @@ async function getAgentCompletion(
   // Determine base agent type and temperature
   let baseAgentType = "main";
   if (isCustomAgent && !isActuallyBuiltIn) {
-    // For custom agents, we'll still clone from a base template
-    // but we'll use the custom instructions to override the base template
-    console.log(`Using base template for custom agent ${agentType}`);
+    // This is a custom agent with a UUID
+    console.log(`Using custom agent template for ${agentType}`);
   } else if (isActuallyBuiltIn) {
-    // If it's a built-in agent even if passed as custom
+    // If it's a built-in agent
     baseAgentType = agentType.toLowerCase();
     console.log(`Using built-in agent template for ${agentType}`);
     temperature = agentTemplates[agentType.toLowerCase() as keyof typeof agentTemplates]?.temperature || 0.7;
@@ -722,7 +737,7 @@ serve(async (req) => {
     console.log(`Agent ${agentType} is built-in: ${isBuiltIn}`);
     
     // Check if custom agent exists when isCustomAgent is true and not a built-in type
-    if (contextData?.isCustomAgent && !isBuiltIn) {
+    if (isCustomAgent && !isBuiltIn) {
       // First, validate if the agentType is a valid UUID before querying
       if (!isValidUUID(agentType)) {
         console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
@@ -777,38 +792,4 @@ serve(async (req) => {
       console.error("Error deducting credits:", deductError);
       return new Response(
         JSON.stringify({ error: "Failed to process credits" }),
-        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-    
-    const completion = await getAgentCompletion(messages, agentType, contextData, supabase);
-    
-    const handoffRequest = parseHandoffRequest(completion);
-    console.log("Handoff parsing result:", handoffRequest || "No handoff detected");
-    
-    try {
-      await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);
-    } catch (logError) {
-      // Don't fail the whole request if logging fails
-      console.error("Error in logging agent interaction:", logError);
-    }
-    
-    return new Response(
-      JSON.stringify({ 
-        completion,
-        agentType,
-        status: "completed",
-        createdAt: new Date().toISOString(),
-        handoffRequest,
-        modelUsed: contextData?.usePerformanceModel ? "gpt-4o-mini" : "gpt-4o"
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  } catch (error) {
-    console.error("Error in multi-agent-chat function:", error);
-    return new Response(
-      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    );
-  }
-});
+        {

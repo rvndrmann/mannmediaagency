@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -50,6 +51,7 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
 
 async function getCustomAgentsForHandoff(supabase: any): Promise<CustomAgent[]> {
   try {
+    console.log("Fetching custom agents for handoff");
     const { data, error } = await supabase
       .from('custom_agents')
       .select('id, name, description, instructions');
@@ -59,6 +61,7 @@ async function getCustomAgentsForHandoff(supabase: any): Promise<CustomAgent[]> 
       return [];
     }
     
+    console.log(`Retrieved ${data?.length || 0} custom agents:`, data?.map(a => a.id).join(', '));
     return data || [];
   } catch (error) {
     console.error("Failed to fetch custom agents for handoff:", error);
@@ -69,6 +72,7 @@ async function getCustomAgentsForHandoff(supabase: any): Promise<CustomAgent[]> 
 async function generateHandoffContextWithCustomAgents(supabase: any): Promise<string> {
   // Get custom agents from the database
   const customAgents = await getCustomAgentsForHandoff(supabase);
+  console.log(`Building handoff context with ${customAgents.length} custom agents`);
   
   // Define built-in agents
   const builtInAgents = [
@@ -135,6 +139,8 @@ async function getAgentCompletion(
   const availableTools = contextData?.availableTools || [];
   const isCustomAgent = contextData?.isCustomAgent || false;
   
+  console.log(`Agent type: ${agentType}, isCustomAgent: ${isCustomAgent}`);
+  
   let attachmentContext = "";
   if (hasAttachments) {
     attachmentContext = "The user has shared some files with you. They are referenced in the user's message. ";
@@ -186,18 +192,22 @@ async function getAgentCompletion(
 
   // Get dynamic handoff context with both built-in and custom agents
   const handoffContext = await generateHandoffContextWithCustomAgents(supabase);
+  console.log("Handoff context length:", handoffContext.length);
 
   // For custom agents, get instructions from the database
   if (isCustomAgent && supabase) {
+    console.log(`Getting custom instructions for agent: ${agentType}`);
     const customInstructions = await getCustomAgentInstructions(supabase, agentType);
     
     if (customInstructions) {
+      console.log(`Found custom instructions for ${agentType}, length: ${customInstructions.length}`);
       systemMessage = {
         role: "system",
         content: `${customInstructions}\n\n${attachmentContext}\n\n${handoffContext}`
       };
     } else {
       // Fallback if custom agent not found
+      console.log(`No custom instructions found for ${agentType}, using fallback`);
       systemMessage = {
         role: "system",
         content: `You are a specialized AI assistant. Respond based on your expertise. ${attachmentContext} ${handoffContext}`
@@ -205,6 +215,7 @@ async function getAgentCompletion(
     }
   } else {
     // Default agents
+    console.log(`Using default system message for agent: ${agentType}`);
     switch(agentType) {
       case "script":
         systemMessage = {
@@ -233,6 +244,7 @@ async function getAgentCompletion(
   }
   
   const fullMessages = [systemMessage, ...messages];
+  console.log(`System message first 150 chars: ${systemMessage.content.slice(0, 150)}...`);
   
   try {
     const temperature = agentType === "tool" ? 0.1 : 0.7;
@@ -343,6 +355,8 @@ serve(async (req) => {
     const hasAttachments = contextData?.hasAttachments || false;
     const isCustomAgent = contextData?.isCustomAgent || false;
     
+    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}`);
+    
     // Check if custom agent exists when isCustomAgent is true
     if (isCustomAgent) {
       const { data: agentData, error: agentError } = await supabase
@@ -352,10 +366,13 @@ serve(async (req) => {
         .single();
         
       if (agentError || !agentData) {
+        console.error(`Custom agent not found: ${agentType}`, agentError);
         return new Response(
           JSON.stringify({ error: "Custom agent not found" }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
+      } else {
+        console.log(`Found custom agent: ${agentData.name} (${agentData.id})`);
       }
     }
     
@@ -366,6 +383,7 @@ serve(async (req) => {
       .single();
       
     if (creditsError || !userCredits || userCredits.credits_remaining < 0.07) {
+      console.error("Insufficient credits:", creditsError || `Credits: ${userCredits?.credits_remaining || 0}`);
       return new Response(
         JSON.stringify({ error: "Insufficient credits. You need at least 0.07 credits." }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

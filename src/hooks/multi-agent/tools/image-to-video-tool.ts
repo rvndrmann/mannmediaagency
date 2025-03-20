@@ -1,5 +1,6 @@
+
 import { v4 as uuidv4 } from 'uuid';
-import { useGenerateVideoFromImageMutation } from '../mutations/use-generate-video-from-image-mutation';
+import { supabase } from "@/integrations/supabase/client";
 import { ToolResult } from '../types';
 
 interface ImageToVideoToolParams {
@@ -10,36 +11,58 @@ interface ImageToVideoToolParams {
 }
 
 export const useImageToVideoTool = () => {
-  const { mutateAsync: generateVideo, isLoading } = useGenerateVideoFromImageMutation();
-
   const convertImageToVideo = async (params: ImageToVideoToolParams): Promise<ToolResult> => {
     const requestId = uuidv4();
 
     try {
-      const videoDetails = await generateVideo({
-        ...params,
-        requestId: requestId,
+      // Check if user is authenticated
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        return {
+          content: `⚠️ You need to be logged in to convert images to video.`,
+          metadata: { error: "Not authenticated" }
+        };
+      }
+
+      // Invoke the edge function to generate the video
+      const { data, error } = await supabase.functions.invoke("generate-video-from-image", {
+        body: {
+          prompt: params.prompt,
+          imageUrl: params.imageUrl,
+          duration: params.duration,
+          aspectRatio: params.aspectRatio,
+          requestId: requestId,
+          userId: session.user.id
+        }
       });
 
-      if (videoDetails?.result_url) {
+      if (error) {
+        console.error("Error during video generation:", error);
         return {
-          content: `Successfully converted image to video. Video URL: ${videoDetails.result_url}`,
+          content: `Error during video generation: ${error.message || error}`,
+          metadata: { requestId: requestId, error: error.message }
+        };
+      }
+
+      if (data?.result_url) {
+        return {
+          content: `Successfully converted image to video. Video URL: ${data.result_url}`,
           metadata: { requestId: requestId }
         };
       } else {
         return {
-          content: `Video conversion failed.`,
-          metadata: { requestId: requestId }
+          content: `Video conversion initiated. Please check back in a few minutes.`,
+          metadata: { requestId: requestId, pending: true }
         };
       }
     } catch (error: any) {
       console.error("Error during image to video conversion:", error);
       return {
         content: `Error during image to video conversion: ${error.message || error}`,
-        metadata: { requestId: requestId }
+        metadata: { requestId: requestId, error: error.message }
       };
     }
   };
 
-  return { convertImageToVideo, isLoading };
+  return { convertImageToVideo };
 };

@@ -116,6 +116,18 @@ export const useMultiAgentChat = () => {
         }
       });
 
+      // Create the user message
+      setMessages(prev => [
+        ...prev,
+        {
+          id: uuidv4(),
+          role: "user",
+          content: trimmedInput,
+          createdAt: new Date(),
+          attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
+        }
+      ]);
+
       // Run the agent
       await runner.run(trimmedInput, pendingAttachments, user.id);
       

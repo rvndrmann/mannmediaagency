@@ -1,14 +1,18 @@
+
 export interface Message {
+  id?: string;
   role: "user" | "assistant";
   content: string;
   status?: "thinking" | "working" | "completed" | "error";
   tasks?: Task[];
   command?: Command;
   agentType?: string;
+  agentId?: string;
   selectedTool?: string;
   attachments?: Attachment[];
   handoffRequest?: HandoffRequest;
   modelUsed?: string;
+  createdAt?: Date;
 }
 
 export interface HandoffRequest {
@@ -18,7 +22,7 @@ export interface HandoffRequest {
 
 export type AgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music";
 
-export interface AgentInfo {
+export interface Agent {
   id: string;
   name: string;
   description: string;
@@ -26,6 +30,7 @@ export interface AgentInfo {
   color: string;
   instructions: string;
   isCustom?: boolean;
+  autoRun?: boolean;
 }
 
 export interface Attachment {
@@ -40,13 +45,14 @@ export interface Attachment {
 export interface Task {
   id: string;
   name: string;
-  status: "pending" | "in-progress" | "completed" | "error";
+  status: "pending" | "in-progress" | "running" | "completed" | "error";
   details?: string;
 }
 
 export interface Command {
-  feature: "product-shot-v1" | "product-shot-v2" | "image-to-video" | "product-video" | "default-image";
-  action: "create" | "convert" | "save" | "use" | "list";
+  feature?: "product-shot-v1" | "product-shot-v2" | "image-to-video" | "product-video" | "default-image";
+  action?: "create" | "convert" | "save" | "use" | "list";
+  name?: string;
   parameters?: {
     name?: string;
     imageId?: string;

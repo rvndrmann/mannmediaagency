@@ -1,12 +1,21 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
-import { Agent, Message, Task } from "@/types/message";
+import { Message, Task } from "@/types/message";
 import { useCompletion } from "../use-completion";
 import { useTools } from "../use-tools";
 import { ToolResult } from "../types";
 
 interface AgentRunnerProps {
-  agent: Agent;
+  agent: {
+    id: string;
+    name: string;
+    description: string;
+    instructions: string;
+    icon: string;
+    color: string;
+    autoRun?: boolean;
+  };
   initialMessage: string;
   onNewMessage: (message: Message) => void;
   onUpdateMessage: (id: string, updates: Partial<Message>) => void;
@@ -166,7 +175,7 @@ export const useAgentRunner = ({
     const lastItem = completedTasks[completedTasks.length - 1];
     const status = tasks.find(task => task.id === taskId)?.status;
 
-    if (status === "running" && lastItem?.status === "completed" as any) {
+    if (status === "running" && lastItem?.status === "completed") {
       return lastItem.id === taskId;
     }
 

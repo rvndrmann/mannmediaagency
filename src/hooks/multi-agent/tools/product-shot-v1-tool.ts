@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { Tool, ToolResult } from "../types";
@@ -42,6 +43,7 @@ export const productShotV1Tool: Tool<ProductShotV1ToolParams> = {
       if (!session) {
         return {
           content: "⚠️ You need to be logged in to generate product images.",
+          metadata: { error: "Authentication required" }
         };
       }
 
@@ -54,6 +56,7 @@ export const productShotV1Tool: Tool<ProductShotV1ToolParams> = {
       if (creditError || creditCheck === false) {
         return {
           content: "⚠️ You don't have enough credits to generate a product image. Please purchase more credits.",
+          metadata: { error: "Insufficient credits" }
         };
       }
 
@@ -76,6 +79,7 @@ export const productShotV1Tool: Tool<ProductShotV1ToolParams> = {
         console.error("Error creating image generation job:", insertError);
         return {
           content: "⚠️ Failed to initiate image generation. Please try again.",
+          metadata: { error: insertError.message }
         };
       }
 
@@ -96,6 +100,7 @@ export const productShotV1Tool: Tool<ProductShotV1ToolParams> = {
         console.error("Error calling image generation function:", functionError);
         return {
           content: "⚠️ Failed to start image generation process. Please try again.",
+          metadata: { error: functionError.message }
         };
       }
 
@@ -104,10 +109,11 @@ export const productShotV1Tool: Tool<ProductShotV1ToolParams> = {
         content: `Initializing product image generation...`,
         metadata: { requestId: generationId },
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error in product shot v1 tool:", error);
       return {
         content: "⚠️ An error occurred while generating the product image. Please try again.",
+        metadata: { error: error.message }
       };
     }
   },

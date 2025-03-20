@@ -1,3 +1,4 @@
+
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
 
@@ -19,8 +20,6 @@ export interface RunConfig {
   runId?: string;
   // Group ID for conversation tracking
   groupId?: string;
-  // Whether to allow direct tool execution by non-tool agents
-  enableDirectToolExecution?: boolean;
 }
 
 // Define a union type for run status to ensure type safety
@@ -52,8 +51,6 @@ export interface RunState {
   handoffRequest?: HandoffRequest;
   // Whether the current agent is a custom agent
   isCustomAgent?: boolean;
-  // Whether direct tool execution is enabled
-  enableDirectToolExecution?: boolean;
 }
 
 /**
@@ -74,7 +71,6 @@ export interface RunResult {
     turnCount: number;
     toolCalls: number;
     handoffs: number;
-    messageCount: number;
   };
 }
 
@@ -132,205 +128,32 @@ export interface HandoffInputContext {
 export type HandoffInputFilter = (context: HandoffInputContext) => Message[];
 
 /**
- * Context for tool execution
- */
-export interface ToolContext {
-  userId: string;
-  creditsRemaining: number;
-  attachments?: any[];
-  selectedTool?: string;
-  previousOutputs: Record<string, any>;
-}
-
-/**
- * Result from a tool execution
+ * Result of a tool execution
  */
 export interface ToolResult {
   content: string;
-  metadata?: Record<string, any>; // Add metadata field to store additional information
+  metadata?: Record<string, any>;
 }
 
 /**
- * Tool definition
+ * Context for tool execution
  */
-export interface ToolDefinition {
+export interface ToolContext {
+  userId?: string;
+  sessionId?: string;
+  metadata?: Record<string, any>;
+}
+
+/**
+ * Tool configuration interface
+ */
+export interface Tool<T = any> {
   name: string;
   description: string;
-  parameters: Record<string, any>;
-  requiredCredits: number;
-  execute: (params: any, context: ToolContext) => Promise<ToolResult>;
-}
-
-/**
- * Command execution state
- */
-export interface CommandExecutionState {
-  commandId: string;
-  status: "pending" | "executing" | "completed" | "failed";
-  startTime: Date;
-  endTime?: Date;
-  result?: ToolResult;
-  error?: string;
-}
-
-/**
- * Trace represents a collection of events that occurred during an agent run
- */
-export interface Trace {
-  // Unique ID for this trace
-  traceId: string;
-  // ID of the user who initiated the trace
-  userId: string;
-  // ID of the conversation/run
-  runId: string;
-  // Start time of the trace
-  startTime: Date;
-  // End time of the trace
-  endTime?: Date;
-  // List of events that occurred during this trace
-  events: TraceEvent[];
-  // Total duration of the trace in milliseconds
-  duration?: number;
-  // Summary of the trace (final outcome)
-  summary?: {
-    totalMessages: number;
-    messageCount?: number;
-    toolCalls: number;
-    handoffs: number;
-    modelUsed: string;
-    agents: AgentType[];
-    success: boolean;
-  };
-}
-
-/**
- * Event recorded in a trace
- */
-export interface TraceEvent {
-  // Type of event
-  eventType: string;
-  // Time when the event occurred
-  timestamp: Date;
-  // Current agent when the event occurred
-  agentType: AgentType;
-  // Additional data specific to the event type
-  data: any;
-}
-
-/**
- * Utility to create and manage traces
- */
-export class TraceManager {
-  private currentTrace?: Trace;
-  private isEnabled: boolean;
-  private models: Set<string> = new Set<string>();
-
-  constructor(enabled: boolean = true) {
-    this.isEnabled = enabled;
-  }
-
-  /**
-   * Start a new trace
-   */
-  startTrace(userId: string, runId: string): Trace | undefined {
-    if (!this.isEnabled) return undefined;
-    
-    this.currentTrace = {
-      traceId: `trace_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      userId,
-      runId,
-      startTime: new Date(),
-      events: []
-    };
-    
-    return this.currentTrace;
-  }
-
-  /**
-   * Record an event in the current trace
-   */
-  recordEvent(eventType: string, agentType: AgentType, data: any): void {
-    if (!this.isEnabled || !this.currentTrace) return;
-    
-    // Keep track of models used
-    if (eventType === 'model_used' && data.model) {
-      this.models.add(data.model);
-    }
-    
-    this.currentTrace.events.push({
-      eventType,
-      timestamp: new Date(),
-      agentType,
-      data
-    });
-  }
-
-  /**
-   * Complete the current trace and calculate metrics
-   */
-  finishTrace(): Trace | undefined {
-    if (!this.isEnabled || !this.currentTrace) return undefined;
-    
-    this.currentTrace.endTime = new Date();
-    this.currentTrace.duration = this.currentTrace.endTime.getTime() - this.currentTrace.startTime.getTime();
-    
-    // Calculate summary stats
-    const agents = new Set<AgentType>();
-    let toolCalls = 0;
-    let handoffs = 0;
-    let totalMessages = 0;
-    let primaryModel = "";
-    
-    for (const event of this.currentTrace.events) {
-      agents.add(event.agentType);
-      
-      if (event.eventType === "tool_start") {
-        toolCalls++;
-      } else if (event.eventType === "handoff") {
-        handoffs++;
-      } else if (event.eventType === "message") {
-        totalMessages++;
-      } else if (event.eventType === "model_used" && event.data?.model) {
-        primaryModel = event.data.model;
-      }
-    }
-    
-    // Use the most frequently used model or the last one
-    const modelUsed = primaryModel || (this.models.size > 0 ? Array.from(this.models).pop() || "" : "");
-    
-    this.currentTrace.summary = {
-      totalMessages,
-      toolCalls,
-      handoffs,
-      modelUsed,
-      agents: Array.from(agents),
-      success: true // Default to true, should be updated based on final event
-    };
-    
-    const trace = this.currentTrace;
-    this.currentTrace = undefined;
-    this.models.clear();
-    return trace;
-  }
-
-  /**
-   * Get the current trace
-   */
-  getCurrentTrace(): Trace | undefined {
-    return this.currentTrace;
-  }
-
-  /**
-   * Check if tracing is enabled
-   */
-  isTracingEnabled(): boolean {
-    return this.isEnabled;
-  }
-
-  /**
-   * Enable or disable tracing
-   */
-  setEnabled(enabled: boolean): void {
-    this.isEnabled = enabled;
-  }
+  parameters: Record<string, {
+    type: string;
+    description: string;
+    required: boolean;
+  }>;
+  execute: (params: T) => Promise<ToolResult>;
 }

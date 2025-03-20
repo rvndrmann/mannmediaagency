@@ -34,6 +34,21 @@ export const useMultiAgentChat = () => {
   const [handoffComplete, setHandoffComplete] = useState(false);
   const [usePerformanceModel, setUsePerformanceModel] = useState(false);
 
+  const getAgentInstructions = useCallback((agentType: AgentType): string | undefined => {
+    if (BUILT_IN_AGENT_TYPES.includes(agentType)) {
+      try {
+        const savedInstructions = localStorage.getItem('built_in_agent_instructions');
+        if (savedInstructions) {
+          const instructions = JSON.parse(savedInstructions);
+          return instructions[agentType];
+        }
+      } catch (e) {
+        console.error("Error loading custom instructions:", e);
+      }
+    }
+    return undefined;
+  }, []);
+
   const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
     setMessages(prev => {
       const newMessages = [...prev];
@@ -200,7 +215,6 @@ export const useMultiAgentChat = () => {
       return;
     }
     
-    // Determine if this is a built-in agent type
     const isBuiltIn = isBuiltInAgent(targetAgent);
     
     const handoffMessage: Message = {
@@ -256,13 +270,16 @@ export const useMultiAgentChat = () => {
       const isBuiltIn = isBuiltInAgent(activeAgent);
       const isCustomAgent = !isBuiltIn;
       
+      const customInstructions = getAgentInstructions(activeAgent);
+      
       console.log("Sending continuation request to multi-agent-chat function:", {
         agentType: activeAgent, 
         isBuiltIn,
         isCustomAgent, 
         messageCount: apiMessages.length,
         isHandoffContinuation: true,
-        usePerformanceModel: usePerformanceModel
+        usePerformanceModel: usePerformanceModel,
+        hasCustomInstructions: !!customInstructions
       });
       
       const { data: { user } } = await supabase.auth.getUser();
@@ -278,7 +295,8 @@ export const useMultiAgentChat = () => {
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
             isCustomAgent,
             isHandoffContinuation: true,
-            usePerformanceModel
+            usePerformanceModel,
+            customInstructions
           }
         }
       });
@@ -490,13 +508,16 @@ export const useMultiAgentChat = () => {
       const isBuiltIn = isBuiltInAgent(activeAgent);
       const isCustomAgent = !isBuiltIn;
       
+      const customInstructions = getAgentInstructions(activeAgent);
+      
       console.log("Sending request to multi-agent-chat function:", {
         agentType: activeAgent, 
         isBuiltIn,
         isCustomAgent, 
         messageCount: apiMessages.length,
         hasAttachments: pendingAttachments.length > 0,
-        usePerformanceModel: usePerformanceModel
+        usePerformanceModel: usePerformanceModel,
+        hasCustomInstructions: !!customInstructions
       });
       
       const response = await supabase.functions.invoke("multi-agent-chat", {
@@ -509,7 +530,8 @@ export const useMultiAgentChat = () => {
             attachmentTypes: pendingAttachments.map(a => a.type),
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
             isCustomAgent,
-            usePerformanceModel
+            usePerformanceModel,
+            customInstructions
           }
         }
       });

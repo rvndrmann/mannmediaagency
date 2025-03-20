@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -35,6 +36,9 @@ interface HandoffInputData {
   all_items?: any[];
 }
 
+// Define built-in agent types to avoid UUID validation for them
+const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
+
 // Base templates for our different agent types
 const agentTemplates = {
   main: {
@@ -52,6 +56,10 @@ const agentTemplates = {
   tool: {
     systemMessage: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more.`,
     temperature: 0.1
+  },
+  scene: {
+    systemMessage: `You are SceneDescriptionAgent, specialized in creating vivid, detailed scene descriptions from images or text prompts. Describe scenes in rich detail, focusing on setting, atmosphere, and visual elements. Create immersive scene settings that could be used for scripts, stories, or visual productions. Your descriptions should be sensory-rich, capturing not just visuals but the feeling of being in the scene.`,
+    temperature: 0.7
   }
 };
 
@@ -61,9 +69,20 @@ function isValidUUID(id: string): boolean {
   return uuidRegex.test(id);
 }
 
+// Check if the agent type is a built-in type that doesn't need UUID validation
+function isBuiltInAgentType(agentType: string): boolean {
+  return BUILT_IN_AGENT_TYPES.includes(agentType.toLowerCase());
+}
+
 async function getCustomAgentInstructions(supabase: any, agentType: string): Promise<string | null> {
   try {
     console.log(`Fetching custom agent instructions for: ${agentType}`);
+    
+    // Skip UUID validation for built-in agent types
+    if (isBuiltInAgentType(agentType)) {
+      console.log(`${agentType} is a built-in agent type, no need to fetch custom instructions`);
+      return null;
+    }
     
     // Validate if the agentType is a valid UUID before querying
     if (!isValidUUID(agentType)) {
@@ -120,7 +139,8 @@ async function generateHandoffContextWithCustomAgents(supabase: any): Promise<st
     { id: "main", name: "Main Assistant", description: "General-purpose AI assistant for broad queries" },
     { id: "script", name: "Script Writer", description: "Specialized in creating scripts, dialogue, and narrative content" },
     { id: "image", name: "Image Prompt", description: "Creates detailed prompts for AI image generation systems" },
-    { id: "tool", name: "Tool Orchestrator", description: "Helps users use tools like image-to-video conversion" }
+    { id: "tool", name: "Tool Orchestrator", description: "Helps users use tools like image-to-video conversion" },
+    { id: "scene", name: "Scene Description", description: "Creates detailed scene descriptions for visual content" }
   ];
   
   // Combine built-in and custom agents
@@ -150,10 +170,10 @@ HANDOFF: image
 REASON: User needs specialized image prompt creation"
 
 OR:
-"Here's some general information about video creation. For using our video tools...
+"Here's some general information about scene setting. For creating detailed scene descriptions...
 
-HANDOFF: tool
-REASON: User needs to access video conversion tools"
+HANDOFF: scene
+REASON: User needs specialized scene description assistance"
 
 Make sure to place the HANDOFF and REASON on separate lines exactly as shown above.
 Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
@@ -280,8 +300,12 @@ async function getAgentCompletion(
   const availableTools = contextData?.availableTools || [];
   const isCustomAgent = contextData?.isCustomAgent || false;
   const isHandoffContinuation = contextData?.isHandoffContinuation || false;
+  const usePerformanceModel = contextData?.usePerformanceModel || false;
   
-  console.log(`Agent type: ${agentType}, isCustomAgent: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}`);
+  // Determine if this is a built-in agent even if it's passed as custom
+  const isActuallyBuiltIn = BUILT_IN_AGENT_TYPES.includes(agentType.toLowerCase());
+  
+  console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}`);
   
   // Build attachment context
   let attachmentContext = "";
@@ -343,9 +367,14 @@ async function getAgentCompletion(
   
   // Determine base agent type for custom agents
   let baseAgentType = "main";
-  if (isCustomAgent) {
+  if (isCustomAgent && !isActuallyBuiltIn) {
     // For custom agents, we'll still clone from a base template
     // but we'll use the custom instructions to override the base template
+  } else if (isActuallyBuiltIn) {
+    // If it's actually a built-in agent even if passed as custom
+    baseAgentType = agentType.toLowerCase();
+    console.log(`Using built-in agent template for ${agentType}`);
+    temperature = agentTemplates[agentType.toLowerCase() as keyof typeof agentTemplates]?.temperature || 0.7;
   } else {
     // Use the specific agent type for built-in agents
     baseAgentType = agentType;
@@ -354,7 +383,7 @@ async function getAgentCompletion(
 
   // For custom agents, get instructions from the database
   let customInstructions: string | null = null;
-  if (isCustomAgent && supabase) {
+  if (isCustomAgent && !isActuallyBuiltIn && supabase) {
     console.log(`Getting custom instructions for agent: ${agentType}`);
     customInstructions = await getCustomAgentInstructions(supabase, agentType);
     
@@ -390,6 +419,10 @@ async function getAgentCompletion(
   }
   
   try {
+    // Choose model based on performance setting
+    const modelToUse = usePerformanceModel ? "gpt-4o-mini" : "gpt-4o";
+    console.log(`Using model: ${modelToUse}`);
+    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -397,7 +430,7 @@ async function getAgentCompletion(
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // Using gpt-4o-mini for better performance/cost ratio
+        model: modelToUse,
         messages: fullMessages,
         temperature: temperature,
         ...(agentType !== "tool" && {
@@ -613,14 +646,18 @@ serve(async (req) => {
     
     console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}`);
     
-    // Check if custom agent exists when isCustomAgent is true
-    if (isCustomAgent) {
+    // Check if agent type is a built-in type
+    const isBuiltIn = isBuiltInAgentType(agentType);
+    console.log(`Agent ${agentType} is built-in: ${isBuiltIn}`);
+    
+    // Check if custom agent exists when isCustomAgent is true and not a built-in type
+    if (isCustomAgent && !isBuiltIn) {
       // First, validate if the agentType is a valid UUID before querying
       if (!isValidUUID(agentType)) {
         console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
         return new Response(
           JSON.stringify({ 
-            error: "Invalid custom agent ID format. Custom agent IDs must be valid UUIDs.",
+            error: `Invalid custom agent ID format: ${agentType}. Custom agent IDs must be valid UUIDs.`,
             handoffFailed: true
           }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -691,7 +728,8 @@ serve(async (req) => {
         agentType,
         status: "completed",
         createdAt: new Date().toISOString(),
-        handoffRequest
+        handoffRequest,
+        modelUsed: contextData?.usePerformanceModel ? "gpt-4o-mini" : "gpt-4o"
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

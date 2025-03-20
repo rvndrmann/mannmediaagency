@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,8 @@ import { useMediaUpdates } from "./multi-agent/use-media-updates";
 const CHAT_CREDIT_COST = 0.07;
 const STORAGE_KEY = "multi_agent_chat_history";
 
+// Define built-in agent types
+export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 export type AgentType = string;
 
 export const useMultiAgentChat = () => {
@@ -180,6 +183,10 @@ export const useMultiAgentChat = () => {
     }
   };
 
+  const isBuiltInAgent = (agentType: string): boolean => {
+    return BUILT_IN_AGENT_TYPES.includes(agentType.toLowerCase());
+  };
+
   const handleAgentHandoff = async (handoffRequest: HandoffRequest) => {
     console.log("Handling agent handoff:", handoffRequest);
     
@@ -194,8 +201,8 @@ export const useMultiAgentChat = () => {
       return;
     }
     
-    const builtInAgents = ['main', 'script', 'image', 'tool'];
-    const isBuiltIn = builtInAgents.includes(targetAgent);
+    // Determine if this is a built-in agent type
+    const isBuiltIn = isBuiltInAgent(targetAgent);
     
     const handoffMessage: Message = {
       role: "assistant",
@@ -211,7 +218,7 @@ export const useMultiAgentChat = () => {
       ]
     };
     
-    console.log(`Handoff in progress: From ${activeAgent} to ${targetAgent}`);
+    console.log(`Handoff in progress: From ${activeAgent} to ${targetAgent} (built-in: ${isBuiltIn})`);
     
     setMessages(prev => [...prev, handoffMessage]);
     setActiveAgent(targetAgent);
@@ -220,7 +227,7 @@ export const useMultiAgentChat = () => {
   };
 
   const continueConversationAfterHandoff = async () => {
-    console.log("Auto-continuing conversation after handoff");
+    console.log("Auto-continuing conversation after handoff to agent:", activeAgent);
     
     if (!handoffComplete) return;
     
@@ -252,10 +259,13 @@ export const useMultiAgentChat = () => {
       
       updateTaskStatus(messageIndex, continuationMessage.tasks![0].id, "in-progress");
       
-      const isCustomAgent = !['main', 'script', 'image', 'tool'].includes(activeAgent);
+      // Check if agent is built-in or custom
+      const isBuiltIn = isBuiltInAgent(activeAgent);
+      const isCustomAgent = !isBuiltIn;
       
       console.log("Sending continuation request to multi-agent-chat function:", {
         agentType: activeAgent, 
+        isBuiltIn,
         isCustomAgent, 
         messageCount: apiMessages.length,
         isHandoffContinuation: true,
@@ -478,10 +488,13 @@ export const useMultiAgentChat = () => {
       
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       
-      const isCustomAgent = !['main', 'script', 'image', 'tool'].includes(activeAgent);
+      // Check if agent is built-in or custom
+      const isBuiltIn = isBuiltInAgent(activeAgent);
+      const isCustomAgent = !isBuiltIn;
       
       console.log("Sending request to multi-agent-chat function:", {
         agentType: activeAgent, 
+        isBuiltIn,
         isCustomAgent, 
         messageCount: apiMessages.length,
         hasAttachments: pendingAttachments.length > 0,

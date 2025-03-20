@@ -1,8 +1,8 @@
 
 import { Button } from "@/components/ui/button";
-import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit } from "lucide-react";
+import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText } from "lucide-react";
 import { useState } from "react";
-import { type AgentType } from "@/hooks/use-multi-agent-chat";
+import { type AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -83,6 +83,14 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       color: "from-amber-400 to-orange-500",
       instructions: ""
     },
+    { 
+      id: "scene", 
+      name: "Scene Description", 
+      description: "Creates vivid scene descriptions for visual content",
+      icon: "FileText", 
+      color: "from-emerald-400 to-teal-500",
+      instructions: ""
+    },
   ];
 
   // Combine built-in and custom agents
@@ -123,6 +131,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       case "PenLine": return PenLine;
       case "Image": return Image;
       case "Wrench": return Wrench;
+      case "FileText": return FileText;
       case "Edit": return Edit;
       case "Trash": return Trash;
       default: return Bot;
@@ -164,6 +173,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
           const isActive = activeAgent === agent.id;
           const IconComponent = getIconComponent(agent.icon);
           const isCustom = 'isCustom' in agent && agent.isCustom;
+          const isBuiltIn = BUILT_IN_AGENT_TYPES.includes(agent.id);
           
           return (
             <div key={agent.id} className="relative">

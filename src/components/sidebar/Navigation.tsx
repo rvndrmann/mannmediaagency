@@ -17,7 +17,11 @@ import {
   PlusSquare,
   LucideIcon,
   Users,
-  Globe
+  Globe,
+  Camera,
+  ImagePlus,
+  Film,
+  Video
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -141,6 +145,30 @@ export const Navigation = () => {
       subtext: "Discover Amazing Content",
       to: "/explore",
       icon: Compass,
+    },
+    {
+      name: "Product Shot V1",
+      subtext: "Basic Product Photography",
+      to: "/product-shoot",
+      icon: Camera,
+    },
+    {
+      name: "Advanced Shot",
+      subtext: "Enhanced Product Photography",
+      to: "/product-shoot-v2",
+      icon: ImagePlus,
+    },
+    {
+      name: "Image to Video",
+      subtext: "Convert Images to Videos",
+      to: "/image-to-video",
+      icon: Film,
+    },
+    {
+      name: "Product Video",
+      subtext: "Create Product Videos",
+      to: "/create-video",
+      icon: Video,
     },
     {
       name: "Dashboard",

@@ -1,5 +1,5 @@
 
-import { Compass, ScrollText, Settings, Package, Users, Globe } from "lucide-react";
+import { Compass, ScrollText, Settings, Package, Users, Globe, Camera, ImagePlus, Film, Video } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -7,14 +7,34 @@ import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   {
-    label: "Multi-Agent",
-    icon: Users,
-    href: "/multi-agent-chat"
-  },
-  {
     label: "Explore",
     icon: Compass,
     href: "/explore"
+  },
+  {
+    label: "Shot V1",
+    icon: Camera,
+    href: "/product-shoot"
+  },
+  {
+    label: "Shot V2",
+    icon: ImagePlus,
+    href: "/product-shoot-v2"
+  },
+  {
+    label: "Img to Video",
+    icon: Film,
+    href: "/image-to-video"
+  },
+  {
+    label: "Product Video",
+    icon: Video,
+    href: "/create-video"
+  },
+  {
+    label: "Multi-Agent",
+    icon: Users,
+    href: "/multi-agent-chat"
   },
   {
     label: "Dashboard",

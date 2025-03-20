@@ -312,22 +312,47 @@ async function logAgentInteraction(
   hasAttachments: boolean
 ) {
   try {
-    const { error } = await supabase
+    // Validate input data
+    if (!userId) {
+      console.error("Missing userId in logAgentInteraction");
+      return;
+    }
+    
+    if (!agentType) {
+      console.error("Missing agentType in logAgentInteraction");
+      return;
+    }
+    
+    // Truncate very long messages to prevent DB errors
+    const maxMessageLength = 10000; // Set a reasonable limit
+    const truncatedUserMessage = userMessage?.length > maxMessageLength 
+      ? userMessage.substring(0, maxMessageLength) + "..." 
+      : userMessage || "";
+    
+    const truncatedAssistantResponse = assistantResponse?.length > maxMessageLength
+      ? assistantResponse.substring(0, maxMessageLength) + "..."
+      : assistantResponse || "";
+    
+    console.log(`Logging interaction for user ${userId} with agent ${agentType}`);
+    
+    const { data, error } = await supabase
       .from('agent_interactions')
       .insert({
         user_id: userId,
         agent_type: agentType,
-        user_message: userMessage,
-        assistant_response: assistantResponse,
+        user_message: truncatedUserMessage,
+        assistant_response: truncatedAssistantResponse,
         has_attachments: hasAttachments,
         timestamp: new Date().toISOString()
       });
       
     if (error) {
-      console.error("Error logging agent interaction:", error);
+      console.error("Error logging agent interaction:", error.message, error.details, error.hint);
+    } else {
+      console.log("Successfully logged agent interaction");
     }
   } catch (err) {
-    console.error("Failed to log agent interaction:", err);
+    console.error("Failed to log agent interaction:", err instanceof Error ? err.message : String(err));
   }
 }
 
@@ -407,7 +432,12 @@ serve(async (req) => {
     const handoffRequest = parseHandoffRequest(completion);
     console.log("Handoff parsing result:", handoffRequest || "No handoff detected");
     
-    await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);
+    try {
+      await logAgentInteraction(supabase, userId, agentType, userMessage, completion, hasAttachments);
+    } catch (logError) {
+      // Don't fail the whole request if logging fails
+      console.error("Error in logging agent interaction:", logError);
+    }
     
     return new Response(
       JSON.stringify({ 

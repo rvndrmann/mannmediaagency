@@ -63,6 +63,39 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_interactions: {
+        Row: {
+          agent_type: string
+          assistant_response: string
+          has_attachments: boolean
+          id: string
+          metadata: Json | null
+          timestamp: string
+          user_id: string
+          user_message: string
+        }
+        Insert: {
+          agent_type: string
+          assistant_response: string
+          has_attachments?: boolean
+          id?: string
+          metadata?: Json | null
+          timestamp?: string
+          user_id: string
+          user_message: string
+        }
+        Update: {
+          agent_type?: string
+          assistant_response?: string
+          has_attachments?: boolean
+          id?: string
+          metadata?: Json | null
+          timestamp?: string
+          user_id?: string
+          user_message?: string
+        }
+        Relationships: []
+      }
       ai_prompts: {
         Row: {
           category: string

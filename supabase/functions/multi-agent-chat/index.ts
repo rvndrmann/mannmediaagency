@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -22,6 +21,13 @@ interface MultiAgentRequest {
   contextData?: Record<string, any>;
 }
 
+interface CustomAgent {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+}
+
 async function getCustomAgentInstructions(supabase: any, agentType: string): Promise<string | null> {
   try {
     const { data, error } = await supabase
@@ -40,6 +46,80 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
     console.error("Failed to fetch custom agent instructions:", error);
     return null;
   }
+}
+
+async function getCustomAgentsForHandoff(supabase: any): Promise<CustomAgent[]> {
+  try {
+    const { data, error } = await supabase
+      .from('custom_agents')
+      .select('id, name, description, instructions');
+    
+    if (error) {
+      console.error("Error fetching custom agents:", error);
+      return [];
+    }
+    
+    return data || [];
+  } catch (error) {
+    console.error("Failed to fetch custom agents for handoff:", error);
+    return [];
+  }
+}
+
+async function generateHandoffContextWithCustomAgents(supabase: any): Promise<string> {
+  // Get custom agents from the database
+  const customAgents = await getCustomAgentsForHandoff(supabase);
+  
+  // Define built-in agents
+  const builtInAgents = [
+    { id: "main", name: "Main Assistant", description: "General-purpose AI assistant for broad queries" },
+    { id: "script", name: "Script Writer", description: "Specialized in creating scripts, dialogue, and narrative content" },
+    { id: "image", name: "Image Prompt", description: "Creates detailed prompts for AI image generation systems" },
+    { id: "tool", name: "Tool Orchestrator", description: "Helps users use tools like image-to-video conversion" }
+  ];
+  
+  // Combine built-in and custom agents
+  const allAgents = [...builtInAgents];
+  
+  // Add custom agents with special indicator
+  if (customAgents.length > 0) {
+    customAgents.forEach(agent => {
+      allAgents.push({
+        id: agent.id,
+        name: agent.name,
+        description: agent.description
+      });
+    });
+  }
+  
+  // Generate the handoff context text
+  let handoffContext = `
+You can hand off the conversation to another specialized agent when appropriate. 
+Available agents:
+`;
+
+  // Add all agents to the context
+  allAgents.forEach(agent => {
+    handoffContext += `- ${agent.id}: ${agent.description}\n`;
+  });
+
+  handoffContext += `
+IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with the EXACT format:
+
+HANDOFF: {agentType}, REASON: {short reason for handoff}
+
+For example:
+"I can help with basic information about images, but for creating detailed image prompts...
+HANDOFF: image, REASON: User needs specialized image prompt creation"
+
+OR:
+"Here's some general information about video creation. For using our video tools...
+HANDOFF: tool, REASON: User needs to access video conversion tools"
+
+Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
+`;
+
+  return handoffContext;
 }
 
 async function getAgentCompletion(
@@ -103,29 +183,9 @@ async function getAgentCompletion(
     toolsContext += "- When using product-shot-v2, provide detailed scene descriptions for best results.\n";
     toolsContext += "- Always process image generation results in real-time to show the progress and final result in the conversation.\n";
   }
-  
-  const handoffContext = `
-You can hand off the conversation to another specialized agent when appropriate. 
-Available agents:
-- main: General-purpose AI assistant for broad queries
-- script: Specialized in creating scripts, dialogue, and narrative content
-- image: Creates detailed prompts for AI image generation systems
-- tool: Helps users use tools like image-to-video conversion
 
-IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with the EXACT format:
-
-HANDOFF: {agentType}, REASON: {short reason for handoff}
-
-For example:
-"I can help with basic information about images, but for creating detailed image prompts...
-HANDOFF: image, REASON: User needs specialized image prompt creation"
-
-OR:
-"Here's some general information about video creation. For using our video tools...
-HANDOFF: tool, REASON: User needs to access video conversion tools"
-
-Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
-`;
+  // Get dynamic handoff context with both built-in and custom agents
+  const handoffContext = await generateHandoffContextWithCustomAgents(supabase);
 
   // For custom agents, get instructions from the database
   if (isCustomAgent && supabase) {

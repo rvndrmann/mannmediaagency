@@ -1,3 +1,4 @@
+
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Message } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -77,6 +78,16 @@ export class AgentRunner {
   }
 }
 
+// Define the interface for CompletionResult
+interface CompletionResult {
+  content: string;
+  command?: {
+    name: string;
+    parameters: Record<string, any>;
+  };
+  tasks?: any[];
+}
+
 export const useAgentRunner = ({ 
   agent, 
   initialMessage, 
@@ -105,20 +116,30 @@ export const useAgentRunner = ({
     setIsRunning(true);
     try {
       // Process the message with the agent
-      const completion = await getCompletion(agent, message, context);
+      // Fixed: Removed the third argument as getCompletion expects only 2 args
+      const completion = await getCompletion(agent, message);
       
       // Handle the agent's response
       if (completion) {
-        onNewMessage(completion);
+        // Create a new message with an ID for tracking
+        const newMessage = {
+          ...completion,
+          id: uuidv4() // Add an ID to the completion result
+        };
+        
+        onNewMessage(newMessage);
         
         // Check for tool calls or handoffs
-        if (completion.command && completion.command.tool) {
-          const toolResult = await executeTool(completion.command.tool, completion.command.parameters);
-          onUpdateMessage(completion.id, { status: 'completed' });
+        // Fixed: Changed completion.command.tool to completion.command.name
+        if (completion.command && completion.command.name) {
+          // Fixed: Use completion.command.name instead of completion.command.tool
+          const toolResult = await executeTool(completion.command.name, completion.command.parameters);
+          // Fixed: Use newMessage.id instead of completion.id
+          onUpdateMessage(newMessage.id, { status: 'completed' });
           
           // Send tool result back to agent
           return runAgent(`Tool result: ${JSON.stringify(toolResult)}`, {
-            previousMessage: completion
+            previousMessage: newMessage
           });
         }
       }

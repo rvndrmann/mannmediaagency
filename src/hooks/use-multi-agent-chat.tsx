@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -323,8 +324,61 @@ export const useMultiAgentChat = () => {
         command = parseToolCommand(completion);
         
         if (command) {
-          // Handle tool execution (same as in handleSubmit)
-          // ... keep existing code for tool execution ...
+          // Add a task for executing the tool command
+          const toolTaskId = uuidv4();
+          setMessages(prev => {
+            const newMessages = [...prev];
+            if (messageIndex >= 0 && messageIndex < newMessages.length) {
+              // Add media generation task if applicable
+              const mediaTask = createMediaGenerationTask(command!);
+              const updatedTasks = [
+                ...(newMessages[messageIndex].tasks || []),
+                {
+                  id: toolTaskId,
+                  name: `Executing ${command!.feature}`,
+                  status: "pending" as Task["status"]
+                },
+                mediaTask
+              ];
+              
+              newMessages[messageIndex] = {
+                ...newMessages[messageIndex],
+                tasks: updatedTasks,
+                command: command
+              };
+            }
+            return newMessages;
+          });
+          
+          try {
+            // Execute the tool command
+            const toolResult = await executeToolCommand(command);
+            
+            // Update the final content to include tool execution results
+            finalContent = `${completion}\n\n${toolResult.message}`;
+            
+            // Mark the tool task as completed or failed
+            updateTaskStatus(
+              messageIndex, 
+              toolTaskId, 
+              toolResult.success ? "completed" : "error", 
+              toolResult.success ? undefined : toolResult.message
+            );
+
+            // Add request ID to parameters for tracking
+            if (toolResult.success && toolResult.requestId && command.parameters) {
+              command.parameters.requestId = toolResult.requestId;
+            }
+          } catch (toolError) {
+            console.error("Error executing tool command:", toolError);
+            updateTaskStatus(
+              messageIndex, 
+              toolTaskId, 
+              "error", 
+              toolError instanceof Error ? toolError.message : "Unknown error"
+            );
+            finalContent = `${completion}\n\nError executing tool: ${toolError instanceof Error ? toolError.message : "Unknown error"}`;
+          }
         }
       }
       
@@ -641,4 +695,3 @@ export const useMultiAgentChat = () => {
     updateMessage
   };
 };
-

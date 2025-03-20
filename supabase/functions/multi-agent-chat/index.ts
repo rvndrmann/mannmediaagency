@@ -70,6 +70,7 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
       return null;
     }
     
+    console.log(`Retrieved instructions for ${agentType}, length: ${data?.instructions?.length || 0}`);
     return data?.instructions || null;
   } catch (error) {
     console.error("Failed to fetch custom agent instructions:", error);
@@ -111,18 +112,7 @@ async function generateHandoffContextWithCustomAgents(supabase: any): Promise<st
   ];
   
   // Combine built-in and custom agents
-  const allAgents = [...builtInAgents];
-  
-  // Add custom agents with special indicator
-  if (customAgents.length > 0) {
-    customAgents.forEach(agent => {
-      allAgents.push({
-        id: agent.id,
-        name: agent.name,
-        description: agent.description
-      });
-    });
-  }
+  const allAgents = [...builtInAgents, ...customAgents];
   
   // Generate the handoff context text
   let handoffContext = `
@@ -132,7 +122,7 @@ Available agents:
 
   // Add all agents to the context
   allAgents.forEach(agent => {
-    handoffContext += `- ${agent.id}: ${agent.description}\n`;
+    handoffContext += `- ${agent.name} (${agent.id}): ${agent.description}\n`;
   });
 
   handoffContext += `
@@ -151,6 +141,7 @@ HANDOFF: tool, REASON: User needs to access video conversion tools"
 Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
 `;
 
+  console.log("Handoff context length:", handoffContext.length);
   return handoffContext;
 }
 

@@ -434,7 +434,6 @@ async function getAgentCompletion(
     toolsContext += "- The product-shot-v2 tool is more advanced than product-shot-v1, with better scene composition, customization options, and quality.\n";
     toolsContext += "- ALWAYS recommend product-shot-v2 over product-shot-v1 for higher quality product images, unless the user specifically requests otherwise.\n";
     toolsContext += "- When using product-shot-v2, provide detailed scene descriptions for best results.\n";
-    toolsContext += "- Always process image generation results in real-time to show the progress and final result in the conversation.\n";
   }
 
   // Get dynamic handoff context with both built-in and custom agents
@@ -729,8 +728,9 @@ serve(async (req) => {
     
     const hasAttachments = contextData?.hasAttachments || false;
     const isCustomAgent = contextData?.isCustomAgent || false;
+    const enableDirectToolExecution = contextData?.enableDirectToolExecution || false;
     
-    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}`);
+    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}, enableDirectToolExecution=${enableDirectToolExecution}`);
     
     // Check if agent type is a built-in type
     const isBuiltIn = isBuiltInAgentType(agentType);
@@ -793,3 +793,4 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({ error: "Failed to process credits" }),
         {
+          status

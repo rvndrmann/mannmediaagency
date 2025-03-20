@@ -29,6 +29,7 @@ export const useMultiAgentChat = () => {
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
   const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [usePerformanceModel, setUsePerformanceModel] = useState(false);
+  const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(true);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -93,6 +94,7 @@ export const useMultiAgentChat = () => {
       // Create AgentRunner instance
       const runner = new AgentRunner(activeAgent, {
         usePerformanceModel,
+        enableDirectToolExecution,
         metadata: {
           userId: user.id,
           sessionId: uuidv4()
@@ -156,6 +158,14 @@ export const useMultiAgentChat = () => {
     );
   }, [usePerformanceModel]);
 
+  const toggleDirectToolExecution = useCallback(() => {
+    setEnableDirectToolExecution(prev => !prev);
+    toast.info(enableDirectToolExecution ? 
+      "Tools now require handoff to tool agent." : 
+      "Enabled direct tool execution from any agent."
+    );
+  }, [enableDirectToolExecution]);
+
   return {
     messages,
     input,
@@ -165,12 +175,14 @@ export const useMultiAgentChat = () => {
     userCredits,
     pendingAttachments,
     usePerformanceModel,
+    enableDirectToolExecution,
     handleSubmit,
     switchAgent,
     clearChat,
     addAttachments,
     removeAttachment,
     updateMessage,
-    togglePerformanceMode
+    togglePerformanceMode,
+    toggleDirectToolExecution
   };
 };

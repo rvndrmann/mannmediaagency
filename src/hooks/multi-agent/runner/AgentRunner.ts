@@ -35,13 +35,15 @@ export class AgentRunner {
       turnCount: 0,
       status: "pending" as RunStatus,
       lastMessageIndex: -1,
-      isCustomAgent: !BUILT_IN_AGENT_TYPES.includes(initialAgentType)
+      isCustomAgent: !BUILT_IN_AGENT_TYPES.includes(initialAgentType),
+      enableDirectToolExecution: config.enableDirectToolExecution || false
     };
     
     this.config = {
       maxTurns: DEFAULT_MAX_TURNS,
       usePerformanceModel: false,
       tracingDisabled: false,
+      enableDirectToolExecution: false,
       ...config,
       runId: config.runId || uuidv4()
     };
@@ -177,8 +179,13 @@ export class AgentRunner {
       this.updateTaskStatus(0, "completed");
       this.updateTaskStatus(1, "in-progress");
       
-      // Parse response
-      const toolCommand = this.state.currentAgentType === "tool" ? 
+      // Check if direct tool execution is enabled and we're not using the tool agent
+      const shouldCheckForToolCommand = 
+        this.state.enableDirectToolExecution || 
+        this.state.currentAgentType === "tool";
+      
+      // Parse response for tool commands if applicable
+      const toolCommand = shouldCheckForToolCommand ? 
         parseToolCommand(response.completion) : null;
       
       // Update message
@@ -222,11 +229,12 @@ export class AgentRunner {
         contextData: {
           hasAttachments: this.hasAttachments(),
           attachmentTypes: this.getAttachmentTypes(),
-          availableTools: this.state.currentAgentType === "tool" ? 
+          availableTools: this.state.enableDirectToolExecution || this.state.currentAgentType === "tool" ? 
             getToolsForLLM() : undefined,
           usePerformanceModel: this.config.usePerformanceModel,
           isHandoffContinuation: this.state.handoffInProgress,
-          isCustomAgent: this.state.isCustomAgent
+          isCustomAgent: this.state.isCustomAgent,
+          enableDirectToolExecution: this.state.enableDirectToolExecution
         }
       }
     });

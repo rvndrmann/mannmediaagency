@@ -1,3 +1,4 @@
+
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,7 +8,7 @@ import { AgentSelector } from "./AgentSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { Zap, Trash2 } from "lucide-react";
+import { Zap, Trash2, Hammer } from "lucide-react";
 import { toast } from "sonner";
 import { 
   Tooltip, 
@@ -27,12 +28,14 @@ export const MultiAgentChat = () => {
     userCredits, 
     pendingAttachments,
     usePerformanceModel,
+    enableDirectToolExecution,
     handleSubmit, 
     switchAgent, 
     clearChat,
     addAttachments,
     removeAttachment,
-    togglePerformanceMode
+    togglePerformanceMode,
+    toggleDirectToolExecution
   } = useMultiAgentChat();
   
   const [showInstructions, setShowInstructions] = useState(false);
@@ -85,6 +88,29 @@ export const MultiAgentChat = () => {
               </TooltipTrigger>
               <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
                 <p className="text-xs">{usePerformanceModel ? "Faster responses with GPT-4o-mini" : "Higher quality responses with GPT-4o"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={enableDirectToolExecution ? "default" : "outline"} 
+                  size="sm"
+                  onClick={toggleDirectToolExecution}
+                  className={`flex items-center gap-1 text-xs h-6 px-2 ${
+                    enableDirectToolExecution 
+                      ? "bg-gradient-to-r from-green-600 to-teal-600" 
+                      : "border-teal-600 bg-teal-800/20 text-teal-500 hover:bg-teal-800/30"
+                  }`}
+                >
+                  <Hammer className="h-3 w-3" />
+                  {enableDirectToolExecution ? "Direct Tools" : "Tool Agent"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
+                <p className="text-xs">{enableDirectToolExecution ? "Any agent can use tools directly" : "Tools require handoff to tool agent"}</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -197,8 +223,13 @@ export const MultiAgentChat = () => {
             <div>
               Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
             </div>
-            <div>
-              Model: {usePerformanceModel ? "GPT-4o-mini (faster)" : "GPT-4o (higher quality)"}
+            <div className="flex justify-end gap-2">
+              <div>
+                Model: {usePerformanceModel ? "GPT-4o-mini (faster)" : "GPT-4o (higher quality)"}
+              </div>
+              <div>
+                Tool Access: {enableDirectToolExecution ? "Direct (any agent)" : "Via Tool Agent"}
+              </div>
             </div>
           </div>
         </div>

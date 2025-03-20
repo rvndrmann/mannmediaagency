@@ -108,24 +108,24 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
   };
 
   return (
-    <div className="mb-4 p-3 bg-[#1a202c]/70 border border-[#2d374b] rounded-lg">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-semibold text-white/90">Current Agent Instructions</h3>
+    <div className="mb-3 p-2 bg-[#1a202c]/70 border border-[#2d374b] rounded-lg">
+      <div className="flex justify-between items-center mb-1">
+        <h3 className="text-xs font-semibold text-white/90">Current Agent Instructions</h3>
         
         {canEditInstructions && (
           <Button 
             variant="outline" 
             size="sm" 
             onClick={() => setShowEditDialog(true)}
-            className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70"
+            className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-6 px-2"
           >
-            <Edit className="h-3.5 w-3.5" />
+            <Edit className="h-3 w-3" />
             Edit
           </Button>
         )}
       </div>
       
-      <div className="text-xs text-gray-400 h-32 overflow-y-auto p-2 bg-[#0f141e] rounded border border-[#1e283a]">
+      <div className="text-xs text-gray-400 h-24 overflow-y-auto p-2 bg-[#0f141e] rounded border border-[#1e283a]">
         <p className="whitespace-pre-wrap">{agentInstructions}</p>
       </div>
 

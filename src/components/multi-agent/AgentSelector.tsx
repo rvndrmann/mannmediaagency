@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText } from "lucide-react";
 import { useState } from "react";
@@ -49,7 +48,6 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
     isLoading: isLoadingCustomAgents 
   } = useCustomAgents();
 
-  // Define built-in agents
   const builtInAgents: AgentInfo[] = [
     { 
       id: "main", 
@@ -93,10 +91,8 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
     },
   ];
 
-  // Combine built-in and custom agents
   const allAgents = [...builtInAgents, ...customAgents];
 
-  // Handle create agent submission
   const handleCreateAgent = async (data: CustomAgentFormData) => {
     const newAgent = await createCustomAgent(data);
     if (newAgent) {
@@ -104,7 +100,6 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
     }
   };
 
-  // Handle edit agent submission
   const handleEditAgent = async (data: CustomAgentFormData) => {
     if (agentToEdit) {
       await updateCustomAgent(agentToEdit.id, data);
@@ -112,11 +107,9 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
     }
   };
 
-  // Handle agent deletion
   const handleDeleteConfirm = async () => {
     if (agentToDelete) {
       await deleteCustomAgent(agentToDelete);
-      // If the deleted agent was active, switch to main
       if (agentToDelete === activeAgent) {
         onAgentSelect("main");
       }
@@ -124,7 +117,6 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
     }
   };
 
-  // Get icon component based on string name
   const getIconComponent = (iconName: string) => {
     switch (iconName) {
       case "Bot": return Bot;
@@ -139,19 +131,19 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#262B38]/80 to-[#323845]/80 backdrop-blur-sm rounded-xl p-5 mb-6 border border-white/10 shadow-lg animate-fadeIn">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-white font-semibold flex items-center">
+    <div className="bg-gradient-to-r from-[#262B38]/80 to-[#323845]/80 backdrop-blur-sm rounded-xl p-3 mb-4 border border-white/10 shadow-lg animate-fadeIn">
+      <div className="flex justify-between items-center mb-2">
+        <h3 className="text-white text-sm font-semibold flex items-center">
           Select Agent Type
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="ml-1 p-0 h-6 w-6 text-white/60 hover:text-white/80">
-                  <Info className="h-4 w-4" />
+                <Button variant="ghost" size="sm" className="ml-1 p-0 h-5 w-5 text-white/60 hover:text-white/80">
+                  <Info className="h-3 w-3" />
                 </Button>
               </TooltipTrigger>
               <TooltipContent className="bg-[#333] text-white border-[#555] max-w-xs">
-                <p className="text-sm">Choose the most suitable AI agent for your specific task</p>
+                <p className="text-xs">Choose the most suitable AI agent for your specific task</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -161,14 +153,14 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
           variant="outline" 
           size="sm" 
           onClick={() => setShowAddDialog(true)}
-          className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70"
+          className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-7 px-2 py-1"
         >
-          <Plus className="h-3.5 w-3.5" />
+          <Plus className="h-3 w-3" />
           Add Agent
         </Button>
       </div>
       
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-3 gap-2">
         {allAgents.map((agent) => {
           const isActive = activeAgent === agent.id;
           const IconComponent = getIconComponent(agent.icon);
@@ -183,7 +175,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                     <Button
                       variant={isActive ? "default" : "outline"}
                       className={cn(
-                        "relative flex flex-col items-center justify-center h-32 w-full px-3 py-4 overflow-hidden group transition-all duration-300",
+                        "relative flex flex-col items-center justify-center h-[90px] w-full px-2 py-2 overflow-hidden group transition-all duration-300",
                         isActive 
                           ? `bg-gradient-to-br ${agent.color} border border-white/20 shadow-lg` 
                           : "bg-[#333]/70 hover:bg-[#444]/90 text-white border-[#555] hover:border-[#666]"
@@ -195,47 +187,46 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                       )}
                       
                       <div className={cn(
-                        "rounded-full p-3 mb-2 transition-all duration-300",
+                        "rounded-full p-2 mb-1 transition-all duration-300",
                         isActive 
                           ? "bg-white/20" 
                           : "bg-[#444]/50 group-hover:bg-[#555]/50"
                       )}>
-                        <IconComponent className={cn("h-6 w-6", isActive ? "text-white" : "text-white/80 group-hover:text-white")} />
+                        <IconComponent className={cn("h-4 w-4", isActive ? "text-white" : "text-white/80 group-hover:text-white")} />
                       </div>
                       
                       <span className={cn(
-                        "font-medium mb-1 transition-all duration-300",
+                        "font-medium text-xs mb-0.5 transition-all duration-300",
                         isActive ? "text-white" : "text-white/90 group-hover:text-white"
                       )}>
                         {agent.name}
                       </span>
                       
-                      <span className="text-xs text-center line-clamp-2 transition-all duration-300 opacity-80 group-hover:opacity-100">
+                      <span className="text-[10px] text-center line-clamp-1 transition-all duration-300 opacity-80 group-hover:opacity-100">
                         {agent.description}
                       </span>
                       
                       {isActive && (
-                        <div className="absolute bottom-0 left-0 w-full mt-2">
+                        <div className="absolute bottom-0 left-0 w-full">
                           <Progress value={100} className="h-1 rounded-none" indicatorClassName={`bg-white/30`} />
                         </div>
                       )}
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="bg-[#333] text-white border-[#555]">
-                    <p className="text-sm font-medium">{agent.name}</p>
-                    <p className="text-xs opacity-80">{agent.description}</p>
+                    <p className="text-xs font-medium">{agent.name}</p>
+                    <p className="text-[10px] opacity-80">{agent.description}</p>
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
               
-              {/* Menu for custom agents */}
               {isCustom && (
                 <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button 
                       variant="ghost" 
                       size="icon" 
-                      className="absolute top-2 right-2 h-7 w-7 bg-black/20 hover:bg-black/40 text-white/70"
+                      className="absolute top-1 right-1 h-5 w-5 bg-black/20 hover:bg-black/40 text-white/70 p-0"
                     >
                       <span className="sr-only">Open menu</span>
                       <svg 
@@ -278,14 +269,12 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
         })}
       </div>
 
-      {/* Add agent dialog */}
       <AddAgentDialog
         open={showAddDialog}
         onOpenChange={setShowAddDialog}
         onSubmit={handleCreateAgent}
       />
 
-      {/* Edit agent dialog */}
       {agentToEdit && (
         <AddAgentDialog
           open={!!agentToEdit}
@@ -296,7 +285,6 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
         />
       )}
 
-      {/* Delete confirmation dialog */}
       <AlertDialog open={!!agentToDelete} onOpenChange={(open) => !open && setAgentToDelete(null)}>
         <AlertDialogContent className="bg-gray-900 border-gray-700 text-white">
           <AlertDialogHeader>

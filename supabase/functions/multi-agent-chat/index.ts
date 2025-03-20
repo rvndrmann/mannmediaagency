@@ -36,8 +36,29 @@ interface HandoffInputData {
   all_items?: any[];
 }
 
+// Base templates for our different agent types
+const agentTemplates = {
+  main: {
+    systemMessage: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. When you identify that a user's request would be better handled by a specialized agent, use the handoff format at the end of your message.`,
+    temperature: 0.7
+  },
+  script: {
+    systemMessage: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements.`,
+    temperature: 0.7
+  },
+  image: {
+    systemMessage: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation.`,
+    temperature: 0.7
+  },
+  tool: {
+    systemMessage: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more.`,
+    temperature: 0.1
+  }
+};
+
 async function getCustomAgentInstructions(supabase: any, agentType: string): Promise<string | null> {
   try {
+    console.log(`Fetching custom agent instructions for: ${agentType}`);
     const { data, error } = await supabase
       .from('custom_agents')
       .select('instructions')
@@ -133,14 +154,50 @@ Only hand off when the user's request clearly falls into another agent's special
   return handoffContext;
 }
 
+// Create a cloned agent with custom instructions while preserving base capabilities
+async function createAgentWithCustomInstructions(
+  baseAgentType: string,
+  customInstructions: string | null, 
+  attachmentContext: string,
+  handoffContext: string,
+  toolsContext: string = ""
+): Promise<AgentMessage> {
+  // Get the base template
+  const baseTemplate = agentTemplates[baseAgentType as keyof typeof agentTemplates] || agentTemplates.main;
+  
+  // If no custom instructions, return the base template with contexts
+  if (!customInstructions) {
+    return {
+      role: "system",
+      content: `${baseTemplate.systemMessage} ${attachmentContext} ${handoffContext} ${toolsContext}`.trim()
+    };
+  }
+
+  // Merge custom instructions with base capabilities
+  let mergedContent = customInstructions;
+  
+  // Add essential contexts for full functionality
+  mergedContent += `\n\n${attachmentContext}\n\n${handoffContext}`;
+  
+  // Add tools context for tool agent
+  if (baseAgentType === "tool" && toolsContext) {
+    mergedContent += `\n\n${toolsContext}`;
+  }
+  
+  console.log(`Created custom agent with merged instructions: ${mergedContent.slice(0, 100)}...`);
+  
+  return {
+    role: "system",
+    content: mergedContent
+  };
+}
+
 async function getAgentCompletion(
   messages: AgentMessage[], 
   agentType: string, 
   contextData?: Record<string, any>,
   supabase?: any
 ): Promise<string> {
-  let systemMessage: AgentMessage;
-  
   const hasAttachments = contextData?.hasAttachments || false;
   const attachmentTypes = contextData?.attachmentTypes || [];
   const availableTools = contextData?.availableTools || [];
@@ -148,6 +205,7 @@ async function getAgentCompletion(
   
   console.log(`Agent type: ${agentType}, isCustomAgent: ${isCustomAgent}`);
   
+  // Build attachment context
   let attachmentContext = "";
   if (hasAttachments) {
     attachmentContext = "The user has shared some files with you. They are referenced in the user's message. ";
@@ -161,6 +219,7 @@ async function getAgentCompletion(
     }
   }
   
+  // Build tools context
   let toolsContext = "";
   if (agentType === "tool" && availableTools.length > 0) {
     toolsContext = "You have access to the following tools:\n\n";
@@ -201,61 +260,47 @@ async function getAgentCompletion(
   const handoffContext = await generateHandoffContextWithCustomAgents(supabase);
   console.log("Handoff context length:", handoffContext.length);
 
+  let systemMessage: AgentMessage;
+  let temperature = 0.7; // Default temperature
+  
+  // Determine base agent type for custom agents
+  let baseAgentType = "main";
+  if (isCustomAgent) {
+    // For custom agents, we'll still clone from a base template
+    // but we'll use the custom instructions to override the base template
+  } else {
+    // Use the specific agent type for built-in agents
+    baseAgentType = agentType;
+    temperature = agentTemplates[agentType as keyof typeof agentTemplates]?.temperature || 0.7;
+  }
+
   // For custom agents, get instructions from the database
+  let customInstructions: string | null = null;
   if (isCustomAgent && supabase) {
     console.log(`Getting custom instructions for agent: ${agentType}`);
-    const customInstructions = await getCustomAgentInstructions(supabase, agentType);
+    customInstructions = await getCustomAgentInstructions(supabase, agentType);
     
     if (customInstructions) {
       console.log(`Found custom instructions for ${agentType}, length: ${customInstructions.length}`);
-      systemMessage = {
-        role: "system",
-        content: `${customInstructions}\n\n${attachmentContext}\n\n${handoffContext}`
-      };
     } else {
       // Fallback if custom agent not found
       console.log(`No custom instructions found for ${agentType}, using fallback`);
-      systemMessage = {
-        role: "system",
-        content: `You are a specialized AI assistant. Respond based on your expertise. ${attachmentContext} ${handoffContext}`
-      };
-    }
-  } else {
-    // Default agents
-    console.log(`Using default system message for agent: ${agentType}`);
-    switch(agentType) {
-      case "script":
-        systemMessage = {
-          role: "system",
-          content: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements. ${attachmentContext} ${handoffContext}`
-        };
-        break;
-      case "image":
-        systemMessage = {
-          role: "system",
-          content: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation. ${attachmentContext} ${handoffContext}`
-        };
-        break;
-      case "tool":
-        systemMessage = {
-          role: "system",
-          content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more. ${toolsContext} ${attachmentContext} ${handoffContext}`
-        };
-        break;
-      default: // main
-        systemMessage = {
-          role: "system",
-          content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. When you identify that a user's request would be better handled by a specialized agent, use the handoff format at the end of your message. ${attachmentContext} ${handoffContext}`
-        };
     }
   }
+  
+  // Create the agent with appropriate instructions and capabilities
+  systemMessage = await createAgentWithCustomInstructions(
+    baseAgentType,
+    customInstructions,
+    attachmentContext,
+    handoffContext,
+    toolsContext
+  );
   
   const fullMessages = [systemMessage, ...messages];
   console.log(`System message first 150 chars: ${systemMessage.content.slice(0, 150)}...`);
   
   try {
-    const temperature = agentType === "tool" ? 0.1 : 0.7;
-    
     const response = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -263,7 +308,7 @@ async function getAgentCompletion(
         "Content-Type": "application/json"
       },
       body: JSON.stringify({
-        model: "gpt-4o",
+        model: "gpt-4o-mini", // Using gpt-4o-mini for better performance/cost ratio
         messages: fullMessages,
         temperature: temperature,
         ...(agentType !== "tool" && {
@@ -512,7 +557,7 @@ serve(async (req) => {
   } catch (error) {
     console.error("Error in multi-agent-chat function:", error);
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   }

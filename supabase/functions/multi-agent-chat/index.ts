@@ -11,7 +11,7 @@ const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
 interface AgentMessage {
   role: "user" | "assistant" | "system";
-  content: string;
+  content: string | Array<{type: string, text?: string, image_url?: {url: string}}>;
   name?: string;
 }
 
@@ -270,7 +270,7 @@ function processMessagesForContext(messages: AgentMessage[], agentType: string, 
     if (msg.name && msg.name.startsWith('previous_agent_')) {
       return {
         ...msg,
-        content: `[From previous agent]: ${msg.content}`
+        content: typeof msg.content === 'string' ? `[From previous agent]: ${msg.content}` : msg.content
       };
     }
     return msg;
@@ -289,6 +289,70 @@ function processMessagesForContext(messages: AgentMessage[], agentType: string, 
   return [contextMessage, ...enhancedMessages];
 }
 
+// Process attachment URLs to prepare them for vision models
+function processAttachmentUrls(messages: AgentMessage[], hasAttachments: boolean): AgentMessage[] {
+  if (!hasAttachments) {
+    return messages;
+  }
+
+  console.log("Processing messages for attachments");
+  
+  return messages.map(msg => {
+    if (msg.role !== 'user' || typeof msg.content !== 'string') {
+      return msg;
+    }
+    
+    // Check if the message has attachment URLs
+    const attachmentRegex = /\[Attached (image|file): .+?, URL: (https?:\/\/[^\s\]]+)\]/g;
+    const attachmentMatches = [...msg.content.matchAll(attachmentRegex)];
+    
+    if (attachmentMatches.length === 0) {
+      return msg;
+    }
+    
+    // Convert message to the multimodal format
+    const multiModalContent: Array<{type: string, text?: string, image_url?: {url: string}}> = [];
+    
+    // Extract the text content without the attachment markers
+    let textContent = msg.content;
+    const imageUrls: string[] = [];
+    
+    // First collect all image URLs
+    attachmentMatches.forEach(match => {
+      const type = match[1]; // 'image' or 'file'
+      const url = match[2];
+      
+      if (type === 'image') {
+        imageUrls.push(url);
+      }
+      
+      // Remove the attachment marker from the text
+      textContent = textContent.replace(match[0], '');
+    });
+    
+    // Clean up the text content (remove extra newlines and trim)
+    textContent = textContent.replace(/\n{3,}/g, '\n\n').trim();
+    
+    // Add the text part if it's not empty
+    if (textContent) {
+      multiModalContent.push({ type: 'text', text: textContent });
+    }
+    
+    // Add all image URLs
+    imageUrls.forEach(url => {
+      multiModalContent.push({ 
+        type: 'image_url', 
+        image_url: { url }
+      });
+    });
+    
+    return {
+      ...msg,
+      content: multiModalContent
+    };
+  });
+}
+
 async function getAgentCompletion(
   messages: AgentMessage[], 
   agentType: string, 
@@ -305,7 +369,7 @@ async function getAgentCompletion(
   // Determine if this is a built-in agent even if it's passed as custom
   const isActuallyBuiltIn = BUILT_IN_AGENT_TYPES.includes(agentType.toLowerCase());
   
-  console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}`);
+  console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}, hasAttachments: ${hasAttachments}`);
   
   // Build attachment context
   let attachmentContext = "";
@@ -313,7 +377,7 @@ async function getAgentCompletion(
     attachmentContext = "The user has shared some files with you. They are referenced in the user's message. ";
     
     if (attachmentTypes.includes("image")) {
-      attachmentContext += "For image files, look for the URL in the user's message. You can view these images and use them in your response. ";
+      attachmentContext += "For image files, you can view these images directly as they are included in the message. Analyze these images in detail and comment on their visual content as if you can see them. ";
     }
     
     if (attachmentTypes.includes("file")) {
@@ -406,11 +470,14 @@ async function getAgentCompletion(
   );
   
   // Process messages to optimize them for the current context
-  const processedMessages = processMessagesForContext(messages, agentType, isHandoffContinuation);
+  let processedMessages = processMessagesForContext(messages, agentType, isHandoffContinuation);
+  
+  // Process attachment URLs for vision models if needed
+  processedMessages = processAttachmentUrls(processedMessages, hasAttachments);
   
   // Add our system message at the beginning
   const fullMessages = [systemMessage, ...processedMessages];
-  console.log(`System message first 150 chars: ${systemMessage.content.slice(0, 150)}...`);
+  console.log(`System message first 150 chars: ${typeof systemMessage.content === 'string' ? systemMessage.content.slice(0, 150) : 'Complex content'}...`);
   console.log(`Sending ${fullMessages.length} messages to OpenAI`);
   
   // If this is a handoff continuation, add a special log
@@ -433,6 +500,7 @@ async function getAgentCompletion(
         model: modelToUse,
         messages: fullMessages,
         temperature: temperature,
+        max_tokens: 4000,
         ...(agentType !== "tool" && {
           response_format: { type: "text" }
         })
@@ -446,8 +514,9 @@ async function getAgentCompletion(
     }
     
     const data = await response.json();
-    console.log(`${agentType} agent response:`, data.choices[0].message.content.slice(0, 150) + "...");
-    return data.choices[0].message.content;
+    const completion = data.choices[0].message.content;
+    console.log(`${agentType} agent response:`, completion.slice(0, 150) + "...");
+    return completion;
   } catch (error) {
     console.error(`Error in ${agentType} agent:`, error);
     throw error;
@@ -636,7 +705,9 @@ serve(async (req) => {
     // Find the last user message to log
     for (let i = messages.length - 1; i >= 0; i--) {
       if (messages[i].role === 'user') {
-        userMessage = messages[i].content;
+        userMessage = typeof messages[i].content === 'string' 
+          ? messages[i].content 
+          : JSON.stringify(messages[i].content);
         break;
       }
     }

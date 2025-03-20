@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -250,16 +249,10 @@ export const useMultiAgentChat = () => {
     const messageIndex = messages.length;
 
     try {
-      const apiMessages: AgentMessage[] = messages.map(msg => ({
-        role: msg.role,
-        content: msg.content,
-        ...(msg.agentType && msg.agentType !== activeAgent ? 
-            { name: `previous_agent_${msg.agentType}` } : {})
-      }));
+      const apiMessages = formatAgentMessagesWithAttachments(messages, []);
       
       updateTaskStatus(messageIndex, continuationMessage.tasks![0].id, "in-progress");
       
-      // Check if agent is built-in or custom
       const isBuiltIn = isBuiltInAgent(activeAgent);
       const isCustomAgent = !isBuiltIn;
       
@@ -281,8 +274,7 @@ export const useMultiAgentChat = () => {
           agentType: activeAgent,
           userId: user.id,
           contextData: {
-            hasAttachments: pendingAttachments.length > 0,
-            attachmentTypes: pendingAttachments.map(a => a.type),
+            hasAttachments: false,
             availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
             isCustomAgent,
             isHandoffContinuation: true,
@@ -422,6 +414,31 @@ export const useMultiAgentChat = () => {
     }
   };
 
+  const formatAgentMessagesWithAttachments = (messages: Message[], pendingAttachments: Attachment[]): AgentMessage[] => {
+    return messages.map(msg => {
+      let messageContent = msg.content;
+      
+      if (msg.role === 'user' && msg.attachments && msg.attachments.length > 0) {
+        const attachmentDescriptions = msg.attachments.map(att => 
+          `[Attached ${att.type}: ${att.name}, URL: ${att.url}]`
+        ).join("\n");
+        
+        if (messageContent) {
+          messageContent = `${messageContent}\n\n${attachmentDescriptions}`;
+        } else {
+          messageContent = attachmentDescriptions;
+        }
+      }
+      
+      return {
+        role: msg.role,
+        content: messageContent,
+        ...(msg.agentType && msg.agentType !== activeAgent ? 
+            { name: `previous_agent_${msg.agentType}` } : {})
+      };
+    });
+  };
+
   useEffect(() => {
     if (handoffComplete && !isLoading) {
       continueConversationAfterHandoff();
@@ -463,32 +480,13 @@ export const useMultiAgentChat = () => {
     const messageIndex = messages.length + 1;
 
     try {
-      const apiMessages: AgentMessage[] = messages.map(msg => {
-        return {
-          role: msg.role,
-          content: msg.content,
-          ...(msg.agentType && msg.agentType !== activeAgent ? 
-              { name: `previous_agent_${msg.agentType}` } : {})
-        };
-      });
-      
-      let userContent = trimmedInput;
-      if (pendingAttachments.length > 0) {
-        const attachmentDescriptions = pendingAttachments.map(att => 
-          `[Attached ${att.type}: ${att.name}, URL: ${att.url}]`
-        ).join("\n");
-        
-        userContent = `${trimmedInput}\n\n${attachmentDescriptions}`;
-      }
-      
-      apiMessages.push({ role: "user", content: userContent });
+      const apiMessages = formatAgentMessagesWithAttachments([...messages, userMessage], pendingAttachments);
       
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
       
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       
-      // Check if agent is built-in or custom
       const isBuiltIn = isBuiltInAgent(activeAgent);
       const isCustomAgent = !isBuiltIn;
       

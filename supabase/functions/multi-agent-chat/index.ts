@@ -323,18 +323,43 @@ async function logAgentInteraction(
       return;
     }
     
+    // Ensure we have valid strings to work with
+    const safeUserMessage = typeof userMessage === 'string' ? userMessage : '';
+    const safeAssistantResponse = typeof assistantResponse === 'string' ? assistantResponse : '';
+    
     // Truncate very long messages to prevent DB errors
     const maxMessageLength = 10000; // Set a reasonable limit
-    const truncatedUserMessage = userMessage?.length > maxMessageLength 
-      ? userMessage.substring(0, maxMessageLength) + "..." 
-      : userMessage || "";
+    const truncatedUserMessage = safeUserMessage.length > maxMessageLength 
+      ? safeUserMessage.substring(0, maxMessageLength) + "..." 
+      : safeUserMessage;
     
-    const truncatedAssistantResponse = assistantResponse?.length > maxMessageLength
-      ? assistantResponse.substring(0, maxMessageLength) + "..."
-      : assistantResponse || "";
+    const truncatedAssistantResponse = safeAssistantResponse.length > maxMessageLength
+      ? safeAssistantResponse.substring(0, maxMessageLength) + "..."
+      : safeAssistantResponse;
     
     console.log(`Logging interaction for user ${userId} with agent ${agentType}`);
     
+    // Check if table exists and has required columns
+    try {
+      const { data: tableData, error: tableError } = await supabase
+        .from('agent_interactions')
+        .select('id')
+        .limit(1);
+      
+      if (tableError) {
+        console.error("Error checking agent_interactions table:", tableError.message);
+        // If table doesn't exist or has errors, exit gracefully
+        return;
+      }
+    } catch (tableCheckError) {
+      console.error("Failed to check agent_interactions table:", tableCheckError);
+      return;
+    }
+    
+    // Add has_attachments column if it doesn't exist (this is for backward compatibility)
+    const hasAttachmentsValue = hasAttachments === true; // Ensure it's a boolean
+    
+    // Now attempt to insert the record
     const { data, error } = await supabase
       .from('agent_interactions')
       .insert({
@@ -342,12 +367,14 @@ async function logAgentInteraction(
         agent_type: agentType,
         user_message: truncatedUserMessage,
         assistant_response: truncatedAssistantResponse,
-        has_attachments: hasAttachments,
+        has_attachments: hasAttachmentsValue,
         timestamp: new Date().toISOString()
       });
       
     if (error) {
-      console.error("Error logging agent interaction:", error.message, error.details, error.hint);
+      console.error("Error logging agent interaction:", error.message, 
+                   error.details ? error.details : "No details", 
+                   error.hint ? error.hint : "No hint");
     } else {
       console.log("Successfully logged agent interaction");
     }

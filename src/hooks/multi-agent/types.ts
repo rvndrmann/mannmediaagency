@@ -1,4 +1,3 @@
-
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
 import { ToolContext, ToolResult } from "../types";
@@ -76,6 +75,7 @@ export interface RunResult {
     turnCount: number;
     toolCalls: number;
     handoffs: number;
+    messageCount: number;
   };
 }
 
@@ -153,6 +153,7 @@ export interface Trace {
   // Summary of the trace (final outcome)
   summary?: {
     totalMessages: number;
+    messageCount?: number;
     toolCalls: number;
     handoffs: number;
     modelUsed: string;
@@ -181,6 +182,7 @@ export interface TraceEvent {
 export class TraceManager {
   private currentTrace?: Trace;
   private isEnabled: boolean;
+  private models: Set<string> = new Set<string>();
 
   constructor(enabled: boolean = true) {
     this.isEnabled = enabled;
@@ -209,6 +211,11 @@ export class TraceManager {
   recordEvent(eventType: string, agentType: AgentType, data: any): void {
     if (!this.isEnabled || !this.currentTrace) return;
     
+    // Keep track of models used
+    if (eventType === 'model_used' && data.model) {
+      this.models.add(data.model);
+    }
+    
     this.currentTrace.events.push({
       eventType,
       timestamp: new Date(),
@@ -230,22 +237,28 @@ export class TraceManager {
     const agents = new Set<AgentType>();
     let toolCalls = 0;
     let handoffs = 0;
-    let modelUsed = "";
+    let totalMessages = 0;
+    let primaryModel = "";
     
     for (const event of this.currentTrace.events) {
       agents.add(event.agentType);
       
       if (event.eventType === "tool_start") {
         toolCalls++;
-      } else if (event.eventType === "handoff_start") {
+      } else if (event.eventType === "handoff") {
         handoffs++;
-      } else if (event.eventType === "message" && event.data?.modelUsed) {
-        modelUsed = event.data.modelUsed;
+      } else if (event.eventType === "message") {
+        totalMessages++;
+      } else if (event.eventType === "model_used" && event.data?.model) {
+        primaryModel = event.data.model;
       }
     }
     
+    // Use the most frequently used model or the last one
+    const modelUsed = primaryModel || (this.models.size > 0 ? Array.from(this.models).pop() || "" : "");
+    
     this.currentTrace.summary = {
-      totalMessages: this.currentTrace.events.filter(e => e.eventType === "message").length,
+      totalMessages,
       toolCalls,
       handoffs,
       modelUsed,
@@ -255,6 +268,7 @@ export class TraceManager {
     
     const trace = this.currentTrace;
     this.currentTrace = undefined;
+    this.models.clear();
     return trace;
   }
 

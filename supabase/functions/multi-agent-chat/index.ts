@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -373,7 +374,7 @@ async function getAgentCompletion(
   agentType: string, 
   contextData?: Record<string, any>,
   supabase?: any
-): Promise<string> {
+): Promise<{ completion: string, handoffRequest?: { targetAgent: string, reason: string }, modelUsed: string }> {
   const hasAttachments = contextData?.hasAttachments || false;
   const attachmentTypes = contextData?.attachmentTypes || [];
   const availableTools = contextData?.availableTools || [];
@@ -530,7 +531,22 @@ async function getAgentCompletion(
     const data = await response.json();
     const completion = data.choices[0].message.content;
     console.log(`${agentType} agent response:`, completion.slice(0, 150) + "...");
-    return completion;
+    
+    // Check for handoff requests
+    const handoffRequest = parseHandoffRequest(completion);
+    
+    // Logging for trace analysis
+    if (handoffRequest) {
+      console.log(`Handoff detected: ${handoffRequest.targetAgent}, Reason: ${handoffRequest.reason}`);
+    } else {
+      console.log("Handoff parsing result: No handoff detected");
+    }
+    
+    return { 
+      completion, 
+      handoffRequest, 
+      modelUsed: modelToUse 
+    };
   } catch (error) {
     console.error(`Error in ${agentType} agent:`, error);
     throw error;
@@ -597,7 +613,9 @@ async function logAgentInteraction(
   agentType: string,
   userMessage: string,
   assistantResponse: string,
-  hasAttachments: boolean
+  modelUsed: string,
+  hasAttachments: boolean,
+  traceId?: string
 ) {
   try {
     // Validate input data
@@ -625,7 +643,18 @@ async function logAgentInteraction(
       ? safeAssistantResponse.substring(0, maxMessageLength) + "..."
       : safeAssistantResponse;
     
-    console.log(`Logging interaction for user ${userId} with agent ${agentType}`);
+    console.log(`Logging interaction for user ${userId} with agent ${agentType}, modelUsed: ${modelUsed}`);
+    
+    // Prepare trace metadata if available
+    let metadata = {};
+    if (traceId) {
+      metadata = {
+        trace: {
+          id: traceId,
+          modelUsed
+        }
+      };
+    }
     
     // Check if table exists and has required columns
     try {
@@ -656,7 +685,8 @@ async function logAgentInteraction(
         user_message: truncatedUserMessage,
         assistant_response: truncatedAssistantResponse,
         has_attachments: hasAttachmentsValue,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        metadata
       });
       
     if (error) {
@@ -664,7 +694,7 @@ async function logAgentInteraction(
                    error.details ? error.details : "No details", 
                    error.hint ? error.hint : "No hint");
     } else {
-      console.log("Successfully logged agent interaction");
+      console.log("Successfully logged agent interaction with trace data");
     }
   } catch (err) {
     console.error("Failed to log agent interaction:", err instanceof Error ? err.message : String(err));
@@ -729,8 +759,9 @@ serve(async (req) => {
     const hasAttachments = contextData?.hasAttachments || false;
     const isCustomAgent = contextData?.isCustomAgent || false;
     const enableDirectToolExecution = contextData?.enableDirectToolExecution || false;
+    const traceId = contextData?.traceId || null;
     
-    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}, enableDirectToolExecution=${enableDirectToolExecution}`);
+    console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}, enableDirectToolExecution=${enableDirectToolExecution}, traceId=${traceId}`);
     
     // Check if agent type is a built-in type
     const isBuiltIn = isBuiltInAgentType(agentType);
@@ -792,4 +823,46 @@ serve(async (req) => {
       console.error("Error deducting credits:", deductError);
       return new Response(
         JSON.stringify({ error: "Failed to process credits" }),
-        {
+        { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Get completion from the agent
+    const { completion, handoffRequest, modelUsed } = await getAgentCompletion(
+      messages, 
+      agentType, 
+      contextData,
+      supabase
+    );
+    
+    // Log the interaction with the model used
+    await logAgentInteraction(
+      supabase,
+      userId,
+      agentType,
+      userMessage,
+      completion,
+      modelUsed,
+      hasAttachments,
+      traceId
+    );
+    
+    return new Response(
+      JSON.stringify({
+        completion,
+        handoffRequest,
+        modelUsed
+      }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  } catch (error) {
+    console.error("Error processing request:", error);
+    
+    return new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "An unexpected error occurred"
+      }),
+      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+    );
+  }
+});

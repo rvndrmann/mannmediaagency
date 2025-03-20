@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
@@ -102,6 +101,7 @@ export class AgentRunner {
       // Count tool calls and handoffs from the message history
       const toolCalls = this.state.messages.filter(m => m.command).length;
       const handoffs = this.state.messages.filter(m => m.handoffRequest).length;
+      const messageCount = this.state.messages.length;
       
       // Build result
       const result: RunResult = {
@@ -112,7 +112,8 @@ export class AgentRunner {
           totalDuration,
           turnCount: this.state.turnCount,
           toolCalls,
-          handoffs
+          handoffs,
+          messageCount
         }
       };
       
@@ -120,6 +121,12 @@ export class AgentRunner {
       if (this.traceManager.isTracingEnabled()) {
         const trace = this.traceManager.finishTrace();
         if (trace) {
+          // Add complete metrics to trace summary
+          if (trace.summary) {
+            trace.summary.toolCalls = toolCalls;
+            trace.summary.handoffs = handoffs;
+            trace.summary.messageCount = messageCount;
+          }
           await this.saveTraceToDatabase(trace);
           console.log(`Completed trace ${trace.traceId} for run ${this.config.runId}`);
         }
@@ -305,6 +312,13 @@ export class AgentRunner {
       hasHandoff: !!response.data?.handoffRequest,
       contentLength: response.data?.completion?.length || 0
     });
+    
+    // Specifically record model usage for analytics
+    if (response.data?.modelUsed) {
+      this.recordTraceEvent("model_used", { 
+        model: response.data.modelUsed
+      });
+    }
     
     if (response.error) {
       this.recordTraceEvent("api_call_error", { error: response.error });
@@ -567,6 +581,24 @@ export class AgentRunner {
     if (!this.userId) return;
     
     try {
+      // Enhanced trace metadata
+      const enhancedMetadata = {
+        trace: {
+          id: trace.traceId,
+          summary: {
+            ...trace.summary,
+            // Add all known metrics
+            toolCalls: this.state.messages.filter(m => m.command).length,
+            handoffs: this.state.messages.filter(m => m.handoffRequest).length,
+            messageCount: this.state.messages.length,
+            // Find all models used throughout the conversation
+            modelUsed: this.findLastUsedModel()
+          },
+          duration: trace.duration,
+          runId: this.config.runId
+        }
+      };
+      
       // Store trace data in the agent_interactions metadata
       await supabase.from("agent_interactions").insert({
         user_id: this.userId,
@@ -574,19 +606,40 @@ export class AgentRunner {
         user_message: this.state.messages.find(m => m.role === "user")?.content || "",
         assistant_response: this.state.messages.find(m => m.role === "assistant")?.content || "",
         has_attachments: this.hasAttachments(),
-        metadata: {
-          trace: {
-            id: trace.traceId,
-            summary: trace.summary,
-            duration: trace.duration,
-            runId: this.config.runId
-          }
-        }
+        metadata: enhancedMetadata
       });
       
-      console.log(`Saved trace ${trace.traceId} to database`);
+      console.log(`Saved enhanced trace ${trace.traceId} to database with full metrics`);
     } catch (error) {
       console.error("Error saving trace to database:", error);
     }
+  }
+  
+  /**
+   * Find the last used model in the conversation
+   * This helps ensure we have a model recorded for analytics
+   */
+  private findLastUsedModel(): string {
+    // First try to find from assistant messages
+    for (let i = this.state.messages.length - 1; i >= 0; i--) {
+      const message = this.state.messages[i];
+      if (message.role === 'assistant' && message.modelUsed) {
+        return message.modelUsed;
+      }
+    }
+    
+    // Fallback to check trace events
+    const currentTrace = this.traceManager.getCurrentTrace();
+    if (currentTrace && currentTrace.events) {
+      for (let i = currentTrace.events.length - 1; i >= 0; i--) {
+        const event = currentTrace.events[i];
+        if (event.eventType === 'model_used' && event.data.model) {
+          return event.data.model;
+        }
+      }
+    }
+    
+    // Return default model based on config
+    return this.config.usePerformanceModel ? 'gpt-4o-mini' : 'gpt-4o';
   }
 }

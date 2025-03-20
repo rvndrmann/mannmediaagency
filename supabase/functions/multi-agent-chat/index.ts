@@ -17,21 +17,43 @@ interface AgentMessage {
 
 interface MultiAgentRequest {
   messages: AgentMessage[];
-  agentType: "main" | "script" | "image" | "tool";
+  agentType: string;
   userId: string;
   contextData?: Record<string, any>;
+}
+
+async function getCustomAgentInstructions(supabase: any, agentType: string): Promise<string | null> {
+  try {
+    const { data, error } = await supabase
+      .from('custom_agents')
+      .select('instructions')
+      .eq('id', agentType)
+      .single();
+    
+    if (error) {
+      console.error("Error getting custom agent instructions:", error);
+      return null;
+    }
+    
+    return data?.instructions || null;
+  } catch (error) {
+    console.error("Failed to fetch custom agent instructions:", error);
+    return null;
+  }
 }
 
 async function getAgentCompletion(
   messages: AgentMessage[], 
   agentType: string, 
-  contextData?: Record<string, any>
+  contextData?: Record<string, any>,
+  supabase?: any
 ): Promise<string> {
   let systemMessage: AgentMessage;
   
   const hasAttachments = contextData?.hasAttachments || false;
   const attachmentTypes = contextData?.attachmentTypes || [];
   const availableTools = contextData?.availableTools || [];
+  const isCustomAgent = contextData?.isCustomAgent || false;
   
   let attachmentContext = "";
   if (hasAttachments) {
@@ -104,31 +126,50 @@ HANDOFF: tool, REASON: User needs to access video conversion tools"
 
 Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
 `;
-  
-  switch(agentType) {
-    case "script":
+
+  // For custom agents, get instructions from the database
+  if (isCustomAgent && supabase) {
+    const customInstructions = await getCustomAgentInstructions(supabase, agentType);
+    
+    if (customInstructions) {
       systemMessage = {
         role: "system",
-        content: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements. ${attachmentContext} ${handoffContext}`
+        content: `${customInstructions}\n\n${attachmentContext}\n\n${handoffContext}`
       };
-      break;
-    case "image":
+    } else {
+      // Fallback if custom agent not found
       systemMessage = {
         role: "system",
-        content: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation. ${attachmentContext} ${handoffContext}`
+        content: `You are a specialized AI assistant. Respond based on your expertise. ${attachmentContext} ${handoffContext}`
       };
-      break;
-    case "tool":
-      systemMessage = {
-        role: "system",
-        content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more. ${toolsContext} ${attachmentContext} ${handoffContext}`
-      };
-      break;
-    default: // main
-      systemMessage = {
-        role: "system",
-        content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. When you identify that a user's request would be better handled by a specialized agent, use the handoff format at the end of your message. ${attachmentContext} ${handoffContext}`
-      };
+    }
+  } else {
+    // Default agents
+    switch(agentType) {
+      case "script":
+        systemMessage = {
+          role: "system",
+          content: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements. ${attachmentContext} ${handoffContext}`
+        };
+        break;
+      case "image":
+        systemMessage = {
+          role: "system",
+          content: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation. ${attachmentContext} ${handoffContext}`
+        };
+        break;
+      case "tool":
+        systemMessage = {
+          role: "system",
+          content: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more. ${toolsContext} ${attachmentContext} ${handoffContext}`
+        };
+        break;
+      default: // main
+        systemMessage = {
+          role: "system",
+          content: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. When you identify that a user's request would be better handled by a specialized agent, use the handoff format at the end of your message. ${attachmentContext} ${handoffContext}`
+        };
+    }
   }
   
   const fullMessages = [systemMessage, ...messages];
@@ -243,6 +284,23 @@ serve(async (req) => {
     
     const userMessage = messages[messages.length - 1].content;
     const hasAttachments = contextData?.hasAttachments || false;
+    const isCustomAgent = contextData?.isCustomAgent || false;
+    
+    // Check if custom agent exists when isCustomAgent is true
+    if (isCustomAgent) {
+      const { data: agentData, error: agentError } = await supabase
+        .from('custom_agents')
+        .select('id, name')
+        .eq('id', agentType)
+        .single();
+        
+      if (agentError || !agentData) {
+        return new Response(
+          JSON.stringify({ error: "Custom agent not found" }),
+          { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+    }
     
     const { data: userCredits, error: creditsError } = await supabase
       .from('user_credits')
@@ -269,7 +327,7 @@ serve(async (req) => {
       );
     }
     
-    const completion = await getAgentCompletion(messages, agentType, contextData);
+    const completion = await getAgentCompletion(messages, agentType, contextData, supabase);
     
     const handoffRequest = parseHandoffRequest(completion);
     console.log("Handoff parsing result:", handoffRequest || "No handoff detected");

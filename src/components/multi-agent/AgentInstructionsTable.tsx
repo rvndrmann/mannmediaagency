@@ -1,108 +1,86 @@
 
-import React, { useState } from "react";
+import React from "react";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { Save } from "lucide-react";
-import { Form, FormField, FormItem, FormLabel, FormControl } from "@/components/ui/form";
-import { useForm } from "react-hook-form";
-import { toast } from "sonner";
-
-type AgentInstruction = {
-  type: AgentType;
-  name: string;
-  description: string;
-  instructions: string;
-};
+import { Edit, Save, X } from "lucide-react";
+import { AgentInfo } from "@/types/message";
+import { useCustomAgents } from "@/hooks/use-custom-agents";
+import { Textarea } from "@/components/ui/textarea";
 
 type AgentInstructionsTableProps = {
   activeAgent: AgentType;
 };
 
 export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTableProps) => {
-  const [agentInstructions, setAgentInstructions] = useState<AgentInstruction[]>(() => {
-    const savedInstructions = localStorage.getItem("agent_instructions");
-    if (savedInstructions) {
-      try {
-        return JSON.parse(savedInstructions);
-      } catch (e) {
-        console.error("Error parsing saved agent instructions:", e);
-      }
-    }
-
-    // Default instructions
-    return [
-      {
-        type: "main",
-        name: "General Assistant",
-        description: "General-purpose AI assistant",
-        instructions: "Help users with a wide range of tasks and questions."
-      },
-      {
-        type: "script",
-        name: "Script Writer",
-        description: "Specialized in creating scripts",
-        instructions: "Create compelling scripts, dialogue, and narrative content."
-      },
-      {
-        type: "image",
-        name: "Image Prompt Creator",
-        description: "Creates detailed prompts for images",
-        instructions: "Generate detailed, creative prompts for AI image generation."
-      },
-      {
-        type: "tool",
-        name: "Tool Orchestrator",
-        description: "Helps users use various tools",
-        instructions: "Guide users in using tools like image-to-video conversion, product-shot-v1 for basic product images, and product-shot-v2 for advanced product shots with scene composition and customization options. Recommend product-shot-v2 for higher quality product images."
-      }
-    ];
-  });
-
-  const [editingAgentType, setEditingAgentType] = useState<AgentType | null>(null);
+  const [editingAgentId, setEditingAgentId] = React.useState<string | null>(null);
+  const [editInstructions, setEditInstructions] = React.useState("");
+  const { customAgents, updateCustomAgent } = useCustomAgents();
   
-  const form = useForm({
-    defaultValues: {
-      name: "",
-      description: "",
-      instructions: ""
+  // Define built-in agents with default instructions
+  const builtInAgents: AgentInfo[] = [
+    {
+      id: "main",
+      name: "General Assistant",
+      description: "General-purpose AI assistant",
+      icon: "Bot",
+      color: "from-blue-400 to-indigo-500",
+      instructions: "Help users with a wide range of tasks and questions."
+    },
+    {
+      id: "script",
+      name: "Script Writer",
+      description: "Specialized in creating scripts",
+      icon: "PenLine",
+      color: "from-purple-400 to-pink-500",
+      instructions: "Create compelling scripts, dialogue, and narrative content."
+    },
+    {
+      id: "image",
+      name: "Image Prompt Creator",
+      description: "Creates detailed prompts for images",
+      icon: "Image",
+      color: "from-green-400 to-teal-500",
+      instructions: "Generate detailed, creative prompts for AI image generation."
+    },
+    {
+      id: "tool",
+      name: "Tool Orchestrator",
+      description: "Helps users use various tools",
+      icon: "Wrench",
+      color: "from-amber-400 to-orange-500",
+      instructions: "Guide users in using tools like image-to-video conversion, product-shot-v1 for basic product images, and product-shot-v2 for advanced product shots with scene composition and customization options. Recommend product-shot-v2 for higher quality product images."
     }
-  });
+  ];
 
-  const startEditing = (agentType: AgentType) => {
-    const agent = agentInstructions.find(a => a.type === agentType);
-    if (agent) {
-      form.reset({
-        name: agent.name,
-        description: agent.description,
-        instructions: agent.instructions
-      });
-      setEditingAgentType(agentType);
-    }
+  // Combine built-in and custom agents
+  const allAgents = [...builtInAgents, ...customAgents];
+
+  const startEditing = (agent: AgentInfo) => {
+    setEditingAgentId(agent.id);
+    setEditInstructions(agent.instructions);
   };
 
-  const saveInstructions = (values: { name: string; description: string; instructions: string }) => {
-    if (!editingAgentType) return;
+  const saveInstructions = async (agentId: string) => {
+    const agent = customAgents.find(a => a.id === agentId);
     
-    const updatedInstructions = agentInstructions.map(agent => 
-      agent.type === editingAgentType 
-        ? { ...agent, ...values }
-        : agent
-    );
+    if (agent) {
+      // Only custom agents can be edited via this method
+      await updateCustomAgent(agentId, {
+        name: agent.name,
+        description: agent.description,
+        icon: agent.icon,
+        color: agent.color,
+        instructions: editInstructions
+      });
+    }
     
-    setAgentInstructions(updatedInstructions);
-    setEditingAgentType(null);
-    
-    // Save to localStorage
-    localStorage.setItem("agent_instructions", JSON.stringify(updatedInstructions));
-    toast.success("Agent instructions updated successfully");
+    setEditingAgentId(null);
   };
 
   const cancelEditing = () => {
-    setEditingAgentType(null);
-    form.reset();
+    setEditingAgentId(null);
+    setEditInstructions("");
   };
 
   return (
@@ -120,85 +98,34 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
           </TableRow>
         </TableHeader>
         <TableBody>
-          {agentInstructions.map((agent) => (
+          {allAgents.map((agent) => (
             <TableRow 
-              key={agent.type}
-              className={`${agent.type === activeAgent ? "bg-gray-800/30" : ""}`}
+              key={agent.id}
+              className={`${agent.id === activeAgent ? "bg-gray-800/30" : ""}`}
             >
-              <TableCell className="font-medium">{agent.type}</TableCell>
-              <TableCell>
-                {editingAgentType === agent.type ? (
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(saveInstructions)} className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="name"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input {...field} className="bg-gray-900" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                ) : (
-                  agent.name
-                )}
+              <TableCell className="font-medium">
+                {agent.isCustom ? "Custom" : agent.id}
               </TableCell>
+              <TableCell>{agent.name}</TableCell>
+              <TableCell>{agent.description}</TableCell>
               <TableCell>
-                {editingAgentType === agent.type ? (
-                  <Form {...form}>
-                    <form className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="description"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Input {...field} className="bg-gray-900" />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
-                ) : (
-                  agent.description
-                )}
-              </TableCell>
-              <TableCell>
-                {editingAgentType === agent.type ? (
-                  <Form {...form}>
-                    <form className="space-y-4">
-                      <FormField
-                        control={form.control}
-                        name="instructions"
-                        render={({ field }) => (
-                          <FormItem>
-                            <FormControl>
-                              <Textarea 
-                                {...field} 
-                                className="bg-gray-900 min-h-[80px] text-sm"
-                                rows={3} 
-                              />
-                            </FormControl>
-                          </FormItem>
-                        )}
-                      />
-                    </form>
-                  </Form>
+                {editingAgentId === agent.id ? (
+                  <Textarea 
+                    value={editInstructions}
+                    onChange={(e) => setEditInstructions(e.target.value)}
+                    className="bg-gray-900 min-h-[80px] text-sm"
+                    rows={3} 
+                  />
                 ) : (
                   <div className="text-sm max-w-md truncate">{agent.instructions}</div>
                 )}
               </TableCell>
               <TableCell>
-                {editingAgentType === agent.type ? (
+                {editingAgentId === agent.id ? (
                   <div className="flex space-x-2">
                     <Button 
                       size="sm" 
-                      onClick={form.handleSubmit(saveInstructions)}
+                      onClick={() => saveInstructions(agent.id)}
                       className="bg-green-600 hover:bg-green-700"
                     >
                       <Save className="h-4 w-4 mr-1" />
@@ -209,15 +136,17 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
                       variant="outline" 
                       onClick={cancelEditing}
                     >
-                      Cancel
+                      <X className="h-4 w-4" />
                     </Button>
                   </div>
                 ) : (
                   <Button 
                     size="sm" 
-                    variant="ghost" 
-                    onClick={() => startEditing(agent.type)}
+                    variant="ghost"
+                    onClick={() => startEditing(agent)}
+                    disabled={!agent.isCustom && agent.id !== activeAgent}
                   >
+                    <Edit className="h-4 w-4 mr-1" />
                     Edit
                   </Button>
                 )}

@@ -37,8 +37,12 @@ export const MultiAgentChat = () => {
   useEffect(() => {
     const enableRealtime = async () => {
       try {
-        await supabase.functions.invoke("enable-realtime");
-        console.log("Realtime enabled for media generation tables");
+        await supabase.functions.invoke("enable-realtime", {
+          body: {
+            tables: ["custom_agents", "user_notifications", "media_generation_jobs"]
+          }
+        });
+        console.log("Realtime enabled for required tables");
       } catch (error) {
         console.error("Error enabling realtime:", error);
       }
@@ -119,7 +123,7 @@ export const MultiAgentChat = () => {
                 <h3 className="text-white/70 text-lg font-medium mb-2">Welcome to Multi-Agent Chat</h3>
                 <p className="text-white/50 max-w-md mx-auto">
                   Select an agent type and start chatting. Each agent specializes in different tasks:
-                  script writing, image prompts, or tool orchestration.
+                  script writing, image prompts, or tool orchestration. You can also create your own custom agents!
                 </p>
               </div>
             )}

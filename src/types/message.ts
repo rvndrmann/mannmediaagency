@@ -1,4 +1,3 @@
-
 export interface Message {
   role: "user" | "assistant";
   content: string;
@@ -12,8 +11,18 @@ export interface Message {
 }
 
 export interface HandoffRequest {
-  targetAgent: "main" | "script" | "image" | "tool";
+  targetAgent: string;
   reason: string;
+}
+
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  instructions: string;
+  isCustom?: boolean;
 }
 
 export interface Attachment {

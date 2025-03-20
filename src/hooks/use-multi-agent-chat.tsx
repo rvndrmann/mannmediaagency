@@ -1,8 +1,7 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentMessage, Message, Task, Attachment, Command, HandoffRequest } from "@/types/message";
+import { AgentMessage, Message, Task, Attachment, Command, HandoffRequest, AgentInfo } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { ToolContext, ToolResult } from "./multi-agent/types";
@@ -13,7 +12,7 @@ import { useMediaUpdates } from "./multi-agent/use-media-updates";
 const CHAT_CREDIT_COST = 0.07;
 const STORAGE_KEY = "multi_agent_chat_history";
 
-export type AgentType = "main" | "script" | "image" | "tool";
+export type AgentType = string;
 
 export const useMultiAgentChat = () => {
   const [messages, setMessages] = useState<Message[]>(() => {
@@ -210,7 +209,7 @@ export const useMultiAgentChat = () => {
     setMessages(prev => [...prev, handoffMessage]);
     
     // Switch the active agent
-    setActiveAgent(handoffRequest.targetAgent as AgentType);
+    setActiveAgent(handoffRequest.targetAgent);
     
     // Show notification to user
     toast.info(`Transferred to ${handoffRequest.targetAgent} agent for better assistance.`);
@@ -277,6 +276,9 @@ export const useMultiAgentChat = () => {
       
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
       
+      // Determine if the active agent is a custom agent
+      const isCustomAgent = !['main', 'script', 'image', 'tool'].includes(activeAgent);
+      
       // Call the multi-agent-chat function
       const response = await supabase.functions.invoke("multi-agent-chat", {
         body: {
@@ -286,7 +288,8 @@ export const useMultiAgentChat = () => {
           contextData: {
             hasAttachments: pendingAttachments.length > 0,
             attachmentTypes: pendingAttachments.map(a => a.type),
-            availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined
+            availableTools: activeAgent === "tool" ? getToolsForLLM() : undefined,
+            isCustomAgent
           }
         }
       });

@@ -679,6 +679,42 @@ export type Database = {
         }
         Relationships: []
       }
+      custom_agents: {
+        Row: {
+          color: string
+          created_at: string
+          description: string
+          icon: Database["public"]["Enums"]["agent_icon_type"]
+          id: string
+          instructions: string
+          name: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          color?: string
+          created_at?: string
+          description: string
+          icon?: Database["public"]["Enums"]["agent_icon_type"]
+          id?: string
+          instructions: string
+          name: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          color?: string
+          created_at?: string
+          description?: string
+          icon?: Database["public"]["Enums"]["agent_icon_type"]
+          id?: string
+          instructions?: string
+          name?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       custom_order_forms: {
         Row: {
           access_code: string | null
@@ -2615,6 +2651,17 @@ export type Database = {
       }
     }
     Enums: {
+      agent_icon_type:
+        | "Bot"
+        | "PenLine"
+        | "Image"
+        | "Wrench"
+        | "Code"
+        | "FileText"
+        | "Zap"
+        | "Brain"
+        | "Lightbulb"
+        | "Music"
       image_generation_status: "pending" | "processing" | "completed" | "failed"
       product_ad_status:
         | "draft"

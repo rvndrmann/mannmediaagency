@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
@@ -28,6 +29,9 @@ export class AgentRunner {
     config: RunConfig = {},
     hooks: RunHooks = {}
   ) {
+    // Determine if the initial agent is a custom agent
+    const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(initialAgentType);
+    
     this.state = {
       currentAgentType: initialAgentType,
       messages: [],
@@ -35,7 +39,7 @@ export class AgentRunner {
       turnCount: 0,
       status: "pending" as RunStatus,
       lastMessageIndex: -1,
-      isCustomAgent: !BUILT_IN_AGENT_TYPES.includes(initialAgentType),
+      isCustomAgent: isCustomAgent,
       enableDirectToolExecution: config.enableDirectToolExecution || false
     };
     
@@ -51,6 +55,8 @@ export class AgentRunner {
     this.hooks = hooks;
     this.traceManager = new TraceManager(!this.config.tracingDisabled);
     this.runStartTime = Date.now();
+    
+    console.log(`AgentRunner initialized with ${initialAgentType} (isCustom: ${isCustomAgent})`);
   }
   
   /**
@@ -438,8 +444,11 @@ export class AgentRunner {
     this.state.currentAgentType = targetAgent;
     this.state.handoffInProgress = true;
     
-    // Check if the target agent is a custom agent
-    this.state.isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(targetAgent);
+    // Check if the target agent is a custom agent or built-in type
+    const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(targetAgent);
+    this.state.isCustomAgent = isCustomAgent;
+    
+    console.log(`Handoff completed to ${targetAgent} (isCustom: ${isCustomAgent})`);
     
     this.emitEvent({ type: "handoff_end", to: targetAgent });
     

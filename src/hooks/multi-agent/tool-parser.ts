@@ -55,6 +55,37 @@ export function parseToolCommand(text: string): Command | null {
       }
     }
     
+    // Check for other common formats
+    const alternativeFormats = [
+      // "Using the X tool with parameters: {...}"
+      /Using the ([a-z0-9-]+) tool.*?parameters:?\s*(\{.*?\})/is,
+      // "Let me invoke the X tool with {...}"
+      /invoke the ([a-z0-9-]+) tool.*?(\{.*?\})/is,
+      // "I'll execute X with parameters {...}" 
+      /execute (?:the )?([a-z0-9-]+).*?parameters:?\s*(\{.*?\})/is
+    ];
+    
+    for (const pattern of alternativeFormats) {
+      const match = text.match(pattern);
+      if (match) {
+        const feature = match[1].toLowerCase();
+        try {
+          const parameters = JSON.parse(match[2]);
+          console.log(`Parsed tool using alternative format: ${feature}`, parameters);
+          
+          return {
+            feature: feature as Command["feature"],
+            action: "create",
+            parameters,
+            confidence: 0.7,
+            type: "alternative"
+          };
+        } catch (e) {
+          console.error(`Error parsing alternative tool format for ${feature}:`, e);
+        }
+      }
+    }
+    
     console.log("No tool command found in text");
     return null;
   } catch (error) {

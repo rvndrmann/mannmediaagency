@@ -91,6 +91,32 @@ export class AgentRunner {
   }
   
   /**
+   * Get system prompts for all agent types
+   */
+  private getDefaultSystemPrompt(agentType: string): string {
+    switch(agentType) {
+      case "main":
+        return "You are a general-purpose AI assistant. You are helpful, creative, clever, and friendly.";
+      case "script":
+        return "You are a script writer. You write scripts, dialogue, and stories.";
+      case "image":
+        return "You are an image prompt generator. You create detailed prompts for AI image generation.";
+      case "tool":
+        return "You are a tool orchestrator. You help the user use tools to accomplish tasks.";
+      case "scene":
+        return "You are a scene description generator. You create vivid scene descriptions for visual content.";
+      case "browser":
+        return "You are a browser automation specialist. You help the user automate browser tasks.";
+      case "product-video":
+        return "You are a product video creator. You help the user create professional product videos.";
+      case "custom-video":
+        return "You are a custom video request agent. You help the user submit requests for custom videos.";
+      default:
+        return "You are a general-purpose AI assistant. You are helpful, creative, clever, and friendly.";
+    }
+  }
+  
+  /**
    * Run the agent with the given input
    */
   async run(

@@ -37,6 +37,40 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const hasHandoffRequest = message.handoffRequest != null;
 
+  // Helper to get agent name display
+  const getAgentDisplayName = (agentType: string | undefined) => {
+    if (!agentType) return "Assistant";
+    
+    switch (agentType) {
+      case "main": return "Main Assistant";
+      case "script": return "Script Writer";
+      case "image": return "Image Prompt";
+      case "tool": return "Tool Orchestrator";
+      case "scene": return "Scene Description";
+      case "browser": return "Browser Auto";
+      case "product-video": return "Product Video";
+      case "custom-video": return "Custom Video";
+      default: return agentType.charAt(0).toUpperCase() + agentType.slice(1);
+    }
+  };
+
+  // Helper to get badge variant for agent type
+  const getAgentBadgeVariant = (agentType: string | undefined) => {
+    if (!agentType) return "default";
+    
+    switch (agentType) {
+      case "main": return "default";
+      case "script": return "info";
+      case "image": return "warning";
+      case "tool": return "success";
+      case "scene": return "secondary";
+      case "browser": return "info";
+      case "product-video": return "destructive";
+      case "custom-video": return "command";
+      default: return "default";
+    }
+  };
+
   return (
     <Card
       className={cn(
@@ -57,17 +91,10 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
       
       {isAgent && message.agentType && showAgentName && (
         <Badge 
-          variant={
-            message.agentType === "main" ? "default" : 
-            message.agentType === "script" ? "info" : 
-            message.agentType === "image" ? "warning" : 
-            "success"
-          }
+          variant={getAgentBadgeVariant(message.agentType)}
           className="mb-3 text-xs"
         >
-          {message.agentType === "main" ? "Main Assistant" : 
-           message.agentType === "script" ? "Script Writer" : 
-           message.agentType === "image" ? "Image Prompt" : "Tool Orchestrator"}
+          {getAgentDisplayName(message.agentType)}
         </Badge>
       )}
       
@@ -109,9 +136,7 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
           <span className="text-sm">
             Transferring to{" "}
             <Badge variant="outline" className="text-xs py-0 px-1 border-blue-400/30">
-              {message.handoffRequest?.targetAgent === "main" ? "Main Assistant" : 
-               message.handoffRequest?.targetAgent === "script" ? "Script Writer" : 
-               message.handoffRequest?.targetAgent === "image" ? "Image Prompt" : "Tool Orchestrator"}
+              {getAgentDisplayName(message.handoffRequest?.targetAgent)}
             </Badge>
           </span>
         </div>

@@ -1,5 +1,6 @@
+
 import { Button } from "@/components/ui/button";
-import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText } from "lucide-react";
+import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText, Globe, Video, ShoppingBag } from "lucide-react";
 import { useState } from "react";
 import { type AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { cn } from "@/lib/utils";
@@ -89,6 +90,30 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       color: "from-emerald-400 to-teal-500",
       instructions: ""
     },
+    { 
+      id: "browser", 
+      name: "Browser Auto", 
+      description: "Automates browser tasks for web-based operations",
+      icon: "Globe", 
+      color: "from-cyan-400 to-blue-500",
+      instructions: ""
+    },
+    { 
+      id: "product-video", 
+      name: "Product Video", 
+      description: "Creates professional product video content",
+      icon: "Video", 
+      color: "from-red-400 to-rose-500",
+      instructions: ""
+    },
+    { 
+      id: "custom-video", 
+      name: "Custom Video", 
+      description: "Helps create custom video requests",
+      icon: "ShoppingBag", 
+      color: "from-pink-400 to-purple-500",
+      instructions: ""
+    },
   ];
 
   const allAgents = [...builtInAgents, ...customAgents];
@@ -124,6 +149,9 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       case "Image": return Image;
       case "Wrench": return Wrench;
       case "FileText": return FileText;
+      case "Globe": return Globe;
+      case "Video": return Video;
+      case "ShoppingBag": return ShoppingBag;
       case "Edit": return Edit;
       case "Trash": return Trash;
       default: return Bot;

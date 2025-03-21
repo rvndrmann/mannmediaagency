@@ -30,7 +30,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { AgentInfo, AgentIconType } from "@/types/message";
-import { CustomAgentFormData } from "@/hooks/multi-agent/types";
+import { CustomAgentFormData } from "@/hooks/use-custom-agents";
 
 // Available icon options
 const iconOptions = [

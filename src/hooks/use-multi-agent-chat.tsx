@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { AgentRunner } from "./multi-agent/runner";
+import { AgentRunner } from "./multi-agent/runner/AgentRunner";
 
 // Define built-in agent types
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
@@ -32,7 +32,6 @@ export const useMultiAgentChat = () => {
   const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(true);
   const [tracingEnabled, setTracingEnabled] = useState(true);
   const [currentConversationId, setCurrentConversationId] = useState<string>(uuidv4());
-  const [debugMode, setDebugMode] = useState(false);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -59,15 +58,6 @@ export const useMultiAgentChat = () => {
       console.error("Error saving chat history to localStorage:", e);
     }
   }, [messages]);
-
-  // Debug mode handler
-  const toggleDebugMode = useCallback(() => {
-    setDebugMode(prev => !prev);
-    toast.info(debugMode ? 
-      "Debug mode disabled." : 
-      "Debug mode enabled. Check console for detailed logs."
-    );
-  }, [debugMode]);
 
   // Update message helper
   const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
@@ -103,16 +93,6 @@ export const useMultiAgentChat = () => {
       // Check if the active agent is a custom agent
       const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
 
-      // Create user message
-      const userMessage: Message = {
-        role: "user",
-        content: trimmedInput,
-        attachments: pendingAttachments.length > 0 ? pendingAttachments : undefined
-      };
-      
-      // Add user message to chat
-      setMessages(prev => [...prev, userMessage]);
-
       // Create AgentRunner instance
       const runner = new AgentRunner(activeAgent, {
         usePerformanceModel,
@@ -136,17 +116,6 @@ export const useMultiAgentChat = () => {
         }
       });
 
-      if (debugMode) {
-        console.log("Debug Mode - Starting Agent Run:", {
-          agent: activeAgent,
-          isCustomAgent,
-          usePerformanceModel,
-          enableDirectToolExecution,
-          tracingEnabled,
-          attachments: pendingAttachments.length
-        });
-      }
-
       // Run the agent
       await runner.run(trimmedInput, pendingAttachments, user.id);
       
@@ -160,10 +129,6 @@ export const useMultiAgentChat = () => {
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       toast.error(errorMessage);
-      
-      if (debugMode) {
-        console.error("Agent run error:", error);
-      }
     } finally {
       setIsLoading(false);
     }
@@ -226,7 +191,6 @@ export const useMultiAgentChat = () => {
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
-    debugMode,
     currentConversationId,
     handleSubmit,
     switchAgent,
@@ -236,7 +200,6 @@ export const useMultiAgentChat = () => {
     updateMessage,
     togglePerformanceMode,
     toggleDirectToolExecution,
-    toggleTracing,
-    toggleDebugMode
+    toggleTracing
   };
 };

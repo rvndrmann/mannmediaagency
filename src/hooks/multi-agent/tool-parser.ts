@@ -2,68 +2,63 @@
 import { Command } from "@/types/message";
 
 /**
- * Attempts to parse a command from text content
- * This is a simplified implementation that extracts basic tool commands
+ * Parse a tool command from text output
  */
-export function detectToolCommand(content: string | { role: string; content: string }): Command | null {
+export function parseToolCommand(text: string): Command | null {
   try {
-    // Extract content from object if passed
-    const textContent = typeof content === 'string' ? content : content.content;
+    // First try the formal TOOL format used by the tool orchestrator
+    const toolMatch = text.match(/TOOL:\s*([a-z0-9-]+)/i);
+    const paramsMatch = text.match(/PARAMETERS:\s*(\{.+\})/s);
     
-    // Try to match a command pattern like: [TOOL: tool-name] parameters...
-    const toolRegex = /\[TOOL:\s*([^\]]+)\]\s*(.+)$/s;
-    const match = textContent.match(toolRegex);
-
-    if (match) {
-      const feature = match[1].trim();
-      const paramsString = match[2].trim();
+    if (toolMatch) {
+      const feature = toolMatch[1].toLowerCase();
+      let parameters = {};
       
-      // Try to parse parameters as JSON if possible
-      let parameters: any = {};
-      try {
-        parameters = JSON.parse(paramsString);
-      } catch {
-        // If not valid JSON, use as raw text
-        parameters = { text: paramsString };
+      if (paramsMatch) {
+        try {
+          parameters = JSON.parse(paramsMatch[1]);
+          console.log(`Parsed tool parameters:`, parameters);
+        } catch (e) {
+          console.error("Error parsing tool parameters:", e);
+        }
       }
       
       return {
-        feature,
-        action: "create", // Default action
-        parameters
+        feature: feature as Command["feature"],
+        action: "create",
+        parameters,
+        confidence: 0.9
       };
     }
-
-    // Also try to look for tool API pattern: {{tool-name: parameters}}
-    const apiRegex = /\{\{([^:]+):\s*(.+)\}\}/;
-    const apiMatch = textContent.match(apiRegex);
     
-    if (apiMatch) {
-      const feature = apiMatch[1].trim();
-      const paramsString = apiMatch[2].trim();
+    // If no match with the formal TOOL format, try the more flexible direct agent format
+    // This looks for standard JSON tool calls in the LLM output
+    const toolCallPattern = /I'll use the ([a-z0-9-]+) tool.*?(\{.*?\})/is;
+    const directMatch = text.match(toolCallPattern);
+    
+    if (directMatch) {
+      const feature = directMatch[1].toLowerCase();
       
-      // Try to parse parameters as JSON if possible
-      let parameters: any = {};
       try {
-        parameters = JSON.parse(paramsString);
-      } catch {
-        // If not valid JSON, use as raw text
-        parameters = { text: paramsString };
+        const parameters = JSON.parse(directMatch[2]);
+        console.log(`Parsed direct tool parameters:`, parameters);
+        
+        return {
+          feature: feature as Command["feature"],
+          action: "create",
+          parameters,
+          confidence: 0.8,
+          type: "direct"
+        };
+      } catch (e) {
+        console.error("Error parsing direct tool parameters:", e);
       }
-      
-      return {
-        feature,
-        action: "create", // Default action
-        parameters
-      };
     }
-
+    
+    console.log("No tool command found in text");
     return null;
   } catch (error) {
     console.error("Error parsing tool command:", error);
     return null;
   }
 }
-
-// Export the function with the old name for backward compatibility
-export const parseToolCommand = detectToolCommand;

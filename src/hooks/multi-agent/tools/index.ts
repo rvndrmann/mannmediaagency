@@ -1,26 +1,32 @@
 
 import { ToolDefinition } from "../types";
+import { productShotV1Tool } from "./product-shot-v1-tool";
+import { productShotV2Tool } from "./product-shot-v2-tool";
+import { imageToVideoTool } from "./image-to-video-tool";
 
-// This is a registry for tool definitions
-const tools: Record<string, ToolDefinition> = {};
+// Registry of all available tools
+const toolRegistry: Record<string, ToolDefinition> = {
+  "product-shot-v1": productShotV1Tool,
+  "product-shot-v2": productShotV2Tool,
+  "image-to-video": imageToVideoTool,
+};
 
-/**
- * Register a tool in the system
- */
-export function registerTool(tool: ToolDefinition): void {
-  tools[tool.name] = tool;
-}
+// Export the tool registry
+export const getAvailableTools = (): ToolDefinition[] => {
+  return Object.values(toolRegistry);
+};
 
-/**
- * Get a tool by name
- */
-export function getTool(name: string): ToolDefinition | undefined {
-  return tools[name];
-}
+// Get a specific tool by name
+export const getTool = (name: string): ToolDefinition | undefined => {
+  return toolRegistry[name];
+};
 
-/**
- * Get all available tools
- */
-export function getAllTools(): ToolDefinition[] {
-  return Object.values(tools);
-}
+// Format tools for the LLM to understand
+export const getToolsForLLM = (): any[] => {
+  return Object.values(toolRegistry).map(tool => ({
+    name: tool.name,
+    description: tool.description,
+    parameters: tool.parameters,
+    required_credits: tool.requiredCredits
+  }));
+};

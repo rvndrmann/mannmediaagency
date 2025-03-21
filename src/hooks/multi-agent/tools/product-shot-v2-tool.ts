@@ -4,118 +4,134 @@ import { ToolDefinition, ToolContext, ToolResult } from "../types";
 
 export const productShotV2Tool: ToolDefinition = {
   name: "product-shot-v2",
-  description: "Generate professional product shots with advanced scene composition",
+  description: "Generate an enhanced product image with advanced features and better quality",
   parameters: {
     prompt: {
       type: "string",
-      description: "Description of the product and desired result",
-      required: true
+      description: "Detailed description of the product shot to generate"
     },
     imageUrl: {
       type: "string",
-      description: "URL of the product image",
-      required: true
+      description: "URL of the source product image"
     },
-    sceneType: {
+    imageSize: {
       type: "string",
-      description: "Type of scene to place the product in",
-      required: true,
-      enum: ["studio", "lifestyle", "outdoor", "abstract", "custom"],
-      default: "studio"
+      description: "Size of the output image",
+      enum: ["square", "square_hd", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"],
+      default: "square_hd"
     },
-    sceneDescription: {
+    inferenceSteps: {
+      type: "number",
+      description: "Number of inference steps",
+      default: 20
+    },
+    guidanceScale: {
+      type: "number",
+      description: "Guidance scale for image generation",
+      default: 7.5
+    },
+    outputFormat: {
       type: "string",
-      description: "Detailed description of the scene (for custom scenes)",
-      required: false
+      description: "Output format of the image",
+      enum: ["png", "jpg"],
+      default: "png"
+    },
+    enhancedDetails: {
+      type: "boolean",
+      description: "Whether to enhance details in the image",
+      default: true
     }
   },
-  requiredCredits: 2,
+  requiredCredits: 0.5,
   execute: async (params, context: ToolContext): Promise<ToolResult> => {
     try {
       // Check if user has enough credits
-      if (context.creditsRemaining < 2) {
+      if (context.creditsRemaining < 0.5) {
         return {
           success: false,
-          message: "Insufficient credits to generate a product shot. You need at least 2 credits."
+          message: "Insufficient credits to generate an enhanced product shot. You need at least 0.5 credits."
         };
       }
 
-      // Validate required parameters
-      if (!params.prompt) {
-        return {
-          success: false,
-          message: "Missing required parameter: prompt"
-        };
-      }
-
-      if (!params.imageUrl) {
-        // Check if an image was attached
-        if (context.attachments && context.attachments.length > 0) {
-          const imageAttachment = context.attachments.find(att => att.type === "image");
-          if (imageAttachment) {
-            params.imageUrl = imageAttachment.url;
-          } else {
-            return {
-              success: false,
-              message: "No product image provided. Please provide an image URL or attach an image."
-            };
-          }
-        } else {
-          return {
-            success: false,
-            message: "No product image provided. Please provide an image URL or attach an image."
-          };
+      // Get the image URL - either from the params or from attachments
+      let imageUrl = params.imageUrl;
+      if (!imageUrl && context.attachments?.length > 0) {
+        const imageAttachment = context.attachments.find(att => att.type === "image");
+        if (imageAttachment) {
+          imageUrl = imageAttachment.url;
         }
       }
 
-      // Validate scene type
-      const validSceneTypes = ["studio", "lifestyle", "outdoor", "abstract", "custom"];
-      const sceneType = validSceneTypes.includes(params.sceneType) ? 
-        params.sceneType : "studio";
+      if (!imageUrl) {
+        return {
+          success: false,
+          message: "No image URL provided. Please provide an image URL or attach an image."
+        };
+      }
 
-      // Insert job record
+      // Insert a record in the database with correct schema
       const { data: jobData, error: jobError } = await supabase
-        .from('product_shot_jobs')
+        .from("image_generation_jobs")
         .insert({
           prompt: params.prompt,
-          product_image_url: params.imageUrl,
-          scene_type: sceneType,
-          scene_description: params.sceneDescription || "",
-          status: 'in_queue',
-          user_id: context.userId,
-          version: 2,
           settings: {
-            prompt: params.prompt,
-            imageUrl: params.imageUrl,
-            sceneType: sceneType,
-            sceneDescription: params.sceneDescription || ""
-          }
+            source_image_url: imageUrl,
+            image_size: params.imageSize || "square_hd",
+            inference_steps: params.inferenceSteps || 20,
+            guidance_scale: params.guidanceScale || 7.5,
+            output_format: params.outputFormat || "png",
+            enhanced_details: params.enhancedDetails || true,
+            optimize_description: true // Flag for V2
+          },
+          status: "pending",
+          user_id: context.userId
         })
         .select()
         .single();
 
       if (jobError) throw jobError;
 
-      // Call edge function to start generation
-      const response = await supabase.functions.invoke('generate-product-shot', {
-        body: {
-          job_id: jobData.id,
-          prompt: params.prompt,
-          image_url: params.imageUrl,
-          scene_type: sceneType,
-          scene_description: params.sceneDescription || "",
-          version: 2
-        },
-      });
+      // Map the tool parameters to the edge function format
+      const requestBody = {
+        image_url: imageUrl,
+        scene_description: params.prompt,
+        optimize_description: true, // V2 flag
+        num_results: 1,
+        fast: false, // V2 uses the higher quality mode
+        placement_type: 'automatic',
+        sync_mode: false,
+        enhanced_details: true
+      };
 
-      if (response.error) throw new Error(response.error.message);
+      // Call the generate-product-shot edge function
+      const { data, error: functionError } = await supabase.functions.invoke(
+        "generate-product-shot",
+        {
+          body: JSON.stringify(requestBody)
+        }
+      );
+
+      if (functionError) throw functionError;
+
+      // Update the job record with the request ID
+      if (data?.requestId) {
+        await supabase
+          .from("image_generation_jobs")
+          .update({ 
+            request_id: data.requestId,
+            status: "processing"
+          })
+          .eq("id", jobData?.id);
+      }
 
       return {
         success: true,
-        message: "Product shot generation started. You'll be notified when it's ready. This version includes improved scene composition and lighting.",
+        message: "Enhanced product shot (V2) generation started successfully. You'll be notified when it's ready.",
+        requestId: data?.requestId,
         data: {
-          jobId: jobData.id,
-          status: "in_queue"
+          jobId: jobData?.id,
+          requestId: data?.requestId,
+          status: "processing"
         }
       };
     } catch (error) {

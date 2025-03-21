@@ -60,7 +60,7 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
         }
 
         // Fetch analytics data
-        const { data: analyticsData, error: analyticsError } = await supabase.rpc<AnalyticsData>(
+        const { data: analyticsData, error: analyticsError } = await supabase.rpc<AnalyticsData, { user_id_param: string }>(
           "get_agent_trace_analytics",
           { user_id_param: userIdToUse }
         );
@@ -72,7 +72,7 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
         }
 
         // Fetch conversation list
-        const { data: convoData, error: convoError } = await supabase.rpc<ConversationData[]>(
+        const { data: convoData, error: convoError } = await supabase.rpc<ConversationData[], { user_id_param: string }>(
           "get_user_conversations",
           { user_id_param: userIdToUse }
         );

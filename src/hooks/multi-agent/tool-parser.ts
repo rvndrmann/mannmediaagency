@@ -35,12 +35,44 @@ export function parseToolCommand(content: string): Command | null {
     
     return {
       feature: commandData.feature,
-      parameters: commandData.parameters || {}
+      action: commandData.action || "create", // Default action
+      parameters: commandData.parameters || {},
+      confidence: commandData.confidence || 1.0,
+      type: commandData.type || "standard"
     };
   } catch (error) {
     console.error("Error parsing tool command:", error);
     return null;
   }
+}
+
+/**
+ * Detect tool command from the input
+ * @param message The message to parse for commands
+ */
+export function detectToolCommand(message: { role: string; content: string }): Command | null {
+  // Check for classic command format
+  const commandMatch = parseToolCommand(message.content);
+  if (commandMatch) {
+    return commandMatch;
+  }
+  
+  // Check for slash command format like "/image generate cat"
+  const slashCommandRegex = /^\/(\w+)\s+([^$]*)/;
+  const match = message.content.match(slashCommandRegex);
+  
+  if (match) {
+    const [_, feature, paramText] = match;
+    return {
+      feature: feature as any,
+      action: "create",
+      parameters: { prompt: paramText.trim() },
+      confidence: 1.0,
+      type: "slash-command"
+    };
+  }
+  
+  return null;
 }
 
 /**

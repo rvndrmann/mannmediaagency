@@ -26,7 +26,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
   onSelectAgent,
   className = ''
 }) => {
-  const { customAgents } = useCustomAgents();
+  const { agents } = useCustomAgents();
 
   // Get agent icon based on type
   const getAgentIcon = (agentType: AgentType) => {
@@ -67,10 +67,10 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({
           </SelectItem>
         ))}
         
-        {customAgents && customAgents.length > 0 && (
+        {agents && agents.length > 0 && (
           <>
             <div className="px-2 py-1.5 text-xs text-slate-500">Custom Agents</div>
-            {customAgents.map((agent) => (
+            {agents.map((agent) => (
               <SelectItem key={agent.id} value={agent.id}>
                 <div className="flex items-center gap-2">
                   <span className="text-slate-500"><Bot size={16} /></span>

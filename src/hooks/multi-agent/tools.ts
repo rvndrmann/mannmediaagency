@@ -1,5 +1,5 @@
 
-import { ToolDefinition } from "./types";
+import { Tool, ToolDefinition } from "./types";
 
 // Map of tool definitions
 const toolsMap: Record<string, ToolDefinition> = {};

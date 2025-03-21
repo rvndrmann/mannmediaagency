@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { detectToolCommand, parseToolCommand } from "./tool-parser";
+import { detectToolCommand } from "./tool-parser";
 import { getTool } from "./tools";
 import { Command, Message } from "@/types/message";
 import { ToolResult } from "./types";

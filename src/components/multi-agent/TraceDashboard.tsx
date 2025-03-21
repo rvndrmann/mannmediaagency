@@ -1,433 +1,395 @@
 
-import React, { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { 
-  Table, 
-  TableBody, 
-  TableCaption, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from '@/components/ui/table';
+import { useState, useEffect, useMemo } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Pie, PieChart, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ArrowRight, Calendar, BarChart2, PieChart as PieChartIcon } from 'lucide-react';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { 
+  Clock, MessageSquare, Zap, ArrowRight, Tool, BarChart, RefreshCw, Check, Timer 
+} from 'lucide-react';
 import { TraceViewer } from './TraceViewer';
+import { formatDistanceToNow, format } from 'date-fns';
 import { ConversationData, TraceData } from '@/hooks/multi-agent/types';
 
 export function TraceDashboard() {
-  const [activeTab, setActiveTab] = useState('conversations');
   const [conversations, setConversations] = useState<ConversationData[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [selectedConversation, setSelectedConversation] = useState<ConversationData | null>(null);
+  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
   const [traceData, setTraceData] = useState<TraceData | null>(null);
-
-  // Fetch data on component mount
+  const [loading, setLoading] = useState(true);
+  const [loadingTrace, setLoadingTrace] = useState(false);
+  
+  // Fetch conversations
   useEffect(() => {
-    fetchConversations();
-  }, []);
-
-  // Fetch conversations from Supabase
-  const fetchConversations = async () => {
-    try {
-      setIsLoading(true);
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // This call will need an implementation in your backend
-      const { data, error } = await supabase
-        .from('agent_interactions')
-        .select('id, timestamp, agent_type, user_message, metadata')
-        .eq('user_id', user.id)
-        .order('timestamp', { ascending: false })
-        .limit(50);
-
-      if (error) {
-        console.error('Error fetching conversations:', error);
-        setConversations([]);
-        return;
-      }
-
-      // Group interactions by conversation ID (stored in metadata.groupId)
-      const conversationMap = new Map<string, any[]>();
-      
-      data.forEach(interaction => {
-        if (interaction.metadata) {
-          // Convert metadata to object if it's not already
-          const metadata = typeof interaction.metadata === 'object' 
-            ? interaction.metadata 
-            : {};
-            
-          // Check if metadata has groupId property
-          if (metadata && typeof metadata === 'object' && 'groupId' in metadata) {
-            const groupId = String(metadata.groupId || '');
-            if (groupId) {
-              if (!conversationMap.has(groupId)) {
-                conversationMap.set(groupId, []);
+    async function fetchConversations() {
+      try {
+        setLoading(true);
+        
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        const { data, error } = await supabase
+          .from('agent_traces')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false })
+          .limit(50);
+          
+        if (error) throw error;
+        
+        // Process the data into a format suitable for display
+        const conversationData: ConversationData[] = (data || []).map(item => {
+          // Safely access metadata properties
+          const metadata = item.metadata as Record<string, any> || {};
+          const groupId = typeof metadata === 'object' && metadata !== null ? metadata.groupId : null;
+          
+          // Extract first message if available
+          let firstMessage = '';
+          try {
+            if (item.events && typeof item.events === 'object' && Array.isArray(item.events)) {
+              const userMessage = item.events.find((event: any) => 
+                event && typeof event === 'object' && event.eventType === 'user_message'
+              );
+              
+              if (userMessage && userMessage.data && typeof userMessage.data === 'object') {
+                firstMessage = userMessage.data.content || '';
               }
-              conversationMap.get(groupId)!.push(interaction);
             }
+          } catch (err) {
+            console.error('Error extracting first message:', err);
           }
-        }
-      });
-      
-      // Convert map to conversation objects
-      const conversationList: ConversationData[] = Array.from(conversationMap.entries())
-        .map(([groupId, interactions]) => {
-          const sortedInteractions = interactions.sort(
-            (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-          );
-          
-          const firstInteraction = sortedInteractions[0];
-          const lastInteraction = sortedInteractions[sortedInteractions.length - 1];
-          
-          const agentTypes = [...new Set(interactions.map(i => i.agent_type))];
           
           return {
-            id: groupId,
-            startTime: firstInteraction.timestamp,
-            endTime: lastInteraction.timestamp,
-            duration: new Date(lastInteraction.timestamp).getTime() - new Date(firstInteraction.timestamp).getTime(),
-            agentTypes,
-            messageCount: interactions.length,
-            toolCalls: interactions.filter(i => {
-              const metadata = typeof i.metadata === 'object' ? i.metadata : {};
-              return metadata && typeof metadata === 'object' && 'toolCalls' in metadata;
-            }).length,
-            handoffs: interactions.filter(i => {
-              const metadata = typeof i.metadata === 'object' ? i.metadata : {};
-              return metadata && typeof metadata === 'object' && 'handoffs' in metadata;
-            }).length,
-            status: 'completed',
-            userId: user.id,
-            firstMessage: firstInteraction.user_message
+            id: item.id,
+            groupId: groupId,
+            startTime: item.created_at,
+            endTime: item.updated_at || item.created_at,
+            duration: item.duration || 0,
+            agentTypes: item.agent_types || [],
+            messageCount: item.message_count || 0,
+            toolCalls: item.tool_calls || 0,
+            handoffs: item.handoffs || 0,
+            status: item.status || 'completed',
+            userId: item.user_id,
+            firstMessage
           };
         });
-      
-      setConversations(conversationList);
-    } catch (error) {
-      console.error('Error processing conversation data:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Fetch trace data for a specific conversation
-  const fetchTraceData = async (conversationId: string) => {
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-
-      // This call will need an implementation in your backend
-      const { data, error } = await supabase
-        .from('agent_interactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('metadata->groupId', conversationId)
-        .order('timestamp', { ascending: true });
-
-      if (error) {
-        console.error('Error fetching trace data:', error);
-        return;
+        
+        // Group by conversation ID if available
+        const groupedConversations: Record<string, ConversationData[]> = {};
+        
+        conversationData.forEach(conv => {
+          if (conv.groupId) {
+            if (!groupedConversations[conv.groupId]) {
+              groupedConversations[conv.groupId] = [];
+            }
+            groupedConversations[conv.groupId].push(conv);
+          }
+        });
+        
+        // Create final conversation list
+        const finalConversations: ConversationData[] = [];
+        
+        // Add grouped conversations
+        Object.entries(groupedConversations).forEach(([groupId, convs]) => {
+          // Take the most recent one as the representative
+          const latestConv = convs.sort((a, b) => 
+            new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+          )[0];
+          
+          finalConversations.push({
+            ...latestConv,
+            messageCount: convs.reduce((sum, c) => sum + c.messageCount, 0),
+            toolCalls: convs.reduce((sum, c) => sum + c.toolCalls, 0),
+            handoffs: convs.reduce((sum, c) => sum + c.handoffs, 0),
+          });
+        });
+        
+        // Add individual conversations (ones without groupId)
+        conversationData
+          .filter(conv => !conv.groupId)
+          .forEach(conv => finalConversations.push(conv));
+        
+        // Sort by start time
+        finalConversations.sort((a, b) => 
+          new Date(b.startTime).getTime() - new Date(a.startTime).getTime()
+        );
+        
+        setConversations(finalConversations);
+      } catch (error) {
+        console.error('Error fetching conversations:', error);
+      } finally {
+        setLoading(false);
       }
-
-      // Transform into trace data format
-      const events = data.map((interaction, index) => ({
-        id: interaction.id,
-        timestamp: new Date(interaction.timestamp).getTime(),
-        agentType: interaction.agent_type,
-        eventType: (index % 2 === 0 ? 'user_message' : 'assistant_response') as 'user_message' | 'assistant_response' | 'tool_call' | 'handoff' | 'error',
-        data: {
-          content: index % 2 === 0 ? interaction.user_message : interaction.assistant_response,
-          ...(typeof interaction.metadata === 'object' ? interaction.metadata : {})
-        }
-      }));
-
-      // Get metadata from the first interaction, ensuring it's an object
-      const firstInteractionMetadata = typeof data[0]?.metadata === 'object' 
-        ? data[0].metadata 
-        : {};
-
-      // Create the trace data object
-      const traceData: TraceData = {
-        id: conversationId,
-        events,
+    }
+    
+    fetchConversations();
+  }, []);
+  
+  // Fetch trace data for a selected conversation
+  const fetchTraceData = async (traceId: string) => {
+    try {
+      setLoadingTrace(true);
+      setSelectedConversation(traceId);
+      
+      const { data, error } = await supabase
+        .from('agent_traces')
+        .select('*')
+        .eq('id', traceId)
+        .single();
+        
+      if (error) throw error;
+      
+      if (!data) {
+        throw new Error('Trace not found');
+      }
+      
+      // Process events
+      const events = data.events || [];
+      const metadata = data.metadata || {};
+      const modelUsed = typeof metadata === 'object' && metadata !== null ? 
+        metadata.modelUsed || 'Unknown' : 'Unknown';
+      
+      // Create trace data structure
+      const trace: TraceData = {
+        id: data.id,
+        events: events.map((event: any) => ({
+          id: event.id || `event-${Math.random().toString(36).substring(2, 9)}`,
+          timestamp: event.timestamp || Date.now(),
+          agentType: event.agentType || 'unknown',
+          eventType: event.eventType || 'unknown',
+          data: event.data || {}
+        })),
         summary: {
-          startTime: events[0]?.timestamp || Date.now(),
-          endTime: events[events.length - 1]?.timestamp || Date.now(),
-          duration: events.length > 0 
-            ? events[events.length - 1].timestamp - events[0].timestamp 
-            : 0,
-          agentTypes: [...new Set(events.map(e => e.agentType))],
-          userId: user.id,
-          success: true,
-          toolCalls: events.filter(e => e.eventType === 'tool_call').length,
-          handoffs: events.filter(e => e.eventType === 'handoff').length,
-          messageCount: events.length,
-          modelUsed: firstInteractionMetadata && typeof firstInteractionMetadata === 'object' && 
-                    'modelUsed' in firstInteractionMetadata
-            ? String(firstInteractionMetadata.modelUsed || 'Unknown')
-            : 'Unknown'
+          startTime: new Date(data.created_at).getTime(),
+          endTime: new Date(data.updated_at || data.created_at).getTime(),
+          duration: data.duration || 0,
+          agentTypes: data.agent_types || [],
+          userId: data.user_id,
+          success: data.status === 'completed',
+          toolCalls: data.tool_calls || 0,
+          handoffs: data.handoffs || 0,
+          messageCount: data.message_count || 0,
+          modelUsed
         }
       };
-
-      setTraceData(traceData);
+      
+      setTraceData(trace);
     } catch (error) {
-      console.error('Error processing trace data:', error);
+      console.error('Error fetching trace data:', error);
+    } finally {
+      setLoadingTrace(false);
     }
   };
-
-  // Handle view trace action
-  const handleViewTrace = (conversation: ConversationData) => {
-    setSelectedConversation(conversation);
-    fetchTraceData(conversation.id);
-  };
-
-  // Prepare data for charts
-  const formatChartData = () => {
-    const agentUsage: Record<string, number> = {};
+  
+  // Calculate stats for display
+  const stats = useMemo(() => {
+    if (!conversations.length) return null;
     
+    const totalMessages = conversations.reduce((sum, conv) => sum + conv.messageCount, 0);
+    const totalToolCalls = conversations.reduce((sum, conv) => sum + conv.toolCalls, 0);
+    const totalHandoffs = conversations.reduce((sum, conv) => sum + conv.handoffs, 0);
+    
+    // Get unique agent types
+    const agentTypes = new Set<string>();
     conversations.forEach(conv => {
-      conv.agentTypes.forEach(type => {
-        agentUsage[type] = (agentUsage[type] || 0) + 1;
-      });
+      (conv.agentTypes || []).forEach(type => agentTypes.add(type));
     });
     
-    return Object.entries(agentUsage).map(([name, value]) => ({ name, value }));
-  };
-
-  // Defining chart colors based on agent type
-  const AGENT_COLORS: Record<string, string> = {
-    main: '#3B82F6',
-    script: '#F59E0B',
-    image: '#8B5CF6',
-    tool: '#10B981',
-    scene: '#EC4899',
-    default: '#64748B'
-  };
-
-  // Format duration for display
-  const formatDuration = (ms: number) => {
-    const seconds = Math.floor(ms / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
-    if (hours > 0) {
-      return `${hours}h ${minutes % 60}m`;
-    } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
-    } else {
-      return `${seconds}s`;
+    return {
+      conversationCount: conversations.length,
+      messageCount: totalMessages,
+      toolCallCount: totalToolCalls,
+      handoffCount: totalHandoffs,
+      agentTypeCount: agentTypes.size
+    };
+  }, [conversations]);
+  
+  const getEventIcon = (eventType: string) => {
+    switch (eventType) {
+      case 'user_message':
+        return <MessageSquare className="h-4 w-4" />;
+      case 'assistant_response':
+        return <MessageSquare className="h-4 w-4 text-green-500" />;
+      case 'tool_call':
+        return <Tool className="h-4 w-4 text-blue-500" />;
+      case 'handoff':
+        return <ArrowRight className="h-4 w-4 text-orange-500" />;
+      case 'error':
+        return <Clock className="h-4 w-4 text-red-500" />;
+      default:
+        return <Clock className="h-4 w-4 text-gray-500" />;
     }
   };
-
+  
   return (
-    <div className="space-y-6">
-      {!selectedConversation ? (
-        <>
-          <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-            <h1 className="text-2xl font-bold">Trace Analytics</h1>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={fetchConversations} disabled={isLoading}>
-                Refresh Data
-              </Button>
-            </div>
-          </div>
+    <div className="h-full p-4 lg:p-8">
+      <Tabs defaultValue="conversations">
+        <div className="flex items-center justify-between mb-4">
+          <TabsList>
+            <TabsTrigger value="conversations">Conversations</TabsTrigger>
+            <TabsTrigger value="trace" disabled={!selectedConversation}>
+              Trace Viewer
+            </TabsTrigger>
+          </TabsList>
           
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsList className="grid grid-cols-2 w-[400px]">
-              <TabsTrigger value="conversations">
-                <Calendar className="h-4 w-4 mr-2" />
-                Conversations
-              </TabsTrigger>
-              <TabsTrigger value="analytics">
-                <BarChart2 className="h-4 w-4 mr-2" />
-                Analytics
-              </TabsTrigger>
-            </TabsList>
-            
-            <TabsContent value="conversations" className="space-y-4">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Recent Conversations</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableCaption>A list of your recent conversations with AI agents.</TableCaption>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-[250px]">First Message</TableHead>
-                        <TableHead>Time</TableHead>
-                        <TableHead>Duration</TableHead>
-                        <TableHead>Messages</TableHead>
-                        <TableHead>Agents</TableHead>
-                        <TableHead></TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {conversations.map(conversation => (
-                        <TableRow key={conversation.id}>
-                          <TableCell className="font-medium truncate max-w-[250px]">
-                            {conversation.firstMessage || "—"}
-                          </TableCell>
-                          <TableCell>
-                            {new Date(conversation.startTime).toLocaleString()}
-                          </TableCell>
-                          <TableCell>
-                            {formatDuration(conversation.duration)}
-                          </TableCell>
-                          <TableCell>{conversation.messageCount}</TableCell>
-                          <TableCell>
-                            <div className="flex flex-wrap gap-1">
-                              {conversation.agentTypes.map(agent => (
-                                <span 
-                                  key={agent}
-                                  className="inline-block px-2 py-0.5 text-xs rounded-full bg-blue-100 text-blue-800"
-                                >
-                                  {agent}
-                                </span>
-                              ))}
-                            </div>
-                          </TableCell>
-                          <TableCell>
-                            <Button 
-                              variant="ghost" 
-                              size="sm"
-                              onClick={() => handleViewTrace(conversation)}
-                            >
-                              View <ArrowRight className="ml-1 h-4 w-4" />
-                            </Button>
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                      
-                      {conversations.length === 0 && (
-                        <TableRow>
-                          <TableCell colSpan={6} className="text-center py-4 text-muted-foreground">
-                            {isLoading ? "Loading conversations..." : "No conversations found."}
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </TableBody>
-                  </Table>
-                </CardContent>
-              </Card>
-            </TabsContent>
-            
-            <TabsContent value="analytics" className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-1"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Refresh
+          </Button>
+        </div>
+        
+        <TabsContent value="conversations" className="mt-0">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 mb-4">
+            {stats && (
+              <>
                 <Card>
-                  <CardHeader>
-                    <CardTitle className="flex items-center">
-                      <PieChartIcon className="h-4 w-4 mr-2" />
-                      Agent Usage
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Total Conversations
                     </CardTitle>
+                    <MessageSquare className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
-                  <CardContent className="h-[300px]">
-                    {formatChartData().length > 0 ? (
-                      <ResponsiveContainer width="100%" height="100%">
-                        <PieChart>
-                          <Pie
-                            data={formatChartData()}
-                            cx="50%"
-                            cy="50%"
-                            labelLine={false}
-                            outerRadius={80}
-                            dataKey="value"
-                            label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
-                          >
-                            {formatChartData().map((entry, index) => (
-                              <Cell 
-                                key={`cell-${index}`} 
-                                fill={AGENT_COLORS[entry.name as keyof typeof AGENT_COLORS] || AGENT_COLORS.default} 
-                              />
-                            ))}
-                          </Pie>
-                          <Tooltip />
-                          <Legend />
-                        </PieChart>
-                      </ResponsiveContainer>
-                    ) : (
-                      <div className="flex items-center justify-center h-full text-muted-foreground">
-                        No data available
-                      </div>
-                    )}
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.conversationCount}</div>
                   </CardContent>
                 </Card>
                 
                 <Card>
-                  <CardHeader>
-                    <CardTitle>Conversation Statistics</CardTitle>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Total Messages
+                    </CardTitle>
+                    <BarChart className="h-4 w-4 text-muted-foreground" />
                   </CardHeader>
                   <CardContent>
-                    <div className="space-y-4">
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Total Conversations</span>
-                        <span className="font-medium">{conversations.length}</span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Average Message Count</span>
-                        <span className="font-medium">
-                          {conversations.length > 0 
-                            ? (conversations.reduce((sum, conv) => sum + conv.messageCount, 0) / conversations.length).toFixed(1)
-                            : "—"
-                          }
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Total Tool Calls</span>
-                        <span className="font-medium">
-                          {conversations.reduce((sum, conv) => sum + (conv.toolCalls || 0), 0)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between items-center">
-                        <span className="text-muted-foreground">Total Handoffs</span>
-                        <span className="font-medium">
-                          {conversations.reduce((sum, conv) => sum + (conv.handoffs || 0), 0)}
-                        </span>
-                      </div>
-                    </div>
+                    <div className="text-2xl font-bold">{stats.messageCount}</div>
                   </CardContent>
                 </Card>
-              </div>
-            </TabsContent>
-          </Tabs>
-        </>
-      ) : (
-        <div className="space-y-4">
-          <div className="flex items-center gap-4">
-            <Button 
-              variant="outline" 
-              onClick={() => {
-                setSelectedConversation(null);
-                setTraceData(null);
-              }}
-            >
-              Back to Analytics
-            </Button>
-            <h2 className="text-xl font-semibold">
-              Conversation Trace
-            </h2>
+                
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Tool Calls
+                    </CardTitle>
+                    <Tool className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.toolCallCount}</div>
+                  </CardContent>
+                </Card>
+                
+                <Card>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-sm font-medium">
+                      Handoffs
+                    </CardTitle>
+                    <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-bold">{stats.handoffCount}</div>
+                  </CardContent>
+                </Card>
+              </>
+            )}
           </div>
           
-          {traceData ? (
-            <TraceViewer trace={traceData} />
-          ) : (
-            <Card>
-              <CardContent className="flex items-center justify-center h-32">
-                <div className="text-center">
-                  <h3 className="font-medium">Loading trace data...</h3>
-                  <p className="text-sm text-muted-foreground">Please wait</p>
+          <Card className="col-span-4">
+            <CardHeader>
+              <CardTitle>Recent Conversations</CardTitle>
+              <CardDescription>
+                Your most recent AI agent interactions
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <div className="flex justify-center py-4">
+                  <RefreshCw className="h-6 w-6 animate-spin text-gray-400" />
                 </div>
-              </CardContent>
-            </Card>
+              ) : conversations.length === 0 ? (
+                <div className="text-center py-4 text-muted-foreground">
+                  No conversations found
+                </div>
+              ) : (
+                <ScrollArea className="h-[600px] w-full">
+                  <div className="space-y-4">
+                    {conversations.map((conversation) => (
+                      <div 
+                        key={conversation.id}
+                        className="p-4 border rounded-md hover:bg-accent cursor-pointer transition-colors"
+                        onClick={() => fetchTraceData(conversation.id)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <div className="font-medium truncate flex-1 mr-4">
+                            {conversation.firstMessage || 'Conversation ' + conversation.id.substring(0, 8)}
+                          </div>
+                          <div className="text-xs text-muted-foreground whitespace-nowrap">
+                            {formatDistanceToNow(new Date(conversation.startTime), { addSuffix: true })}
+                          </div>
+                        </div>
+                        
+                        <div className="flex justify-between items-center mt-2">
+                          <div className="flex space-x-2">
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              <MessageSquare className="h-3 w-3" />
+                              {conversation.messageCount}
+                            </Badge>
+                            {conversation.toolCalls > 0 && (
+                              <Badge variant="outline" className="flex items-center gap-1 text-blue-500">
+                                <Tool className="h-3 w-3" />
+                                {conversation.toolCalls}
+                              </Badge>
+                            )}
+                            {conversation.handoffs > 0 && (
+                              <Badge variant="outline" className="flex items-center gap-1 text-orange-500">
+                                <ArrowRight className="h-3 w-3" />
+                                {conversation.handoffs}
+                              </Badge>
+                            )}
+                          </div>
+                          
+                          <div className="flex items-center space-x-2">
+                            {conversation.agentTypes && conversation.agentTypes.slice(0, 3).map((agent, index) => (
+                              <Badge key={index} variant="secondary" className="text-xs">
+                                {agent}
+                              </Badge>
+                            ))}
+                            {conversation.agentTypes && conversation.agentTypes.length > 3 && (
+                              <Badge variant="secondary" className="text-xs">
+                                +{conversation.agentTypes.length - 3}
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="trace" className="mt-0 space-y-4">
+          {loadingTrace ? (
+            <div className="flex justify-center py-8">
+              <RefreshCw className="h-8 w-8 animate-spin text-gray-400" />
+            </div>
+          ) : traceData ? (
+            <TraceViewer traceData={traceData} />
+          ) : (
+            <div className="text-center py-8 text-muted-foreground">
+              Select a conversation to view its trace
+            </div>
           )}
-        </div>
-      )}
+        </TabsContent>
+      </Tabs>
     </div>
   );
 }

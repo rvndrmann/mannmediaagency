@@ -28,7 +28,7 @@ export function detectToolCommand(content: string | { role: string; content: str
       }
       
       return {
-        feature: feature as any, // Using type assertion here for compatibility
+        feature,
         action: "create", // Default action
         parameters
       };
@@ -52,7 +52,7 @@ export function detectToolCommand(content: string | { role: string; content: str
       }
       
       return {
-        feature: feature as any, // Using type assertion here for compatibility
+        feature,
         action: "create", // Default action
         parameters
       };

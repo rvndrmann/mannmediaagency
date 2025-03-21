@@ -132,48 +132,6 @@ export interface HandoffInputContext {
 // Function to filter inputs for handoffs
 export type HandoffInputFilter = (context: HandoffInputContext) => Message[];
 
-// Update the TraceEvent to include all event types needed for TraceDashboard
-export interface TraceEvent {
-  id: string;
-  timestamp: number;
-  agentType: string;
-  eventType: 'user_message' | 'assistant_response' | 'tool_call' | 'handoff' | 'error';
-  data: any;
-}
-
-export interface TraceSummary {
-  startTime: number;
-  endTime: number;
-  duration: number;
-  agentTypes: string[];
-  userId: string;
-  success: boolean;
-  toolCalls: number;
-  handoffs: number;
-  messageCount: number;
-  modelUsed: string;
-}
-
-export interface TraceData {
-  id: string;
-  events: TraceEvent[];
-  summary: TraceSummary;
-}
-
-export interface ConversationData {
-  id: string;
-  startTime: string;
-  endTime: string;
-  duration: number;
-  agentTypes: string[];
-  messageCount: number;
-  toolCalls: number;
-  handoffs: number;
-  status: 'pending' | 'completed' | 'error';
-  userId: string;
-  firstMessage?: string;
-}
-
 // Trace Manager implementation
 export class TraceManager {
   private tracingEnabled: boolean;
@@ -227,6 +185,49 @@ export interface Trace {
   start(): void;
   finish(): void;
   recordEvent(eventType: string, agentType: string, data: any): void;
+}
+
+// Update the TraceEvent to include all event types needed for TraceDashboard
+export interface TraceEvent {
+  id: string;
+  timestamp: number;
+  agentType: string;
+  eventType: 'user_message' | 'assistant_response' | 'tool_call' | 'handoff' | 'error';
+  data: any;
+}
+
+export interface TraceSummary {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  agentTypes: string[];
+  userId: string;
+  success: boolean;
+  toolCalls: number;
+  handoffs: number;
+  messageCount: number;
+  modelUsed: string;
+}
+
+export interface TraceData {
+  id: string;
+  events: TraceEvent[];
+  summary: TraceSummary;
+}
+
+export interface ConversationData {
+  id: string;
+  groupId?: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  agentTypes: string[];
+  messageCount: number;
+  toolCalls: number;
+  handoffs: number;
+  status: 'pending' | 'completed' | 'error';
+  userId: string;
+  firstMessage?: string;
 }
 
 // Custom agent form data

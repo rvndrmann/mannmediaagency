@@ -1,5 +1,5 @@
 
-import { ToolDefinition } from "../types";
+import { ToolDefinition } from "./types";
 import { productShotV1Tool } from "./product-shot-v1-tool";
 import { productShotV2Tool } from "./product-shot-v2-tool";
 import { imageToVideoTool } from "./image-to-video-tool";

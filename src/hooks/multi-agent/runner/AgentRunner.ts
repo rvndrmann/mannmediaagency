@@ -225,6 +225,29 @@ export class AgentRunner {
   }
   
   /**
+   * Check if the user has enough credits
+   */
+  private async checkCredits(userId: string): Promise<boolean> {
+    try {
+      const { data, error } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq("user_id", userId)
+        .single();
+      
+      if (error) throw error;
+      
+      // Store the user's credits for later use in tool execution
+      this.userCredits = data.credits_remaining;
+      
+      return data.credits_remaining >= CHAT_CREDIT_COST;
+    } catch (error) {
+      console.error("Error checking credits:", error);
+      return false;
+    }
+  }
+  
+  /**
    * Main run loop that handles agent execution
    */
   private async runLoop() {
@@ -520,8 +543,99 @@ export class AgentRunner {
     toast.info(`Transferred to ${targetAgent} agent for better assistance.`);
   }
   
-  // Helper methods
+  /**
+   * Emit an event to the hooks
+   */
+  private emitEvent(event: RunEvent) {
+    if (this.hooks.onEvent) {
+      this.hooks.onEvent(event);
+    }
+  }
   
   /**
-
-
+   * Create a new task
+   */
+  private createTask(name: string): Task {
+    return {
+      id: uuidv4(),
+      name,
+      status: "pending"
+    };
+  }
+  
+  /**
+   * Update a task's status
+   */
+  private updateTaskStatus(index: number, status: Task["status"], details?: string) {
+    if (this.state.messages[this.state.lastMessageIndex].tasks) {
+      this.state.messages[this.state.lastMessageIndex].tasks[index].status = status;
+      if (details) {
+        this.state.messages[this.state.lastMessageIndex].tasks[index].details = details;
+      }
+    }
+  }
+  
+  /**
+   * Update a message
+   */
+  private updateMessage(index: number, updates: Partial<Message>) {
+    this.state.messages[index] = {
+      ...this.state.messages[index],
+      ...updates
+    };
+  }
+  
+  /**
+   * Format messages for the API
+   */
+  private formatMessages() {
+    return this.state.messages.map(m => ({
+      role: m.role,
+      content: m.content,
+      attachments: m.attachments,
+      handoffRequest: m.handoffRequest,
+      command: m.command,
+      modelUsed: m.modelUsed,
+      status: m.status,
+      agentType: m.agentType,
+      tasks: m.tasks
+    }));
+  }
+  
+  /**
+   * Check if there are any attachments
+   */
+  private hasAttachments(): boolean {
+    return this.state.messages.some(m => m.attachments && m.attachments.length > 0);
+  }
+  
+  /**
+   * Get attachment types
+   */
+  private getAttachmentTypes(): string[] {
+    return this.state.messages.flatMap(m => m.attachments?.map(a => a.type) || []);
+  }
+  
+  /**
+   * Get all attachments
+   */
+  private getAttachments(): Attachment[] {
+    return this.state.messages.flatMap(m => m.attachments || []);
+  }
+  
+  /**
+   * Save trace to database
+   */
+  private async saveTraceToDatabase(trace: Trace) {
+    await supabase.from("trace").insert(trace);
+  }
+  
+  /**
+   * Record a trace event
+   */
+  private recordTraceEvent(eventType: string, eventData: any) {
+    if (this.traceManager.isTracingEnabled()) {
+      this.traceManager.recordEvent(eventType, eventData);
+    }
+  }
+}

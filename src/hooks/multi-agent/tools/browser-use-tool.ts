@@ -23,6 +23,7 @@ export const browserUseTool: ToolDefinition = {
       
       // Check if user has enough credits
       if (context.creditsRemaining < 1) {
+        console.error(`Insufficient credits: User has ${context.creditsRemaining} but needs 1 credit.`);
         return {
           success: false,
           message: "Insufficient credits to run browser automation. You need at least 1 credit."

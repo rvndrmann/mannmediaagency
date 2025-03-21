@@ -27,7 +27,7 @@ export function TraceViewer({ trace }: TraceViewerProps) {
       case 'assistant_response':
         return 'border-green-500 bg-green-500/10';
       case 'tool_call':
-        return event.data.success 
+        return event.data?.success 
           ? 'border-purple-500 bg-purple-500/10' 
           : 'border-red-500 bg-red-500/10';
       case 'handoff':
@@ -45,11 +45,11 @@ export function TraceViewer({ trace }: TraceViewerProps) {
       case 'assistant_response':
         return `${event.agentType} Response`;
       case 'tool_call':
-        return event.data.success
-          ? `Tool Call: ${event.data.tool}`
-          : `Failed Tool Call: ${event.data.tool}`;
+        return event.data?.success
+          ? `Tool Call: ${event.data?.tool || 'Unknown'}`
+          : `Failed Tool Call: ${event.data?.tool || 'Unknown'}`;
       case 'handoff':
-        return `Handoff: ${event.data.from} → ${event.data.to}`;
+        return `Handoff: ${event.data?.from || 'Unknown'} → ${event.data?.to || 'Unknown'}`;
       default:
         return 'Event';
     }
@@ -116,22 +116,22 @@ export function TraceViewer({ trace }: TraceViewerProps) {
                   <span className="text-sm text-gray-500">{formatTime(event.timestamp)}</span>
                 </div>
                 {event.eventType === 'user_message' && (
-                  <div className="text-sm">{event.data.content}</div>
+                  <div className="text-sm">{event.data?.content || ''}</div>
                 )}
                 {event.eventType === 'assistant_response' && (
-                  <div className="text-sm">{event.data.content}</div>
+                  <div className="text-sm">{event.data?.content || ''}</div>
                 )}
                 {event.eventType === 'tool_call' && (
                   <div className="text-sm">
-                    {event.data.success 
-                      ? `Successfully called the ${event.data.tool} tool`
-                      : `Failed to execute the ${event.data.tool} tool`
+                    {event.data?.success 
+                      ? `Successfully called the ${event.data?.tool || 'Unknown'} tool`
+                      : `Failed to execute the ${event.data?.tool || 'Unknown'} tool`
                     }
                   </div>
                 )}
                 {event.eventType === 'handoff' && (
                   <div className="text-sm">
-                    Request was handed off from <span className="font-medium">{event.data.from}</span> to <span className="font-medium">{event.data.to}</span>
+                    Request was handed off from <span className="font-medium">{event.data?.from || 'Unknown'}</span> to <span className="font-medium">{event.data?.to || 'Unknown'}</span>
                   </div>
                 )}
               </div>

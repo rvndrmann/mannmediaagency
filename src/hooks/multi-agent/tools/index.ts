@@ -1,7 +1,7 @@
 
 import { ToolDefinition } from "../types";
 
-// This is a placeholder that will be populated with actual tools later
+// This is a registry for tool definitions
 const tools: Record<string, ToolDefinition> = {};
 
 /**

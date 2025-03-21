@@ -51,7 +51,8 @@ class ToolExecutor {
   
   private getAvailableToolNames(): string[] {
     // Get all registered tools from the tools registry
-    return Object.values(getTool("") ? {} : {}).map(tool => tool.name);
+    const tools = Object.values(getTool("") ? {} : {});
+    return tools.map(tool => typeof tool === 'object' && tool !== null ? String(tool.name || '') : '');
   }
 }
 

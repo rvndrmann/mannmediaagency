@@ -2,9 +2,8 @@
 import React from 'react';
 import { AgentType, BUILT_IN_AGENT_TYPES } from '@/hooks/use-multi-agent-chat';
 import { Button } from '@/components/ui/button';
-import { Trash2, Zap, Wrench, GitCompare, Database, Bug } from 'lucide-react';
+import { Trash2, Zap, Wrench, GitCompare, Bug } from 'lucide-react';
 import { AgentSelector } from './AgentSelector';
-import { useCustomAgents } from '@/hooks/use-custom-agents';
 
 interface MultiAgentChatHeaderProps {
   activeAgent: AgentType;
@@ -33,9 +32,6 @@ export const MultiAgentChatHeader: React.FC<MultiAgentChatHeaderProps> = ({
   debugMode,
   onToggleDebugMode
 }) => {
-  // We don't need to use the agents directly from useCustomAgents here
-  // AgentSelector will handle that
-  
   // Get color based on agent type
   const getAgentColor = (agentType: AgentType): string => {
     switch (agentType) {

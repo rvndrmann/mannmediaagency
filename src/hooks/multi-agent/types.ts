@@ -35,6 +35,8 @@ export interface ToolDefinition {
     type: string;
     description: string;
     required: boolean;
+    enum?: string[]; // Added to support enum in tool parameters
+    default?: string; // Added to support default values in tool parameters
   }>;
   requiredCredits: number;
   execute: (params: any, context: ToolContext) => Promise<ToolResult>;
@@ -131,33 +133,46 @@ export interface HandoffInputContext {
 // Function to filter inputs for handoffs
 export type HandoffInputFilter = (context: HandoffInputContext) => Message[];
 
-// Tracing interfaces
-export interface Trace {
-  traceId: string;
-  start(): void;
-  finish(): void;
-  recordEvent(eventType: string, agentType: string, data: any): void;
-}
-
-// Custom agent form data
-export interface CustomAgentFormData {
-  name: string;
-  description?: string;
-  icon?: string;
-  color?: string;
-  instructions: string;
-}
-
-// Custom agent data
-export interface CustomAgent {
+// Trace data interfaces
+export interface TraceEvent {
   id: string;
-  name: string;
-  instructions: string;
-  user_id: string;
-  created_at?: string;
-  description?: string;
-  icon?: string;
-  color?: string;
+  timestamp: number;
+  agentType: string;
+  eventType: 'user_message' | 'assistant_response' | 'tool_call' | 'handoff' | 'error';
+  data: any;
+}
+
+export interface TraceSummary {
+  startTime: number;
+  endTime: number;
+  duration: number;
+  agentTypes: string[];
+  userId: string;
+  success: boolean;
+  toolCalls: number;
+  handoffs: number;
+  messageCount: number;
+  modelUsed: string;
+}
+
+export interface TraceData {
+  id: string;
+  events: TraceEvent[];
+  summary: TraceSummary;
+}
+
+export interface ConversationData {
+  id: string;
+  startTime: string;
+  endTime: string;
+  duration: number;
+  agentTypes: string[];
+  messageCount: number;
+  toolCalls: number;
+  handoffs: number;
+  status: 'pending' | 'completed' | 'error';
+  userId: string;
+  firstMessage?: string;
 }
 
 // Trace Manager implementation
@@ -205,4 +220,33 @@ export class TraceManager {
       this.currentTrace = null;
     }
   }
+}
+
+// Trace interface
+export interface Trace {
+  traceId: string;
+  start(): void;
+  finish(): void;
+  recordEvent(eventType: string, agentType: string, data: any): void;
+}
+
+// Custom agent form data
+export interface CustomAgentFormData {
+  name: string;
+  description?: string;
+  icon?: string;
+  color?: string;
+  instructions: string;
+}
+
+// Custom agent data
+export interface CustomAgent {
+  id: string;
+  name: string;
+  instructions: string;
+  user_id: string;
+  created_at?: string;
+  description?: string;
+  icon?: string;
+  color?: string;
 }

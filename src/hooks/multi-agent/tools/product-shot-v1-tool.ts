@@ -8,11 +8,13 @@ export const productShotV1Tool: ToolDefinition = {
   parameters: {
     prompt: {
       type: "string",
-      description: "Description of the product image to generate"
+      description: "Description of the product image to generate",
+      required: true
     },
     imageUrl: {
       type: "string",
-      description: "URL of the reference product image"
+      description: "URL of the reference product image",
+      required: false
     }
   },
   requiredCredits: 1,

@@ -8,22 +8,26 @@ export const imageToVideoTool: ToolDefinition = {
   parameters: {
     prompt: {
       type: "string",
-      description: "Description of the video to generate"
+      description: "Description of the video to generate",
+      required: true
     },
     imageUrl: {
       type: "string",
-      description: "URL of the source image"
+      description: "URL of the source image",
+      required: false
     },
     aspectRatio: {
       type: "string",
       description: "Aspect ratio of the video",
-      enum: ["16:9", "9:16", "4:3", "1:1"],
-      default: "16:9"
+      required: false,
+      // We'll handle these values programmatically since enum isn't supported in ToolDefinition
+      // Valid values: "16:9", "9:16", "4:3", "1:1"
     },
     duration: {
       type: "string",
       description: "Duration of the video in seconds",
-      default: "5"
+      required: false,
+      // We'll handle this value programmatically
     }
   },
   requiredCredits: 1,
@@ -53,21 +57,29 @@ export const imageToVideoTool: ToolDefinition = {
         };
       }
 
+      // Handle default values
+      const aspectRatio = params.aspectRatio || "16:9";
+      const duration = params.duration || "5";
+      
+      // Validate aspect ratio
+      const validAspectRatios = ["16:9", "9:16", "4:3", "1:1"];
+      const finalAspectRatio = validAspectRatios.includes(aspectRatio) ? aspectRatio : "16:9";
+
       // Insert job record in the database
       const { data: jobData, error: jobError } = await supabase
         .from('video_generation_jobs')
         .insert({
           prompt: params.prompt,
           source_image_url: imageUrl,
-          duration: params.duration || "5",
-          aspect_ratio: params.aspectRatio || "16:9",
+          duration: duration,
+          aspect_ratio: finalAspectRatio,
           status: 'in_queue',
           user_id: context.userId,
           settings: {
             prompt: params.prompt,
             imageUrl: imageUrl,
-            aspectRatio: params.aspectRatio || "16:9",
-            duration: params.duration || "5"
+            aspectRatio: finalAspectRatio,
+            duration: duration
           }
         })
         .select()
@@ -81,8 +93,8 @@ export const imageToVideoTool: ToolDefinition = {
           job_id: jobData.id,
           prompt: params.prompt,
           image_url: imageUrl,
-          duration: params.duration || "5",
-          aspect_ratio: params.aspectRatio || "16:9",
+          duration: duration,
+          aspect_ratio: finalAspectRatio,
         },
       });
 

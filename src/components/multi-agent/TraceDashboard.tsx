@@ -14,7 +14,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Pie, PieChart, Cell, ResponsiveContainer, Legend, Tooltip } from 'recharts';
-import { ArrowRight, Calendar, Maximize2, BarChart2, PieChart as PieChartIcon } from 'lucide-react';
+import { ArrowRight, Calendar, BarChart2, PieChart as PieChartIcon } from 'lucide-react';
 import { TraceViewer } from './TraceViewer';
 import { ConversationData, TraceData } from '@/hooks/multi-agent/types';
 
@@ -56,12 +56,18 @@ export function TraceDashboard() {
       const conversationMap = new Map<string, any[]>();
       
       data.forEach(interaction => {
-        if (interaction.metadata && interaction.metadata.groupId) {
-          const groupId = interaction.metadata.groupId;
-          if (!conversationMap.has(groupId)) {
-            conversationMap.set(groupId, []);
+        if (interaction.metadata) {
+          const metadata = typeof interaction.metadata === 'object' 
+            ? interaction.metadata 
+            : {};
+            
+          const groupId = metadata.groupId;
+          if (groupId && typeof groupId === 'string') {
+            if (!conversationMap.has(groupId)) {
+              conversationMap.set(groupId, []);
+            }
+            conversationMap.get(groupId)!.push(interaction);
           }
-          conversationMap.get(groupId)!.push(interaction);
         }
       });
       
@@ -84,8 +90,14 @@ export function TraceDashboard() {
             duration: new Date(lastInteraction.timestamp).getTime() - new Date(firstInteraction.timestamp).getTime(),
             agentTypes,
             messageCount: interactions.length,
-            toolCalls: interactions.filter(i => i.metadata?.toolCalls).length,
-            handoffs: interactions.filter(i => i.metadata?.handoffs).length,
+            toolCalls: interactions.filter(i => {
+              const metadata = typeof i.metadata === 'object' ? i.metadata : {};
+              return metadata.toolCalls;
+            }).length,
+            handoffs: interactions.filter(i => {
+              const metadata = typeof i.metadata === 'object' ? i.metadata : {};
+              return metadata.handoffs;
+            }).length,
             status: 'completed',
             userId: user.id,
             firstMessage: firstInteraction.user_message
@@ -124,12 +136,17 @@ export function TraceDashboard() {
         id: interaction.id,
         timestamp: new Date(interaction.timestamp).getTime(),
         agentType: interaction.agent_type,
-        eventType: index % 2 === 0 ? 'user_message' : 'assistant_response',
+        eventType: index % 2 === 0 ? 'user_message' : 'assistant_response' as 'user_message' | 'assistant_response',
         data: {
           content: index % 2 === 0 ? interaction.user_message : interaction.assistant_response,
-          ...interaction.metadata
+          ...(typeof interaction.metadata === 'object' ? interaction.metadata : {})
         }
       }));
+
+      // Get metadata from the first interaction, ensuring it's an object
+      const firstInteractionMetadata = typeof data[0]?.metadata === 'object' 
+        ? data[0].metadata 
+        : {};
 
       const traceData: TraceData = {
         id: conversationId,
@@ -146,7 +163,11 @@ export function TraceDashboard() {
           toolCalls: events.filter(e => e.eventType === 'tool_call').length,
           handoffs: events.filter(e => e.eventType === 'handoff').length,
           messageCount: events.length,
-          modelUsed: data[0]?.metadata?.modelUsed || 'Unknown'
+          modelUsed: typeof firstInteractionMetadata === 'object' && 
+                    firstInteractionMetadata !== null && 
+                    'modelUsed' in firstInteractionMetadata
+            ? String(firstInteractionMetadata.modelUsed || 'Unknown')
+            : 'Unknown'
         }
       };
 
@@ -318,7 +339,7 @@ export function TraceDashboard() {
                             {formatChartData().map((entry, index) => (
                               <Cell 
                                 key={`cell-${index}`} 
-                                fill={AGENT_COLORS[entry.name] || AGENT_COLORS.default} 
+                                fill={AGENT_COLORS[entry.name as keyof typeof AGENT_COLORS] || AGENT_COLORS.default} 
                               />
                             ))}
                           </Pie>

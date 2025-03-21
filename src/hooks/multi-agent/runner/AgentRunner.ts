@@ -2,7 +2,8 @@
 // Fix the import to use the proper types
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message, Attachment } from "@/types/message";
-import { RunConfig, RunHooks, RunState, RunStatus, ToolContext, ToolResult } from "../types";
+import { RunConfig, RunHooks, RunState, RunStatus } from "./types";
+import { ToolContext, ToolResult } from "@/hooks/types";
 
 export class AgentRunner {
   private config: RunConfig;

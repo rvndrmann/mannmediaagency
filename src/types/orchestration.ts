@@ -24,7 +24,7 @@ export type OrchestrationWorkflow = {
   order_id: string;
   status: WorkflowStatus;
   current_stage?: string;
-  workflow_data?: {
+  workflow_data: {
     order_id: string;
     stages: string[];
     [key: string]: any;
@@ -45,14 +45,6 @@ export type StageDisplayInfo = {
 export type WorkflowWithDetails = {
   workflow: OrchestrationWorkflow;
   stages: ProcessingStage[];
-  order: CustomOrder & { custom_order_media: Array<{
-    id: string;
-    order_id: string;
-    media_url: string;
-    media_type: string;
-    thumbnail_url?: string;
-    original_filename?: string;
-    created_at: string;
-  }>};
+  order: CustomOrder;
   currentStageIndex: number;
 };

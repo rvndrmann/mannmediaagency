@@ -1,333 +1,224 @@
-
-import { Button } from "@/components/ui/button";
-import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText, Globe, Video, ShoppingBag } from "lucide-react";
 import { useState } from "react";
-import { type AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
-import { cn } from "@/lib/utils";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
-import { Progress } from "@/components/ui/progress";
+import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
+import { useCustomAgents } from "@/hooks/use-custom-agents";
+import { AgentIconType, AgentInfo } from "@/types/message";
+import { 
+  Bot, 
+  PenLine, 
+  Image, 
+  Wrench, 
+  Code, 
+  FileText, 
+  Zap, 
+  Brain, 
+  Lightbulb, 
+  Music, 
+  Video,
+  Plus,
+  Globe,
+  ShoppingBag
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { AddAgentDialog } from "./AddAgentDialog";
-import { useCustomAgents, CustomAgentFormData } from "@/hooks/use-custom-agents";
-import { AgentInfo } from "@/types/message";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-} from "@/components/ui/alert-dialog";
+import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
+import { AgentBadge } from "./AgentBadge";
 
 interface AgentSelectorProps {
   activeAgent: AgentType;
   onAgentSelect: (agent: AgentType) => void;
 }
 
-export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps) => {
+export function AgentSelector({ activeAgent, onAgentSelect }: AgentSelectorProps) {
   const [showAddDialog, setShowAddDialog] = useState(false);
-  const [agentToEdit, setAgentToEdit] = useState<AgentInfo | null>(null);
-  const [agentToDelete, setAgentToDelete] = useState<string | null>(null);
-  
-  const { 
-    customAgents, 
-    createCustomAgent, 
-    updateCustomAgent, 
-    deleteCustomAgent, 
-    isLoading: isLoadingCustomAgents 
-  } = useCustomAgents();
+  const [editAgent, setEditAgent] = useState<AgentInfo | null>(null);
+  const { customAgents, isLoading, createCustomAgent, updateCustomAgent, deleteCustomAgent } = useCustomAgents();
 
+  // Core built-in agents
   const builtInAgents: AgentInfo[] = [
-    { 
-      id: "main", 
-      name: "Main Assistant", 
-      description: "General-purpose AI assistant",
-      icon: "Bot", 
-      color: "from-blue-400 to-indigo-500",
-      instructions: ""
+    {
+      id: "main",
+      name: "Main Assistant",
+      description: "General purpose AI assistant for varied tasks",
+      icon: "Bot",
+      color: "#7c3aed",
+      instructions: "You are a helpful AI assistant who responds to user requests in a friendly, conversational manner. You can answer questions, provide information, and help with various tasks."
     },
-    { 
-      id: "script", 
-      name: "Script Writer", 
-      description: "Specialized in creating scripts, dialogue, and stories",
-      icon: "PenLine", 
-      color: "from-purple-400 to-pink-500",
-      instructions: ""
+    {
+      id: "script",
+      name: "Script Writer",
+      description: "Creates detailed scripts for videos and presentations",
+      icon: "PenLine",
+      color: "#0ea5e9",
+      instructions: "You are a professional script writer. Create engaging, structured scripts for videos based on user requests, focusing on clear storytelling and persuasive content."
     },
-    { 
-      id: "image", 
-      name: "Image Prompt", 
-      description: "Creates detailed prompts for AI image generation",
-      icon: "Image", 
-      color: "from-green-400 to-teal-500",
-      instructions: ""
+    {
+      id: "image",
+      name: "Image Prompt",
+      description: "Generates detailed prompts for image creation",
+      icon: "Image",
+      color: "#f59e0b",
+      instructions: "You are an expert at creating detailed image prompts. Generate descriptive, specific prompts that will help create compelling visuals based on user requests."
     },
-    { 
-      id: "tool", 
-      name: "Tool Orchestrator", 
-      description: "Helps you use website tools like image-to-video",
-      icon: "Wrench", 
-      color: "from-amber-400 to-orange-500",
-      instructions: ""
+    {
+      id: "tool",
+      name: "Tool Orchestrator",
+      description: "Specialized in using various tools and APIs",
+      icon: "Wrench",
+      color: "#10b981",
+      instructions: "You are a tool orchestration specialist. Help users by selecting and executing the appropriate tools for their tasks, explaining what tools you're using and why."
     },
-    { 
-      id: "scene", 
-      name: "Scene Description", 
-      description: "Creates vivid scene descriptions for visual content",
-      icon: "FileText", 
-      color: "from-emerald-400 to-teal-500",
-      instructions: ""
+    {
+      id: "scene",
+      name: "Scene Description",
+      description: "Creates detailed visual scene descriptions",
+      icon: "FileText",
+      color: "#8b5cf6",
+      instructions: "You are a scene description specialist. Break down scripts into detailed visual scenes with camera angles, movements, and visual elements for video production."
     },
-    { 
-      id: "browser", 
-      name: "Browser Auto", 
-      description: "Automates browser tasks for web-based operations",
-      icon: "Globe", 
-      color: "from-cyan-400 to-blue-500",
-      instructions: ""
+    {
+      id: "browser",
+      name: "Browser Auto",
+      description: "Web browser automation specialist",
+      icon: "Globe",
+      color: "#3b82f6",
+      instructions: "You are a browser automation expert. Help users automate web tasks by generating detailed step-by-step browser instructions that can be executed programmatically."
     },
-    { 
-      id: "product-video", 
-      name: "Product Video", 
-      description: "Creates professional product video content",
-      icon: "Video", 
-      color: "from-red-400 to-rose-500",
-      instructions: ""
+    {
+      id: "product-video",
+      name: "Product Video",
+      description: "Creates product showcase videos",
+      icon: "Video",
+      color: "#ef4444",
+      instructions: "You are a product video specialist. Create compelling product videos that showcase features and benefits in an engaging visual format."
     },
-    { 
-      id: "custom-video", 
-      name: "Custom Video", 
-      description: "Helps create custom video requests",
-      icon: "ShoppingBag", 
-      color: "from-pink-400 to-purple-500",
-      instructions: ""
+    {
+      id: "custom-video",
+      name: "Custom Video",
+      description: "Creates custom videos from user specifications",
+      icon: "Video",
+      color: "#f97316",
+      instructions: "You are a custom video creation expert. Help users create unique videos based on their specific requirements and creative vision."
     },
+    {
+      id: "orchestrator",
+      name: "Orchestrator",
+      description: "Manages multi-agent workflows for complex tasks",
+      icon: "Brain",
+      color: "#6366f1",
+      instructions: "You are an orchestration specialist. Coordinate multiple specialized agents to complete complex tasks efficiently, breaking down problems and routing to the most suitable agent."
+    },
+    {
+      id: "voiceover",
+      name: "Voiceover",
+      description: "Creates voiceover scripts and generates audio",
+      icon: "Music",
+      color: "#ec4899",
+      instructions: "You are a voiceover specialist. Create natural, expressive voiceover scripts and help generate professional-sounding audio narration."
+    },
+    {
+      id: "music",
+      name: "Music",
+      description: "Selects and generates background music",
+      icon: "Music",
+      color: "#06b6d4",
+      instructions: "You are a music specialist. Select appropriate background music for videos that matches the mood, pace, and theme of the content."
+    },
+    {
+      id: "product-shop",
+      name: "Product Shop",
+      description: "E-commerce and product recommendation specialist",
+      icon: "ShoppingBag",
+      color: "#64748b",
+      instructions: "You are an e-commerce specialist. Help users find products, compare options, and make purchasing decisions with detailed recommendations."
+    }
   ];
 
+  // Get the full list of agents (built-in + custom)
   const allAgents = [...builtInAgents, ...customAgents];
+  
+  // Find the active agent info
+  const activeAgentInfo = allAgents.find(agent => agent.id === activeAgent) || builtInAgents[0];
 
-  const handleCreateAgent = async (data: CustomAgentFormData) => {
-    const newAgent = await createCustomAgent(data);
+  // Helper function to get the appropriate icon component
+  const getIconComponent = (iconType: AgentIconType) => {
+    switch (iconType) {
+      case "Bot": return <Bot className="h-4 w-4" />;
+      case "PenLine": return <PenLine className="h-4 w-4" />;
+      case "Image": return <Image className="h-4 w-4" />;
+      case "Wrench": return <Wrench className="h-4 w-4" />;
+      case "Code": return <Code className="h-4 w-4" />;
+      case "FileText": return <FileText className="h-4 w-4" />;
+      case "Zap": return <Zap className="h-4 w-4" />;
+      case "Brain": return <Brain className="h-4 w-4" />;
+      case "Lightbulb": return <Lightbulb className="h-4 w-4" />;
+      case "Music": return <Music className="h-4 w-4" />;
+      case "Video": return <Video className="h-4 w-4" />;
+      case "Globe": return <Globe className="h-4 w-4" />;
+      case "ShoppingBag": return <ShoppingBag className="h-4 w-4" />;
+      default: return <Bot className="h-4 w-4" />;
+    }
+  };
+
+  const handleAgentSelect = (agentId: AgentType) => {
+    onAgentSelect(agentId);
+  };
+
+  const handleCreateAgent = async (formData: any) => {
+    const newAgent = await createCustomAgent(formData);
     if (newAgent) {
       setShowAddDialog(false);
     }
   };
 
-  const handleEditAgent = async (data: CustomAgentFormData) => {
-    if (agentToEdit) {
-      await updateCustomAgent(agentToEdit.id, data);
-      setAgentToEdit(null);
-    }
+  const handleUpdateAgent = async (agentId: string, formData: any) => {
+    await updateCustomAgent(agentId, formData);
+    setEditAgent(null);
   };
 
-  const handleDeleteConfirm = async () => {
-    if (agentToDelete) {
-      await deleteCustomAgent(agentToDelete);
-      if (agentToDelete === activeAgent) {
-        onAgentSelect("main");
-      }
-      setAgentToDelete(null);
-    }
-  };
-
-  const getIconComponent = (iconName: string) => {
-    switch (iconName) {
-      case "Bot": return Bot;
-      case "PenLine": return PenLine;
-      case "Image": return Image;
-      case "Wrench": return Wrench;
-      case "FileText": return FileText;
-      case "Globe": return Globe;
-      case "Video": return Video;
-      case "ShoppingBag": return ShoppingBag;
-      case "Edit": return Edit;
-      case "Trash": return Trash;
-      default: return Bot;
-    }
+  const handleDeleteAgent = async (agentId: string) => {
+    await deleteCustomAgent(agentId);
   };
 
   return (
-    <div className="bg-gradient-to-r from-[#262B38]/80 to-[#323845]/80 backdrop-blur-sm rounded-xl p-2 mb-3 border border-white/10 shadow-lg animate-fadeIn">
-      <div className="flex justify-between items-center mb-1">
-        <h3 className="text-white text-xs font-semibold flex items-center">
-          Select Agent Type
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button variant="ghost" size="sm" className="ml-1 p-0 h-4 w-4 text-white/60 hover:text-white/80">
-                  <Info className="h-2.5 w-2.5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="bg-[#333] text-white border-[#555] max-w-xs">
-                <p className="text-xs">Choose the most suitable AI agent for your specific task</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-        </h3>
-        
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={() => setShowAddDialog(true)}
-          className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-5 px-1.5 py-0.5"
+    <div className="flex items-center gap-2 py-2 px-4 overflow-x-auto bg-[#21283B]/40 backdrop-blur-sm rounded-xl border border-white/10">
+      {allAgents.map((agent) => (
+        <Button
+          key={agent.id}
+          variant={activeAgent === agent.id ? "default" : "outline"}
+          onClick={() => handleAgentSelect(agent.id)}
+          className="group relative h-9 px-3 text-sm font-medium rounded-lg flex items-center gap-2 whitespace-nowrap transition-colors duration-200 hover:bg-secondary hover:text-secondary-foreground"
         >
-          <Plus className="h-2.5 w-2.5" />
-          Add Agent
+          {getIconComponent(agent.icon)}
+          {agent.name}
+          {agent.isCustom && (
+            <AgentBadge 
+              agent={agent}
+              onEdit={() => setEditAgent(agent)}
+              onDelete={handleDeleteAgent}
+            />
+          )}
         </Button>
-      </div>
+      ))}
       
-      <div className="grid grid-cols-3 gap-1">
-        {allAgents.map((agent) => {
-          const isActive = activeAgent === agent.id;
-          const IconComponent = getIconComponent(agent.icon);
-          const isCustom = 'isCustom' in agent && agent.isCustom;
-          const isBuiltIn = BUILT_IN_AGENT_TYPES.includes(agent.id);
-          
-          return (
-            <div key={agent.id} className="relative">
-              <TooltipProvider>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant={isActive ? "default" : "outline"}
-                      className={cn(
-                        "relative flex flex-col items-center justify-center h-[40px] w-full px-1 py-1 overflow-hidden group transition-all duration-300",
-                        isActive 
-                          ? `bg-gradient-to-br ${agent.color} border border-white/20 shadow-lg` 
-                          : "bg-[#333]/70 hover:bg-[#444]/90 text-white border-[#555] hover:border-[#666]"
-                      )}
-                      onClick={() => onAgentSelect(agent.id)}
-                    >
-                      {isActive && (
-                        <div className="absolute top-0 left-0 h-0.5 w-full bg-white/30"></div>
-                      )}
-                      
-                      <div className={cn(
-                        "rounded-full p-1 mb-0.5 transition-all duration-300",
-                        isActive 
-                          ? "bg-white/20" 
-                          : "bg-[#444]/50 group-hover:bg-[#555]/50"
-                      )}>
-                        <IconComponent className={cn("h-3 w-3", isActive ? "text-white" : "text-white/80 group-hover:text-white")} />
-                      </div>
-                      
-                      <span className={cn(
-                        "font-medium text-[8px] transition-all duration-300",
-                        isActive ? "text-white" : "text-white/90 group-hover:text-white"
-                      )}>
-                        {agent.name}
-                      </span>
-                      
-                      {isActive && (
-                        <div className="absolute bottom-0 left-0 w-full">
-                          <Progress value={100} className="h-0.5 rounded-none" indicatorClassName={`bg-white/30`} />
-                        </div>
-                      )}
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent className="bg-[#333] text-white border-[#555]">
-                    <p className="text-xs font-medium">{agent.name}</p>
-                    <p className="text-[10px] opacity-80">{agent.description}</p>
-                  </TooltipContent>
-                </Tooltip>
-              </TooltipProvider>
-              
-              {isCustom && (
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button 
-                      variant="ghost" 
-                      size="icon" 
-                      className="absolute top-0.5 right-0.5 h-3.5 w-3.5 bg-black/20 hover:bg-black/40 text-white/70 p-0"
-                    >
-                      <span className="sr-only">Open menu</span>
-                      <svg 
-                        width="15" 
-                        height="15" 
-                        viewBox="0 0 15 15" 
-                        fill="none" 
-                        xmlns="http://www.w3.org/2000/svg" 
-                        className="h-2 w-2"
-                      >
-                        <path 
-                          d="M3.625 7.5C3.625 8.12132 3.12132 8.625 2.5 8.625C1.87868 8.625 1.375 8.12132 1.375 7.5C1.375 6.87868 1.87868 6.375 2.5 6.375C3.12132 6.375 3.625 6.87868 3.625 7.5ZM8.625 7.5C8.625 8.12132 8.12132 8.625 7.5 8.625C6.87868 8.625 6.375 8.12132 6.375 7.5C6.375 6.87868 6.87868 6.375 7.5 6.375C8.12132 6.375 8.625 6.87868 8.625 7.5ZM13.625 7.5C13.625 8.12132 13.1213 8.625 12.5 8.625C11.8787 8.625 11.375 8.12132 11.375 7.5C11.375 6.87868 11.8787 6.375 12.5 6.375C13.1213 6.375 13.625 6.87868 13.625 7.5Z" 
-                          fill="currentColor" 
-                          fillRule="evenodd" 
-                          clipRule="evenodd"
-                        ></path>
-                      </svg>
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent className="bg-gray-900 border-gray-700 text-white min-w-[120px]">
-                    <DropdownMenuItem 
-                      className="flex items-center gap-2 cursor-pointer hover:bg-gray-800"
-                      onClick={() => setAgentToEdit(agent)}
-                    >
-                      <Edit className="h-3 w-3" />
-                      <span>Edit</span>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem 
-                      className="flex items-center gap-2 text-red-400 cursor-pointer hover:bg-gray-800 hover:text-red-300"
-                      onClick={() => setAgentToDelete(agent.id)}
-                    >
-                      <Trash className="h-3 w-3" />
-                      <span>Delete</span>
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              )}
-            </div>
-          );
-        })}
-      </div>
+      <Button
+        variant="ghost"
+        onClick={() => setShowAddDialog(true)}
+        className="h-9 w-9 p-0 rounded-lg flex items-center justify-center text-gray-400 hover:bg-secondary hover:text-secondary-foreground"
+      >
+        <Plus className="h-4 w-4" />
+        <span className="sr-only">Add Agent</span>
+      </Button>
 
-      <AddAgentDialog
-        open={showAddDialog}
-        onOpenChange={setShowAddDialog}
-        onSubmit={handleCreateAgent}
-      />
-
-      {agentToEdit && (
-        <AddAgentDialog
-          open={!!agentToEdit}
-          onOpenChange={(open) => !open && setAgentToEdit(null)}
-          onSubmit={handleEditAgent}
-          editAgent={agentToEdit}
-          title="Edit Custom Agent"
+      <AddAgentDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSubmit={handleCreateAgent} />
+      
+      {editAgent && (
+        <EditAgentInstructionsDialog
+          open={true}
+          onOpenChange={setEditAgent}
+          agent={editAgent}
+          onSubmit={handleUpdateAgent}
         />
       )}
-
-      <AlertDialog open={!!agentToDelete} onOpenChange={(open) => !open && setAgentToDelete(null)}>
-        <AlertDialogContent className="bg-gray-900 border-gray-700 text-white">
-          <AlertDialogHeader>
-            <AlertDialogTitle>Delete Custom Agent</AlertDialogTitle>
-            <AlertDialogDescription className="text-gray-400">
-              Are you sure you want to delete this custom agent? This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel className="bg-gray-800 border-gray-700 text-white hover:bg-gray-700">Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              className="bg-red-600 text-white hover:bg-red-700"
-              onClick={handleDeleteConfirm}
-            >
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
     </div>
   );
-};
+}

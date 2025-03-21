@@ -1,4 +1,5 @@
 export interface Message {
+  id?: string;
   role: "user" | "assistant";
   content: string;
   status?: "thinking" | "working" | "completed" | "error";
@@ -9,6 +10,7 @@ export interface Message {
   attachments?: Attachment[];
   handoffRequest?: HandoffRequest;
   modelUsed?: string;
+  timestamp?: string;
 }
 
 export interface HandoffRequest {
@@ -27,7 +29,9 @@ export type AgentIconType =
   | "Brain" 
   | "Lightbulb" 
   | "Music" 
-  | "Video";
+  | "Video"
+  | "Globe"
+  | "ShoppingBag";
 
 export interface AgentInfo {
   id: string;

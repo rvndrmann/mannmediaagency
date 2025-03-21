@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useCompletion } from "../use-completion";
 import { useTools } from "../use-tools";
 
+// Define AgentRunnerOptions interface
 interface AgentRunnerOptions {
   usePerformanceModel?: boolean;
   enableDirectToolExecution?: boolean;
@@ -15,13 +16,14 @@ interface AgentRunnerOptions {
   groupId?: string;
 }
 
+// Define AgentRunnerHooks interface
 interface AgentRunnerHooks {
   onMessage?: (message: Message) => void;
   onError?: (error: string) => void;
   onHandoffEnd?: (toAgent: AgentType) => void;
 }
 
-// Make sure to export the class properly
+// Export the AgentRunner class
 export class AgentRunner {
   private agentType: AgentType;
   private options: AgentRunnerOptions;
@@ -89,6 +91,7 @@ interface CompletionResult {
   tasks?: any[];
 }
 
+// Export the useAgentRunner hook
 export const useAgentRunner = ({ 
   agent, 
   initialMessage, 

@@ -1,5 +1,5 @@
 
-import { Tool, ToolDefinition } from "../types";
+import { ToolDefinition } from "../types";
 
 // This is a placeholder that will be populated with actual tools later
 const tools: Record<string, ToolDefinition> = {};

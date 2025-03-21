@@ -2,7 +2,6 @@
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message, Attachment, Command } from "@/types/message";
 import { toolExecutor } from "./tool-executor";
-import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { detectToolCommand } from "./tool-parser";
 import { 

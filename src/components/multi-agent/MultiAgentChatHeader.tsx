@@ -33,7 +33,7 @@ export const MultiAgentChatHeader: React.FC<MultiAgentChatHeaderProps> = ({
   debugMode,
   onToggleDebugMode
 }) => {
-  // We don't need to use customAgents directly from useCustomAgents here
+  // We don't need to use the agents directly from useCustomAgents here
   // AgentSelector will handle that
   
   // Get color based on agent type

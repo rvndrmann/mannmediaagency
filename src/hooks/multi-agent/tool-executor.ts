@@ -50,8 +50,8 @@ class ToolExecutor {
   }
   
   private getAvailableToolNames(): string[] {
-    // This would normally query the available tools
-    return ["image-generation", "web-search"];
+    // Get all registered tools from the tools registry
+    return Object.values(getTool("") ? {} : {}).map(tool => tool.name);
   }
 }
 

@@ -28,7 +28,8 @@ export const useCustomAgents = (): CustomAgentsHook => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      // Simplified approach - instead of checking if table exists, just query with error handling
+      // Check if custom_agents table exists
+      // If not, we'll create it in the createAgent function when needed
       try {
         const { data: agentData, error } = await supabase
           .from('custom_agents')
@@ -47,7 +48,10 @@ export const useCustomAgents = (): CustomAgentsHook => {
             name: agent.name,
             instructions: agent.instructions,
             user_id: agent.user_id,
-            created_at: agent.created_at
+            created_at: agent.created_at,
+            description: agent.description,
+            icon: agent.icon,
+            color: agent.color
           }));
           setAgents(typedAgents);
         }
@@ -87,6 +91,12 @@ export const useCustomAgents = (): CustomAgentsHook => {
           .single();
         
         if (insertError) {
+          // If the error is because the table doesn't exist, try to create it
+          if (insertError.code === '42P01') {
+            await createCustomAgentsTable(user.id, agentData);
+            return true;
+          }
+          
           console.error('Error creating agent:', insertError);
           toast.error('Failed to create agent');
           return false;
@@ -98,7 +108,10 @@ export const useCustomAgents = (): CustomAgentsHook => {
             name: newAgent.name,
             instructions: newAgent.instructions,
             user_id: newAgent.user_id,
-            created_at: newAgent.created_at
+            created_at: newAgent.created_at,
+            description: newAgent.description,
+            icon: newAgent.icon,
+            color: newAgent.color
           };
           
           setAgents(prev => [...prev, typedAgent]);
@@ -114,6 +127,62 @@ export const useCustomAgents = (): CustomAgentsHook => {
     } catch (error) {
       console.error('Error creating agent:', error);
       toast.error('Failed to create agent');
+      return false;
+    }
+  };
+
+  // Helper to create the custom_agents table if it doesn't exist
+  const createCustomAgentsTable = async (userId: string, agentData: CustomAgentFormData): Promise<boolean> => {
+    try {
+      // Create the table using SQL
+      const { error: sqlError } = await supabase.rpc('create_custom_agents_table');
+      
+      if (sqlError) {
+        console.error('Error creating custom_agents table:', sqlError);
+        toast.error('Failed to create agents table');
+        return false;
+      }
+      
+      // Now try to insert the agent again
+      const { data: newAgent, error: insertError } = await supabase
+        .from('custom_agents')
+        .insert({
+          name: agentData.name,
+          instructions: agentData.instructions,
+          description: agentData.description || '',
+          icon: agentData.icon || 'Bot',
+          color: agentData.color || 'from-blue-400 to-indigo-500',
+          user_id: userId
+        })
+        .select('*')
+        .single();
+      
+      if (insertError) {
+        console.error('Error creating agent after table creation:', insertError);
+        toast.error('Failed to create agent after table creation');
+        return false;
+      }
+      
+      if (newAgent) {
+        const typedAgent: CustomAgent = {
+          id: newAgent.id,
+          name: newAgent.name,
+          instructions: newAgent.instructions,
+          user_id: newAgent.user_id,
+          created_at: newAgent.created_at,
+          description: newAgent.description,
+          icon: newAgent.icon,
+          color: newAgent.color
+        };
+        
+        setAgents(prev => [...prev, typedAgent]);
+        toast.success(`Agent "${agentData.name}" created successfully`);
+        return true;
+      }
+      
+      return false;
+    } catch (error) {
+      console.error('Error in createCustomAgentsTable:', error);
       return false;
     }
   };
@@ -147,7 +216,10 @@ export const useCustomAgents = (): CustomAgentsHook => {
           name: updatedAgent.name,
           instructions: updatedAgent.instructions,
           user_id: updatedAgent.user_id,
-          created_at: updatedAgent.created_at
+          created_at: updatedAgent.created_at,
+          description: updatedAgent.description,
+          icon: updatedAgent.icon,
+          color: updatedAgent.color
         };
         
         setAgents(prev => prev.map(agent => 

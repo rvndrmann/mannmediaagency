@@ -113,50 +113,105 @@ export const useAgentRunner = ({
     return true;
   }, [tasks]);
   
-  const runAgent = useCallback(async (message, context = {}) => {
+  const runAgent = useCallback(async () => {
+    if (isRunning) return;
     setIsRunning(true);
     try {
-      // Process the message with the agent
-      // Fixed: Removed the third argument as getCompletion expects only 2 args
-      const completion = await getCompletion(agent, message);
+      // Initial Agent Message
+      const initialAgentMessage = {
+        id: uuidv4(),
+        agentId: agent.id,
+        content: initialMessage,
+        role: 'user',
+        createdAt: new Date(),
+      };
       
-      // Handle the agent's response
-      if (completion) {
-        // Create a new message with an ID for tracking
+      onNewMessage(initialAgentMessage);
+      
+      let currentMessage = initialAgentMessage;
+      let loopCount = 0;
+      
+      while (currentMessage.role !== 'assistant' && loopCount < 10) {
+        loopCount++;
+        
+        // Get Completion - use only 2 arguments as expected
+        const completion = await getCompletion(agent, allMessages);
+        
+        if (!completion) {
+          console.error("Completion failed, stopping agent.");
+          onUpdateMessage(currentMessage.id, {
+            content: `${currentMessage.content}\n\n**Error:** Completion failed.`,
+          });
+          onAgentStatusUpdate(agent.id, 'error');
+          break;
+        }
+        
+        // Add Assistant Message with an ID
         const newMessage = {
           ...completion,
-          id: uuidv4() // Add an ID to the completion result
+          id: uuidv4(),
+          agentId: agent.id,
+          role: 'assistant',
+          createdAt: new Date(),
         };
         
         onNewMessage(newMessage);
         
-        // Check for tool calls or handoffs
-        // Fixed: Changed completion.command.tool to completion.command.name
+        // Check if tool execution is needed
         if (completion.command && completion.command.name) {
-          // Fixed: Use completion.command.name instead of completion.command.tool
+          // Use command.name instead of command.tool
           const toolResult = await executeTool(completion.command.name, completion.command.parameters);
-          // Fixed: Use newMessage.id instead of completion.id
+          
+          // Update the message
           onUpdateMessage(newMessage.id, { status: 'completed' });
           
-          // Send tool result back to agent
-          return runAgent(`Tool result: ${JSON.stringify(toolResult)}`, {
-            previousMessage: newMessage
-          });
+          // Handle tool result
+          if (toolResult) {
+            const updatedContent = `${newMessage.content}\n\n${toolResult.content}`;
+            onUpdateMessage(newMessage.id, {
+              content: updatedContent,
+            });
+            
+            // Set current message for next iteration
+            currentMessage = { ...newMessage, content: updatedContent };
+          } else {
+            console.error(`Tool execution failed for: ${completion.command.name}`);
+            onUpdateMessage(newMessage.id, {
+              content: `${newMessage.content}\n\n**Error:** Tool execution failed.`,
+            });
+            onAgentStatusUpdate(agent.id, 'error');
+            break;
+          }
+        } else {
+          // No tool execution needed, agent completed its task
+          onAgentStatusUpdate(agent.id, 'completed');
+          break;
         }
       }
     } catch (error) {
-      console.error("Agent runner error:", error);
-      onAgentStatusUpdate('error', error.message);
+      console.error("Agent run failed:", error);
+      onAgentStatusUpdate(agent.id, 'error');
     } finally {
       setIsRunning(false);
+      onAgentStatusUpdate(agent.id, 'completed');
     }
-  }, [agent, getCompletion, executeTool, onNewMessage, onUpdateMessage, onAgentStatusUpdate]);
+  }, [
+    agent,
+    initialMessage,
+    isRunning,
+    getCompletion,
+    executeTool,
+    onNewMessage,
+    onUpdateMessage,
+    onAgentStatusUpdate,
+    allMessages
+  ]);
   
   useEffect(() => {
-    if (initialMessage && !isRunning) {
-      runAgent(initialMessage);
+    if (agent.autoRun) {
+      runAgent();
     }
-  }, [initialMessage, isRunning, runAgent]);
+  }, [agent.autoRun, runAgent]);
   
   return {
     tasks,

@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -60,27 +59,26 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
         }
 
         // Fetch analytics data
-        const { data: analyticsData, error: analyticsError } = await supabase.rpc<AnalyticsData, { user_id_param: string }>(
-          "get_agent_trace_analytics",
-          { user_id_param: userIdToUse }
-        );
+        const { data: analyticsData, error: analyticsError } = await supabase
+          .from("agent_trace_analytics")
+          .rpc("get_agent_trace_analytics", { user_id_param: userIdToUse });
 
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
         } else if (analyticsData) {
-          setAnalytics(analyticsData);
+          // Type assertion to ensure the data is of type AnalyticsData
+          setAnalytics(analyticsData as AnalyticsData);
         }
 
         // Fetch conversation list
-        const { data: convoData, error: convoError } = await supabase.rpc<ConversationData[], { user_id_param: string }>(
-          "get_user_conversations",
-          { user_id_param: userIdToUse }
-        );
+        const { data: convoData, error: convoError } = await supabase
+          .from("user_conversations")
+          .rpc("get_user_conversations", { user_id_param: userIdToUse });
 
         if (convoError) {
           console.error("Error fetching conversations:", convoError);
         } else if (convoData) {
-          setConversations(Array.isArray(convoData) ? convoData : []);
+          setConversations(Array.isArray(convoData) ? convoData as ConversationData[] : []);
         }
       } catch (error) {
         console.error("Error in data fetching:", error);
@@ -102,13 +100,12 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
         userIdToUse = user.id;
       }
 
-      const { data, error } = await supabase.rpc(
-        "get_conversation_trace",
-        { 
+      const { data, error } = await supabase
+        .from("conversation_trace")
+        .rpc("get_conversation_trace", { 
           conversation_id: conversationId,
           user_id_param: userIdToUse
-        }
-      );
+        });
 
       if (error) {
         console.error("Error fetching conversation detail:", error);

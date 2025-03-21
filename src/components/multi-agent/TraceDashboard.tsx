@@ -57,16 +57,20 @@ export function TraceDashboard() {
       
       data.forEach(interaction => {
         if (interaction.metadata) {
+          // Convert metadata to object if it's not already
           const metadata = typeof interaction.metadata === 'object' 
             ? interaction.metadata 
             : {};
             
-          const groupId = metadata.groupId;
-          if (groupId && typeof groupId === 'string') {
-            if (!conversationMap.has(groupId)) {
-              conversationMap.set(groupId, []);
+          // Check if metadata has groupId property
+          if (metadata && typeof metadata === 'object' && 'groupId' in metadata) {
+            const groupId = String(metadata.groupId || '');
+            if (groupId) {
+              if (!conversationMap.has(groupId)) {
+                conversationMap.set(groupId, []);
+              }
+              conversationMap.get(groupId)!.push(interaction);
             }
-            conversationMap.get(groupId)!.push(interaction);
           }
         }
       });
@@ -92,11 +96,11 @@ export function TraceDashboard() {
             messageCount: interactions.length,
             toolCalls: interactions.filter(i => {
               const metadata = typeof i.metadata === 'object' ? i.metadata : {};
-              return metadata.toolCalls;
+              return metadata && typeof metadata === 'object' && 'toolCalls' in metadata;
             }).length,
             handoffs: interactions.filter(i => {
               const metadata = typeof i.metadata === 'object' ? i.metadata : {};
-              return metadata.handoffs;
+              return metadata && typeof metadata === 'object' && 'handoffs' in metadata;
             }).length,
             status: 'completed',
             userId: user.id,
@@ -136,7 +140,7 @@ export function TraceDashboard() {
         id: interaction.id,
         timestamp: new Date(interaction.timestamp).getTime(),
         agentType: interaction.agent_type,
-        eventType: index % 2 === 0 ? 'user_message' : 'assistant_response' as 'user_message' | 'assistant_response',
+        eventType: (index % 2 === 0 ? 'user_message' : 'assistant_response') as 'user_message' | 'assistant_response' | 'tool_call' | 'handoff' | 'error',
         data: {
           content: index % 2 === 0 ? interaction.user_message : interaction.assistant_response,
           ...(typeof interaction.metadata === 'object' ? interaction.metadata : {})
@@ -148,6 +152,7 @@ export function TraceDashboard() {
         ? data[0].metadata 
         : {};
 
+      // Create the trace data object
       const traceData: TraceData = {
         id: conversationId,
         events,
@@ -163,8 +168,7 @@ export function TraceDashboard() {
           toolCalls: events.filter(e => e.eventType === 'tool_call').length,
           handoffs: events.filter(e => e.eventType === 'handoff').length,
           messageCount: events.length,
-          modelUsed: typeof firstInteractionMetadata === 'object' && 
-                    firstInteractionMetadata !== null && 
+          modelUsed: firstInteractionMetadata && typeof firstInteractionMetadata === 'object' && 
                     'modelUsed' in firstInteractionMetadata
             ? String(firstInteractionMetadata.modelUsed || 'Unknown')
             : 'Unknown'

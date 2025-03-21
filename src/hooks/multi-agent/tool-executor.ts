@@ -52,7 +52,14 @@ class ToolExecutor {
   private getAvailableToolNames(): string[] {
     // Get all registered tools from the tools registry
     const tools = Object.values(getTool("") ? {} : {});
-    return tools.map(tool => typeof tool === 'object' && tool !== null ? String(tool.name || '') : '');
+    
+    // Safely extract the name from each tool
+    return tools.map(tool => {
+      if (typeof tool === 'object' && tool !== null && 'name' in tool) {
+        return String(tool.name || '');
+      }
+      return '';
+    }).filter(Boolean);
   }
 }
 

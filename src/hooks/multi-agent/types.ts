@@ -1,4 +1,3 @@
-
 import { Message, Attachment } from "@/types/message";
 
 // Context for tool execution
@@ -133,7 +132,7 @@ export interface HandoffInputContext {
 // Function to filter inputs for handoffs
 export type HandoffInputFilter = (context: HandoffInputContext) => Message[];
 
-// Trace data interfaces
+// Update the TraceEvent to include all event types needed for TraceDashboard
 export interface TraceEvent {
   id: string;
   timestamp: number;

@@ -20,14 +20,14 @@ export const imageToVideoTool: ToolDefinition = {
       type: "string",
       description: "Aspect ratio of the video",
       required: false,
-      // We'll handle these values programmatically since enum isn't supported in ToolDefinition
-      // Valid values: "16:9", "9:16", "4:3", "1:1"
+      enum: ["16:9", "9:16", "4:3", "1:1"],
+      default: "16:9"
     },
     duration: {
       type: "string",
       description: "Duration of the video in seconds",
       required: false,
-      // We'll handle this value programmatically
+      default: "5"
     }
   },
   requiredCredits: 1,

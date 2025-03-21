@@ -4,36 +4,34 @@ import { ToolDefinition, ToolContext, ToolResult } from "../types";
 
 export const productShotV2Tool: ToolDefinition = {
   name: "product-shot-v2",
-  description: "Generate a high-quality product image from a reference photo with advanced AI",
+  description: "Generate a high-quality product shot with various style options",
   parameters: {
     prompt: {
       type: "string",
-      description: "Description of the product image to generate"
+      description: "Description of the product image to generate",
+      required: true
     },
     imageUrl: {
       type: "string",
-      description: "URL of the reference product image"
+      description: "URL of the reference product image",
+      required: false
     },
-    aspectRatio: {
+    style: {
       type: "string",
-      description: "Aspect ratio of the output image",
-      enum: ["1:1", "4:3", "3:4", "16:9", "9:16"],
-      default: "1:1"
-    },
-    optimize: {
-      type: "boolean",
-      description: "Whether to automatically optimize the prompt for better results",
-      default: true
+      description: "Style for the product shot (e.g. 'minimalist', 'luxury', 'vibrant')",
+      required: false,
+      enum: ["minimalist", "luxury", "vibrant", "studio", "lifestyle", "editorial"],
+      default: "studio"
     }
   },
-  requiredCredits: 1,
+  requiredCredits: 2,
   execute: async (params, context: ToolContext): Promise<ToolResult> => {
     try {
       // Check if user has enough credits
-      if (context.creditsRemaining < 1) {
+      if (context.creditsRemaining < 2) {
         return {
           success: false,
-          message: "Insufficient credits to generate a product image. You need at least 1 credit."
+          message: "Insufficient credits to generate a product image. You need at least 2 credits."
         };
       }
 
@@ -55,15 +53,15 @@ export const productShotV2Tool: ToolDefinition = {
 
       // Begin generating the product shot
       const { data: generationData, error: generationError } = await supabase
-        .from('product_images')
+        .from('image_generation_jobs')
         .insert({
           user_id: context.userId,
           prompt: params.prompt,
-          source_image_url: imageUrl,
           status: 'pending',
+          style: params.style || "studio",
           settings: {
-            optimize_description: params.optimize !== false,
-            aspectRatio: params.aspectRatio || "1:1"
+            imageUrl: imageUrl,
+            style: params.style || "studio"
           }
         })
         .select()
@@ -78,13 +76,12 @@ export const productShotV2Tool: ToolDefinition = {
       }
 
       // Call the edge function to start the generation
-      const response = await supabase.functions.invoke('generate-product-shot', {
+      const response = await supabase.functions.invoke('generate-product-image-v2', {
         body: {
           generation_id: generationData.id,
           prompt: params.prompt,
           image_url: imageUrl,
-          optimize: params.optimize !== false,
-          aspect_ratio: params.aspectRatio || "1:1"
+          style: params.style || "studio"
         },
       });
 
@@ -98,7 +95,7 @@ export const productShotV2Tool: ToolDefinition = {
 
       return {
         success: true,
-        message: "Product image generation started. This may take up to a minute.",
+        message: "Advanced product image generation started. This will take a moment.",
         data: {
           generationId: generationData.id,
           status: "pending"

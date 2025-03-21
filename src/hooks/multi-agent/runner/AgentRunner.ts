@@ -1,4 +1,3 @@
-
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message, Attachment, Command } from "@/types/message";
 import { toolExecutor } from "../tool-executor";
@@ -53,10 +52,8 @@ class AgentRunner {
     this.traceManager = new TraceManager(!config.tracingDisabled);
   }
 
-  // Main method to run the agent
   async run(userInput: string, attachments?: Attachment[], userId?: string): Promise<RunResult> {
     try {
-      // Start a new trace
       if (this.traceManager.isTracingEnabled() && userId) {
         this.currentTrace = this.traceManager.startTrace(
           userId,
@@ -64,7 +61,6 @@ class AgentRunner {
         );
       }
 
-      // Initialize state
       this.state.status = "running";
       this.state.currentAgentType = this.agentType;
       this.state.messages = [];
@@ -74,7 +70,6 @@ class AgentRunner {
         this.state.toolContext.userId = userId;
       }
 
-      // Add user input to messages
       const userMessage: Message = {
         role: "user",
         content: userInput,
@@ -83,38 +78,31 @@ class AgentRunner {
       
       this.state.messages.push(userMessage);
       
-      // Emit initial event
       this.emitEvent({
         type: "thinking",
         agentType: this.state.currentAgentType
       });
       
-      // Call AI to get response
       const response = await this.callAgentAPI(userInput, attachments);
       this.state.messages.push(response);
       
-      // Emit message event
       this.emitEvent({
         type: "message",
         message: response
       });
       
-      // Process command if present
       if (response.command) {
         await this.processCommand(response.command);
       }
       
-      // Check if handoff was requested
       if (response.handoffRequest) {
         await this.handleHandoff(response.handoffRequest.targetAgent, response.handoffRequest.reason);
       }
       
-      // Finalize the trace
       if (this.traceManager.isTracingEnabled() && this.currentTrace) {
         this.traceManager.finishTrace();
       }
       
-      // Set the final status
       this.state.status = "completed";
       
       return {
@@ -122,10 +110,10 @@ class AgentRunner {
         output: this.state.messages,
         success: true,
         metrics: {
-          totalDuration: 0, // Would calculate real duration in production
+          totalDuration: 0,
           turnCount: this.state.turnCount,
-          toolCalls: 0, // Would track tool calls in production
-          handoffs: 0, // Would track handoffs in production
+          toolCalls: 0,
+          handoffs: 0,
           messageCount: this.state.messages.length
         }
       };
@@ -135,16 +123,13 @@ class AgentRunner {
       
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       
-      // Emit error event
       this.emitEvent({
         type: "error",
         error: errorMessage
       });
       
-      // Update state
       this.state.status = "error";
       
-      // Finalize trace with error
       if (this.traceManager.isTracingEnabled() && this.currentTrace) {
         this.traceManager.finishTrace();
       }
@@ -158,7 +143,6 @@ class AgentRunner {
     }
   }
   
-  // Helper to call the agent API and get response
   private async callAgentAPI(
     userInput: string,
     attachments?: Attachment[]
@@ -166,7 +150,6 @@ class AgentRunner {
     try {
       this.state.turnCount++;
       
-      // If there are no messages yet, return immediately (shouldn't happen)
       if (this.state.messages.length === 0) {
         return {
           role: "assistant",
@@ -175,22 +158,17 @@ class AgentRunner {
         };
       }
       
-      // Format messages for API call, adding attachments to content if present
       const messagesWithAttachments = MultiAgentApiClient.formatAttachments([...this.state.messages]);
       
-      // Get available tools if using tool agent
       const availableTools = this.state.currentAgentType === 'tool' ? getAllTools() : [];
       
-      // Determine if this is a custom agent
       const isCustomAgent = this.state.isCustomAgent || false;
       
-      // Get attachment types if present
       const hasAttachments = !!attachments && attachments.length > 0;
       const attachmentTypes = hasAttachments 
         ? MultiAgentApiClient.getAttachmentTypes(messagesWithAttachments)
         : [];
       
-      // Call the multi-agent API through the Supabase edge function
       const { completion, handoffRequest, modelUsed } = await MultiAgentApiClient.callAgent(
         messagesWithAttachments,
         this.state.currentAgentType,
@@ -207,7 +185,6 @@ class AgentRunner {
         }
       );
       
-      // Detect if the response contains a command
       const commandMatch = completion.match(/TOOL: ([a-zA-Z0-9-_]+), PARAMETERS: ({.*})/i);
       let command: Command | null = null;
       
@@ -228,12 +205,10 @@ class AgentRunner {
           console.error("Error parsing tool command:", error);
         }
       } else {
-        // Try to detect slash commands
         const firstLine = completion.trim().split('\n')[0];
-        command = detectToolCommand({ role: "assistant", content: firstLine });
+        command = detectToolCommand(firstLine);
       }
       
-      // Return the assistant message with all the required information
       return {
         role: "assistant",
         content: completion,
@@ -248,35 +223,28 @@ class AgentRunner {
     }
   }
   
-  // Process tool command
   private async processCommand(command: Command): Promise<ToolResult> {
-    // Emit tool start event
     this.emitEvent({
       type: "tool_start",
       command
     });
     
-    // Execute the command
     const result = await toolExecutor.executeCommand(command, this.state.toolContext || { 
       userId: "", 
       creditsRemaining: 0 
     });
     
-    // Emit tool end event
     this.emitEvent({
       type: "tool_end",
       result
     });
     
-    // Store the result
     this.state.lastToolResult = result;
     
     return result;
   }
   
-  // Handle agent handoff
   private async handleHandoff(targetAgent: AgentType, reason: string): Promise<void> {
-    // Emit handoff start event
     this.emitEvent({
       type: "handoff_start",
       from: this.state.currentAgentType,
@@ -284,20 +252,16 @@ class AgentRunner {
       reason
     });
     
-    // Update state
     this.state.handoffInProgress = true;
     this.state.currentAgentType = targetAgent;
     
-    // Emit handoff end event
     this.emitEvent({
       type: "handoff_end",
       to: targetAgent
     });
   }
   
-  // Event helper
   private emitEvent(event: RunEvent): void {
-    // Handle specific event types
     switch (event.type) {
       case "thinking":
         this.hooks.onThinking?.(event.agentType);
@@ -325,10 +289,8 @@ class AgentRunner {
         break;
     }
     
-    // General event handler
     this.hooks.onEvent?.(event);
     
-    // Record in trace
     if (this.traceManager.isTracingEnabled() && this.state.toolContext?.userId) {
       this.traceManager.recordEvent(
         event.type,

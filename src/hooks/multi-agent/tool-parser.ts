@@ -5,11 +5,14 @@ import { Command } from "@/types/message";
  * Attempts to parse a command from text content
  * This is a simplified implementation that extracts basic tool commands
  */
-export function detectToolCommand(content: string): Command | null {
+export function detectToolCommand(content: string | { role: string; content: string }): Command | null {
   try {
+    // Extract content from object if passed
+    const textContent = typeof content === 'string' ? content : content.content;
+    
     // Try to match a command pattern like: [TOOL: tool-name] parameters...
     const toolRegex = /\[TOOL:\s*([^\]]+)\]\s*(.+)$/s;
-    const match = content.match(toolRegex);
+    const match = textContent.match(toolRegex);
 
     if (match) {
       const feature = match[1].trim();
@@ -25,7 +28,7 @@ export function detectToolCommand(content: string): Command | null {
       }
       
       return {
-        feature: feature,
+        feature: feature as any, // Using type assertion here for compatibility
         action: "create", // Default action
         parameters
       };
@@ -33,7 +36,7 @@ export function detectToolCommand(content: string): Command | null {
 
     // Also try to look for tool API pattern: {{tool-name: parameters}}
     const apiRegex = /\{\{([^:]+):\s*(.+)\}\}/;
-    const apiMatch = content.match(apiRegex);
+    const apiMatch = textContent.match(apiRegex);
     
     if (apiMatch) {
       const feature = apiMatch[1].trim();
@@ -49,7 +52,7 @@ export function detectToolCommand(content: string): Command | null {
       }
       
       return {
-        feature: feature,
+        feature: feature as any, // Using type assertion here for compatibility
         action: "create", // Default action
         parameters
       };
@@ -61,3 +64,6 @@ export function detectToolCommand(content: string): Command | null {
     return null;
   }
 }
+
+// Export the function with the old name for backward compatibility
+export const parseToolCommand = detectToolCommand;

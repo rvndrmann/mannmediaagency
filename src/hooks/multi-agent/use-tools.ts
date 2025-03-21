@@ -1,6 +1,6 @@
 
 import { useState } from "react";
-import { parseToolCommand } from "./tool-parser";
+import { detectToolCommand, parseToolCommand } from "./tool-parser";
 import { getTool } from "./tools";
 import { Command, Message } from "@/types/message";
 import { ToolResult } from "./types";
@@ -21,7 +21,7 @@ export function useTools(
       return false;
     }
 
-    const command = parseToolCommand(message.content);
+    const command = detectToolCommand(message.content);
     if (!command) return false;
 
     const toolDef = getTool(command.feature);

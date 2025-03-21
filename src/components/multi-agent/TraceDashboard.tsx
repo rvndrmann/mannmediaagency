@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -58,10 +59,11 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
           userIdToUse = user.id;
         }
 
-        // Fetch analytics data
+        // Fetch analytics data using functions.invoke instead of rpc
         const { data: analyticsData, error: analyticsError } = await supabase
-          .from("agent_trace_analytics")
-          .rpc("get_agent_trace_analytics", { user_id_param: userIdToUse });
+          .functions.invoke("get_agent_trace_analytics", {
+            body: { user_id_param: userIdToUse }
+          });
 
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
@@ -70,10 +72,11 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
           setAnalytics(analyticsData as AnalyticsData);
         }
 
-        // Fetch conversation list
+        // Fetch conversation list using functions.invoke
         const { data: convoData, error: convoError } = await supabase
-          .from("user_conversations")
-          .rpc("get_user_conversations", { user_id_param: userIdToUse });
+          .functions.invoke("get_user_conversations", {
+            body: { user_id_param: userIdToUse }
+          });
 
         if (convoError) {
           console.error("Error fetching conversations:", convoError);
@@ -101,10 +104,11 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
       }
 
       const { data, error } = await supabase
-        .from("conversation_trace")
-        .rpc("get_conversation_trace", { 
-          conversation_id: conversationId,
-          user_id_param: userIdToUse
+        .functions.invoke("get_conversation_trace", {
+          body: { 
+            conversation_id: conversationId,
+            user_id_param: userIdToUse
+          }
         });
 
       if (error) {

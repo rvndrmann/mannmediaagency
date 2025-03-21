@@ -8,8 +8,9 @@ import { AgentSelector } from "./AgentSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { Zap, Trash2, Hammer, BarChartBig } from "lucide-react";
+import { Zap, Trash2, Hammer, BarChartBig, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -40,6 +41,7 @@ export const MultiAgentChat = () => {
     toggleTracing
   } = useMultiAgentChat();
   
+  const navigate = useNavigate();
   const [showInstructions, setShowInstructions] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -61,13 +63,28 @@ export const MultiAgentChat = () => {
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
   };
+  
+  const handleBack = () => {
+    navigate(-1);
+  };
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827]">
       <header className="p-2 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
-        <div>
-          <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
-          <p className="text-xs text-gray-400">Interact with specialized AI agents</p>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={handleBack}
+            className="text-gray-400 hover:text-white"
+          >
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
+            <p className="text-xs text-gray-400">Interact with specialized AI agents</p>
+          </div>
         </div>
         
         <div className="flex items-center gap-1.5">

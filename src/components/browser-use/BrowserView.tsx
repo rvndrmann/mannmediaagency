@@ -2,8 +2,9 @@
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, RefreshCw, Camera, Globe, AlertCircle } from "lucide-react";
+import { Loader2, RefreshCw, Camera, Globe, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
 import { BrowserTaskState } from "@/hooks/browser-use/types";
+import { useState } from "react";
 
 interface BrowserViewProps {
   liveUrl: string | null;
@@ -22,12 +23,17 @@ export function BrowserView({
   captureScreenshot,
   connectionStatus
 }: BrowserViewProps) {
+  const [isExpanded, setIsExpanded] = useState(false);
   const isConnected = connectionStatus === "connected";
   const isConnecting = connectionStatus === "connecting";
   const isError = connectionStatus === "error";
 
   const handleCaptureScreenshot = async () => {
     await captureScreenshot();
+  };
+
+  const toggleExpand = () => {
+    setIsExpanded(!isExpanded);
   };
 
   const getStatusMessage = () => {
@@ -56,14 +62,28 @@ export function BrowserView({
     }
   };
 
+  const expandedClasses = isExpanded 
+    ? "fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-4" 
+    : "";
+
   return (
-    <Card className="flex flex-col h-full">
+    <Card className={`flex flex-col ${expandedClasses} ${isExpanded ? 'h-full' : 'h-full'}`}>
       <div className="p-4 border-b flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <h3 className="font-medium">Browser View</h3>
-          <div className={`flex items-center gap-2 text-sm ${getStatusColor()}`}>
-            <span className={`h-2 w-2 rounded-full ${connectionStatus === "connected" ? "bg-green-500" : connectionStatus === "connecting" ? "bg-amber-500" : connectionStatus === "error" ? "bg-red-500" : "bg-gray-500"}`}></span>
-            {getStatusMessage()}
+          <div className="flex items-center gap-2">
+            <div className={`flex items-center gap-2 text-sm ${getStatusColor()}`}>
+              <span className={`h-2 w-2 rounded-full ${connectionStatus === "connected" ? "bg-green-500" : connectionStatus === "connecting" ? "bg-amber-500" : connectionStatus === "error" ? "bg-red-500" : "bg-gray-500"}`}></span>
+              {getStatusMessage()}
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={toggleExpand}
+              className="p-1 h-7 w-7"
+            >
+              {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+            </Button>
           </div>
         </div>
         
@@ -136,6 +156,19 @@ export function BrowserView({
           )}
         </div>
       </div>
+      
+      {isExpanded && (
+        <div className="p-4 border-t">
+          <Button 
+            variant="secondary" 
+            onClick={toggleExpand}
+            className="w-full"
+          >
+            <Minimize2 className="h-4 w-4 mr-2" />
+            Exit Fullscreen
+          </Button>
+        </div>
+      )}
     </Card>
   );
 }

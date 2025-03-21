@@ -10,6 +10,7 @@ import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
 import { Bot, History, Settings, Play, Pause, StopCircle, RotateCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { TaskControls } from "./TaskControls";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
@@ -35,7 +36,8 @@ export function BrowserUseApp() {
     setBrowserConfig,
     liveUrl,
     connectionStatus,
-    taskOutput
+    taskOutput,
+    currentTaskId
   } = useBrowserUseTask();
 
   return (
@@ -82,69 +84,24 @@ export function BrowserUseApp() {
                     onChange={(e) => setTaskInput(e.target.value)}
                     className="flex-1 min-h-[80px] p-2 border rounded-md"
                     placeholder="Describe what you want the browser to do..."
-                    disabled={isProcessing}
+                    disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
                   />
                 </div>
               </div>
 
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  onClick={startTask}
-                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
-                  className="flex items-center gap-2"
-                >
-                  <Play className="h-4 w-4" />
-                  Start Task (1 Credit)
-                </Button>
-
-                {taskStatus === 'running' && (
-                  <Button
-                    onClick={pauseTask}
-                    disabled={taskStatus !== 'running'}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <Pause className="h-4 w-4" />
-                    Pause
-                  </Button>
-                )}
-
-                {taskStatus === 'paused' && (
-                  <Button
-                    onClick={resumeTask}
-                    disabled={taskStatus !== 'paused'}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <Play className="h-4 w-4" />
-                    Resume
-                  </Button>
-                )}
-
-                {(taskStatus === 'running' || taskStatus === 'paused') && (
-                  <Button
-                    onClick={stopTask}
-                    disabled={taskStatus !== 'running' && taskStatus !== 'paused'}
-                    variant="destructive"
-                    className="flex items-center gap-2"
-                  >
-                    <StopCircle className="h-4 w-4" />
-                    Stop
-                  </Button>
-                )}
-
-                {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
-                  <Button
-                    onClick={restartTask}
-                    disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
-                    variant="outline"
-                    className="flex items-center gap-2"
-                  >
-                    <RotateCw className="h-4 w-4" />
-                    Restart Task (1 Credit)
-                  </Button>
-                )}
-              </div>
+              <TaskControls
+                taskStatus={taskStatus}
+                isProcessing={isProcessing}
+                userCredits={userCredits ? userCredits.credits_remaining : null}
+                onStart={startTask}
+                onPause={pauseTask}
+                onResume={resumeTask}
+                onStop={stopTask}
+                onScreenshot={captureScreenshot}
+                onRestart={restartTask}
+                error={error}
+                currentTaskId={currentTaskId}
+              />
             </div>
           </Card>
 
@@ -176,7 +133,7 @@ export function BrowserUseApp() {
           <BrowserConfigPanel
             config={browserConfig}
             setConfig={setBrowserConfig}
-            disabled={isProcessing}
+            disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
           />
         </TabsContent>
       </Tabs>

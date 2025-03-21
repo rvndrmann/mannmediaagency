@@ -15,6 +15,7 @@ interface TaskControlsProps {
   onScreenshot?: () => Promise<void>;
   onRestart?: () => Promise<void>;
   error?: string | null;
+  currentTaskId?: string | null;
 }
 
 export function TaskControls({
@@ -27,14 +28,17 @@ export function TaskControls({
   onStop,
   onScreenshot,
   onRestart,
-  error
+  error,
+  currentTaskId
 }: TaskControlsProps) {
-  const canStart = !isProcessing && taskStatus !== 'running';
-  const canPause = isProcessing && taskStatus === 'running';
-  const canResume = isProcessing && taskStatus === 'paused';
-  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused');
+  const canStart = !isProcessing || taskStatus === 'idle' || taskStatus === 'completed' || 
+    taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'expired';
+  const canPause = isProcessing && taskStatus === 'running' && currentTaskId;
+  const canResume = isProcessing && taskStatus === 'paused' && currentTaskId;
+  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused') && currentTaskId;
   const canScreenshot = Boolean(onScreenshot) && taskStatus === 'running' && isProcessing;
-  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'completed' || taskStatus === 'expired' || error?.includes('expired'));
+  const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || 
+    taskStatus === 'completed' || taskStatus === 'expired' || error?.includes('expired'));
   
   const copyTaskError = () => {
     if (!error) return;
@@ -108,7 +112,8 @@ export function TaskControls({
         <Button
           variant="secondary"
           onClick={onRestart}
-          disabled={isProcessing}
+          disabled={isProcessing && taskStatus !== 'failed' && taskStatus !== 'stopped' && 
+            taskStatus !== 'completed' && taskStatus !== 'expired'}
         >
           <RotateCw className="h-4 w-4 mr-2" />
           Restart Task

@@ -1,4 +1,3 @@
-
 import { Command } from "@/types/message";
 import { CommandExecutionState, ToolContext, ToolResult } from "./types";
 import { getTool } from "./tools";

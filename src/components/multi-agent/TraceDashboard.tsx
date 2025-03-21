@@ -43,24 +43,111 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
       setIsLoading(true);
       
       try {
-        // Fetch analytics data
+        // Fetch analytics data using a regular query instead of RPC
         const { data: analyticsData, error: analyticsError } = await supabase
-          .rpc('get_agent_trace_analytics', { user_id_param: userId });
+          .from('agent_interactions')
+          .select(`
+            agent_type,
+            created_at,
+            metadata
+          `)
+          .eq('user_id', userId);
         
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
         } else {
-          setAnalytics(analyticsData);
+          // Process analytics data manually
+          const processedData: AnalyticsData = {
+            agent_usage: {},
+            model_usage: {},
+            total_interactions: analyticsData?.length || 0,
+            total_conversations: 0,
+            avg_duration_ms: 0,
+            success_rate: 0,
+            total_handoffs: 0,
+            total_tool_calls: 0
+          };
+          
+          // Count agent types
+          analyticsData?.forEach(interaction => {
+            // Count agent usage
+            const agentType = interaction.agent_type;
+            if (agentType) {
+              processedData.agent_usage[agentType] = (processedData.agent_usage[agentType] || 0) + 1;
+            }
+            
+            // Count model usage if available in metadata
+            const modelUsed = interaction.metadata?.trace?.summary?.modelUsed;
+            if (modelUsed) {
+              processedData.model_usage[modelUsed] = (processedData.model_usage[modelUsed] || 0) + 1;
+            }
+            
+            // Count tool calls and handoffs if available
+            const toolCalls = interaction.metadata?.trace?.summary?.toolCalls || 0;
+            const handoffs = interaction.metadata?.trace?.summary?.handoffs || 0;
+            
+            processedData.total_tool_calls += toolCalls;
+            processedData.total_handoffs += handoffs;
+          });
+          
+          // Count unique conversations by grouping by runId
+          const runIds = new Set<string>();
+          let totalDuration = 0;
+          
+          analyticsData?.forEach(interaction => {
+            const runId = interaction.metadata?.trace?.runId;
+            const duration = interaction.metadata?.trace?.duration || 0;
+            
+            if (runId && !runIds.has(runId)) {
+              runIds.add(runId);
+              totalDuration += duration;
+            }
+          });
+          
+          processedData.total_conversations = runIds.size;
+          processedData.avg_duration_ms = runIds.size > 0 ? totalDuration / runIds.size : 0;
+          
+          setAnalytics(processedData);
         }
         
-        // Fetch conversations list
-        const { data: conversationsData, error: conversationsError } = await supabase
-          .rpc('get_user_conversations', { user_id_param: userId });
+        // Fetch conversations list using a regular query
+        const { data: conversationsRawData, error: conversationsError } = await supabase
+          .from('agent_interactions')
+          .select(`
+            metadata,
+            created_at
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
         
         if (conversationsError) {
           console.error("Error fetching conversations:", conversationsError);
         } else {
-          setConversations(conversationsData || []);
+          // Process conversations data
+          const conversationMap = new Map<string, ConversationData>();
+          
+          conversationsRawData?.forEach(interaction => {
+            const runId = interaction.metadata?.trace?.runId;
+            if (!runId) return;
+            
+            if (!conversationMap.has(runId)) {
+              // Create new conversation entry
+              const agentTypes = interaction.metadata?.trace?.summary?.agentTypes || [];
+              const startTime = new Date(interaction.metadata?.trace?.summary?.startTime || interaction.created_at).toISOString();
+              const endTime = new Date(interaction.metadata?.trace?.summary?.endTime || interaction.created_at).toISOString();
+              const messageCount = interaction.metadata?.trace?.summary?.messageCount || 0;
+              
+              conversationMap.set(runId, {
+                conversation_id: runId,
+                start_time: startTime,
+                end_time: endTime,
+                message_count: messageCount,
+                agent_types: agentTypes
+              });
+            }
+          });
+          
+          setConversations(Array.from(conversationMap.values()));
         }
       } catch (error) {
         console.error("Error in analytics fetch:", error);
@@ -74,16 +161,30 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
   
   const fetchConversationDetails = async (conversationId: string) => {
     try {
+      // Fetch trace details using a regular query
       const { data, error } = await supabase
-        .rpc('get_conversation_trace', { 
-          conversation_id: conversationId,
-          user_id_param: userId
-        });
+        .from('agent_interactions')
+        .select(`
+          metadata,
+          created_at,
+          user_message,
+          assistant_response
+        `)
+        .eq('user_id', userId)
+        .filter('metadata->trace->runId', 'eq', conversationId);
       
       if (error) {
         console.error("Error fetching conversation details:", error);
       } else {
-        setTraceDetails(data);
+        // Extract trace data from metadata
+        const traceData = data?.map(item => ({
+          ...item.metadata?.trace,
+          user_message: item.user_message,
+          assistant_response: item.assistant_response,
+          created_at: item.created_at
+        }));
+        
+        setTraceDetails(traceData);
         setSelectedConversation(conversationId);
         setActiveTab("details");
       }

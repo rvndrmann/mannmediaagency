@@ -2,7 +2,6 @@
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message, Attachment, Command } from "@/types/message";
 import { toolExecutor } from "../tool-executor";
-import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import { detectToolCommand } from "../tool-parser";
 import { 
@@ -10,6 +9,8 @@ import {
   RunState, RunStatus, TraceManager, Trace,
   ToolContext, ToolResult
 } from "../types";
+import { MultiAgentApiClient } from "../api-client";
+import { getAllTools } from "../tools";
 
 class AgentRunner {
   private agentType: AgentType;
@@ -88,7 +89,7 @@ class AgentRunner {
         agentType: this.state.currentAgentType
       });
       
-      // First call to get AI response
+      // Call AI to get response
       const response = await this.callAgentAPI(userInput, attachments);
       this.state.messages.push(response);
       
@@ -162,17 +163,89 @@ class AgentRunner {
     userInput: string,
     attachments?: Attachment[]
   ): Promise<Message> {
-    // In a real implementation, this would call an API
-    // For now, we'll simulate a response
-    
-    this.state.turnCount++;
-    
-    // Return a mock response
-    return {
-      role: "assistant",
-      content: `I am the ${this.state.currentAgentType} agent. I received your message: "${userInput}"`,
-      agentType: this.state.currentAgentType
-    };
+    try {
+      this.state.turnCount++;
+      
+      // If there are no messages yet, return immediately (shouldn't happen)
+      if (this.state.messages.length === 0) {
+        return {
+          role: "assistant",
+          content: `I am the ${this.state.currentAgentType} agent. How can I help you?`,
+          agentType: this.state.currentAgentType
+        };
+      }
+      
+      // Format messages for API call, adding attachments to content if present
+      const messagesWithAttachments = MultiAgentApiClient.formatAttachments([...this.state.messages]);
+      
+      // Get available tools if using tool agent
+      const availableTools = this.state.currentAgentType === 'tool' ? getAllTools() : [];
+      
+      // Determine if this is a custom agent
+      const isCustomAgent = this.state.isCustomAgent || false;
+      
+      // Get attachment types if present
+      const hasAttachments = !!attachments && attachments.length > 0;
+      const attachmentTypes = hasAttachments 
+        ? MultiAgentApiClient.getAttachmentTypes(messagesWithAttachments)
+        : [];
+      
+      // Call the multi-agent API through the Supabase edge function
+      const { completion, handoffRequest, modelUsed } = await MultiAgentApiClient.callAgent(
+        messagesWithAttachments,
+        this.state.currentAgentType,
+        {
+          usePerformanceModel: !!this.config.usePerformanceModel,
+          hasAttachments,
+          attachmentTypes,
+          isCustomAgent,
+          isHandoffContinuation: this.state.handoffInProgress,
+          enableDirectToolExecution: !!this.state.enableDirectToolExecution,
+          availableTools,
+          traceId: this.currentTrace?.traceId,
+          userId: this.state.toolContext?.userId
+        }
+      );
+      
+      // Detect if the response contains a command
+      const commandMatch = completion.match(/TOOL: ([a-zA-Z0-9-_]+), PARAMETERS: ({.*})/i);
+      let command: Command | null = null;
+      
+      if (commandMatch && commandMatch.length >= 3) {
+        try {
+          const toolName = commandMatch[1].trim();
+          const params = JSON.parse(commandMatch[2]);
+          
+          command = {
+            feature: toolName as any,
+            action: "create",
+            parameters: params,
+            confidence: 1.0,
+            type: "standard",
+            tool: toolName
+          };
+        } catch (error) {
+          console.error("Error parsing tool command:", error);
+        }
+      } else {
+        // Try to detect slash commands
+        const firstLine = completion.trim().split('\n')[0];
+        command = detectToolCommand({ role: "assistant", content: firstLine });
+      }
+      
+      // Return the assistant message with all the required information
+      return {
+        role: "assistant",
+        content: completion,
+        agentType: this.state.currentAgentType,
+        command,
+        handoffRequest,
+        modelUsed
+      };
+    } catch (error) {
+      console.error("Error calling agent API:", error);
+      throw new Error(`Failed to get response from ${this.state.currentAgentType} agent: ${error instanceof Error ? error.message : String(error)}`);
+    }
   }
   
   // Process tool command

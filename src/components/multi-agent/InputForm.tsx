@@ -1,9 +1,10 @@
 
 import React, { useState, useRef } from 'react';
-import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Send, Paperclip, X } from 'lucide-react';
+import { SendHorizontal, Paperclip, X, Image as ImageIcon } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Attachment } from '@/types/message';
+import { useDropzone } from 'react-dropzone';
+import { cn } from '@/lib/utils';
 
 interface InputFormProps {
   input: string;
@@ -26,130 +27,115 @@ export const InputForm: React.FC<InputFormProps> = ({
   onFileUpload,
   hasEnoughCredits
 }) => {
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [isFocused, setIsFocused] = useState(false);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  
+  // Setup file dropzone
+  const { getRootProps, getInputProps, open } = useDropzone({
+    onDrop: onFileUpload,
+    noClick: true,
+    noKeyboard: true,
+    accept: {
+      'image/*': ['.png', '.jpg', '.jpeg', '.gif', '.webp']
+    }
+  });
   
   // Auto-resize textarea
-  const handleTextareaChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+  const handleInput = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setInput(e.target.value);
     
-    // Reset height to calculate new height
-    if (textareaRef.current) {
-      textareaRef.current.style.height = 'auto';
-      textareaRef.current.style.height = `${Math.min(120, textareaRef.current.scrollHeight)}px`;
-    }
+    // Auto-resize
+    e.target.style.height = 'auto';
+    e.target.style.height = `${Math.min(e.target.scrollHeight, 200)}px`;
   };
   
-  // Handle keyboard submit
-  const handleKeyDown = (e: React.KeyboardEvent) => {
+  // Handle key press
+  const handleKeyPress = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      onSubmit(e);
-    }
-  };
-  
-  // Handle file selection
-  const handleFileSelect = () => {
-    fileInputRef.current?.click();
-  };
-  
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files?.length) {
-      onFileUpload(Array.from(e.target.files));
-      // Reset input so same file can be selected again
-      e.target.value = '';
+      onSubmit(e as any);
     }
   };
 
   return (
-    <form onSubmit={onSubmit} className="p-4 border-t border-slate-700">
-      {/* Attachment Preview */}
+    <div className="border-t border-slate-800 p-3 bg-slate-900/95 backdrop-blur-sm">
       {pendingAttachments.length > 0 && (
-        <div className="flex flex-wrap gap-2 mb-3">
+        <div className="flex flex-wrap gap-2 mb-2">
           {pendingAttachments.map(attachment => (
-            <div key={attachment.id} className="relative group">
-              {attachment.type === 'image' ? (
-                <>
-                  <img 
-                    src={attachment.url} 
-                    alt={attachment.name}
-                    className="w-16 h-16 object-cover rounded-md border border-slate-600"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => onRemoveAttachment(attachment.id)}
-                    className="absolute -top-2 -right-2 bg-red-500 rounded-full p-0.5 opacity-0 group-hover:opacity-100 transition-opacity"
-                  >
-                    <X size={14} />
-                  </button>
-                </>
-              ) : (
-                <div className="flex items-center p-2 bg-slate-800 rounded">
-                  <Paperclip size={16} className="mr-2" />
-                  <span className="text-sm">{attachment.name}</span>
-                  <button
-                    type="button"
-                    onClick={() => onRemoveAttachment(attachment.id)}
-                    className="ml-2 text-red-400 hover:text-red-300"
-                  >
-                    <X size={14} />
-                  </button>
-                </div>
-              )}
+            <div 
+              key={attachment.id}
+              className="relative bg-slate-800 rounded-md p-1 pl-2 pr-6 flex items-center"
+            >
+              <ImageIcon className="h-3.5 w-3.5 mr-1.5 text-slate-400" />
+              <span className="text-xs text-slate-300 truncate max-w-[120px]">
+                {attachment.name}
+              </span>
+              <button 
+                className="absolute right-1 top-1 text-slate-400 hover:text-white"
+                onClick={() => onRemoveAttachment(attachment.id)}
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
             </div>
           ))}
         </div>
       )}
       
-      <div className="flex items-end gap-2">
-        <Button 
-          type="button"
-          variant="ghost" 
-          size="icon"
-          onClick={handleFileSelect}
-          disabled={isLoading}
-          className="text-slate-400 hover:text-white"
-        >
-          <Paperclip size={20} />
-        </Button>
-        
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={handleTextareaChange}
-          onKeyDown={handleKeyDown}
-          placeholder="Type a message..."
-          disabled={isLoading}
-          className="flex-1 min-h-[40px] max-h-[120px] resize-none bg-slate-800 border-slate-700"
-        />
-        
-        <Button 
-          type="submit"
-          disabled={isLoading || (!input.trim() && pendingAttachments.length === 0) || !hasEnoughCredits}
-          className="bg-blue-600 hover:bg-blue-700 text-white"
-        >
-          {isLoading ? (
-            <div className="w-5 h-5 rounded-full border-2 border-t-transparent border-white animate-spin" />
-          ) : (
-            <Send size={20} />
+      <form onSubmit={onSubmit} className="relative">
+        <div
+          {...getRootProps()}
+          className={cn(
+            "relative flex items-center rounded-lg border bg-slate-950",
+            isFocused 
+              ? "border-blue-500/50 ring-1 ring-blue-500/20" 
+              : "border-slate-800",
+            !hasEnoughCredits && "opacity-60"
           )}
-        </Button>
-      </div>
+        >
+          <input {...getInputProps()} />
+          
+          <textarea
+            ref={inputRef}
+            value={input}
+            onChange={handleInput}
+            onKeyDown={handleKeyPress}
+            onFocus={() => setIsFocused(true)}
+            onBlur={() => setIsFocused(false)}
+            placeholder={hasEnoughCredits ? "Type your message..." : "Insufficient credits..."}
+            disabled={isLoading || !hasEnoughCredits}
+            rows={1}
+            className="flex-1 py-3 pl-4 pr-14 bg-transparent text-white placeholder:text-slate-500 resize-none max-h-[200px] focus:outline-none"
+          />
+          
+          <div className="absolute right-2 bottom-2 flex gap-1">
+            <Button
+              type="button"
+              size="icon"
+              variant="ghost"
+              onClick={open}
+              disabled={isLoading || !hasEnoughCredits}
+              className="h-8 w-8 text-slate-400 hover:text-white hover:bg-slate-800"
+            >
+              <Paperclip className="h-5 w-5" />
+            </Button>
+            
+            <Button
+              type="submit"
+              size="icon"
+              disabled={isLoading || !input.trim() || !hasEnoughCredits}
+              className="h-8 w-8 bg-blue-600 hover:bg-blue-700 text-white"
+            >
+              <SendHorizontal className="h-5 w-5" />
+            </Button>
+          </div>
+        </div>
+      </form>
       
       {!hasEnoughCredits && (
-        <p className="mt-2 text-xs text-red-400">
-          You need at least 0.07 credits to send a message. Please purchase more credits.
-        </p>
+        <div className="mt-2 text-xs text-center text-red-400">
+          You need at least 0.07 credits to send a message.
+        </div>
       )}
-      
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileChange}
-        accept="image/*"
-        className="hidden"
-        multiple
-      />
-    </form>
+    </div>
   );
 };

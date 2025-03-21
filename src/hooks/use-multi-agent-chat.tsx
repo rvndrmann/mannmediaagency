@@ -8,16 +8,7 @@ import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
 
 // Define built-in agent types
-export const BUILT_IN_AGENT_TYPES = [
-  'main', 
-  'script', 
-  'image', 
-  'tool', 
-  'scene', 
-  'browser', 
-  'product-video', 
-  'custom-video'
-];
+export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 export type AgentType = typeof BUILT_IN_AGENT_TYPES[number] | string;
 
 const STORAGE_KEY = "multi_agent_chat_history";

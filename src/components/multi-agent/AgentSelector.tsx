@@ -1,6 +1,5 @@
-
 import { Button } from "@/components/ui/button";
-import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText, Globe, Video, ShoppingBag } from "lucide-react";
+import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText } from "lucide-react";
 import { useState } from "react";
 import { type AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { cn } from "@/lib/utils";
@@ -90,30 +89,6 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       color: "from-emerald-400 to-teal-500",
       instructions: ""
     },
-    { 
-      id: "browser", 
-      name: "Browser Use", 
-      description: "Automate browser tasks and web interactions",
-      icon: "Globe", 
-      color: "from-blue-400 to-sky-500",
-      instructions: ""
-    },
-    { 
-      id: "product-video", 
-      name: "Product Video", 
-      description: "Creates professional product videos",
-      icon: "Video", 
-      color: "from-red-400 to-rose-500",
-      instructions: ""
-    },
-    { 
-      id: "custom-video", 
-      name: "Custom Video", 
-      description: "Submit requests for custom videos",
-      icon: "ShoppingBag", 
-      color: "from-violet-400 to-purple-500",
-      instructions: ""
-    },
   ];
 
   const allAgents = [...builtInAgents, ...customAgents];
@@ -149,22 +124,11 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       case "Image": return Image;
       case "Wrench": return Wrench;
       case "FileText": return FileText;
-      case "Globe": return Globe;
-      case "Video": return Video;
-      case "ShoppingBag": return ShoppingBag;
       case "Edit": return Edit;
       case "Trash": return Trash;
       default: return Bot;
     }
   };
-
-  // Calculate grid columns based on number of agents
-  const totalAgents = allAgents.length;
-  const gridClass = totalAgents <= 6 
-    ? "grid-cols-3" 
-    : totalAgents <= 9 
-      ? "grid-cols-3" 
-      : "grid-cols-4";
 
   return (
     <div className="bg-gradient-to-r from-[#262B38]/80 to-[#323845]/80 backdrop-blur-sm rounded-xl p-2 mb-3 border border-white/10 shadow-lg animate-fadeIn">
@@ -196,7 +160,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
         </Button>
       </div>
       
-      <div className={`grid ${gridClass} gap-1`}>
+      <div className="grid grid-cols-3 gap-1">
         {allAgents.map((agent) => {
           const isActive = activeAgent === agent.id;
           const IconComponent = getIconComponent(agent.icon);

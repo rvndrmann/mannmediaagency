@@ -1,18 +1,10 @@
 
-import { useState } from "react";
-import { Settings, Zap, MessageSquare, LayoutDashboard, Bug } from "lucide-react";
-import { AgentSelector } from "./AgentSelector";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { Switch } from "@/components/ui/switch";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { AgentInstructionsTable } from "./AgentInstructionsTable";
+import React from 'react';
+import { AgentType, BUILT_IN_AGENT_TYPES } from '@/hooks/use-multi-agent-chat';
+import { Button } from '@/components/ui/button';
+import { Trash2, Zap, Wrench, GitCompare, Database, Bug } from 'lucide-react';
+import { AgentSelector } from './AgentSelector';
+import { useCustomAgents } from '@/hooks/use-custom-agents';
 
 interface MultiAgentChatHeaderProps {
   activeAgent: AgentType;
@@ -28,7 +20,7 @@ interface MultiAgentChatHeaderProps {
   onToggleDebugMode: () => void;
 }
 
-export const MultiAgentChatHeader = ({
+export const MultiAgentChatHeader: React.FC<MultiAgentChatHeaderProps> = ({
   activeAgent,
   onSwitchAgent,
   onClearChat,
@@ -40,119 +32,90 @@ export const MultiAgentChatHeader = ({
   onToggleTracing,
   debugMode,
   onToggleDebugMode
-}: MultiAgentChatHeaderProps) => {
-  const [showDashboard, setShowDashboard] = useState(false);
+}) => {
+  const { customAgents } = useCustomAgents();
+  
+  // Get color based on agent type
+  const getAgentColor = (agentType: AgentType): string => {
+    switch (agentType) {
+      case 'main': return 'bg-blue-600';
+      case 'script': return 'bg-amber-600';
+      case 'image': return 'bg-purple-600';
+      case 'tool': return 'bg-green-600';
+      case 'scene': return 'bg-pink-600';
+      default: return 'bg-slate-600';
+    }
+  };
 
   return (
-    <div className="px-1 py-1.5 bg-[#1a202c] border-b border-[#2d374b]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center">
-          <h2 className="text-white font-semibold text-sm mr-2 flex gap-1 items-center">
-            <MessageSquare className="h-4 w-4 text-gray-400" /> 
-            Multi-Agent Chat
-          </h2>
-          <a
-            href="/trace-dashboard"
-            className="ml-2 text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"
-            onClick={(e) => {
-              e.preventDefault();
-              setShowDashboard(true);
-            }}
-          >
-            <LayoutDashboard className="h-3 w-3" /> Traces
-          </a>
-        </div>
-
+    <header className="bg-slate-900 border-b border-slate-800 p-3">
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center justify-between">
         <div className="flex items-center gap-2">
+          <h1 className="text-lg font-semibold text-white">Multi-Agent Chat</h1>
+          
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onClearChat}
+            title="Clear chat"
+            className="text-slate-400 hover:text-white hover:bg-slate-800"
+          >
+            <Trash2 size={16} />
+          </Button>
+        </div>
+        
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 sm:pb-0">
           <AgentSelector
             activeAgent={activeAgent}
             onSelectAgent={onSwitchAgent}
-            className="h-7"
+            className="bg-slate-800 text-sm"
           />
-
-          <DropdownMenu>
-            <DropdownMenuTrigger className="p-1 rounded-md hover:bg-gray-800 focus:outline-none">
-              <Settings className="h-4 w-4 text-gray-400" />
-            </DropdownMenuTrigger>
-            <DropdownMenuContent className="w-56 bg-[#1a202c] text-white border-[#2d374b]">
-              <DropdownMenuLabel className="text-xs font-normal text-gray-400">
-                Chat Settings
-              </DropdownMenuLabel>
-              <DropdownMenuSeparator className="bg-[#2d374b]" />
-              
-              <div className="px-2 py-1.5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Performance Mode</span>
-                    <span className="text-[10px] text-gray-400">
-                      Faster responses (GPT-4o-mini)
-                    </span>
-                  </div>
-                  <Switch
-                    checked={usePerformanceModel}
-                    onCheckedChange={onTogglePerformanceMode}
-                    className="data-[state=checked]:bg-indigo-600"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Direct Tool Execution</span>
-                    <span className="text-[10px] text-gray-400">
-                      Any agent can use tools
-                    </span>
-                  </div>
-                  <Switch
-                    checked={enableDirectToolExecution}
-                    onCheckedChange={onToggleDirectToolExecution}
-                    className="data-[state=checked]:bg-indigo-600"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium">Tracing</span>
-                    <span className="text-[10px] text-gray-400">
-                      Record detailed telemetry
-                    </span>
-                  </div>
-                  <Switch
-                    checked={tracingEnabled}
-                    onCheckedChange={onToggleTracing}
-                    className="data-[state=checked]:bg-indigo-600"
-                  />
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div className="flex flex-col">
-                    <span className="text-xs font-medium flex items-center gap-1">
-                      Debug Mode <Bug className="h-3 w-3 text-amber-500" />
-                    </span>
-                    <span className="text-[10px] text-gray-400">
-                      Console logging for developers
-                    </span>
-                  </div>
-                  <Switch
-                    checked={debugMode}
-                    onCheckedChange={onToggleDebugMode}
-                    className="data-[state=checked]:bg-amber-600"
-                  />
-                </div>
-              </div>
-              
-              <DropdownMenuSeparator className="bg-[#2d374b]" />
-              <DropdownMenuItem 
-                className="text-xs text-red-400 hover:text-red-300 focus:text-red-300 cursor-pointer"
-                onClick={onClearChat}
-              >
-                Clear chat history
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onTogglePerformanceMode}
+            className={`gap-1 text-xs px-2 ${usePerformanceModel ? 'border-amber-500 text-amber-400' : 'border-slate-700 text-slate-400'}`}
+            title={usePerformanceModel ? "Using faster model (lower quality)" : "Using standard model (higher quality)"}
+          >
+            <Zap size={14} />
+            <span className="hidden sm:inline">{usePerformanceModel ? 'Fast' : 'Standard'}</span>
+          </Button>
+          
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={onToggleDirectToolExecution}
+            className={`gap-1 text-xs px-2 ${enableDirectToolExecution ? 'border-green-500 text-green-400' : 'border-slate-700 text-slate-400'}`}
+            title={enableDirectToolExecution ? "Direct tool execution enabled" : "Tool agent handoff required"}
+          >
+            <Wrench size={14} />
+            <span className="hidden sm:inline">Direct Tools</span>
+          </Button>
+          
+          <Button 
+            variant="outline"
+            size="sm"
+            onClick={onToggleTracing}
+            className={`gap-1 text-xs px-2 ${tracingEnabled ? 'border-blue-500 text-blue-400' : 'border-slate-700 text-slate-400'}`}
+            title={tracingEnabled ? "Tracing enabled" : "Tracing disabled"}
+          >
+            <GitCompare size={14} />
+            <span className="hidden sm:inline">Tracing</span>
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onToggleDebugMode}
+            className={`gap-1 text-xs px-2 ${debugMode ? 'border-red-500 text-red-400' : 'border-slate-700 text-slate-400'}`}
+            title={debugMode ? "Debug mode enabled" : "Debug mode disabled"}
+          >
+            <Bug size={14} />
+            <span className="hidden sm:inline">Debug</span>
+          </Button>
         </div>
       </div>
-
-      <AgentInstructionsTable activeAgent={activeAgent} />
-    </div>
+    </header>
   );
 };

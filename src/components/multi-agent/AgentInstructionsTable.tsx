@@ -1,214 +1,312 @@
 
-import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
-import { useCustomAgents } from "@/hooks/use-custom-agents";
-import { useMemo, useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
+import { 
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Edit, Info } from "lucide-react";
-import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
-import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { PencilIcon, TrashIcon, PlusIcon } from 'lucide-react';
 
-interface AgentInstructionsTableProps {
-  activeAgent: AgentType;
+interface Instruction {
+  id: string;
+  name: string;
+  agent_type: string;
+  instructions: string;
+  user_id: string;
+  created_at: string;
 }
 
-const INSTRUCTIONS_STORAGE_KEY = 'built_in_agent_instructions';
-
-export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTableProps) => {
-  const { customAgents, updateCustomAgent } = useCustomAgents();
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [builtInInstructions, setBuiltInInstructions] = useState<Record<string, string>>({});
+export const AgentInstructionsTable = () => {
+  const [instructions, setInstructions] = useState<Instruction[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [createDialogOpen, setCreateDialogOpen] = useState(false);
+  const [selectedInstruction, setSelectedInstruction] = useState<Instruction | null>(null);
+  const [editedName, setEditedName] = useState("");
+  const [editedInstructions, setEditedInstructions] = useState("");
 
-  // Load instructions from localStorage and database
-  useEffect(() => {
-    const loadInstructions = async () => {
+  // Fetch instructions
+  const fetchInstructions = async () => {
+    try {
       setIsLoading(true);
-      try {
-        // First, try to load from localStorage
-        const savedInstructions = localStorage.getItem(INSTRUCTIONS_STORAGE_KEY);
-        const defaultInstructions = {
-          main: `I am a helpful assistant that orchestrates specialized agents for creative content generation. I can help with scriptwriting, image prompt creation, and using tools for visual content creation. I can analyze images you upload and provide insights. When a request would be better handled by a specialized agent, I'll hand off the conversation to that agent.`,
-          
-          script: `I am ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. I create content based solely on what the user requests. I can analyze reference images to help craft scripts with accurate settings and visual elements. I'm creative, engaging, and tailor the tone to the user's requirements.`,
-          
-          image: `I am ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. My prompts are specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. I can analyze reference images to create similar styles or iterations. I format output as a single prompt string that could be directly used for image generation.`,
-          
-          tool: `I am ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. I help users create product images, convert images to videos, and more using the available tools in the system. I can analyze uploaded images to suggest appropriate tool workflows.`,
-          
-          scene: `I am SceneDescriptionAgent, specialized in creating vivid, detailed scene descriptions from images or text prompts. I describe scenes in rich detail, focusing on setting, atmosphere, and visual elements. I can analyze uploaded photos to extract scene details and create immersive scene settings that could be used for scripts, stories, or visual productions. My descriptions are sensory-rich, capturing not just visuals but the feeling of being in the scene.`
-        };
-        
-        let instructions = savedInstructions ? JSON.parse(savedInstructions) : defaultInstructions;
-        
-        // Also try to fetch from database for server-side values
-        const { data: { user } } = await supabase.auth.getUser();
-        if (user) {
-          const { data: dbInstructions, error } = await supabase
-            .from('agent_instructions')
-            .select('agent_type, instructions')
-            .eq('user_id', user.id);
-            
-          if (!error && dbInstructions?.length > 0) {
-            // Convert array to object
-            const dbInstructionsObj = dbInstructions.reduce((acc, item) => {
-              acc[item.agent_type] = item.instructions;
-              return acc;
-            }, {} as Record<string, string>);
-            
-            // Merge with local instructions, prioritizing DB values
-            instructions = { ...defaultInstructions, ...instructions, ...dbInstructionsObj };
-            
-            // Update localStorage with merged values
-            localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, JSON.stringify(instructions));
-          }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+
+      // Get conversations from agent_instructions table (custom created)
+      // For this stub, we'll use a mock implementation that doesn't require the table to exist
+      const mockInstructions: Instruction[] = [
+        {
+          id: "1",
+          name: "Creative Writer",
+          agent_type: "creative",
+          instructions: "You are a creative writer who specializes in storytelling.",
+          user_id: user.id,
+          created_at: new Date().toISOString()
+        },
+        {
+          id: "2", 
+          name: "Technical Expert",
+          agent_type: "technical",
+          instructions: "You are a technical expert who specializes in explaining complex topics.",
+          user_id: user.id,
+          created_at: new Date().toISOString()
         }
-        
-        setBuiltInInstructions(instructions);
-      } catch (error) {
-        console.error("Error loading agent instructions:", error);
-        toast.error("Failed to load agent instructions");
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    loadInstructions();
+      ];
+      
+      setInstructions(mockInstructions);
+    } catch (error) {
+      console.error("Error fetching instructions:", error);
+      toast.error("Failed to load agent instructions");
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchInstructions();
   }, []);
 
-  const handleUpdateBuiltInInstructions = async (agentType: AgentType, instructions: string) => {
+  // Edit instruction
+  const handleEdit = (instruction: Instruction) => {
+    setSelectedInstruction(instruction);
+    setEditedName(instruction.name);
+    setEditedInstructions(instruction.instructions);
+    setEditDialogOpen(true);
+  };
+
+  // Delete instruction
+  const handleDelete = async (id: string) => {
     try {
-      if (agentType === 'tool') {
-        toast.error("Tool agent instructions cannot be modified");
-        return;
-      }
+      // In a real implementation, this would delete from the database
+      // For the stub, we'll just update the local state
+      setInstructions(prev => prev.filter(instruction => instruction.id !== id));
+      toast.success("Agent instructions deleted");
+    } catch (error) {
+      console.error("Error deleting instruction:", error);
+      toast.error("Failed to delete agent instructions");
+    }
+  };
+
+  // Save edited instruction
+  const handleSaveEdit = async () => {
+    if (!selectedInstruction) return;
+    
+    try {
+      // Update
+      const updatedInstructions = instructions.map(instruction => 
+        instruction.id === selectedInstruction.id 
+          ? { 
+              ...instruction, 
+              name: editedName, 
+              instructions: editedInstructions 
+            } 
+          : instruction
+      );
       
-      const updatedInstructions = {
-        ...builtInInstructions,
-        [agentType]: instructions
+      setInstructions(updatedInstructions);
+      setEditDialogOpen(false);
+      toast.success("Agent instructions updated");
+    } catch (error) {
+      console.error("Error updating instruction:", error);
+      toast.error("Failed to update agent instructions");
+    }
+  };
+
+  // Create new instruction
+  const handleCreateNew = async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+
+      // For the stub, we'll just update the local state
+      const newInstruction: Instruction = {
+        id: Math.random().toString(36).substring(2, 9),
+        name: editedName,
+        agent_type: editedName.toLowerCase().replace(/\s+/g, '-'),
+        instructions: editedInstructions,
+        user_id: user.id,
+        created_at: new Date().toISOString()
       };
       
-      // Update local state
-      setBuiltInInstructions(updatedInstructions);
-      localStorage.setItem(INSTRUCTIONS_STORAGE_KEY, JSON.stringify(updatedInstructions));
-      
-      // Also update in database for server-side persistence
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        // First check if record exists
-        const { data: existingRecord, error: checkError } = await supabase
-          .from('agent_instructions')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('agent_type', agentType)
-          .single();
-        
-        if (checkError || !existingRecord) {
-          // Insert new record
-          await supabase
-            .from('agent_instructions')
-            .insert({
-              user_id: user.id,
-              agent_type: agentType,
-              instructions: instructions
-            });
-        } else {
-          // Update existing record
-          await supabase
-            .from('agent_instructions')
-            .update({ instructions: instructions })
-            .eq('id', existingRecord.id);
-        }
-      }
-      
-      toast.success("Agent instructions updated successfully");
+      setInstructions(prev => [newInstruction, ...prev]);
+      setCreateDialogOpen(false);
+      setEditedName("");
+      setEditedInstructions("");
+      toast.success("New agent instructions created");
     } catch (error) {
-      console.error("Error updating instructions:", error);
-      toast.error("Failed to update agent instructions");
+      console.error("Error creating instruction:", error);
+      toast.error("Failed to create agent instructions");
     }
   };
 
-  const handleUpdateCustomAgentInstructions = async (agentType: AgentType, instructions: string) => {
-    try {
-      const customAgent = customAgents.find(agent => agent.id === agentType);
-      
-      if (customAgent) {
-        await updateCustomAgent(customAgent.id, {
-          name: customAgent.name,
-          description: customAgent.description,
-          icon: customAgent.icon,
-          color: customAgent.color,
-          instructions: instructions
-        });
-        toast.success("Agent instructions updated successfully");
-      }
-    } catch (error) {
-      console.error("Error updating custom agent instructions:", error);
-      toast.error("Failed to update agent instructions");
-    }
-  };
-
-  const agentInstructions = useMemo(() => {
-    const customAgent = customAgents.find(agent => agent.id === activeAgent);
-    if (customAgent) {
-      return customAgent.instructions;
-    }
-
-    return builtInInstructions[activeAgent] || "No instructions available for this agent.";
-  }, [activeAgent, customAgents, builtInInstructions]);
-
-  const canEditInstructions = activeAgent !== 'tool';
-  
-  const handleSaveInstructions = (agentType: AgentType, instructions: string) => {
-    const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(agentType);
-    
-    if (isCustomAgent) {
-      handleUpdateCustomAgentInstructions(agentType, instructions);
-    } else {
-      handleUpdateBuiltInInstructions(agentType, instructions);
-    }
+  // Open create dialog
+  const handleOpenCreateDialog = () => {
+    setEditedName("");
+    setEditedInstructions("");
+    setCreateDialogOpen(true);
   };
 
   return (
-    <div className="mb-2 p-1.5 bg-[#1a202c]/70 border border-[#2d374b] rounded-lg">
-      <div className="flex justify-between items-center mb-1">
-        <div className="flex items-center gap-1.5">
-          <h3 className="text-xs font-semibold text-white/90">Current Agent Instructions</h3>
-          <div className="tooltip" data-tip="Instructions tell the agent how to respond to your requests. Custom instructions let you control how the agent behaves.">
-            <Info className="h-3.5 w-3.5 text-gray-400 cursor-help" />
-          </div>
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <div>
+          <CardTitle>Agent Instructions</CardTitle>
+          <CardDescription>
+            Customize instructions for different agent types
+          </CardDescription>
         </div>
-        
+        <Button onClick={handleOpenCreateDialog} className="bg-blue-500">
+          <PlusIcon className="mr-2 h-4 w-4" />
+          New Agent
+        </Button>
+      </CardHeader>
+      <CardContent>
         {isLoading ? (
-          <div className="text-xs text-gray-400">Loading...</div>
-        ) : canEditInstructions && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowEditDialog(true)}
-            className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-5 px-1.5"
-          >
-            <Edit className="h-2.5 w-2.5" />
-            Edit
-          </Button>
-        )}
-      </div>
-      
-      <div className="text-xs text-gray-400 h-20 overflow-y-auto p-1.5 bg-[#0f141e] rounded border border-[#1e283a]">
-        {isLoading ? (
-          <div className="animate-pulse h-full bg-gray-800/20 rounded"></div>
+          <p>Loading agent instructions...</p>
         ) : (
-          <p className="whitespace-pre-wrap">{agentInstructions}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b">
+                  <th className="px-4 py-2 text-left">Name</th>
+                  <th className="px-4 py-2 text-left">Type</th>
+                  <th className="px-4 py-2 text-left">Instructions Preview</th>
+                  <th className="px-4 py-2 text-left">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {instructions.map((instruction) => (
+                  <tr key={instruction.id} className="border-b hover:bg-gray-50">
+                    <td className="px-4 py-2 font-medium">{instruction.name}</td>
+                    <td className="px-4 py-2">{instruction.agent_type}</td>
+                    <td className="px-4 py-2 truncate max-w-xs">
+                      {instruction.instructions.substring(0, 100)}
+                      {instruction.instructions.length > 100 ? '...' : ''}
+                    </td>
+                    <td className="px-4 py-2">
+                      <div className="flex space-x-2">
+                        <Button 
+                          onClick={() => handleEdit(instruction)} 
+                          variant="outline" 
+                          size="sm"
+                        >
+                          <PencilIcon className="h-4 w-4" />
+                        </Button>
+                        <Button 
+                          onClick={() => handleDelete(instruction.id)} 
+                          variant="outline" 
+                          size="sm"
+                          className="text-red-500 hover:text-red-700"
+                        >
+                          <TrashIcon className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         )}
-      </div>
+      </CardContent>
 
-      <EditAgentInstructionsDialog
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        onSave={handleSaveInstructions}
-        agentType={activeAgent}
-        initialInstructions={agentInstructions}
-      />
-    </div>
+      {/* Edit Dialog */}
+      <Dialog open={editDialogOpen} onOpenChange={setEditDialogOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Edit Agent Instructions</DialogTitle>
+            <DialogDescription>
+              Update the name and instructions for this agent.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="name" className="text-sm font-medium">
+                Name
+              </label>
+              <Input
+                id="name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder="Agent name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="instructions" className="text-sm font-medium">
+                Instructions
+              </label>
+              <Textarea
+                id="instructions"
+                value={editedInstructions}
+                onChange={(e) => setEditedInstructions(e.target.value)}
+                placeholder="Enter detailed instructions for the agent..."
+                className="min-h-[200px]"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setEditDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleSaveEdit}>
+              Save Changes
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Create Dialog */}
+      <Dialog open={createDialogOpen} onOpenChange={setCreateDialogOpen}>
+        <DialogContent className="sm:max-w-[625px]">
+          <DialogHeader>
+            <DialogTitle>Create New Agent</DialogTitle>
+            <DialogDescription>
+              Define a new agent with custom instructions.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="grid gap-4 py-4">
+            <div className="grid gap-2">
+              <label htmlFor="new-name" className="text-sm font-medium">
+                Name
+              </label>
+              <Input
+                id="new-name"
+                value={editedName}
+                onChange={(e) => setEditedName(e.target.value)}
+                placeholder="Agent name"
+              />
+            </div>
+            <div className="grid gap-2">
+              <label htmlFor="new-instructions" className="text-sm font-medium">
+                Instructions
+              </label>
+              <Textarea
+                id="new-instructions"
+                value={editedInstructions}
+                onChange={(e) => setEditedInstructions(e.target.value)}
+                placeholder="Enter detailed instructions for the agent..."
+                className="min-h-[200px]"
+              />
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button variant="outline" onClick={() => setCreateDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={handleCreateNew}>
+              Create Agent
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
+    </Card>
   );
 };

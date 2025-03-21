@@ -1,198 +1,240 @@
-import React from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { supabase } from '@/integrations/supabase/client';
-import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Loader2, CheckCircle, AlertCircle } from 'lucide-react';
-import { toast } from 'sonner';
 
-export default function Payment() {
-  const { data: session } = useQuery({
-    queryKey: ['session'],
-    queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
-    },
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { supabase } from "@/integrations/supabase/client";
+import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
+import { useToast } from "@/hooks/use-toast";
+import { useEffect, useState } from "react";
+
+const Payment = () => {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+  
+  // Get state from location or URL parameters
+  const [paymentDetails, setPaymentDetails] = useState<{
+    planName: string | null;
+    amount: number | null;
+    orderId: string | null;
+  }>({
+    planName: null,
+    amount: null,
+    orderId: null
   });
+  
+  const [isLoading, setIsLoading] = useState(true);
 
-  const { data: paymentLinks, isLoading: isLoadingPaymentLinks } = useQuery({
-    queryKey: ['payment-links'],
-    queryFn: async () => {
-      const { data, error } = await supabase.functions.invoke('get-payment-links');
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  const { data: userCredits, isLoading: isLoadingCredits } = useQuery({
-    queryKey: ['user-credits'],
-    queryFn: async () => {
-      if (!session?.user.id) return null;
-      
-      const { data, error } = await supabase
-        .from('user_credits')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .single();
-      
-      if (error) throw error;
-      return data;
-    },
-    enabled: !!session?.user.id,
-  });
-
-  const handlePaymentClick = async (priceId: string) => {
-    try {
-      const { data, error } = await supabase.functions.invoke('create-checkout-session', {
-        body: { priceId }
+  useEffect(() => {
+    const fetchOrderDetails = async (orderId: string) => {
+      try {
+        const { data: orderData, error } = await supabase
+          .from('custom_orders')
+          .select(`
+            id, 
+            credits_used,
+            order_link_id,
+            custom_order_links(title, custom_rate)
+          `)
+          .eq('id', orderId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (orderData && orderData.custom_order_links) {
+          const linkData = orderData.custom_order_links;
+          setPaymentDetails({
+            planName: linkData.title || "Custom Order",
+            amount: linkData.custom_rate || 0,
+            orderId: orderId
+          });
+        }
+      } catch (error) {
+        console.error("Error fetching order details:", error);
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Could not load order details. Please try again.",
+        });
+        navigate("/");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Initialize payment details from location state or URL params
+    const stateData = location.state || {};
+    const paramOrderId = searchParams.get('orderId');
+    
+    if (stateData.planName && stateData.amount) {
+      // We have state from navigation
+      setPaymentDetails({
+        planName: stateData.planName,
+        amount: stateData.amount,
+        orderId: stateData.orderId || null
       });
+      setIsLoading(false);
+    } else if (paramOrderId) {
+      // We have an order ID in URL params, fetch details
+      fetchOrderDetails(paramOrderId);
+    } else {
+      // No valid payment information
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Invalid payment details. Please select a plan or order first.",
+      });
+      setIsLoading(false);
+      navigate("/plans");
+    }
+  }, [location.state, searchParams, navigate, toast]);
+
+  const initiatePayment = async () => {
+    try {
+      if (!paymentDetails.planName || !paymentDetails.amount) {
+        throw new Error("Missing payment details");
+      }
       
-      if (error) throw error;
+      const { data: { user } } = await supabase.auth.getUser();
       
-      if (data?.url) {
-        window.location.href = data.url;
+      // Get guest id from order if this is a guest order
+      let userId = user?.id;
+      let guestId = null;
+      
+      if (!userId && paymentDetails.orderId) {
+        // For guest orders, get the guest_id from the order
+        const { data: orderData, error: orderError } = await supabase
+          .from('custom_orders')
+          .select('guest_id')
+          .eq('id', paymentDetails.orderId)
+          .single();
+          
+        if (orderError) {
+          console.error('Error fetching order:', orderError);
+          throw new Error('Unable to process payment for this order.');
+        }
+        
+        guestId = orderData.guest_id;
+        
+        if (!guestId) {
+          throw new Error('Guest information not found. Please try again.');
+        }
+      } else if (!userId) {
+        toast({
+          variant: "destructive",
+          title: "Error",
+          description: "Please login to continue",
+        });
+        navigate("/auth");
+        return;
+      }
+
+      console.log("Initiating payment with:", { 
+        userId, 
+        guestId,
+        planName: paymentDetails.planName, 
+        amount: paymentDetails.amount,
+        orderId: paymentDetails.orderId
+      });
+
+      const { data, error } = await supabase.functions.invoke('initiate-payu-payment', {
+        body: { 
+          userId: userId,
+          guestId: guestId,
+          planName: paymentDetails.planName,
+          amount: paymentDetails.amount,
+          orderId: paymentDetails.orderId
+        }
+      });
+
+      if (error) {
+        console.error('Payment initiation error:', error);
+        toast({
+          variant: "destructive",
+          title: "Payment Error",
+          description: error.message || "Failed to initiate payment. Please try again.",
+        });
+        return;
+      }
+      
+      const tempDiv = document.createElement('div');
+      tempDiv.innerHTML = data;
+      document.body.appendChild(tempDiv);
+
+      const form = tempDiv.querySelector('form');
+      if (form) {
+        form.submit();
       } else {
-        toast.error('Failed to create checkout session');
+        throw new Error('Invalid payment form received');
       }
     } catch (error) {
       console.error('Payment error:', error);
-      toast.error('Failed to process payment');
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to initiate payment. Please try again.",
+      });
     }
   };
 
-  const formatCredits = (credits: number) => {
-    return new Intl.NumberFormat('en-US', {
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 2
-    }).format(credits);
-  };
-
-  if (isLoadingCredits || isLoadingPaymentLinks) {
+  if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-[60vh]">
-        <Loader2 className="h-8 w-8 animate-spin text-purple-600" />
+      <div className="min-h-screen flex items-center justify-center bg-background p-6">
+        <div className="text-center">
+          <div className="animate-spin w-10 h-10 border-4 border-primary border-t-transparent rounded-full mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading payment details...</p>
+        </div>
       </div>
     );
   }
 
+  if (!paymentDetails.planName || !paymentDetails.amount) {
+    return null;
+  }
+
   return (
-    <div className="container max-w-5xl py-8">
-      <h1 className="text-3xl font-bold mb-8">Credits & Billing</h1>
-      
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
-        <Card className="bg-gradient-to-br from-purple-900/40 to-purple-800/40 border-purple-700/50">
-          <CardHeader>
-            <CardTitle className="text-xl">Available Credits</CardTitle>
-            <CardDescription>Your current balance</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold text-white">
-              {userCredits ? formatCredits(userCredits.credits_remaining) : '0'}
+    <div className="min-h-screen flex items-center justify-center bg-background p-6">
+      <Card className="max-w-md w-full glass-card">
+        <CardHeader>
+          <CardTitle className="text-white">Complete Your Payment</CardTitle>
+          <CardDescription className="text-gray-400">Secure payment processing with PayU</CardDescription>
+        </CardHeader>
+        <CardContent>
+          <div className="space-y-4">
+            <div className="flex justify-between text-white">
+              <span>Plan</span>
+              <span className="font-medium">{paymentDetails.planName}</span>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-blue-900/40 to-blue-800/40 border-blue-700/50">
-          <CardHeader>
-            <CardTitle className="text-xl">Total Credits Used</CardTitle>
-            <CardDescription>Lifetime usage</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="text-4xl font-bold text-white">
-              {userCredits ? formatCredits(userCredits.credits_used) : '0'}
+            <div className="flex justify-between text-white">
+              <span>Amount</span>
+              <span className="font-medium">₹{paymentDetails.amount}</span>
             </div>
-          </CardContent>
-        </Card>
-        
-        <Card className="bg-gradient-to-br from-emerald-900/40 to-emerald-800/40 border-emerald-700/50">
-          <CardHeader>
-            <CardTitle className="text-xl">Subscription Status</CardTitle>
-            <CardDescription>Your current plan</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="flex items-center space-x-2">
-              {userCredits?.subscription_status === 'active' ? (
-                <>
-                  <CheckCircle className="h-5 w-5 text-emerald-500" />
-                  <span className="text-lg font-medium">Active</span>
-                </>
-              ) : (
-                <>
-                  <AlertCircle className="h-5 w-5 text-amber-500" />
-                  <span className="text-lg font-medium">No Active Plan</span>
-                </>
-              )}
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-      
-      <Tabs defaultValue="credits" className="w-full">
-        <TabsList className="grid w-full max-w-md grid-cols-2 mb-8">
-          <TabsTrigger value="credits">Buy Credits</TabsTrigger>
-          <TabsTrigger value="subscription">Subscription</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="credits" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {paymentLinks?.oneTimeLinks?.map((link: any) => (
-              <Card key={link.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle>{link.title}</CardTitle>
-                  <CardDescription>One-time purchase</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <div className="text-3xl font-bold mb-2">${link.custom_rate}</div>
-                  <p className="text-sm text-gray-400">{link.credits} credits</p>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handlePaymentClick(link.price_id)}
-                  >
-                    Buy Now
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
+            {paymentDetails.orderId && (
+              <div className="flex justify-between text-white">
+                <span>Order ID</span>
+                <span className="font-medium text-xs">{paymentDetails.orderId}</span>
+              </div>
+            )}
           </div>
-        </TabsContent>
-        
-        <TabsContent value="subscription" className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {paymentLinks?.subscriptionLinks?.map((link: any) => (
-              <Card key={link.id} className="flex flex-col">
-                <CardHeader>
-                  <CardTitle>{link.title}</CardTitle>
-                  <CardDescription>Monthly subscription</CardDescription>
-                </CardHeader>
-                <CardContent className="flex-grow">
-                  <div className="text-3xl font-bold mb-2">${link.custom_rate}/mo</div>
-                  <p className="text-sm text-gray-400">{link.credits} credits/month</p>
-                  <ul className="mt-4 space-y-2">
-                    {link.features?.map((feature: string, index: number) => (
-                      <li key={index} className="flex items-center text-sm">
-                        <CheckCircle className="h-4 w-4 text-green-500 mr-2" />
-                        {feature}
-                      </li>
-                    ))}
-                  </ul>
-                </CardContent>
-                <CardFooter>
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handlePaymentClick(link.price_id)}
-                  >
-                    Subscribe
-                  </Button>
-                </CardFooter>
-              </Card>
-            ))}
-          </div>
-        </TabsContent>
-      </Tabs>
+        </CardContent>
+        <CardFooter className="flex justify-end space-x-2">
+          <Button 
+            variant="ghost" 
+            onClick={() => paymentDetails.orderId ? navigate("/") : navigate("/plans")}
+            className="text-white hover:bg-white/10"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={initiatePayment}
+            className="bg-white/10 hover:bg-white/20 text-white"
+          >
+            Proceed to Payment
+          </Button>
+        </CardFooter>
+      </Card>
     </div>
   );
-}
+};
+
+export default Payment;

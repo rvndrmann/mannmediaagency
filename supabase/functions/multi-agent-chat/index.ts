@@ -84,9 +84,11 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
       return null;
     }
     
-    // For custom agents, we'll skip the UUID validation since they might have different formats
-    // Just query directly and see if we get a hit
-    console.log(`Querying for custom agent with ID: ${agentType}`);
+    // Only validate UUID format for custom agents
+    if (!isValidUUID(agentType)) {
+      console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
+      return null;
+    }
     
     const { data, error } = await supabase
       .from('custom_agents')
@@ -99,13 +101,8 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
       return null;
     }
     
-    if (data && data.instructions) {
-      console.log(`Retrieved instructions for ${agentType}, length: ${data.instructions.length}`);
-      return data.instructions;
-    } else {
-      console.log(`No instructions found for agent ${agentType}`);
-      return null;
-    }
+    console.log(`Retrieved instructions for ${agentType}, length: ${data?.instructions?.length || 0}`);
+    return data?.instructions || null;
   } catch (error) {
     console.error("Failed to fetch custom agent instructions:", error);
     return null;
@@ -171,9 +168,9 @@ BUILT-IN AGENTS:
   }
 
   handoffContext += `
-IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST use the following format at the end of your message:
+IMPORTANT: When you determine that another agent would be better suited to handle the user's request, you MUST end your response with this EXACT format:
 
-HANDOFF: {agent_id}
+HANDOFF: {agentType}
 REASON: {short reason for handoff}
 
 For example:
@@ -182,14 +179,20 @@ For example:
 HANDOFF: image
 REASON: User needs specialized image prompt creation"
 
-OR for a custom agent:
+OR:
+"Here's some general information about scene setting. For creating detailed scene descriptions...
+
+HANDOFF: scene
+REASON: User needs specialized scene description assistance"
+
+For custom agents, use their exact ID for the handoff:
 "This looks like a specialized request that I'm not equipped to handle best...
 
-HANDOFF: ${customAgents.length > 0 ? customAgents[0].id : 'custom_agent_id_here'}
+HANDOFF: 123e4567-e89b-12d3-a456-426614174000
 REASON: User needs help with this specific domain"
 
-Make sure to place the HANDOFF and REASON on separate lines exactly as shown. 
-Only hand off when the user's request clearly falls into another agent's specialty.
+Make sure to place the HANDOFF and REASON on separate lines exactly as shown above.
+Only hand off when the user's request clearly falls into another agent's specialty and you cannot provide the best response.
 `;
 
   console.log("Handoff context length:", handoffContext.length);
@@ -366,49 +369,6 @@ function processAttachmentUrls(messages: AgentMessage[], hasAttachments: boolean
   });
 }
 
-function parseHandoffRequest(text: string): { targetAgent: string, reason: string } | null {
-  if (!text || typeof text !== 'string') {
-    console.log("Invalid input to parseHandoffRequest:", text);
-    return null;
-  }
-
-  console.log("Attempting to parse handoff from:", text.slice(-300));
-  
-  // Improved regex pattern for more reliable handoff detection
-  // This matches formats like:
-  // HANDOFF: agent_name
-  // REASON: reason text
-  const handoffRegex = /HANDOFF:\s*([a-z0-9_-]+(?:-[a-z0-9]+)*)\s*[\r\n]+REASON:\s*(.+?)(?:$|[\r\n])/is;
-  const handoffMatch = text.match(handoffRegex);
-  
-  if (handoffMatch) {
-    const targetAgent = handoffMatch[1].trim();
-    const reason = handoffMatch[2].trim();
-    
-    console.log(`Handoff detected: Agent=${targetAgent}, Reason=${reason}`);
-    return { targetAgent, reason };
-  }
-  
-  // Fallback for partial matches - look specifically for the HANDOFF: part first
-  if (text.toUpperCase().includes("HANDOFF:")) {
-    console.log("Detected HANDOFF keyword but couldn't parse the complete format. Trying alternative parsing.");
-    
-    // Two-step approach for separate lines
-    const handoffPart = text.match(/HANDOFF:\s*([a-z0-9_-]+(?:-[a-z0-9]+)*)/i);
-    const reasonPart = text.match(/REASON:\s*(.+?)(?:$|[\r\n])/i);
-    
-    if (handoffPart) {
-      const targetAgent = handoffPart[1].trim();
-      const reason = reasonPart ? reasonPart[1].trim() : "Specialized assistance required";
-      
-      console.log(`Handoff detected with alternative parsing: Agent=${targetAgent}, Reason=${reason}`);
-      return { targetAgent, reason };
-    }
-  }
-  
-  return null;
-}
-
 async function getAgentCompletion(
   messages: AgentMessage[], 
   agentType: string, 
@@ -422,7 +382,7 @@ async function getAgentCompletion(
   const isHandoffContinuation = contextData?.isHandoffContinuation || false;
   const usePerformanceModel = contextData?.usePerformanceModel || false;
   
-  // Determine if this is actually a built-in agent type
+  // First determine if this is a built-in agent type
   const isActuallyBuiltIn = isBuiltInAgentType(agentType);
   
   console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}, hasAttachments: ${hasAttachments}`);
@@ -489,8 +449,6 @@ async function getAgentCompletion(
   if (isCustomAgent && !isActuallyBuiltIn) {
     // This is a custom agent with a UUID
     console.log(`Using custom agent template for ${agentType}`);
-    // For custom agents, we'll use the main agent as base for fallback
-    baseAgentType = "main";
   } else if (isActuallyBuiltIn) {
     // If it's a built-in agent
     baseAgentType = agentType.toLowerCase();
@@ -504,27 +462,16 @@ async function getAgentCompletion(
 
   // For custom agents, get instructions from the database
   let customInstructions: string | null = null;
-  if (supabase) {
-    console.log(`Getting instructions for agent: ${agentType} (isCustomAgent=${isCustomAgent}, isBuiltIn=${isActuallyBuiltIn})`);
+  if (isCustomAgent && !isActuallyBuiltIn && supabase) {
+    console.log(`Getting custom instructions for agent: ${agentType}`);
+    customInstructions = await getCustomAgentInstructions(supabase, agentType);
     
-    // Try to get custom instructions regardless of isCustomAgent flag
-    // This ensures we get the right instructions even if the flag is wrong
-    const fetchedInstructions = await getCustomAgentInstructions(supabase, agentType);
-    
-    if (fetchedInstructions) {
-      console.log(`Found custom instructions for ${agentType}, length: ${fetchedInstructions.length}`);
-      customInstructions = fetchedInstructions;
-    } else if (isCustomAgent && !isActuallyBuiltIn) {
-      // Only log this as an error if we expected custom instructions
+    if (customInstructions) {
+      console.log(`Found custom instructions for ${agentType}, length: ${customInstructions.length}`);
+    } else {
+      // Fallback if custom agent not found
       console.log(`No custom instructions found for ${agentType}, using fallback`);
     }
-  }
-  
-  // Log which instructions we're actually using
-  if (customInstructions) {
-    console.log(`Using custom instructions for ${agentType}`);
-  } else {
-    console.log(`Using built-in template for ${baseAgentType}`);
   }
   
   // Create the agent with appropriate instructions and capabilities
@@ -585,8 +532,7 @@ async function getAgentCompletion(
     const completion = data.choices[0].message.content;
     console.log(`${agentType} agent response:`, completion.slice(0, 150) + "...");
     
-    // Check for handoff requests - log the full text first to help debug
-    console.log("Checking for handoff request in text ending with:", completion.slice(-500));
+    // Check for handoff requests
     const handoffRequest = parseHandoffRequest(completion);
     
     // Logging for trace analysis
@@ -605,6 +551,60 @@ async function getAgentCompletion(
     console.error(`Error in ${agentType} agent:`, error);
     throw error;
   }
+}
+
+function parseHandoffRequest(text: string): { targetAgent: string, reason: string } | null {
+  if (!text || typeof text !== 'string') {
+    console.log("Invalid input to parseHandoffRequest:", text);
+    return null;
+  }
+
+  console.log("Attempting to parse handoff from:", text.slice(-300));
+  
+  // More flexible regex that can handle variations in format
+  // This handles cases with or without comma, with different spacing, and different capitalization
+  const handoffRegex = /HANDOFF:\s*([a-z0-9_-]+)(?:[,\s]\s*REASON:|\s+REASON:)\s*(.+?)(?:$|[\n\r])/is;
+  const handoffMatch = text.match(handoffRegex);
+  
+  if (handoffMatch) {
+    const targetAgent = handoffMatch[1].toLowerCase().trim();
+    const reason = handoffMatch[2].trim();
+    
+    console.log(`Handoff detected: Agent=${targetAgent}, Reason=${reason}`);
+    
+    // Allow handoff to any agent including custom agents
+    return { targetAgent, reason };
+  } else {
+    // Check if there's a partial match that needs more flexible parsing
+    if (text.toLowerCase().includes("handoff")) {
+      console.log("Potential handoff detected. Trying alternative parsing method.");
+      
+      // Try a two-step approach
+      const handoffPart = text.match(/HANDOFF:\s*([a-z0-9_-]+)/i);
+      const reasonPart = text.match(/REASON:\s*(.+?)(?:$|[\n\r])/i);
+      
+      if (handoffPart && reasonPart) {
+        const targetAgent = handoffPart[1].toLowerCase().trim();
+        const reason = reasonPart[1].trim();
+        
+        console.log(`Handoff detected using alternative parsing: Agent=${targetAgent}, Reason=${reason}`);
+        return { targetAgent, reason };
+      }
+      
+      // If we have just the agent but no reason, provide a default reason
+      if (handoffPart) {
+        const targetAgent = handoffPart[1].toLowerCase().trim();
+        const reason = "Specialized assistance required";
+        
+        console.log(`Partial handoff detected, using default reason: Agent=${targetAgent}, Reason=${reason}`);
+        return { targetAgent, reason };
+      }
+      
+      console.log("Potential handoff format detected but couldn't parse completely");
+    }
+  }
+  
+  return null;
 }
 
 async function logAgentInteraction(
@@ -767,9 +767,20 @@ serve(async (req) => {
     const isBuiltIn = isBuiltInAgentType(agentType);
     console.log(`Agent ${agentType} is built-in: ${isBuiltIn}`);
     
-    // Only do custom agent validation if it's not a built-in type
-    if (!isBuiltIn) {
-      // Try to get the custom agent to validate it exists (without requiring UUID format)
+    // Check if custom agent exists when isCustomAgent is true and not a built-in type
+    if (isCustomAgent && !isBuiltIn) {
+      // First, validate if the agentType is a valid UUID before querying
+      if (!isValidUUID(agentType)) {
+        console.error(`Invalid UUID format for custom agent ID: ${agentType}`);
+        return new Response(
+          JSON.stringify({ 
+            error: `Invalid custom agent ID format: ${agentType}. Custom agent IDs must be valid UUIDs.`,
+            handoffFailed: true
+          }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
       const { data: agentData, error: agentError } = await supabase
         .from('custom_agents')
         .select('id, name')
@@ -780,7 +791,7 @@ serve(async (req) => {
         console.error(`Custom agent not found: ${agentType}`, agentError);
         return new Response(
           JSON.stringify({ 
-            error: `Custom agent with ID "${agentType}" not found.`,
+            error: "Custom agent not found",
             handoffFailed: true
           }),
           { status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

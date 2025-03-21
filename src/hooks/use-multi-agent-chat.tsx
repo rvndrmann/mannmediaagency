@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
-import { AgentRunner } from "./multi-agent/runner";
+import { AgentRunner } from "./multi-agent/runner/AgentRunner";
 
 // Define built-in agent types
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
@@ -115,18 +115,6 @@ export const useMultiAgentChat = () => {
           setActiveAgent(toAgent);
         }
       });
-
-      // Create the user message
-      setMessages(prev => [
-        ...prev,
-        {
-          id: uuidv4(),
-          role: "user",
-          content: trimmedInput,
-          createdAt: new Date(),
-          attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
-        }
-      ]);
 
       // Run the agent
       await runner.run(trimmedInput, pendingAttachments, user.id);

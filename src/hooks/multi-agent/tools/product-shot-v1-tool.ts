@@ -1,120 +1,137 @@
 
-import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { Tool, ToolResult } from "../types";
+import { ToolDefinition, ToolContext, ToolResult } from "../types";
 import { toast } from "sonner";
 
-export interface ProductShotV1ToolParams {
-  prompt: string;
-  negativePrompt?: string;
-  aspectRatio?: string;
-  requestId?: string;
-}
-
-export const productShotV1Tool: Tool<ProductShotV1ToolParams> = {
-  name: "product_shot_v1",
-  description: "Generate a product image based on a description",
+export const productShotV1Tool: ToolDefinition = {
+  name: "product-shot-v1",
+  description: "Generate a product image based on a reference image and a prompt",
   parameters: {
     prompt: {
       type: "string",
-      description: "Detailed description of the product to visualize",
-      required: true,
+      description: "Description of the product shot to generate"
     },
-    negativePrompt: {
+    imageUrl: {
       type: "string",
-      description: "Elements to avoid in the generated image",
-      required: false,
+      description: "URL of the source product image"
     },
-    aspectRatio: {
+    imageSize: {
       type: "string",
-      description: "Aspect ratio for the image (e.g., '1:1', '16:9', '4:3')",
-      required: false,
+      description: "Size of the output image",
+      enum: ["square", "square_hd", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"],
+      default: "square"
     },
-    requestId: {
+    inferenceSteps: {
+      type: "number",
+      description: "Number of inference steps",
+      default: 5
+    },
+    guidanceScale: {
+      type: "number",
+      description: "Guidance scale for image generation",
+      default: 5
+    },
+    outputFormat: {
       type: "string",
-      description: "Optional request ID for tracking the generation",
-      required: false,
-    },
+      description: "Output format of the image",
+      enum: ["png", "jpg"],
+      default: "png"
+    }
   },
-  execute: async ({ prompt, negativePrompt, aspectRatio, requestId }) => {
+  requiredCredits: 0.2,
+  execute: async (params, context: ToolContext): Promise<ToolResult> => {
     try {
-      // Check if user is authenticated
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        return {
-          content: "⚠️ You need to be logged in to generate product images.",
-          metadata: { error: "Authentication required" }
-        };
-      }
-
       // Check if user has enough credits
-      const { data: creditCheck, error: creditError } = await supabase.rpc(
-        "safely_decrease_chat_credits",
-        { credit_amount: 1 }
-      );
-
-      if (creditError || creditCheck === false) {
+      if (context.creditsRemaining < 0.2) {
         return {
-          content: "⚠️ You don't have enough credits to generate a product image. Please purchase more credits.",
-          metadata: { error: "Insufficient credits" }
+          success: false,
+          message: "Insufficient credits to generate a product shot. You need at least 0.2 credits."
         };
       }
 
-      // Generate a request ID if not provided
-      const generationId = requestId || uuidv4();
+      // Get the image URL - either from the params or from attachments
+      let imageUrl = params.imageUrl;
+      if (!imageUrl && context.attachments?.length > 0) {
+        const imageAttachment = context.attachments.find(att => att.type === "image");
+        if (imageAttachment) {
+          imageUrl = imageAttachment.url;
+        }
+      }
 
-      // Create a record in the database
-      const { error: insertError } = await supabase
+      if (!imageUrl) {
+        return {
+          success: false,
+          message: "No image URL provided. Please provide an image URL or attach an image."
+        };
+      }
+
+      // Insert a record in the database with correct schema
+      const { data: jobData, error: jobError } = await supabase
         .from("image_generation_jobs")
         .insert({
-          user_id: session.user.id,
-          prompt: prompt,
-          negative_prompt: negativePrompt || "",
-          aspect_ratio: aspectRatio || "1:1",
-          status: "in_queue",
-          request_id: generationId,
-        });
-
-      if (insertError) {
-        console.error("Error creating image generation job:", insertError);
-        return {
-          content: "⚠️ Failed to initiate image generation. Please try again.",
-          metadata: { error: insertError.message }
-        };
-      }
-
-      // Call the edge function to start the generation process
-      const { error: functionError } = await supabase.functions.invoke(
-        "generate-product-image",
-        {
-          body: {
-            prompt,
-            negative_prompt: negativePrompt || "",
-            aspect_ratio: aspectRatio || "1:1",
-            request_id: generationId,
+          prompt: params.prompt,
+          settings: {
+            source_image_url: imageUrl,
+            image_size: params.imageSize || "square",
+            inference_steps: params.inferenceSteps || 5,
+            guidance_scale: params.guidanceScale || 5,
+            output_format: params.outputFormat || "png"
           },
+          status: "pending",
+          user_id: context.userId
+        })
+        .select()
+        .single();
+
+      if (jobError) throw jobError;
+
+      // Map the tool parameters to the edge function format
+      const requestBody = {
+        image_url: imageUrl,
+        scene_description: params.prompt,
+        optimize_description: true,
+        num_results: 1,
+        fast: true,
+        placement_type: 'automatic',
+        sync_mode: false
+      };
+
+      // Call the generate-product-shot edge function
+      const { data, error: functionError } = await supabase.functions.invoke(
+        "generate-product-shot",
+        {
+          body: JSON.stringify(requestBody)
         }
       );
 
-      if (functionError) {
-        console.error("Error calling image generation function:", functionError);
-        return {
-          content: "⚠️ Failed to start image generation process. Please try again.",
-          metadata: { error: functionError.message }
-        };
+      if (functionError) throw functionError;
+
+      // Update the job record with the request ID
+      if (data?.requestId) {
+        await supabase
+          .from("image_generation_jobs")
+          .update({ 
+            request_id: data.requestId,
+            status: "processing"
+          })
+          .eq("id", jobData?.id);
       }
 
-      // Return a message indicating the generation has started
       return {
-        content: `Initializing product image generation...`,
-        metadata: { requestId: generationId },
+        success: true,
+        message: "Product shot generation started successfully. You'll be notified when it's ready.",
+        data: {
+          jobId: jobData?.id,
+          requestId: data?.requestId,
+          status: "processing"
+        }
       };
-    } catch (error: any) {
-      console.error("Error in product shot v1 tool:", error);
+    } catch (error) {
+      console.error("Error in product-shot-v1 tool:", error);
       return {
-        content: "⚠️ An error occurred while generating the product image. Please try again.",
-        metadata: { error: error.message }
+        success: false,
+        message: error instanceof Error ? error.message : "An unknown error occurred"
       };
     }
-  },
+  }
 };

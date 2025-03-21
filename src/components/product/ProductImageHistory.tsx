@@ -62,7 +62,7 @@ export function ProductImageHistory({
         throw error;
       }
 
-      return (jobs || []) as unknown as ImageGenerationJob[];
+      return (jobs || []) as ImageGenerationJob[];
     },
     enabled: !!session?.user.id,
   });

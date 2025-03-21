@@ -37,7 +37,14 @@ export function parseToolCommand(text: string): Command | null {
     const jsonBlocks = text.match(/\{[\s\S]*?\}/g);
     if (jsonBlocks) {
       // Look for mentions of tools near JSON blocks
-      const toolNames = ["product-shot-v1", "product-shot-v2", "image-to-video"];
+      const toolNames = [
+        "product-shot-v1", 
+        "product-shot-v2", 
+        "image-to-video", 
+        "browser-use", 
+        "product-video", 
+        "custom-video"
+      ];
       
       for (const toolName of toolNames) {
         if (text.toLowerCase().includes(toolName.toLowerCase())) {
@@ -77,7 +84,16 @@ export function parseToolCommand(text: string): Command | null {
     }
     
     // If we still haven't found a match, try a more pattern-based approach
-    for (const toolName of ["product-shot-v1", "product-shot-v2", "image-to-video"]) {
+    const toolNames = [
+      "product-shot-v1", 
+      "product-shot-v2", 
+      "image-to-video", 
+      "browser-use", 
+      "product-video", 
+      "custom-video"
+    ];
+    
+    for (const toolName of toolNames) {
       const toolPattern = new RegExp(`(use|using|execute|run)\\s+(?:the)?\\s*${toolName}\\s+(?:tool|function)`, 'i');
       if (toolPattern.test(text)) {
         console.log(`Detected ${toolName} tool mention without structured parameters`);
@@ -85,7 +101,7 @@ export function parseToolCommand(text: string): Command | null {
         // Try to extract parameters from context
         let parameters: Record<string, any> = {};
         
-        // Look for common parameter patterns
+        // Look for common parameter patterns based on tool type
         if (toolName.includes("product-shot")) {
           const promptMatch = text.match(/prompt[:\s]+["']?([^"'\n]+)["']?/i);
           if (promptMatch) parameters.prompt = promptMatch[1].trim();
@@ -95,11 +111,42 @@ export function parseToolCommand(text: string): Command | null {
         }
         
         if (toolName === "image-to-video") {
+          const promptMatch = text.match(/prompt[:\s]+["']?([^"'\n]+)["']?/i);
+          if (promptMatch) parameters.prompt = promptMatch[1].trim();
+          
           const durationMatch = text.match(/duration[:\s]+["']?(\d+)["']?/i);
           if (durationMatch) parameters.duration = durationMatch[1].trim();
           
           const ratioMatch = text.match(/(?:aspect)?ratio[:\s]+["']?([0-9:]+)["']?/i);
           if (ratioMatch) parameters.aspectRatio = ratioMatch[1].trim();
+        }
+        
+        if (toolName === "browser-use") {
+          const taskMatch = text.match(/task[:\s]+["']?([^"'\n]+)["']?/i);
+          if (taskMatch) parameters.task = taskMatch[1].trim();
+          
+          // Look for save browser data option
+          const saveMatch = text.match(/save(?:Browser)?Data[:\s]+["']?([a-zA-Z]+)["']?/i);
+          if (saveMatch) parameters.saveBrowserData = saveMatch[1].toLowerCase() === "true";
+        }
+        
+        if (toolName === "product-video") {
+          const scriptMatch = text.match(/script[:\s]+["']?([^"'\n]+)["']?/i);
+          if (scriptMatch) parameters.script = scriptMatch[1].trim();
+          
+          const styleMatch = text.match(/style[:\s]+["']?([a-zA-Z]+)["']?/i);
+          if (styleMatch) parameters.style = styleMatch[1].toLowerCase();
+          
+          const readyMatch = text.match(/readyToGo[:\s]+["']?([a-zA-Z]+)["']?/i);
+          if (readyMatch) parameters.readyToGo = readyMatch[1].toLowerCase() === "true";
+        }
+        
+        if (toolName === "custom-video") {
+          const descriptionMatch = text.match(/description[:\s]+["']?([^"'\n]+)["']?/i);
+          if (descriptionMatch) parameters.description = descriptionMatch[1].trim();
+          
+          const creditsMatch = text.match(/credits(?:Amount)?[:\s]+["']?(\d+)["']?/i);
+          if (creditsMatch) parameters.creditsAmount = parseInt(creditsMatch[1], 10);
         }
         
         return {

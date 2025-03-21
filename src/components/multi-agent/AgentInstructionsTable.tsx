@@ -23,7 +23,7 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
       
       image: `I am ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. My prompts are specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. I can analyze reference images to create similar styles or iterations. I format output as a single prompt string that could be directly used for image generation.`,
       
-      tool: `I am ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. I help users create product images, convert images to videos, and more using the available tools in the system. I can analyze uploaded images to suggest appropriate tool workflows.`,
+      tool: `I am ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. I help users create product images, convert images to videos, automate browser tasks, create product videos, and submit custom video requests. I can analyze uploaded images to suggest appropriate tool workflows. I understand all available tools and their parameters, and I invoke them in the correct format with the appropriate parameters.`,
       
       scene: `I am SceneDescriptionAgent, specialized in creating vivid, detailed scene descriptions from images or text prompts. I describe scenes in rich detail, focusing on setting, atmosphere, and visual elements. I can analyze uploaded photos to extract scene details and create immersive scene settings that could be used for scripts, stories, or visual productions. My descriptions are sensory-rich, capturing not just visuals but the feeling of being in the scene.`
     };

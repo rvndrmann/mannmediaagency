@@ -8,7 +8,9 @@ import {
   ShoppingBag,
   VideoIcon,
   ArrowLeft,
-  MessageSquare
+  MessageSquare,
+  Globe,
+  Video
 } from "lucide-react";
 import { 
   Tooltip,
@@ -58,9 +60,21 @@ export const ToolSelector = ({
     },
     {
       id: "image-to-video",
-      name: "Video",
+      name: "Image to Video",
       icon: Clapperboard,
       tooltip: "Create videos from images"
+    },
+    {
+      id: "browser-use",
+      name: "Browser Use",
+      icon: Globe,
+      tooltip: "Automate browser tasks"
+    },
+    {
+      id: "product-video",
+      name: "Product Video",
+      icon: Video,
+      tooltip: "Create professional product videos"
     }
   ];
 

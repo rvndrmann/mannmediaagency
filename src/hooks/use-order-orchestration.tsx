@@ -1,292 +1,349 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { 
-  OrchestrationWorkflow, 
-  ProcessingStage, 
-  ProcessingStageStatus, 
-  WorkflowStatus,
-  WorkflowWithDetails 
-} from "@/types/orchestration";
 import { CustomOrder } from "@/types/custom-order";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { ProcessingStage, ProcessingStageStatus, OrchestrationWorkflow, WorkflowStatus, WorkflowWithDetails, StageDisplayInfo } from "@/types/orchestration";
+import { AgentType } from "./use-multi-agent-chat";
+import { Bot, FileText, Code, PenLine, Image, Sparkles, Video, Brain } from "lucide-react";
 import { toast } from "sonner";
 
-export function useOrderOrchestration(orderId: string) {
-  const [workflowDetails, setWorkflowDetails] = useState<WorkflowWithDetails | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<Error | null>(null);
-  const [isStarting, setIsStarting] = useState(false);
+// Utility function to safely parse JSON
+const safeJsonParse = (jsonString: any, fallback: any = {}) => {
+  if (!jsonString) return fallback;
   
-  // Fetch the workflow and stages for the given order
-  const fetchWorkflowDetails = useCallback(async () => {
-    try {
+  // If it's already an object, return it
+  if (typeof jsonString === 'object' && jsonString !== null) {
+    return jsonString;
+  }
+  
+  try {
+    return JSON.parse(jsonString);
+  } catch (e) {
+    console.error("Error parsing JSON:", e);
+    return fallback;
+  }
+};
+
+export const useOrderOrchestration = (orderId?: string) => {
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [workflowDetails, setWorkflowDetails] = useState<WorkflowWithDetails | null>(null);
+  const [refreshTrigger, setRefreshTrigger] = useState(0);
+  
+  const refreshData = () => setRefreshTrigger(prev => prev + 1);
+  
+  // Fetch workflow details for an order
+  useEffect(() => {
+    if (!orderId) {
+      setIsLoading(false);
+      return;
+    }
+    
+    const fetchWorkflowDetails = async () => {
       setIsLoading(true);
       setError(null);
       
-      // First check if a workflow exists for this order
-      const { data: workflowData, error: workflowError } = await supabase
-        .from('agent_orchestration_workflows')
-        .select('*')
-        .eq('order_id', orderId)
-        .single();
-      
-      if (workflowError && workflowError.code !== 'PGRST116') {
-        throw workflowError;
-      }
-      
-      if (!workflowData) {
-        setWorkflowDetails(null);
+      try {
+        // First check if there's an existing workflow for this order
+        const { data: workflowData, error: workflowError } = await supabase
+          .from('order_workflows')
+          .select('*')
+          .eq('order_id', orderId)
+          .single();
+          
+        if (workflowError && workflowError.code !== 'PGRST116') {
+          throw workflowError;
+        }
+        
+        // Fetch stages if workflow exists
+        let stages: ProcessingStage[] = [];
+        if (workflowData) {
+          const { data: stagesData, error: stagesError } = await supabase
+            .from('processing_stages')
+            .select('*')
+            .eq('order_id', orderId)
+            .order('created_at', { ascending: true });
+            
+          if (stagesError) {
+            throw stagesError;
+          }
+          
+          stages = stagesData || [];
+        }
+        
+        // Fetch order details
+        const { data: orderData, error: orderError } = await supabase
+          .from('custom_orders')
+          .select('*, custom_order_media(*)')
+          .eq('id', orderId)
+          .single();
+          
+        if (orderError) {
+          throw orderError;
+        }
+
+        // If a workflow exists, parse its workflow_data field
+        if (workflowData) {
+          // Convert workflow_data to proper object if it's a string
+          const workflowDataObj = safeJsonParse(workflowData.workflow_data);
+          
+          // Ensure 'stages' is accessible in workflowDataObj
+          const workflowStages = workflowDataObj.stages || [];
+          
+          setWorkflowDetails({
+            workflow: {
+              ...workflowData,
+              status: workflowData.status as WorkflowStatus,
+              workflow_data: workflowDataObj
+            },
+            stages: stages.map(stage => ({
+              ...stage,
+              status: stage.status as ProcessingStageStatus,
+              input_data: safeJsonParse(stage.input_data),
+              output_data: safeJsonParse(stage.output_data),
+            })),
+            order: orderData,
+            currentStageIndex: stages.findIndex(s => s.id === workflowData.current_stage) || 0
+          });
+        } else {
+          setWorkflowDetails(null);
+        }
+        
         setIsLoading(false);
-        return;
+      } catch (err) {
+        console.error("Error fetching workflow details:", err);
+        setError(err instanceof Error ? err.message : "An unknown error occurred");
+        setIsLoading(false);
       }
-      
-      // Fetch the stages for this workflow
-      const { data: stagesData, error: stagesError } = await supabase
-        .from('order_processing_stages')
-        .select('*')
+    };
+    
+    fetchWorkflowDetails();
+  }, [orderId, refreshTrigger]);
+  
+  // Start a new workflow for an order
+  const startWorkflow = async (
+    orderId: string, 
+    stages: {name: string, agent: AgentType}[]
+  ) => {
+    try {
+      // Check if there's already a workflow for this order
+      const { data: existingWorkflow } = await supabase
+        .from('order_workflows')
+        .select('id, status')
         .eq('order_id', orderId)
-        .order('created_at', { ascending: true });
-      
-      if (stagesError) {
-        throw stagesError;
-      }
-      
-      // Fetch the order details
-      const { data: orderData, error: orderError } = await supabase
-        .from('custom_orders')
-        .select('*, custom_order_media(*)')
-        .eq('id', orderId)
         .single();
-      
-      if (orderError) {
-        throw orderError;
-      }
-      
-      // Parse the workflow data json if it's a string
-      let workflowDataParsed = workflowData.workflow_data;
-      if (typeof workflowData.workflow_data === 'string') {
-        try {
-          workflowDataParsed = JSON.parse(workflowData.workflow_data);
-        } catch (e) {
-          console.error('Error parsing workflow data:', e);
+        
+      if (existingWorkflow) {
+        if (existingWorkflow.status !== 'completed' && existingWorkflow.status !== 'failed') {
+          toast.error("A workflow is already in progress for this order");
+          return false;
         }
       }
       
-      // Find the current stage index
-      const stageNames = workflowDataParsed?.stages || [];
-      const currentStageIndex = stageNames.findIndex((stageName: string) => 
-        stageName === workflowData.current_stage
-      );
+      const stageNames = stages.map(s => s.name);
       
-      // Prepare the workflow details
-      const workflow: OrchestrationWorkflow = {
-        id: workflowData.id,
-        order_id: workflowData.order_id,
-        status: workflowData.status as WorkflowStatus,
-        current_stage: workflowData.current_stage,
-        workflow_data: {
-          order_id: orderData.id,
-          stages: stageNames
-        },
-        created_at: workflowData.created_at,
-        updated_at: workflowData.updated_at,
-        completed_at: workflowData.completed_at
-      };
+      // Create a new workflow
+      const { data: workflow, error: workflowError } = await supabase
+        .from('order_workflows')
+        .insert({
+          order_id: orderId,
+          status: 'in_progress' as WorkflowStatus,
+          workflow_data: {
+            order_id: orderId,
+            stages: stageNames
+          }
+        })
+        .select()
+        .single();
+        
+      if (workflowError) {
+        throw workflowError;
+      }
       
-      // Transform stage data
-      const stages: ProcessingStage[] = stagesData.map(stage => ({
-        id: stage.id,
-        order_id: stage.order_id,
-        stage_name: stage.stage_name,
-        status: stage.status as ProcessingStageStatus,
-        agent_type: stage.agent_type,
-        input_data: stage.input_data,
-        output_data: stage.output_data,
-        created_at: stage.created_at,
-        updated_at: stage.updated_at,
-        completed_at: stage.completed_at
-      }));
+      // Create the first stage
+      const firstStage = stages[0];
       
-      // Set the workflow details
-      setWorkflowDetails({
-        workflow,
-        stages,
-        order: orderData as CustomOrder,
-        currentStageIndex: currentStageIndex !== -1 ? currentStageIndex : 0
-      });
+      const { data: stage, error: stageError } = await supabase
+        .from('processing_stages')
+        .insert({
+          order_id: orderId,
+          stage_name: firstStage.name,
+          status: 'in_progress' as ProcessingStageStatus,
+          agent_type: firstStage.agent,
+          input_data: {
+            order_id: orderId,
+            stage_name: firstStage.name,
+            is_first_stage: true
+          }
+        })
+        .select()
+        .single();
+        
+      if (stageError) {
+        throw stageError;
+      }
       
-    } catch (err) {
-      console.error('Error fetching workflow details:', err);
-      setError(err instanceof Error ? err : new Error(String(err)));
-    } finally {
-      setIsLoading(false);
+      // Update the workflow with the current stage
+      const { error: updateError } = await supabase
+        .from('order_workflows')
+        .update({
+          current_stage: stage.id
+        })
+        .eq('id', workflow.id);
+        
+      if (updateError) {
+        throw updateError;
+      }
+      
+      refreshData();
+      toast.success("Workflow started successfully");
+      return true;
+    } catch (error) {
+      console.error("Error starting workflow:", error);
+      toast.error(error instanceof Error ? error.message : "An unknown error occurred");
+      return false;
     }
-  }, [orderId]);
-  
-  // Start a new orchestration workflow
-  const startOrchestration = useCallback(async (orderId: string) => {
-    try {
-      setIsStarting(true);
-      
-      const { data, error } = await supabase
-        .rpc('start_order_orchestration', { 
-          order_id_param: orderId 
-        });
-      
-      if (error) throw error;
-      
-      toast.success('Orchestration workflow started successfully');
-      
-      // Refresh the workflow details
-      await fetchWorkflowDetails();
-      
-    } catch (err) {
-      console.error('Error starting orchestration:', err);
-      toast.error(err instanceof Error ? err.message : String(err));
-    } finally {
-      setIsStarting(false);
-    }
-  }, [fetchWorkflowDetails]);
+  };
   
   // Update a stage status
-  const updateStage = useCallback(async ({ 
-    stageId, 
-    status, 
-    outputData 
-  }: { 
-    stageId: string; 
-    status: ProcessingStageStatus; 
-    outputData?: any 
-  }) => {
+  const updateStageStatus = async (
+    stageId: string, 
+    status: ProcessingStageStatus,
+    outputData?: any
+  ) => {
     try {
-      const updateData: any = { status };
+      const updates: any = { status };
       
       if (outputData) {
-        updateData.output_data = outputData;
+        updates.output_data = outputData;
       }
       
-      if (status === 'completed' || status === 'approved') {
-        updateData.completed_at = new Date().toISOString();
+      if (status === 'completed') {
+        updates.completed_at = new Date().toISOString();
       }
       
       const { error } = await supabase
-        .from('order_processing_stages')
-        .update(updateData)
+        .from('processing_stages')
+        .update(updates)
         .eq('id', stageId);
+        
+      if (error) {
+        throw error;
+      }
       
-      if (error) throw error;
-      
-      toast.success(`Stage ${status === 'approved' ? 'approved' : status === 'rejected' ? 'rejected' : 'updated'} successfully`);
-      
-      // Refresh the workflow details
-      await fetchWorkflowDetails();
-      
-    } catch (err) {
-      console.error('Error updating stage:', err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      refreshData();
+      return true;
+    } catch (error) {
+      console.error("Error updating stage status:", error);
+      toast.error(error instanceof Error ? error.message : "An unknown error occurred");
+      return false;
     }
-  }, [fetchWorkflowDetails]);
+  };
   
-  // Move to the next stage in the workflow
-  const moveToNextStage = useCallback(async ({
-    workflowId,
-    currentStage,
-    nextStage,
-    agentType
-  }: {
-    workflowId: string;
-    currentStage: string;
-    nextStage: string;
-    agentType: AgentType;
-  }) => {
-    try {
-      // Update the workflow with the new current stage
-      const { error: workflowError } = await supabase
-        .from('agent_orchestration_workflows')
-        .update({ 
-          current_stage: nextStage,
-          updated_at: new Date().toISOString()
-        })
-        .eq('id', workflowId);
-      
-      if (workflowError) throw workflowError;
-      
-      // Create the next stage record
-      const { error: stageError } = await supabase
-        .from('order_processing_stages')
-        .insert({
-          order_id: workflowDetails?.order.id,
-          stage_name: nextStage,
-          status: 'pending',
-          agent_type: agentType,
-          input_data: {
-            order_id: workflowDetails?.order.id,
-            prev_stage: currentStage,
-            remark: workflowDetails?.order.remark,
-            prev_stage_output: workflowDetails?.stages.find(s => s.stage_name === currentStage)?.output_data
-          }
-        });
-      
-      if (stageError) throw stageError;
-      
-      toast.success(`Moved to ${nextStage} stage`);
-      
-      // Refresh the workflow details
-      await fetchWorkflowDetails();
-      
-    } catch (err) {
-      console.error('Error moving to next stage:', err);
-      toast.error(err instanceof Error ? err.message : String(err));
+  // Move to the next stage
+  const moveToNextStage = async (
+    currentStageId: string,
+    nextStageName: string,
+    nextAgentType: AgentType,
+    inputData?: any
+  ) => {
+    if (!workflowDetails) {
+      toast.error("No active workflow");
+      return false;
     }
-  }, [fetchWorkflowDetails, workflowDetails]);
+    
+    try {
+      // Mark current stage as completed
+      await updateStageStatus(currentStageId, 'completed');
+      
+      // Create the next stage
+      const { data: newStage, error: stageError } = await supabase
+        .from('processing_stages')
+        .insert({
+          order_id: workflowDetails.order.id,
+          stage_name: nextStageName,
+          status: 'in_progress' as ProcessingStageStatus,
+          agent_type: nextAgentType,
+          input_data: inputData || {
+            order_id: workflowDetails.order.id,
+            stage_name: nextStageName,
+            previous_stage_id: currentStageId
+          }
+        })
+        .select()
+        .single();
+        
+      if (stageError) {
+        throw stageError;
+      }
+      
+      // Update the workflow with the new current stage
+      const { error: updateError } = await supabase
+        .from('order_workflows')
+        .update({
+          current_stage: newStage.id
+        })
+        .eq('id', workflowDetails.workflow.id);
+        
+      if (updateError) {
+        throw updateError;
+      }
+      
+      refreshData();
+      toast.success(`Moved to next stage: ${nextStageName}`);
+      return true;
+    } catch (error) {
+      console.error("Error moving to next stage:", error);
+      toast.error(error instanceof Error ? error.message : "An unknown error occurred");
+      return false;
+    }
+  };
   
   // Complete the workflow
-  const completeWorkflow = useCallback(async (workflowId: string) => {
+  const completeWorkflow = async (
+    finalStageId: string,
+    status: 'completed' | 'failed' = 'completed'
+  ) => {
+    if (!workflowDetails) {
+      toast.error("No active workflow");
+      return false;
+    }
+    
     try {
+      // Mark final stage as completed
+      await updateStageStatus(finalStageId, status === 'completed' ? 'completed' : 'failed');
+      
+      // Update workflow status
       const { error } = await supabase
-        .from('agent_orchestration_workflows')
-        .update({ 
-          status: 'completed',
+        .from('order_workflows')
+        .update({
+          status: status as WorkflowStatus,
           completed_at: new Date().toISOString()
         })
-        .eq('id', workflowId);
+        .eq('id', workflowDetails.workflow.id);
+        
+      if (error) {
+        throw error;
+      }
       
-      if (error) throw error;
-      
-      // Update the order status to completed
-      const { error: orderError } = await supabase
-        .from('custom_orders')
-        .update({ status: 'completed' })
-        .eq('id', workflowDetails?.order.id);
-      
-      if (orderError) throw orderError;
-      
-      toast.success('Workflow completed successfully');
-      
-      // Refresh the workflow details
-      await fetchWorkflowDetails();
-      
-    } catch (err) {
-      console.error('Error completing workflow:', err);
-      toast.error(err instanceof Error ? err.message : String(err));
+      refreshData();
+      toast.success(`Workflow ${status}`);
+      return true;
+    } catch (error) {
+      console.error(`Error completing workflow:`, error);
+      toast.error(error instanceof Error ? error.message : "An unknown error occurred");
+      return false;
     }
-  }, [fetchWorkflowDetails, workflowDetails]);
-  
-  // Load workflow details on initial load
-  useEffect(() => {
-    fetchWorkflowDetails();
-  }, [fetchWorkflowDetails]);
+  };
   
   return {
-    workflowDetails,
     isLoading,
     error,
-    isStarting,
-    startOrchestration,
-    updateStage,
+    workflowDetails,
+    refreshData,
+    startWorkflow,
+    updateStageStatus,
     moveToNextStage,
-    completeWorkflow,
-    refreshWorkflow: fetchWorkflowDetails
+    completeWorkflow
   };
-}
+};

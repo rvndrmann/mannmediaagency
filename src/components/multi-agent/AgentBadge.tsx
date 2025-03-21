@@ -1,19 +1,28 @@
 
 import React from 'react';
-import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText } from 'lucide-react';
+import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText, MoreVertical } from 'lucide-react';
+import { 
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger
+} from "@/components/ui/dropdown-menu";
+import { AgentInfo } from '@/types/message';
 
 type AgentBadgeProps = {
-  agentType: string;
+  agent: AgentInfo;
+  onEdit?: () => void;
+  onDelete?: (agentId: string) => Promise<void>;
 };
 
-export const AgentBadge = ({ agentType }: AgentBadgeProps) => {
+export const AgentBadge = ({ agent, onEdit, onDelete }: AgentBadgeProps) => {
   // Default badge config
   let icon = <Bot className="h-3.5 w-3.5" />;
-  let label = agentType;
+  let label = agent.id;
   let className = "bg-blue-600";
   
   // Configure based on agent type
-  switch (agentType) {
+  switch (agent.id) {
     case 'main':
       label = "Main";
       icon = <Bot className="h-3.5 w-3.5" />;
@@ -51,20 +60,52 @@ export const AgentBadge = ({ agentType }: AgentBadgeProps) => {
       break;
     case 'custom-video':
       label = "Custom Video";
-      icon = <ShoppingBag className="h-3.5 w-3.5" />;
+      icon = <Video className="h-3.5 w-3.5" />;
       className = "bg-pink-600";
       break;
     default:
-      label = "Custom";
+      label = agent.name || "Custom";
       icon = <Coffee className="h-3.5 w-3.5" />;
       className = "bg-indigo-600";
       break;
   }
 
+  // If no edit/delete handlers provided, just show the badge without dropdown
+  if (!onEdit && !onDelete) {
+    return (
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-white ${className}`}>
+        {icon}
+        {label}
+      </span>
+    );
+  }
+
   return (
-    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-white ${className}`}>
-      {icon}
-      {label}
-    </span>
+    <div className="inline-flex">
+      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-l text-xs font-medium text-white ${className}`}>
+        {icon}
+        {label}
+      </span>
+      <DropdownMenu>
+        <DropdownMenuTrigger className={`${className} text-white rounded-r text-xs h-5 px-1 flex items-center justify-center`}>
+          <MoreVertical className="h-3 w-3" />
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          {onEdit && (
+            <DropdownMenuItem onClick={onEdit}>
+              Edit
+            </DropdownMenuItem>
+          )}
+          {onDelete && (
+            <DropdownMenuItem 
+              onClick={() => onDelete(agent.id)}
+              className="text-red-500"
+            >
+              Delete
+            </DropdownMenuItem>
+          )}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
   );
 };

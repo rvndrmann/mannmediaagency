@@ -1,6 +1,7 @@
 
 import { Command } from "@/types/message";
-import { CommandExecutionState, ToolContext, ToolResult } from "./types";
+import { ToolContext, ToolResult } from "@/hooks/types";
+import { CommandExecutionState } from "./types";
 import { getTool } from "./tools";
 
 export class ToolExecutor {
@@ -18,7 +19,9 @@ export class ToolExecutor {
     const executionState: CommandExecutionState = {
       commandId,
       status: "pending",
-      startTime: new Date()
+      startTime: Date.now(),
+      command: command.feature,
+      params: command.parameters || {}
     };
     
     this.executionStates.set(commandId, executionState);
@@ -59,7 +62,7 @@ export class ToolExecutor {
       this.updateExecutionState(commandId, {
         status: result.success ? "completed" : "failed",
         result,
-        endTime: new Date(),
+        endTime: Date.now(),
         error: result.success ? undefined : result.message
       });
       
@@ -98,12 +101,13 @@ export class ToolExecutor {
     this.updateExecutionState(commandId, {
       status: "failed",
       error: errorMessage,
-      endTime: new Date()
+      endTime: Date.now()
     });
     
     return {
       success: false,
-      message: errorMessage
+      message: errorMessage,
+      result: errorMessage
     };
   }
 }

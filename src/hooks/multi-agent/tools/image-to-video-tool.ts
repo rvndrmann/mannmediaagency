@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
+import { ToolContext, ToolResult } from "@/hooks/types";
+import { ToolDefinition } from "../types";
 
 export const imageToVideoTool: ToolDefinition = {
   name: "image-to-video",
@@ -34,6 +35,7 @@ export const imageToVideoTool: ToolDefinition = {
       if (context.creditsRemaining < 1) {
         return {
           success: false,
+          result: "Insufficient credits",
           message: "Insufficient credits to generate a video. You need at least 1 credit."
         };
       }
@@ -50,6 +52,7 @@ export const imageToVideoTool: ToolDefinition = {
       if (!imageUrl) {
         return {
           success: false,
+          result: "No image provided",
           message: "No image URL provided. Please provide an image URL or attach an image."
         };
       }
@@ -91,6 +94,7 @@ export const imageToVideoTool: ToolDefinition = {
 
       return {
         success: true,
+        result: "Video generation started",
         message: "✅ Video generation started successfully! You'll be notified when it's ready. The process typically takes 1-2 minutes.",
         data: {
           jobId: jobData.id,
@@ -101,6 +105,7 @@ export const imageToVideoTool: ToolDefinition = {
       console.error("Error in image-to-video tool:", error);
       return {
         success: false,
+        result: error instanceof Error ? error.message : "Unknown error",
         message: error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred"
       };
     }

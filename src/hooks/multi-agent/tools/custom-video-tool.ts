@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
+import { ToolContext, ToolResult } from "@/hooks/types";
+import { ToolDefinition } from "../types";
 
 export const customVideoTool: ToolDefinition = {
   name: "custom-video",
@@ -30,6 +31,7 @@ export const customVideoTool: ToolDefinition = {
       if (creditsAmount < 20) {
         return {
           success: false,
+          result: "Insufficient credits",
           message: "Custom video creation requires a minimum of 20 credits."
         };
       }
@@ -38,6 +40,7 @@ export const customVideoTool: ToolDefinition = {
       if (context.creditsRemaining < creditsAmount) {
         return {
           success: false,
+          result: "Insufficient credits",
           message: `Insufficient credits. You need at least ${creditsAmount} credits for this custom video request.`
         };
       }
@@ -78,6 +81,7 @@ Images attached: ${context.attachments && context.attachments.length > 0 ? 'Yes'
 
       return {
         success: true,
+        result: "Request submitted",
         message: `✅ Your custom video request has been submitted successfully! Our team will review it and start working on it soon. You have allocated ${creditsAmount} credits for this request.`,
         data: {
           orderId: orderData.id,
@@ -88,6 +92,7 @@ Images attached: ${context.attachments && context.attachments.length > 0 ? 'Yes'
       console.error("Error in custom-video tool:", error);
       return {
         success: false,
+        result: error instanceof Error ? error.message : "Unknown error",
         message: error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred"
       };
     }

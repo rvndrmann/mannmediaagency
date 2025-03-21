@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
+import { ToolContext, ToolResult } from "@/hooks/types";
+import { ToolDefinition } from "../types";
 
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
@@ -23,6 +24,7 @@ export const browserUseTool: ToolDefinition = {
       if (context.creditsRemaining < 1) {
         return {
           success: false,
+          result: "Insufficient credits",
           message: "Insufficient credits to run browser automation. You need at least 1 credit."
         };
       }
@@ -46,6 +48,7 @@ export const browserUseTool: ToolDefinition = {
 
       return {
         success: true,
+        result: "Browser task started",
         message: "✅ Browser task started successfully! You can view the progress in the Browser Use section. The task ID is: " + taskId,
         data: {
           taskId,
@@ -56,6 +59,7 @@ export const browserUseTool: ToolDefinition = {
       console.error("Error in browser-use tool:", error);
       return {
         success: false,
+        result: error instanceof Error ? error.message : "Unknown error",
         message: error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred"
       };
     }

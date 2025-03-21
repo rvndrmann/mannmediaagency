@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { useCustomAgents } from "@/hooks/use-custom-agents";
@@ -213,8 +214,10 @@ export function AgentSelector({ activeAgent, onAgentSelect }: AgentSelectorProps
       
       {editAgent && (
         <EditAgentInstructionsDialog
-          open={true}
-          onOpenChange={setEditAgent}
+          open={!!editAgent}
+          onOpenChange={(open) => {
+            if (!open) setEditAgent(null);
+          }}
           agent={editAgent}
           onSubmit={handleUpdateAgent}
         />

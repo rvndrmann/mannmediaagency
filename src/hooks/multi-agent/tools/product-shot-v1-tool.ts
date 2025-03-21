@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
+import { ToolContext, ToolResult } from "@/hooks/types";
+import { ToolDefinition } from "../types";
 import { toast } from "sonner";
 
 export const productShotV1Tool: ToolDefinition = {
@@ -45,6 +46,7 @@ export const productShotV1Tool: ToolDefinition = {
       if (context.creditsRemaining < 0.2) {
         return {
           success: false,
+          result: "Insufficient credits",
           message: "Insufficient credits to generate a product shot. You need at least 0.2 credits."
         };
       }
@@ -61,6 +63,7 @@ export const productShotV1Tool: ToolDefinition = {
       if (!imageUrl) {
         return {
           success: false,
+          result: "No image provided",
           message: "No image URL provided. Please provide an image URL or attach an image."
         };
       }
@@ -119,6 +122,7 @@ export const productShotV1Tool: ToolDefinition = {
 
       return {
         success: true,
+        result: "Image generation started",
         message: "Product shot generation started successfully. You'll be notified when it's ready.",
         data: {
           jobId: jobData?.id,
@@ -130,6 +134,7 @@ export const productShotV1Tool: ToolDefinition = {
       console.error("Error in product-shot-v1 tool:", error);
       return {
         success: false,
+        result: error instanceof Error ? error.message : "Unknown error",
         message: error instanceof Error ? error.message : "An unknown error occurred"
       };
     }

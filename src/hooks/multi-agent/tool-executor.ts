@@ -1,3 +1,4 @@
+
 import { Command } from "@/types/message";
 import { CommandExecutionState, ToolContext, ToolResult } from "./types";
 import { getTool } from "./tools";
@@ -28,12 +29,40 @@ export class ToolExecutor {
         status: "executing"
       });
       
+      // Log command and context for debugging
+      console.log(`Executing tool command:`, {
+        feature: command.feature,
+        parameters: command.parameters,
+        confidence: command.confidence,
+        type: command.type || "standard"
+      });
+      
+      console.log(`Tool context:`, {
+        userId: context.userId,
+        creditsRemaining: context.creditsRemaining,
+        attachments: context.attachments ? `${context.attachments.length} attachments` : "none",
+        selectedTool: context.selectedTool
+      });
+      
       // Get the tool - log more information for debugging
-      console.log(`Executing tool: ${command.feature}`);
+      console.log(`Resolving tool: ${command.feature}`);
       const tool = getTool(command.feature);
       if (!tool) {
         console.error(`Tool not found: ${command.feature}`);
         return this.handleError(commandId, `Tool '${command.feature}' not found`);
+      }
+      
+      // Validate required parameters
+      if (tool.parameters) {
+        const missingRequiredParams = Object.entries(tool.parameters)
+          .filter(([key, value]) => value.required && !(command.parameters && key in command.parameters))
+          .map(([key]) => key);
+        
+        if (missingRequiredParams.length > 0) {
+          const errorMessage = `Missing required parameters: ${missingRequiredParams.join(', ')}`;
+          console.error(errorMessage);
+          return this.handleError(commandId, errorMessage);
+        }
       }
       
       // Check if the user has enough credits
@@ -48,11 +77,20 @@ export class ToolExecutor {
       // Log parameters for debugging
       console.log(`Executing tool with parameters:`, command.parameters);
       
-      // Execute the tool
-      const result = await tool.execute(command.parameters || {}, context);
+      // Execute the tool with timeout handling
+      const timeoutPromise = new Promise<ToolResult>((_, reject) => {
+        setTimeout(() => reject(new Error(`Tool execution timed out after 30 seconds`)), 30000);
+      });
+      
+      const executionPromise = tool.execute(command.parameters || {}, context);
+      const result = await Promise.race([executionPromise, timeoutPromise]);
       
       // Log the result
-      console.log(`Tool execution result:`, result);
+      console.log(`Tool execution result:`, {
+        success: result.success, 
+        message: result.message.substring(0, 100) + (result.message.length > 100 ? '...' : ''),
+        data: result.data ? 'Present' : 'None'
+      });
       
       // Update state with result
       this.updateExecutionState(commandId, {
@@ -82,6 +120,15 @@ export class ToolExecutor {
     return Array.from(this.executionStates.values());
   }
   
+  // Get recent execution states (last 24 hours)
+  getRecentExecutionStates(): CommandExecutionState[] {
+    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000);
+    
+    return Array.from(this.executionStates.values())
+      .filter(state => state.startTime >= oneDayAgo)
+      .sort((a, b) => b.startTime.getTime() - a.startTime.getTime());
+  }
+  
   // Private helpers
   private updateExecutionState(
     commandId: string, 
@@ -94,6 +141,8 @@ export class ToolExecutor {
   }
   
   private handleError(commandId: string, errorMessage: string): ToolResult {
+    console.error(`Tool execution error: ${errorMessage}`);
+    
     this.updateExecutionState(commandId, {
       status: "failed",
       error: errorMessage,
@@ -102,7 +151,7 @@ export class ToolExecutor {
     
     return {
       success: false,
-      message: errorMessage
+      message: `Error: ${errorMessage}`
     };
   }
 }

@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import {
   RunConfig,
@@ -14,7 +15,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Command, Message, Task } from "@/types/message";
-import { parseToolCommand } from "./tool-parser";
+import { parseHandoffRequest, parseToolCommand } from "./tool-parser";
 import { toolExecutor } from "./tool-executor";
 import { getToolsForLLM } from "./tools";
 import { toast } from "sonner";
@@ -249,21 +250,35 @@ export class AgentRunner {
         this.state.enableDirectToolExecution || 
         this.state.currentAgentType === "tool";
       
-      // Parse response for tool commands if applicable
-      const toolCommand = shouldCheckForToolCommand ? 
-        parseToolCommand(response.completion) : null;
+      // Parse response for handoff first
+      const handoffRequest = parseHandoffRequest(response.completion);
+      
+      // Then check for tool commands if applicable and no handoff detected
+      let toolCommand = null;
+      if (!handoffRequest && shouldCheckForToolCommand) {
+        toolCommand = parseToolCommand(response.completion);
+      }
       
       // Update message
       this.updateMessage(this.state.lastMessageIndex, {
         content: response.completion,
         status: "completed",
-        handoffRequest: response.handoffRequest,
+        handoffRequest: handoffRequest,
         command: toolCommand,
         modelUsed: response.modelUsed
       });
       
+      // Log the agent's decisions
+      this.recordTraceEvent("agent_decision", {
+        handoff: handoffRequest ? true : false,
+        handoffTarget: handoffRequest?.targetAgent || null, 
+        usedTool: toolCommand ? true : false,
+        toolName: toolCommand?.feature || null
+      });
+      
+      // Return the result with the detected handoff or tool command
       return {
-        handoff: response.handoffRequest,
+        handoff: handoffRequest,
         toolCommand
       };
       
@@ -294,48 +309,57 @@ export class AgentRunner {
     
     const startTime = Date.now();
     
-    const response = await supabase.functions.invoke("multi-agent-chat", {
-      body: {
-        messages: this.formatMessages(),
-        agentType: this.state.currentAgentType,
-        userId: user.id,
-        contextData: {
-          hasAttachments: this.hasAttachments(),
-          attachmentTypes: this.getAttachmentTypes(),
-          availableTools: this.state.enableDirectToolExecution || this.state.currentAgentType === "tool" ? 
-            getToolsForLLM() : undefined,
-          usePerformanceModel: this.config.usePerformanceModel,
-          isHandoffContinuation: this.state.handoffInProgress,
-          isCustomAgent: this.state.isCustomAgent,
-          enableDirectToolExecution: this.state.enableDirectToolExecution,
-          traceId: this.traceManager.getCurrentTrace()?.traceId
+    try {
+      const response = await supabase.functions.invoke("multi-agent-chat", {
+        body: {
+          messages: this.formatMessages(),
+          agentType: this.state.currentAgentType,
+          userId: user.id,
+          contextData: {
+            hasAttachments: this.hasAttachments(),
+            attachmentTypes: this.getAttachmentTypes(),
+            availableTools: this.state.enableDirectToolExecution || this.state.currentAgentType === "tool" ? 
+              getToolsForLLM() : undefined,
+            usePerformanceModel: this.config.usePerformanceModel,
+            isHandoffContinuation: this.state.handoffInProgress,
+            isCustomAgent: this.state.isCustomAgent,
+            enableDirectToolExecution: this.state.enableDirectToolExecution,
+            traceId: this.traceManager.getCurrentTrace()?.traceId,
+            userId: user.id
+          }
         }
-      }
-    });
-    
-    const duration = Date.now() - startTime;
-    
-    // Record API call completion in trace
-    this.recordTraceEvent("api_call_end", { 
-      duration,
-      modelUsed: response.data?.modelUsed || "unknown",
-      hasHandoff: !!response.data?.handoffRequest,
-      contentLength: response.data?.completion?.length || 0
-    });
-    
-    // Specifically record model usage for analytics
-    if (response.data?.modelUsed) {
-      this.recordTraceEvent("model_used", { 
-        model: response.data.modelUsed
       });
+      
+      const duration = Date.now() - startTime;
+      
+      // Record API call completion in trace
+      this.recordTraceEvent("api_call_end", { 
+        duration,
+        modelUsed: response.data?.modelUsed || "unknown",
+        hasHandoff: !!response.data?.handoffRequest,
+        contentLength: response.data?.completion?.length || 0
+      });
+      
+      // Specifically record model usage for analytics
+      if (response.data?.modelUsed) {
+        this.recordTraceEvent("model_used", { 
+          model: response.data.modelUsed
+        });
+      }
+      
+      if (response.error) {
+        this.recordTraceEvent("api_call_error", { error: response.error });
+        throw new Error(response.error.message || "Failed to get response from agent");
+      }
+      
+      return response.data;
+    } catch (error) {
+      console.error("Error getting agent response:", error);
+      this.recordTraceEvent("api_call_error", { 
+        error: error instanceof Error ? error.message : "Unknown error" 
+      });
+      throw error;
     }
-    
-    if (response.error) {
-      this.recordTraceEvent("api_call_error", { error: response.error });
-      throw new Error(response.error.message || "Failed to get response from agent");
-    }
-    
-    return response.data;
   }
   
   /**
@@ -357,10 +381,20 @@ export class AgentRunner {
     });
     
     try {
-      // Set up tool context
+      // Get current user credits
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("User not authenticated");
+      
+      const { data: credits } = await supabase
+        .from("user_credits")
+        .select("credits_remaining")
+        .eq("user_id", user.id)
+        .single();
+      
+      // Set up tool context with actual credits
       const toolContext: ToolContext = {
         userId: this.userId || "",
-        creditsRemaining: 0, // TODO: Get actual credits
+        creditsRemaining: credits?.credits_remaining || 0,
         attachments: this.getAttachments(),
         selectedTool: command.feature,
         previousOutputs: {}
@@ -439,6 +473,10 @@ export class AgentRunner {
       content: `I'm transferring you to the ${targetAgent} agent for better assistance.\n\nReason: ${reason}`,
       status: "completed",
       agentType: this.state.currentAgentType,
+      handoffRequest: {
+        targetAgent,
+        reason
+      },
       tasks: [{
         id: uuidv4(),
         name: `Transferring to ${targetAgent} agent`,

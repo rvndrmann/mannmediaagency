@@ -213,3 +213,41 @@ export class TraceManager {
     return this.currentTrace;
   }
 }
+
+// Analytics types for the dashboard
+export interface AnalyticsData {
+  totalConversations: number;
+  completedHandoffs: number;
+  successfulToolCalls: number;
+  failedToolCalls: number;
+  modelUsage: Record<string, number>;
+  agentUsage: Record<string, number>;
+}
+
+export interface ConversationData {
+  id: string;
+  startTime: string;
+  endTime?: string;
+  duration?: number;
+  agentTypes: string[];
+  messageCount: number;
+  toolCalls: number;
+  handoffs: number;
+  status: "completed" | "error";
+  userId: string;
+  firstMessage?: string;
+}
+
+export interface TraceData {
+  id: string;
+  events: TraceEvent[];
+  summary: TraceSummary;
+}
+
+// Debug mode types
+export interface DebugEvent {
+  id: string;
+  timestamp: Date;
+  type: string;
+  data: any;
+}

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -199,9 +198,55 @@ Only hand off when the user's request clearly falls into another agent's special
   return handoffContext;
 }
 
-// Create a cloned agent with custom instructions while preserving base capabilities
+// Add this enhanced function to load instructions from DB and localStorage
+const getAgentInstructions = async (agentType: string, userId: string): Promise<string | null> => {
+  try {
+    // Check if this is a custom agent type
+    if (!isBuiltInAgentType(agentType)) {
+      // Get instructions for custom agent
+      const { data, error } = await supabase
+        .from('custom_agents')
+        .select('instructions')
+        .eq('id', agentType)
+        .single();
+      
+      if (error || !data) {
+        console.error("Error loading custom agent instructions:", error);
+        return null;
+      }
+      
+      return data.instructions;
+    }
+    
+    // Try to load built-in agent instructions for this user
+    const { data, error } = await supabase
+      .from('agent_instructions')
+      .select('instructions')
+      .eq('user_id', userId)
+      .eq('agent_type', agentType)
+      .single();
+      
+    if (!error && data) {
+      console.log(`Found custom instructions for built-in agent ${agentType} for user ${userId}`);
+      return data.instructions;
+    }
+    
+    // Fall back to default built-in agent instructions
+    if (agentTemplates[agentType as keyof typeof agentTemplates]) {
+      return agentTemplates[agentType as keyof typeof agentTemplates].systemMessage;
+    }
+    
+    return null;
+  } catch (error) {
+    console.error("Error getting agent instructions:", error);
+    return null;
+  }
+};
+
+// Enhanced function to handle handoffs better
 async function createAgentWithCustomInstructions(
   baseAgentType: string,
+  userId: string,
   customInstructions: string | null, 
   attachmentContext: string,
   handoffContext: string,
@@ -221,12 +266,18 @@ Review the conversation history provided to understand the user's needs and resp
 Focus on your specialization and provide a helpful response without asking the user to repeat information.
 
 IMPORTANT: Messages marked as 'previous_agent_*' in the conversation are from other agents. You should consider 
-this context but respond as yourself, the current agent.
+this context but respond as yourself, the current agent. DO NOT refer to yourself as a different agent.
 `;
   }
   
-  // If no custom instructions, return the base template with contexts
-  if (!customInstructions) {
+  // Try to get user-specific instructions
+  let agentInstructions = customInstructions;
+  if (!agentInstructions) {
+    agentInstructions = await getAgentInstructions(baseAgentType, userId);
+  }
+  
+  // If still no custom instructions, use the base template
+  if (!agentInstructions) {
     return {
       role: "system",
       content: `${baseTemplate.systemMessage} ${handoffContinuationContext} ${attachmentContext} ${handoffContext} ${toolsContext}`.trim()
@@ -234,7 +285,7 @@ this context but respond as yourself, the current agent.
   }
 
   // Merge custom instructions with base capabilities
-  let mergedContent = customInstructions;
+  let mergedContent = agentInstructions;
   
   // Add handoff continuation context first if applicable
   if (isHandoffContinuation) {
@@ -381,11 +432,12 @@ async function getAgentCompletion(
   const isCustomAgent = contextData?.isCustomAgent || false;
   const isHandoffContinuation = contextData?.isHandoffContinuation || false;
   const usePerformanceModel = contextData?.usePerformanceModel || false;
+  const userId = contextData?.userId || null;
   
   // First determine if this is a built-in agent type
   const isActuallyBuiltIn = isBuiltInAgentType(agentType);
   
-  console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}, hasAttachments: ${hasAttachments}`);
+  console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}, hasAttachments: ${hasAttachments}, userId: ${userId}`);
   
   // Build attachment context
   let attachmentContext = "";
@@ -477,6 +529,7 @@ async function getAgentCompletion(
   // Create the agent with appropriate instructions and capabilities
   systemMessage = await createAgentWithCustomInstructions(
     baseAgentType,
+    userId || "",
     customInstructions,
     attachmentContext,
     handoffContext,

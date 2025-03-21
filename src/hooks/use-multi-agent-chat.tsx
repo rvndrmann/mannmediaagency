@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,9 +6,13 @@ import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
 
-// Define built-in agent types
-export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene', 'browser', 'product-video', 'custom-video'];
+// Define built-in agent types (removed browser, product-video, custom-video)
+export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 export type AgentType = typeof BUILT_IN_AGENT_TYPES[number] | string;
+
+// Define built-in tool types
+export const BUILT_IN_TOOL_TYPES = ['browser', 'product-video', 'custom-video'];
+export type ToolType = typeof BUILT_IN_TOOL_TYPES[number];
 
 const STORAGE_KEY = "multi_agent_chat_history";
 
@@ -90,17 +93,21 @@ export const useMultiAgentChat = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Check if the active agent is a custom agent
-      const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
+      // Handle when user selects a tool directly, redirect to tool agent
+      const selectedAgentType = activeAgent;
+      const effectiveAgentType = BUILT_IN_TOOL_TYPES.includes(selectedAgentType as ToolType) 
+        ? "tool" // Redirect tool selection to tool agent
+        : selectedAgentType;
 
-      // Create AgentRunner instance
-      const runner = new AgentRunner(activeAgent, {
+      // Create AgentRunner instance with the effective agent type
+      const runner = new AgentRunner(effectiveAgentType, {
         usePerformanceModel,
         enableDirectToolExecution,
         tracingDisabled: !tracingEnabled,
         metadata: {
           userId: user.id,
-          sessionId: currentConversationId
+          sessionId: currentConversationId,
+          requestedTool: BUILT_IN_TOOL_TYPES.includes(selectedAgentType as ToolType) ? selectedAgentType : undefined
         },
         runId: uuidv4(),
         groupId: currentConversationId

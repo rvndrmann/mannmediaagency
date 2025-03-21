@@ -1,7 +1,5 @@
-
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
-import { toast } from "sonner";
+import { ToolDefinition, ToolContext, ToolResult } from "@/hooks/types";
 
 export const productShotV1Tool: ToolDefinition = {
   name: "product-shot-v1",

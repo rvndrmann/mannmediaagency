@@ -49,6 +49,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
     isLoading: isLoadingCustomAgents 
   } = useCustomAgents();
 
+  // Updated builtInAgents array - browser, product-video, and custom-video are moved to toolAgents
   const builtInAgents: AgentInfo[] = [
     { 
       id: "main", 
@@ -89,34 +90,41 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       icon: "FileText", 
       color: "from-emerald-400 to-teal-500",
       instructions: ""
-    },
+    }
+  ];
+  
+  // These are now tools, not agents - they will be presented differently in the UI
+  const toolAgents: AgentInfo[] = [
     { 
       id: "browser", 
-      name: "Browser Auto", 
-      description: "Automates browser tasks for web-based operations",
+      name: "Browser Tool", 
+      description: "Tool for browser automation - not an agent",
       icon: "Globe", 
       color: "from-cyan-400 to-blue-500",
-      instructions: ""
+      instructions: "",
+      isTool: true
     },
     { 
       id: "product-video", 
       name: "Product Video", 
-      description: "Creates professional product video content",
+      description: "Tool for product video creation - not an agent",
       icon: "Video", 
       color: "from-red-400 to-rose-500",
-      instructions: ""
+      instructions: "",
+      isTool: true
     },
     { 
       id: "custom-video", 
       name: "Custom Video", 
-      description: "Helps create custom video requests",
+      description: "Tool for custom video requests - not an agent",
       icon: "ShoppingBag", 
       color: "from-pink-400 to-purple-500",
-      instructions: ""
+      instructions: "",
+      isTool: true
     },
   ];
 
-  const allAgents = [...builtInAgents, ...customAgents];
+  const allAgents = [...builtInAgents, ...customAgents, ...toolAgents];
 
   const handleCreateAgent = async (data: CustomAgentFormData) => {
     const newAgent = await createCustomAgent(data);
@@ -194,6 +202,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
           const IconComponent = getIconComponent(agent.icon);
           const isCustom = 'isCustom' in agent && agent.isCustom;
           const isBuiltIn = BUILT_IN_AGENT_TYPES.includes(agent.id);
+          const isTool = 'isTool' in agent && agent.isTool;
           
           return (
             <div key={agent.id} className="relative">
@@ -206,9 +215,11 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                         "relative flex flex-col items-center justify-center h-[40px] w-full px-1 py-1 overflow-hidden group transition-all duration-300",
                         isActive 
                           ? `bg-gradient-to-br ${agent.color} border border-white/20 shadow-lg` 
-                          : "bg-[#333]/70 hover:bg-[#444]/90 text-white border-[#555] hover:border-[#666]"
+                          : isTool 
+                            ? "bg-[#444]/50 hover:bg-[#555]/80 text-white border-gray-700 hover:border-gray-600" 
+                            : "bg-[#333]/70 hover:bg-[#444]/90 text-white border-[#555] hover:border-[#666]"
                       )}
-                      onClick={() => onAgentSelect(agent.id)}
+                      onClick={() => isTool ? onAgentSelect("tool") : onAgentSelect(agent.id)}
                     >
                       {isActive && (
                         <div className="absolute top-0 left-0 h-0.5 w-full bg-white/30"></div>
@@ -218,16 +229,29 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                         "rounded-full p-1 mb-0.5 transition-all duration-300",
                         isActive 
                           ? "bg-white/20" 
-                          : "bg-[#444]/50 group-hover:bg-[#555]/50"
+                          : isTool
+                            ? "bg-[#333]/60 group-hover:bg-[#444]/60"
+                            : "bg-[#444]/50 group-hover:bg-[#555]/50"
                       )}>
-                        <IconComponent className={cn("h-3 w-3", isActive ? "text-white" : "text-white/80 group-hover:text-white")} />
+                        <IconComponent className={cn("h-3 w-3", 
+                          isActive 
+                            ? "text-white" 
+                            : isTool
+                              ? "text-white/70 group-hover:text-white"
+                              : "text-white/80 group-hover:text-white"
+                        )} />
                       </div>
                       
                       <span className={cn(
                         "font-medium text-[8px] transition-all duration-300",
-                        isActive ? "text-white" : "text-white/90 group-hover:text-white"
+                        isActive 
+                          ? "text-white" 
+                          : isTool
+                            ? "text-white/80 group-hover:text-white"
+                            : "text-white/90 group-hover:text-white"
                       )}>
                         {agent.name}
+                        {isTool && <span className="text-[6px] opacity-70 block">Use Tool Agent</span>}
                       </span>
                       
                       {isActive && (
@@ -238,8 +262,17 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
                     </Button>
                   </TooltipTrigger>
                   <TooltipContent className="bg-[#333] text-white border-[#555]">
-                    <p className="text-xs font-medium">{agent.name}</p>
-                    <p className="text-[10px] opacity-80">{agent.description}</p>
+                    {isTool ? (
+                      <>
+                        <p className="text-xs font-medium">{agent.name} (Tool)</p>
+                        <p className="text-[10px] opacity-80">This is a tool, not an agent. Use the Tool Orchestrator agent to access it.</p>
+                      </>
+                    ) : (
+                      <>
+                        <p className="text-xs font-medium">{agent.name}</p>
+                        <p className="text-[10px] opacity-80">{agent.description}</p>
+                      </>
+                    )}
                   </TooltipContent>
                 </Tooltip>
               </TooltipProvider>
@@ -330,4 +363,4 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
       </AlertDialog>
     </div>
   );
-};
+}

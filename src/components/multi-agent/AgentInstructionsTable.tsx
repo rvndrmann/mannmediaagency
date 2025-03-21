@@ -1,117 +1,104 @@
 
-import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
-import { useCustomAgents } from "@/hooks/use-custom-agents";
-import { useMemo, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { Edit } from "lucide-react";
-import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
-import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
+import { BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 
 interface AgentInstructionsTableProps {
-  activeAgent: AgentType;
+  activeAgent: string;
 }
 
 export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTableProps) => {
-  const { customAgents, updateCustomAgent } = useCustomAgents();
-  const [showEditDialog, setShowEditDialog] = useState(false);
-  const [builtInInstructions, setBuiltInInstructions] = useState<Record<string, string>>(() => {
-    const savedInstructions = localStorage.getItem('built_in_agent_instructions');
-    const defaultInstructions = {
-      main: `I am a helpful assistant that orchestrates specialized agents for creative content generation. I can help with scriptwriting, image prompt creation, and using tools for visual content creation. I can analyze images you upload and provide insights. When a request would be better handled by a specialized agent, I'll hand off the conversation to that agent.`,
-      
-      script: `I am ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. I create content based solely on what the user requests. I can analyze reference images to help craft scripts with accurate settings and visual elements. I'm creative, engaging, and tailor the tone to the user's requirements.`,
-      
-      image: `I am ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. My prompts are specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. I can analyze reference images to create similar styles or iterations. I format output as a single prompt string that could be directly used for image generation.`,
-      
-      tool: `I am ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. I help users create product images, convert images to videos, automate browser tasks, create product videos, and submit custom video requests. I can analyze uploaded images to suggest appropriate tool workflows. I understand all available tools and their parameters, and I invoke them in the correct format with the appropriate parameters.`,
-      
-      scene: `I am SceneDescriptionAgent, specialized in creating vivid, detailed scene descriptions from images or text prompts. I describe scenes in rich detail, focusing on setting, atmosphere, and visual elements. I can analyze uploaded photos to extract scene details and create immersive scene settings that could be used for scripts, stories, or visual productions. My descriptions are sensory-rich, capturing not just visuals but the feeling of being in the scene.`
-    };
-    
-    return savedInstructions ? JSON.parse(savedInstructions) : defaultInstructions;
-  });
-
-  const handleUpdateBuiltInInstructions = (agentType: AgentType, instructions: string) => {
-    if (agentType === 'tool') {
-      toast.error("Tool agent instructions cannot be modified");
-      return;
+  const agentInstructions = [
+    {
+      id: "main",
+      name: "Main Assistant",
+      description: "General-purpose AI assistant",
+      instructions: "You are a helpful AI assistant that can answer questions on a wide range of topics and assist with various tasks."
+    },
+    {
+      id: "script",
+      name: "Script Writer",
+      description: "Creates scripts, dialogue, and narratives",
+      instructions: "You are a creative script writer specializing in creating engaging dialogue, narratives, and scripts. Help users craft compelling stories and scripts."
+    },
+    {
+      id: "image",
+      name: "Image Prompt",
+      description: "Creates detailed prompts for AI image generation",
+      instructions: "You are an expert at creating detailed image prompts for AI image generators. Help users craft detailed descriptions that will produce high-quality images."
+    },
+    {
+      id: "tool",
+      name: "Tool Orchestrator",
+      description: "Helps users access and use platform tools",
+      instructions: "You are a tool specialist that helps users utilize the platform's tools effectively. You can access tools like image generators, browser automation, and video creation."
+    },
+    {
+      id: "scene",
+      name: "Scene Description",
+      description: "Creates vivid scene descriptions",
+      instructions: "You are specialized in creating vivid, detailed scene descriptions for visual content. You help users paint pictures with words."
     }
-    
-    const updatedInstructions = {
-      ...builtInInstructions,
-      [agentType]: instructions
-    };
-    
-    setBuiltInInstructions(updatedInstructions);
-    localStorage.setItem('built_in_agent_instructions', JSON.stringify(updatedInstructions));
-    toast.success("Agent instructions updated successfully");
-  };
+  ];
 
-  const handleUpdateCustomAgentInstructions = async (agentType: AgentType, instructions: string) => {
-    const customAgent = customAgents.find(agent => agent.id === agentType);
-    
-    if (customAgent) {
-      await updateCustomAgent(customAgent.id, {
-        name: customAgent.name,
-        description: customAgent.description,
-        icon: customAgent.icon,
-        color: customAgent.color,
-        instructions: instructions
-      });
-      toast.success("Agent instructions updated successfully");
+  // Tool instructions, not agents
+  const toolInstructions = [
+    {
+      id: "browser",
+      name: "Browser Automation Tool",
+      description: "Automates browser tasks",
+      instructions: "This is a tool for automating browser tasks. It can navigate websites, fill forms, extract data, and perform various web automation tasks. Use the Tool Orchestrator agent to access this tool."
+    },
+    {
+      id: "product-video",
+      name: "Product Video Tool",
+      description: "Creates product videos",
+      instructions: "This is a tool for creating professional product videos. It can generate videos showcasing products with various styles and templates. Use the Tool Orchestrator agent to access this tool."
+    },
+    {
+      id: "custom-video",
+      name: "Custom Video Request Tool",
+      description: "Submit custom video creation requests",
+      instructions: "This is a tool for submitting custom video creation requests. You can describe what kind of video you want created, and our team will make it for you. Use the Tool Orchestrator agent to access this tool."
     }
-  };
+  ];
 
-  const agentInstructions = useMemo(() => {
-    const customAgent = customAgents.find(agent => agent.id === activeAgent);
-    if (customAgent) {
-      return customAgent.instructions;
-    }
-
-    return builtInInstructions[activeAgent] || "No instructions available for this agent.";
-  }, [activeAgent, customAgents, builtInInstructions]);
-
-  const canEditInstructions = activeAgent !== 'tool';
+  const isBuiltInAgent = BUILT_IN_AGENT_TYPES.includes(activeAgent);
+  const isToolAgent = activeAgent === "tool";
   
-  const handleSaveInstructions = (agentType: AgentType, instructions: string) => {
-    const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(agentType);
-    
-    if (isCustomAgent) {
-      handleUpdateCustomAgentInstructions(agentType, instructions);
-    } else {
-      handleUpdateBuiltInInstructions(agentType, instructions);
-    }
-  };
-
+  // Get relevant instructions based on active agent or tool
+  const currentAgentInfo = agentInstructions.find(agent => agent.id === activeAgent);
+  
   return (
-    <div className="mb-2 p-1.5 bg-[#1a202c]/70 border border-[#2d374b] rounded-lg">
-      <div className="flex justify-between items-center mb-1">
-        <h3 className="text-xs font-semibold text-white/90">Agent Instructions</h3>
-        
-        {canEditInstructions && (
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={() => setShowEditDialog(true)}
-            className="text-xs flex items-center gap-1 border-gray-600 bg-gray-800/50 hover:bg-gray-700/70 h-5 px-1.5"
-          >
-            <Edit className="h-2.5 w-2.5" />
-            Edit
-          </Button>
-        )}
-      </div>
+    <Card className="p-4 mb-4 bg-[#1f2639]/80 border-white/10 text-white/90">
+      <h3 className="font-medium mb-2 text-sm">
+        {isToolAgent ? "Tool Agent Instructions" : "Agent Instructions"}
+      </h3>
       
-      <div className="text-xs text-gray-400 h-16 overflow-y-auto p-1.5 bg-[#0f141e] rounded border border-[#1e283a]">
-        <p className="whitespace-pre-wrap">{agentInstructions}</p>
-      </div>
-
-      <EditAgentInstructionsDialog
-        open={showEditDialog}
-        onOpenChange={setShowEditDialog}
-        onSave={handleSaveInstructions}
-        agentType={activeAgent}
-        initialInstructions={agentInstructions}
-      />
-    </div>
+      {currentAgentInfo && (
+        <div className="space-y-2">
+          <p className="text-xs opacity-90">{currentAgentInfo.instructions}</p>
+        </div>
+      )}
+      
+      {isToolAgent && (
+        <div className="mt-4 space-y-3">
+          <h4 className="text-xs font-semibold text-purple-400">Available Tools:</h4>
+          <div className="grid grid-cols-1 gap-3">
+            {toolInstructions.map(tool => (
+              <div key={tool.id} className="p-2 bg-[#2a304c]/60 rounded border border-white/5">
+                <h5 className="text-xs font-medium">{tool.name}</h5>
+                <p className="text-[10px] mt-1 opacity-80">{tool.instructions}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+      
+      {!currentAgentInfo && !isToolAgent && (
+        <p className="text-xs opacity-70">
+          This is a custom agent. Custom agents are created by users and can be tailored for specific tasks.
+        </p>
+      )}
+    </Card>
   );
 };

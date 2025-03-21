@@ -33,9 +33,9 @@ export function TaskControls({
 }: TaskControlsProps) {
   const canStart = !isProcessing || taskStatus === 'idle' || taskStatus === 'completed' || 
     taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'expired';
-  const canPause = isProcessing && taskStatus === 'running' && currentTaskId;
-  const canResume = isProcessing && taskStatus === 'paused' && currentTaskId;
-  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused') && currentTaskId;
+  const canPause = isProcessing && taskStatus === 'running' && Boolean(currentTaskId);
+  const canResume = isProcessing && taskStatus === 'paused' && Boolean(currentTaskId);
+  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused') && Boolean(currentTaskId);
   const canScreenshot = Boolean(onScreenshot) && taskStatus === 'running' && isProcessing;
   const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || 
     taskStatus === 'completed' || taskStatus === 'expired' || error?.includes('expired'));
@@ -52,6 +52,16 @@ export function TaskControls({
         toast.error("Failed to copy error");
       });
   };
+  
+  // Debug log to understand the state
+  console.log("TaskControls state:", { 
+    taskStatus, 
+    isProcessing, 
+    currentTaskId, 
+    canPause, 
+    canResume, 
+    canStop 
+  });
   
   return (
     <div className="flex flex-wrap gap-2 items-center justify-start">

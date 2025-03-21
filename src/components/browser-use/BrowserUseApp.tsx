@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -8,7 +7,7 @@ import { BrowserConfigPanel } from "./BrowserConfigPanel";
 import { TaskMonitor } from "./TaskMonitor";
 import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
-import { Bot, History, Settings, Play, Pause, StopCircle, RotateCw } from "lucide-react";
+import { Bot, History, Settings, Play } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TaskControls } from "./TaskControls";
 
@@ -29,7 +28,7 @@ export function BrowserUseApp() {
     currentUrl,
     setCurrentUrl,
     screenshot,
-    captureScreenshot,
+    captureScreenshot: originalCaptureScreenshot,
     userCredits,
     error,
     browserConfig,
@@ -39,6 +38,11 @@ export function BrowserUseApp() {
     taskOutput,
     currentTaskId
   } = useBrowserUseTask();
+
+  const captureScreenshot = async () => {
+    await originalCaptureScreenshot();
+    return null;
+  };
 
   return (
     <div className="container mx-auto py-6 max-w-6xl">
@@ -111,7 +115,7 @@ export function BrowserUseApp() {
               currentUrl={currentUrl}
               setCurrentUrl={setCurrentUrl}
               screenshot={screenshot}
-              captureScreenshot={captureScreenshot}
+              captureScreenshot={originalCaptureScreenshot}
               connectionStatus={connectionStatus}
             />
 

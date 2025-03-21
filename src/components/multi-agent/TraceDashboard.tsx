@@ -43,32 +43,24 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
       setIsLoading(true);
       
       try {
-        // Fetch analytics data - since we can't use RPC directly, we'll call them through a POST request
-        const analyticsResponse = await fetch('/api/traces/analytics', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId })
-        });
+        // Fetch analytics data
+        const { data: analyticsData, error: analyticsError } = await supabase
+          .rpc('get_agent_trace_analytics', { user_id_param: userId });
         
-        if (analyticsResponse.ok) {
-          const analyticsData = await analyticsResponse.json();
-          setAnalytics(analyticsData as AnalyticsData);
+        if (analyticsError) {
+          console.error("Error fetching analytics:", analyticsError);
+        } else {
+          setAnalytics(analyticsData);
         }
         
         // Fetch conversations list
-        const conversationsResponse = await fetch('/api/traces/conversations', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ userId })
-        });
+        const { data: conversationsData, error: conversationsError } = await supabase
+          .rpc('get_user_conversations', { user_id_param: userId });
         
-        if (conversationsResponse.ok) {
-          const conversationsData = await conversationsResponse.json();
-          setConversations(conversationsData as ConversationData[]);
+        if (conversationsError) {
+          console.error("Error fetching conversations:", conversationsError);
+        } else {
+          setConversations(conversationsData || []);
         }
       } catch (error) {
         console.error("Error in analytics fetch:", error);
@@ -82,16 +74,15 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
   
   const fetchConversationDetails = async (conversationId: string) => {
     try {
-      const response = await fetch('/api/traces/conversation-details', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ conversationId, userId })
-      });
+      const { data, error } = await supabase
+        .rpc('get_conversation_trace', { 
+          conversation_id: conversationId,
+          user_id_param: userId
+        });
       
-      if (response.ok) {
-        const data = await response.json();
+      if (error) {
+        console.error("Error fetching conversation details:", error);
+      } else {
         setTraceDetails(data);
         setSelectedConversation(conversationId);
         setActiveTab("details");

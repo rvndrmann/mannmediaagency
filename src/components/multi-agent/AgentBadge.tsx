@@ -1,28 +1,19 @@
 
 import React from 'react';
-import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText, MoreVertical, Music, Mic, Zap } from 'lucide-react';
-import { 
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger
-} from "@/components/ui/dropdown-menu";
-import { AgentInfo } from '@/types/message';
+import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText } from 'lucide-react';
 
-export type AgentBadgeProps = {
-  agent: AgentInfo;
-  onEdit?: () => void;
-  onDelete?: (agentId: string) => Promise<void>;
+type AgentBadgeProps = {
+  agentType: string;
 };
 
-export const AgentBadge = ({ agent, onEdit, onDelete }: AgentBadgeProps) => {
+export const AgentBadge = ({ agentType }: AgentBadgeProps) => {
   // Default badge config
   let icon = <Bot className="h-3.5 w-3.5" />;
-  let label = agent.id;
+  let label = agentType;
   let className = "bg-blue-600";
   
   // Configure based on agent type
-  switch (agent.id) {
+  switch (agentType) {
     case 'main':
       label = "Main";
       icon = <Bot className="h-3.5 w-3.5" />;
@@ -60,67 +51,20 @@ export const AgentBadge = ({ agent, onEdit, onDelete }: AgentBadgeProps) => {
       break;
     case 'custom-video':
       label = "Custom Video";
-      icon = <Video className="h-3.5 w-3.5" />;
+      icon = <ShoppingBag className="h-3.5 w-3.5" />;
       className = "bg-pink-600";
       break;
-    case 'voiceover':
-      label = "Voiceover";
-      icon = <Mic className="h-3.5 w-3.5" />;
-      className = "bg-indigo-600";
-      break;
-    case 'music':
-      label = "Music";
-      icon = <Music className="h-3.5 w-3.5" />;
-      className = "bg-yellow-600";
-      break;
-    case 'orchestrator':
-      label = "Orchestrator";
-      icon = <Zap className="h-3.5 w-3.5" />;
-      className = "bg-orange-600";
-      break;
     default:
-      label = agent.name || "Custom";
+      label = "Custom";
       icon = <Coffee className="h-3.5 w-3.5" />;
       className = "bg-indigo-600";
       break;
   }
 
-  // If no edit/delete handlers provided, just show the badge without dropdown
-  if (!onEdit && !onDelete) {
-    return (
-      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-white ${className}`}>
-        {icon}
-        {label}
-      </span>
-    );
-  }
-
   return (
-    <div className="inline-flex">
-      <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded-l text-xs font-medium text-white ${className}`}>
-        {icon}
-        {label}
-      </span>
-      <DropdownMenu>
-        <DropdownMenuTrigger className={`${className} text-white rounded-r text-xs h-5 px-1 flex items-center justify-center`}>
-          <MoreVertical className="h-3 w-3" />
-        </DropdownMenuTrigger>
-        <DropdownMenuContent align="end">
-          {onEdit && (
-            <DropdownMenuItem onClick={onEdit}>
-              Edit
-            </DropdownMenuItem>
-          )}
-          {onDelete && (
-            <DropdownMenuItem 
-              onClick={() => onDelete(agent.id)}
-              className="text-red-500"
-            >
-              Delete
-            </DropdownMenuItem>
-          )}
-        </DropdownMenuContent>
-      </DropdownMenu>
-    </div>
+    <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium text-white ${className}`}>
+      {icon}
+      {label}
+    </span>
   );
 };

@@ -86,7 +86,7 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
   return (
     <div className="mb-2 p-1.5 bg-[#1a202c]/70 border border-[#2d374b] rounded-lg">
       <div className="flex justify-between items-center mb-1">
-        <h3 className="text-xs font-semibold text-white/90">Current Agent Instructions</h3>
+        <h3 className="text-xs font-semibold text-white/90">Agent Instructions</h3>
         
         {canEditInstructions && (
           <Button 

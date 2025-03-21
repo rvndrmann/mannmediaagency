@@ -39,30 +39,6 @@ interface HandoffInputData {
 // Define built-in agent types to avoid UUID validation for them
 const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 
-// Base templates for our different agent types
-const agentTemplates = {
-  main: {
-    systemMessage: `You are a helpful assistant that orchestrates specialized agents for creative content generation. You can help with scriptwriting, image prompt creation, and using tools for visual content creation. When you identify that a user's request would be better handled by a specialized agent, use the handoff format at the end of your message.`,
-    temperature: 0.7
-  },
-  script: {
-    systemMessage: `You are ScriptWriterAgent, specialized in creating compelling scripts, dialogue, and scene descriptions. Create content based solely on what the user requests. Be creative, engaging, and tailor the tone to the user's requirements.`,
-    temperature: 0.7
-  },
-  image: {
-    systemMessage: `You are ImagePromptAgent, specialized in creating detailed, creative prompts for AI image generation. Your prompts should be specific, descriptive, and include details about style, mood, lighting, composition, and subject matter. Format your output as a single prompt string that could be directly used for image generation.`,
-    temperature: 0.7
-  },
-  tool: {
-    systemMessage: `You are ToolOrchestratorAgent, specialized in determining which tool to use based on user requests. You can help users create product images, convert images to videos, and more.`,
-    temperature: 0.1
-  },
-  scene: {
-    systemMessage: `You are SceneDescriptionAgent, specialized in creating vivid, detailed scene descriptions from images or text prompts. Describe scenes in rich detail, focusing on setting, atmosphere, and visual elements. Create immersive scene settings that could be used for scripts, stories, or visual productions. Your descriptions should be sensory-rich, capturing not just visuals but the feeling of being in the scene.`,
-    temperature: 0.7
-  }
-};
-
 // Add a utility function to validate UUID format
 function isValidUUID(id: string): boolean {
   const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
@@ -78,9 +54,9 @@ async function getCustomAgentInstructions(supabase: any, agentType: string): Pro
   try {
     console.log(`Fetching custom agent instructions for: ${agentType}`);
     
-    // First check if this is a built-in agent type - if so, no need to fetch custom instructions
+    // First check if this is a built-in agent type - if so, we need to use default instructions
     if (isBuiltInAgentType(agentType)) {
-      console.log(`${agentType} is a built-in agent type, no need to fetch custom instructions`);
+      console.log(`${agentType} is a built-in agent type, will use user-modified instructions if available`);
       return null;
     }
     
@@ -199,17 +175,20 @@ Only hand off when the user's request clearly falls into another agent's special
   return handoffContext;
 }
 
-// Create a cloned agent with custom instructions while preserving base capabilities
-async function createAgentWithCustomInstructions(
-  baseAgentType: string,
-  customInstructions: string | null, 
+// Create an agent with only the user-provided instructions while adding essential contexts
+async function createAgentWithInstructions(
+  instructionsFromUser: string | null, 
   attachmentContext: string,
   handoffContext: string,
   toolsContext: string = "",
-  isHandoffContinuation: boolean = false
+  isHandoffContinuation: boolean = false,
+  agentType: string = "main"
 ): Promise<AgentMessage> {
-  // Get the base template
-  const baseTemplate = agentTemplates[baseAgentType as keyof typeof agentTemplates] || agentTemplates.main;
+  // Default temperature based on agent type
+  let defaultTemperature = 0.7;
+  if (agentType === "tool") {
+    defaultTemperature = 0.1;
+  }
   
   // Create context-specific instructions for handoff continuation
   let handoffContinuationContext = "";
@@ -225,35 +204,30 @@ this context but respond as yourself, the current agent.
 `;
   }
   
-  // If no custom instructions, return the base template with contexts
-  if (!customInstructions) {
-    return {
-      role: "system",
-      content: `${baseTemplate.systemMessage} ${handoffContinuationContext} ${attachmentContext} ${handoffContext} ${toolsContext}`.trim()
-    };
-  }
-
-  // Merge custom instructions with base capabilities
-  let mergedContent = customInstructions;
+  // If no custom instructions provided, use a basic template
+  let baseInstructions = `You are an AI assistant helping with the user's request. Respond helpfully and provide accurate information.`;
+  
+  // Start with the base content
+  let finalContent = instructionsFromUser || baseInstructions;
   
   // Add handoff continuation context first if applicable
   if (isHandoffContinuation) {
-    mergedContent = `${handoffContinuationContext}\n\n${mergedContent}`;
+    finalContent = `${handoffContinuationContext}\n\n${finalContent}`;
   }
   
   // Add essential contexts for full functionality
-  mergedContent += `\n\n${attachmentContext}\n\n${handoffContext}`;
+  finalContent += `\n\n${attachmentContext}\n\n${handoffContext}`;
   
   // Add tools context for tool agent
-  if (baseAgentType === "tool" && toolsContext) {
-    mergedContent += `\n\n${toolsContext}`;
+  if (agentType === "tool" && toolsContext) {
+    finalContent += `\n\n${toolsContext}`;
   }
   
-  console.log(`Created agent with merged instructions: ${mergedContent.slice(0, 100)}...`);
+  console.log(`Created agent with instructions: ${finalContent.slice(0, 100)}...`);
   
   return {
     role: "system",
-    content: mergedContent
+    content: finalContent
   };
 }
 
@@ -381,11 +355,13 @@ async function getAgentCompletion(
   const isCustomAgent = contextData?.isCustomAgent || false;
   const isHandoffContinuation = contextData?.isHandoffContinuation || false;
   const usePerformanceModel = contextData?.usePerformanceModel || false;
+  const userInstructions = contextData?.userInstructions || null;
   
   // First determine if this is a built-in agent type
   const isActuallyBuiltIn = isBuiltInAgentType(agentType);
   
   console.log(`Agent type: ${agentType}, isBuiltIn: ${isActuallyBuiltIn}, isCustomAgent flag: ${isCustomAgent}, isHandoffContinuation: ${isHandoffContinuation}, usePerformanceModel: ${usePerformanceModel}, hasAttachments: ${hasAttachments}`);
+  console.log(`User instructions provided: ${userInstructions ? 'Yes' : 'No'}, length: ${userInstructions?.length || 0}`);
   
   // Build attachment context
   let attachmentContext = "";
@@ -441,47 +417,38 @@ async function getAgentCompletion(
   const handoffContext = await generateHandoffContextWithCustomAgents(supabase);
   console.log("Handoff context length:", handoffContext.length);
 
-  let systemMessage: AgentMessage;
-  let temperature = 0.7; // Default temperature
+  // Determine which instructions to use:
+  // 1. User-provided instructions in the context data
+  // 2. Custom agent instructions from database (for custom agents)
+  // 3. Default basic instructions as fallback
+  let instructionsToUse = userInstructions;
   
-  // Determine base agent type and temperature
-  let baseAgentType = "main";
-  if (isCustomAgent && !isActuallyBuiltIn) {
-    // This is a custom agent with a UUID
-    console.log(`Using custom agent template for ${agentType}`);
-  } else if (isActuallyBuiltIn) {
-    // If it's a built-in agent
-    baseAgentType = agentType.toLowerCase();
-    console.log(`Using built-in agent template for ${agentType}`);
-    temperature = agentTemplates[agentType.toLowerCase() as keyof typeof agentTemplates]?.temperature || 0.7;
-  } else {
-    // Use the specific agent type for built-in agents
-    baseAgentType = agentType;
-    temperature = agentTemplates[agentType as keyof typeof agentTemplates]?.temperature || 0.7;
-  }
-
-  // For custom agents, get instructions from the database
-  let customInstructions: string | null = null;
-  if (isCustomAgent && !isActuallyBuiltIn && supabase) {
+  // If no user instructions provided but it's a custom agent, try to get from database
+  if (!instructionsToUse && isCustomAgent && !isActuallyBuiltIn && supabase) {
     console.log(`Getting custom instructions for agent: ${agentType}`);
-    customInstructions = await getCustomAgentInstructions(supabase, agentType);
+    instructionsToUse = await getCustomAgentInstructions(supabase, agentType);
     
-    if (customInstructions) {
-      console.log(`Found custom instructions for ${agentType}, length: ${customInstructions.length}`);
+    if (instructionsToUse) {
+      console.log(`Found custom instructions for ${agentType}, length: ${instructionsToUse.length}`);
     } else {
-      // Fallback if custom agent not found
-      console.log(`No custom instructions found for ${agentType}, using fallback`);
+      console.log(`No custom instructions found for ${agentType}, will use fallback`);
     }
   }
   
-  // Create the agent with appropriate instructions and capabilities
-  systemMessage = await createAgentWithCustomInstructions(
-    baseAgentType,
-    customInstructions,
+  // Set temperature based on agent type
+  let temperature = 0.7;
+  if (agentType === "tool") {
+    temperature = 0.1;
+  }
+  
+  // Create the agent with simplified instruction pattern
+  const systemMessage = await createAgentWithInstructions(
+    instructionsToUse,
     attachmentContext,
     handoffContext,
     toolsContext,
-    isHandoffContinuation
+    isHandoffContinuation,
+    agentType
   );
   
   // Process messages to optimize them for the current context
@@ -760,8 +727,10 @@ serve(async (req) => {
     const isCustomAgent = contextData?.isCustomAgent || false;
     const enableDirectToolExecution = contextData?.enableDirectToolExecution || false;
     const traceId = contextData?.traceId || null;
+    const userInstructions = contextData?.userInstructions || null;
     
     console.log(`Received request: Agent=${agentType}, isCustomAgent=${isCustomAgent}, hasAttachments=${hasAttachments}, isHandoffContinuation=${isHandoffContinuation}, enableDirectToolExecution=${enableDirectToolExecution}, traceId=${traceId}`);
+    console.log(`User Instructions provided: ${userInstructions ? 'Yes' : 'No'}, length: ${userInstructions?.length || 0}`);
     
     // Check if agent type is a built-in type
     const isBuiltIn = isBuiltInAgentType(agentType);
@@ -831,7 +800,10 @@ serve(async (req) => {
     const { completion, handoffRequest, modelUsed } = await getAgentCompletion(
       messages, 
       agentType, 
-      contextData,
+      {
+        ...contextData,
+        userInstructions
+      },
       supabase
     );
     

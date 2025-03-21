@@ -23,6 +23,7 @@ export class AgentRunner {
   private userId?: string;
   private traceManager: TraceManager;
   private runStartTime: number;
+  private userAgentInstructions: Record<string, string> | null;
   
   constructor(
     initialAgentType: AgentType,
@@ -52,6 +53,41 @@ export class AgentRunner {
     this.hooks = hooks;
     this.traceManager = new TraceManager(!this.config.tracingDisabled);
     this.runStartTime = Date.now();
+    
+    // Load user-edited instructions from localStorage
+    this.userAgentInstructions = this.loadUserAgentInstructions();
+  }
+  
+  /**
+   * Load user-edited instructions from localStorage
+   */
+  private loadUserAgentInstructions(): Record<string, string> | null {
+    try {
+      const savedInstructions = localStorage.getItem('built_in_agent_instructions');
+      return savedInstructions ? JSON.parse(savedInstructions) : null;
+    } catch (e) {
+      console.error("Error loading agent instructions from localStorage:", e);
+      return null;
+    }
+  }
+  
+  /**
+   * Get the current agent's instructions
+   */
+  private getCurrentAgentInstructions(): string | null {
+    const agentType = this.state.currentAgentType;
+    
+    // For custom agents, we'll get instructions from the database via the edge function
+    if (this.state.isCustomAgent) {
+      return null;
+    }
+    
+    // For built-in agents, get the user-edited version if available
+    if (this.userAgentInstructions && this.userAgentInstructions[agentType]) {
+      return this.userAgentInstructions[agentType];
+    }
+    
+    return null;
   }
   
   /**
@@ -284,6 +320,14 @@ export class AgentRunner {
     
     const startTime = Date.now();
     
+    // Get the current agent's instructions
+    const userInstructions = this.getCurrentAgentInstructions();
+    
+    console.log(`Sending user instructions for ${this.state.currentAgentType}: ${userInstructions ? 'Yes' : 'No'}`);
+    if (userInstructions) {
+      console.log(`Instruction length: ${userInstructions.length} characters`);
+    }
+    
     const response = await supabase.functions.invoke("multi-agent-chat", {
       body: {
         messages: this.formatMessages(),
@@ -298,7 +342,8 @@ export class AgentRunner {
           isHandoffContinuation: this.state.handoffInProgress,
           isCustomAgent: this.state.isCustomAgent,
           enableDirectToolExecution: this.state.enableDirectToolExecution,
-          traceId: this.traceManager.getCurrentTrace()?.traceId
+          traceId: this.traceManager.getCurrentTrace()?.traceId,
+          userInstructions: userInstructions
         }
       }
     });

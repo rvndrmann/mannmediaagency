@@ -7,7 +7,6 @@ import {
 } from "@/hooks/multi-agent/types";
 import { createClient } from "@supabase/supabase-js";
 import OpenAI from "openai";
-import { ChatCompletionCreateParams } from "openai/resources/chat";
 
 export class AgentRunner {
   private agentType: string;
@@ -53,7 +52,7 @@ export class AgentRunner {
       this.callbacks.onMessage(userMessage);
 
       // Step 2: Construct the messages array for the OpenAI API
-      const messages: ChatCompletionCreateParams.Message[] = [
+      const messages = [
         {
           role: "system",
           content: this.getSystemPrompt(),
@@ -185,7 +184,7 @@ export class AgentRunner {
     }
   }
 
-  private getChatHistory(): ChatCompletionCreateParams.Message[] {
+  private getChatHistory(): any[] {
     // Get the last 10 messages from the chat history
     const chatHistory = localStorage.getItem("multi_agent_chat_history");
     if (!chatHistory) {

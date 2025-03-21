@@ -1,3 +1,4 @@
+
 export interface Message {
   role: "user" | "assistant";
   content: string;
@@ -16,7 +17,7 @@ export interface HandoffRequest {
   reason: string;
 }
 
-export type AgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music";
+export type AgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music" | "Globe" | "Video" | "ShoppingBag";
 
 export interface AgentInfo {
   id: string;

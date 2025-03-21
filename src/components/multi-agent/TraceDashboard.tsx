@@ -35,7 +35,18 @@ interface TraceData {
   data: any;
 }
 
-export const TraceDashboard = () => {
+interface AnalyticsResponse {
+  agent_counts: { name: string; count: number }[];
+  total_interactions: number;
+  unique_users: number;
+  average_response_time: number;
+}
+
+interface TraceDashboardProps {
+  userId: string;
+}
+
+export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
     agentCounts: [],
     totalInteractions: 0,
@@ -50,17 +61,22 @@ export const TraceDashboard = () => {
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
-        // Use RPC function for analytics data
-        const { data, error } = await supabase.rpc('get_agent_trace_analytics');
+        // Use directly with query instead of RPC
+        const { data, error } = await supabase
+          .from('agent_trace_analytics')
+          .select('*')
+          .limit(1)
+          .single();
         
         if (error) throw error;
         
         if (data) {
+          const analyticsResponse = data as unknown as AnalyticsResponse;
           setAnalyticsData({
-            agentCounts: data.agent_counts || [],
-            totalInteractions: data.total_interactions || 0,
-            uniqueUsers: data.unique_users || 0,
-            averageResponseTime: data.average_response_time || 0
+            agentCounts: analyticsResponse.agent_counts || [],
+            totalInteractions: analyticsResponse.total_interactions || 0,
+            uniqueUsers: analyticsResponse.unique_users || 0,
+            averageResponseTime: analyticsResponse.average_response_time || 0
           });
         }
       } catch (error) {
@@ -70,13 +86,16 @@ export const TraceDashboard = () => {
 
     const fetchConversations = async () => {
       try {
-        // Use RPC function for user conversations
-        const { data, error } = await supabase.rpc('get_user_conversations');
+        // Use direct query instead of RPC
+        const { data, error } = await supabase
+          .from('user_conversations')
+          .select('*')
+          .order('created_at', { ascending: false });
         
         if (error) throw error;
         
         if (data) {
-          setConversations(data);
+          setConversations(data as ConversationData[]);
         }
       } catch (error) {
         console.error('Error fetching conversations:', error);
@@ -95,15 +114,16 @@ export const TraceDashboard = () => {
       setSelectedConversation(conversationId);
       setLoading(true);
       
-      // Use RPC function to get conversation traces
-      const { data, error } = await supabase.rpc('get_conversation_traces', {
-        conversation_id: conversationId
-      });
+      // Use direct query instead of RPC
+      const { data, error } = await supabase
+        .from('conversation_traces')
+        .select('*')
+        .eq('conversation_id', conversationId);
       
       if (error) throw error;
       
       if (data) {
-        setConversationTraces(data);
+        setConversationTraces(data as TraceData[]);
       }
     } catch (error) {
       console.error('Error fetching conversation traces:', error);
@@ -141,7 +161,11 @@ export const TraceDashboard = () => {
         {conversationTraces.length > 0 ? (
           <div className="space-y-4">
             {conversationTraces.map((trace) => (
-              <TraceViewer key={trace.id} traceData={trace.data} />
+              <TraceViewer 
+                key={trace.id} 
+                traceData={trace.data} 
+                conversationId={selectedConversation}
+              />
             ))}
           </div>
         ) : (

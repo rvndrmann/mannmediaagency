@@ -25,6 +25,19 @@ import { TraceViewer } from "./TraceViewer";
 
 const COLORS = ["#0088FE", "#00C49F", "#FFBB28", "#FF8042", "#8884d8"];
 
+interface AgentInteraction {
+  id: string;
+  user_id: string;
+  agent_type: string;
+  user_message: string;
+  assistant_response: string;
+  has_attachments: boolean;
+  timestamp: string;
+  metadata: Record<string, any>;
+  created_at?: string;
+  session_id?: string;
+}
+
 export const TraceDashboard = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [analyticsData, setAnalyticsData] = useState<AnalyticsData>({
@@ -66,7 +79,7 @@ export const TraceDashboard = () => {
           let toolCalls = 0;
           let failedTools = 0;
           
-          interactions.forEach(interaction => {
+          (interactions as AgentInteraction[]).forEach(interaction => {
             // Count agent usage
             const agentType = interaction.agent_type;
             if (agentType) {
@@ -74,24 +87,24 @@ export const TraceDashboard = () => {
             }
             
             // Count model usage
-            if (interaction.metadata?.model) {
-              const model = interaction.metadata.model;
+            if (interaction.metadata && typeof interaction.metadata === 'object' && 'model' in interaction.metadata) {
+              const model = interaction.metadata.model as string;
               modelUsage[model] = (modelUsage[model] || 0) + 1;
             }
             
             // Count handoffs
-            if (interaction.metadata?.is_handoff) {
+            if (interaction.metadata && typeof interaction.metadata === 'object' && 'is_handoff' in interaction.metadata) {
               handoffs++;
             }
             
             // Count tool calls
-            if (interaction.metadata?.tool_calls) {
-              toolCalls += interaction.metadata.tool_calls;
+            if (interaction.metadata && typeof interaction.metadata === 'object' && 'tool_calls' in interaction.metadata) {
+              toolCalls += (interaction.metadata.tool_calls as number) || 0;
             }
             
             // Count failed tools
-            if (interaction.metadata?.failed_tools) {
-              failedTools += interaction.metadata.failed_tools;
+            if (interaction.metadata && typeof interaction.metadata === 'object' && 'failed_tools' in interaction.metadata) {
+              failedTools += (interaction.metadata.failed_tools as number) || 0;
             }
           });
           
@@ -110,17 +123,20 @@ export const TraceDashboard = () => {
           .from('agent_interactions')
           .select('*')
           .eq('user_id', user.id)
-          .order('created_at', { ascending: false })
+          .order('timestamp', { ascending: false })
           .limit(50);
         
         if (convError) throw convError;
         
         if (conversationData && conversationData.length > 0) {
           // Group by session ID
-          const sessionMap = new Map<string, any[]>();
+          const sessionMap = new Map<string, AgentInteraction[]>();
           
-          conversationData.forEach(interaction => {
-            const sessionId = interaction.metadata?.session_id || interaction.id;
+          (conversationData as AgentInteraction[]).forEach(interaction => {
+            const sessionId = interaction.metadata && typeof interaction.metadata === 'object' && 'session_id' in interaction.metadata
+              ? (interaction.metadata.session_id as string)
+              : interaction.id;
+              
             if (!sessionMap.has(sessionId)) {
               sessionMap.set(sessionId, []);
             }
@@ -133,18 +149,28 @@ export const TraceDashboard = () => {
             const lastInteraction = interactions[interactions.length - 1];
             
             const agentTypes = Array.from(new Set(
-              interactions.map(i => i.metadata?.agent_type || 'unknown')
+              interactions.map(i => i.agent_type || 'unknown')
             ));
             
             return {
               id,
-              startTime: firstInteraction.created_at,
-              endTime: lastInteraction.created_at,
-              duration: new Date(lastInteraction.created_at).getTime() - new Date(firstInteraction.created_at).getTime(),
+              startTime: firstInteraction.timestamp,
+              endTime: lastInteraction.timestamp,
+              duration: new Date(lastInteraction.timestamp).getTime() - new Date(firstInteraction.timestamp).getTime(),
               agentTypes,
               messageCount: interactions.length,
-              toolCalls: interactions.reduce((sum, i) => sum + (i.metadata?.tool_calls || 0), 0),
-              handoffs: interactions.reduce((sum, i) => sum + (i.metadata?.is_handoff ? 1 : 0), 0),
+              toolCalls: interactions.reduce((sum, i) => {
+                if (i.metadata && typeof i.metadata === 'object' && 'tool_calls' in i.metadata) {
+                  return sum + ((i.metadata.tool_calls as number) || 0);
+                }
+                return sum;
+              }, 0),
+              handoffs: interactions.reduce((sum, i) => {
+                if (i.metadata && typeof i.metadata === 'object' && 'is_handoff' in i.metadata) {
+                  return sum + 1;
+                }
+                return sum;
+              }, 0),
               status: 'completed',
               userId: user.id,
               firstMessage: firstInteraction.user_message,
@@ -176,16 +202,16 @@ export const TraceDashboard = () => {
           .from('agent_interactions')
           .select('*')
           .eq('session_id', selectedTraceId)
-          .order('created_at', { ascending: true });
+          .order('timestamp', { ascending: true });
         
         if (error) throw error;
         
         if (data && data.length > 0) {
           // Extract events from interactions
-          const events = data.flatMap(interaction => {
+          const events = (data as AgentInteraction[]).flatMap(interaction => {
             const baseEvent = {
               id: interaction.id,
-              timestamp: new Date(interaction.created_at).getTime(),
+              timestamp: new Date(interaction.timestamp).getTime(),
               agentType: interaction.agent_type || 'unknown',
             };
             
@@ -210,25 +236,26 @@ export const TraceDashboard = () => {
             }
             
             // Tool events
-            if (interaction.metadata?.tool_calls && interaction.metadata.tool_calls > 0) {
+            if (interaction.metadata && typeof interaction.metadata === 'object' && 
+                'tool_calls' in interaction.metadata && (interaction.metadata.tool_calls as number) > 0) {
               events.push({
                 ...baseEvent,
                 eventType: 'tool_call',
                 data: { 
-                  tool: interaction.metadata.tool_name, 
-                  success: !interaction.metadata.failed_tools
+                  tool: interaction.metadata.tool_name as string, 
+                  success: !(interaction.metadata.failed_tools as boolean)
                 }
               });
             }
             
             // Handoff events
-            if (interaction.metadata?.is_handoff) {
+            if (interaction.metadata && typeof interaction.metadata === 'object' && 'is_handoff' in interaction.metadata) {
               events.push({
                 ...baseEvent,
                 eventType: 'handoff',
                 data: { 
-                  from: interaction.metadata.from_agent,
-                  to: interaction.metadata.to_agent 
+                  from: interaction.metadata.from_agent as string,
+                  to: interaction.metadata.to_agent as string
                 }
               });
             }
@@ -237,23 +264,34 @@ export const TraceDashboard = () => {
           });
           
           // Get first interaction for summary
-          const firstInteraction = data[0];
-          const lastInteraction = data[data.length - 1];
+          const firstInteraction = data[0] as AgentInteraction;
+          const lastInteraction = data[data.length - 1] as AgentInteraction;
           
           const trace: TraceData = {
             id: selectedTraceId,
             events,
             summary: {
-              startTime: new Date(firstInteraction.created_at).getTime(),
-              endTime: new Date(lastInteraction.created_at).getTime(),
-              duration: new Date(lastInteraction.created_at).getTime() - new Date(firstInteraction.created_at).getTime(),
-              agentTypes: Array.from(new Set(data.map(i => i.agent_type || 'unknown'))),
+              startTime: new Date(firstInteraction.timestamp).getTime(),
+              endTime: new Date(lastInteraction.timestamp).getTime(),
+              duration: new Date(lastInteraction.timestamp).getTime() - new Date(firstInteraction.timestamp).getTime(),
+              agentTypes: Array.from(new Set((data as AgentInteraction[]).map(i => i.agent_type || 'unknown'))),
               userId: firstInteraction.user_id,
               success: true,
-              toolCalls: data.reduce((sum, i) => sum + (i.metadata?.tool_calls || 0), 0),
-              handoffs: data.reduce((sum, i) => sum + (i.metadata?.is_handoff ? 1 : 0), 0),
+              toolCalls: (data as AgentInteraction[]).reduce((sum, i) => {
+                if (i.metadata && typeof i.metadata === 'object' && 'tool_calls' in i.metadata) {
+                  return sum + ((i.metadata.tool_calls as number) || 0);
+                }
+                return sum;
+              }, 0),
+              handoffs: (data as AgentInteraction[]).reduce((sum, i) => {
+                if (i.metadata && typeof i.metadata === 'object' && 'is_handoff' in i.metadata) {
+                  return sum + 1;
+                }
+                return sum;
+              }, 0),
               messageCount: data.length,
-              modelUsed: data[0].metadata?.model || 'unknown'
+              modelUsed: firstInteraction.metadata && typeof firstInteraction.metadata === 'object' && 
+                'model' in firstInteraction.metadata ? (firstInteraction.metadata.model as string) : 'unknown'
             }
           };
           

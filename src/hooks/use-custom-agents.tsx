@@ -1,122 +1,225 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-
-export interface CustomAgent {
-  id: string;
-  name: string;
-  instructions: string;
-  created_at: string;
-  user_id: string;
-}
+import { CustomAgent, CustomAgentFormData } from '@/hooks/multi-agent/types';
 
 export const useCustomAgents = () => {
-  const [customAgents, setCustomAgents] = useState<CustomAgent[]>([]);
+  const [agents, setAgents] = useState<CustomAgent[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [activeAgent, setActiveAgent] = useState<CustomAgent | null>(null);
 
-  const fetchCustomAgents = async () => {
+  // Fetch agents from the database
+  const fetchAgents = useCallback(async () => {
     try {
+      setIsLoading(true);
+      
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data, error } = await supabase
+      // Check if the agent_instructions table exists
+      const { data, error } = await supabase.rpc('check_table_exists', { table_name: 'agent_instructions' });
+      
+      if (error) {
+        console.error('Error checking table:', error);
+        return;
+      }
+      
+      if (!data) {
+        console.info('Agent instructions table does not exist yet');
+        setAgents([]);
+        setIsLoading(false);
+        return;
+      }
+      
+      // Fetch agent instructions for the current user
+      const { data: agentData, error: fetchError } = await supabase
         .from('agent_instructions')
         .select('*')
-        .eq('user_id', user.id)
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-      setCustomAgents(data || []);
+        .eq('user_id', user.id);
+      
+      if (fetchError) {
+        console.error('Error fetching agents:', fetchError);
+        return;
+      }
+      
+      if (agentData) {
+        const typedAgents: CustomAgent[] = agentData.map(agent => ({
+          id: agent.id,
+          name: agent.name,
+          instructions: agent.instructions,
+          user_id: agent.user_id,
+          created_at: agent.created_at
+        }));
+        setAgents(typedAgents);
+      }
     } catch (error) {
-      console.error('Error fetching custom agents:', error);
-      toast.error('Failed to load custom agents');
+      console.error('Error fetching agents:', error);
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const addCustomAgent = async (name: string, instructions: string) => {
+  // Create a new agent
+  const createAgent = async (agentData: CustomAgentFormData): Promise<boolean> => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) {
+        toast.error('You must be logged in to create an agent');
+        return false;
+      }
 
-      const { data, error } = await supabase
-        .from('agent_instructions')
-        .insert([
-          { 
-            name, 
-            instructions, 
-            user_id: user.id,
-            agent_type: name.toLowerCase().replace(/\s+/g, '-')
-          }
-        ])
-        .select()
-        .single();
-
-      if (error) throw error;
+      // Check if the agent_instructions table exists
+      const { data, error } = await supabase.rpc('check_table_exists', { table_name: 'agent_instructions' });
       
-      setCustomAgents(prev => [data, ...prev]);
-      toast.success('Agent created successfully');
-      return data;
+      if (error) {
+        console.error('Error checking table:', error);
+        toast.error('Failed to check database schema');
+        return false;
+      }
+      
+      // Create the table if it doesn't exist
+      if (!data) {
+        const { error: createError } = await supabase.rpc('create_agent_instructions_table');
+        
+        if (createError) {
+          console.error('Error creating table:', createError);
+          toast.error('Failed to set up database schema');
+          return false;
+        }
+      }
+      
+      // Insert the new agent
+      const { data: newAgent, error: insertError } = await supabase
+        .from('agent_instructions')
+        .insert({
+          name: agentData.name,
+          instructions: agentData.instructions,
+          user_id: user.id
+        })
+        .select('*')
+        .single();
+      
+      if (insertError) {
+        console.error('Error creating agent:', insertError);
+        toast.error('Failed to create agent');
+        return false;
+      }
+      
+      if (newAgent) {
+        const typedAgent: CustomAgent = {
+          id: newAgent.id,
+          name: newAgent.name,
+          instructions: newAgent.instructions,
+          user_id: newAgent.user_id,
+          created_at: newAgent.created_at
+        };
+        
+        setAgents(prev => [...prev, typedAgent]);
+        toast.success(`Agent "${agentData.name}" created successfully`);
+        return true;
+      }
+      
+      return false;
     } catch (error) {
-      console.error('Error creating custom agent:', error);
+      console.error('Error creating agent:', error);
       toast.error('Failed to create agent');
-      return null;
+      return false;
     }
   };
 
-  const updateCustomAgent = async (id: string, updates: Partial<CustomAgent>) => {
+  // Update an existing agent
+  const updateAgent = async (id: string, agentData: CustomAgentFormData): Promise<boolean> => {
     try {
-      const { error } = await supabase
+      const { data: updatedAgent, error } = await supabase
         .from('agent_instructions')
-        .update(updates)
-        .eq('id', id);
-
-      if (error) throw error;
+        .update({
+          name: agentData.name,
+          instructions: agentData.instructions
+        })
+        .eq('id', id)
+        .select('*')
+        .single();
       
-      setCustomAgents(prev => 
-        prev.map(agent => agent.id === id ? { ...agent, ...updates } : agent)
-      );
+      if (error) {
+        console.error('Error updating agent:', error);
+        toast.error('Failed to update agent');
+        return false;
+      }
       
-      toast.success('Agent updated successfully');
-      return true;
+      if (updatedAgent) {
+        const typedAgent: CustomAgent = {
+          id: updatedAgent.id,
+          name: updatedAgent.name,
+          instructions: updatedAgent.instructions,
+          user_id: updatedAgent.user_id,
+          created_at: updatedAgent.created_at
+        };
+        
+        setAgents(prev => prev.map(agent => 
+          agent.id === id ? typedAgent : agent
+        ));
+        
+        if (activeAgent && activeAgent.id === id) {
+          setActiveAgent(typedAgent);
+        }
+        
+        toast.success(`Agent "${agentData.name}" updated successfully`);
+        return true;
+      }
+      
+      return false;
     } catch (error) {
-      console.error('Error updating custom agent:', error);
+      console.error('Error updating agent:', error);
       toast.error('Failed to update agent');
       return false;
     }
   };
 
-  const deleteCustomAgent = async (id: string) => {
+  // Delete an agent
+  const deleteAgent = async (id: string): Promise<boolean> => {
     try {
       const { error } = await supabase
         .from('agent_instructions')
         .delete()
         .eq('id', id);
-
-      if (error) throw error;
       
-      setCustomAgents(prev => prev.filter(agent => agent.id !== id));
+      if (error) {
+        console.error('Error deleting agent:', error);
+        toast.error('Failed to delete agent');
+        return false;
+      }
+      
+      setAgents(prev => prev.filter(agent => agent.id !== id));
+      
+      if (activeAgent && activeAgent.id === id) {
+        setActiveAgent(null);
+      }
+      
       toast.success('Agent deleted successfully');
       return true;
     } catch (error) {
-      console.error('Error deleting custom agent:', error);
+      console.error('Error deleting agent:', error);
       toast.error('Failed to delete agent');
       return false;
     }
   };
 
+  // Load agents on initialization
   useEffect(() => {
-    fetchCustomAgents();
-  }, []);
+    fetchAgents();
+  }, [fetchAgents]);
 
   return {
-    customAgents,
+    agents,
     isLoading,
-    addCustomAgent,
-    updateCustomAgent,
-    deleteCustomAgent,
-    refreshAgents: fetchCustomAgents
+    activeAgent,
+    setActiveAgent,
+    createAgent,
+    updateAgent,
+    deleteAgent,
+    refreshAgents: fetchAgents
   };
 };
+
+export default useCustomAgents;

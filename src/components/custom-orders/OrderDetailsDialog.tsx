@@ -1,202 +1,253 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState } from "react";
 import {
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
+  DialogHeader,
+  DialogTitle
 } from "@/components/ui/dialog";
-import { Badge } from "@/components/ui/badge";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Download, ExternalLink } from "lucide-react";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { CustomOrder, CustomOrderMedia } from "@/types/custom-order";
+import { Badge } from "@/components/ui/badge";
+import { Link, Calendar, CheckCircle2, AlarmClock, FileText, Image as ImageIcon } from "lucide-react";
 import { format } from "date-fns";
+import { OrderOrchestrationPanel } from "@/components/admin/OrderOrchestrationPanel";
+import { useOrderOrchestration } from "@/hooks/use-order-orchestration";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
+import { Card } from "@/components/ui/card";
 
 interface OrderDetailsDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  order: any;
+  order: CustomOrder | null;
+  isAdmin?: boolean;
 }
 
-export const OrderDetailsDialog = ({
+export const OrderDetailsDialog: React.FC<OrderDetailsDialogProps> = ({
   open,
   onOpenChange,
   order,
-}: OrderDetailsDialogProps) => {
-  const [mediaItems, setMediaItems] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  isAdmin = false
+}) => {
+  const [deliveryUrl, setDeliveryUrl] = useState("");
+  const [deliveryMessage, setDeliveryMessage] = useState("");
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [activeTab, setActiveTab] = useState("details");
 
-  useEffect(() => {
-    if (open && order) {
-      fetchMediaItems();
-    }
-  }, [open, order]);
-
-  const fetchMediaItems = async () => {
+  const handleDeliverOrder = async () => {
+    if (!order || !deliveryUrl) return;
+    
+    setIsSubmitting(true);
     try {
-      setLoading(true);
-      const { data, error } = await supabase
-        .from('custom_order_media')
-        .select('*')
-        .eq('order_id', order.id);
-
+      const { error } = await supabase.rpc('deliver_custom_order', {
+        order_id_param: order.id,
+        delivery_url_param: deliveryUrl,
+        delivery_message_param: deliveryMessage || 'Your custom order has been delivered.'
+      });
+      
       if (error) throw error;
-      setMediaItems(data || []);
+      
+      toast.success("Order delivered successfully");
+      onOpenChange(false);
     } catch (error) {
-      console.error('Error fetching media items:', error);
+      console.error("Error delivering order:", error);
+      toast.error("Failed to deliver order");
     } finally {
-      setLoading(false);
+      setIsSubmitting(false);
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    const statusMap: Record<string, { color: string; label: string }> = {
-      'pending': { color: 'bg-yellow-500', label: 'Pending' },
-      'processing': { color: 'bg-blue-500', label: 'Processing' },
-      'completed': { color: 'bg-green-500', label: 'Completed' },
-      'delivered': { color: 'bg-purple-500', label: 'Delivered' },
-      'cancelled': { color: 'bg-red-500', label: 'Cancelled' },
-    };
+  const getStatusBadgeVariant = (status: string) => {
+    switch (status) {
+      case 'pending':
+        return 'outline';
+      case 'in_progress':
+        return 'secondary';
+      case 'completed':
+        return 'default';
+      case 'failed':
+        return 'destructive';
+      default:
+        return 'outline';
+    }
+  };
 
-    const badgeInfo = statusMap[status] || { color: 'bg-gray-500', label: status };
-
-    return (
-      <Badge 
-        className={`${badgeInfo.color} text-white capitalize`}
-      >
-        {badgeInfo.label}
-      </Badge>
-    );
+  const getMediaTypeBadge = (type: string) => {
+    switch (type) {
+      case 'image':
+        return { label: 'Image', variant: 'outline' as const, icon: <ImageIcon className="h-3 w-3 mr-1" /> };
+      case 'video':
+        return { label: 'Video', variant: 'secondary' as const, icon: <FileText className="h-3 w-3 mr-1" /> };
+      default:
+        return { label: type, variant: 'outline' as const, icon: <FileText className="h-3 w-3 mr-1" /> };
+    }
   };
 
   if (!order) return null;
 
-  const formatDate = (dateString: string) => {
-    return format(new Date(dateString), 'MMMM d, yyyy h:mm a');
-  };
-
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[80vh] overflow-hidden flex flex-col">
+      <DialogContent className="max-w-4xl">
         <DialogHeader>
           <DialogTitle className="flex items-center justify-between">
-            <span>Order Details</span>
-            {getStatusBadge(order.status)}
+            <span>Custom Order Details</span>
+            <Badge variant={getStatusBadgeVariant(order.status)}>
+              {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+            </Badge>
           </DialogTitle>
           <DialogDescription>
-            Created on {formatDate(order.created_at)}
+            Order submitted on {format(new Date(order.created_at), 'PPP')}
           </DialogDescription>
         </DialogHeader>
 
-        <ScrollArea className="flex-1 pr-4">
-          <div className="space-y-6">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <h4 className="font-medium mb-1">Order Type</h4>
-                <p className="text-muted-foreground">
-                  {order.order_link_id?.title || 'Custom Order'}
-                </p>
-              </div>
-              <div>
-                <h4 className="font-medium mb-1">Credits Used</h4>
-                <p className="text-muted-foreground">{order.credits_used}</p>
-              </div>
-            </div>
-
-            {order.remark && (
-              <div>
-                <h4 className="font-medium mb-1">Your Remarks</h4>
-                <p className="text-muted-foreground whitespace-pre-wrap">
-                  {order.remark}
-                </p>
-              </div>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+          <TabsList className="grid grid-cols-2 lg:grid-cols-3">
+            <TabsTrigger value="details">Order Details</TabsTrigger>
+            <TabsTrigger value="media">Media & Assets</TabsTrigger>
+            {isAdmin && (
+              <TabsTrigger value="orchestration">Orchestration</TabsTrigger>
             )}
+          </TabsList>
 
-            {order.delivery_message && (
-              <>
-                <Separator />
+          <TabsContent value="details" className="space-y-4">
+            <div className="grid gap-4">
+              <div className="space-y-2">
+                <h3 className="text-sm font-medium">Order Remarks</h3>
+                <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-md">
+                  {order.remark || "No remarks provided."}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <h4 className="font-medium mb-1">Delivery Message</h4>
-                  <p className="text-muted-foreground whitespace-pre-wrap">
-                    {order.delivery_message}
+                  <h3 className="text-sm font-medium flex items-center mb-1">
+                    <Calendar className="h-4 w-4 mr-1" />
+                    Submitted Date
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    {format(new Date(order.created_at), 'PPP p')}
                   </p>
                 </div>
-              </>
-            )}
-
-            {order.delivery_url && (
-              <>
-                <Separator />
+                
                 <div>
-                  <h4 className="font-medium mb-1">Delivery Link</h4>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="mt-1"
-                    onClick={() => window.open(order.delivery_url, '_blank')}
-                  >
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Open Delivery Link
-                  </Button>
+                  <h3 className="text-sm font-medium flex items-center mb-1">
+                    <AlarmClock className="h-4 w-4 mr-1" />
+                    Status
+                  </h3>
+                  <Badge variant={getStatusBadgeVariant(order.status)}>
+                    {order.status.charAt(0).toUpperCase() + order.status.slice(1)}
+                  </Badge>
                 </div>
-              </>
-            )}
+              </div>
 
-            {mediaItems.length > 0 && (
-              <>
-                <Separator />
-                <div>
-                  <h4 className="font-medium mb-2">Delivered Files</h4>
-                  <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                    {mediaItems.map((media) => (
-                      <div
-                        key={media.id}
-                        className="border rounded-md overflow-hidden flex flex-col"
-                      >
-                        <div className="aspect-square bg-gray-100 relative">
-                          {media.media_type === 'image' ? (
-                            <img
-                              src={media.media_url}
-                              alt="Order media"
-                              className="w-full h-full object-cover"
-                            />
-                          ) : media.media_type === 'video' ? (
-                            <video
-                              src={media.media_url}
-                              controls
-                              className="w-full h-full object-cover"
-                            />
-                          ) : (
-                            <div className="flex items-center justify-center h-full text-gray-500">
-                              {media.original_filename || 'File'}
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-2 flex justify-between items-center">
-                          <span className="text-xs truncate">
-                            {media.original_filename || 'File'}
-                          </span>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            className="h-8 w-8 p-0"
-                            onClick={() => window.open(media.media_url, '_blank')}
-                            title="Download file"
-                          >
-                            <Download className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
+              {order.status === 'completed' && (
+                <div className="space-y-2">
+                  <h3 className="text-sm font-medium flex items-center">
+                    <CheckCircle2 className="h-4 w-4 mr-1" />
+                    Delivery Details
+                  </h3>
+                  
+                  <div className="bg-gray-100 dark:bg-gray-800 p-3 rounded-md">
+                    <p className="mb-2">{order.delivery_message || "Your order has been delivered."}</p>
+                    {order.delivery_url && (
+                      <Button variant="outline" size="sm" asChild className="gap-1">
+                        <a href={order.delivery_url} target="_blank" rel="noopener noreferrer">
+                          <Link className="h-4 w-4 mr-1" />
+                          View Delivered Product
+                        </a>
+                      </Button>
+                    )}
                   </div>
                 </div>
-              </>
+              )}
+            </div>
+
+            {isAdmin && order.status !== 'completed' && (
+              <div className="space-y-2 pt-4 border-t">
+                <h3 className="text-sm font-medium">Deliver This Order</h3>
+                
+                <div className="space-y-2">
+                  <input
+                    type="text"
+                    placeholder="Delivery URL"
+                    className="w-full p-2 border rounded"
+                    value={deliveryUrl}
+                    onChange={(e) => setDeliveryUrl(e.target.value)}
+                  />
+                  
+                  <textarea
+                    placeholder="Delivery message (optional)"
+                    className="w-full p-2 border rounded"
+                    rows={3}
+                    value={deliveryMessage}
+                    onChange={(e) => setDeliveryMessage(e.target.value)}
+                  />
+                  
+                  <Button 
+                    onClick={handleDeliverOrder} 
+                    disabled={!deliveryUrl || isSubmitting}
+                    className="w-full"
+                  >
+                    {isSubmitting ? "Delivering..." : "Deliver Order"}
+                  </Button>
+                </div>
+              </div>
             )}
-          </div>
-        </ScrollArea>
+          </TabsContent>
+
+          <TabsContent value="media" className="space-y-4">
+            {order.custom_order_media && order.custom_order_media.length > 0 ? (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {(order.custom_order_media as CustomOrderMedia[]).map((media) => (
+                  <Card key={media.id} className="overflow-hidden border">
+                    <div className="aspect-w-16 aspect-h-9 bg-gray-100 dark:bg-gray-800">
+                      {media.media_type === 'image' ? (
+                        <img 
+                          src={media.media_url} 
+                          alt={media.original_filename || 'Order media'} 
+                          className="object-cover w-full h-full"
+                        />
+                      ) : media.media_type === 'video' ? (
+                        <video 
+                          src={media.media_url} 
+                          controls
+                          className="object-cover w-full h-full"
+                        />
+                      ) : (
+                        <div className="flex items-center justify-center h-full">
+                          <FileText className="h-10 w-10 text-gray-400" />
+                        </div>
+                      )}
+                    </div>
+                    <div className="p-3 flex items-center justify-between">
+                      <div className="truncate text-sm">
+                        {media.original_filename || 'Unnamed file'}
+                      </div>
+                      <Badge variant={getMediaTypeBadge(media.media_type).variant} className="ml-2 flex items-center">
+                        {getMediaTypeBadge(media.media_type).icon}
+                        {getMediaTypeBadge(media.media_type).label}
+                      </Badge>
+                    </div>
+                  </Card>
+                ))}
+              </div>
+            ) : (
+              <div className="text-center py-8 text-gray-500">
+                <ImageIcon className="h-10 w-10 mx-auto mb-2 opacity-50" />
+                <p>No media attachments for this order.</p>
+              </div>
+            )}
+          </TabsContent>
+
+          {isAdmin && (
+            <TabsContent value="orchestration">
+              <OrderOrchestrationPanel orderId={order.id} />
+            </TabsContent>
+          )}
+        </Tabs>
       </DialogContent>
     </Dialog>
   );

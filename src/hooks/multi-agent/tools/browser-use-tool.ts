@@ -47,6 +47,16 @@ export const browserUseTool: ToolDefinition = {
         throw new Error("Failed to start browser task - no task ID returned");
       }
 
+      // Save task to history for future reference
+      await supabase
+        .from('browser_task_history')
+        .insert({
+          user_id: context.userId,
+          task_input: params.task,
+          status: 'running',
+          browser_task_id: taskId
+        });
+
       return {
         success: true,
         message: "✅ Browser task started successfully! You can view the progress in the Browser Use section. The task ID is: " + taskId,

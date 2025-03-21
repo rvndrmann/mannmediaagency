@@ -6,6 +6,7 @@ import { toast } from "sonner";
 interface TaskState {
   taskInput: string;
   currentTaskId: string | null;
+  browserTaskId: string | null;
   isProcessing: boolean;
   taskStatus: TaskStatus;
   browserConfig: BrowserConfig;
@@ -13,6 +14,7 @@ interface TaskState {
 
 interface StateSetters {
   setCurrentTaskId: (id: string | null) => void;
+  setBrowserTaskId: (id: string | null) => void;
   setIsProcessing: (isProcessing: boolean) => void;
   setTaskStatus: (status: TaskStatus) => void;
   setProgress: (progress: number) => void;
@@ -70,6 +72,7 @@ export function useTaskOperations(
   const { 
     taskInput, 
     currentTaskId, 
+    browserTaskId,
     isProcessing, 
     taskStatus, 
     browserConfig 
@@ -77,6 +80,7 @@ export function useTaskOperations(
 
   const { 
     setCurrentTaskId, 
+    setBrowserTaskId,
     setIsProcessing, 
     setTaskStatus, 
     setProgress, 
@@ -150,6 +154,7 @@ export function useTaskOperations(
       setProgress(0);
       setError(null);
       setLiveUrl(null);
+      setBrowserTaskId(null);
       
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -262,6 +267,7 @@ export function useTaskOperations(
       // This is the ID from the Browser Use API that we need for all future API calls
       if (apiResponse.task_id) {
         console.log(`Updating task ${localTaskId} with browser_task_id: ${apiResponse.task_id}`);
+        setBrowserTaskId(apiResponse.task_id);
         
         await supabase
           .from('browser_automation_tasks')
@@ -304,26 +310,28 @@ export function useTaskOperations(
       // Immediately check for task status to get live URL sooner
       try {
         // IMPORTANT: Use the Browser Use API task ID for status checks, not our database ID
-        const apiTaskId = apiResponse.task_id || localTaskId;
+        const apiTaskId = apiResponse.task_id;
         
-        const { data: initialStatus } = await supabase.functions.invoke('browser-use-api', {
-          body: { task_id: apiTaskId }
-        });
-        
-        if (initialStatus && initialStatus.browser && initialStatus.browser.live_url) {
-          console.log(`Found live URL in initial status check: ${initialStatus.browser.live_url}`);
-          setLiveUrl(initialStatus.browser.live_url);
+        if (apiTaskId) {
+          const { data: initialStatus } = await supabase.functions.invoke('browser-use-api', {
+            body: { task_id: apiTaskId }
+          });
           
-          await supabase
-            .from('browser_automation_tasks')
-            .update({ live_url: initialStatus.browser.live_url })
-            .eq('id', localTaskId);
+          if (initialStatus && initialStatus.browser && initialStatus.browser.live_url) {
+            console.log(`Found live URL in initial status check: ${initialStatus.browser.live_url}`);
+            setLiveUrl(initialStatus.browser.live_url);
             
-          // Update history record with live URL
-          if (historyId) {
-            await updateTaskHistory(historyId, { 
-              result_url: initialStatus.browser.live_url
-            });
+            await supabase
+              .from('browser_automation_tasks')
+              .update({ live_url: initialStatus.browser.live_url })
+              .eq('id', localTaskId);
+              
+            // Update history record with live URL
+            if (historyId) {
+              await updateTaskHistory(historyId, { 
+                result_url: initialStatus.browser.live_url
+              });
+            }
           }
         }
       } catch (statusError) {
@@ -342,26 +350,20 @@ export function useTaskOperations(
   };
 
   const pauseTask = async () => {
-    if (!currentTaskId || taskStatus !== 'running') return;
+    // Make sure we have a browserTaskId
+    if (!browserTaskId) {
+      console.error("Cannot pause task: No browser task ID available");
+      setError("Cannot pause task: No browser task ID available");
+      return;
+    }
+
+    if (taskStatus !== 'running') {
+      console.error("Cannot pause task: Task is not running");
+      return;
+    }
 
     try {
-      // Get the browser_task_id from our database
-      const { data: taskData, error: taskError } = await supabase
-        .from('browser_automation_tasks')
-        .select('browser_task_id')
-        .eq('id', currentTaskId)
-        .single();
-        
-      if (taskError || !taskData?.browser_task_id) {
-        const errorMsg = taskError?.message || "Browser task ID not found";
-        console.error("Error retrieving browser task ID:", errorMsg);
-        setError(`Failed to pause task: ${errorMsg}`);
-        return;
-      }
-      
-      // Use the Browser Use API task ID for the API call
-      const browserTaskId = taskData.browser_task_id;
-      console.log(`Using browser task ID for pause: ${browserTaskId}`);
+      console.log(`Pausing task with browser task ID: ${browserTaskId}`);
 
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
@@ -380,10 +382,18 @@ export function useTaskOperations(
       
       setTaskStatus('paused');
       
-      await supabase
-        .from('browser_automation_tasks')
-        .update({ status: 'paused' })
-        .eq('id', currentTaskId);
+      if (currentTaskId) {
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ status: 'paused' })
+          .eq('id', currentTaskId);
+          
+        // Update the history record if we have a browser task ID
+        await supabase
+          .from('browser_task_history')
+          .update({ status: 'paused' })
+          .eq('browser_task_id', browserTaskId);
+      }
     } catch (error) {
       console.error("Error in pauseTask:", error);
       setError(`Pause error: ${error.message}`);
@@ -391,26 +401,20 @@ export function useTaskOperations(
   };
 
   const resumeTask = async () => {
-    if (!currentTaskId || taskStatus !== 'paused') return;
+    // Make sure we have a browserTaskId
+    if (!browserTaskId) {
+      console.error("Cannot resume task: No browser task ID available");
+      setError("Cannot resume task: No browser task ID available");
+      return;
+    }
+
+    if (taskStatus !== 'paused') {
+      console.error("Cannot resume task: Task is not paused");
+      return;
+    }
 
     try {
-      // Get the browser_task_id from our database
-      const { data: taskData, error: taskError } = await supabase
-        .from('browser_automation_tasks')
-        .select('browser_task_id')
-        .eq('id', currentTaskId)
-        .single();
-        
-      if (taskError || !taskData?.browser_task_id) {
-        const errorMsg = taskError?.message || "Browser task ID not found";
-        console.error("Error retrieving browser task ID:", errorMsg);
-        setError(`Failed to resume task: ${errorMsg}`);
-        return;
-      }
-      
-      // Use the Browser Use API task ID for the API call
-      const browserTaskId = taskData.browser_task_id;
-      console.log(`Using browser task ID for resume: ${browserTaskId}`);
+      console.log(`Resuming task with browser task ID: ${browserTaskId}`);
 
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
@@ -429,10 +433,18 @@ export function useTaskOperations(
       
       setTaskStatus('running');
       
-      await supabase
-        .from('browser_automation_tasks')
-        .update({ status: 'running' })
-        .eq('id', currentTaskId);
+      if (currentTaskId) {
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ status: 'running' })
+          .eq('id', currentTaskId);
+          
+        // Update the history record if we have a browser task ID
+        await supabase
+          .from('browser_task_history')
+          .update({ status: 'running' })
+          .eq('browser_task_id', browserTaskId);
+      }
     } catch (error) {
       console.error("Error in resumeTask:", error);
       setError(`Resume error: ${error.message}`);
@@ -440,26 +452,34 @@ export function useTaskOperations(
   };
 
   const stopTask = async () => {
-    if (!currentTaskId || (taskStatus !== 'running' && taskStatus !== 'paused')) return;
+    // Make sure we have a browserTaskId
+    if (!browserTaskId) {
+      console.error("Cannot stop task: No browser task ID available");
+      setError("Cannot stop task: No browser task ID available");
+      return;
+    }
+
+    if (taskStatus !== 'running' && taskStatus !== 'paused') {
+      console.error("Cannot stop task: Task is not running or paused");
+      return;
+    }
 
     try {
-      // Get the browser_task_id from our database
-      const { data: taskData, error: taskError } = await supabase
-        .from('browser_automation_tasks')
-        .select('browser_task_id, output')
-        .eq('id', currentTaskId)
-        .single();
-        
-      if (taskError || !taskData?.browser_task_id) {
-        const errorMsg = taskError?.message || "Browser task ID not found";
-        console.error("Error retrieving browser task ID:", errorMsg);
-        setError(`Failed to stop task: ${errorMsg}`);
-        return;
+      console.log(`Stopping task with browser task ID: ${browserTaskId}`);
+
+      // Get the current output for the task (if any)
+      let taskOutput = null;
+      if (currentTaskId) {
+        const { data: taskData } = await supabase
+          .from('browser_automation_tasks')
+          .select('output')
+          .eq('id', currentTaskId)
+          .single();
+          
+        if (taskData) {
+          taskOutput = taskData.output;
+        }
       }
-      
-      // Use the Browser Use API task ID for the API call
-      const browserTaskId = taskData.browser_task_id;
-      console.log(`Using browser task ID for stop: ${browserTaskId}`);
 
       const { data, error } = await supabase.functions.invoke('browser-use-api', {
         body: {
@@ -479,24 +499,25 @@ export function useTaskOperations(
       setTaskStatus('stopped');
       setIsProcessing(false);
       
-      await supabase
-        .from('browser_automation_tasks')
-        .update({ 
-          status: 'stopped',
-          completed_at: new Date().toISOString()
-        })
-        .eq('id', currentTaskId);
-        
-      // Update task history with stopped status
-      await supabase
-        .from('browser_task_history')
-        .update({ 
-          status: 'stopped',
-          completed_at: new Date().toISOString(),
-          output: taskData.output
-        })
-        .eq('browser_task_id', browserTaskId);
-        
+      if (currentTaskId) {
+        await supabase
+          .from('browser_automation_tasks')
+          .update({ 
+            status: 'stopped',
+            completed_at: new Date().toISOString()
+          })
+          .eq('id', currentTaskId);
+          
+        // Update task history with stopped status
+        await supabase
+          .from('browser_task_history')
+          .update({ 
+            status: 'stopped',
+            completed_at: new Date().toISOString(),
+            output: taskOutput
+          })
+          .eq('browser_task_id', browserTaskId);
+      }
     } catch (error) {
       console.error("Error in stopTask:", error);
       setError(`Stop error: ${error.message}`);
@@ -511,6 +532,7 @@ export function useTaskOperations(
       setProgress(0);
       setError(null);
       setLiveUrl(null);
+      setBrowserTaskId(null);
       
       // Get current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -608,6 +630,8 @@ export function useTaskOperations(
       // Store the API task ID in the database - this is crucial!
       if (apiResponse.task_id) {
         console.log(`Updating task ${currentTaskId} with new browser_task_id: ${apiResponse.task_id}`);
+        setBrowserTaskId(apiResponse.task_id);
+        
         await supabase
           .from('browser_automation_tasks')
           .update({ 

@@ -16,6 +16,7 @@ interface TaskControlsProps {
   onRestart?: () => Promise<void>;
   error?: string | null;
   currentTaskId?: string | null;
+  browserTaskId?: string | null; // Added to track the actual Browser Use API task ID
 }
 
 export function TaskControls({
@@ -29,13 +30,18 @@ export function TaskControls({
   onScreenshot,
   onRestart,
   error,
-  currentTaskId
+  currentTaskId,
+  browserTaskId
 }: TaskControlsProps) {
   const canStart = !isProcessing || taskStatus === 'idle' || taskStatus === 'completed' || 
     taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'expired';
-  const canPause = isProcessing && taskStatus === 'running' && Boolean(currentTaskId);
-  const canResume = isProcessing && taskStatus === 'paused' && Boolean(currentTaskId);
-  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused') && Boolean(currentTaskId);
+  
+  // Use browserTaskId to determine if pause/resume/stop operations are possible
+  const hasBrowserTaskId = Boolean(browserTaskId);
+  
+  const canPause = isProcessing && taskStatus === 'running' && hasBrowserTaskId;
+  const canResume = isProcessing && taskStatus === 'paused' && hasBrowserTaskId;
+  const canStop = isProcessing && (taskStatus === 'running' || taskStatus === 'paused') && hasBrowserTaskId;
   const canScreenshot = Boolean(onScreenshot) && taskStatus === 'running' && isProcessing;
   const canRestart = Boolean(onRestart) && (taskStatus === 'failed' || taskStatus === 'stopped' || 
     taskStatus === 'completed' || taskStatus === 'expired' || error?.includes('expired'));
@@ -57,10 +63,12 @@ export function TaskControls({
   console.log("TaskControls state:", { 
     taskStatus, 
     isProcessing, 
-    currentTaskId, 
+    currentTaskId,
+    browserTaskId,
     canPause, 
     canResume, 
-    canStop 
+    canStop,
+    hasBrowserTaskId
   });
   
   return (

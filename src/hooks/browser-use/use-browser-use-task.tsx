@@ -85,6 +85,7 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
 export function useBrowserUseTask() {
   const [taskInput, setTaskInput] = useState("");
   const [currentTaskId, setCurrentTaskId] = useState<string | null>(null);
+  const [browserTaskId, setBrowserTaskId] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [progress, setProgress] = useState(0);
   const [taskSteps, setTaskSteps] = useState<TaskStep[]>([]);
@@ -156,6 +157,7 @@ export function useBrowserUseTask() {
   const state: BrowserTaskState = {
     taskInput,
     currentTaskId,
+    browserTaskId,
     isProcessing,
     progress,
     taskSteps,
@@ -171,6 +173,7 @@ export function useBrowserUseTask() {
   const stateSetters = {
     setTaskInput,
     setCurrentTaskId,
+    setBrowserTaskId,
     setIsProcessing,
     setProgress,
     setTaskSteps,
@@ -208,7 +211,8 @@ export function useBrowserUseTask() {
       setIsProcessing,
       setLiveUrl,
       setError,
-      setConnectionStatus
+      setConnectionStatus,
+      setBrowserTaskId
     }
   );
 
@@ -219,6 +223,7 @@ export function useBrowserUseTask() {
     taskInput,
     setTaskInput,
     currentTaskId,
+    browserTaskId,
     isProcessing,
     startTask,
     pauseTask,

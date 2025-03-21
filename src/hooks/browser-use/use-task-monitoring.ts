@@ -1,7 +1,6 @@
-
-import { useEffect, useRef } from "react";
+import { useEffect, useRef } from 'react';
 import { supabase } from "@/integrations/supabase/client";
-import { BrowserTaskState, TaskStatus } from "./types";
+import { BrowserTaskState, TaskStatus } from './types';
 
 interface TaskMonitoringSetters {
   setProgress: (progress: number) => void;
@@ -13,6 +12,7 @@ interface TaskMonitoringSetters {
   setLiveUrl: (url: string | null) => void;
   setError: (error: string | null) => void;
   setConnectionStatus: (status: BrowserTaskState["connectionStatus"]) => void;
+  setBrowserTaskId: (id: string | null) => void;
 }
 
 export function useTaskMonitoring(
@@ -22,344 +22,248 @@ export function useTaskMonitoring(
   const { 
     currentTaskId, 
     isProcessing, 
-    taskStatus, 
-    error
+    taskStatus,
+    error: currentError
   } = state;
 
-  const {
-    setProgress,
-    setTaskStatus,
-    setCurrentUrl,
+  const { 
+    setProgress, 
+    setTaskStatus, 
+    setCurrentUrl, 
     setTaskSteps,
     setTaskOutput,
     setIsProcessing,
     setLiveUrl,
     setError,
-    setConnectionStatus
+    setConnectionStatus,
+    setBrowserTaskId
   } = setters;
 
-  const intervalRef = useRef<number | null>(null);
-  const errorCountRef = useRef<number>(0);
-  const lastErrorRef = useRef<string | null>(null);
-  const taskExpiredRef = useRef<boolean>(false);
-  const browserTaskIdRef = useRef<string | null>(null);
+  // Keep track of polling interval
+  const pollingIntervalRef = useRef<number | null>(null);
+  const lastStatusRef = useRef<string | null>(null);
+  const retryCountRef = useRef<number>(0);
+  const MAX_RETRIES = 3;
 
+  // Set up polling whenever a task is active
   useEffect(() => {
-    if (taskStatus === 'expired') {
-      taskExpiredRef.current = true;
-    } else if (taskStatus === 'running' || taskStatus === 'created' || taskStatus === 'pending') {
-      taskExpiredRef.current = false;
-    }
-  }, [taskStatus]);
-
-  useEffect(() => {
-    browserTaskIdRef.current = null;
-  }, [currentTaskId]);
-
-  useEffect(() => {
-    if (!currentTaskId || !isProcessing || taskExpiredRef.current) {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
-      return;
-    }
-
-    const fetchBrowserTaskId = async () => {
-      try {
-        if (!browserTaskIdRef.current) {
-          console.log(`Fetching browser_task_id for task ${currentTaskId}`);
-          
-          const { data, error } = await supabase
-            .from('browser_automation_tasks')
-            .select('browser_task_id')
-            .eq('id', currentTaskId)
-            .single();
-            
-          if (error) {
-            console.error("Error fetching browser_task_id:", error);
-            return null;
-          }
-          
-          if (data && data.browser_task_id) {
-            console.log(`Found browser_task_id: ${data.browser_task_id}`);
-            browserTaskIdRef.current = data.browser_task_id;
-          } else {
-            console.warn("No browser_task_id found for this task");
-          }
-        }
-        
-        return browserTaskIdRef.current;
-      } catch (err) {
-        console.error("Error in fetchBrowserTaskId:", err);
-        return null;
+    const clearPolling = () => {
+      if (pollingIntervalRef.current) {
+        window.clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
       }
     };
 
-    errorCountRef.current = 0;
-    
-    const pollStatus = async () => {
-      try {
-        const browserTaskId = await fetchBrowserTaskId();
-        
-        if (!browserTaskId) {
-          console.warn(`Cannot monitor task: No browser_task_id available for task ${currentTaskId}`);
-          return;
-        }
-        
-        if (!state.liveUrl) {
-          try {
-            const { data: mediaData, error: mediaError } = await supabase.functions.invoke('browser-use-api', {
-              body: {
-                task_id: browserTaskId,
-                url_check_only: true
-              }
-            });
+    // Start polling if we have an active task
+    if (currentTaskId && isProcessing) {
+      // Clear any existing polling
+      clearPolling();
 
-            if (mediaError) {
-              console.error("Error fetching media URL:", mediaError);
-            } else if (mediaData?.recording_url) {
-              console.log("Setting live URL from media endpoint:", mediaData.recording_url);
-              setLiveUrl(mediaData.recording_url);
-              
-              await supabase
-                .from('browser_automation_tasks')
-                .update({ live_url: mediaData.recording_url })
-                .eq('id', currentTaskId);
-            } else if (mediaData?.live_url) {
-              console.log("Setting live URL from media endpoint:", mediaData.live_url);
-              setLiveUrl(mediaData.live_url);
-              
-              await supabase
-                .from('browser_automation_tasks')
-                .update({ live_url: mediaData.live_url })
-                .eq('id', currentTaskId);
-            }
-          } catch (mediaCheckError) {
-            console.error("Error checking media:", mediaCheckError);
+      // Start polling for task status
+      const checkTaskStatus = async () => {
+        try {
+          // First, check our database for the browser_task_id
+          const { data: taskData, error: taskError } = await supabase
+            .from('browser_automation_tasks')
+            .select('browser_task_id, status')
+            .eq('id', currentTaskId)
+            .single();
+
+          if (taskError) {
+            console.error("Error retrieving task data:", taskError);
+            return;
           }
-        }
 
-        const { data, error: apiError } = await supabase.functions.invoke('browser-use-api', {
-          body: { task_id: browserTaskId }
-        });
-
-        if (apiError) {
-          errorCountRef.current++;
-          console.error(`Error fetching task status (attempt ${errorCountRef.current}):`, apiError);
-          
-          if (errorCountRef.current > 5) {
-            setError(`Error checking task status: ${apiError.message}`);
-            setConnectionStatus("error");
-            setIsProcessing(false);
-            
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-              intervalRef.current = null;
-            }
+          // If we have a browser_task_id, update our state
+          if (taskData?.browser_task_id) {
+            setBrowserTaskId(taskData.browser_task_id);
           }
-          return;
-        }
-        
-        errorCountRef.current = 0;
 
-        if (data.error) {
-          if (data.task_expired || data.error.includes("not found") || data.error.includes("expired")) {
-            const errorMsg = data.message || "Task has expired. Please restart the task to continue.";
-            
-            taskExpiredRef.current = true;
-            
-            if (lastErrorRef.current !== errorMsg) {
-              lastErrorRef.current = errorMsg;
-              setError(errorMsg);
+          // Call the API to get current task status
+          const { data, error } = await supabase.functions.invoke('browser-use-api', {
+            body: { 
+              task_id: taskData?.browser_task_id || currentTaskId
             }
+          });
+
+          if (error) {
+            console.error("Error checking task status:", error);
+            // Increment retry count
+            retryCountRef.current += 1;
             
-            setConnectionStatus("error");
-            setTaskStatus('expired');
-            setIsProcessing(false);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ 
-                status: 'expired',
-                completed_at: new Date().toISOString()
-              })
-              .eq('id', currentTaskId);
-              
-            await supabase
-              .from('browser_task_history')
-              .update({ 
-                status: 'expired',
-                completed_at: new Date().toISOString(),
-                output: JSON.stringify({ error: errorMsg })
-              })
-              .eq('browser_task_id', browserTaskId);
-            
-            if (intervalRef.current) {
-              clearInterval(intervalRef.current);
-              intervalRef.current = null;
+            if (retryCountRef.current > MAX_RETRIES) {
+              // If we've exceeded max retries, show error and stop polling
+              setError(`Failed to get task status after ${MAX_RETRIES} attempts: ${error.message}`);
+              setTaskStatus('failed');
+              clearPolling();
             }
             return;
           }
-          
-          setError(data.error);
-          return;
-        }
-        
-        lastErrorRef.current = null;
 
-        if (data) {
-          console.log("Task status data:", data);
-          
-          if (data.status) {
-            const normalizedStatus = data.status === 'finished' ? 'completed' : data.status;
-            setTaskStatus(normalizedStatus as TaskStatus);
-            
-            if (["completed", "failed", "stopped"].includes(normalizedStatus)) {
-              setIsProcessing(false);
+          // Reset retry count on successful response
+          retryCountRef.current = 0;
+
+          // Process task data
+          if (data) {
+            // Update browser task ID if we didn't have it before
+            if (data.id && !taskData?.browser_task_id) {
+              setBrowserTaskId(data.id);
               
+              // Update our database record with the browser_task_id
               await supabase
                 .from('browser_automation_tasks')
-                .update({ 
-                  status: normalizedStatus,
-                  completed_at: new Date().toISOString()
-                })
+                .update({ browser_task_id: data.id })
+                .eq('id', currentTaskId);
+            }
+
+            // Update task status
+            if (data.status) {
+              let newStatus: TaskStatus = 'running';
+              
+              // Map API status to our internal status
+              switch (data.status) {
+                case 'created':
+                case 'pending':
+                  newStatus = 'pending';
+                  break;
+                case 'running':
+                  newStatus = 'running';
+                  break;
+                case 'paused':
+                  newStatus = 'paused';
+                  break;
+                case 'finished':
+                  newStatus = 'completed';
+                  setIsProcessing(false);
+                  clearPolling(); // Stop polling when completed
+                  break;
+                case 'stopped':
+                  newStatus = 'stopped';
+                  setIsProcessing(false);
+                  clearPolling(); // Stop polling when stopped
+                  break;
+                case 'failed':
+                  newStatus = 'failed';
+                  setError("Task failed on the server");
+                  setIsProcessing(false);
+                  clearPolling(); // Stop polling when failed
+                  break;
+                default:
+                  console.warn(`Unknown status: ${data.status}`);
+              }
+              
+              // Only update if status has changed
+              if (lastStatusRef.current !== data.status) {
+                console.log(`Task status changed: ${lastStatusRef.current} -> ${data.status}`);
+                lastStatusRef.current = data.status;
+                setTaskStatus(newStatus);
+                
+                // Update our database with the new status
+                await supabase
+                  .from('browser_automation_tasks')
+                  .update({ 
+                    status: newStatus,
+                    ...(newStatus === 'completed' || newStatus === 'stopped' || newStatus === 'failed' 
+                      ? { completed_at: new Date().toISOString() } 
+                      : {})
+                  })
+                  .eq('id', currentTaskId);
+                
+                // Update browser_task_history table as well
+                await supabase
+                  .from('browser_task_history')
+                  .update({ 
+                    status: newStatus,
+                    ...(newStatus === 'completed' || newStatus === 'stopped' || newStatus === 'failed' 
+                      ? { completed_at: new Date().toISOString() } 
+                      : {})
+                  })
+                  .eq('browser_task_id', data.id || taskData?.browser_task_id);
+              }
+            }
+
+            // Update progress (calculate this or get it from API)
+            if (data.steps && Array.isArray(data.steps)) {
+              setTaskSteps(data.steps);
+              // Calculate progress based on steps
+              const completedSteps = data.steps.filter((step: any) => 
+                step.status === 'completed' || step.status === 'success'
+              ).length;
+              const totalSteps = data.steps.length || 1;
+              const progressPercentage = Math.floor((completedSteps / totalSteps) * 100);
+              setProgress(progressPercentage);
+            }
+
+            // Update current URL
+            if (data.browser && data.browser.current_url) {
+              setCurrentUrl(data.browser.current_url);
+            }
+
+            // Update output
+            if (data.output) {
+              let output = typeof data.output === 'string' 
+                ? data.output 
+                : JSON.stringify(data.output, null, 2);
+              setTaskOutput(output);
+            }
+
+            // Update live URL
+            if (data.live_url || (data.browser && data.browser.live_url)) {
+              const liveUrl = data.live_url || data.browser.live_url;
+              setLiveUrl(liveUrl);
+              
+              // Update our database with the live URL
+              await supabase
+                .from('browser_automation_tasks')
+                .update({ live_url: liveUrl })
                 .eq('id', currentTaskId);
                 
-              const outputData = data.output ? 
-                (typeof data.output === 'string' ? data.output : JSON.stringify(data.output)) : 
-                null;
-                
+              // Update browser_task_history table as well
               await supabase
                 .from('browser_task_history')
-                .update({ 
-                  status: normalizedStatus,
-                  completed_at: new Date().toISOString(),
-                  output: outputData
-                })
-                .eq('browser_task_id', browserTaskId);
-                
-              if (intervalRef.current) {
-                clearInterval(intervalRef.current);
-                intervalRef.current = null;
-              }
+                .update({ result_url: liveUrl })
+                .eq('browser_task_id', data.id || taskData?.browser_task_id);
             }
+          } else if (data === null && !currentError) {
+            // If we get null data but have a task ID, it might be expired
+            setError("Task may have expired or been deleted. Please try restarting the task.");
+            setTaskStatus('expired');
+            setIsProcessing(false);
+            clearPolling();
           }
-          
-          if (data.live_url && !state.liveUrl) {
-            console.log("Setting live URL from status endpoint:", data.live_url);
-            setLiveUrl(data.live_url);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ live_url: data.live_url })
-              .eq('id', currentTaskId);
-              
-            await supabase
-              .from('browser_task_history')
-              .update({ result_url: data.live_url })
-              .eq('browser_task_id', browserTaskId);
-          } else if (data.browser?.live_url && !state.liveUrl) {
-            console.log("Setting live URL from browser data:", data.browser.live_url);
-            setLiveUrl(data.browser.live_url);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ live_url: data.browser.live_url })
-              .eq('id', currentTaskId);
-              
-            await supabase
-              .from('browser_task_history')
-              .update({ result_url: data.browser.live_url })
-              .eq('browser_task_id', browserTaskId);
-          }
-          
-          if (data.current_url) {
-            setCurrentUrl(data.current_url);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ current_url: data.current_url })
-              .eq('id', currentTaskId);
-          }
-          
-          if (typeof data.progress === 'number') {
-            const progressValue = data.progress;
-            setProgress(progressValue);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ progress: progressValue })
-              .eq('id', currentTaskId);
-          } else if (data.steps && data.steps.length > 0) {
-            const progressValue = Math.min(Math.round((data.steps.length / 10) * 100), 95);
-            setProgress(progressValue);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ progress: progressValue })
-              .eq('id', currentTaskId);
-          }
-          
-          if (data.steps && Array.isArray(data.steps)) {
-            setTaskSteps(data.steps);
-            
-            // Fix: Convert steps to JSON string before storing
-            const stepsJson = JSON.stringify({ steps: data.steps });
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ 
-                output: stepsJson
-              })
-              .eq('id', currentTaskId);
-          }
-          
-          if (data.output) {
-            let output;
-            
-            if (typeof data.output === 'string') {
-              try {
-                output = JSON.parse(data.output);
-              } catch (e) {
-                output = data.output;
-              }
-            } else {
-              output = data.output;
-            }
-            
-            const formattedOutput = typeof output === 'object' 
-              ? JSON.stringify(output, null, 2) 
-              : String(output);
-              
-            setTaskOutput(formattedOutput);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ output: formattedOutput })
-              .eq('id', currentTaskId);
-              
-            await supabase
-              .from('browser_task_history')
-              .update({ output: formattedOutput })
-              .eq('browser_task_id', browserTaskId);
-          }
+        } catch (err) {
+          console.error("Error in task monitoring:", err);
+          // Don't increment retry count here, as this is likely a client-side error
         }
-      } catch (error) {
-        console.error("Error in task monitoring:", error);
-      }
-    };
+      };
 
-    pollStatus();
+      // Immediately check status once
+      checkTaskStatus();
+      
+      // Then set up polling every 3 seconds
+      pollingIntervalRef.current = window.setInterval(checkTaskStatus, 3000);
+    } else if (!isProcessing || !currentTaskId) {
+      // Clear polling if task is no longer active
+      clearPolling();
+    }
 
-    const pollInterval = taskStatus === 'running' ? 5000 : 3000;
-    intervalRef.current = setInterval(pollStatus, pollInterval) as unknown as number;
-
+    // Clean up on unmount
     return () => {
-      if (intervalRef.current) {
-        clearInterval(intervalRef.current);
-        intervalRef.current = null;
-      }
+      clearPolling();
     };
-  }, [currentTaskId, isProcessing, taskStatus, state.liveUrl, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing, setLiveUrl, setError, setConnectionStatus]);
+  }, [
+    currentTaskId, 
+    isProcessing, 
+    setProgress, 
+    setTaskStatus, 
+    setCurrentUrl, 
+    setTaskSteps,
+    setTaskOutput,
+    setIsProcessing,
+    setLiveUrl,
+    setError,
+    setConnectionStatus,
+    setBrowserTaskId,
+    currentError
+  ]);
 }

@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,7 +37,8 @@ export function BrowserUseApp() {
     liveUrl,
     connectionStatus,
     taskOutput,
-    currentTaskId
+    currentTaskId,
+    browserTaskId // Make sure this is exposed from the hook
   } = useBrowserUseTask();
 
   const captureScreenshot = async () => {
@@ -105,6 +107,7 @@ export function BrowserUseApp() {
                 onRestart={restartTask}
                 error={error}
                 currentTaskId={currentTaskId}
+                browserTaskId={browserTaskId}
               />
             </div>
           </Card>

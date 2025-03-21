@@ -11,7 +11,6 @@ import { formatDistanceToNow } from "date-fns";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
-// Define standard workflow stages with their display information
 const WORKFLOW_STAGES: Record<string, StageDisplayInfo> = {
   script_writing: {
     name: 'script_writing',
@@ -57,7 +56,6 @@ const WORKFLOW_STAGES: Record<string, StageDisplayInfo> = {
   }
 };
 
-// Status badge component
 const StatusBadge = ({ status }: { status: ProcessingStageStatus }) => {
   let variant: "default" | "secondary" | "destructive" | "outline" = "default";
   let label = status.charAt(0).toUpperCase() + status.slice(1);
@@ -98,7 +96,6 @@ const StatusBadge = ({ status }: { status: ProcessingStageStatus }) => {
   );
 };
 
-// Stage Card Component
 const StageCard = ({ 
   stage, 
   isActive, 
@@ -171,7 +168,6 @@ const StageCard = ({
   );
 };
 
-// Main OrderOrchestrationPanel Component
 interface OrderOrchestrationPanelProps {
   orderId: string;
 }
@@ -182,9 +178,8 @@ export const OrderOrchestrationPanel: React.FC<OrderOrchestrationPanelProps> = (
     workflowDetails, 
     isLoading, 
     error, 
-    startOrchestration, 
-    isStarting,
-    updateStage,
+    startWorkflow, 
+    updateStageStatus,
     moveToNextStage,
     completeWorkflow
   } = useOrderOrchestration(orderId);
@@ -192,62 +187,54 @@ export const OrderOrchestrationPanel: React.FC<OrderOrchestrationPanelProps> = (
   const { switchAgent, setInput, handleSubmit } = useMultiAgentChat();
 
   const handleStartOrchestration = () => {
-    startOrchestration(orderId);
+    const standardStages = [
+      { name: 'script_writing', agent: 'script' },
+      { name: 'scene_description', agent: 'scene' },
+      { name: 'voiceover_generation', agent: 'voiceover' },
+      { name: 'image_generation', agent: 'image' },
+      { name: 'music_generation', agent: 'music' },
+      { name: 'video_assembly', agent: 'tool' }
+    ];
+    
+    startWorkflow(orderId, standardStages);
   };
 
   const handleStageApproval = (stage: ProcessingStage, index: number) => {
-    // First update the current stage to approved
-    updateStage({
-      stageId: stage.id,
-      status: 'approved'
-    });
+    updateStageStatus(stage.id, 'approved');
 
     const workflow = workflowDetails?.workflow;
     const allStages = workflow?.workflow_data?.stages || [];
     
-    // If this is the last stage, complete the workflow
     if (index >= allStages.length - 1) {
       if (workflow) {
-        completeWorkflow(workflow.id);
+        completeWorkflow(stage.id, 'completed');
       }
       return;
     }
 
-    // Otherwise, move to the next stage
     const nextStageName = allStages[index + 1];
     const nextStageInfo = WORKFLOW_STAGES[nextStageName];
     
     if (workflow && nextStageInfo) {
-      moveToNextStage({
-        workflowId: workflow.id,
-        currentStage: stage.stage_name,
-        nextStage: nextStageName,
-        agentType: nextStageInfo.agent
-      });
+      moveToNextStage(
+        stage.id,
+        nextStageName,
+        nextStageInfo.agent
+      );
     }
   };
 
   const handleStageRejection = (stage: ProcessingStage) => {
-    updateStage({
-      stageId: stage.id,
-      status: 'rejected'
-    });
+    updateStageStatus(stage.id, 'rejected');
   };
 
   const handleRunAgent = (stage: ProcessingStage) => {
-    // Update the stage status to in_progress
-    updateStage({
-      stageId: stage.id,
-      status: 'in_progress'
-    });
+    updateStageStatus(stage.id, 'in_progress');
     
-    // Show the multi-agent chat
     setShowMultiAgentChat(true);
     
-    // Switch to the appropriate agent
     switchAgent(stage.agent_type);
     
-    // Set input for the agent with context from the stage and order
     const inputData = stage.input_data || {};
     const prompt = `Process the ${stage.stage_name} stage for custom order ${orderId}. 
 The order details: ${JSON.stringify(inputData, null, 2)}
@@ -257,7 +244,6 @@ Output your response in JSON format that can be easily parsed.`;
     
     setInput(prompt);
     
-    // Trigger the agent
     setTimeout(() => {
       const event = new Event('submit', { cancelable: true, bubbles: true });
       document.querySelector('form')?.dispatchEvent(event);
@@ -278,13 +264,12 @@ Output your response in JSON format that can be easily parsed.`;
         <AlertCircle className="h-4 w-4" />
         <AlertTitle>Error</AlertTitle>
         <AlertDescription>
-          Failed to load orchestration details: {error instanceof Error ? error.message : String(error)}
+          Failed to load orchestration details: {typeof error === 'object' ? JSON.stringify(error) : String(error)}
         </AlertDescription>
       </Alert>
     );
   }
 
-  // If there's no workflow, show the start button
   if (!workflowDetails?.workflow) {
     return (
       <Card>
@@ -302,27 +287,16 @@ Output your response in JSON format that can be easily parsed.`;
         <CardFooter>
           <Button 
             onClick={handleStartOrchestration} 
-            disabled={isStarting}
             className="w-full"
           >
-            {isStarting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Starting...
-              </>
-            ) : (
-              <>
-                <Play className="mr-2 h-4 w-4" />
-                Start AI Orchestration
-              </>
-            )}
+            <Play className="mr-2 h-4 w-4" />
+            Start AI Orchestration
           </Button>
         </CardFooter>
       </Card>
     );
   }
 
-  // Display the workflow
   const { workflow, stages, currentStageIndex } = workflowDetails;
   
   return (
@@ -439,7 +413,6 @@ Output your response in JSON format that can be easily parsed.`;
               Use this chat interface to interact with the AI agent processing the current stage.
               The agent will automatically update the stage when finished.
             </p>
-            {/* The MultiAgentChat component renders itself in a different location in the DOM */}
           </CardContent>
         </Card>
       )}

@@ -1,7 +1,7 @@
 
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message } from "@/types/message";
-import { ToolContext } from "@/hooks/types";
+import { ToolContext, ToolResult } from "@/hooks/types";
 
 export type RunStatus = "pending" | "running" | "completed" | "error";
 

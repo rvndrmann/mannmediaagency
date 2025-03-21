@@ -1,116 +1,106 @@
 
-import { Command } from "@/types/message";
-import { ToolContext, ToolResult } from "@/hooks/types";
-import { CommandExecutionState } from "./types";
+import { supabase } from "@/integrations/supabase/client";
+import { ToolDefinition } from "./types";
+import { CommandExecutionState, ToolContext, ToolResult } from "./types";
 import { getTool } from "./tools";
+import { toast } from "sonner";
 
-export class ToolExecutor {
-  private executionStates: Map<string, CommandExecutionState> = new Map();
-  
-  // Execute a command
-  async executeCommand(
-    command: Command, 
-    context: ToolContext
-  ): Promise<ToolResult> {
-    // Generate a unique ID for this execution
-    const commandId = `cmd-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+export interface ExecuteToolParams {
+  toolName: string;
+  params: Record<string, any>;
+  context: ToolContext;
+}
+
+export const executeToolByName = async (
+  { toolName, params, context }: ExecuteToolParams
+): Promise<ToolResult> => {
+  try {
+    // Log tool execution for analytics
+    const startTime = Date.now(); // Use numeric timestamp
     
-    // Create initial execution state
-    const executionState: CommandExecutionState = {
-      commandId,
-      status: "pending",
-      startTime: Date.now(),
-      command: command.feature,
-      params: command.parameters || {}
-    };
+    const tool = getTool(toolName);
     
-    this.executionStates.set(commandId, executionState);
+    if (!tool) {
+      return {
+        success: false,
+        result: "Tool not found",
+        message: `The tool '${toolName}' was not found.`
+      };
+    }
+    
+    // Check if user has enough credits
+    if (context.creditsRemaining !== undefined && 
+        context.creditsRemaining < tool.requiredCredits) {
+      return {
+        success: false,
+        result: "Insufficient credits",
+        message: `You need at least ${tool.requiredCredits} credits to use this tool.`
+      };
+    }
+    
+    // Execute the tool
+    const result = await tool.execute(params, context);
+    
+    // Log the execution result
+    const endTime = Date.now(); // Use numeric timestamp
+    const executionTime = endTime - startTime;
     
     try {
-      // Update status to executing
-      this.updateExecutionState(commandId, {
-        status: "executing"
+      await supabase.from('tool_executions').insert({
+        tool_name: toolName,
+        parameters: params,
+        result: result.success,
+        user_id: context.userId,
+        conversation_id: context.conversationId,
+        execution_time_ms: executionTime,
+        error_message: result.success ? null : result.message
       });
-      
-      // Get the tool - log more information for debugging
-      console.log(`Executing tool: ${command.feature}`);
-      const tool = getTool(command.feature);
-      if (!tool) {
-        console.error(`Tool not found: ${command.feature}`);
-        return this.handleError(commandId, `Tool '${command.feature}' not found`);
-      }
-      
-      // Check if the user has enough credits
-      if (context.creditsRemaining < tool.requiredCredits) {
-        console.log(`Insufficient credits for tool ${command.feature}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`);
-        return this.handleError(
-          commandId, 
-          `Insufficient credits to use ${tool.name}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`
-        );
-      }
-      
-      // Log parameters for debugging
-      console.log(`Executing tool with parameters:`, command.parameters);
-      
-      // Execute the tool
-      const result = await tool.execute(command.parameters || {}, context);
-      
-      // Log the result
-      console.log(`Tool execution result:`, result);
-      
-      // Update state with result
-      this.updateExecutionState(commandId, {
-        status: result.success ? "completed" : "failed",
-        result,
-        endTime: Date.now(),
-        error: result.success ? undefined : result.message
-      });
-      
-      return result;
     } catch (error) {
-      console.error("Error executing tool command:", error);
-      return this.handleError(
-        commandId, 
-        error instanceof Error ? error.message : "An unknown error occurred"
-      );
+      // Non-blocking error - don't fail if logging fails
+      console.error("Failed to log tool execution:", error);
     }
-  }
-  
-  // Get the current state of a command execution
-  getExecutionState(commandId: string): CommandExecutionState | undefined {
-    return this.executionStates.get(commandId);
-  }
-  
-  // Get all execution states
-  getAllExecutionStates(): CommandExecutionState[] {
-    return Array.from(this.executionStates.values());
-  }
-  
-  // Private helpers
-  private updateExecutionState(
-    commandId: string, 
-    updates: Partial<CommandExecutionState>
-  ): void {
-    const currentState = this.executionStates.get(commandId);
-    if (currentState) {
-      this.executionStates.set(commandId, { ...currentState, ...updates });
+    
+    // Deduct credits if successful
+    if (result.success && tool.requiredCredits > 0) {
+      try {
+        await supabase.rpc('deduct_credits', {
+          user_id_input: context.userId,
+          credit_amount: tool.requiredCredits,
+          description: `Used '${toolName}' tool`
+        });
+      } catch (error) {
+        // Log credit deduction error but don't block execution
+        console.error("Failed to deduct credits:", error);
+        toast.error("Failed to deduct credits, but tool executed successfully");
+      }
     }
-  }
-  
-  private handleError(commandId: string, errorMessage: string): ToolResult {
-    this.updateExecutionState(commandId, {
-      status: "failed",
-      error: errorMessage,
-      endTime: Date.now()
-    });
+    
+    return result;
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : "Unknown error occurred";
+    
+    // Log failed execution
+    const failTime = Date.now(); // Use numeric timestamp
+    
+    try {
+      await supabase.from('tool_executions').insert({
+        tool_name: toolName,
+        parameters: params,
+        result: false,
+        user_id: context.userId,
+        conversation_id: context.conversationId,
+        execution_time_ms: 0,
+        error_message: errorMessage
+      });
+    } catch (logError) {
+      // Non-blocking
+      console.error("Failed to log tool execution error:", logError);
+    }
     
     return {
       success: false,
-      message: errorMessage,
-      result: errorMessage
+      result: "Tool execution failed",
+      message: `Error: ${errorMessage}`
     };
   }
-}
-
-// Create a singleton instance
-export const toolExecutor = new ToolExecutor();
+};

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText, MoreVertical } from 'lucide-react';
+import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText, MoreVertical, Music, Mic, Zap } from 'lucide-react';
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { AgentInfo } from '@/types/message';
 
-type AgentBadgeProps = {
+export type AgentBadgeProps = {
   agent: AgentInfo;
   onEdit?: () => void;
   onDelete?: (agentId: string) => Promise<void>;
@@ -62,6 +62,21 @@ export const AgentBadge = ({ agent, onEdit, onDelete }: AgentBadgeProps) => {
       label = "Custom Video";
       icon = <Video className="h-3.5 w-3.5" />;
       className = "bg-pink-600";
+      break;
+    case 'voiceover':
+      label = "Voiceover";
+      icon = <Mic className="h-3.5 w-3.5" />;
+      className = "bg-indigo-600";
+      break;
+    case 'music':
+      label = "Music";
+      icon = <Music className="h-3.5 w-3.5" />;
+      className = "bg-yellow-600";
+      break;
+    case 'orchestrator':
+      label = "Orchestrator";
+      icon = <Zap className="h-3.5 w-3.5" />;
+      className = "bg-orange-600";
       break;
     default:
       label = agent.name || "Custom";

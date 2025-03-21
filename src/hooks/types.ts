@@ -1,16 +1,16 @@
 
+import { Message } from "@/types/message";
+
 export interface ToolContext {
   userId: string;
   conversationId: string;
-  messageHistory: any[];
+  messageHistory: Message[];
   creditsRemaining?: number;
-  attachments?: any[];
 }
 
 export interface ToolResult {
   success: boolean;
   result: string;
-  error?: string;
-  data?: any;
-  message?: string;
+  message: string;
+  data?: Record<string, any>;
 }

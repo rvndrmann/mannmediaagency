@@ -21,7 +21,7 @@ export const browserUseTool: ToolDefinition = {
   execute: async (params, context: ToolContext): Promise<ToolResult> => {
     try {
       // Check if user has enough credits
-      if (context.creditsRemaining < 1) {
+      if (context.creditsRemaining !== undefined && context.creditsRemaining < 1) {
         return {
           success: false,
           result: "Insufficient credits",

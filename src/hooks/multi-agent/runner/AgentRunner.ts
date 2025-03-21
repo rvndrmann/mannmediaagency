@@ -1,3 +1,4 @@
+
 import { getTool, getToolsForLLM } from "@/hooks/multi-agent/tools";
 import {
   AgentRunnerCallbacks,
@@ -26,7 +27,8 @@ export class AgentRunner {
 
     // Initialize OpenAI client
     this.openai = new OpenAI({
-      apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY,
+      apiKey: process.env.NEXT_PUBLIC_OPENAI_API_KEY || "",
+      dangerouslyAllowBrowser: true, // Required for client-side usage
     });
 
     // Initialize Supabase client
@@ -66,16 +68,10 @@ export class AgentRunner {
       // Step 3: Call the OpenAI API
       const completion = await this.openai.chat.completions.create({
         messages: messages,
-        model: this.options.usePerformanceModel ? "gpt-4o-2024-05-13" : "gpt-4o-2024-05-13",
-        // model: this.options.usePerformanceModel ? "gpt-3.5-turbo-1106" : "gpt-4-1106-preview",
-        // model: this.options.usePerformanceModel ? "gpt-3.5-turbo" : "gpt-4",
-        // model: "gpt-3.5-turbo",
-        // response_format: { type: "json_object" },
+        model: this.options.usePerformanceModel ? "gpt-4o-mini" : "gpt-4o",
         temperature: 0.7,
-        // stream: true,
         tools: getToolsForLLM(),
         tool_choice: "auto",
-        // seed: 42,
         metadata: this.options.metadata,
       });
 

@@ -1,6 +1,6 @@
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
-import { ToolContext, ToolResult } from "./tools/types";
+import { ToolContext, ToolResult } from "../types";
 
 /**
  * Configuration for an agent run
@@ -57,10 +57,27 @@ export interface RunState {
   enableDirectToolExecution?: boolean;
 }
 
-// Export these types from the tools directory as well
-export { ToolContext, ToolResult } from "./tools/types";
-export { CommandExecutionState } from "./tools/types";
-export { ToolDefinition } from "./tools/types";
+/**
+ * Result of an agent run
+ */
+export interface RunResult {
+  // Final state of the run
+  state: RunState;
+  // Final output messages
+  output: Message[];
+  // Whether the run completed successfully
+  success: boolean;
+  // Error message if the run failed
+  error?: string;
+  // Metrics about the run
+  metrics?: {
+    totalDuration: number;
+    turnCount: number;
+    toolCalls: number;
+    handoffs: number;
+    messageCount: number;
+  };
+}
 
 /**
  * Event emitted during an agent run

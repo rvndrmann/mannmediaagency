@@ -1,6 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "./types";
+import { ToolDefinition, ToolContext, ToolResult } from "../types";
 
 export const productVideoTool: ToolDefinition = {
   name: "product-video",

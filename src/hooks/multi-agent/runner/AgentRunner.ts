@@ -6,7 +6,7 @@ import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceMan
 import { parseToolCommand } from "../tool-parser";
 import { toolExecutor } from "../tool-executor";
 import { getToolsForLLM } from "../tools";
-import { ToolContext, ToolResult } from "../tools/types";
+import { ToolContext, ToolResult } from "../types";
 import { toast } from "sonner";
 
 const DEFAULT_MAX_TURNS = 10;
@@ -228,7 +228,7 @@ export class AgentRunner {
       this.recordTraceEvent("turn_end", { turnNumber: this.state.turnCount });
       
       // No more actions needed, complete the run
-      this.state.status = "completed" as RunStatus;
+      this.state.status = "completed";
       break;
     }
     

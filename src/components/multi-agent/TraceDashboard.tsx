@@ -45,27 +45,22 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
       try {
         // Fetch analytics data
         const { data: analyticsData, error: analyticsError } = await supabase
-          .from('agent_trace_analytics')
-          .select('*')
-          .eq('user_id', userId)
-          .single();
+          .rpc('get_agent_trace_analytics', { user_id_param: userId });
         
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
-        } else if (analyticsData) {
-          setAnalytics(analyticsData as unknown as AnalyticsData);
+        } else {
+          setAnalytics(analyticsData);
         }
         
         // Fetch conversations list
         const { data: conversationsData, error: conversationsError } = await supabase
-          .from('user_conversations')
-          .select('*')
-          .eq('user_id', userId);
+          .rpc('get_user_conversations', { user_id_param: userId });
         
         if (conversationsError) {
           console.error("Error fetching conversations:", conversationsError);
-        } else if (conversationsData) {
-          setConversations(conversationsData as unknown as ConversationData[]);
+        } else {
+          setConversations(conversationsData || []);
         }
       } catch (error) {
         console.error("Error in analytics fetch:", error);
@@ -80,15 +75,14 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
   const fetchConversationDetails = async (conversationId: string) => {
     try {
       const { data, error } = await supabase
-        .from('conversation_traces')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .eq('user_id', userId)
-        .single();
+        .rpc('get_conversation_trace', { 
+          conversation_id: conversationId,
+          user_id_param: userId
+        });
       
       if (error) {
         console.error("Error fetching conversation details:", error);
-      } else if (data) {
+      } else {
         setTraceDetails(data);
         setSelectedConversation(conversationId);
         setActiveTab("details");

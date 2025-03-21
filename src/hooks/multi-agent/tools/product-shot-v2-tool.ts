@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { ToolDefinition, ToolContext, ToolResult } from "../types";
 
@@ -126,11 +125,9 @@ export const productShotV2Tool: ToolDefinition = {
 
       return {
         success: true,
-        message: "Enhanced product shot (V2) generation started successfully. You'll be notified when it's ready.",
-        requestId: data?.requestId,
+        message: `✅ Advanced product image request submitted successfully! You'll be notified when it's ready.`,
         data: {
-          jobId: jobData?.id,
-          requestId: data?.requestId,
+          requestId: data.id,
           status: "processing"
         }
       };

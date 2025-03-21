@@ -9,6 +9,16 @@ export interface Notification {
   created_at: string;
 }
 
+export interface CustomOrderMedia {
+  id: string;
+  order_id: string;
+  media_url: string;
+  media_type: 'image' | 'video';
+  thumbnail_url?: string | null;
+  original_filename?: string;
+  created_at: string;
+}
+
 export interface CustomOrder {
   id: string;
   user_id: string;
@@ -21,16 +31,7 @@ export interface CustomOrder {
   delivered_at?: string;
   delivery_url?: string;
   delivery_message?: string;
-}
-
-export interface CustomOrderMedia {
-  id: string;
-  order_id: string;
-  media_url: string;
-  media_type: 'image' | 'video';
-  thumbnail_url?: string | null;
-  original_filename?: string;
-  created_at: string;
+  custom_order_media?: CustomOrderMedia[];
 }
 
 export interface User {

@@ -1,6 +1,33 @@
+
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
-import { ToolContext, ToolResult } from "../types";
+
+export interface ToolContext {
+  userId: string;
+  conversationId: string;
+  messageHistory: Message[];
+}
+
+export interface ToolResult {
+  success: boolean;
+  result: string;
+  error?: string;
+  data?: any;
+}
+
+export interface CommandExecutionState {
+  command: Command;
+  status: 'pending' | 'executing' | 'completed' | 'failed';
+  result?: ToolResult;
+  error?: string;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  execute: (params: any, context: ToolContext) => Promise<ToolResult>;
+}
 
 /**
  * Configuration for an agent run

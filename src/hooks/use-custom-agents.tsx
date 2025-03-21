@@ -63,13 +63,14 @@ export function useCustomAgents() {
         return null;
       }
 
+      // Type assertion to deal with the AgentIconType issue
       const { data, error } = await supabase
         .from('custom_agents')
         .insert({
           user_id: session.user.id,
           name: formData.name,
           description: formData.description,
-          icon: formData.icon,
+          icon: formData.icon as any, // Use type assertion
           color: formData.color,
           instructions: formData.instructions
         })
@@ -106,7 +107,7 @@ export function useCustomAgents() {
         .update({
           name: formData.name,
           description: formData.description,
-          icon: formData.icon,
+          icon: formData.icon as any, // Use type assertion
           color: formData.color,
           instructions: formData.instructions
         })

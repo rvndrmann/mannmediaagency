@@ -51,14 +51,19 @@ export const useOrderOrchestration = (orderId?: string) => {
       if (!order) throw new Error("Order not found");
 
       // Calculate current stage index
-      const currentStageIndex = workflow.workflow_data?.stages
-        ? workflow.workflow_data.stages.indexOf(workflow.current_stage)
-        : 0;
+      const stagesArray = workflow.workflow_data?.stages as string[] || [];
+      const currentStageIndex = stagesArray.indexOf(workflow.current_stage || '');
 
       return {
-        workflow,
-        stages: stages || [],
-        order,
+        workflow: {
+          ...workflow,
+          status: workflow.status as WorkflowStatus
+        },
+        stages: stages?.map(stage => ({
+          ...stage,
+          status: stage.status as ProcessingStageStatus
+        })) || [],
+        order: order as CustomOrder & { custom_order_media: any[] },
         currentStageIndex: currentStageIndex >= 0 ? currentStageIndex : 0
       };
     }

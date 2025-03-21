@@ -45,6 +45,14 @@ export type StageDisplayInfo = {
 export type WorkflowWithDetails = {
   workflow: OrchestrationWorkflow;
   stages: ProcessingStage[];
-  order: CustomOrder;
+  order: CustomOrder & { custom_order_media: Array<{
+    id: string;
+    order_id: string;
+    media_url: string;
+    media_type: string;
+    thumbnail_url?: string;
+    original_filename?: string;
+    created_at: string;
+  }>};
   currentStageIndex: number;
 };

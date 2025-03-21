@@ -32,7 +32,7 @@ import { Button } from "@/components/ui/button";
 import { AgentInfo, AgentIconType } from "@/types/message";
 import { CustomAgentFormData } from "@/hooks/use-custom-agents";
 
-// Available icon options
+// Available icon options - make sure to include "Video" that was added earlier
 const iconOptions = [
   { value: "Bot", label: "Robot" },
   { value: "PenLine", label: "Pen" },
@@ -43,7 +43,8 @@ const iconOptions = [
   { value: "Zap", label: "Lightning" },
   { value: "Brain", label: "Brain" },
   { value: "Lightbulb", label: "Idea" },
-  { value: "Music", label: "Music" }
+  { value: "Music", label: "Music" },
+  { value: "Video", label: "Video" } // Added the Video option
 ];
 
 // Available color options
@@ -60,7 +61,7 @@ const colorOptions = [
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
   description: z.string().min(5, "Description must be at least 5 characters").max(150, "Description must be less than 150 characters"),
-  icon: z.enum(["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music"]),
+  icon: z.enum(["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music", "Video"]),
   color: z.string().min(1, "Please select a color"),
   instructions: z.string().min(10, "Instructions must be at least 10 characters").max(1000, "Instructions must be less than 1000 characters")
 });
@@ -86,7 +87,7 @@ export function AddAgentDialog({
     defaultValues: editAgent ? {
       name: editAgent.name,
       description: editAgent.description,
-      icon: editAgent.icon,
+      icon: editAgent.icon as any, // Use type assertion to handle the AgentIconType issue
       color: editAgent.color,
       instructions: editAgent.instructions
     } : {

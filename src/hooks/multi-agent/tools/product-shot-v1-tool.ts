@@ -1,51 +1,28 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { ToolDefinition, ToolContext, ToolResult } from "../types";
-import { toast } from "sonner";
 
 export const productShotV1Tool: ToolDefinition = {
   name: "product-shot-v1",
-  description: "Generate a product image based on a reference image and a prompt",
+  description: "Generate a product image from a reference photo",
   parameters: {
     prompt: {
       type: "string",
-      description: "Description of the product shot to generate"
+      description: "Description of the product image to generate"
     },
     imageUrl: {
       type: "string",
-      description: "URL of the source product image"
-    },
-    imageSize: {
-      type: "string",
-      description: "Size of the output image",
-      enum: ["square", "square_hd", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"],
-      default: "square"
-    },
-    inferenceSteps: {
-      type: "number",
-      description: "Number of inference steps",
-      default: 5
-    },
-    guidanceScale: {
-      type: "number",
-      description: "Guidance scale for image generation",
-      default: 5
-    },
-    outputFormat: {
-      type: "string",
-      description: "Output format of the image",
-      enum: ["png", "jpg"],
-      default: "png"
+      description: "URL of the reference product image"
     }
   },
-  requiredCredits: 0.2,
+  requiredCredits: 1,
   execute: async (params, context: ToolContext): Promise<ToolResult> => {
     try {
       // Check if user has enough credits
-      if (context.creditsRemaining < 0.2) {
+      if (context.creditsRemaining < 1) {
         return {
           success: false,
-          message: "Insufficient credits to generate a product shot. You need at least 0.2 credits."
+          message: "Insufficient credits to generate a product image. You need at least 1 credit."
         };
       }
 
@@ -65,65 +42,51 @@ export const productShotV1Tool: ToolDefinition = {
         };
       }
 
-      // Insert a record in the database with correct schema
-      const { data: jobData, error: jobError } = await supabase
-        .from("image_generation_jobs")
+      // Begin generating the product shot
+      const { data: generationData, error: generationError } = await supabase
+        .from('image_generation_jobs')
         .insert({
+          user_id: context.userId,
           prompt: params.prompt,
+          status: 'pending',
           settings: {
-            source_image_url: imageUrl,
-            image_size: params.imageSize || "square",
-            inference_steps: params.inferenceSteps || 5,
-            guidance_scale: params.guidanceScale || 5,
-            output_format: params.outputFormat || "png"
-          },
-          status: "pending",
-          user_id: context.userId
+            imageUrl: imageUrl
+          }
         })
         .select()
         .single();
 
-      if (jobError) throw jobError;
+      if (generationError) {
+        console.error("DB error creating generation:", generationError);
+        return {
+          success: false,
+          message: `Failed to start generation: ${generationError.message}`
+        };
+      }
 
-      // Map the tool parameters to the edge function format
-      const requestBody = {
-        image_url: imageUrl,
-        scene_description: params.prompt,
-        optimize_description: true,
-        num_results: 1,
-        fast: true,
-        placement_type: 'automatic',
-        sync_mode: false
-      };
+      // Call the edge function to start the generation
+      const response = await supabase.functions.invoke('generate-product-image', {
+        body: {
+          generation_id: generationData.id,
+          prompt: params.prompt,
+          image_url: imageUrl
+        },
+      });
 
-      // Call the generate-product-shot edge function
-      const { data, error: functionError } = await supabase.functions.invoke(
-        "generate-product-shot",
-        {
-          body: JSON.stringify(requestBody)
-        }
-      );
-
-      if (functionError) throw functionError;
-
-      // Update the job record with the request ID
-      if (data?.requestId) {
-        await supabase
-          .from("image_generation_jobs")
-          .update({ 
-            request_id: data.requestId,
-            status: "processing"
-          })
-          .eq("id", jobData?.id);
+      if (response.error) {
+        console.error("Edge function error:", response.error);
+        return {
+          success: false,
+          message: `Failed to start generation: ${response.error.message}`
+        };
       }
 
       return {
         success: true,
-        message: "Product shot generation started successfully. You'll be notified when it's ready.",
+        message: "Product image generation started. This will take a moment.",
         data: {
-          jobId: jobData?.id,
-          requestId: data?.requestId,
-          status: "processing"
+          generationId: generationData.id,
+          status: "pending"
         }
       };
     } catch (error) {

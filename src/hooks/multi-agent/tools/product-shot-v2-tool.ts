@@ -4,52 +4,36 @@ import { ToolDefinition, ToolContext, ToolResult } from "../types";
 
 export const productShotV2Tool: ToolDefinition = {
   name: "product-shot-v2",
-  description: "Generate an enhanced product image with advanced features and better quality",
+  description: "Generate a high-quality product image from a reference photo with advanced AI",
   parameters: {
     prompt: {
       type: "string",
-      description: "Detailed description of the product shot to generate"
+      description: "Description of the product image to generate"
     },
     imageUrl: {
       type: "string",
-      description: "URL of the source product image"
+      description: "URL of the reference product image"
     },
-    imageSize: {
+    aspectRatio: {
       type: "string",
-      description: "Size of the output image",
-      enum: ["square", "square_hd", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"],
-      default: "square_hd"
+      description: "Aspect ratio of the output image",
+      enum: ["1:1", "4:3", "3:4", "16:9", "9:16"],
+      default: "1:1"
     },
-    inferenceSteps: {
-      type: "number",
-      description: "Number of inference steps",
-      default: 20
-    },
-    guidanceScale: {
-      type: "number",
-      description: "Guidance scale for image generation",
-      default: 7.5
-    },
-    outputFormat: {
-      type: "string",
-      description: "Output format of the image",
-      enum: ["png", "jpg"],
-      default: "png"
-    },
-    enhancedDetails: {
+    optimize: {
       type: "boolean",
-      description: "Whether to enhance details in the image",
+      description: "Whether to automatically optimize the prompt for better results",
       default: true
     }
   },
-  requiredCredits: 0.5,
+  requiredCredits: 1,
   execute: async (params, context: ToolContext): Promise<ToolResult> => {
     try {
       // Check if user has enough credits
-      if (context.creditsRemaining < 0.5) {
+      if (context.creditsRemaining < 1) {
         return {
           success: false,
-          message: "Insufficient credits to generate an enhanced product shot. You need at least 0.5 credits."
+          message: "Insufficient credits to generate a product image. You need at least 1 credit."
         };
       }
 
@@ -69,69 +53,55 @@ export const productShotV2Tool: ToolDefinition = {
         };
       }
 
-      // Insert a record in the database with correct schema
-      const { data: jobData, error: jobError } = await supabase
-        .from("image_generation_jobs")
+      // Begin generating the product shot
+      const { data: generationData, error: generationError } = await supabase
+        .from('product_images')
         .insert({
+          user_id: context.userId,
           prompt: params.prompt,
+          source_image_url: imageUrl,
+          status: 'pending',
           settings: {
-            source_image_url: imageUrl,
-            image_size: params.imageSize || "square_hd",
-            inference_steps: params.inferenceSteps || 20,
-            guidance_scale: params.guidanceScale || 7.5,
-            output_format: params.outputFormat || "png",
-            enhanced_details: params.enhancedDetails || true,
-            optimize_description: true // Flag for V2
-          },
-          status: "pending",
-          user_id: context.userId
+            optimize_description: params.optimize !== false,
+            aspectRatio: params.aspectRatio || "1:1"
+          }
         })
         .select()
         .single();
 
-      if (jobError) throw jobError;
+      if (generationError) {
+        console.error("DB error creating generation:", generationError);
+        return {
+          success: false,
+          message: `Failed to start generation: ${generationError.message}`
+        };
+      }
 
-      // Map the tool parameters to the edge function format
-      const requestBody = {
-        image_url: imageUrl,
-        scene_description: params.prompt,
-        optimize_description: true, // V2 flag
-        num_results: 1,
-        fast: false, // V2 uses the higher quality mode
-        placement_type: 'automatic',
-        sync_mode: false,
-        enhanced_details: true
-      };
+      // Call the edge function to start the generation
+      const response = await supabase.functions.invoke('generate-product-shot', {
+        body: {
+          generation_id: generationData.id,
+          prompt: params.prompt,
+          image_url: imageUrl,
+          optimize: params.optimize !== false,
+          aspect_ratio: params.aspectRatio || "1:1"
+        },
+      });
 
-      // Call the generate-product-shot edge function
-      const { data, error: functionError } = await supabase.functions.invoke(
-        "generate-product-shot",
-        {
-          body: JSON.stringify(requestBody)
-        }
-      );
-
-      if (functionError) throw functionError;
-
-      // Update the job record with the request ID
-      if (data?.requestId) {
-        await supabase
-          .from("image_generation_jobs")
-          .update({ 
-            request_id: data.requestId,
-            status: "processing"
-          })
-          .eq("id", jobData?.id);
+      if (response.error) {
+        console.error("Edge function error:", response.error);
+        return {
+          success: false,
+          message: `Failed to start generation: ${response.error.message}`
+        };
       }
 
       return {
         success: true,
-        message: "Enhanced product shot (V2) generation started successfully. You'll be notified when it's ready.",
-        requestId: data?.requestId,
+        message: "Product image generation started. This may take up to a minute.",
         data: {
-          jobId: jobData?.id,
-          requestId: data?.requestId,
-          status: "processing"
+          generationId: generationData.id,
+          status: "pending"
         }
       };
     } catch (error) {

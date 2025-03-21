@@ -31,12 +31,12 @@ export function useUserData(
         if (data) {
           setUserCredits(data as UserCredits);
         } else {
-          // Create new user credits record if not exists
+          // Create new user credits record with 0 credits instead of free credits
           const { data: newCredits, error: insertError } = await supabase
             .from('user_credits')
             .insert({
               user_id: user.id,
-              credits_remaining: 10 // Default free credits
+              credits_remaining: 0 // Changed from 10 to 0
             })
             .select()
             .single();

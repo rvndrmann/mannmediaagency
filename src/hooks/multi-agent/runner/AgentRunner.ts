@@ -1,667 +1,471 @@
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
+import { Message, Attachment, Task, HandoffRequest } from '@/types/message';
+import { toast } from 'sonner';
 
-import { v4 as uuidv4 } from "uuid";
-import { supabase } from "@/integrations/supabase/client";
-import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
-import { Attachment, Command, Message, Task } from "@/types/message";
-import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceManager, Trace, ToolContext, ToolResult } from "../types";
-import { parseToolCommand } from "../tool-parser";
-import { toolExecutor } from "../tool-executor";
-import { getToolsForLLM } from "../tools";
-import { toast } from "sonner";
+// Define built-in agent types
+const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
+const BUILT_IN_TOOL_TYPES = ['browser', 'product-video', 'custom-video'];
 
-const DEFAULT_MAX_TURNS = 10;
-const CHAT_CREDIT_COST = 0.07;
+interface AgentRunnerOptions {
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
+  tracingDisabled?: boolean;
+  metadata?: Record<string, any>;
+  runId?: string;
+  groupId?: string;
+}
 
-/**
- * AgentRunner orchestrates the execution of agents, handling the run loop,
- * tool execution, handoffs, and event emission.
- */
+interface AgentRunnerCallbacks {
+  onMessage?: (message: Message) => void;
+  onError?: (error: string) => void;
+  onHandoffEnd?: (toAgent: string) => void;
+}
+
 export class AgentRunner {
-  private state: RunState;
-  private config: RunConfig;
-  private hooks: RunHooks;
-  private userId?: string;
-  private traceManager: TraceManager;
-  private runStartTime: number;
-  private userAgentInstructions: Record<string, string> | null;
-  private userCredits: number = 0;
-  
+  private agentType: string;
+  private options: AgentRunnerOptions;
+  private callbacks: AgentRunnerCallbacks;
+  private traceId: string;
+  private conversationId: string;
+  private isHandoffContinuation: boolean = false;
+  private handoffChain: string[] = [];
+
   constructor(
-    initialAgentType: AgentType,
-    config: RunConfig = {},
-    hooks: RunHooks = {}
+    agentType: string,
+    options: AgentRunnerOptions = {},
+    callbacks: AgentRunnerCallbacks = {}
   ) {
-    this.state = {
-      currentAgentType: initialAgentType,
-      messages: [],
-      handoffInProgress: false,
-      turnCount: 0,
-      status: "pending" as RunStatus,
-      lastMessageIndex: -1,
-      isCustomAgent: !BUILT_IN_AGENT_TYPES.includes(initialAgentType),
-      enableDirectToolExecution: config.enableDirectToolExecution || false
-    };
-    
-    this.config = {
-      maxTurns: DEFAULT_MAX_TURNS,
+    this.agentType = agentType;
+    this.options = {
       usePerformanceModel: false,
+      enableDirectToolExecution: true,
       tracingDisabled: false,
-      enableDirectToolExecution: false,
-      ...config,
-      runId: config.runId || uuidv4()
+      metadata: {},
+      ...options
+    };
+    this.callbacks = callbacks;
+    this.traceId = options.runId || uuidv4();
+    this.conversationId = options.groupId || uuidv4();
+  }
+
+  public async run(
+    userInput: string,
+    attachments: Attachment[] = [],
+    userId: string
+  ): Promise<Message> {
+    console.log(`Running ${this.agentType} agent with input: ${userInput.slice(0, 50)}...`);
+    
+    try {
+      // Create initial thinking message
+      const thinkingMessage = this.createThinkingMessage();
+      this.sendMessage(thinkingMessage);
+      
+      // Prepare messages for the API
+      const messages = await this.prepareMessages(userInput, attachments);
+      
+      // Check if this is a tool agent with a requested tool
+      const requestedTool = this.options.metadata?.requestedTool;
+      const isToolAgent = this.agentType === 'tool' && requestedTool;
+      
+      if (isToolAgent) {
+        console.log(`Tool agent requested with specific tool: ${requestedTool}`);
+      }
+      
+      // Get context data for the API
+      const contextData = {
+        hasAttachments: attachments.length > 0,
+        attachmentTypes: this.getAttachmentTypes(attachments),
+        isCustomAgent: !BUILT_IN_AGENT_TYPES.includes(this.agentType),
+        isHandoffContinuation: this.isHandoffContinuation,
+        usePerformanceModel: this.options.usePerformanceModel,
+        enableDirectToolExecution: this.options.enableDirectToolExecution,
+        traceId: this.options.tracingDisabled ? undefined : this.traceId,
+        requestedTool: requestedTool,
+        availableTools: await this.getAvailableTools()
+      };
+      
+      // Call the agent API
+      const { completion, handoffRequest, modelUsed } = await this.callAgentApi(
+        messages,
+        userId,
+        contextData
+      );
+      
+      // Process the response
+      const responseMessage = this.createResponseMessage(completion, modelUsed);
+      
+      // Handle handoff if needed
+      if (handoffRequest) {
+        return await this.handleHandoff(
+          handoffRequest,
+          userInput,
+          attachments,
+          userId,
+          responseMessage
+        );
+      }
+      
+      // Check for tool execution
+      if (this.agentType === 'tool') {
+        const toolExecution = this.parseToolExecution(completion);
+        if (toolExecution) {
+          responseMessage.command = {
+            toolName: toolExecution.toolName,
+            feature: toolExecution.toolName,
+            parameters: toolExecution.parameters
+          };
+          
+          // Add task for tool execution
+          const task: Task = {
+            id: uuidv4(),
+            name: `Executing ${toolExecution.toolName}`,
+            status: 'pending'
+          };
+          
+          responseMessage.tasks = [task];
+          this.sendMessage(responseMessage);
+          
+          // Execute the tool
+          return await this.executeTool(
+            toolExecution.toolName,
+            toolExecution.parameters,
+            userId,
+            responseMessage
+          );
+        }
+      }
+      
+      // Send the final response
+      this.sendMessage(responseMessage);
+      return responseMessage;
+    } catch (error) {
+      console.error(`Error in ${this.agentType} agent:`, error);
+      const errorMessage = this.createErrorMessage(
+        error instanceof Error ? error.message : String(error)
+      );
+      this.sendMessage(errorMessage);
+      
+      if (this.callbacks.onError) {
+        this.callbacks.onError(error instanceof Error ? error.message : String(error));
+      }
+      
+      return errorMessage;
+    }
+  }
+  
+  private async prepareMessages(
+    userInput: string,
+    attachments: Attachment[] = []
+  ): Promise<any[]> {
+    // Format user input with attachments if any
+    let formattedInput = userInput;
+    
+    if (attachments.length > 0) {
+      // Add attachment information to the user input
+      attachments.forEach(attachment => {
+        const attachmentType = attachment.type === 'image' ? 'image' : 'file';
+        formattedInput += `\n\n[Attached ${attachmentType}: ${attachment.name}, URL: ${attachment.url}]`;
+      });
+    }
+    
+    // Create the user message
+    const userMessage = {
+      role: 'user',
+      content: formattedInput
     };
     
-    this.hooks = hooks;
-    this.traceManager = new TraceManager(!this.config.tracingDisabled);
-    this.runStartTime = Date.now();
+    // For handoff continuation, we need to add the previous agent's name
+    if (this.isHandoffContinuation && this.handoffChain.length > 0) {
+      const previousAgent = this.handoffChain[this.handoffChain.length - 1];
+      return [
+        {
+          role: 'system',
+          content: `You are now the ${this.agentType} agent. The conversation was handed off to you from the ${previousAgent} agent.`
+        },
+        userMessage
+      ];
+    }
     
-    // Load user-edited instructions from localStorage
-    this.userAgentInstructions = this.loadUserAgentInstructions();
+    return [userMessage];
   }
   
-  /**
-   * Load user-edited instructions from localStorage
-   */
-  private loadUserAgentInstructions(): Record<string, string> | null {
+  private async callAgentApi(
+    messages: any[],
+    userId: string,
+    contextData: Record<string, any>
+  ): Promise<{ completion: string; handoffRequest?: HandoffRequest; modelUsed: string }> {
     try {
-      const savedInstructions = localStorage.getItem('built_in_agent_instructions');
-      return savedInstructions ? JSON.parse(savedInstructions) : null;
-    } catch (e) {
-      console.error("Error loading agent instructions from localStorage:", e);
-      return null;
+      const response = await fetch('/api/multi-agent-chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          messages,
+          agentType: this.agentType,
+          userId,
+          contextData
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `API returned ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('Error calling agent API:', error);
+      throw error;
     }
   }
   
-  /**
-   * Get the current agent's instructions
-   */
-  private getCurrentAgentInstructions(): string | null {
-    const agentType = this.state.currentAgentType;
+  private async handleHandoff(
+    handoffRequest: HandoffRequest,
+    userInput: string,
+    attachments: Attachment[],
+    userId: string,
+    currentResponse: Message
+  ): Promise<Message> {
+    const { targetAgent, reason } = handoffRequest;
     
-    // For custom agents, we'll get instructions from the database via the edge function
-    if (this.state.isCustomAgent) {
-      return null;
+    console.log(`Handling handoff from ${this.agentType} to ${targetAgent}: ${reason}`);
+    
+    // Update the current response with handoff information
+    currentResponse.handoffRequest = handoffRequest;
+    this.sendMessage(currentResponse);
+    
+    // Check if the target agent is valid
+    const isBuiltInTarget = [...BUILT_IN_AGENT_TYPES, ...BUILT_IN_TOOL_TYPES].includes(targetAgent);
+    
+    if (!isBuiltInTarget) {
+      // Check if it's a valid custom agent
+      const { data, error } = await supabase
+        .from('custom_agents')
+        .select('id, name')
+        .eq('id', targetAgent)
+        .single();
+      
+      if (error || !data) {
+        console.error(`Invalid handoff target: ${targetAgent}`, error);
+        const errorMessage = this.createErrorMessage(
+          `Cannot hand off to unknown agent: ${targetAgent}`
+        );
+        this.sendMessage(errorMessage);
+        return errorMessage;
+      }
     }
     
-    // For built-in agents, get the user-edited version if available
-    if (this.userAgentInstructions && this.userAgentInstructions[agentType]) {
-      return this.userAgentInstructions[agentType];
+    // Create a new runner for the target agent
+    const newRunner = new AgentRunner(
+      targetAgent,
+      {
+        ...this.options,
+        runId: this.traceId // Keep the same trace ID
+      },
+      this.callbacks
+    );
+    
+    // Set handoff continuation flag and update chain
+    newRunner.isHandoffContinuation = true;
+    newRunner.handoffChain = [...this.handoffChain, this.agentType];
+    
+    // Notify about handoff completion
+    if (this.callbacks.onHandoffEnd) {
+      this.callbacks.onHandoffEnd(targetAgent);
+    }
+    
+    // Run the new agent
+    return await newRunner.run(userInput, attachments, userId);
+  }
+  
+  private parseToolExecution(text: string): { toolName: string; parameters: Record<string, any> } | null {
+    if (!text) return null;
+    
+    // Look for the tool execution pattern
+    const toolRegex = /TOOL:\s*([a-z0-9_-]+)(?:[,\s]\s*PARAMETERS:|\s+PARAMETERS:)\s*(\{.+\})/is;
+    const match = text.match(toolRegex);
+    
+    if (match) {
+      const toolName = match[1].trim();
+      let parameters: Record<string, any> = {};
+      
+      try {
+        parameters = JSON.parse(match[2]);
+      } catch (e) {
+        console.error('Error parsing tool parameters:', e);
+        return null;
+      }
+      
+      return { toolName, parameters };
     }
     
     return null;
   }
   
-  /**
-   * Get system prompts for all agent types
-   */
-  private getDefaultSystemPrompt(agentType: string): string {
-    switch(agentType) {
-      case "main":
-        return "You are a general-purpose AI assistant. You are helpful, creative, clever, and friendly.";
-      case "script":
-        return "You are a script writer. You write scripts, dialogue, and stories.";
-      case "image":
-        return "You are an image prompt generator. You create detailed prompts for AI image generation.";
-      case "tool":
-        return "You are a tool orchestrator. You help the user use tools to accomplish tasks.";
-      case "scene":
-        return "You are a scene description generator. You create vivid scene descriptions for visual content.";
-      case "browser":
-        return "You are a browser automation specialist. You help the user automate browser tasks.";
-      case "product-video":
-        return "You are a product video creator. You help the user create professional product videos.";
-      case "custom-video":
-        return "You are a custom video request agent. You help the user submit requests for custom videos.";
-      default:
-        return "You are a general-purpose AI assistant. You are helpful, creative, clever, and friendly.";
-    }
-  }
-  
-  /**
-   * Run the agent with the given input
-   */
-  async run(
-    input: string, 
-    attachments: Attachment[] = [], 
-    userId?: string
-  ): Promise<RunResult> {
-    this.userId = userId;
+  private async executeTool(
+    toolName: string,
+    parameters: Record<string, any>,
+    userId: string,
+    responseMessage: Message
+  ): Promise<Message> {
+    console.log(`Executing tool: ${toolName} with parameters:`, parameters);
     
-    // Start trace if user ID is provided and tracing is enabled
-    if (userId && this.traceManager.isTracingEnabled()) {
-      this.traceManager.startTrace(userId, this.config.runId!);
-      console.log(`Started trace for run ${this.config.runId}`);
+    // Update task status
+    if (responseMessage.tasks && responseMessage.tasks.length > 0) {
+      responseMessage.tasks[0].status = 'in_progress';
+      this.sendMessage({ ...responseMessage });
     }
     
     try {
-      // Check credits and store the user's credit balance
-      if (userId) {
-        const hasCredits = await this.checkCredits(userId);
-        if (!hasCredits) {
-          this.recordTraceEvent("error", "Insufficient credits");
-          throw new Error("Insufficient credits");
-        }
-      }
-      
-      // Add user message
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: "user",
-        content: input,
-        createdAt: new Date().toISOString(),
-        attachments: attachments.length > 0 ? attachments : undefined
-      };
-      
-      this.state.messages.push(userMessage);
-      this.emitEvent({ type: "message", message: userMessage });
-      this.recordTraceEvent("user_message", userMessage);
-      
-      // Start the run loop
-      this.state.status = "running";
-      await this.runLoop();
-      
-      // Calculate metrics
-      const totalDuration = Date.now() - this.runStartTime;
-      
-      // Count tool calls and handoffs from the message history
-      const toolCalls = this.state.messages.filter(m => m.command).length;
-      const handoffs = this.state.messages.filter(m => m.handoffRequest).length;
-      const messageCount = this.state.messages.length;
-      
-      // Build result
-      const result: RunResult = {
-        state: this.state,
-        output: this.state.messages,
-        success: this.state.status === "completed",
-        metrics: {
-          totalDuration,
-          turnCount: this.state.turnCount,
-          toolCalls,
-          handoffs,
-          messageCount
-        }
-      };
-      
-      // Record trace completion
-      if (this.traceManager.isTracingEnabled()) {
-        const trace = this.traceManager.finishTrace();
-        if (trace) {
-          // Add complete metrics to trace summary
-          if (trace.summary) {
-            trace.summary.toolCalls = toolCalls;
-            trace.summary.handoffs = handoffs;
-            trace.summary.messageCount = messageCount;
-          }
-          await this.saveTraceToDatabase(trace);
-          console.log(`Completed trace ${trace.traceId} for run ${this.config.runId}`);
-        }
-      }
-      
-      this.emitEvent({ type: "completed", result });
-      return result;
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      this.state.status = "error";
-      this.recordTraceEvent("error", { message: errorMessage });
-      
-      // Finish trace with error
-      if (this.traceManager.isTracingEnabled()) {
-        const trace = this.traceManager.finishTrace();
-        if (trace) {
-          if (trace.summary) {
-            trace.summary.success = false;
-          }
-          await this.saveTraceToDatabase(trace);
-          console.log(`Completed trace ${trace.traceId} with error`);
-        }
-      }
-      
-      this.emitEvent({ type: "error", error: errorMessage });
-      
-      return {
-        state: this.state,
-        output: this.state.messages,
-        success: false,
-        error: errorMessage
-      };
-    }
-  }
-  
-  /**
-   * Check if the user has enough credits
-   */
-  private async checkCredits(userId: string): Promise<boolean> {
-    try {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .eq("user_id", userId)
+      // Get user credits
+      const { data: userCredits, error: creditsError } = await supabase
+        .from('user_credits')
+        .select('credits_remaining')
+        .eq('user_id', userId)
         .single();
       
-      if (error) throw error;
-      
-      // Store the user's credits for later use in tool execution
-      this.userCredits = data.credits_remaining;
-      
-      return data.credits_remaining >= CHAT_CREDIT_COST;
-    } catch (error) {
-      console.error("Error checking credits:", error);
-      return false;
-    }
-  }
-  
-  /**
-   * Main run loop that handles agent execution
-   */
-  private async runLoop() {
-    while (
-      this.state.status === "running" && 
-      this.state.turnCount < (this.config.maxTurns || DEFAULT_MAX_TURNS)
-    ) {
-      
-      this.state.turnCount++;
-      this.recordTraceEvent("turn_start", { turnNumber: this.state.turnCount });
-      
-      // Execute current turn
-      const turnResult = await this.executeTurn();
-      
-      // Handle turn result
-      if (turnResult.handoff) {
-        // Process handoff
-        await this.handleHandoff(turnResult.handoff.targetAgent, turnResult.handoff.reason);
-        continue;
+      if (creditsError || !userCredits) {
+        throw new Error('Failed to retrieve user credits');
       }
       
-      if (turnResult.toolCommand) {
-        // Execute tool
-        await this.executeToolCommand(turnResult.toolCommand);
-        continue;
-      }
-      
-      this.recordTraceEvent("turn_end", { turnNumber: this.state.turnCount });
-      
-      // No more actions needed, complete the run
-      this.state.status = "completed";
-      break;
-    }
-    
-    if (this.state.turnCount >= (this.config.maxTurns || DEFAULT_MAX_TURNS)) {
-      this.recordTraceEvent("max_turns_exceeded", { maxTurns: this.config.maxTurns || DEFAULT_MAX_TURNS });
-      throw new Error("Maximum turns exceeded");
-    }
-  }
-  
-  /**
-   * Execute a single turn with the current agent
-   */
-  private async executeTurn() {
-    this.emitEvent({ type: "thinking", agentType: this.state.currentAgentType });
-    this.recordTraceEvent("thinking", { agentType: this.state.currentAgentType });
-    
-    const assistantMessage: Message = {
-      id: uuidv4(),
-      role: "assistant",
-      content: "Processing your request...",
-      status: "thinking",
-      agentType: this.state.currentAgentType,
-      createdAt: new Date().toISOString(),
-      tasks: [
-        {
-          id: uuidv4(),
-          name: `Consulting ${this.state.currentAgentType} agent`,
-          status: "pending"
+      // Call the tool execution API
+      const response = await fetch('/api/execute-tool', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
         },
-        {
-          id: uuidv4(),
-          name: "Preparing response",
-          status: "pending"
-        }
-      ]
-    };
-    
-    this.state.messages.push(assistantMessage);
-    this.state.lastMessageIndex = this.state.messages.length - 1;
-    
-    try {
-      // Get agent response from API
-      const response = await this.getAgentResponse();
-      
-      // Record model usage in trace
-      this.recordTraceEvent("model_used", { model: response.modelUsed || "unknown" });
-      
-      // Update tasks
-      this.updateTaskStatus(0, "completed");
-      this.updateTaskStatus(1, "in-progress");
-      
-      // Check if direct tool execution is enabled and we're not using the tool agent
-      const shouldCheckForToolCommand = 
-        this.state.enableDirectToolExecution || 
-        this.state.currentAgentType === "tool";
-      
-      // Parse response for tool commands if applicable
-      const toolCommand = shouldCheckForToolCommand ? 
-        parseToolCommand(response.completion) : null;
-      
-      // Update message
-      this.updateMessage(this.state.lastMessageIndex, {
-        content: response.completion,
-        status: "completed",
-        handoffRequest: response.handoffRequest,
-        command: toolCommand,
-        modelUsed: response.modelUsed
+        body: JSON.stringify({
+          toolName,
+          parameters,
+          userId,
+          traceId: this.traceId,
+          conversationId: this.conversationId
+        })
       });
       
-      return {
-        handoff: response.handoffRequest,
-        toolCommand
-      };
-      
-    } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      
-      this.updateMessage(this.state.lastMessageIndex, {
-        content: `Error: ${errorMessage}`,
-        status: "error"
-      });
-      
-      throw error;
-    }
-  }
-  
-  /**
-   * Get response from the agent API
-   */
-  private async getAgentResponse() {
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) throw new Error("User not authenticated");
-    
-    // Record API call in trace
-    this.recordTraceEvent("api_call_start", { 
-      agentType: this.state.currentAgentType,
-      messageCount: this.state.messages.length
-    });
-    
-    const startTime = Date.now();
-    
-    // Get the current agent's instructions
-    const userInstructions = this.getCurrentAgentInstructions();
-    
-    console.log(`Sending user instructions for ${this.state.currentAgentType}: ${userInstructions ? 'Yes' : 'No'}`);
-    if (userInstructions) {
-      console.log(`Instruction length: ${userInstructions.length} characters`);
-    }
-    
-    const response = await supabase.functions.invoke("multi-agent-chat", {
-      body: {
-        messages: this.formatMessages(),
-        agentType: this.state.currentAgentType,
-        userId: user.id,
-        contextData: {
-          hasAttachments: this.hasAttachments(),
-          attachmentTypes: this.getAttachmentTypes(),
-          availableTools: this.state.enableDirectToolExecution || this.state.currentAgentType === "tool" ? 
-            getToolsForLLM() : undefined,
-          usePerformanceModel: this.config.usePerformanceModel,
-          isHandoffContinuation: this.state.handoffInProgress,
-          isCustomAgent: this.state.isCustomAgent,
-          enableDirectToolExecution: this.state.enableDirectToolExecution,
-          traceId: this.traceManager.getCurrentTrace()?.traceId,
-          userInstructions: userInstructions
-        }
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || `Tool API returned ${response.status}`);
       }
-    });
-    
-    const duration = Date.now() - startTime;
-    
-    // Record API call completion in trace
-    this.recordTraceEvent("api_call_end", { 
-      duration,
-      modelUsed: response.data?.modelUsed || "unknown",
-      hasHandoff: !!response.data?.handoffRequest,
-      contentLength: response.data?.completion?.length || 0
-    });
-    
-    // Specifically record model usage for analytics
-    if (response.data?.modelUsed) {
-      this.recordTraceEvent("model_used", { 
-        model: response.data.modelUsed
-      });
-    }
-    
-    if (response.error) {
-      this.recordTraceEvent("api_call_error", { error: response.error });
-      throw new Error(response.error.message || "Failed to get response from agent");
-    }
-    
-    return response.data;
-  }
-  
-  /**
-   * Execute a tool command
-   */
-  private async executeToolCommand(command: Command) {
-    this.emitEvent({ type: "tool_start", command });
-    this.recordTraceEvent("tool_start", { command });
-    
-    const toolTaskId = uuidv4();
-    const toolTask = {
-      id: toolTaskId,
-      name: `Executing ${command.feature}`,
-      description: `Running ${command.feature} tool`,
-      status: "pending" as Task["status"]
-    };
-    
-    this.updateMessage(this.state.lastMessageIndex, {
-      tasks: [...(this.state.messages[this.state.lastMessageIndex].tasks || []), toolTask]
-    });
-    
-    try {
-      // Set up tool context with the user's credits
-      const toolContext: ToolContext = {
-        userId: this.userId || "",
-        creditsRemaining: this.userCredits, // Pass the actual credits
-        attachments: this.getAttachments(),
-        selectedTool: command.feature,
-        previousOutputs: {}
-      };
       
-      const startTime = Date.now();
+      const result = await response.json();
       
-      // Execute tool
-      const result = await toolExecutor.executeCommand(command, toolContext);
+      // Update task status
+      if (responseMessage.tasks && responseMessage.tasks.length > 0) {
+        const task = responseMessage.tasks[0];
+        task.status = result.success ? 'completed' : 'error';
+        task.details = result.message;
+        
+        // Update the response message
+        responseMessage.selectedTool = toolName;
+        this.sendMessage({ ...responseMessage });
+      }
       
-      const duration = Date.now() - startTime;
+      // If the tool execution was successful, create a tool message
+      if (result.success) {
+        const toolMessage: Message = {
+          id: uuidv4(),
+          role: 'tool',
+          content: result.message || 'Tool executed successfully',
+          createdAt: new Date().toISOString(),
+          agentType: 'tool'
+        };
+        
+        this.sendMessage(toolMessage);
+      } else {
+        // If the tool execution failed, create an error message
+        const errorMessage = this.createErrorMessage(
+          result.message || 'Tool execution failed'
+        );
+        this.sendMessage(errorMessage);
+        return errorMessage;
+      }
       
-      this.emitEvent({ type: "tool_end", result });
-      this.recordTraceEvent("tool_end", { 
-        result,
-        duration,
-        success: result.success
-      });
-      
-      // Update message with tool result
-      const content = `${this.state.messages[this.state.lastMessageIndex].content}\n\n${result.message}`;
-      
-      this.updateMessage(this.state.lastMessageIndex, {
-        content,
-        status: "completed",
-        tasks: this.state.messages[this.state.lastMessageIndex].tasks?.map(task =>
-          task.id === toolTaskId ? {
-            ...task,
-            status: result.success ? "completed" : "error",
-            details: result.success ? undefined : result.message
-          } : task
-        )
-      });
-      
-      this.state.lastToolResult = result;
-      this.state.lastCommand = command;
-      
+      return responseMessage;
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
+      console.error('Error executing tool:', error);
       
-      this.recordTraceEvent("tool_error", { error: errorMessage });
+      // Update task status to error
+      if (responseMessage.tasks && responseMessage.tasks.length > 0) {
+        responseMessage.tasks[0].status = 'error';
+        responseMessage.tasks[0].details = error instanceof Error ? error.message : String(error);
+        this.sendMessage({ ...responseMessage });
+      }
       
-      this.updateMessage(this.state.lastMessageIndex, {
-        tasks: this.state.messages[this.state.lastMessageIndex].tasks?.map(task =>
-          task.id === toolTaskId ? {
-            ...task,
-            status: "error",
-            details: errorMessage
-          } : task
-        )
-      });
-      
-      throw error;
+      const errorMessage = this.createErrorMessage(
+        `Error executing tool: ${error instanceof Error ? error.message : String(error)}`
+      );
+      this.sendMessage(errorMessage);
+      return errorMessage;
     }
   }
   
-  /**
-   * Handle agent handoff
-   */
-  private async handleHandoff(targetAgent: AgentType, reason: string) {
-    this.emitEvent({ 
-      type: "handoff_start", 
-      from: this.state.currentAgentType,
-      to: targetAgent,
-      reason 
-    });
-    
-    this.recordTraceEvent("handoff", { 
-      from: this.state.currentAgentType,
-      to: targetAgent,
-      reason
-    });
-    
-    const handoffMessage: Message = {
-      id: uuidv4(),
-      role: "assistant",
-      content: `I'm transferring you to the ${targetAgent} agent for better assistance.\n\nReason: ${reason}`,
-      status: "completed",
-      agentType: this.state.currentAgentType,
-      createdAt: new Date().toISOString(),
-      tasks: [{
-        id: uuidv4(),
-        name: `Transferring to ${targetAgent} agent`,
-        description: `Handoff to ${targetAgent}`,
-        status: "completed"
-      }]
-    };
-    
-    this.state.messages.push(handoffMessage);
-    this.state.currentAgentType = targetAgent;
-    this.state.handoffInProgress = true;
-    
-    // Check if the target agent is a custom agent
-    this.state.isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(targetAgent);
-    
-    this.emitEvent({ type: "handoff_end", to: targetAgent });
-    
-    toast.info(`Transferred to ${targetAgent} agent for better assistance.`);
-  }
-  
-  /**
-   * Emit an event to the hooks
-   */
-  private emitEvent(event: RunEvent) {
-    if (this.hooks.onEvent) {
-      this.hooks.onEvent(event);
-    }
-  }
-  
-  /**
-   * Create a new task
-   */
-  private createTask(name: string): Task {
+  private createThinkingMessage(): Message {
     return {
       id: uuidv4(),
-      name,
-      description: name,
-      status: "pending"
+      role: 'assistant',
+      content: 'Thinking...',
+      createdAt: new Date().toISOString(),
+      agentType: this.agentType,
+      status: 'thinking'
     };
   }
   
-  /**
-   * Update a task's status
-   */
-  private updateTaskStatus(index: number, status: Task["status"], details?: string) {
-    if (this.state.messages[this.state.lastMessageIndex].tasks) {
-      this.state.messages[this.state.lastMessageIndex].tasks[index].status = status;
-      if (details) {
-        this.state.messages[this.state.lastMessageIndex].tasks[index].details = details;
-      }
+  private createResponseMessage(content: string, modelUsed?: string): Message {
+    return {
+      id: uuidv4(),
+      role: 'assistant',
+      content,
+      createdAt: new Date().toISOString(),
+      agentType: this.agentType,
+      status: 'completed',
+      modelUsed
+    };
+  }
+  
+  private createErrorMessage(errorText: string): Message {
+    return {
+      id: uuidv4(),
+      role: 'assistant',
+      content: `I'm sorry, there was an error: ${errorText}`,
+      createdAt: new Date().toISOString(),
+      agentType: this.agentType,
+      status: 'error'
+    };
+  }
+  
+  private sendMessage(message: Message): void {
+    if (this.callbacks.onMessage) {
+      this.callbacks.onMessage(message);
     }
   }
   
-  /**
-   * Update a message
-   */
-  private updateMessage(index: number, updates: Partial<Message>) {
-    this.state.messages[index] = {
-      ...this.state.messages[index],
-      ...updates
-    };
+  private getAttachmentTypes(attachments: Attachment[]): string[] {
+    const types = new Set<string>();
+    attachments.forEach(attachment => {
+      types.add(attachment.type);
+    });
+    return Array.from(types);
   }
   
-  /**
-   * Format messages for the API
-   */
-  private formatMessages() {
-    return this.state.messages.map(m => ({
-      role: m.role,
-      content: m.content,
-      attachments: m.attachments,
-      handoffRequest: m.handoffRequest,
-      command: m.command,
-      modelUsed: m.modelUsed,
-      status: m.status,
-      agentType: m.agentType,
-      tasks: m.tasks
-    }));
-  }
-  
-  /**
-   * Check if there are any attachments
-   */
-  private hasAttachments(): boolean {
-    return this.state.messages.some(m => m.attachments && m.attachments.length > 0);
-  }
-  
-  /**
-   * Get attachment types
-   */
-  private getAttachmentTypes(): string[] {
-    return this.state.messages.flatMap(m => m.attachments?.map(a => a.type) || []);
-  }
-  
-  /**
-   * Get all attachments
-   */
-  private getAttachments(): Attachment[] {
-    return this.state.messages.flatMap(m => m.attachments || []);
-  }
-  
-  /**
-   * Save trace to database
-   */
-  private async saveTraceToDatabase(trace: Trace) {
+  private async getAvailableTools(): Promise<any[]> {
     try {
-      // For now, let's just log the trace to console
-      console.log("Would save trace to database:", trace);
-      // We'll implement the actual database saving once we have a proper table structure
-      // await supabase.from("agent_traces").insert(trace);
+      const { data, error } = await supabase
+        .from('tools')
+        .select('*')
+        .eq('is_active', true);
+      
+      if (error) {
+        console.error('Error fetching tools:', error);
+        return [];
+      }
+      
+      return data || [];
     } catch (error) {
-      console.error("Error saving trace:", error);
-    }
-  }
-  
-  /**
-   * Record a trace event
-   */
-  private recordTraceEvent(eventType: string, eventData: any) {
-    if (this.traceManager.isTracingEnabled()) {
-      this.traceManager.recordEvent(eventType, eventData);
+      console.error('Error in getAvailableTools:', error);
+      return [];
     }
   }
 }

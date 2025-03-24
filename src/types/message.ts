@@ -77,7 +77,7 @@ export interface Command {
 
 // Export a type alias for components that use a simpler Message type
 export type SimpleMessage = {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
   status?: 'thinking' | 'working' | 'completed' | 'error';
 };

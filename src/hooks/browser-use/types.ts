@@ -112,3 +112,33 @@ export interface BrowserConfig {
   // Context configuration
   contextConfig?: ContextConfig;
 }
+
+// Add missing type definitions
+export interface CaptureWebsiteResponse {
+  image_url?: string;
+  screenshot?: string;
+  error?: string;
+}
+
+export interface BrowserTaskHistory {
+  id: string;
+  user_id: string;
+  task_input: string;
+  status: TaskStatus;
+  browser_task_id: string | null;
+  output: string | null;
+  screenshot_url: string | null;
+  result_url: string | null;
+  browser_data: any;
+  created_at: string;
+  completed_at: string | null;
+}
+
+// Type definition for JSON data
+export type Json = 
+  | string
+  | number
+  | boolean
+  | null
+  | { [key: string]: Json }
+  | Json[];

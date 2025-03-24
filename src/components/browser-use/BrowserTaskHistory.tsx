@@ -14,22 +14,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Loader2, Play, ArrowUpRight, ExternalLink } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { TaskStatus } from "@/hooks/browser-use/types";
+import { TaskStatus, BrowserTaskHistory as BrowserTaskHistoryType } from "@/hooks/browser-use/types";
 import { toast } from "sonner";
 
-type HistoryItem = {
-  id: string;
-  user_id: string;
-  task_input: string;
-  status: TaskStatus;
-  browser_task_id: string | null;
-  screenshot_url: string | null;
-  result_url: string | null;
-  browser_data: any;
-  created_at: string;
-  completed_at: string | null;
-  output: any;
-};
+type HistoryItem = BrowserTaskHistoryType;
 
 export function BrowserTaskHistory() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
@@ -49,7 +37,8 @@ export function BrowserTaskHistory() {
           throw error;
         }
         
-        setHistory(data || []);
+        // Type cast the data to HistoryItem[] to ensure it's properly typed
+        setHistory((data || []) as HistoryItem[]);
       } catch (error) {
         console.error("Error fetching browser task history:", error);
         toast.error("Failed to load task history");

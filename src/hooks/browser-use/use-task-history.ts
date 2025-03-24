@@ -23,7 +23,7 @@ export function useTaskHistory() {
         throw error;
       }
       
-      setTaskHistory(data || []);
+      setTaskHistory((data || []) as BrowserTaskHistory[]);
     } catch (err) {
       console.error("Error fetching browser task history:", err);
       setError("Failed to fetch task history. Please try again.");

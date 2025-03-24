@@ -1,23 +1,19 @@
 
-export interface Message {
-  role: "user" | "assistant";
-  content: string;
-  status?: "thinking" | "working" | "completed" | "error";
-  tasks?: Task[];
-  command?: Command;
-  agentType?: string;
-  selectedTool?: string;
-  attachments?: Attachment[];
-  handoffRequest?: HandoffRequest;
-  modelUsed?: string;
-}
-
-export interface HandoffRequest {
-  targetAgent: string;
-  reason: string;
-}
-
-export type AgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music" | "Video" | "ShoppingBag" | "Globe";
+// If this file doesn't exist yet, we'll create it with the necessary types
+export type AgentIconType = 
+  | "Bot" 
+  | "PenLine" 
+  | "Image" 
+  | "Wrench" 
+  | "Code" 
+  | "FileText" 
+  | "Zap" 
+  | "Brain" 
+  | "Lightbulb" 
+  | "Music"
+  | "Video"
+  | "Globe"
+  | "ShoppingBag";
 
 export interface AgentInfo {
   id: string;
@@ -27,63 +23,51 @@ export interface AgentInfo {
   color: string;
   instructions: string;
   isCustom?: boolean;
+  isTool?: boolean;
+}
+
+// Add any other necessary types for messages, commands, etc.
+export interface Message {
+  id: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  createdAt: string;
+  agentType?: string;
+  agentName?: string;
+  agentIcon?: AgentIconType;
+  agentColor?: string;
+  // Add other message fields as needed
 }
 
 export interface Attachment {
   id: string;
-  type: "image" | "file";
+  type: 'image' | 'file';
   url: string;
   name: string;
-  size?: number;
-  contentType?: string;
+  // Add other attachment fields as needed
+}
+
+export interface HandoffRequest {
+  targetAgent: string;
+  reason: string;
 }
 
 export interface Task {
   id: string;
-  name: string;
-  status: "pending" | "in-progress" | "completed" | "error";
-  details?: string;
+  description: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  // Add other task fields as needed
 }
 
 export interface Command {
-  feature: "product-shot-v1" | "product-shot-v2" | "image-to-video" | "product-video" | "default-image";
-  action: "create" | "convert" | "save" | "use" | "list";
-  parameters?: {
-    name?: string;
-    imageId?: string;
-    imageUrl?: string;
-    prompt?: string;
-    autoGenerate?: boolean;
-    contextualData?: any;
-    requestId?: string;
-    [key: string]: any;
-  };
-  confidence?: number;
-  type?: string;
-  tool?: string;
-  selectedTool?: string;
+  toolName: string;
+  parameters: Record<string, any>;
+  // Add other command fields as needed
 }
 
-export interface Notification {
-  id: string;
-  user_id: string;
-  title: string;
-  message: string;
-  type: string;
-  read: boolean;
-  created_at: string;
-}
-
+// Add any other types that might be missing and causing errors
 export interface AgentMessage {
-  role: "user" | "assistant" | "system";
-  content: string;
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string | any;
   name?: string;
-}
-
-export interface AgentCompletion {
-  id: string;
-  agentType: string;
-  content: string;
-  status: "completed" | "processing" | "error";
-  createdAt: string;
 }

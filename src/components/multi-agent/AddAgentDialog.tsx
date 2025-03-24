@@ -1,4 +1,3 @@
-
 import React from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -43,7 +42,10 @@ const iconOptions = [
   { value: "Zap", label: "Lightning" },
   { value: "Brain", label: "Brain" },
   { value: "Lightbulb", label: "Idea" },
-  { value: "Music", label: "Music" }
+  { value: "Music", label: "Music" },
+  { value: "Video", label: "Video" },
+  { value: "Globe", label: "Globe" },
+  { value: "ShoppingBag", label: "Shopping" }
 ];
 
 // Available color options
@@ -60,7 +62,7 @@ const colorOptions = [
 const formSchema = z.object({
   name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
   description: z.string().min(5, "Description must be at least 5 characters").max(150, "Description must be less than 150 characters"),
-  icon: z.enum(["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music"]),
+  icon: z.enum(["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music", "Video", "Globe", "ShoppingBag"] as const),
   color: z.string().min(1, "Please select a color"),
   instructions: z.string().min(10, "Instructions must be at least 10 characters").max(1000, "Instructions must be less than 1000 characters")
 });

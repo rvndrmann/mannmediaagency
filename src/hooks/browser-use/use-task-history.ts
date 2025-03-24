@@ -1,7 +1,7 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { BrowserTaskHistory } from "./types";
+import { BrowserTaskHistory, TaskStatus } from "./types";
 import { toast } from "sonner";
 
 export function useTaskHistory() {
@@ -23,7 +23,7 @@ export function useTaskHistory() {
         throw error;
       }
       
-      setTaskHistory((data || []) as BrowserTaskHistory[]);
+      setTaskHistory(data as BrowserTaskHistory[]);
     } catch (err) {
       console.error("Error fetching browser task history:", err);
       setError("Failed to fetch task history. Please try again.");

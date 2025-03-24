@@ -43,7 +43,22 @@ export default function TraceAnalyticsPage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827] text-white">
-      {userId && <TraceDashboard userId={userId} />}
+      {userId ? (
+        <div className="container mx-auto px-4 py-8">
+          <h1 className="text-2xl font-bold mb-6">AI Interaction Analytics</h1>
+          <p className="text-gray-400 mb-8">
+            View analytics and traces for your AI agent interactions
+          </p>
+          <TraceDashboard userId={userId} />
+        </div>
+      ) : (
+        <div className="flex items-center justify-center h-screen">
+          <div className="text-center">
+            <h2 className="text-xl font-semibold mb-2">Authentication Required</h2>
+            <p className="text-gray-400">Please log in to view analytics</p>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

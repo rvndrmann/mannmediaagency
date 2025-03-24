@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,6 +81,10 @@ export const useMultiAgentChat = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmedInput = input.trim();
+    
+    // Log for debugging
+    console.log("Submitting message:", { trimmedInput, pendingAttachments, isLoading });
+    
     if ((!trimmedInput && pendingAttachments.length === 0) || isLoading) return;
 
     if (!userCredits || userCredits.credits_remaining < 0.07) {
@@ -87,9 +92,20 @@ export const useMultiAgentChat = () => {
       return;
     }
 
-    setIsLoading(true);
-
     try {
+      setIsLoading(true);
+      
+      // Add user message to the chat
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: 'user',
+        content: trimmedInput,
+        createdAt: new Date().toISOString(),
+        attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
+
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
@@ -98,6 +114,8 @@ export const useMultiAgentChat = () => {
       const effectiveAgentType = BUILT_IN_TOOL_TYPES.includes(selectedAgentType as ToolType) 
         ? "tool" // Redirect tool selection to tool agent
         : selectedAgentType;
+      
+      console.log("Using agent:", { selectedAgentType, effectiveAgentType });
 
       // Create AgentRunner instance with the effective agent type
       const runner = new AgentRunner(effectiveAgentType, {
@@ -113,12 +131,15 @@ export const useMultiAgentChat = () => {
         groupId: currentConversationId
       }, {
         onMessage: (message) => {
+          console.log("Received message from agent:", message);
           setMessages(prev => [...prev, message]);
         },
         onError: (error) => {
+          console.error("Agent error:", error);
           toast.error(error);
         },
         onHandoffEnd: (toAgent) => {
+          console.log("Handoff to agent:", toAgent);
           setActiveAgent(toAgent);
         }
       });
@@ -134,8 +155,21 @@ export const useMultiAgentChat = () => {
       refetchCredits();
       
     } catch (error) {
+      console.error("Error in handleSubmit:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       toast.error(errorMessage);
+      
+      // Add error message to chat
+      const errorResponseMessage: Message = {
+        id: uuidv4(),
+        role: 'assistant',
+        content: "I'm sorry, there was an error processing your request. Please try again.",
+        createdAt: new Date().toISOString(),
+        agentType: activeAgent,
+        status: "error"
+      };
+      
+      setMessages(prev => [...prev, errorResponseMessage]);
     } finally {
       setIsLoading(false);
     }
@@ -152,6 +186,7 @@ export const useMultiAgentChat = () => {
 
   // Agent management
   const switchAgent = useCallback((agentType: AgentType) => {
+    console.log("Switching to agent:", agentType);
     setActiveAgent(agentType);
   }, []);
 

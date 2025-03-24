@@ -63,17 +63,17 @@ export function useCustomAgents() {
         return null;
       }
 
-      // Ensure we're using a valid casting here
+      // Insert into custom_agents table
       const { data, error } = await supabase
         .from('custom_agents')
-        .insert({
+        .insert([{
           name: formData.name,
           description: formData.description,
           icon: formData.icon,
           color: formData.color,
           instructions: formData.instructions,
           user_id: session.user.id
-        })
+        }])
         .select()
         .single();
 

@@ -2,7 +2,7 @@
 import { Button } from "@/components/ui/button";
 import { Bot, PenLine, Image, Wrench, Info, Plus, Trash, Edit, FileText, Globe, Video, ShoppingBag } from "lucide-react";
 import { useState } from "react";
-import { type AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
+import { type AgentType, BUILT_IN_AGENT_TYPES, BUILT_IN_TOOL_TYPES } from "@/hooks/use-multi-agent-chat";
 import { cn } from "@/lib/utils";
 import {
   Tooltip,
@@ -201,7 +201,7 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
           const isActive = activeAgent === agent.id;
           const IconComponent = getIconComponent(agent.icon);
           const isCustom = 'isCustom' in agent && agent.isCustom;
-          const isBuiltIn = BUILT_IN_AGENT_TYPES.includes(agent.id);
+          const isBuiltIn = BUILT_IN_AGENT_TYPES.includes(agent.id as any);
           const isTool = 'isTool' in agent && agent.isTool;
           
           return (

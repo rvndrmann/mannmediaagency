@@ -20,10 +20,12 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
     switch (status) {
       case "pending":
         return <Clock className="h-4 w-4 text-gray-400" />;
+      case "in_progress":
       case "in-progress":
         return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />;
       case "completed":
         return <Check className="h-4 w-4 text-green-400" />;
+      case "failed":
       case "error":
         return <XCircle className="h-4 w-4 text-red-400" />;
       default:
@@ -101,7 +103,7 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
       {hasAttachments && (
         <div className={cn("rounded-md overflow-hidden", isUser ? "bg-white/10" : "bg-black/20")}>
           <AttachmentPreview 
-            attachments={message.attachments} 
+            attachments={message.attachments || []} 
             isRemovable={false}
           />
         </div>
@@ -173,14 +175,14 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
                 </div>
                 <div className="flex-1">
                   <div className={`font-medium ${
-                    task.status === "error" ? "text-red-300" : "text-white/80"
+                    task.status === "error" || task.status === "failed" ? "text-red-300" : "text-white/80"
                   }`}>
-                    {task.name}
+                    {task.name || task.description}
                   </div>
                   {task.details && (
                     <div className="text-xs text-white/60 mt-0.5">{task.details}</div>
                   )}
-                  {task.status === "in-progress" && (
+                  {(task.status === "in-progress" || task.status === "in_progress") && (
                     <div className="w-full h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
                       <div className="h-full bg-blue-400 rounded-full animate-pulse" style={{ width: '60%' }}></div>
                     </div>

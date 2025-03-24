@@ -1,104 +1,94 @@
 
-import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip, X, Image, File, Upload } from "lucide-react";
-import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
-import { supabase } from "@/integrations/supabase/client";
+import { Paperclip } from "lucide-react";
+import { useState, useRef } from "react";
+import { v4 as uuidv4 } from 'uuid';
 import { Attachment } from "@/types/message";
+import { toast } from "sonner";
 
 interface FileAttachmentButtonProps {
   onAttach: (attachments: Attachment[]) => void;
+  maxFileSize?: number; // in bytes
+  acceptedFileTypes?: string;
 }
 
-export function FileAttachmentButton({ onAttach }: FileAttachmentButtonProps) {
-  const [isUploading, setIsUploading] = useState(false);
+export const FileAttachmentButton = ({ 
+  onAttach, 
+  maxFileSize = 5 * 1024 * 1024, // 5MB default
+  acceptedFileTypes = "image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+}: FileAttachmentButtonProps) => {
+  const [isLoading, setIsLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const files = event.target.files;
+  const handleButtonClick = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
     if (!files || files.length === 0) return;
 
-    setIsUploading(true);
-    const newAttachments: Attachment[] = [];
+    setIsLoading(true);
 
     try {
+      const attachments: Attachment[] = [];
+
       for (let i = 0; i < files.length; i++) {
         const file = files[i];
-        const fileId = uuidv4();
-        const fileExt = file.name.split('.').pop();
-        const filePath = `chat-attachments/${fileId}.${fileExt}`;
-        const isImage = file.type.startsWith('image/');
         
-        // Upload file to Supabase storage
-        const { error: uploadError } = await supabase.storage
-          .from('chat-attachments')
-          .upload(filePath, file);
-          
-        if (uploadError) {
-          throw uploadError;
+        // Check file size
+        if (file.size > maxFileSize) {
+          toast.error(`File ${file.name} exceeds the maximum size of ${maxFileSize / (1024 * 1024)}MB`);
+          continue;
         }
-        
-        // Get the public URL
-        const { data: publicUrlData } = supabase.storage
-          .from('chat-attachments')
-          .getPublicUrl(filePath);
-          
-        newAttachments.push({
-          id: fileId,
-          type: isImage ? 'image' : 'file',
-          url: publicUrlData.publicUrl,
+
+        // Create attachment object
+        const attachment: Attachment = {
+          id: uuidv4(),
           name: file.name,
-          size: file.size,
-          contentType: file.type
-        });
+          type: file.type.startsWith('image/') ? 'image' : 'file',
+          url: URL.createObjectURL(file),
+          contentType: file.type,
+          size: file.size
+        };
+
+        attachments.push(attachment);
       }
-      
-      onAttach(newAttachments);
-      toast.success(`${newAttachments.length} file${newAttachments.length > 1 ? 's' : ''} attached`);
-      
-      // Reset the file input
+
+      if (attachments.length > 0) {
+        onAttach(attachments);
+      }
+    } catch (error) {
+      console.error("Error processing files:", error);
+      toast.error("Failed to attach files");
+    } finally {
+      setIsLoading(false);
+      // Reset the input to allow selecting the same file again
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
-    } catch (error) {
-      console.error('Error uploading file:', error);
-      toast.error('Failed to upload file');
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const triggerFileInput = () => {
-    if (fileInputRef.current) {
-      fileInputRef.current.click();
     }
   };
 
   return (
-    <div>
-      <Button 
-        type="button" 
-        variant="ghost" 
-        size="icon" 
-        className="text-white/70 hover:text-white hover:bg-white/10 h-4 w-4 p-0"
-        onClick={triggerFileInput}
-        disabled={isUploading}
-      >
-        {isUploading ? (
-          <Upload className="h-3 w-3 animate-pulse" />
-        ) : (
-          <Paperclip className="h-3 w-3" />
-        )}
-      </Button>
+    <>
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileUpload}
-        className="hidden"
+        onChange={handleFileChange}
         multiple
-        accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
+        accept={acceptedFileTypes}
+        className="hidden"
       />
-    </div>
+      <Button
+        variant="outline"
+        size="icon"
+        onClick={handleButtonClick}
+        disabled={isLoading}
+        className="h-10 w-10 rounded-full bg-[#262B38] hover:bg-[#2D3240] border-[#3A4055] text-white"
+      >
+        <Paperclip className={`h-4 w-4 ${isLoading ? "animate-pulse" : ""}`} />
+      </Button>
+    </>
   );
-}
+};

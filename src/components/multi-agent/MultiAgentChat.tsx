@@ -68,6 +68,17 @@ export const MultiAgentChat = () => {
     navigate(-1);
   };
 
+  // Log for debugging
+  useEffect(() => {
+    console.log("Current state:", { 
+      activeAgent, 
+      inputValue: input, 
+      messageCount: messages.length,
+      isLoading,
+      tracingEnabled
+    });
+  }, [activeAgent, input, messages, isLoading, tracingEnabled]);
+
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827]">
       <header className="p-2 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">

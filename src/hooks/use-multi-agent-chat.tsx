@@ -2,7 +2,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { Message, Attachment } from "@/types/message";
+import { Message, Attachment, Task } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
@@ -76,6 +76,15 @@ export const useMultiAgentChat = () => {
       return newMessages;
     });
   }, []);
+
+  // Helper to create a new task with proper type
+  const createTask = (description: string): Task => {
+    return {
+      id: uuidv4(),
+      description,
+      status: "pending"
+    };
+  };
 
   // Handle message submission
   const handleSubmit = async (e: React.FormEvent) => {

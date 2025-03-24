@@ -23,12 +23,14 @@ export type Trace = {
     toolCalls: number;
     success: boolean;
     duration: number;
+    messageCount?: number;
   };
 };
 
 // Function to save a trace to Supabase
 export const saveTrace = async (trace: Trace): Promise<void> => {
-  // This is a placeholder for the actual implementation
+  // This function would need to be implemented to save to the trace table
+  // For now, we'll just log it
   console.log("Trace saved:", trace.id);
 };
 

@@ -1,206 +1,155 @@
 
-import { Card } from "@/components/ui/card";
-import ReactMarkdown from "react-markdown";
-import { Message, Task } from "@/types/message";
-import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw, ArrowRightLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { Message } from "@/types/message";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Zap, User, Bot, PenLine, Image, Wrench, Code, FileText, Brain, Lightbulb, Music, Video, Globe, ShoppingBag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { cn } from "@/lib/utils";
+import ReactMarkdown from "react-markdown";
+import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
 
 interface ChatMessageProps {
   message: Message;
-  onRetry?: () => void;
   showAgentName?: boolean;
 }
 
-export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProps) => {
-  // Helper to render task status icon
-  const getTaskStatusIcon = (status: Task["status"]) => {
-    switch (status) {
-      case "pending":
-        return <Clock className="h-4 w-4 text-gray-400" />;
-      case "in_progress":
-      case "in-progress":
-        return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />;
-      case "completed":
-        return <Check className="h-4 w-4 text-green-400" />;
-      case "failed":
-      case "error":
-        return <XCircle className="h-4 w-4 text-red-400" />;
-      default:
-        return null;
+export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps) => {
+  // Handle empty messages gracefully
+  if (!message || !message.content) return null;
+  
+  const isUser = message.role === "user";
+  const isLoading = message.status === "thinking" || message.status === "working";
+
+  // Determine agent icon based on agentType or agentIcon
+  const getAgentIcon = () => {
+    if (isUser) return <User className="h-5 w-5" />;
+    
+    const iconType = message.agentIcon || 
+      (message.agentType === "main" ? "Bot" : 
+       message.agentType === "script" ? "PenLine" :
+       message.agentType === "image" ? "Image" :
+       message.agentType === "tool" ? "Wrench" :
+       message.agentType === "scene" ? "PenLine" : "Bot");
+
+    switch (iconType) {
+      case "Bot": return <Bot className="h-5 w-5" />;
+      case "PenLine": return <PenLine className="h-5 w-5" />;
+      case "Image": return <Image className="h-5 w-5" />;
+      case "Wrench": return <Wrench className="h-5 w-5" />;
+      case "Code": return <Code className="h-5 w-5" />;
+      case "FileText": return <FileText className="h-5 w-5" />;
+      case "Zap": return <Zap className="h-5 w-5" />;
+      case "Brain": return <Brain className="h-5 w-5" />;
+      case "Lightbulb": return <Lightbulb className="h-5 w-5" />;
+      case "Music": return <Music className="h-5 w-5" />;
+      case "Video": return <Video className="h-5 w-5" />;
+      case "Globe": return <Globe className="h-5 w-5" />;
+      case "ShoppingBag": return <ShoppingBag className="h-5 w-5" />;
+      default: return <Bot className="h-5 w-5" />;
     }
   };
 
-  const isError = message.status === "error";
-  const isUser = message.role === "user";
-  const isAgent = message.role === "assistant" && message.agentType;
-  const hasAttachments = message.attachments && message.attachments.length > 0;
-  const hasHandoffRequest = message.handoffRequest != null;
-
-  // Helper to get agent name display
-  const getAgentDisplayName = (agentType: string | undefined) => {
-    if (!agentType) return "Assistant";
+  // Get color class for agent avatar
+  const getAgentColor = () => {
+    if (isUser) return "bg-gradient-to-r from-indigo-400 to-cyan-400";
     
-    switch (agentType) {
+    // Custom agent color if available, otherwise use fixed colors
+    if (message.agentColor) return message.agentColor;
+    
+    switch (message.agentType) {
+      case "main": return "bg-gradient-to-r from-blue-400 to-indigo-500";
+      case "script": return "bg-gradient-to-r from-purple-400 to-pink-500";
+      case "image": return "bg-gradient-to-r from-emerald-400 to-cyan-500";
+      case "tool": return "bg-gradient-to-r from-amber-400 to-orange-500";
+      case "scene": return "bg-gradient-to-r from-rose-400 to-red-500";
+      default: return "bg-gradient-to-r from-blue-400 to-indigo-500";
+    }
+  };
+
+  // Get agent name display text
+  const getAgentName = () => {
+    if (isUser) return "You";
+    if (message.agentName) return message.agentName;
+    
+    switch (message.agentType) {
       case "main": return "Main Assistant";
       case "script": return "Script Writer";
       case "image": return "Image Prompt";
       case "tool": return "Tool Orchestrator";
       case "scene": return "Scene Description";
-      case "browser": return "Browser Auto";
+      case "browser": return "Browser Assistant";
       case "product-video": return "Product Video";
-      case "custom-video": return "Custom Video";
-      default: return agentType.charAt(0).toUpperCase() + agentType.slice(1);
+      case "custom-video": return "Video Request";
+      default: return message.agentType ? `${message.agentType.charAt(0).toUpperCase()}${message.agentType.slice(1)} Assistant` : "Assistant";
     }
   };
 
-  // Helper to get badge variant for agent type
-  const getAgentBadgeVariant = (agentType: string | undefined) => {
-    if (!agentType) return "default";
+  // Display tasks if available
+  const renderTasks = () => {
+    if (!message.tasks || message.tasks.length === 0) return null;
     
-    switch (agentType) {
-      case "main": return "default";
-      case "script": return "info";
-      case "image": return "warning";
-      case "tool": return "success";
-      case "scene": return "secondary";
-      case "browser": return "info";
-      case "product-video": return "destructive";
-      case "custom-video": return "command";
-      default: return "default";
-    }
+    return (
+      <div className="mt-2 space-y-1 text-sm text-gray-400">
+        {message.tasks.map(task => (
+          <div key={task.id} className="flex items-center gap-2">
+            <div className={`h-1.5 w-1.5 rounded-full ${
+              task.status === "completed" ? "bg-green-500" : 
+              task.status === "error" || task.status === "failed" ? "bg-red-500" :
+              task.status === "in-progress" || task.status === "in_progress" ? "bg-blue-500 animate-pulse" :
+              "bg-gray-500"
+            }`} />
+            <span>{task.description || task.name}</span>
+            {task.details && task.status === "error" && (
+              <span className="text-red-400 text-xs">{task.details}</span>
+            )}
+          </div>
+        ))}
+      </div>
+    );
   };
 
   return (
-    <Card
-      className={cn(
-        "p-4 shadow-md transition-all animate-in duration-300",
-        isUser
-          ? "ml-auto bg-gradient-to-r from-[#9b87f5] to-[#8a77e1] text-white max-w-[80%] rounded-tl-lg rounded-tr-lg rounded-bl-lg rounded-br-sm"
-          : isError 
-            ? "bg-red-900/30 text-white/90 border-red-500/30 max-w-[80%] rounded-tl-lg rounded-tr-sm rounded-bl-lg rounded-br-lg" 
-            : "bg-[#333333] text-white/90 border-white/10 max-w-[80%] rounded-tl-lg rounded-tr-sm rounded-bl-lg rounded-br-lg"
-      )}
-    >
-      {isError && (
-        <div className="mb-2 flex items-center gap-2 text-red-300">
-          <AlertTriangle className="h-4 w-4" />
-          <span className="text-sm font-medium">Error processing request</span>
-        </div>
-      )}
+    <div className={`flex gap-3 ${isUser ? "" : "mt-4"}`}>
+      <Avatar className={`h-8 w-8 rounded-md ${getAgentColor()}`}>
+        <AvatarFallback>{getAgentIcon()}</AvatarFallback>
+        <AvatarImage src="" />
+      </Avatar>
       
-      {isAgent && message.agentType && showAgentName && (
-        <Badge 
-          variant={getAgentBadgeVariant(message.agentType)}
-          className="mb-3 text-xs"
-        >
-          {getAgentDisplayName(message.agentType)}
-        </Badge>
-      )}
-      
-      {hasAttachments && (
-        <div className={cn("rounded-md overflow-hidden", isUser ? "bg-white/10" : "bg-black/20")}>
-          <AttachmentPreview 
-            attachments={message.attachments || []} 
-            isRemovable={false}
-          />
-        </div>
-      )}
-      
-      <div className={cn(hasAttachments ? "mt-3" : "")}>
-        <ReactMarkdown
-          components={{
-            code({ children, className, ...props }) {
-              const match = /language-(\w+)/.exec(className || '');
-              return (
-                <code
-                  className={`${match ? 'bg-black/30 p-2 block rounded' : 'bg-black/30 px-1 py-0.5 rounded'} ${className}`}
-                  {...props}
-                >
-                  {children}
-                </code>
-              );
-            },
-            p({ children }) {
-              return <p className="mb-3 last:mb-0">{children}</p>;
-            },
-          }}
-        >
-          {message.content}
-        </ReactMarkdown>
-      </div>
-
-      {hasHandoffRequest && (
-        <div className="mt-3 pt-2 border-t border-white/10 flex items-center gap-2 text-blue-300">
-          <ArrowRightLeft className="h-4 w-4" />
-          <span className="text-sm">
-            Transferring to{" "}
-            <Badge variant="outline" className="text-xs py-0 px-1 border-blue-400/30">
-              {getAgentDisplayName(message.handoffRequest?.targetAgent)}
-            </Badge>
-          </span>
-        </div>
-      )}
-
-      {message.tasks && message.tasks.length > 0 && (
-        <div className="mt-3 pt-3 border-t border-white/10">
-          <div className="text-xs font-medium text-white/60 mb-2 flex items-center justify-between">
-            <span>
-              {message.status === "thinking" && "Analyzing your request..."}
-              {message.status === "working" && "Working on tasks..."}
-              {message.status === "completed" && "All tasks completed"}
-              {message.status === "error" && "Error occurred"}
-            </span>
-            
-            {isError && onRetry && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                onClick={onRetry}
-                className="h-6 px-2 text-xs text-red-300 hover:text-white hover:bg-red-800/50"
-              >
-                <RefreshCw className="h-3 w-3 mr-1" />
-                Retry
-              </Button>
-            )}
-          </div>
+      <div className="flex-1 space-y-2">
+        <div className="flex items-center gap-2">
+          <span className="font-medium text-white">{getAgentName()}</span>
           
-          <ul className="space-y-2">
-            {message.tasks.map((task) => (
-              <li key={task.id} className="flex items-start gap-2 text-sm">
-                <div className="mt-0.5 flex-shrink-0">
-                  {getTaskStatusIcon(task.status)}
-                </div>
-                <div className="flex-1">
-                  <div className={`font-medium ${
-                    task.status === "error" || task.status === "failed" ? "text-red-300" : "text-white/80"
-                  }`}>
-                    {task.name || task.description}
-                  </div>
-                  {task.details && (
-                    <div className="text-xs text-white/60 mt-0.5">{task.details}</div>
-                  )}
-                  {(task.status === "in-progress" || task.status === "in_progress") && (
-                    <div className="w-full h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
-                      <div className="h-full bg-blue-400 rounded-full animate-pulse" style={{ width: '60%' }}></div>
-                    </div>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
+          {showAgentName && message.agentType && (
+            <Badge variant="outline" className="text-xs py-0 h-5 bg-slate-800/50">
+              {message.agentType}
+            </Badge>
+          )}
+          
+          {isLoading && (
+            <div className="ml-2 flex gap-1">
+              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse"></div>
+              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse delay-150"></div>
+              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse delay-300"></div>
+            </div>
+          )}
         </div>
-      )}
-      
-      {isError && message.command && (
-        <div className="mt-3 pt-3 border-t border-red-500/30">
-          <div className="text-xs text-red-300">
-            <p>Connection to AI service failed. Please try again later.</p>
+
+        <div className="prose prose-invert max-w-none">
+          <ReactMarkdown>
+            {message.content}
+          </ReactMarkdown>
+        </div>
+
+        {message.attachments && message.attachments.length > 0 && (
+          <div className="mt-2">
+            <AttachmentPreview
+              attachments={message.attachments}
+              onRemove={() => {}}
+              isRemovable={false}
+            />
           </div>
-        </div>
-      )}
-    </Card>
+        )}
+
+        {renderTasks()}
+      </div>
+    </div>
   );
 };

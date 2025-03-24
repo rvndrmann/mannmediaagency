@@ -60,8 +60,8 @@ export interface HandoffRequest {
 
 export interface Task {
   id: string;
-  name?: string;
   description: string;
+  name?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'in-progress' | 'error';
   details?: string;
 }
@@ -70,7 +70,22 @@ export interface Command {
   toolName: string;
   parameters: Record<string, any>;
   feature?: string;
+  action?: string;
 }
+
+// Export a type alias for components that use a simpler Message type
+export type SimpleMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+  status?: 'thinking' | 'working' | 'completed' | 'error';
+};
+
+// Define AgentMessage type for use in multi-agent system
+export type AgentMessage = {
+  role: 'user' | 'assistant' | 'system' | 'tool';
+  content: string;
+  name?: string;
+};
 
 // Analytics data types
 export interface ConversationData {

@@ -1,10 +1,9 @@
 
-import { Message } from "@/types/message";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { Zap, User, Bot, PenLine, Image, Wrench, Code, FileText, Brain, Lightbulb, Music, Video, Globe, ShoppingBag } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
-import ReactMarkdown from "react-markdown";
-import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { useState } from "react";
+import { cn } from "@/lib/utils";
+import { Avatar } from "./Avatar";
+import { motion } from "framer-motion";
+import { Message, SimpleMessage } from "@/types/message";
 
 interface ChatMessageProps {
   message: Message;
@@ -12,144 +11,191 @@ interface ChatMessageProps {
 }
 
 export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps) => {
-  // Handle empty messages gracefully
-  if (!message || !message.content) return null;
+  const [isFocused, setIsFocused] = useState(false);
   
-  const isUser = message.role === "user";
-  const isLoading = message.status === "thinking" || message.status === "working";
-
-  // Determine agent icon based on agentType or agentIcon
-  const getAgentIcon = () => {
-    if (isUser) return <User className="h-5 w-5" />;
-    
-    const iconType = message.agentIcon || 
-      (message.agentType === "main" ? "Bot" : 
-       message.agentType === "script" ? "PenLine" :
-       message.agentType === "image" ? "Image" :
-       message.agentType === "tool" ? "Wrench" :
-       message.agentType === "scene" ? "PenLine" : "Bot");
-
-    switch (iconType) {
-      case "Bot": return <Bot className="h-5 w-5" />;
-      case "PenLine": return <PenLine className="h-5 w-5" />;
-      case "Image": return <Image className="h-5 w-5" />;
-      case "Wrench": return <Wrench className="h-5 w-5" />;
-      case "Code": return <Code className="h-5 w-5" />;
-      case "FileText": return <FileText className="h-5 w-5" />;
-      case "Zap": return <Zap className="h-5 w-5" />;
-      case "Brain": return <Brain className="h-5 w-5" />;
-      case "Lightbulb": return <Lightbulb className="h-5 w-5" />;
-      case "Music": return <Music className="h-5 w-5" />;
-      case "Video": return <Video className="h-5 w-5" />;
-      case "Globe": return <Globe className="h-5 w-5" />;
-      case "ShoppingBag": return <ShoppingBag className="h-5 w-5" />;
-      default: return <Bot className="h-5 w-5" />;
-    }
-  };
-
-  // Get color class for agent avatar
-  const getAgentColor = () => {
-    if (isUser) return "bg-gradient-to-r from-indigo-400 to-cyan-400";
-    
-    // Custom agent color if available, otherwise use fixed colors
-    if (message.agentColor) return message.agentColor;
-    
-    switch (message.agentType) {
-      case "main": return "bg-gradient-to-r from-blue-400 to-indigo-500";
-      case "script": return "bg-gradient-to-r from-purple-400 to-pink-500";
-      case "image": return "bg-gradient-to-r from-emerald-400 to-cyan-500";
-      case "tool": return "bg-gradient-to-r from-amber-400 to-orange-500";
-      case "scene": return "bg-gradient-to-r from-rose-400 to-red-500";
-      default: return "bg-gradient-to-r from-blue-400 to-indigo-500";
-    }
-  };
-
-  // Get agent name display text
-  const getAgentName = () => {
-    if (isUser) return "You";
-    if (message.agentName) return message.agentName;
-    
-    switch (message.agentType) {
-      case "main": return "Main Assistant";
-      case "script": return "Script Writer";
-      case "image": return "Image Prompt";
-      case "tool": return "Tool Orchestrator";
-      case "scene": return "Scene Description";
-      case "browser": return "Browser Assistant";
-      case "product-video": return "Product Video";
-      case "custom-video": return "Video Request";
-      default: return message.agentType ? `${message.agentType.charAt(0).toUpperCase()}${message.agentType.slice(1)} Assistant` : "Assistant";
-    }
-  };
-
-  // Display tasks if available
-  const renderTasks = () => {
-    if (!message.tasks || message.tasks.length === 0) return null;
-    
+  const isUser = message.role === 'user';
+  const isSystem = message.role === 'system';
+  const isTool = message.role === 'tool';
+  
+  // For tools, we display a special format
+  if (isTool) {
     return (
-      <div className="mt-2 space-y-1 text-sm text-gray-400">
-        {message.tasks.map(task => (
-          <div key={task.id} className="flex items-center gap-2">
-            <div className={`h-1.5 w-1.5 rounded-full ${
-              task.status === "completed" ? "bg-green-500" : 
-              task.status === "error" || task.status === "failed" ? "bg-red-500" :
-              task.status === "in-progress" || task.status === "in_progress" ? "bg-blue-500 animate-pulse" :
-              "bg-gray-500"
-            }`} />
-            <span>{task.description || task.name}</span>
-            {task.details && task.status === "error" && (
-              <span className="text-red-400 text-xs">{task.details}</span>
-            )}
-          </div>
-        ))}
+      <div className="flex items-start gap-2 text-gray-400 text-xs bg-gray-800/40 p-2 rounded">
+        <div className="font-mono">[Tool Output]: {message.content}</div>
       </div>
     );
+  }
+  
+  // For system messages, we display a simple format
+  if (isSystem) {
+    return (
+      <div className="flex items-start gap-2 text-gray-400 text-xs italic">
+        <div>{message.content}</div>
+      </div>
+    );
+  }
+  
+  // Support converting SimpleMessage to Message if needed
+  const isSimpleMessage = (msg: any): msg is SimpleMessage => {
+    return typeof msg === 'object' && ('role' in msg) && !('id' in msg);
   };
-
+  
+  const normalizedMessage: Message = isSimpleMessage(message) 
+    ? {
+        id: `msg-${Math.random().toString(36).substr(2, 9)}`,
+        role: message.role,
+        content: message.content,
+        createdAt: new Date().toISOString(),
+        status: message.status
+      } 
+    : message;
+  
   return (
-    <div className={`flex gap-3 ${isUser ? "" : "mt-4"}`}>
-      <Avatar className={`h-8 w-8 rounded-md ${getAgentColor()}`}>
-        <AvatarFallback>{getAgentIcon()}</AvatarFallback>
-        <AvatarImage src="" />
-      </Avatar>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      onMouseEnter={() => setIsFocused(true)}
+      onMouseLeave={() => setIsFocused(false)}
+      className={cn(
+        "flex items-start gap-3 p-3 rounded-lg transition-all",
+        isUser ? "bg-blue-900/20" : "bg-gray-800/40",
+        isFocused && "bg-opacity-70"
+      )}
+    >
+      <Avatar 
+        isUser={isUser} 
+        agentType={normalizedMessage.agentType} 
+        agentIcon={normalizedMessage.agentIcon}
+        agentColor={normalizedMessage.agentColor}
+      />
       
-      <div className="flex-1 space-y-2">
-        <div className="flex items-center gap-2">
-          <span className="font-medium text-white">{getAgentName()}</span>
-          
-          {showAgentName && message.agentType && (
-            <Badge variant="outline" className="text-xs py-0 h-5 bg-slate-800/50">
-              {message.agentType}
-            </Badge>
-          )}
-          
-          {isLoading && (
-            <div className="ml-2 flex gap-1">
-              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse"></div>
-              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse delay-150"></div>
-              <div className="h-1.5 w-1.5 bg-blue-500 rounded-full animate-pulse delay-300"></div>
-            </div>
-          )}
-        </div>
-
-        <div className="prose prose-invert max-w-none">
-          <ReactMarkdown>
-            {message.content}
-          </ReactMarkdown>
-        </div>
-
-        {message.attachments && message.attachments.length > 0 && (
-          <div className="mt-2">
-            <AttachmentPreview
-              attachments={message.attachments}
-              onRemove={() => {}}
-              isRemovable={false}
-            />
+      <div className="flex-1 space-y-2 overflow-hidden">
+        {(showAgentName && !isUser && normalizedMessage.agentType) && (
+          <div className="text-xs font-medium text-purple-400">
+            {normalizedMessage.agentName || normalizedMessage.agentType.charAt(0).toUpperCase() + normalizedMessage.agentType.slice(1)} Agent
           </div>
         )}
-
-        {renderTasks()}
+        
+        <div className={cn(
+          "text-sm prose prose-invert max-w-none",
+          normalizedMessage.status === "thinking" && "text-gray-400"
+        )}>
+          {normalizedMessage.status === "thinking" ? (
+            <ThinkingAnimation content={normalizedMessage.content} />
+          ) : (
+            <div dangerouslySetInnerHTML={{ __html: formatMessageContent(normalizedMessage.content) }} />
+          )}
+        </div>
+        
+        {normalizedMessage.status === "error" && (
+          <div className="mt-2 text-xs text-red-400">
+            There was an error processing this message. Please try again.
+          </div>
+        )}
+        
+        {normalizedMessage.tasks && normalizedMessage.tasks.length > 0 && (
+          <div className="mt-2 space-y-1">
+            {normalizedMessage.tasks.map((task) => (
+              <div key={task.id} className="flex items-center text-xs">
+                <StatusIcon status={task.status} />
+                <span className={cn(
+                  "ml-1.5",
+                  task.status === "completed" ? "text-green-400" : 
+                  task.status === "error" || task.status === "failed" ? "text-red-400" : 
+                  "text-gray-400"
+                )}>
+                  {task.name} {task.details && `- ${task.details}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
+    </motion.div>
+  );
+};
+
+const ThinkingAnimation = ({ content }: { content: string }) => {
+  return (
+    <div className="flex items-center">
+      <span>{content}</span>
+      <span className="inline-flex ml-1">
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ repeat: Infinity, duration: 1.4, repeatDelay: 0 }}
+          className="mx-[1px]"
+        >
+          .
+        </motion.span>
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ repeat: Infinity, duration: 1.4, delay: 0.2, repeatDelay: 0 }}
+          className="mx-[1px]"
+        >
+          .
+        </motion.span>
+        <motion.span
+          initial={{ opacity: 0 }}
+          animate={{ opacity: [0, 1, 0] }}
+          transition={{ repeat: Infinity, duration: 1.4, delay: 0.4, repeatDelay: 0 }}
+          className="mx-[1px]"
+        >
+          .
+        </motion.span>
+      </span>
     </div>
   );
+};
+
+const StatusIcon = ({ status }: { status: string }) => {
+  return (
+    <div className={cn(
+      "w-3 h-3 rounded-full",
+      status === "pending" ? "bg-gray-500" :
+      status === "in_progress" || status === "in-progress" ? "bg-blue-500 animate-pulse" :
+      status === "completed" ? "bg-green-500" :
+      "bg-red-500" // error or failed
+    )} />
+  );
+};
+
+// Function to format the message content with proper HTML
+const formatMessageContent = (content: string): string => {
+  // Convert URLs to links
+  let formattedContent = content.replace(
+    /(https?:\/\/[^\s]+)/g, 
+    '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">$1</a>'
+  );
+  
+  // Convert markdown-style code blocks to HTML
+  formattedContent = formattedContent.replace(
+    /```([a-z]*)\n([\s\S]*?)\n```/g,
+    '<pre class="bg-gray-900 p-3 rounded-md overflow-x-auto my-2"><code class="text-gray-300 font-mono text-sm">$2</code></pre>'
+  );
+  
+  // Convert markdown-style inline code to HTML
+  formattedContent = formattedContent.replace(
+    /`([^`]+)`/g,
+    '<code class="bg-gray-900 px-1 py-0.5 rounded text-gray-300 font-mono text-sm">$1</code>'
+  );
+  
+  // Convert markdown-style bold to HTML
+  formattedContent = formattedContent.replace(
+    /\*\*([^*]+)\*\*/g,
+    '<strong>$1</strong>'
+  );
+  
+  // Convert markdown-style italic to HTML
+  formattedContent = formattedContent.replace(
+    /\*([^*]+)\*/g,
+    '<em>$1</em>'
+  );
+  
+  // Convert line breaks to <br> tags
+  formattedContent = formattedContent.replace(/\n/g, '<br>');
+  
+  return formattedContent;
 };

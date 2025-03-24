@@ -6,7 +6,8 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { Info, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
-import { SimpleMessage } from "@/types/message";
+import { SimpleMessage, Message } from "@/types/message";
+import { v4 as uuidv4 } from "uuid";
 
 interface ChatPanelProps {
   messages: SimpleMessage[];

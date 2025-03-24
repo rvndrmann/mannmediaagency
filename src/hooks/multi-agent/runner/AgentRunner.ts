@@ -1,12 +1,12 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Command, Message, Task } from "@/types/message";
-import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceManager, Trace } from "../types";
+import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceManager, Trace, ToolContext, ToolResult } from "../types";
 import { parseToolCommand } from "../tool-parser";
 import { toolExecutor } from "../tool-executor";
 import { getToolsForLLM } from "../tools";
-import { ToolContext, ToolResult } from "../types";
 import { toast } from "sonner";
 
 const DEFAULT_MAX_TURNS = 10;
@@ -145,8 +145,10 @@ export class AgentRunner {
       
       // Add user message
       const userMessage: Message = {
+        id: uuidv4(),
         role: "user",
         content: input,
+        createdAt: new Date().toISOString(),
         attachments: attachments.length > 0 ? attachments : undefined
       };
       
@@ -207,7 +209,9 @@ export class AgentRunner {
       if (this.traceManager.isTracingEnabled()) {
         const trace = this.traceManager.finishTrace();
         if (trace) {
-          trace.summary!.success = false;
+          if (trace.summary) {
+            trace.summary.success = false;
+          }
           await this.saveTraceToDatabase(trace);
           console.log(`Completed trace ${trace.traceId} with error`);
         }
@@ -296,13 +300,23 @@ export class AgentRunner {
     this.recordTraceEvent("thinking", { agentType: this.state.currentAgentType });
     
     const assistantMessage: Message = {
+      id: uuidv4(),
       role: "assistant",
       content: "Processing your request...",
       status: "thinking",
       agentType: this.state.currentAgentType,
+      createdAt: new Date().toISOString(),
       tasks: [
-        this.createTask(`Consulting ${this.state.currentAgentType} agent`),
-        this.createTask("Preparing response")
+        {
+          id: uuidv4(),
+          name: `Consulting ${this.state.currentAgentType} agent`,
+          status: "pending"
+        },
+        {
+          id: uuidv4(),
+          name: "Preparing response",
+          status: "pending"
+        }
       ]
     };
     
@@ -434,6 +448,7 @@ export class AgentRunner {
     const toolTask = {
       id: toolTaskId,
       name: `Executing ${command.feature}`,
+      description: `Running ${command.feature} tool`,
       status: "pending" as Task["status"]
     };
     
@@ -520,13 +535,16 @@ export class AgentRunner {
     });
     
     const handoffMessage: Message = {
+      id: uuidv4(),
       role: "assistant",
       content: `I'm transferring you to the ${targetAgent} agent for better assistance.\n\nReason: ${reason}`,
       status: "completed",
       agentType: this.state.currentAgentType,
+      createdAt: new Date().toISOString(),
       tasks: [{
         id: uuidv4(),
         name: `Transferring to ${targetAgent} agent`,
+        description: `Handoff to ${targetAgent}`,
         status: "completed"
       }]
     };
@@ -559,6 +577,7 @@ export class AgentRunner {
     return {
       id: uuidv4(),
       name,
+      description: name,
       status: "pending"
     };
   }
@@ -627,7 +646,14 @@ export class AgentRunner {
    * Save trace to database
    */
   private async saveTraceToDatabase(trace: Trace) {
-    await supabase.from("trace").insert(trace);
+    try {
+      // For now, let's just log the trace to console
+      console.log("Would save trace to database:", trace);
+      // We'll implement the actual database saving once we have a proper table structure
+      // await supabase.from("agent_traces").insert(trace);
+    } catch (error) {
+      console.error("Error saving trace:", error);
+    }
   }
   
   /**

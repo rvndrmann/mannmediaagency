@@ -2,7 +2,8 @@
 import { useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { BUILT_IN_AGENT_TYPES, BUILT_IN_TOOL_TYPES, AgentType } from "@/hooks/use-multi-agent-chat";
-import { Bot, PenLine, Image, Wrench, Video } from "lucide-react";
+import { Bot, PenLine, Image, Wrench, Video, Globe } from "lucide-react";
+import { AgentIconType } from "@/types/message";
 
 interface AgentSelectorProps {
   activeAgent: string;
@@ -25,7 +26,7 @@ export const AgentSelector = ({
       case "image": return <Image className="h-4 w-4" />;
       case "tool": return <Wrench className="h-4 w-4" />;
       case "scene": return <PenLine className="h-4 w-4" />;
-      case "browser": return <Bot className="h-4 w-4" />;
+      case "browser": return <Globe className="h-4 w-4" />;
       case "product-video": return <Video className="h-4 w-4" />;
       case "custom-video": return <Video className="h-4 w-4" />;
       default: return <Bot className="h-4 w-4" />;

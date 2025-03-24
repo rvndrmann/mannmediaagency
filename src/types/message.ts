@@ -27,10 +27,10 @@ export interface AgentInfo {
 }
 
 export interface Message {
-  id: string;
+  id?: string;
   role: 'user' | 'assistant' | 'system' | 'tool';
   content: string;
-  createdAt: string;
+  createdAt?: string;
   agentType?: string;
   agentName?: string;
   agentIcon?: AgentIconType;
@@ -42,6 +42,7 @@ export interface Message {
   attachments?: Attachment[];
   feature?: string;
   modelUsed?: string;
+  selectedTool?: string;
 }
 
 export interface Attachment {
@@ -60,17 +61,18 @@ export interface HandoffRequest {
 
 export interface Task {
   id: string;
-  description: string;
   name?: string;
+  description?: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'in-progress' | 'error';
   details?: string;
 }
 
 export interface Command {
-  toolName: string;
+  toolName?: string;
+  feature: string;
   parameters: Record<string, any>;
-  feature?: string;
-  action?: string;
+  type?: string;
+  confidence?: number;
 }
 
 // Export a type alias for components that use a simpler Message type

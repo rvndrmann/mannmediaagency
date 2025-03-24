@@ -24,8 +24,7 @@ export function parseToolCommand(text: string): Command | null {
       }
       
       return {
-        feature: feature as Command["feature"],
-        action: "create",
+        feature: feature,
         parameters,
         confidence: 0.9
       };
@@ -69,8 +68,7 @@ export function parseToolCommand(text: string): Command | null {
               console.log(`Parsed tool parameters for ${toolName}:`, parameters);
               
               return {
-                feature: toolName as Command["feature"],
-                action: "create",
+                feature: toolName,
                 parameters,
                 confidence: 0.8,
                 type: "direct"
@@ -130,36 +128,14 @@ export function parseToolCommand(text: string): Command | null {
           if (saveMatch) parameters.saveBrowserData = saveMatch[1].toLowerCase() === "true";
         }
         
-        if (toolName === "product-video") {
-          const scriptMatch = text.match(/script[:\s]+["']?([^"'\n]+)["']?/i);
-          if (scriptMatch) parameters.script = scriptMatch[1].trim();
-          
-          const styleMatch = text.match(/style[:\s]+["']?([a-zA-Z]+)["']?/i);
-          if (styleMatch) parameters.style = styleMatch[1].toLowerCase();
-          
-          const readyMatch = text.match(/readyToGo[:\s]+["']?([a-zA-Z]+)["']?/i);
-          if (readyMatch) parameters.readyToGo = readyMatch[1].toLowerCase() === "true";
-        }
-        
-        if (toolName === "custom-video") {
-          const descriptionMatch = text.match(/description[:\s]+["']?([^"'\n]+)["']?/i);
-          if (descriptionMatch) parameters.description = descriptionMatch[1].trim();
-          
-          const creditsMatch = text.match(/credits(?:Amount)?[:\s]+["']?(\d+)["']?/i);
-          if (creditsMatch) parameters.creditsAmount = parseInt(creditsMatch[1], 10);
-        }
-        
         return {
-          feature: toolName as Command["feature"],
-          action: "create",
+          feature: toolName,
           parameters,
-          confidence: 0.7,
-          type: "direct"
+          confidence: 0.6
         };
       }
     }
     
-    console.log("No tool command found in text");
     return null;
   } catch (error) {
     console.error("Error parsing tool command:", error);

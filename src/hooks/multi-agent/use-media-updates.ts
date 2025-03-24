@@ -1,204 +1,141 @@
 
-import { useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { Message, Task } from "@/types/message";
-import { v4 as uuidv4 } from "uuid";
+import { useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Task } from '@/types/message';
+import { v4 as uuidv4 } from 'uuid';
+import { toast } from 'sonner';
+
+const POLLING_INTERVAL = 5000; // 5 seconds
 
 interface UseMediaUpdatesProps {
-  messages: Message[];
-  updateMessage: (index: number, updates: Partial<Message>) => void;
+  jobId?: string;
+  type: 'image' | 'video';
+  onComplete?: (mediaUrl: string) => void;
+  onProgress?: (progress: number) => void;
+  onError?: (error: string) => void;
 }
 
-// Define types for the payload data to avoid TypeScript errors
-interface ImageGenerationPayload {
-  user_id?: string;
-  request_id?: string;
-  status?: string;
-  result_url?: string;
-}
+export const useMediaUpdates = ({
+  jobId,
+  type,
+  onComplete,
+  onProgress,
+  onError
+}: UseMediaUpdatesProps) => {
+  const [status, setStatus] = useState<string | null>(null);
+  const [progress, setProgress] = useState<number>(0);
+  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isPolling, setIsPolling] = useState<boolean>(false);
 
-interface VideoGenerationPayload {
-  user_id?: string;
-  request_id?: string;
-  status?: string;
-  result_url?: string;
-}
+  // Get the appropriate table name based on type
+  const getTableName = () => {
+    return type === 'image' ? 'image_generation_jobs' : 'video_generation_jobs';
+  };
 
-export const useMediaUpdates = ({ messages, updateMessage }: UseMediaUpdatesProps) => {
-  // Subscribe to real-time updates for image generation jobs
+  // Function to check media status
+  const checkMediaStatus = useCallback(async () => {
+    if (!jobId) return;
+
+    try {
+      const tableName = getTableName();
+      
+      const { data, error: fetchError } = await supabase
+        .from(tableName)
+        .select('status, result_url, progress')
+        .eq('id', jobId)
+        .single();
+
+      if (fetchError) {
+        console.error(`Error fetching ${type} status:`, fetchError);
+        setError(`Error checking ${type} status`);
+        if (onError) onError(`Error checking ${type} status`);
+        return;
+      }
+
+      if (!data) {
+        console.error(`No ${type} data found for ID ${jobId}`);
+        setError(`No ${type} found`);
+        if (onError) onError(`No ${type} found`);
+        return;
+      }
+
+      // Update status
+      setStatus(data.status);
+      
+      // Update progress if available
+      if (data.progress !== undefined && data.progress !== null) {
+        setProgress(data.progress);
+        if (onProgress) onProgress(data.progress);
+      }
+
+      // Check if media generation is complete
+      if (data.status === 'completed' && data.result_url) {
+        setMediaUrl(data.result_url);
+        setIsPolling(false);
+        if (onComplete) onComplete(data.result_url);
+        
+        toast.success(`${type === 'image' ? 'Image' : 'Video'} generated successfully!`);
+      }
+
+      // Check for errors
+      if (data.status === 'failed' || data.status === 'error') {
+        setError(`${type === 'image' ? 'Image' : 'Video'} generation failed`);
+        setIsPolling(false);
+        if (onError) onError(`${type === 'image' ? 'Image' : 'Video'} generation failed`);
+        
+        toast.error(`${type === 'image' ? 'Image' : 'Video'} generation failed. Please try again.`);
+      }
+    } catch (err) {
+      console.error(`Error in checkMediaStatus for ${type}:`, err);
+      setError(`Error checking ${type} status`);
+      if (onError) onError(`Error checking ${type} status`);
+    }
+  }, [jobId, type, onComplete, onProgress, onError]);
+
+  // Start polling when jobId changes
   useEffect(() => {
-    // Find messages with pending tool commands that might generate images
-    const messagesWithImageCommands = messages
-      .map((message, index) => ({ message, index }))
-      .filter(({ message }) => 
-        message.command?.feature === "product-shot-v1" || 
-        message.command?.feature === "product-shot-v2"
-      );
-
-    if (messagesWithImageCommands.length === 0) return;
-
-    // Set up realtime subscription for image_generation_jobs table
-    const imageChannel = supabase
-      .channel('image-generation-updates')
-      .on(
-        'postgres_changes',
-        {
-          event: '*',
-          schema: 'public',
-          table: 'image_generation_jobs'
-        },
-        (payload) => {
-          // For each updated job, check if it matches any of our pending tool commands
-          const { new: newData } = payload;
-          const typedData = newData as ImageGenerationPayload;
-          
-          if (!typedData || !typedData.user_id) return;
-
-          // Process each message with image commands
-          messagesWithImageCommands.forEach(({ message, index }) => {
-            // Check if this job update matches our command's requestId
-            const requestId = message.command?.parameters?.requestId;
-            if (requestId && requestId === typedData.request_id) {
-              // Update message based on job status
-              if (typedData.status === 'completed' && typedData.result_url) {
-                // Update the message content with the generated image
-                const imageUrl = typedData.result_url;
-                const updatedContent = `${message.content}\n\n![Generated Image](${imageUrl})`;
-                
-                // Find and update the task status
-                const updatedTasks = message.tasks ? message.tasks.map(task => 
-                  task.name.includes(message.command?.feature || '') 
-                    ? { ...task, status: 'completed' as const } 
-                    : task
-                ) : undefined;
-                
-                updateMessage(index, {
-                  content: updatedContent,
-                  tasks: updatedTasks
-                });
-              } else if (typedData.status === 'failed') {
-                // Update with failure message
-                const updatedContent = `${message.content}\n\nⓧ Image generation failed. Please try again.`;
-                
-                // Find and update the task status
-                const updatedTasks = message.tasks ? message.tasks.map(task => 
-                  task.name.includes(message.command?.feature || '') 
-                    ? { ...task, status: 'error' as const, details: 'Image generation failed' } 
-                    : task
-                ) : undefined;
-                
-                updateMessage(index, {
-                  content: updatedContent,
-                  tasks: updatedTasks
-                });
-              }
-            }
-          });
-        }
-      )
-      .subscribe();
-
-    // Set up realtime subscription for video_generation_jobs table
-    const videoMessagesWithCommands = messages
-      .map((message, index) => ({ message, index }))
-      .filter(({ message }) => 
-        message.command?.feature === "image-to-video" || 
-        message.command?.feature === "product-video"
-      );
-
-    let videoChannel;
-
-    if (videoMessagesWithCommands.length > 0) {
-      videoChannel = supabase
-        .channel('video-generation-updates')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'video_generation_jobs'
-          },
-          (payload) => {
-            // For each updated job, check if it matches any of our pending tool commands
-            const { new: newData } = payload;
-            const typedData = newData as VideoGenerationPayload;
-            
-            if (!typedData || !typedData.user_id) return;
-
-            // Process each message with video commands
-            videoMessagesWithCommands.forEach(({ message, index }) => {
-              // Check if this job update matches our command's requestId
-              const requestId = message.command?.parameters?.requestId;
-              if (requestId && requestId === typedData.request_id) {
-                // Update message based on job status
-                if (typedData.status === 'completed' && typedData.result_url) {
-                  // Update the message content with the generated video
-                  const videoUrl = typedData.result_url;
-                  const updatedContent = `${message.content}\n\n<video controls src="${videoUrl}" style="max-width: 100%; border-radius: 8px;"></video>`;
-                  
-                  // Find and update the task status
-                  const updatedTasks = message.tasks ? message.tasks.map(task => 
-                    task.name.includes('video') || task.name.includes('conversion')
-                      ? { ...task, status: 'completed' as const } 
-                      : task
-                  ) : undefined;
-                  
-                  updateMessage(index, {
-                    content: updatedContent,
-                    tasks: updatedTasks
-                  });
-                } else if (typedData.status === 'failed') {
-                  // Update with failure message
-                  const updatedContent = `${message.content}\n\nⓧ Video generation failed. Please try again.`;
-                  
-                  // Find and update the task status
-                  const updatedTasks = message.tasks ? message.tasks.map(task => 
-                    task.name.includes('video') || task.name.includes('conversion')
-                      ? { ...task, status: 'error' as const, details: 'Video generation failed' } 
-                      : task
-                  ) : undefined;
-                  
-                  updateMessage(index, {
-                    content: updatedContent,
-                    tasks: updatedTasks
-                  });
-                }
-              }
-            });
-          }
-        )
-        .subscribe();
+    if (jobId) {
+      setIsPolling(true);
+      setStatus('pending');
+      setProgress(0);
+      setMediaUrl(null);
+      setError(null);
+      
+      // Initial check
+      checkMediaStatus();
+    } else {
+      setIsPolling(false);
     }
+  }, [jobId, checkMediaStatus]);
 
-    // Cleanup subscriptions on unmount
-    return () => {
-      supabase.removeChannel(imageChannel);
-      if (videoChannel) supabase.removeChannel(videoChannel);
-    };
-  }, [messages, updateMessage]);
+  // Set up polling interval
+  useEffect(() => {
+    if (!isPolling) return;
 
-  // Helper function to create a task for tracking media generation
-  const createMediaGenerationTask = (command: Message['command']): Task => {
-    let taskName = "Processing request";
-    
-    if (command?.feature === "product-shot-v1") {
-      taskName = "Generating product image (v1)";
-    } else if (command?.feature === "product-shot-v2") {
-      taskName = "Generating enhanced product image (v2)";
-    } else if (command?.feature === "image-to-video") {
-      taskName = "Converting image to video";
-    } else if (command?.feature === "product-video") {
-      taskName = "Creating product video";
-    }
-    
+    const intervalId = setInterval(() => {
+      checkMediaStatus();
+    }, POLLING_INTERVAL);
+
+    return () => clearInterval(intervalId);
+  }, [isPolling, checkMediaStatus]);
+
+  // Helper function to create a task object for the media generation
+  const createMediaTask = (name: string, status: Task['status'] = 'pending'): Task => {
     return {
       id: uuidv4(),
-      name: taskName,
-      status: "pending",
+      name,
+      description: name,
+      status
     };
   };
 
   return {
-    createMediaGenerationTask
+    status,
+    progress,
+    mediaUrl,
+    error,
+    isPolling,
+    createMediaTask
   };
 };

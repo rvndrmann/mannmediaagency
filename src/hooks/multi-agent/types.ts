@@ -17,7 +17,14 @@ export interface ToolResult {
   credits_used?: number;
 }
 
-export type CommandExecutionState = "pending" | "running" | "completed" | "error";
+export interface CommandExecutionState {
+  commandId: string;
+  status: string;
+  startTime: Date;
+  result?: ToolResult;
+  endTime?: Date;
+  error?: string;
+}
 
 // Trace types
 export interface TraceEvent {

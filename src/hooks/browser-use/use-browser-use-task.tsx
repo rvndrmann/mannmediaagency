@@ -5,6 +5,7 @@ import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
 import { useUserData } from "./use-user-data";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   // Basic settings
@@ -230,7 +231,7 @@ export function useBrowserUseTask() {
     setProgress,
     setTaskSteps,
     setTaskOutput,
-    setTaskStatus,
+    setTaskStatus: setTaskStatus as (value: TaskStatus) => void,
     setCurrentUrl,
     setUserCredits,
     setError,
@@ -256,7 +257,7 @@ export function useBrowserUseTask() {
     state,
     {
       setProgress,
-      setTaskStatus,
+      setTaskStatus: setTaskStatus as (value: TaskStatus) => void,
       setCurrentUrl,
       setTaskSteps,
       setTaskOutput,

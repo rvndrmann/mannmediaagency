@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { Agent, Context, RunStep, FunctionTool, ModelSettings } from "https://esm.sh/@langchain/openai";
+import { Agent, Context, FunctionTool, ModelSettings } from "https://esm.sh/@langchain/openai";
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 

@@ -100,11 +100,22 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       const existingMetadata = existingRecord.metadata || {};
       const existingTrace = safeGetTraceFromMetadata(existingMetadata) || {};
       
+      // Fix the spread type issue by adding explicit type casting
+      let updatedEvents = [];
+      if (Array.isArray(existingTrace.events)) {
+        updatedEvents = [...existingTrace.events];
+      }
+      
+      // Add the new events, safely appending to existing
+      if (trace.events && Array.isArray(trace.events)) {
+        updatedEvents.push(...trace.events.slice(-5));
+      }
+      
       const updatedMetadata = { 
         ...existingMetadata,
         trace: {
           ...existingTrace,
-          events: [...(existingTrace.events || []), ...trace.events.slice(-5)],
+          events: updatedEvents,
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)
         }

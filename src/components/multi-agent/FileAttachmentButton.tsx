@@ -1,110 +1,78 @@
 
-import { useState, useRef } from "react";
+import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Paperclip, X } from "lucide-react";
-import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
+import { PaperClip } from "lucide-react";
 import { Attachment } from "@/types/message";
-import { supabase } from "@/integrations/supabase/client";
+import { v4 as uuidv4 } from "uuid";
 
-interface FileAttachmentButtonProps {
-  onAddAttachment: (attachment: Attachment) => void;
-  maxSizeMB?: number;
+export interface FileAttachmentButtonProps {
+  onAttach: (attachments: Attachment[]) => void;
+  disabled?: boolean;
 }
 
-export function FileAttachmentButton({ onAddAttachment, maxSizeMB = 10 }: FileAttachmentButtonProps) {
-  const [isUploading, setIsUploading] = useState(false);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+export const FileAttachmentButton: React.FC<FileAttachmentButtonProps> = ({ 
+  onAttach, 
+  disabled = false 
+}) => {
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
+
+  const handleButtonClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
+    const files = e.target.files;
+    if (!files || files.length === 0) return;
 
-    // Check file size
-    const fileSizeMB = file.size / (1024 * 1024);
-    if (fileSizeMB > maxSizeMB) {
-      toast.error(`File size exceeds ${maxSizeMB}MB limit`);
-      return;
-    }
+    const attachments: Attachment[] = [];
 
-    try {
-      setIsUploading(true);
+    for (let i = 0; i < files.length; i++) {
+      const file = files[i];
       
-      // Get user data for folder path
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-      
-      const fileId = uuidv4();
-      const fileExt = file.name.split('.').pop();
-      const filePath = `${user.id}/attachments/${fileId}.${fileExt}`;
-      
-      // Upload file to storage
-      const { error: uploadError, data } = await supabase.storage
-        .from('attachments')
-        .upload(filePath, file);
-        
-      if (uploadError) throw uploadError;
-      
-      // Get public URL
-      const { data: { publicUrl } } = supabase.storage
-        .from('attachments')
-        .getPublicUrl(filePath);
-      
-      // Determine if it's an image
-      const isImage = file.type.startsWith('image/');
-      
-      // Create attachment object
+      // Create a new attachment
       const attachment: Attachment = {
-        id: fileId,
-        url: publicUrl,
+        id: uuidv4(),
         name: file.name,
-        type: isImage ? 'image' : 'file',
+        type: file.type,
         size: file.size,
+        url: URL.createObjectURL(file),
+        contentType: file.type
       };
       
-      // Add content type if available (optional in the type)
-      if (file.type) {
-        attachment.contentType = file.type;
-      }
-      
-      onAddAttachment(attachment);
-      toast.success("File uploaded successfully");
-      
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
-      
-    } catch (error) {
-      console.error("Error uploading file:", error);
-      toast.error("Failed to upload file");
-    } finally {
-      setIsUploading(false);
+      attachments.push(attachment);
+    }
+
+    if (attachments.length > 0) {
+      onAttach(attachments);
+    }
+
+    // Reset the input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
     }
   };
 
   return (
-    <div>
-      <input 
+    <>
+      <Button
+        variant="ghost"
+        size="icon"
+        onClick={handleButtonClick}
+        disabled={disabled}
+        className="text-muted-foreground hover:text-foreground"
+        type="button"
+      >
+        <PaperClip className="h-5 w-5" />
+      </Button>
+      <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileChange}
         className="hidden"
+        multiple
       />
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={() => fileInputRef.current?.click()}
-        disabled={isUploading}
-        aria-label="Attach file"
-        title="Attach file"
-      >
-        {isUploading ? (
-          <div className="h-4 w-4 animate-spin rounded-full border-2 border-gray-300 border-t-blue-600" />
-        ) : (
-          <Paperclip className="h-5 w-5" />
-        )}
-      </Button>
-    </div>
+    </>
   );
-}
+};

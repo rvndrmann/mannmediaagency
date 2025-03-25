@@ -11,7 +11,7 @@ import { customVideoTool } from "./custom-video-tool";
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
   description: "Browse the web to perform tasks using an automated browser",
-  executor: executeBrowserUseTool,
+  execute: executeBrowserUseTool,
   parameters: {
     task: {
       type: "string",

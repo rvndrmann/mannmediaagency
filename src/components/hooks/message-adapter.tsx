@@ -8,21 +8,29 @@ import { Message } from '@/types/message';
  * have incompatible role definitions.
  */
 
+// Define a SimpleMessage type that components expect
+export interface SimpleMessage {
+  role: "user" | "assistant";
+  content: string;
+  status?: "thinking" | "completed" | "error";
+}
+
 // Simple message adapter for components that expect only 'user' and 'assistant' roles
-export const adaptMessagesForComponents = (messages: Message[]): Message[] => {
+export const adaptMessagesForComponents = (messages: Message[]): SimpleMessage[] => {
   // Filter out messages with incompatible roles for certain components
   return messages.filter(msg => 
     msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system' || msg.role === 'tool'
   ).map(msg => ({
-    ...msg,
-    role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role
-  }));
+    role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
+    content: msg.content,
+    status: msg.status
+  })) as SimpleMessage[];
 };
 
 // Adapter to convert complex Message to simple format expected by some components
-export const adaptToSimpleMessage = (message: Message) => {
+export const adaptToSimpleMessage = (message: Message): SimpleMessage => {
   return {
-    role: message.role === 'system' || message.role === 'tool' ? 'assistant' : message.role,
+    role: message.role === 'system' || message.role === 'tool' ? 'assistant' : msg.role,
     content: message.content,
     status: message.status
   };

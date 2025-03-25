@@ -13,6 +13,8 @@ export interface SimpleMessage {
   role: "user" | "assistant";
   content: string;
   status?: "thinking" | "completed" | "error";
+  id?: string;
+  createdAt?: string;
 }
 
 // Simple message adapter for components that expect only 'user' and 'assistant' roles
@@ -23,7 +25,9 @@ export const adaptMessagesForComponents = (messages: Message[]): SimpleMessage[]
   ).map(msg => ({
     role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
     content: msg.content,
-    status: msg.status
+    status: msg.status,
+    id: msg.id,
+    createdAt: msg.createdAt
   })) as SimpleMessage[];
 };
 
@@ -32,7 +36,9 @@ export const adaptToSimpleMessage = (message: Message): SimpleMessage => {
   return {
     role: message.role === 'system' || message.role === 'tool' ? 'assistant' : message.role,
     content: message.content,
-    status: message.status
+    status: message.status,
+    id: message.id,
+    createdAt: message.createdAt
   };
 };
 
@@ -55,6 +61,8 @@ export const adaptMessages = <T extends { role: string; content: string }>(
     .map(msg => ({
       role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
       content: msg.content,
-      status: msg.status
+      status: msg.status,
+      id: msg.id,
+      createdAt: msg.createdAt
     })) as unknown as T[];
 };

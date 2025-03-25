@@ -9,6 +9,7 @@ import { Card } from '@/components/ui/card';
 import { formatTraceTimestamp } from '@/lib/trace-utils';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
 import { Bot, Clock, MessageSquare, BarChart2, ArrowRight, Globe, Zap, Wrench } from 'lucide-react';
+import { useAuth } from '@/hooks/use-auth';
 
 interface TraceSummary {
   id: string;
@@ -41,6 +42,7 @@ type TraceData = {
 };
 
 export const TraceDashboard = () => {
+  const { user } = useAuth();
   const [traceData, setTraceData] = useState<TraceSummary[]>([]);
   const [statistics, setStatistics] = useState({
     totalTraces: 0,
@@ -55,8 +57,10 @@ export const TraceDashboard = () => {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetchTraceData();
-  }, []);
+    if (user) {
+      fetchTraceData();
+    }
+  }, [user]);
 
   const fetchTraceData = async () => {
     try {
@@ -75,9 +79,25 @@ export const TraceDashboard = () => {
 
       // Process the interactions to extract trace data
       const traces: TraceSummary[] = interactions
-        .filter(interaction => interaction.metadata?.trace)
+        .filter(interaction => {
+          // Safely check if metadata.trace exists
+          if (!interaction.metadata) return false;
+          
+          // Handle different metadata types (string or object)
+          const metadata = typeof interaction.metadata === 'string' 
+            ? JSON.parse(interaction.metadata) 
+            : interaction.metadata;
+            
+          return metadata && typeof metadata === 'object' && 'trace' in metadata;
+        })
         .map(interaction => {
-          const trace = interaction.metadata.trace as TraceData;
+          // Safely extract trace data
+          const metadata = typeof interaction.metadata === 'string' 
+            ? JSON.parse(interaction.metadata) 
+            : interaction.metadata;
+            
+          const trace = metadata.trace as TraceData;
+          
           return {
             id: trace.runId || interaction.id,
             runId: trace.runId || interaction.id,

@@ -1,4 +1,3 @@
-
 // Utility functions for OpenAI traces
 import { supabase } from '@/integrations/supabase/client';
 
@@ -113,10 +112,13 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
         updatedEvents.push(...trace.events.slice(-5));
       }
       
+      // Create a properly typed object to avoid spread type error
+      const traceObject = typeof existingTrace === 'object' ? existingTrace : {};
+      
       const updatedMetadata = { 
         ...existingMetadata,
         trace: {
-          ...(typeof existingTrace === 'object' ? existingTrace : {}),
+          ...traceObject,
           events: updatedEvents,
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)
@@ -152,6 +154,14 @@ export const calculateDuration = (startTime: string, endTime: string): number =>
   const start = new Date(startTime).getTime();
   const end = new Date(endTime).getTime();
   return (end - start) / 1000;
+};
+
+// Helper function to format duration in a human-readable way
+export const formatDuration = (seconds: number): string => {
+  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+  return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
 };
 
 // Function to generate a simplified trace event

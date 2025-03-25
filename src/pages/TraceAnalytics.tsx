@@ -3,11 +3,7 @@ import { TraceDashboard } from "@/components/multi-agent/TraceDashboard";
 import { useEffect } from "react";
 import { useAuth } from "@/hooks/use-auth";
 
-interface TraceAnalyticsProps {
-  // Add any props needed here
-}
-
-export default function TraceAnalytics({ }: TraceAnalyticsProps) {
+export default function TraceAnalytics() {
   const { user } = useAuth();
   
   useEffect(() => {
@@ -22,9 +18,6 @@ export default function TraceAnalytics({ }: TraceAnalyticsProps) {
     );
   }
 
-  return (
-    <TraceDashboard 
-      userId={user.id} 
-    />
-  );
+  // The TraceDashboard component should handle the userId internally
+  return <TraceDashboard />;
 }

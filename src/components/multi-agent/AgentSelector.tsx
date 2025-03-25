@@ -79,7 +79,8 @@ interface AgentSelectorProps {
 
 export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps) => {
   const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
-  const { agents, createAgent, isLoading } = useCustomAgents();
+  const { agents, addAgent, updateAgent, deleteAgent, getAgent } = useCustomAgents();
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   // Define built-in agent types
   const builtInAgents = [
@@ -92,12 +93,15 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
 
   const handleCreateAgent = async (formData: CustomAgentFormData) => {
     try {
-      await createAgent(formData);
+      setIsSubmitting(true);
+      await addAgent(formData);
       setShowAddAgentDialog(false);
       toast.success("Custom agent created successfully!");
     } catch (error) {
       console.error("Error creating agent:", error);
       toast.error("Failed to create custom agent");
+    } finally {
+      setIsSubmitting(false);
     }
   };
 

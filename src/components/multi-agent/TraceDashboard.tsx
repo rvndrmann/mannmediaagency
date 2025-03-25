@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -212,7 +211,11 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
           return;
         }
         
-        interactions.push(...groupInteractions);
+        // Type assertion to avoid spread error
+        const typedInteractions = interactions as any[];
+        if (groupInteractions) {
+          typedInteractions.push(...groupInteractions);
+        }
       }
       
       // Extract trace events from all interactions

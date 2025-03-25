@@ -1,4 +1,3 @@
-
 // Types for browser use automation API
 export type TaskStatus = 
   | 'idle'       // Initial state, no task in progress
@@ -38,7 +37,7 @@ export interface BrowserTaskState {
   error: string | null;
   browserConfig: BrowserConfig;
   liveUrl: string | null;
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  connectionStatus: "disconnected" | "connecting" | "connected" | "error" | "checking" | "retry";
 }
 
 export interface UserCredits {

@@ -1,4 +1,3 @@
-
 // Utility functions for OpenAI traces
 import { supabase } from '@/integrations/supabase/client';
 
@@ -100,9 +99,9 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       const existingMetadata = existingRecord.metadata || {};
       const existingTrace = safeGetTraceFromMetadata(existingMetadata) || {};
       
-      // Fix the spread type issue by adding explicit type casting
-      let updatedEvents = [];
-      if (Array.isArray(existingTrace.events)) {
+      // Fix the spread type issue by adding explicit type casting and initialization
+      let updatedEvents: any[] = [];
+      if (existingTrace.events && Array.isArray(existingTrace.events)) {
         updatedEvents = [...existingTrace.events];
       }
       

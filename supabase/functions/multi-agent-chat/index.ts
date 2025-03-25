@@ -1,7 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { Agent, Context, AgentRunner } from "https://esm.sh/@langchain/openai";
+import { Agent, Context, RunStep, FunctionTool, ModelSettings } from "https://esm.sh/@langchain/openai";
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -11,7 +11,7 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Define agent types and models
+// Define agent models
 const AGENT_MODELS = {
   "main": "gpt-4o",
   "script": "gpt-4o",
@@ -34,6 +34,109 @@ const AGENT_INSTRUCTIONS = {
   "product-video": "You are a product video specialist, creating compelling video content for products.",
   "custom-video": "You are a custom video specialist, creating personalized video content."
 };
+
+// Create a simple context class for agent runs
+class AgentContext extends Context {
+  userId: string;
+  availableTools: any[];
+  enableDirectToolExecution: boolean;
+  usePerformanceModel: boolean;
+  isHandoffContinuation: boolean;
+  requestedTool?: string;
+
+  constructor(data: {
+    userId: string;
+    availableTools?: any[];
+    enableDirectToolExecution?: boolean;
+    usePerformanceModel?: boolean;
+    isHandoffContinuation?: boolean;
+    requestedTool?: string;
+  }) {
+    super();
+    this.userId = data.userId;
+    this.availableTools = data.availableTools || [];
+    this.enableDirectToolExecution = data.enableDirectToolExecution ?? true;
+    this.usePerformanceModel = data.usePerformanceModel ?? false;
+    this.isHandoffContinuation = data.isHandoffContinuation ?? false;
+    this.requestedTool = data.requestedTool;
+  }
+}
+
+function createBrowserUseTool() {
+  return new FunctionTool({
+    name: "browser-use",
+    description: "Browse the web to perform tasks using an automated browser",
+    parameters: {
+      type: "object",
+      properties: {
+        task: {
+          type: "string",
+          description: "The task to perform using the browser"
+        },
+        save_browser_data: {
+          type: "boolean",
+          description: "Whether to save browser data (cookies, etc.)",
+          default: true
+        }
+      },
+      required: ["task"]
+    },
+    async func(args, agentContext: AgentContext) {
+      console.log("Browser-use tool called with args:", args);
+      return `I'll help you with browsing: ${args.task}. To execute this task, please use the browser-use agent directly.`;
+    }
+  });
+}
+
+function createProductVideoTool() {
+  return new FunctionTool({
+    name: "product-video",
+    description: "Generate product videos",
+    parameters: {
+      type: "object",
+      properties: {
+        product_name: {
+          type: "string",
+          description: "Name of the product"
+        },
+        description: {
+          type: "string",
+          description: "Description of the product"
+        }
+      },
+      required: ["product_name", "description"]
+    },
+    async func(args, agentContext: AgentContext) {
+      console.log("Product-video tool called with args:", args);
+      return `I'll help you create a video for ${args.product_name}. To execute this task, please use the product-video agent directly.`;
+    }
+  });
+}
+
+function createCustomVideoTool() {
+  return new FunctionTool({
+    name: "custom-video",
+    description: "Create custom video content",
+    parameters: {
+      type: "object",
+      properties: {
+        title: {
+          type: "string",
+          description: "Title of the video"
+        },
+        script: {
+          type: "string",
+          description: "Script content for the video"
+        }
+      },
+      required: ["title", "script"]
+    },
+    async func(args, agentContext: AgentContext) {
+      console.log("Custom-video tool called with args:", args);
+      return `I'll help you create a custom video titled "${args.title}". To execute this task, please use the custom-video agent directly.`;
+    }
+  });
+}
 
 function createAgent(agentType: string, contextData: any) {
   // Get the model to use
@@ -61,18 +164,42 @@ function createAgent(agentType: string, contextData: any) {
     enhancedInstruction += ` The user has specifically requested to use the ${contextData.requestedTool} tool.`;
   }
 
+  // Create the list of tools based on agent type
+  const tools = [];
+  if (agentType === "tool" || contextData.enableDirectToolExecution) {
+    tools.push(createBrowserUseTool());
+    tools.push(createProductVideoTool());
+    tools.push(createCustomVideoTool());
+  }
+
   // Create an agent with OpenAI
   const agent = new Agent({
     name: agentType,
     instructions: enhancedInstruction,
     model: model,
-    model_settings: {
+    model_settings: new ModelSettings({
       temperature: 0.7,
+      top_p: 0.9,
       max_tokens: 1000
-    }
+    }),
+    tools: tools
   });
 
   return agent;
+}
+
+function detectHandoffRequest(content: string): { targetAgent: string; reason: string } | null {
+  const handoffRegex = /HANDOFF TO:\s*(\w+)(?:\s+REASON:\s*([^\n]+))?/i;
+  const match = content.match(handoffRegex);
+  
+  if (match) {
+    return {
+      targetAgent: match[1].toLowerCase(),
+      reason: match[2] || "No reason specified"
+    };
+  }
+  
+  return null;
 }
 
 serve(async (req: Request) => {
@@ -89,7 +216,8 @@ serve(async (req: Request) => {
       throw new Error("OPENAI_API_KEY is not set in environment variables");
     }
 
-    const { messages, agentType = "main", contextData = {} } = await req.json();
+    const requestData = await req.json();
+    const { messages, agentType = "main", contextData = {}, userId } = requestData;
     
     if (!messages || !Array.isArray(messages)) {
       throw new Error("Invalid request: messages array is required");
@@ -106,31 +234,40 @@ serve(async (req: Request) => {
     const agent = createAgent(agentType, contextData);
     
     // Create a context for the agent
-    const context = new Context();
+    const context = new AgentContext({
+      userId: userId || "anonymous",
+      availableTools: contextData.availableTools || [],
+      enableDirectToolExecution: contextData.enableDirectToolExecution || false,
+      usePerformanceModel: contextData.usePerformanceModel || false,
+      isHandoffContinuation: contextData.isHandoffContinuation || false,
+      requestedTool: contextData.requestedTool
+    });
     
-    // Call the agent with the messages
-    const agentRunner = new AgentRunner(agent, context);
-    const response = await agentRunner.run(messages);
+    // Format messages for the agent
+    const formattedMessages = messages.map(msg => ({
+      role: msg.role,
+      content: msg.content
+    }));
     
-    console.log(`[${requestId}] Received completion from OpenAI (${response.content.length} chars)`);
+    console.log(`[${requestId}] Running agent with ${formattedMessages.length} messages`);
+    
+    // Run the agent to get a response
+    const response = await agent.run(context, formattedMessages);
+    
+    // Get the text content from the response
+    const content = response.content;
+    console.log(`[${requestId}] Received completion from OpenAI (${content.length} chars)`);
 
     // Check if there's a handoff request
-    let handoffRequest = null;
-    const handoffRegex = /HANDOFF TO:\s*(\w+)(?:\s+REASON:\s*([^\n]+))?/i;
-    const handoffMatch = response.content.match(handoffRegex);
-    
-    if (handoffMatch) {
-      handoffRequest = {
-        targetAgent: handoffMatch[1].toLowerCase(),
-        reason: handoffMatch[2] || "No reason specified"
-      };
+    const handoffRequest = detectHandoffRequest(content);
+    if (handoffRequest) {
       console.log(`[${requestId}] Detected handoff request to: ${handoffRequest.targetAgent}`);
     }
 
     // Return the response
     return new Response(
       JSON.stringify({
-        completion: response.content,
+        completion: content,
         handoffRequest: handoffRequest,
         modelUsed: agent.model || "gpt-4o"
       }),

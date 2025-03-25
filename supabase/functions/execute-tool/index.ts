@@ -19,31 +19,36 @@ async function executeBrowserUseTool(parameters: any) {
 
   console.log("Executing browser-use tool with parameters:", parameters);
   
-  // Call the browser-use API
-  const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      task: parameters.task,
-      save_browser_data: parameters.save_browser_data !== false
-    })
-  });
-  
-  if (!response.ok) {
-    const errorText = await response.text();
-    console.error("Browser Use API Error Response:", errorText);
-    throw new Error(`Browser Use API error: ${response.status} - ${errorText}`);
+  try {
+    // Call the browser-use API
+    const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        task: parameters.task,
+        save_browser_data: parameters.save_browser_data !== false
+      })
+    });
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error("Browser Use API Error Response:", errorText);
+      throw new Error(`Browser Use API error: ${response.status} - ${errorText}`);
+    }
+    
+    const data = await response.json();
+    return {
+      success: true,
+      message: "Browser task submitted successfully",
+      taskId: data.task_id || data.id
+    };
+  } catch (error) {
+    console.error("Error executing browser-use tool:", error);
+    throw error;
   }
-  
-  const data = await response.json();
-  return {
-    success: true,
-    message: "Browser task submitted successfully",
-    taskId: data.task_id
-  };
 }
 
 // Function to execute product-video tool

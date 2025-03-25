@@ -8,6 +8,7 @@ export interface ToolContext {
   attachments: Attachment[];
   selectedTool?: string;
   previousOutputs: Record<string, any>;
+  traceId?: string;
 }
 
 export interface ToolResult {

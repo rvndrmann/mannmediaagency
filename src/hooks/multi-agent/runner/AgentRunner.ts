@@ -14,7 +14,6 @@ import {
 } from './fix-agent-runner';
 import { createTraceEvent, saveTrace } from '@/lib/trace-utils';
 
-// Define built-in agent types
 const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 const BUILT_IN_TOOL_TYPES = ['browser', 'product-video', 'custom-video'];
 
@@ -63,13 +62,11 @@ export class AgentRunner {
     this.startTime = new Date().toISOString();
     this.traceEvents = [];
     
-    // Add initialization event to trace
     if (!options.tracingDisabled) {
       this.addTraceEvent('init', {
         agentType: this.agentType,
         options: {
           ...options,
-          // Don't include sensitive data in trace
           metadata: { ...options.metadata, userId: undefined }
         }
       });
@@ -83,21 +80,17 @@ export class AgentRunner {
   ): Promise<Message> {
     console.log(`Running ${this.agentType} agent with input: ${userInput.slice(0, 50)}...`);
     
-    // Add user input event to trace
     this.addTraceEvent('user_input', { 
       content: userInput,
       hasAttachments: attachments.length > 0
     });
     
     try {
-      // Create initial thinking message
       const thinkingMessage = this.createThinkingMessage();
       this.sendMessage(thinkingMessage);
       
-      // Prepare messages for the API
       const messages = await this.prepareMessages(userInput, attachments);
       
-      // Check if this is a tool agent with a requested tool
       const requestedTool = this.options.metadata?.requestedTool;
       const isToolAgent = this.agentType === 'tool' && requestedTool;
       
@@ -106,7 +99,6 @@ export class AgentRunner {
         this.addTraceEvent('tool_agent_request', { requestedTool });
       }
       
-      // Get context data for the API
       const contextData = {
         hasAttachments: attachments.length > 0,
         attachmentTypes: this.getAttachmentTypes(attachments),
@@ -119,27 +111,22 @@ export class AgentRunner {
         availableTools: await this.getAvailableTools()
       };
       
-      // Add API call start event
       this.addTraceEvent('api_call_start', {
         contextData,
         agentType: this.agentType,
         modelType: this.options.usePerformanceModel ? 'gpt-4o-mini' : 'gpt-4o'
       });
       
-      // Record start time for API call
       const apiCallStartTime = new Date().getTime();
       
-      // Call the agent API
       const { completion, handoffRequest, modelUsed } = await this.callAgentApi(
         messages,
         userId,
         contextData
       );
       
-      // Calculate API call duration
       const apiCallDuration = new Date().getTime() - apiCallStartTime;
       
-      // Add API call end event
       this.addTraceEvent('api_call_end', {
         completion: completion.slice(0, 100) + '...',
         duration: apiCallDuration,
@@ -148,10 +135,8 @@ export class AgentRunner {
         agentType: this.agentType
       });
       
-      // Process the response
       const responseMessage = this.createResponseMessage(completion, modelUsed);
       
-      // Add response event
       this.addTraceEvent('response', {
         messageId: responseMessage.id,
         agentType: this.agentType,
@@ -159,7 +144,6 @@ export class AgentRunner {
         modelUsed
       });
       
-      // Handle handoff if needed
       if (handoffRequest) {
         this.addTraceEvent('handoff', {
           from: this.agentType,
@@ -176,7 +160,6 @@ export class AgentRunner {
         );
       }
       
-      // Check for tool execution
       if (this.agentType === 'tool') {
         const toolExecution = this.parseToolExecution(completion);
         if (toolExecution) {
@@ -186,7 +169,6 @@ export class AgentRunner {
             parameters: toolExecution.parameters
           };
           
-          // Add task for tool execution
           const task: Task = {
             id: uuidv4(),
             name: `Executing ${toolExecution.toolName}`,
@@ -196,13 +178,11 @@ export class AgentRunner {
           responseMessage.tasks = [task];
           this.sendMessage(responseMessage);
           
-          // Add tool call event
           this.addTraceEvent('tool_call', {
             toolName: toolExecution.toolName,
             parameters: toolExecution.parameters
           });
           
-          // Execute the tool
           return await this.executeTool(
             toolExecution.toolName,
             toolExecution.parameters,
@@ -212,17 +192,14 @@ export class AgentRunner {
         }
       }
       
-      // Send the final response
       this.sendMessage(responseMessage);
       
-      // Save the trace at the end of a successful run
       this.saveTraceData(userId, [responseMessage]);
       
       return responseMessage;
     } catch (error) {
       console.error(`Error in ${this.agentType} agent:`, error);
       
-      // Add error event to trace
       this.addTraceEvent('error', {
         message: error instanceof Error ? error.message : String(error),
         agentType: this.agentType
@@ -237,7 +214,6 @@ export class AgentRunner {
         this.callbacks.onError(error instanceof Error ? error.message : String(error));
       }
       
-      // Save the trace even on error
       this.saveTraceData(userId, [errorMessage]);
       
       return errorMessage;
@@ -248,24 +224,20 @@ export class AgentRunner {
     userInput: string,
     attachments: Attachment[] = []
   ): Promise<any[]> {
-    // Format user input with attachments if any
     let formattedInput = userInput;
     
     if (attachments.length > 0) {
-      // Add attachment information to the user input
       attachments.forEach(attachment => {
         const attachmentType = attachment.type === 'image' ? 'image' : 'file';
         formattedInput += `\n\n[Attached ${attachmentType}: ${attachment.name}, URL: ${attachment.url}]`;
       });
     }
     
-    // Create the user message
     const userMessage = {
       role: 'user',
       content: formattedInput
     };
     
-    // For handoff continuation, we need to add the previous agent's name
     if (this.isHandoffContinuation && this.handoffChain.length > 0) {
       const previousAgent = this.handoffChain[this.handoffChain.length - 1];
       return [
@@ -303,11 +275,9 @@ export class AgentRunner {
         const errorText = await response.text();
         console.error("API Error Response:", errorText);
         try {
-          // Try to parse as JSON if possible
           const errorJson = JSON.parse(errorText);
           throw new Error(errorJson.error || `API returned ${response.status}`);
         } catch (e) {
-          // If parsing fails, use the raw text
           throw new Error(`API returned ${response.status}: ${errorText.substring(0, 100)}`);
         }
       }
@@ -341,22 +311,18 @@ export class AgentRunner {
     
     console.log(`Handling handoff from ${this.agentType} to ${targetAgent}: ${reason}`);
     
-    // Update the current response with handoff information
     currentResponse.handoffRequest = handoffRequest;
     this.sendMessage(currentResponse);
     
-    // Add handoff start event
     this.addTraceEvent('handoff_start', {
       from: this.agentType,
       to: targetAgent,
       reason
     });
     
-    // Check if the target agent is valid
     const isBuiltInTarget = [...BUILT_IN_AGENT_TYPES, ...BUILT_IN_TOOL_TYPES].includes(targetAgent);
     
     if (!isBuiltInTarget) {
-      // Check if it's a valid custom agent
       const { data, error } = await supabase
         .from('custom_agents')
         .select('id, name')
@@ -366,7 +332,6 @@ export class AgentRunner {
       if (error || !data) {
         console.error(`Invalid handoff target: ${targetAgent}`, error);
         
-        // Add handoff error event
         this.addTraceEvent('handoff_error', {
           from: this.agentType,
           to: targetAgent,
@@ -378,49 +343,41 @@ export class AgentRunner {
         );
         this.sendMessage(errorMessage);
         
-        // Save trace on handoff error
         this.saveTraceData(userId, [currentResponse, errorMessage]);
         
         return errorMessage;
       }
     }
     
-    // Create a new runner for the target agent
     const newRunner = new AgentRunner(
       targetAgent,
       {
         ...this.options,
-        runId: this.traceId // Keep the same trace ID
+        runId: this.traceId
       },
       this.callbacks
     );
     
-    // Set handoff continuation flag and update chain
     newRunner.isHandoffContinuation = true;
     newRunner.handoffChain = [...this.handoffChain, this.agentType];
     
-    // Add handoff completion event
     this.addTraceEvent('handoff_complete', {
       from: this.agentType,
       to: targetAgent
     });
     
-    // Save trace before delegating to new agent
     this.saveTraceData(userId, [currentResponse]);
     
-    // Notify about handoff completion
     if (this.callbacks.onHandoffEnd) {
       this.callbacks.onHandoffEnd(targetAgent);
     }
     
-    // Run the new agent
     return await newRunner.run(userInput, attachments, userId);
   }
   
   private parseToolExecution(text: string): { toolName: string; parameters: Record<string, any> } | null {
     if (!text) return null;
     
-    // Look for the tool execution pattern
     const toolRegex = /TOOL:\s*([a-z0-9_-]+)(?:[,\s]\s*PARAMETERS:|\s+PARAMETERS:)\s*(\{.+\})/is;
     const match = text.match(toolRegex);
     
@@ -449,21 +406,18 @@ export class AgentRunner {
   ): Promise<Message> {
     console.log(`Executing tool: ${toolName} with parameters:`, parameters);
     
-    // Add tool execution start event
     this.addTraceEvent('tool_execution_start', {
       toolName,
       parameters,
       messageId: responseMessage.id
     });
     
-    // Update task status
     if (responseMessage.tasks && responseMessage.tasks.length > 0) {
       responseMessage.tasks[0].status = 'in_progress';
       this.sendMessage({ ...responseMessage });
     }
     
     try {
-      // Get user credits
       const { data: userCredits, error: creditsError } = await supabase
         .from('user_credits')
         .select('credits_remaining')
@@ -474,10 +428,8 @@ export class AgentRunner {
         throw new Error('Failed to retrieve user credits');
       }
       
-      // Record tool execution start time
       const toolExecutionStartTime = new Date().getTime();
       
-      // Call the tool execution API with improved error handling
       const response = await fetch('/api/execute-tool', {
         method: 'POST',
         headers: {
@@ -492,13 +444,10 @@ export class AgentRunner {
         })
       });
       
-      // Calculate tool execution duration
       const toolExecutionDuration = new Date().getTime() - toolExecutionStartTime;
       
-      // Use our helper to handle the response
       const result = await handleBrowserUseApiResponse(response);
       
-      // Add tool execution end event
       this.addTraceEvent('tool_execution_end', {
         toolName,
         success: result.success,
@@ -506,18 +455,15 @@ export class AgentRunner {
         messageId: responseMessage.id
       });
       
-      // Update task status
       if (responseMessage.tasks && responseMessage.tasks.length > 0) {
         const task = responseMessage.tasks[0];
         task.status = result.success ? 'completed' : 'error';
         task.details = result.message || '';
         
-        // Update the response message
         responseMessage.selectedTool = toolName;
         this.sendMessage({ ...responseMessage });
       }
       
-      // If the tool execution was successful, create a tool message
       if (result.success) {
         const toolMessage: Message = {
           id: uuidv4(),
@@ -529,16 +475,13 @@ export class AgentRunner {
         
         this.sendMessage(toolMessage);
         
-        // Save trace with tool result
         this.saveTraceData(userId, [responseMessage, toolMessage]);
       } else {
-        // If the tool execution failed, create an error message
         const errorMessage = this.createErrorMessage(
           result.message || 'Tool execution failed'
         );
         this.sendMessage(errorMessage);
         
-        // Save trace with error
         this.saveTraceData(userId, [responseMessage, errorMessage]);
         
         return errorMessage;
@@ -548,13 +491,11 @@ export class AgentRunner {
     } catch (error) {
       console.error('Error executing tool:', error);
       
-      // Add tool execution error event
       this.addTraceEvent('tool_execution_error', {
         toolName,
         error: error instanceof Error ? error.message : String(error)
       });
       
-      // Update task status to error
       if (responseMessage.tasks && responseMessage.tasks.length > 0) {
         responseMessage.tasks[0].status = 'error';
         responseMessage.tasks[0].details = error instanceof Error ? error.message : String(error);
@@ -566,7 +507,6 @@ export class AgentRunner {
       );
       this.sendMessage(errorMessage);
       
-      // Save trace with error
       this.saveTraceData(userId, [responseMessage, errorMessage]);
       
       return errorMessage;
@@ -583,7 +523,6 @@ export class AgentRunner {
       status: 'thinking'
     });
     
-    // Add thinking event to trace
     this.addTraceEvent('thinking', {
       messageId: message.id,
       agentType: this.agentType
@@ -631,8 +570,6 @@ export class AgentRunner {
   
   private async getAvailableTools(): Promise<any[]> {
     try {
-      // Instead of querying database, return a predefined set of tools
-      // This avoids the "tools" table error we were seeing
       return [
         { 
           name: 'browser', 
@@ -700,7 +637,6 @@ export class AgentRunner {
     if (this.options.tracingDisabled) return;
     
     try {
-      // Get all messages for the event
       const allMessages = messagesInThisRun.map(msg => ({
         role: msg.role,
         content: msg.content,
@@ -710,7 +646,6 @@ export class AgentRunner {
         timestamp: msg.createdAt
       }));
       
-      // Create trace object
       const trace = {
         id: this.traceId,
         runId: this.traceId,
@@ -722,7 +657,6 @@ export class AgentRunner {
         endTime: new Date().toISOString()
       };
       
-      // Save to database using the utility function
       await saveTrace(trace);
       
       console.log(`Trace ${this.traceId} saved with ${this.traceEvents.length} events`);

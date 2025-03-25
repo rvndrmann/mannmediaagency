@@ -12,8 +12,11 @@ import { Message } from '@/types/message';
 export const adaptMessagesForComponents = (messages: Message[]): Message[] => {
   // Filter out messages with incompatible roles for certain components
   return messages.filter(msg => 
-    msg.role === 'user' || msg.role === 'assistant'
-  );
+    msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system' || msg.role === 'tool'
+  ).map(msg => ({
+    ...msg,
+    role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role
+  }));
 };
 
 // Adapter to convert complex Message to simple format expected by some components
@@ -40,9 +43,9 @@ export const adaptMessages = <T extends { role: string; content: string }>(
   messages: Message[]
 ): T[] => {
   return messages
-    .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+    .filter(msg => msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system' || msg.role === 'tool')
     .map(msg => ({
-      role: msg.role,
+      role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
       content: msg.content,
       status: msg.status
     })) as unknown as T[];

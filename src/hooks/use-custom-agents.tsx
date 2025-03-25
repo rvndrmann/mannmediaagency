@@ -1,177 +1,193 @@
 
-import { useState, useEffect } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { AgentInfo, AgentIconType } from "@/types/message";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { AgentIconType } from '@/types/message';
+import { toast } from 'sonner';
 
-export interface CustomAgentFormData {
+export interface CustomAgent {
+  id: string;
   name: string;
   description: string;
-  icon: AgentIconType;
+  icon: string;
   color: string;
   instructions: string;
+  user_id: string;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export function useCustomAgents() {
-  const [customAgents, setCustomAgents] = useState<AgentInfo[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+export const useCustomAgents = (userId?: string) => {
+  const [agents, setAgents] = useState<CustomAgent[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
-  // Load custom agents from Supabase
-  const loadCustomAgents = async () => {
+  // Fetch custom agents
+  const fetchAgents = async () => {
+    if (!userId) return;
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      setIsLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        setCustomAgents([]);
+      const { data, error: fetchError } = await supabase
+        .from('custom_agents')
+        .select('*')
+        .eq('user_id', userId);
+
+      if (fetchError) {
+        console.error('Error fetching custom agents:', fetchError);
+        setError('Failed to load custom agents');
         return;
       }
 
-      const { data, error } = await supabase
-        .from('custom_agents')
-        .select('*')
-        .order('created_at', { ascending: false });
-
-      if (error) throw error;
-
-      const formattedAgents = data.map(agent => ({
-        id: agent.id,
-        name: agent.name,
-        description: agent.description,
-        icon: agent.icon as AgentIconType,
-        color: agent.color,
-        instructions: agent.instructions,
-        isCustom: true
-      }));
-
-      setCustomAgents(formattedAgents);
-    } catch (error) {
-      console.error("Error loading custom agents:", error);
-      toast.error("Failed to load custom agents");
+      setAgents(data || []);
+    } catch (err) {
+      console.error('Unexpected error in useCustomAgents:', err);
+      setError('An unexpected error occurred');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Create a custom agent
-  const createCustomAgent = async (formData: CustomAgentFormData) => {
-    try {
-      const { data: { session } } = await supabase.auth.getSession();
-      
-      if (!session) {
-        toast.error("You must be logged in to create custom agents");
-        return null;
-      }
+  // Create a new agent
+  const createAgent = async (agentData: Omit<CustomAgent, 'id' | 'created_at' | 'updated_at'>) => {
+    if (!userId) {
+      setError('User not authenticated');
+      return null;
+    }
 
-      // Insert into custom_agents table
-      const { data, error } = await supabase
+    setIsLoading(true);
+    setError(null);
+
+    try {
+      // Ensure icon is a valid string value
+      const safeIcon = agentData.icon as string;
+      
+      // Insert single agent with properly typed icon
+      const { data, error: insertError } = await supabase
         .from('custom_agents')
-        .insert([{
-          name: formData.name,
-          description: formData.description,
-          icon: formData.icon,
-          color: formData.color,
-          instructions: formData.instructions,
-          user_id: session.user.id
-        }])
+        .insert({
+          name: agentData.name,
+          description: agentData.description,
+          icon: safeIcon,
+          color: agentData.color,
+          instructions: agentData.instructions,
+          user_id: userId
+        })
         .select()
         .single();
 
-      if (error) throw error;
+      if (insertError) {
+        console.error('Error creating custom agent:', insertError);
+        setError('Failed to create agent');
+        return null;
+      }
 
-      const newAgent: AgentInfo = {
-        id: data.id,
-        name: data.name,
-        description: data.description,
-        icon: data.icon as AgentIconType,
-        color: data.color,
-        instructions: data.instructions,
-        isCustom: true
-      };
-
-      setCustomAgents(prev => [newAgent, ...prev]);
-      toast.success("Custom agent created successfully");
-      return newAgent;
-    } catch (error) {
-      console.error("Error creating custom agent:", error);
-      toast.error("Failed to create custom agent");
+      setAgents(prev => [...prev, data]);
+      toast.success('Agent created successfully');
+      return data;
+    } catch (err) {
+      console.error('Unexpected error creating agent:', err);
+      setError('An unexpected error occurred');
       return null;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Update a custom agent
-  const updateCustomAgent = async (agentId: string, formData: CustomAgentFormData) => {
+  // Update an existing agent
+  const updateAgent = async (id: string, updates: Partial<Omit<CustomAgent, 'id' | 'created_at' | 'updated_at' | 'user_id'>>) => {
+    if (!userId) {
+      setError('User not authenticated');
+      return false;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const { error } = await supabase
+      // Ensure icon is a valid string if it's being updated
+      const updateData = { ...updates };
+      if (updates.icon) {
+        updateData.icon = updates.icon as string;
+      }
+      
+      const { error: updateError } = await supabase
         .from('custom_agents')
-        .update({
-          name: formData.name,
-          description: formData.description,
-          icon: formData.icon,
-          color: formData.color,
-          instructions: formData.instructions
-        })
-        .eq('id', agentId);
+        .update(updateData)
+        .eq('id', id)
+        .eq('user_id', userId);
 
-      if (error) throw error;
+      if (updateError) {
+        console.error('Error updating custom agent:', updateError);
+        setError('Failed to update agent');
+        return false;
+      }
 
-      setCustomAgents(prev => prev.map(agent => 
-        agent.id === agentId 
-          ? { ...agent, ...formData }
-          : agent
+      setAgents(prev => prev.map(agent => 
+        agent.id === id ? { ...agent, ...updates } : agent
       ));
-
-      toast.success("Custom agent updated successfully");
-    } catch (error) {
-      console.error("Error updating custom agent:", error);
-      toast.error("Failed to update custom agent");
+      
+      toast.success('Agent updated successfully');
+      return true;
+    } catch (err) {
+      console.error('Unexpected error updating agent:', err);
+      setError('An unexpected error occurred');
+      return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Delete a custom agent
-  const deleteCustomAgent = async (agentId: string) => {
+  // Delete an agent
+  const deleteAgent = async (id: string) => {
+    if (!userId) {
+      setError('User not authenticated');
+      return false;
+    }
+
+    setIsLoading(true);
+    setError(null);
+
     try {
-      const { error } = await supabase
+      const { error: deleteError } = await supabase
         .from('custom_agents')
         .delete()
-        .eq('id', agentId);
+        .eq('id', id)
+        .eq('user_id', userId);
 
-      if (error) throw error;
+      if (deleteError) {
+        console.error('Error deleting custom agent:', deleteError);
+        setError('Failed to delete agent');
+        return false;
+      }
 
-      setCustomAgents(prev => prev.filter(agent => agent.id !== agentId));
-      toast.success("Custom agent deleted successfully");
-    } catch (error) {
-      console.error("Error deleting custom agent:", error);
-      toast.error("Failed to delete custom agent");
+      setAgents(prev => prev.filter(agent => agent.id !== id));
+      toast.success('Agent deleted successfully');
+      return true;
+    } catch (err) {
+      console.error('Unexpected error deleting agent:', err);
+      setError('An unexpected error occurred');
+      return false;
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  // Load custom agents on component mount
+  // Load agents on component mount if userId is available
   useEffect(() => {
-    loadCustomAgents();
-    
-    // Set up realtime subscription for custom agents changes
-    const channel = supabase
-      .channel('custom_agents_changes')
-      .on('postgres_changes', 
-        { event: '*', schema: 'public', table: 'custom_agents' }, 
-        () => {
-          loadCustomAgents();
-        }
-      )
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
+    if (userId) {
+      fetchAgents();
+    }
+  }, [userId]);
 
   return {
-    customAgents,
+    agents,
     isLoading,
-    createCustomAgent,
-    updateCustomAgent,
-    deleteCustomAgent,
-    refreshAgents: loadCustomAgents
+    error,
+    fetchAgents,
+    createAgent,
+    updateAgent,
+    deleteAgent
   };
-}
+};

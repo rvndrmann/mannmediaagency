@@ -1,7 +1,7 @@
 
 import { useState } from "react";
 import { cn } from "@/lib/utils";
-import { Avatar } from "./Avatar";
+import { Avatar } from "@/components/chat/Avatar";
 import { motion } from "framer-motion";
 import { Message, SimpleMessage } from "@/types/message";
 

@@ -1,141 +1,111 @@
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { Task } from '@/types/message';
-import { v4 as uuidv4 } from 'uuid';
 import { toast } from 'sonner';
 
-const POLLING_INTERVAL = 5000; // 5 seconds
-
-interface UseMediaUpdatesProps {
-  jobId?: string;
-  type: 'image' | 'video';
-  onComplete?: (mediaUrl: string) => void;
-  onProgress?: (progress: number) => void;
-  onError?: (error: string) => void;
+interface MediaUpdate {
+  jobId: string;
+  progress?: number;
+  resultUrl?: string;
+  status?: string;
+  error?: string;
 }
 
-export const useMediaUpdates = ({
-  jobId,
-  type,
-  onComplete,
-  onProgress,
-  onError
-}: UseMediaUpdatesProps) => {
-  const [status, setStatus] = useState<string | null>(null);
-  const [progress, setProgress] = useState<number>(0);
-  const [mediaUrl, setMediaUrl] = useState<string | null>(null);
+export const useMediaUpdates = (jobIds: string[] = []) => {
+  const [updates, setUpdates] = useState<Record<string, MediaUpdate>>({});
+  const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [isPolling, setIsPolling] = useState<boolean>(false);
 
-  // Get the appropriate table name based on type
-  const getTableName = () => {
-    return type === 'image' ? 'image_generation_jobs' : 'video_generation_jobs';
-  };
-
-  // Function to check media status
-  const checkMediaStatus = useCallback(async () => {
-    if (!jobId) return;
-
-    try {
-      const tableName = getTableName();
-      
-      const { data, error: fetchError } = await supabase
-        .from(tableName)
-        .select('status, result_url, progress')
-        .eq('id', jobId)
-        .single();
-
-      if (fetchError) {
-        console.error(`Error fetching ${type} status:`, fetchError);
-        setError(`Error checking ${type} status`);
-        if (onError) onError(`Error checking ${type} status`);
-        return;
-      }
-
-      if (!data) {
-        console.error(`No ${type} data found for ID ${jobId}`);
-        setError(`No ${type} found`);
-        if (onError) onError(`No ${type} found`);
-        return;
-      }
-
-      // Update status
-      setStatus(data.status);
-      
-      // Update progress if available
-      if (data.progress !== undefined && data.progress !== null) {
-        setProgress(data.progress);
-        if (onProgress) onProgress(data.progress);
-      }
-
-      // Check if media generation is complete
-      if (data.status === 'completed' && data.result_url) {
-        setMediaUrl(data.result_url);
-        setIsPolling(false);
-        if (onComplete) onComplete(data.result_url);
-        
-        toast.success(`${type === 'image' ? 'Image' : 'Video'} generated successfully!`);
-      }
-
-      // Check for errors
-      if (data.status === 'failed' || data.status === 'error') {
-        setError(`${type === 'image' ? 'Image' : 'Video'} generation failed`);
-        setIsPolling(false);
-        if (onError) onError(`${type === 'image' ? 'Image' : 'Video'} generation failed`);
-        
-        toast.error(`${type === 'image' ? 'Image' : 'Video'} generation failed. Please try again.`);
-      }
-    } catch (err) {
-      console.error(`Error in checkMediaStatus for ${type}:`, err);
-      setError(`Error checking ${type} status`);
-      if (onError) onError(`Error checking ${type} status`);
-    }
-  }, [jobId, type, onComplete, onProgress, onError]);
-
-  // Start polling when jobId changes
   useEffect(() => {
-    if (jobId) {
-      setIsPolling(true);
-      setStatus('pending');
-      setProgress(0);
-      setMediaUrl(null);
+    if (!jobIds.length) return;
+
+    const fetchMediaUpdates = async () => {
+      setIsLoading(true);
       setError(null);
-      
-      // Initial check
-      checkMediaStatus();
-    } else {
-      setIsPolling(false);
-    }
-  }, [jobId, checkMediaStatus]);
 
-  // Set up polling interval
-  useEffect(() => {
-    if (!isPolling) return;
+      try {
+        // Fetch image generation jobs
+        const { data: imageData, error: imageError } = await supabase
+          .from('image_generation_jobs')
+          .select('id, status, progress, result_url')
+          .in('id', jobIds);
 
-    const intervalId = setInterval(() => {
-      checkMediaStatus();
-    }, POLLING_INTERVAL);
+        // Fetch video generation jobs
+        const { data: videoData, error: videoError } = await supabase
+          .from('video_generation_jobs')
+          .select('id, status, progress, result_url')
+          .in('id', jobIds);
 
-    return () => clearInterval(intervalId);
-  }, [isPolling, checkMediaStatus]);
+        if (imageError || videoError) {
+          console.error('Error fetching media updates:', imageError || videoError);
+          setError('Failed to fetch media updates');
+          return;
+        }
 
-  // Helper function to create a task object for the media generation
-  const createMediaTask = (name: string, status: Task['status'] = 'pending'): Task => {
-    return {
-      id: uuidv4(),
-      name,
-      description: name,
-      status
+        // Combine data from both sources
+        const combinedData = [...(imageData || []), ...(videoData || [])];
+        
+        // Process the results
+        const newUpdates: Record<string, MediaUpdate> = {};
+        
+        combinedData.forEach(item => {
+          if (!item) return;
+          
+          newUpdates[item.id] = {
+            jobId: item.id,
+            status: item.status,
+            progress: typeof item.progress === 'number' ? item.progress : undefined,
+            resultUrl: item.result_url || undefined
+          };
+        });
+
+        setUpdates(prev => ({ ...prev, ...newUpdates }));
+      } catch (err) {
+        console.error('Error in useMediaUpdates:', err);
+        setError('An unexpected error occurred');
+      } finally {
+        setIsLoading(false);
+      }
     };
-  };
 
-  return {
-    status,
-    progress,
-    mediaUrl,
-    error,
-    isPolling,
-    createMediaTask
-  };
+    fetchMediaUpdates();
+
+    // Set up real-time subscription
+    const subscription = supabase
+      .channel('media-updates')
+      .on('postgres_changes', { 
+        event: 'UPDATE', 
+        schema: 'public', 
+        table: 'image_generation_jobs',
+        filter: `id=in.(${jobIds.join(',')})` 
+      }, (payload) => {
+        if (payload.new) {
+          const { id, status, progress, result_url } = payload.new as any;
+          
+          setUpdates(prev => ({
+            ...prev,
+            [id]: {
+              jobId: id,
+              status,
+              progress: typeof progress === 'number' ? progress : undefined,
+              resultUrl: result_url || undefined
+            }
+          }));
+          
+          // Notify user of completed jobs
+          if (status === 'completed' && result_url) {
+            toast.success('Media generation completed!');
+          } else if (status === 'failed') {
+            toast.error('Media generation failed');
+          }
+        }
+      })
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [jobIds]);
+
+  return { updates, isLoading, error };
 };

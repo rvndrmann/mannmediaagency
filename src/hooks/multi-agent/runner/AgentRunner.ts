@@ -452,6 +452,20 @@ export class AgentRunner {
   
   private async getAvailableTools(): Promise<any[]> {
     try {
+      // Check if the tools table exists before querying
+      const { error: checkError } = await supabase
+        .from('tools')
+        .select('count')
+        .limit(1)
+        .single();
+        
+      // If there's an error, it likely means the table doesn't exist
+      if (checkError) {
+        console.error('Error checking tools table:', checkError);
+        return [];
+      }
+      
+      // If no error, proceed with fetching tools
       const { data, error } = await supabase
         .from('tools')
         .select('*')

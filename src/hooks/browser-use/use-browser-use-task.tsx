@@ -1,10 +1,10 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserUseError } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
 import { useUserData } from "./use-user-data";
+import { toast } from "sonner";
 
 const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   // Basic settings
@@ -149,6 +149,58 @@ export function useBrowserUseTask() {
     }
   }, [currentTaskId, isProcessing, taskStatus]);
 
+  // Load previous task function
+  const loadPreviousTask = useCallback(async (taskId: string) => {
+    if (!taskId) return;
+    
+    try {
+      setError(null);
+      setIsProcessing(true);
+      
+      // Call the Supabase function to get the task
+      const { data, error } = await supabase.functions.invoke('browser-use-api', {
+        body: { task_id: taskId }
+      });
+      
+      if (error || data.error) {
+        throw new Error(error?.message || data?.error || 'Failed to load task');
+      }
+      
+      console.log("Loaded task:", data);
+      
+      // Update task state
+      setCurrentTaskId(taskId);
+      setBrowserTaskId(data.id || taskId);
+      setTaskStatus(data.status || 'idle');
+      
+      if (data.steps && Array.isArray(data.steps)) {
+        setTaskSteps(data.steps);
+      }
+      
+      if (data.output) {
+        setTaskOutput(data.output);
+      }
+      
+      if (data.live_url) {
+        setLiveUrl(data.live_url);
+      }
+      
+      // Set loading states
+      if (['running', 'paused', 'pending', 'created'].includes(data.status)) {
+        setIsProcessing(true);
+      } else {
+        setIsProcessing(false);
+      }
+      
+      toast.success("Previous task loaded");
+    } catch (err) {
+      console.error("Error loading previous task:", err);
+      setError(err instanceof Error ? err.message : 'Failed to load previous task');
+      setIsProcessing(false);
+      toast.error("Failed to load previous task");
+    }
+  }, [supabase]);
+
   // Safely update browser config
   const updateBrowserConfig = useCallback((newConfig: BrowserConfig) => {
     setBrowserConfig(validateConfig(newConfig));
@@ -243,6 +295,7 @@ export function useBrowserUseTask() {
     browserConfig,
     setBrowserConfig: updateBrowserConfig,
     liveUrl,
-    connectionStatus
+    connectionStatus,
+    loadPreviousTask
   };
 }

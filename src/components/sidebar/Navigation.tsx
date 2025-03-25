@@ -1,4 +1,3 @@
-
 import { useLocation } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -21,7 +20,8 @@ import {
   Camera,
   ImagePlus,
   Film,
-  Video
+  Video,
+  Bot
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -201,10 +201,10 @@ export const Navigation = () => {
       icon: User,
     },
     {
-      name: "Browser Use - Operator",
-      subtext: "Web Browser Automation",
+      name: "Worker AI",
+      subtext: "Automated Browser Assistant",
       to: "/browser-use",
-      icon: Globe,
+      icon: Bot,
       current: location.pathname === "/browser-use",
     },
   ];

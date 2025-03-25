@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -8,9 +8,10 @@ import { BrowserConfigPanel } from "./BrowserConfigPanel";
 import { TaskMonitor } from "./TaskMonitor";
 import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
-import { Bot, History, Settings, Play } from "lucide-react";
+import { Bot, History, Settings, Play, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TaskControls } from "./TaskControls";
+import { BrowserChatInterface } from "./BrowserChatInterface";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
@@ -38,8 +39,24 @@ export function BrowserUseApp() {
     connectionStatus,
     taskOutput,
     currentTaskId,
-    browserTaskId // Make sure this is exposed from the hook
+    browserTaskId,
+    loadPreviousTask
   } = useBrowserUseTask();
+
+  // Load previous task on component mount
+  useEffect(() => {
+    const savedTaskId = localStorage.getItem('workerAI_currentTaskId');
+    if (savedTaskId) {
+      loadPreviousTask(savedTaskId);
+    }
+  }, []);
+
+  // Save current task ID to localStorage when it changes
+  useEffect(() => {
+    if (currentTaskId) {
+      localStorage.setItem('workerAI_currentTaskId', currentTaskId);
+    }
+  }, [currentTaskId]);
 
   const captureScreenshot = async () => {
     await originalCaptureScreenshot();
@@ -51,7 +68,7 @@ export function BrowserUseApp() {
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Bot className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Browser Use API</h1>
+          <h1 className="text-2xl font-bold">Worker AI</h1>
           {userCredits && (
             <Badge variant="outline" className="ml-2">
               Credits: {userCredits.credits_remaining}
@@ -63,8 +80,8 @@ export function BrowserUseApp() {
       <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mb-4">
           <TabsTrigger value="task" className="flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            <span>Task Execution</span>
+            <MessageCircle className="h-4 w-4" />
+            <span>Chat Interface</span>
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -77,42 +94,23 @@ export function BrowserUseApp() {
         </TabsList>
 
         <TabsContent value="task" className="space-y-4">
-          <Card className="p-4">
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="task-input" className="block text-sm font-medium mb-1">
-                  Task Description
-                </label>
-                <div className="flex gap-2">
-                  <textarea
-                    id="task-input"
-                    value={taskInput}
-                    onChange={(e) => setTaskInput(e.target.value)}
-                    className="flex-1 min-h-[80px] p-2 border rounded-md"
-                    placeholder="Describe what you want the browser to do..."
-                    disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
-                  />
-                </div>
-              </div>
-
-              <TaskControls
-                taskStatus={taskStatus}
-                isProcessing={isProcessing}
-                userCredits={userCredits ? userCredits.credits_remaining : null}
-                onStart={startTask}
-                onPause={pauseTask}
-                onResume={resumeTask}
-                onStop={stopTask}
-                onScreenshot={captureScreenshot}
-                onRestart={restartTask}
-                error={error}
-                currentTaskId={currentTaskId}
-                browserTaskId={browserTaskId}
-              />
-            </div>
-          </Card>
-
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <BrowserChatInterface
+              taskInput={taskInput}
+              setTaskInput={setTaskInput}
+              onSubmit={startTask}
+              isProcessing={isProcessing}
+              taskStatus={taskStatus}
+              userCredits={userCredits ? userCredits.credits_remaining : null}
+              taskOutput={taskOutput}
+              error={error}
+              onStop={stopTask}
+              onPause={pauseTask}
+              onResume={resumeTask}
+              onRestart={restartTask}
+              currentTaskId={currentTaskId}
+            />
+
             <BrowserView
               liveUrl={liveUrl}
               currentUrl={currentUrl}
@@ -121,19 +119,11 @@ export function BrowserUseApp() {
               captureScreenshot={originalCaptureScreenshot}
               connectionStatus={connectionStatus}
             />
-
-            <TaskMonitor
-              taskStatus={taskStatus}
-              progress={progress}
-              error={error}
-              isProcessing={isProcessing}
-              taskOutput={taskOutput}
-            />
           </div>
         </TabsContent>
 
         <TabsContent value="history">
-          <BrowserTaskHistory />
+          <BrowserTaskHistory onLoadTask={loadPreviousTask} />
         </TabsContent>
 
         <TabsContent value="settings">

@@ -43,6 +43,8 @@ class AgentContext extends Context {
   usePerformanceModel: boolean;
   isHandoffContinuation: boolean;
   requestedTool?: string;
+  isCustomAgent: boolean;
+  customInstructions?: string;
 
   constructor(data: {
     userId: string;
@@ -51,6 +53,8 @@ class AgentContext extends Context {
     usePerformanceModel?: boolean;
     isHandoffContinuation?: boolean;
     requestedTool?: string;
+    isCustomAgent?: boolean;
+    customInstructions?: string;
   }) {
     super();
     this.userId = data.userId;
@@ -59,6 +63,8 @@ class AgentContext extends Context {
     this.usePerformanceModel = data.usePerformanceModel ?? false;
     this.isHandoffContinuation = data.isHandoffContinuation ?? false;
     this.requestedTool = data.requestedTool;
+    this.isCustomAgent = data.isCustomAgent ?? false;
+    this.customInstructions = data.customInstructions;
   }
 }
 
@@ -138,12 +144,43 @@ function createCustomVideoTool() {
   });
 }
 
-function createAgent(agentType: string, contextData: any) {
+async function getCustomAgentInstructions(agentType: string, supabaseClient: any) {
+  try {
+    if (!agentType || agentType.length < 20) {
+      return null;
+    }
+
+    // Get instructions from the database for custom agents
+    const { data, error } = await supabaseClient
+      .from('custom_agents')
+      .select('instructions')
+      .eq('id', agentType)
+      .single();
+
+    if (error || !data) {
+      console.error("Error fetching custom agent instructions:", error);
+      return null;
+    }
+
+    return data.instructions;
+  } catch (error) {
+    console.error("Error in getCustomAgentInstructions:", error);
+    return null;
+  }
+}
+
+function createAgent(agentType: string, contextData: any, customInstructions?: string) {
   // Get the model to use
   const model = contextData.usePerformanceModel ? "gpt-4o-mini" : (AGENT_MODELS[agentType] || "gpt-4o");
   
   // Prepare system instruction based on agent type
-  const systemInstruction = AGENT_INSTRUCTIONS[agentType] || AGENT_INSTRUCTIONS.main;
+  let systemInstruction = "";
+  
+  if (contextData.isCustomAgent && customInstructions) {
+    systemInstruction = customInstructions;
+  } else {
+    systemInstruction = AGENT_INSTRUCTIONS[agentType] || AGENT_INSTRUCTIONS.main;
+  }
   
   // Enhance system instruction with context data
   let enhancedInstruction = systemInstruction;
@@ -157,7 +194,7 @@ function createAgent(agentType: string, contextData: any) {
   }
   
   if (contextData.availableTools && Array.isArray(contextData.availableTools)) {
-    enhancedInstruction += " Available tools: " + contextData.availableTools.map(t => t.name).join(", ") + ".";
+    enhancedInstruction += " Available tools: " + contextData.availableTools.join(", ") + ".";
   }
   
   if (contextData.requestedTool) {
@@ -216,8 +253,8 @@ serve(async (req: Request) => {
       throw new Error("OPENAI_API_KEY is not set in environment variables");
     }
 
-    const requestData = await req.json();
-    const { messages, agentType = "main", contextData = {}, userId } = requestData;
+    // Parse the request body as JSON
+    const { messages, agentType = "main", userId, contextData = {} } = await req.json();
     
     if (!messages || !Array.isArray(messages)) {
       throw new Error("Invalid request: messages array is required");
@@ -226,12 +263,20 @@ serve(async (req: Request) => {
     console.log(`[${requestId}] Processing ${messages.length} messages for agent type: ${agentType}`);
     
     // Check if this is a valid agent type
-    if (!AGENT_MODELS[agentType]) {
+    if (!AGENT_MODELS[agentType] && !contextData.isCustomAgent) {
       console.warn(`[${requestId}] Unknown agent type: ${agentType}, falling back to main`);
     }
     
+    // Get custom instructions if this is a custom agent
+    let customInstructions;
+    if (contextData.isCustomAgent) {
+      // This would actually fetch from DB but we're mocking it for now
+      customInstructions = contextData.customInstructions || 
+        "You are a custom AI assistant. Respond helpfully to the user's queries.";
+    }
+    
     // Create the agent based on agent type
-    const agent = createAgent(agentType, contextData);
+    const agent = createAgent(agentType, contextData, customInstructions);
     
     // Create a context for the agent
     const context = new AgentContext({
@@ -240,7 +285,9 @@ serve(async (req: Request) => {
       enableDirectToolExecution: contextData.enableDirectToolExecution || false,
       usePerformanceModel: contextData.usePerformanceModel || false,
       isHandoffContinuation: contextData.isHandoffContinuation || false,
-      requestedTool: contextData.requestedTool
+      requestedTool: contextData.requestedTool,
+      isCustomAgent: contextData.isCustomAgent || false,
+      customInstructions: customInstructions
     });
     
     // Format messages for the agent

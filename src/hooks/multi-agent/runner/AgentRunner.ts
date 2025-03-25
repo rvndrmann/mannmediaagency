@@ -258,15 +258,15 @@ export class AgentRunner {
     contextData: Record<string, any>
   ): Promise<{ completion: string; handoffRequest?: HandoffRequest; modelUsed: string }> {
     try {
-      console.log("Directly invoking Supabase function: multi-agent-chat");
+      console.log("Invoking Supabase function: multi-agent-chat");
       
       const { data, error } = await supabase.functions.invoke('multi-agent-chat', {
-        body: JSON.stringify({
+        body: {
           messages,
           agentType: this.agentType,
           userId,
           contextData
-        })
+        }
       });
       
       if (error) {

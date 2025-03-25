@@ -1,117 +1,169 @@
 
-import { useCallback } from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { BUILT_IN_AGENT_TYPES, BUILT_IN_TOOL_TYPES, AgentType } from "@/hooks/use-multi-agent-chat";
-import { Bot, PenLine, Image, Wrench, Video, Globe } from "lucide-react";
-import { AgentIconType } from "@/types/message";
+import { 
+  Bot, 
+  PenLine, 
+  Image, 
+  Wrench, 
+  Theater, 
+  Plus,
+  Zap,
+  Brain,
+  Lightbulb,
+  Music,
+  Video,
+  Globe,
+  ShoppingBag
+} from "lucide-react";
+import { cn } from "@/lib/utils";
+import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { AddAgentDialog } from "./AddAgentDialog";
+import { useCustomAgents } from "@/hooks/use-custom-agents";
+import { CustomAgentFormData } from "@/hooks/use-custom-agents";
+import { toast } from "sonner";
+
+// Map of built-in agent types to their icons
+const AGENT_ICONS = {
+  main: Bot,
+  script: PenLine,
+  image: Image,
+  tool: Wrench,
+  scene: Theater,
+  browser: Globe,
+  'product-video': Video,
+  'custom-video': Video
+};
+
+const AGENT_COLORS = {
+  main: "from-blue-400 to-indigo-500",
+  script: "from-pink-400 to-rose-500",
+  image: "from-green-400 to-teal-500",
+  tool: "from-amber-400 to-orange-500",
+  scene: "from-purple-400 to-fuchsia-500",
+  browser: "from-cyan-400 to-blue-500",
+  'product-video': "from-red-400 to-rose-500",
+  'custom-video': "from-emerald-400 to-green-500"
+};
+
+const AGENT_NAMES = {
+  main: "Main Assistant",
+  script: "Script Writer",
+  image: "Image Prompt",
+  tool: "Tool Agent",
+  scene: "Scene Creator",
+  browser: "Browser Agent",
+  'product-video': "Product Video",
+  'custom-video': "Custom Video"
+};
+
+// Custom agent type map for icons
+const CUSTOM_AGENT_ICON_MAP: Record<string, any> = {
+  Bot: Bot,
+  PenLine: PenLine,
+  Image: Image,
+  Wrench: Wrench,
+  Zap: Zap,
+  Brain: Brain,
+  Lightbulb: Lightbulb,
+  Music: Music,
+  Video: Video,
+  Globe: Globe,
+  ShoppingBag: ShoppingBag
+};
 
 interface AgentSelectorProps {
-  activeAgent: string;
+  activeAgent: AgentType;
   onAgentSelect: (agentType: AgentType) => void;
 }
 
-export const AgentSelector = ({ 
-  activeAgent, 
-  onAgentSelect 
-}: AgentSelectorProps) => {
-  const handleAgentSelect = useCallback((agentType: AgentType) => {
-    onAgentSelect(agentType);
-  }, [onAgentSelect]);
+export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps) => {
+  const [showAddAgentDialog, setShowAddAgentDialog] = useState(false);
+  const { agents, createAgent, isLoading } = useCustomAgents();
 
-  // Get icon for agent type
-  const getAgentIcon = (agentType: string) => {
-    switch (agentType) {
-      case "main": return <Bot className="h-4 w-4" />;
-      case "script": return <PenLine className="h-4 w-4" />;
-      case "image": return <Image className="h-4 w-4" />;
-      case "tool": return <Wrench className="h-4 w-4" />;
-      case "scene": return <PenLine className="h-4 w-4" />;
-      case "browser": return <Globe className="h-4 w-4" />;
-      case "product-video": return <Video className="h-4 w-4" />;
-      case "custom-video": return <Video className="h-4 w-4" />;
-      default: return <Bot className="h-4 w-4" />;
-    }
-  };
+  // Define built-in agent types
+  const builtInAgents = [
+    { type: "main", name: AGENT_NAMES.main, icon: AGENT_ICONS.main, color: AGENT_COLORS.main },
+    { type: "script", name: AGENT_NAMES.script, icon: AGENT_ICONS.script, color: AGENT_COLORS.script },
+    { type: "image", name: AGENT_NAMES.image, icon: AGENT_ICONS.image, color: AGENT_COLORS.image },
+    { type: "tool", name: AGENT_NAMES.tool, icon: AGENT_ICONS.tool, color: AGENT_COLORS.tool },
+    { type: "scene", name: AGENT_NAMES.scene, icon: AGENT_ICONS.scene, color: AGENT_COLORS.scene }
+  ];
 
-  // Get human-readable name for agent type
-  const getAgentName = (agentType: string) => {
-    switch (agentType) {
-      case "main": return "Main Assistant";
-      case "script": return "Script Writer";
-      case "image": return "Image Prompt";
-      case "tool": return "Tool Orchestrator";
-      case "scene": return "Scene Description";
-      case "browser": return "Browser Assistant";
-      case "product-video": return "Product Video";
-      case "custom-video": return "Video Request";
-      default: return agentType.charAt(0).toUpperCase() + agentType.slice(1);
-    }
-  };
-
-  // Get color for agent type
-  const getAgentColor = (agentType: string, isActive: boolean = false) => {
-    if (isActive) {
-      switch (agentType) {
-        case "main": return "bg-gradient-to-r from-blue-600 to-indigo-600";
-        case "script": return "bg-gradient-to-r from-purple-600 to-pink-600";
-        case "image": return "bg-gradient-to-r from-emerald-600 to-cyan-600";
-        case "tool": return "bg-gradient-to-r from-amber-600 to-orange-600";
-        case "scene": return "bg-gradient-to-r from-rose-600 to-red-600";
-        case "browser": return "bg-gradient-to-r from-gray-600 to-slate-600";
-        case "product-video": return "bg-gradient-to-r from-teal-600 to-green-600";
-        case "custom-video": return "bg-gradient-to-r from-violet-600 to-fuchsia-600";
-        default: return "bg-gradient-to-r from-blue-600 to-indigo-600";
-      }
-    } else {
-      return "bg-[#262B38] hover:bg-[#2D3240]";
+  const handleCreateAgent = async (formData: CustomAgentFormData) => {
+    try {
+      await createAgent(formData);
+      setShowAddAgentDialog(false);
+      toast.success("Custom agent created successfully!");
+    } catch (error) {
+      console.error("Error creating agent:", error);
+      toast.error("Failed to create custom agent");
     }
   };
 
   return (
-    <div className="mb-2 flex flex-wrap gap-1.5">
-      <div className="text-sm text-gray-400 w-full mb-1 px-1">Select agent type:</div>
-      
-      <div className="flex flex-wrap gap-1.5">
-        {/* Built-in Agents */}
-        {BUILT_IN_AGENT_TYPES.map((agentType) => (
-          <Button
-            key={agentType}
-            variant="outline"
-            size="sm"
-            onClick={() => handleAgentSelect(agentType)}
-            className={`h-8 px-2.5 border-[#3A4055] text-white ${
-              activeAgent === agentType 
-                ? getAgentColor(agentType, true)
-                : getAgentColor(agentType)
-            }`}
-          >
-            <span className="flex items-center gap-1.5">
-              {getAgentIcon(agentType)}
-              <span>{getAgentName(agentType)}</span>
-            </span>
-          </Button>
-        ))}
+    <div className="mb-4">
+      <div className="text-xs text-gray-400 mb-2 px-1">Select Agent</div>
+      <div className="flex flex-wrap gap-2">
+        {builtInAgents.map((agent) => {
+          const IconComponent = agent.icon;
+          return (
+            <Button
+              key={agent.type}
+              variant={activeAgent === agent.type ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "h-auto py-1.5 px-2 transition-all flex items-center",
+                activeAgent === agent.type
+                  ? `bg-gradient-to-r ${agent.color} text-white border-transparent`
+                  : "hover:bg-gray-100/50 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-50"
+              )}
+              onClick={() => onAgentSelect(agent.type as AgentType)}
+            >
+              <IconComponent className="h-4 w-4 mr-1" />
+              <span className="text-xs font-medium">{agent.name}</span>
+            </Button>
+          );
+        })}
 
-        {/* Tool Types */}
-        {BUILT_IN_TOOL_TYPES.map((toolType) => (
-          <Button
-            key={toolType}
-            variant="outline"
-            size="sm"
-            onClick={() => handleAgentSelect(toolType)}
-            className={`h-8 px-2.5 border-[#3A4055] text-white ${
-              activeAgent === toolType 
-                ? getAgentColor(toolType, true)
-                : getAgentColor(toolType)
-            }`}
-          >
-            <span className="flex items-center gap-1.5">
-              {getAgentIcon(toolType)}
-              <span>{getAgentName(toolType)}</span>
-            </span>
-          </Button>
-        ))}
+        {agents.map((agent) => {
+          const IconComponent = CUSTOM_AGENT_ICON_MAP[agent.icon] || Bot;
+          return (
+            <Button
+              key={agent.id}
+              variant={activeAgent === agent.id ? "default" : "outline"}
+              size="sm"
+              className={cn(
+                "h-auto py-1.5 px-2 transition-all flex items-center",
+                activeAgent === agent.id
+                  ? `bg-gradient-to-r ${agent.color} text-white border-transparent`
+                  : "hover:bg-gray-100/50 hover:text-gray-900 dark:hover:bg-gray-800 dark:hover:text-gray-50"
+              )}
+              onClick={() => onAgentSelect(agent.id as AgentType)}
+            >
+              <IconComponent className="h-4 w-4 mr-1" />
+              <span className="text-xs font-medium">{agent.name}</span>
+            </Button>
+          );
+        })}
+
+        {/* Add New Agent Button */}
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-auto py-1.5 px-2 transition-all flex items-center bg-gray-700/30 hover:bg-gray-700/50 text-gray-300"
+          onClick={() => setShowAddAgentDialog(true)}
+        >
+          <Plus className="h-4 w-4 mr-1" />
+          <span className="text-xs font-medium">Add Agent</span>
+        </Button>
       </div>
+
+      <AddAgentDialog
+        open={showAddAgentDialog}
+        onOpenChange={setShowAddAgentDialog}
+        onSubmit={handleCreateAgent}
+      />
     </div>
   );
 };

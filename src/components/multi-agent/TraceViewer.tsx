@@ -1,7 +1,5 @@
-
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { ChatMessage } from "../chat/ChatMessage";
 import { format } from 'date-fns';
 import { BarChartBig, Clock, Hammer, Repeat, Users, Zap } from "lucide-react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "../ui/tabs";
@@ -43,6 +41,33 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
     const events: any[] = [];
     let startTime = 0;
     
+    // If we have events in the summary, use those
+    if (traceData.summary && traceData.summary.events && traceData.summary.events.length > 0) {
+      const allEvents = traceData.summary.events;
+      
+      allEvents.forEach((event: any) => {
+        // Use the timestamp from the event or fallback to message timestamp
+        const timestamp = new Date(event.timestamp).getTime();
+        
+        // Set the startTime to the first event's timestamp
+        if (startTime === 0) {
+          startTime = timestamp;
+        }
+        
+        // Calculate relative time from the start of the conversation
+        const relativeTime = (timestamp - startTime) / 1000; // in seconds
+        
+        events.push({
+          ...event,
+          relativeTime,
+          formattedTime: `${relativeTime.toFixed(1)}s`
+        });
+      });
+      
+      return events.sort((a, b) => a.relativeTime - b.relativeTime);
+    }
+    
+    // Otherwise, try to extract events from individual messages
     traceData.messages.forEach((message: any) => {
       if (message.trace && message.trace.events) {
         message.trace.events.forEach((event: any) => {
@@ -106,6 +131,8 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
         name = `Thinking: ${event.data.agentType}`;
       } else if (event.eventType === 'handoff') {
         name = `Handoff: ${event.data.from} → ${event.data.to}`;
+      } else if (event.eventType === 'tool_call') {
+        name = `Tool: ${event.data.toolName}`;
       }
       
       return {
@@ -123,7 +150,7 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
   const successRate = summary.success ? '100%' : '0%';
   const totalHandoffs = summary.handoffs || 0;
   const totalToolCalls = summary.tool_calls || 0;
-  const duration = summary.duration ? (summary.duration / 1000).toFixed(1) + 's' : 'N/A';
+  const duration = summary.duration ? (summary.duration).toFixed(1) + 's' : 'N/A';
   
   return (
     <div className="space-y-6">
@@ -233,27 +260,33 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4 max-h-[600px] overflow-y-auto pr-2">
-                {events.map((event, index) => (
-                  <div key={index} className="flex items-start">
-                    <div className="text-sm font-mono w-16 text-gray-400 flex-shrink-0">
-                      {event.formattedTime}
-                    </div>
-                    <div className="ml-4 flex items-start">
-                      <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
-                      <div className="border-l-2 border-gray-700 ml-1 pl-4 pb-6 -mb-2 w-full">
-                        <div className="text-sm font-semibold text-gray-300">
-                          {event.eventType}
-                          <span className="ml-2 text-xs font-normal text-gray-500">
-                            (Agent: {event.agentType})
-                          </span>
-                        </div>
-                        <div className="mt-1 p-2 bg-gray-800 rounded text-xs font-mono overflow-x-auto">
-                          {JSON.stringify(event.data, null, 2)}
+                {events.length > 0 ? (
+                  events.map((event, index) => (
+                    <div key={index} className="flex items-start">
+                      <div className="text-sm font-mono w-16 text-gray-400 flex-shrink-0">
+                        {event.formattedTime}
+                      </div>
+                      <div className="ml-4 flex items-start">
+                        <div className="w-3 h-3 rounded-full bg-blue-500 mt-1.5 flex-shrink-0"></div>
+                        <div className="border-l-2 border-gray-700 ml-1 pl-4 pb-6 -mb-2 w-full">
+                          <div className="text-sm font-semibold text-gray-300">
+                            {event.eventType}
+                            <span className="ml-2 text-xs font-normal text-gray-500">
+                              (Agent: {event.agentType})
+                            </span>
+                          </div>
+                          <div className="mt-1 p-2 bg-gray-800 rounded text-xs font-mono overflow-x-auto">
+                            {JSON.stringify(event.data, null, 2)}
+                          </div>
                         </div>
                       </div>
                     </div>
+                  ))
+                ) : (
+                  <div className="flex items-center justify-center py-12 text-gray-500">
+                    <p>No timeline events available</p>
                   </div>
-                ))}
+                )}
               </div>
             </CardContent>
           </Card>
@@ -334,8 +367,19 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
                 {traceData.messages.map((message: any, index: number) => (
                   <div key={index} className="border border-gray-700 rounded-md p-4">
                     <div className="flex justify-between mb-2">
-                      <div className="font-medium">
-                        {message.role === 'user' ? 'User' : `Assistant (${message.agent_type})`}
+                      <div className="font-medium flex items-center gap-1">
+                        {message.role === 'user' ? (
+                          <>User</>
+                        ) : (
+                          <>
+                            <span>Assistant</span>
+                            {message.agent_type && (
+                              <span className="px-1.5 py-0.5 text-[10px] bg-blue-900/30 text-blue-300 rounded ml-1">
+                                {message.agent_type}
+                              </span>
+                            )}
+                          </>
+                        )}
                       </div>
                       <div className="text-xs text-gray-400">
                         {format(new Date(message.timestamp), 'MMM dd, HH:mm:ss')}

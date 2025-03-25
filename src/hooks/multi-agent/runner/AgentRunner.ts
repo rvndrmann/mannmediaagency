@@ -3,6 +3,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Message, Attachment, Task, HandoffRequest } from '@/types/message';
 import { toast } from 'sonner';
 import { isTaskInProgress, isTaskCompleted, isTaskFailed, isTaskPending } from './fix-agent-runner';
+import { createTraceEvent, saveTrace } from '@/lib/trace-utils';
 
 // Define built-in agent types
 const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
@@ -31,6 +32,8 @@ export class AgentRunner {
   private conversationId: string;
   private isHandoffContinuation: boolean = false;
   private handoffChain: string[] = [];
+  private traceEvents: any[] = [];
+  private startTime: string;
 
   constructor(
     agentType: string,
@@ -48,6 +51,20 @@ export class AgentRunner {
     this.callbacks = callbacks;
     this.traceId = options.runId || uuidv4();
     this.conversationId = options.groupId || uuidv4();
+    this.startTime = new Date().toISOString();
+    this.traceEvents = [];
+    
+    // Add initialization event to trace
+    if (!options.tracingDisabled) {
+      this.addTraceEvent('init', {
+        agentType: this.agentType,
+        options: {
+          ...options,
+          // Don't include sensitive data in trace
+          metadata: { ...options.metadata, userId: undefined }
+        }
+      });
+    }
   }
 
   public async run(
@@ -56,6 +73,12 @@ export class AgentRunner {
     userId: string
   ): Promise<Message> {
     console.log(`Running ${this.agentType} agent with input: ${userInput.slice(0, 50)}...`);
+    
+    // Add user input event to trace
+    this.addTraceEvent('user_input', { 
+      content: userInput,
+      hasAttachments: attachments.length > 0
+    });
     
     try {
       // Create initial thinking message
@@ -71,6 +94,7 @@ export class AgentRunner {
       
       if (isToolAgent) {
         console.log(`Tool agent requested with specific tool: ${requestedTool}`);
+        this.addTraceEvent('tool_agent_request', { requestedTool });
       }
       
       // Get context data for the API
@@ -86,6 +110,16 @@ export class AgentRunner {
         availableTools: await this.getAvailableTools()
       };
       
+      // Add API call start event
+      this.addTraceEvent('api_call_start', {
+        contextData,
+        agentType: this.agentType,
+        modelType: this.options.usePerformanceModel ? 'gpt-4o-mini' : 'gpt-4o'
+      });
+      
+      // Record start time for API call
+      const apiCallStartTime = new Date().getTime();
+      
       // Call the agent API
       const { completion, handoffRequest, modelUsed } = await this.callAgentApi(
         messages,
@@ -93,11 +127,37 @@ export class AgentRunner {
         contextData
       );
       
+      // Calculate API call duration
+      const apiCallDuration = new Date().getTime() - apiCallStartTime;
+      
+      // Add API call end event
+      this.addTraceEvent('api_call_end', {
+        completion: completion.slice(0, 100) + '...',
+        duration: apiCallDuration,
+        handoffRequest: handoffRequest ? true : false,
+        modelUsed,
+        agentType: this.agentType
+      });
+      
       // Process the response
       const responseMessage = this.createResponseMessage(completion, modelUsed);
       
+      // Add response event
+      this.addTraceEvent('response', {
+        messageId: responseMessage.id,
+        agentType: this.agentType,
+        handoffRequested: handoffRequest ? true : false,
+        modelUsed
+      });
+      
       // Handle handoff if needed
       if (handoffRequest) {
+        this.addTraceEvent('handoff', {
+          from: this.agentType,
+          to: handoffRequest.targetAgent,
+          reason: handoffRequest.reason
+        });
+        
         return await this.handleHandoff(
           handoffRequest,
           userInput,
@@ -127,6 +187,12 @@ export class AgentRunner {
           responseMessage.tasks = [task];
           this.sendMessage(responseMessage);
           
+          // Add tool call event
+          this.addTraceEvent('tool_call', {
+            toolName: toolExecution.toolName,
+            parameters: toolExecution.parameters
+          });
+          
           // Execute the tool
           return await this.executeTool(
             toolExecution.toolName,
@@ -139,9 +205,20 @@ export class AgentRunner {
       
       // Send the final response
       this.sendMessage(responseMessage);
+      
+      // Save the trace at the end of a successful run
+      this.saveTraceData(userId, [responseMessage]);
+      
       return responseMessage;
     } catch (error) {
       console.error(`Error in ${this.agentType} agent:`, error);
+      
+      // Add error event to trace
+      this.addTraceEvent('error', {
+        message: error instanceof Error ? error.message : String(error),
+        agentType: this.agentType
+      });
+      
       const errorMessage = this.createErrorMessage(
         error instanceof Error ? error.message : String(error)
       );
@@ -150,6 +227,9 @@ export class AgentRunner {
       if (this.callbacks.onError) {
         this.callbacks.onError(error instanceof Error ? error.message : String(error));
       }
+      
+      // Save the trace even on error
+      this.saveTraceData(userId, [errorMessage]);
       
       return errorMessage;
     }
@@ -237,6 +317,13 @@ export class AgentRunner {
     currentResponse.handoffRequest = handoffRequest;
     this.sendMessage(currentResponse);
     
+    // Add handoff start event
+    this.addTraceEvent('handoff_start', {
+      from: this.agentType,
+      to: targetAgent,
+      reason
+    });
+    
     // Check if the target agent is valid
     const isBuiltInTarget = [...BUILT_IN_AGENT_TYPES, ...BUILT_IN_TOOL_TYPES].includes(targetAgent);
     
@@ -250,10 +337,22 @@ export class AgentRunner {
       
       if (error || !data) {
         console.error(`Invalid handoff target: ${targetAgent}`, error);
+        
+        // Add handoff error event
+        this.addTraceEvent('handoff_error', {
+          from: this.agentType,
+          to: targetAgent,
+          error: `Cannot hand off to unknown agent: ${targetAgent}`
+        });
+        
         const errorMessage = this.createErrorMessage(
           `Cannot hand off to unknown agent: ${targetAgent}`
         );
         this.sendMessage(errorMessage);
+        
+        // Save trace on handoff error
+        this.saveTraceData(userId, [currentResponse, errorMessage]);
+        
         return errorMessage;
       }
     }
@@ -271,6 +370,15 @@ export class AgentRunner {
     // Set handoff continuation flag and update chain
     newRunner.isHandoffContinuation = true;
     newRunner.handoffChain = [...this.handoffChain, this.agentType];
+    
+    // Add handoff completion event
+    this.addTraceEvent('handoff_complete', {
+      from: this.agentType,
+      to: targetAgent
+    });
+    
+    // Save trace before delegating to new agent
+    this.saveTraceData(userId, [currentResponse]);
     
     // Notify about handoff completion
     if (this.callbacks.onHandoffEnd) {
@@ -313,6 +421,13 @@ export class AgentRunner {
   ): Promise<Message> {
     console.log(`Executing tool: ${toolName} with parameters:`, parameters);
     
+    // Add tool execution start event
+    this.addTraceEvent('tool_execution_start', {
+      toolName,
+      parameters,
+      messageId: responseMessage.id
+    });
+    
     // Update task status
     if (responseMessage.tasks && responseMessage.tasks.length > 0) {
       responseMessage.tasks[0].status = 'in_progress';
@@ -331,6 +446,9 @@ export class AgentRunner {
         throw new Error('Failed to retrieve user credits');
       }
       
+      // Record tool execution start time
+      const toolExecutionStartTime = new Date().getTime();
+      
       // Call the tool execution API
       const response = await fetch('/api/execute-tool', {
         method: 'POST',
@@ -346,12 +464,23 @@ export class AgentRunner {
         })
       });
       
+      // Calculate tool execution duration
+      const toolExecutionDuration = new Date().getTime() - toolExecutionStartTime;
+      
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(errorData.error || `Tool API returned ${response.status}`);
       }
       
       const result = await response.json();
+      
+      // Add tool execution end event
+      this.addTraceEvent('tool_execution_end', {
+        toolName,
+        success: result.success,
+        duration: toolExecutionDuration,
+        messageId: responseMessage.id
+      });
       
       // Update task status
       if (responseMessage.tasks && responseMessage.tasks.length > 0) {
@@ -375,18 +504,31 @@ export class AgentRunner {
         };
         
         this.sendMessage(toolMessage);
+        
+        // Save trace with tool result
+        this.saveTraceData(userId, [responseMessage, toolMessage]);
       } else {
         // If the tool execution failed, create an error message
         const errorMessage = this.createErrorMessage(
           result.message || 'Tool execution failed'
         );
         this.sendMessage(errorMessage);
+        
+        // Save trace with error
+        this.saveTraceData(userId, [responseMessage, errorMessage]);
+        
         return errorMessage;
       }
       
       return responseMessage;
     } catch (error) {
       console.error('Error executing tool:', error);
+      
+      // Add tool execution error event
+      this.addTraceEvent('tool_execution_error', {
+        toolName,
+        error: error instanceof Error ? error.message : String(error)
+      });
       
       // Update task status to error
       if (responseMessage.tasks && responseMessage.tasks.length > 0) {
@@ -399,12 +541,16 @@ export class AgentRunner {
         `Error executing tool: ${error instanceof Error ? error.message : String(error)}`
       );
       this.sendMessage(errorMessage);
+      
+      // Save trace with error
+      this.saveTraceData(userId, [responseMessage, errorMessage]);
+      
       return errorMessage;
     }
   }
   
   private createThinkingMessage(): Message {
-    return {
+    const message = {
       id: uuidv4(),
       role: 'assistant',
       content: 'Thinking...',
@@ -412,6 +558,14 @@ export class AgentRunner {
       agentType: this.agentType,
       status: 'thinking'
     };
+    
+    // Add thinking event to trace
+    this.addTraceEvent('thinking', {
+      messageId: message.id,
+      agentType: this.agentType
+    });
+    
+    return message;
   }
   
   private createResponseMessage(content: string, modelUsed?: string): Message {
@@ -481,6 +635,50 @@ export class AgentRunner {
     } catch (error) {
       console.error('Error in getAvailableTools:', error);
       return [];
+    }
+  }
+
+  private addTraceEvent(eventType: string, data: any): void {
+    if (this.options.tracingDisabled) return;
+    
+    const event = createTraceEvent(eventType, data, this.agentType);
+    this.traceEvents.push(event);
+    
+    console.log(`Trace event: ${eventType} for agent ${this.agentType}`);
+  }
+  
+  private async saveTraceData(userId: string, messagesInThisRun: Message[] = []): Promise<void> {
+    if (this.options.tracingDisabled) return;
+    
+    try {
+      // Get all messages for the event
+      const allMessages = messagesInThisRun.map(msg => ({
+        role: msg.role,
+        content: msg.content,
+        agentType: msg.agentType,
+        status: msg.status,
+        id: msg.id,
+        timestamp: msg.createdAt
+      }));
+      
+      // Create trace object
+      const trace = {
+        id: this.traceId,
+        runId: this.traceId,
+        userId,
+        sessionId: this.conversationId,
+        messages: allMessages,
+        events: this.traceEvents,
+        startTime: this.startTime,
+        endTime: new Date().toISOString()
+      };
+      
+      // Save to database using the utility function
+      await saveTrace(trace);
+      
+      console.log(`Trace ${this.traceId} saved with ${this.traceEvents.length} events`);
+    } catch (error) {
+      console.error('Error saving trace data:', error);
     }
   }
 }

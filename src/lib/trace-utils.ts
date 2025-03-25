@@ -29,9 +29,78 @@ export type Trace = {
 
 // Function to save a trace to Supabase
 export const saveTrace = async (trace: Trace): Promise<void> => {
-  // This function would need to be implemented to save to the trace table
-  // For now, we'll just log it
-  console.log("Trace saved:", trace.id);
+  try {
+    // First, check if we already have trace data in the agent_interactions table
+    const { data: existingData, error: checkError } = await supabase
+      .from('agent_interactions')
+      .select('id, metadata')
+      .eq('metadata->trace->runId', trace.id)
+      .limit(1);
+    
+    if (checkError) {
+      console.error("Error checking for existing trace:", checkError);
+      return;
+    }
+    
+    // If no existing data, create a summary record
+    if (!existingData || existingData.length === 0) {
+      // Calculate trace summary
+      const summary = generateTraceSummary(trace);
+      
+      // Save summary trace entry
+      const { error } = await supabase
+        .from('agent_interactions')
+        .insert({
+          user_id: trace.userId,
+          agent_type: 'trace_summary',
+          user_message: `Trace ${trace.id}`,
+          assistant_response: `Multi-agent conversation with ${summary.agentTypes.length} agents`,
+          metadata: {
+            trace: {
+              runId: trace.id,
+              sessionId: trace.sessionId,
+              summary,
+              events: trace.events.slice(0, 5), // Just store a few key events
+              startTime: trace.startTime,
+              endTime: trace.endTime || new Date().toISOString()
+            }
+          },
+          timestamp: trace.startTime,
+          group_id: trace.sessionId
+        });
+      
+      if (error) {
+        console.error("Error saving trace summary:", error);
+      }
+    } else {
+      // Update the existing trace with the latest information
+      const existingRecord = existingData[0];
+      const updatedMetadata = {
+        ...existingRecord.metadata,
+        trace: {
+          ...existingRecord.metadata.trace,
+          events: [...(existingRecord.metadata.trace.events || []), ...trace.events.slice(-5)],
+          endTime: trace.endTime || new Date().toISOString(),
+          summary: generateTraceSummary(trace)
+        }
+      };
+      
+      const { error } = await supabase
+        .from('agent_interactions')
+        .update({
+          metadata: updatedMetadata
+        })
+        .eq('id', existingRecord.id);
+        
+      if (error) {
+        console.error("Error updating trace:", error);
+      }
+    }
+    
+    console.log("Trace saved/updated:", trace.id);
+  } catch (error) {
+    console.error("Error in saveTrace:", error);
+  }
 };
 
 // Function to format a timestamp
@@ -91,11 +160,18 @@ export const generateTraceSummary = (trace: Trace): Trace['summary'] => {
     calculateDuration(trace.startTime, trace.endTime) : 
     0;
   
+  // Count messages
+  const messageCount = trace.messages?.length || 0;
+  
   return {
     agentTypes,
     handoffs,
     toolCalls,
     success,
-    duration
+    duration,
+    messageCount
   };
 };
+
+// Import Supabase client
+import { supabase } from '@/integrations/supabase/client';

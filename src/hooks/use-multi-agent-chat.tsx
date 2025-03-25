@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -126,6 +125,13 @@ export const useMultiAgentChat = () => {
       
       console.log("Using agent:", { selectedAgentType, effectiveAgentType });
 
+      // Create a new conversationId if messages list is empty
+      if (messages.length === 0) {
+        const newConversationId = uuidv4();
+        setCurrentConversationId(newConversationId);
+        console.log("Started new conversation:", newConversationId);
+      }
+
       // Create AgentRunner instance with the effective agent type
       const runner = new AgentRunner(effectiveAgentType, {
         usePerformanceModel,
@@ -136,11 +142,39 @@ export const useMultiAgentChat = () => {
           sessionId: currentConversationId,
           requestedTool: BUILT_IN_TOOL_TYPES.includes(selectedAgentType as ToolType) ? selectedAgentType : undefined
         },
-        runId: uuidv4(),
+        runId: uuidv4(), // Generate unique run ID for each interaction
         groupId: currentConversationId
       }, {
         onMessage: (message) => {
           console.log("Received message from agent:", message);
+          
+          // Save the interaction in Supabase for analytics
+          if (message.role !== 'thinking' && message.status !== 'thinking') {
+            const saveInteraction = async () => {
+              try {
+                await supabase.from('agent_interactions').insert({
+                  user_id: user.id,
+                  agent_type: message.agentType || effectiveAgentType,
+                  user_message: userMessage.content,
+                  assistant_response: message.content,
+                  timestamp: message.createdAt,
+                  has_attachments: pendingAttachments.length > 0,
+                  group_id: currentConversationId,
+                  metadata: {
+                    model_used: message.modelUsed,
+                    status: message.status,
+                    attachments: pendingAttachments.length > 0 ? pendingAttachments.map(a => a.name) : []
+                  }
+                });
+                console.log("Saved interaction to database");
+              } catch (error) {
+                console.error("Error saving interaction:", error);
+              }
+            };
+            
+            saveInteraction();
+          }
+          
           setMessages(prev => [...prev, message]);
         },
         onError: (error) => {

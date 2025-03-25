@@ -1,6 +1,6 @@
+
 import { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { useQuery } from '@tanstack/react-query';
 
 interface Params {
   imageJobs: Record<string, { status: string; result_url: string }>;
@@ -25,30 +25,46 @@ export const useMediaUpdates = (params: Params) => {
         return;
       }
 
-      // Modify the query result processing to handle potential errors
-      const { data: imageJobs } = await supabase
-        .from('image_generation_jobs')
-        .select('id, status, result_url')
-        .in('id', Object.keys(params.imageJobs));
+      try {
+        // Fetch job updates with error handling
+        const { data: imageJobs, error } = await supabase
+          .from('image_generation_jobs')
+          .select('id, status, result_url')
+          .in('id', Object.keys(params.imageJobs));
 
-      // Process only if data exists and is valid
-      if (imageJobs && Array.isArray(imageJobs)) {
-        imageJobs.forEach(job => {
-          if (job && job.id) {
-            updatedItems[job.id] = {
-              id: job.id,
-              status: job.status,
-              progress: 100, // Default to 100 if no progress field
-              result_url: job.result_url
-            };
-          }
-        });
+        if (error) {
+          console.error("Error fetching image generation jobs:", error);
+          return;
+        }
+
+        // Process only if data exists and is valid
+        if (imageJobs && Array.isArray(imageJobs)) {
+          const newUpdatedItems = { ...updatedItems };
+          
+          imageJobs.forEach(job => {
+            if (job && job.id) {
+              newUpdatedItems[job.id] = {
+                id: job.id,
+                status: job.status || 'pending',
+                progress: 100, // Default to 100 if no progress field
+                result_url: job.result_url || ''
+              };
+            }
+          });
+          
+          setUpdatedItems(newUpdatedItems);
+        }
+      } catch (fetchError) {
+        console.error("Failed to fetch media updates:", fetchError);
       }
-
-      setUpdatedItems(updatedItems);
     };
 
     fetchUpdates();
+    
+    // Set up polling interval for updates
+    const intervalId = setInterval(fetchUpdates, 5000);
+    
+    return () => clearInterval(intervalId);
   }, [params.imageJobs]);
 
   return updatedItems;

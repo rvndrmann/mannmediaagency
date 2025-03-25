@@ -1,76 +1,169 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "@/hooks/types";
+import { v4 as uuidv4 } from 'uuid';
+import { supabase } from '@/integrations/supabase/client';
+import { handleBrowserUseApiResponse, safeJsonStringify } from '../runner/fix-agent-runner';
 
-export const browserUseTool: ToolDefinition = {
-  name: "browser-use",
-  description: "Automate browser tasks such as web scraping, form filling, and data extraction using a virtual browser.",
-  parameters: {
-    task: {
-      type: "string",
-      description: "Description of the browser task to perform (e.g., 'Go to amazon.com and search for laptops')"
-    },
-    saveBrowserData: {
-      type: "boolean",
-      description: "Whether to save browser session data for future use",
-      default: true
-    }
-  },
-  requiredCredits: 1,
-  execute: async (params, context: ToolContext): Promise<ToolResult> => {
-    try {
-      console.log("Browser tool starting with credits:", context.creditsRemaining);
-      
-      // Check if user has enough credits
-      if (context.creditsRemaining < 1) {
-        console.error(`Insufficient credits: User has ${context.creditsRemaining} but needs 1 credit.`);
-        return {
-          success: false,
-          message: "Insufficient credits to run browser automation. You need at least 1 credit."
-        };
-      }
+interface BrowserUseApiParams {
+  task: string;
+  save_browser_data?: boolean;
+}
 
-      // Call the Supabase edge function to start the browser automation task
-      const response = await supabase.functions.invoke('browser-use-api', {
-        body: {
-          task: params.task,
-          save_browser_data: params.saveBrowserData === false ? false : true,
-          user_id: context.userId
-        },
-      });
-
-      if (response.error) throw new Error(response.error.message);
-
-      const taskId = response.data?.task_id;
-      
-      if (!taskId) {
-        throw new Error("Failed to start browser task - no task ID returned");
-      }
-
-      // Save task to history for future reference
-      await supabase
-        .from('browser_task_history')
-        .insert({
-          user_id: context.userId,
-          task_input: params.task,
-          status: 'running',
-          browser_task_id: taskId
-        });
-
-      return {
-        success: true,
-        message: "✅ Browser task started successfully! You can view the progress in the Browser Use section. The task ID is: " + taskId,
-        data: {
-          taskId,
-          status: "in_progress"
-        }
-      };
-    } catch (error) {
-      console.error("Error in browser-use tool:", error);
+export const executeBrowserUseTool = async (
+  parameters: Record<string, any>,
+  userId: string,
+  traceId: string
+): Promise<{ success: boolean; message: string; taskId?: string }> => {
+  try {
+    console.log('Executing browser-use tool with parameters:', parameters);
+    
+    // Validate parameters
+    if (!parameters.task || typeof parameters.task !== 'string') {
       return {
         success: false,
-        message: error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred"
+        message: 'Missing or invalid task parameter. Please provide a task instruction as a string.'
       };
     }
+    
+    const browserParams: BrowserUseApiParams = {
+      task: parameters.task,
+      save_browser_data: parameters.save_browser_data !== false // Default to true if not explicitly set to false
+    };
+    
+    // Get API key from Supabase environment
+    const { data: apiKeyData, error: apiKeyError } = await supabase
+      .from('system_settings')
+      .select('value')
+      .eq('key', 'browser_use_api_key')
+      .single();
+    
+    if (apiKeyError || !apiKeyData) {
+      console.error('Error fetching Browser Use API key:', apiKeyError);
+      
+      // Attempt to use edge function as fallback
+      return await executeBrowserUseViaFunction(browserParams, userId, traceId);
+    }
+    
+    const apiKey = apiKeyData.value;
+    
+    // Log the start of the task to the database
+    const taskRecord = {
+      id: uuidv4(),
+      user_id: userId,
+      task: browserParams.task,
+      status: 'pending',
+      trace_id: traceId
+    };
+    
+    const { data: insertedTask, error: insertError } = await supabase
+      .from('browser_automation_tasks')
+      .insert(taskRecord)
+      .select()
+      .single();
+    
+    if (insertError) {
+      console.error('Error creating browser task record:', insertError);
+      return {
+        success: false,
+        message: 'Error creating task record: ' + insertError.message
+      };
+    }
+    
+    // Make the API request with improved error handling
+    try {
+      const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${apiKey}`,
+          'Content-Type': 'application/json'
+        },
+        body: safeJsonStringify(browserParams)
+      });
+      
+      const result = await handleBrowserUseApiResponse(response);
+      
+      if (!result || !result.task_id) {
+        throw new Error('Invalid response from Browser Use API: missing task_id');
+      }
+      
+      // Update our task record with the API task ID
+      await supabase
+        .from('browser_automation_tasks')
+        .update({
+          external_task_id: result.task_id,
+          status: 'in_progress',
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskRecord.id);
+      
+      return {
+        success: true,
+        message: `Browser automation task started. Task ID: ${result.task_id}`,
+        taskId: result.task_id
+      };
+    } catch (apiError) {
+      console.error('Browser Use API error:', apiError);
+      
+      // Update task status to error
+      await supabase
+        .from('browser_automation_tasks')
+        .update({
+          status: 'error',
+          error_message: apiError instanceof Error ? apiError.message : String(apiError),
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', taskRecord.id);
+      
+      return {
+        success: false,
+        message: `Error executing browser task: ${apiError instanceof Error ? apiError.message : String(apiError)}`
+      };
+    }
+  } catch (error) {
+    console.error('Error in executeBrowserUseTool:', error);
+    return {
+      success: false,
+      message: `Unexpected error: ${error instanceof Error ? error.message : String(error)}`
+    };
   }
 };
+
+// Fallback method that uses our edge function instead of direct API call
+async function executeBrowserUseViaFunction(
+  parameters: BrowserUseApiParams,
+  userId: string,
+  traceId: string
+): Promise<{ success: boolean; message: string; taskId?: string }> {
+  try {
+    console.log('Using edge function for browser automation');
+    
+    const response = await fetch('/api/browser-use', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: safeJsonStringify({
+        ...parameters,
+        userId,
+        traceId
+      })
+    });
+    
+    const result = await handleBrowserUseApiResponse(response);
+    
+    if (!result || result.error) {
+      throw new Error(result?.error || 'Unknown error from browser-use function');
+    }
+    
+    return {
+      success: true,
+      message: result.message || 'Browser automation task started via edge function',
+      taskId: result.taskId
+    };
+  } catch (error) {
+    console.error('Error in executeBrowserUseViaFunction:', error);
+    return {
+      success: false,
+      message: `Edge function error: ${error instanceof Error ? error.message : String(error)}`
+    };
+  }
+}

@@ -2,9 +2,17 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { Message, Attachment, Task, HandoffRequest } from '@/types/message';
 import { toast } from 'sonner';
-import { isTaskInProgress, isTaskCompleted, isTaskFailed, isTaskPending } from './fix-agent-runner';
+import { 
+  isTaskInProgress, 
+  isTaskCompleted, 
+  isTaskFailed, 
+  isTaskPending, 
+  createTypedMessage,
+  safeJsonParse,
+  safeJsonStringify,
+  handleBrowserUseApiResponse
+} from './fix-agent-runner';
 import { createTraceEvent, saveTrace } from '@/lib/trace-utils';
-import { createTypedMessage } from './fix-agent-runner';
 
 // Define built-in agent types
 const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
@@ -283,7 +291,7 @@ export class AgentRunner {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
+        body: safeJsonStringify({
           messages,
           agentType: this.agentType,
           userId,
@@ -292,11 +300,30 @@ export class AgentRunner {
       });
       
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `API returned ${response.status}`);
+        const errorText = await response.text();
+        console.error("API Error Response:", errorText);
+        try {
+          // Try to parse as JSON if possible
+          const errorJson = JSON.parse(errorText);
+          throw new Error(errorJson.error || `API returned ${response.status}`);
+        } catch (e) {
+          // If parsing fails, use the raw text
+          throw new Error(`API returned ${response.status}: ${errorText.substring(0, 100)}`);
+        }
       }
       
-      return await response.json();
+      const text = await response.text();
+      if (!text || text.trim() === '') {
+        throw new Error("Empty response received from server");
+      }
+      
+      try {
+        return JSON.parse(text);
+      } catch (jsonError) {
+        console.error("Failed to parse response as JSON:", jsonError);
+        console.log("Raw response:", text);
+        throw new Error("Invalid JSON response from server");
+      }
     } catch (error) {
       console.error('Error calling agent API:', error);
       throw error;
@@ -450,13 +477,13 @@ export class AgentRunner {
       // Record tool execution start time
       const toolExecutionStartTime = new Date().getTime();
       
-      // Call the tool execution API
+      // Call the tool execution API with improved error handling
       const response = await fetch('/api/execute-tool', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
+        body: safeJsonStringify({
           toolName,
           parameters,
           userId,
@@ -468,12 +495,8 @@ export class AgentRunner {
       // Calculate tool execution duration
       const toolExecutionDuration = new Date().getTime() - toolExecutionStartTime;
       
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Tool API returned ${response.status}`);
-      }
-      
-      const result = await response.json();
+      // Use our helper to handle the response
+      const result = await handleBrowserUseApiResponse(response);
       
       // Add tool execution end event
       this.addTraceEvent('tool_execution_end', {
@@ -487,7 +510,7 @@ export class AgentRunner {
       if (responseMessage.tasks && responseMessage.tasks.length > 0) {
         const task = responseMessage.tasks[0];
         task.status = result.success ? 'completed' : 'error';
-        task.details = result.message;
+        task.details = result.message || '';
         
         // Update the response message
         responseMessage.selectedTool = toolName;
@@ -608,44 +631,54 @@ export class AgentRunner {
   
   private async getAvailableTools(): Promise<any[]> {
     try {
-      // Check if the tools table exists before querying
-      let hasToolsTable = false;
-      
-      try {
-        // Try to get the schema info instead of directly querying the table
-        const { data: tables } = await supabase
-          .from('agent_interactions')  // Use a table we know exists
-          .select('count')
-          .limit(1);
-        
-        hasToolsTable = true; // If we got here without error, we can proceed
-      } catch (error) {
-        console.error('Error checking database schema:', error);
-        return [];
-      }
-      
-      if (!hasToolsTable) {
-        console.log('Tools table may not exist, skipping tool lookup');
-        return [];
-      }
-      
-      // If no error, proceed with checking for built-in tools
-      // Instead of querying the database, return a pre-defined set of tools
+      // Instead of querying database, return a predefined set of tools
+      // This avoids the "tools" table error we were seeing
       return [
         { 
           name: 'browser', 
           description: 'Web browsing and automation tool',
-          is_active: true
+          is_active: true,
+          parameters: {
+            task: {
+              description: "Task for the browser to execute",
+              type: "string"
+            },
+            save_browser_data: {
+              description: "Whether to save browser session data like cookies",
+              type: "boolean",
+              default: true
+            }
+          }
         },
         { 
           name: 'product-video', 
           description: 'Generate product videos',
-          is_active: true
+          is_active: true,
+          parameters: {
+            product_name: {
+              description: "Name of the product",
+              type: "string"
+            },
+            description: {
+              description: "Description of the product",
+              type: "string"
+            }
+          }
         },
         { 
           name: 'custom-video', 
           description: 'Create custom video content',
-          is_active: true
+          is_active: true,
+          parameters: {
+            title: {
+              description: "Title of the video",
+              type: "string"
+            },
+            script: {
+              description: "Script content for the video",
+              type: "string"
+            }
+          }
         }
       ];
     } catch (error) {

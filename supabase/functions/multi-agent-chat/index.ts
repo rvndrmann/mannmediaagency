@@ -1,7 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
-import { Agent, Context, FunctionTool, ModelSettings } from "https://esm.sh/@langchain/openai";
+import { Agent, Runner, Context, FunctionTool, ModelSettings } from "https://esm.sh/@langchain/openai";
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -144,25 +143,22 @@ function createCustomVideoTool() {
   });
 }
 
-async function getCustomAgentInstructions(agentType: string, supabaseClient: any) {
+async function getCustomAgentInstructions(agentType: string, customInstructions?: string) {
   try {
-    if (!agentType || agentType.length < 20) {
+    // If we have custom instructions passed in directly, use those
+    if (customInstructions) {
+      return customInstructions;
+    }
+    
+    // Otherwise, if the agent ID is a UUID (length >= 20), we would normally
+    // fetch from the database, but we'll just return null for now
+    if (agentType && agentType.length >= 20) {
+      console.log("Would normally fetch custom agent instructions for ID:", agentType);
+      // In a real implementation, this would fetch from the database
       return null;
     }
 
-    // Get instructions from the database for custom agents
-    const { data, error } = await supabaseClient
-      .from('custom_agents')
-      .select('instructions')
-      .eq('id', agentType)
-      .single();
-
-    if (error || !data) {
-      console.error("Error fetching custom agent instructions:", error);
-      return null;
-    }
-
-    return data.instructions;
+    return null;
   } catch (error) {
     console.error("Error in getCustomAgentInstructions:", error);
     return null;
@@ -270,9 +266,12 @@ serve(async (req: Request) => {
     // Get custom instructions if this is a custom agent
     let customInstructions;
     if (contextData.isCustomAgent) {
-      // This would actually fetch from DB but we're mocking it for now
       customInstructions = contextData.customInstructions || 
-        "You are a custom AI assistant. Respond helpfully to the user's queries.";
+        await getCustomAgentInstructions(agentType, contextData.customInstructions);
+      
+      if (!customInstructions) {
+        customInstructions = "You are a custom AI assistant. Respond helpfully to the user's queries.";
+      }
     }
     
     // Create the agent based on agent type

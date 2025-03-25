@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { Message, Attachment, Task, HandoffRequest } from '@/types/message';
@@ -404,7 +405,7 @@ export class AgentRunner {
       const updatedMessage: Message = {
         ...message,
         content: message.content + `\n\nTool Result: ${JSON.stringify(toolResult)}`,
-        status: 'complete'
+        status: 'completed'
       };
       
       this.sendMessage(updatedMessage);
@@ -461,7 +462,7 @@ export class AgentRunner {
       role: "assistant",
       content,
       createdAt: new Date().toISOString(),
-      status: "complete",
+      status: "completed",
       agentType: this.agentType,
       modelUsed
     };

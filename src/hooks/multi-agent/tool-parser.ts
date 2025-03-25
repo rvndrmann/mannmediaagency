@@ -1,144 +1,98 @@
 
 import { Command } from "@/types/message";
 
-/**
- * Parse a tool command from text output
- */
-export function parseToolCommand(text: string): Command | null {
-  try {
-    // First try the formal TOOL format used by the tool orchestrator
-    const toolMatch = text.match(/TOOL:\s*([a-z0-9-]+)/i);
-    const paramsMatch = text.match(/PARAMETERS:\s*(\{.+\})/s);
-    
-    if (toolMatch) {
-      const feature = toolMatch[1].toLowerCase();
-      let parameters = {};
+export interface ParsedToolCall {
+  toolName: string;
+  parameters: Record<string, any>;
+}
+
+export function parseToolCall(text: string): Command | null {
+  // Try to find a markdown-formatted tool call
+  const markdownRegex = /```(?:json)?\s*({[\s\S]*?})\s*```/;
+  const markdownMatch = text.match(markdownRegex);
+  
+  if (markdownMatch) {
+    try {
+      const jsonData = JSON.parse(markdownMatch[1]);
       
-      if (paramsMatch) {
-        try {
-          parameters = JSON.parse(paramsMatch[1]);
-          console.log(`Parsed tool parameters:`, parameters);
-        } catch (e) {
-          console.error("Error parsing tool parameters:", e);
-        }
-      }
-      
-      return {
-        feature: feature,
-        parameters,
-        confidence: 0.9
-      };
-    }
-    
-    // Try more flexible formats for direct agent mode
-    
-    // Check for JSON-like parameter blocks in the text
-    const jsonBlocks = text.match(/\{[\s\S]*?\}/g);
-    if (jsonBlocks) {
-      // Look for mentions of tools near JSON blocks
-      const toolNames = [
-        "product-shot-v1", 
-        "product-shot-v2", 
-        "image-to-video", 
-        "browser-use", 
-        "product-video", 
-        "custom-video"
-      ];
-      
-      for (const toolName of toolNames) {
-        if (text.toLowerCase().includes(toolName.toLowerCase())) {
-          // Find the closest JSON block to the tool mention
-          const toolIndex = text.toLowerCase().indexOf(toolName.toLowerCase());
-          let closestJsonBlock = null;
-          let closestDistance = Infinity;
-          
-          for (const block of jsonBlocks) {
-            const blockIndex = text.indexOf(block);
-            const distance = Math.abs(blockIndex - toolIndex);
-            
-            if (distance < closestDistance) {
-              closestJsonBlock = block;
-              closestDistance = distance;
-            }
-          }
-          
-          if (closestJsonBlock && closestDistance < 500) { // Within reasonable distance
-            try {
-              const parameters = JSON.parse(closestJsonBlock);
-              console.log(`Parsed tool parameters for ${toolName}:`, parameters);
-              
-              return {
-                feature: toolName,
-                parameters,
-                confidence: 0.8,
-                type: "direct"
-              };
-            } catch (e) {
-              console.error(`Error parsing parameters for ${toolName}:`, e);
-            }
-          }
-        }
-      }
-    }
-    
-    // If we still haven't found a match, try a more pattern-based approach
-    const toolNames = [
-      "product-shot-v1", 
-      "product-shot-v2", 
-      "image-to-video", 
-      "browser-use", 
-      "product-video", 
-      "custom-video"
-    ];
-    
-    for (const toolName of toolNames) {
-      const toolPattern = new RegExp(`(use|using|execute|run)\\s+(?:the)?\\s*${toolName}\\s+(?:tool|function)`, 'i');
-      if (toolPattern.test(text)) {
-        console.log(`Detected ${toolName} tool mention without structured parameters`);
-        
-        // Try to extract parameters from context
-        let parameters: Record<string, any> = {};
-        
-        // Look for common parameter patterns based on tool type
-        if (toolName.includes("product-shot")) {
-          const promptMatch = text.match(/prompt[:\s]+["']?([^"'\n]+)["']?/i);
-          if (promptMatch) parameters.prompt = promptMatch[1].trim();
-          
-          const sceneMatch = text.match(/scene[:\s]+["']?([^"'\n]+)["']?/i);
-          if (sceneMatch) parameters.sceneDescription = sceneMatch[1].trim();
-        }
-        
-        if (toolName === "image-to-video") {
-          const promptMatch = text.match(/prompt[:\s]+["']?([^"'\n]+)["']?/i);
-          if (promptMatch) parameters.prompt = promptMatch[1].trim();
-          
-          const durationMatch = text.match(/duration[:\s]+["']?(\d+)["']?/i);
-          if (durationMatch) parameters.duration = durationMatch[1].trim();
-          
-          const ratioMatch = text.match(/(?:aspect)?ratio[:\s]+["']?([0-9:]+)["']?/i);
-          if (ratioMatch) parameters.aspectRatio = ratioMatch[1].trim();
-        }
-        
-        if (toolName === "browser-use") {
-          const taskMatch = text.match(/task[:\s]+["']?([^"'\n]+)["']?/i);
-          if (taskMatch) parameters.task = taskMatch[1].trim();
-          
-          // Look for save browser data option
-          const saveMatch = text.match(/save(?:Browser)?Data[:\s]+["']?([a-zA-Z]+)["']?/i);
-          if (saveMatch) parameters.saveBrowserData = saveMatch[1].toLowerCase() === "true";
-        }
-        
+      // Handle various formats
+      if (jsonData.toolName && (jsonData.parameters || jsonData.args)) {
         return {
-          feature: toolName,
-          parameters,
-          confidence: 0.6
+          toolName: jsonData.toolName,
+          feature: jsonData.toolName,
+          parameters: jsonData.parameters || jsonData.args
         };
       }
+      
+      if (jsonData.tool && jsonData.parameters) {
+        return {
+          toolName: jsonData.tool,
+          feature: jsonData.tool,
+          parameters: jsonData.parameters
+        };
+      }
+    } catch (e) {
+      console.error("Error parsing JSON from markdown block:", e);
     }
-    
-    return null;
-  } catch (error) {
-    console.error("Error parsing tool command:", error);
-    return null;
   }
+  
+  // Try to find a tool call with TOOL: and PARAMETERS: format
+  const toolRegex = /TOOL:\s*([a-z0-9_-]+)(?:[,\s]\s*PARAMETERS:|\s+PARAMETERS:)\s*(\{.+\})/is;
+  const toolMatch = text.match(toolRegex);
+  
+  if (toolMatch) {
+    try {
+      const toolName = toolMatch[1].trim();
+      const parameters = JSON.parse(toolMatch[2]);
+      
+      return {
+        toolName,
+        feature: toolName,
+        parameters
+      };
+    } catch (e) {
+      console.error("Error parsing tool parameters:", e);
+    }
+  }
+  
+  // Try to find a tool in a more natural language format
+  const naturalLanguageRegex = /(?:use|execute|run|call|activate)\s+(?:the\s+)?(?:tool\s+)?['"]?([a-z0-9_-]+)['"]?(?:\s+tool)?(?:\s+with\s+(?:parameters|args|arguments|params|data)\s*[:=])?\s*(\{.+\})/is;
+  const naturalMatch = text.match(naturalLanguageRegex);
+  
+  if (naturalMatch) {
+    try {
+      const toolName = naturalMatch[1].trim();
+      const parameters = JSON.parse(naturalMatch[2]);
+      
+      return {
+        toolName,
+        feature: toolName,
+        parameters
+      };
+    } catch (e) {
+      console.error("Error parsing natural language tool parameters:", e);
+    }
+  }
+  
+  // Try to find any JSON object that might contain tool information
+  const jsonRegex = /(\{[\s\S]*?\})/g;
+  const jsonMatches = [...text.matchAll(jsonRegex)];
+  
+  for (const match of jsonMatches) {
+    try {
+      const jsonData = JSON.parse(match[1]);
+      
+      if ((jsonData.toolName || jsonData.tool) && (jsonData.parameters || jsonData.args)) {
+        return {
+          toolName: jsonData.toolName || jsonData.tool,
+          feature: jsonData.toolName || jsonData.tool,
+          parameters: jsonData.parameters || jsonData.args
+        };
+      }
+    } catch (e) {
+      // Skip invalid JSON
+    }
+  }
+  
+  return null;
 }

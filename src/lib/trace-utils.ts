@@ -1,5 +1,6 @@
 
 // Utility functions for OpenAI traces
+import { supabase } from '@/integrations/supabase/client';
 
 export type TraceEvent = {
   eventType: string;
@@ -34,7 +35,7 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
     const { data: existingData, error: checkError } = await supabase
       .from('agent_interactions')
       .select('id, metadata')
-      .eq('metadata->trace->runId', trace.id)
+      .eq('metadata->>runId', trace.id)
       .limit(1);
     
     if (checkError) {
@@ -75,13 +76,22 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
     } else {
       // Update the existing trace with the latest information
       const existingRecord = existingData[0];
-      const updatedMetadata = {
+      const updatedMetadata = existingRecord.metadata ? { 
         ...existingRecord.metadata,
         trace: {
-          ...existingRecord.metadata.trace,
-          events: [...(existingRecord.metadata.trace.events || []), ...trace.events.slice(-5)],
+          ...(existingRecord.metadata.trace || {}),
+          events: [...((existingRecord.metadata.trace && existingRecord.metadata.trace.events) || []), ...trace.events.slice(-5)],
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)
+        }
+      } : {
+        trace: {
+          runId: trace.id,
+          sessionId: trace.sessionId,
+          events: trace.events.slice(-5),
+          endTime: trace.endTime || new Date().toISOString(),
+          summary: generateTraceSummary(trace),
+          startTime: trace.startTime
         }
       };
       
@@ -172,6 +182,3 @@ export const generateTraceSummary = (trace: Trace): Trace['summary'] => {
     messageCount
   };
 };
-
-// Import Supabase client
-import { supabase } from '@/integrations/supabase/client';

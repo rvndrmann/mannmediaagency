@@ -76,6 +76,40 @@ export const useMultiAgentChat = () => {
     });
   }, []);
 
+  // Fix the comparison in onMessage
+  const onMessage = useCallback((message: Message) => {
+    console.log("Received message from agent:", message);
+    
+    // Save the interaction in Supabase for analytics
+    if (message.role !== 'thinking' && message.status !== 'thinking') {
+      const saveInteraction = async () => {
+        try {
+          await supabase.from('agent_interactions').insert({
+            user_id: user.id,
+            agent_type: message.agentType || effectiveAgentType,
+            user_message: userMessage.content,
+            assistant_response: message.content,
+            timestamp: message.createdAt,
+            has_attachments: pendingAttachments.length > 0,
+            group_id: currentConversationId,
+            metadata: {
+              model_used: message.modelUsed,
+              status: message.status,
+              attachments: pendingAttachments.length > 0 ? pendingAttachments.map(a => a.name) : []
+            }
+          });
+          console.log("Saved interaction to database");
+        } catch (error) {
+          console.error("Error saving interaction:", error);
+        }
+      };
+      
+      saveInteraction();
+    }
+    
+    setMessages(prev => [...prev, message]);
+  }, []);
+
   // Helper to create a new task with proper type
   const createTask = (description: string): Task => {
     return {
@@ -145,38 +179,7 @@ export const useMultiAgentChat = () => {
         runId: uuidv4(), // Generate unique run ID for each interaction
         groupId: currentConversationId
       }, {
-        onMessage: (message) => {
-          console.log("Received message from agent:", message);
-          
-          // Save the interaction in Supabase for analytics
-          if (message.role !== 'thinking' && message.status !== 'thinking') {
-            const saveInteraction = async () => {
-              try {
-                await supabase.from('agent_interactions').insert({
-                  user_id: user.id,
-                  agent_type: message.agentType || effectiveAgentType,
-                  user_message: userMessage.content,
-                  assistant_response: message.content,
-                  timestamp: message.createdAt,
-                  has_attachments: pendingAttachments.length > 0,
-                  group_id: currentConversationId,
-                  metadata: {
-                    model_used: message.modelUsed,
-                    status: message.status,
-                    attachments: pendingAttachments.length > 0 ? pendingAttachments.map(a => a.name) : []
-                  }
-                });
-                console.log("Saved interaction to database");
-              } catch (error) {
-                console.error("Error saving interaction:", error);
-              }
-            };
-            
-            saveInteraction();
-          }
-          
-          setMessages(prev => [...prev, message]);
-        },
+        onMessage: onMessage,
         onError: (error) => {
           console.error("Agent error:", error);
           toast.error(error);

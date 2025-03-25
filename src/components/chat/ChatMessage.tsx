@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/chat/Avatar";
@@ -17,7 +16,6 @@ export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps
   const isSystem = message.role === 'system';
   const isTool = message.role === 'tool';
   
-  // For tools, we display a special format
   if (isTool) {
     return (
       <div className="flex items-start gap-2 text-gray-400 text-xs bg-gray-800/40 p-2 rounded">
@@ -26,7 +24,6 @@ export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps
     );
   }
   
-  // For system messages, we display a simple format
   if (isSystem) {
     return (
       <div className="flex items-start gap-2 text-gray-400 text-xs italic">
@@ -35,7 +32,6 @@ export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps
     );
   }
   
-  // Support converting SimpleMessage to Message if needed
   const isSimpleMessage = (msg: any): msg is SimpleMessage => {
     return typeof msg === 'object' && ('role' in msg) && !('id' in msg);
   };
@@ -162,39 +158,32 @@ const StatusIcon = ({ status }: { status: string }) => {
   );
 };
 
-// Function to format the message content with proper HTML
 const formatMessageContent = (content: string): string => {
-  // Convert URLs to links
   let formattedContent = content.replace(
     /(https?:\/\/[^\s]+)/g, 
     '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">$1</a>'
   );
   
-  // Convert markdown-style code blocks to HTML
   formattedContent = formattedContent.replace(
     /```([a-z]*)\n([\s\S]*?)\n```/g,
     '<pre class="bg-gray-900 p-3 rounded-md overflow-x-auto my-2"><code class="text-gray-300 font-mono text-sm">$2</code></pre>'
   );
   
-  // Convert markdown-style inline code to HTML
   formattedContent = formattedContent.replace(
     /`([^`]+)`/g,
     '<code class="bg-gray-900 px-1 py-0.5 rounded text-gray-300 font-mono text-sm">$1</code>'
   );
   
-  // Convert markdown-style bold to HTML
   formattedContent = formattedContent.replace(
     /\*\*([^*]+)\*\*/g,
     '<strong>$1</strong>'
   );
   
-  // Convert markdown-style italic to HTML
   formattedContent = formattedContent.replace(
     /\*([^*]+)\*/g,
     '<em>$1</em>'
   );
   
-  // Convert line breaks to <br> tags
   formattedContent = formattedContent.replace(/\n/g, '<br>');
   
   return formattedContent;

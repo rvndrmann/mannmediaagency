@@ -12,6 +12,15 @@ export interface Message {
   tasks?: Task[];
   selectedTool?: string;
   modelUsed?: string;
+  agentIcon?: AgentIconType;
+  agentColor?: string;
+  agentName?: string;
+}
+
+export interface SimpleMessage {
+  role: "user" | "assistant" | "system" | "tool";
+  content: string;
+  status?: "thinking" | "completed" | "error";
 }
 
 export interface Attachment {
@@ -20,6 +29,7 @@ export interface Attachment {
   name: string;
   type: string;
   size?: number;
+  contentType?: string;
 }
 
 export interface HandoffRequest {
@@ -31,6 +41,7 @@ export interface Command {
   toolName: string;
   feature: string;
   parameters: Record<string, any>;
+  confidence?: number;
 }
 
 export interface Task {
@@ -100,4 +111,30 @@ export interface ApiResponse {
 export interface AgentMessage extends Message {
   role: "assistant";
   agentType: string;
+}
+
+// Add missing agent icon type
+export type AgentIconType = 
+  | "Bot" 
+  | "PenLine" 
+  | "Image" 
+  | "Wrench" 
+  | "Code" 
+  | "FileText" 
+  | "Zap" 
+  | "Brain" 
+  | "Lightbulb" 
+  | "Music" 
+  | "Video" 
+  | "Globe" 
+  | "ShoppingBag";
+
+// Add AgentInfo interface
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: AgentIconType;
+  color: string;
+  instructions: string;
 }

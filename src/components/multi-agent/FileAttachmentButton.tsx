@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Paperclip } from "lucide-react";
 import { useState, useRef } from "react";
@@ -43,14 +42,7 @@ export const FileAttachmentButton = ({
         }
 
         // Create attachment object
-        const attachment: Attachment = {
-          id: uuidv4(),
-          name: file.name,
-          type: file.type.startsWith('image/') ? 'image' : 'file',
-          url: URL.createObjectURL(file),
-          contentType: file.type,
-          size: file.size
-        };
+        const attachment = createAttachment(file);
 
         attachments.push(attachment);
       }
@@ -68,6 +60,21 @@ export const FileAttachmentButton = ({
         fileInputRef.current.value = '';
       }
     }
+  };
+
+  const createAttachment = (file: File): Attachment => {
+    const id = uuidv4();
+    const url = URL.createObjectURL(file);
+    const type = file.type.startsWith('image/') ? 'image' : 'file';
+    
+    return {
+      id,
+      url,
+      name: file.name,
+      type,
+      size: file.size,
+      contentType: file.type
+    };
   };
 
   return (

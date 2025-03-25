@@ -42,3 +42,14 @@ export const adaptMessagesToComponentFormat = <T>(
   // Default simple transformation
   return messages as T[];
 };
+
+/**
+ * Convert a string to a valid database icon type
+ */
+export const toValidIconType = (iconString: string): "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music" => {
+  const validIcons = ["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music"];
+  
+  return validIcons.includes(iconString) 
+    ? iconString as "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music"
+    : "Bot";
+};

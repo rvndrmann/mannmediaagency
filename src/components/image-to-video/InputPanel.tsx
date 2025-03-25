@@ -18,7 +18,6 @@ import {
 } from "@/components/ui/select";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
-import { Message } from "@/types/message";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -33,7 +32,7 @@ interface InputPanelProps {
   creditsRemaining: number | null;
   aspectRatio: string;
   onAspectRatioChange: (value: string) => void;
-  messages: Message[];
+  messages: any[]; // Accept any message format
 }
 
 export function InputPanel({

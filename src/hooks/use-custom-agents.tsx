@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { AgentIconType } from "@/types/message";
-import { adaptAgentIconToDBType } from "@/utils/type-adapters";
+import { adaptAgentIconToDBType, toValidIconType } from "@/utils/type-adapters";
 
 // Define the form data type
 export interface CustomAgentFormData {
@@ -66,8 +66,8 @@ export const useCustomAgents = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Not authenticated");
       
-      // Use the type adapter to ensure the icon is compatible with DB enum
-      const dbCompatibleIcon = adaptAgentIconToDBType(formData.icon);
+      // Convert icon to valid DB type
+      const dbCompatibleIcon = toValidIconType(formData.icon as string);
       
       const { data, error } = await supabase
         .from('custom_agents')
@@ -106,7 +106,7 @@ export const useCustomAgents = () => {
       // Prepare updates, ensuring icon type is compatible if provided
       const dbUpdates: Record<string, any> = { ...updates };
       if (updates.icon) {
-        dbUpdates.icon = adaptAgentIconToDBType(updates.icon);
+        dbUpdates.icon = toValidIconType(updates.icon as string);
       }
       
       const { data, error } = await supabase

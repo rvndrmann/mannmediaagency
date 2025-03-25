@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react";
+import { Paperclip } from "lucide-react"; // Fixed casing - Paperclip not PaperClip
 import { Attachment } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 

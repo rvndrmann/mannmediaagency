@@ -13,8 +13,8 @@ export interface SimpleMessage {
   role: "user" | "assistant";
   content: string;
   status?: "thinking" | "completed" | "error";
-  id?: string;
-  createdAt?: string;
+  id: string; // Changed from optional to required
+  createdAt: string; // Changed from optional to required
 }
 
 // Simple message adapter for components that expect only 'user' and 'assistant' roles
@@ -26,8 +26,8 @@ export const adaptMessagesForComponents = (messages: Message[]): SimpleMessage[]
     role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
     content: msg.content,
     status: msg.status,
-    id: msg.id,
-    createdAt: msg.createdAt
+    id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    createdAt: msg.createdAt || new Date().toISOString()
   })) as SimpleMessage[];
 };
 
@@ -37,8 +37,8 @@ export const adaptToSimpleMessage = (message: Message): SimpleMessage => {
     role: message.role === 'system' || message.role === 'tool' ? 'assistant' : message.role,
     content: message.content,
     status: message.status,
-    id: message.id,
-    createdAt: message.createdAt
+    id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+    createdAt: message.createdAt || new Date().toISOString()
   };
 };
 
@@ -62,7 +62,7 @@ export const adaptMessages = <T extends { role: string; content: string }>(
       role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
       content: msg.content,
       status: msg.status,
-      id: msg.id,
-      createdAt: msg.createdAt
+      id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+      createdAt: msg.createdAt || new Date().toISOString()
     })) as unknown as T[];
 };

@@ -43,8 +43,17 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
       
       // Process the traces
       const processedTraces = data.map(item => {
-        // Extract trace data from metadata
-        const traceData = item.metadata?.trace || {};
+        // Extract trace data from metadata, safely handling different formats
+        let traceData = {};
+        if (item.metadata) {
+          // Handle if metadata is a string
+          const metadataObj = typeof item.metadata === 'string' 
+            ? JSON.parse(item.metadata) 
+            : item.metadata;
+          
+          // Extract trace data if it exists
+          traceData = metadataObj && metadataObj.trace ? metadataObj.trace : {};
+        }
         
         return {
           id: item.id,
@@ -79,9 +88,15 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
       return;
     }
     
-    // Extract trace data
-    if (data?.metadata && typeof data.metadata === 'object' && data.metadata.trace) {
-      setSelectedTrace(data.metadata.trace as Trace);
+    // Extract trace data, safely handling different formats
+    if (data?.metadata) {
+      const metadataObj = typeof data.metadata === 'string' 
+        ? JSON.parse(data.metadata) 
+        : data.metadata;
+      
+      if (metadataObj && metadataObj.trace) {
+        setSelectedTrace(metadataObj.trace as Trace);
+      }
     }
   };
 

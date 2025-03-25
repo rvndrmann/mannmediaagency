@@ -103,14 +103,18 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       // Initialize updatedEvents array
       const updatedEvents: any[] = [];
       
-      // If existingTrace.events exists and is an array, spread it
+      // If existingTrace.events exists and is an array, add them to updatedEvents
       if (existingTrace.events && Array.isArray(existingTrace.events)) {
-        updatedEvents.push(...existingTrace.events);
+        for (const event of existingTrace.events) {
+          updatedEvents.push(event);
+        }
       }
       
       // Add the new events, safely appending to existing
       if (trace.events && Array.isArray(trace.events)) {
-        updatedEvents.push(...trace.events.slice(-5));
+        for (const event of trace.events.slice(-5)) {
+          updatedEvents.push(event);
+        }
       }
       
       // Create an updated metadata object with the new trace information

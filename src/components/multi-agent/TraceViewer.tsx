@@ -15,14 +15,14 @@ import {
   LineChart,
   Line,
 } from 'recharts';
+import { Trace } from "@/lib/trace-utils"; 
 
 type TraceProps = {
-  traceData: any;
-  conversationId: string;
+  trace: Trace;
 };
 
-export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
-  if (!traceData || !traceData.messages || traceData.messages.length === 0) {
+export const TraceViewer = ({ trace }: TraceProps) => {
+  if (!trace || !trace.messages || trace.messages.length === 0) {
     return (
       <Card>
         <CardContent className="flex flex-col items-center justify-center py-12">
@@ -42,8 +42,8 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
     let startTime = 0;
     
     // If we have events in the summary, use those
-    if (traceData.summary && traceData.summary.events && traceData.summary.events.length > 0) {
-      const allEvents = traceData.summary.events;
+    if (trace.summary && trace.summary.events && trace.summary.events.length > 0) {
+      const allEvents = trace.summary.events;
       
       allEvents.forEach((event: any) => {
         // Use the timestamp from the event or fallback to message timestamp
@@ -68,7 +68,7 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
     }
     
     // Otherwise, try to extract events from individual messages
-    traceData.messages.forEach((message: any) => {
+    trace.messages.forEach((message: any) => {
       if (message.trace && message.trace.events) {
         message.trace.events.forEach((event: any) => {
           // Use the timestamp from the event or fallback to message timestamp
@@ -145,7 +145,7 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
   };
   
   // Summary stats from trace data
-  const summary = traceData.summary || {};
+  const summary = trace.summary || {};
   const totalAgents = summary.agent_types?.length || 0;
   const successRate = summary.success ? '100%' : '0%';
   const totalHandoffs = summary.handoffs || 0;
@@ -156,7 +156,7 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold">Conversation Analysis</h2>
-        <span className="text-xs text-gray-400">ID: {conversationId.slice(0, 8)}...</span>
+        <span className="text-xs text-gray-400">ID: {trace.id.slice(0, 8)}...</span>
       </div>
       
       <Tabs defaultValue="overview" className="w-full">
@@ -364,7 +364,7 @@ export const TraceViewer = ({ traceData, conversationId }: TraceProps) => {
             </CardHeader>
             <CardContent className="max-h-[800px] overflow-y-auto pr-2">
               <div className="space-y-6">
-                {traceData.messages.map((message: any, index: number) => (
+                {trace.messages.map((message: any, index: number) => (
                   <div key={index} className="border border-gray-700 rounded-md p-4">
                     <div className="flex justify-between mb-2">
                       <div className="font-medium flex items-center gap-1">

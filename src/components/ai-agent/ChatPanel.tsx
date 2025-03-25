@@ -6,11 +6,11 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { Info, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
-import { SimpleMessage, Message } from "@/types/message";
+import { Message } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 
 interface ChatPanelProps {
-  messages: SimpleMessage[];
+  messages: Message[];
   input: string;
   isLoading: boolean;
   userCredits: { credits_remaining: number } | null;
@@ -99,10 +99,10 @@ export const ChatPanel = ({
           <div className={`space-y-4 p-4 ${isMobile ? "pb-20" : "pb-16"}`}>
             {messages.map((message, index) => (
               <ChatMessage key={index} message={{
-                id: `msg-${index}`,
+                id: message.id || `msg-${index}`,
                 role: message.role,
                 content: message.content,
-                createdAt: new Date().toISOString(),
+                createdAt: message.createdAt || new Date().toISOString(),
                 status: message.status
               }} />
             ))}

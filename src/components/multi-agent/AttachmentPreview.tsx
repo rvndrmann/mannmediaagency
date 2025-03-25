@@ -35,7 +35,7 @@ export const AttachmentPreview = ({
               />
               <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1.5 py-0.5 text-[8px] text-white truncate">
                 {attachment.name}
-                {attachment.size && (
+                {attachment.size !== undefined && (
                   <span className="ml-1 opacity-70">
                     ({formatFileSize(attachment.size)})
                   </span>
@@ -57,9 +57,9 @@ export const AttachmentPreview = ({
               {getFileIcon(attachment)}
               <div className="absolute bottom-0 left-0 right-0 bg-black/50 px-1.5 py-0.5 text-[8px] text-white truncate">
                 {attachment.name}
-                {attachment.size && (
+                {attachment.size !== undefined && (
                   <span className="ml-1 opacity-70">
-                    ({formatFileSize(attachment.size || 0)})
+                    ({formatFileSize(attachment.size)})
                   </span>
                 )}
               </div>

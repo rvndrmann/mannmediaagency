@@ -1,6 +1,6 @@
 
 import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
+import { Command, HandoffRequest, Message, Task } from "@/types/message";
 import { ToolContext, ToolResult } from "../types";
 
 /**

@@ -1,3 +1,4 @@
+
 import React from "react";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
@@ -28,7 +29,7 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { AgentInfo, AgentIconType } from "@/types/message";
+import { AgentIconType, AgentInfo } from "@/types/message";
 import { CustomAgentFormData } from "@/hooks/use-custom-agents";
 
 // Available icon options

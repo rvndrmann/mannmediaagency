@@ -116,7 +116,7 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       const updatedMetadata = { 
         ...existingMetadata,
         trace: {
-          ...existingTrace,
+          ...(typeof existingTrace === 'object' ? existingTrace : {}),
           events: updatedEvents,
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)

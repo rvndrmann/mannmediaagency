@@ -1,5 +1,4 @@
-
-import { Attachment, Command, Message, HandoffRequest, Task, AgentMessage } from "@/types/message";
+import { Attachment, Command, Message, HandoffRequest, Task } from "@/types/message";
 
 // Tool context and result types
 export interface ToolContext {

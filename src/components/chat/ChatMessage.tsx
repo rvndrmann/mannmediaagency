@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { cn } from "@/lib/utils";
 import { Avatar } from "@/components/chat/Avatar";
@@ -98,7 +99,7 @@ export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps
                 <span className={cn(
                   "ml-1.5",
                   task.status === "completed" ? "text-green-400" : 
-                  task.status === "error" || task.status === "failed" ? "text-red-400" : 
+                  task.status === "failed" || task.status === "error" ? "text-red-400" : 
                   "text-gray-400"
                 )}>
                   {task.name} {task.details && `- ${task.details}`}

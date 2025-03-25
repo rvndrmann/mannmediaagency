@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Message } from '@/types/message';
+import { Message, SimpleMessage } from '@/types/message';
 
 /**
  * This utility helps adapt messages between different component types
@@ -8,22 +8,13 @@ import { Message } from '@/types/message';
  * have incompatible role definitions.
  */
 
-// Define a SimpleMessage type that components expect
-export interface SimpleMessage {
-  role: "user" | "assistant";
-  content: string;
-  status?: "thinking" | "completed" | "error";
-  id: string; // Changed from optional to required
-  createdAt: string; // Changed from optional to required
-}
-
 // Simple message adapter for components that expect only 'user' and 'assistant' roles
 export const adaptMessagesForComponents = (messages: Message[]): SimpleMessage[] => {
   // Filter out messages with incompatible roles for certain components
   return messages.filter(msg => 
-    msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system' || msg.role === 'tool'
+    ['user', 'assistant', 'system', 'tool'].includes(msg.role)
   ).map(msg => ({
-    role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
+    role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' as const : msg.role,
     content: msg.content,
     status: msg.status,
     id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -34,7 +25,7 @@ export const adaptMessagesForComponents = (messages: Message[]): SimpleMessage[]
 // Adapter to convert complex Message to simple format expected by some components
 export const adaptToSimpleMessage = (message: Message): SimpleMessage => {
   return {
-    role: message.role === 'system' || message.role === 'tool' ? 'assistant' : message.role,
+    role: ['system', 'tool'].includes(message.role) ? 'assistant' as const : message.role,
     content: message.content,
     status: message.status,
     id: message.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
@@ -57,9 +48,9 @@ export const adaptMessages = <T extends { role: string; content: string }>(
   messages: Message[]
 ): T[] => {
   return messages
-    .filter(msg => msg.role === 'user' || msg.role === 'assistant' || msg.role === 'system' || msg.role === 'tool')
+    .filter(msg => ['user', 'assistant', 'system', 'tool'].includes(msg.role))
     .map(msg => ({
-      role: msg.role === 'system' || msg.role === 'tool' ? 'assistant' : msg.role,
+      role: ['system', 'tool'].includes(msg.role) ? 'assistant' : msg.role,
       content: msg.content,
       status: msg.status,
       id: msg.id || `msg-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,

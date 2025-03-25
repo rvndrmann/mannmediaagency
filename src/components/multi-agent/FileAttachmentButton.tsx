@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react"; // Fixed casing - Paperclip not PaperClip
+import { Paperclip } from "lucide-react";
 import { Attachment } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 
@@ -31,14 +31,14 @@ export const FileAttachmentButton: React.FC<FileAttachmentButtonProps> = ({
     for (let i = 0; i < files.length; i++) {
       const file = files[i];
       
-      // Create a new attachment
+      // Create a new attachment with optional size and contentType
       const attachment: Attachment = {
         id: uuidv4(),
         name: file.name,
         type: file.type,
-        size: file.size,
         url: URL.createObjectURL(file),
-        contentType: file.type
+        contentType: file.type,
+        size: file.size
       };
       
       attachments.push(attachment);

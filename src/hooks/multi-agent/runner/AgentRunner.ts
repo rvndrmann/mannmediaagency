@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { Message, Attachment, Task, HandoffRequest } from '@/types/message';
@@ -171,8 +170,9 @@ export class AgentRunner {
           };
           
           const task: Task = {
-            id: uuidv4(),
+            id: crypto.randomUUID(),
             name: `Executing ${toolExecution.toolName}`,
+            description: `Running ${toolExecution.toolName} tool with provided parameters`,
             status: 'pending'
           };
           
@@ -382,6 +382,19 @@ export class AgentRunner {
       });
       
       let toolResult;
+      
+      const task: Task = {
+        id: crypto.randomUUID(),
+        name: `Executing ${toolName}`,
+        description: `Running ${toolName} tool with provided parameters`,
+        status: 'pending'
+      };
+      
+      if (message.tasks) {
+        message.tasks = [task];
+      } else {
+        message.tasks = [task];
+      }
       
       switch (toolName) {
         case 'browser-use':

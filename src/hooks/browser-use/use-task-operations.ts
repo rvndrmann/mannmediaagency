@@ -65,6 +65,31 @@ const updateTaskHistory = async (historyId: string, updates: any) => {
   }
 };
 
+// This helper function will find task history by browser_task_id
+const findTaskHistoryByBrowserTaskId = async (browserTaskId: string) => {
+  try {
+    const { data, error } = await supabase
+      .from('browser_task_history')
+      .select('id')
+      .eq('browser_task_id', browserTaskId)
+      .single();
+      
+    if (error) {
+      if (error.code === 'PGRST116') {
+        // No rows returned
+        return null;
+      }
+      console.error("Error finding task history by browser_task_id:", error);
+      return null;
+    }
+    
+    return data?.id || null;
+  } catch (err) {
+    console.error("Error in findTaskHistoryByBrowserTaskId:", err);
+    return null;
+  }
+};
+
 export function useTaskOperations(
   state: TaskState,
   stateSetters: StateSetters
@@ -269,22 +294,32 @@ export function useTaskOperations(
         console.log(`Updating task ${localTaskId} with browser_task_id: ${apiResponse.task_id}`);
         setBrowserTaskId(apiResponse.task_id);
         
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ 
-            browser_task_id: apiResponse.task_id,
-            // Store the current task status if provided
-            status: apiResponse.status || 'running'
-          })
-          .eq('id', localTaskId);
+        // Update both tables in a transaction
+        const updatePromises = [];
         
-        // Update history record with browser task ID
+        // Update the main task table
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ 
+              browser_task_id: apiResponse.task_id,
+              status: apiResponse.status || 'running'
+            })
+            .eq('id', localTaskId)
+        );
+        
+        // Update the history table
         if (historyId) {
-          await updateTaskHistory(historyId, { 
-            browser_task_id: apiResponse.task_id,
-            status: apiResponse.status || 'running'
-          });
+          updatePromises.push(
+            updateTaskHistory(historyId, { 
+              browser_task_id: apiResponse.task_id,
+              status: apiResponse.status || 'running'
+            })
+          );
         }
+        
+        // Run updates in parallel
+        await Promise.all(updatePromises);
       } else {
         console.warn("No task_id returned from API. This may cause issues with task monitoring.");
       }
@@ -294,17 +329,25 @@ export function useTaskOperations(
         console.log(`Setting initial live URL: ${apiResponse.live_url}`);
         setLiveUrl(apiResponse.live_url);
         
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ live_url: apiResponse.live_url })
-          .eq('id', localTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ live_url: apiResponse.live_url })
+            .eq('id', localTaskId)
+        );
           
         // Update history record with live URL
         if (historyId) {
-          await updateTaskHistory(historyId, { 
-            result_url: apiResponse.live_url
-          });
+          updatePromises.push(
+            updateTaskHistory(historyId, { 
+              result_url: apiResponse.live_url
+            })
+          );
         }
+        
+        await Promise.all(updatePromises);
       }
 
       // Immediately check for task status to get live URL sooner
@@ -321,17 +364,25 @@ export function useTaskOperations(
             console.log(`Found live URL in initial status check: ${initialStatus.browser.live_url}`);
             setLiveUrl(initialStatus.browser.live_url);
             
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ live_url: initialStatus.browser.live_url })
-              .eq('id', localTaskId);
+            const updatePromises = [];
+            
+            updatePromises.push(
+              supabase
+                .from('browser_automation_tasks')
+                .update({ live_url: initialStatus.browser.live_url })
+                .eq('id', localTaskId)
+            );
               
             // Update history record with live URL
             if (historyId) {
-              await updateTaskHistory(historyId, { 
-                result_url: initialStatus.browser.live_url
-              });
+              updatePromises.push(
+                updateTaskHistory(historyId, { 
+                  result_url: initialStatus.browser.live_url
+                })
+              );
             }
+            
+            await Promise.all(updatePromises);
           }
         }
       } catch (statusError) {
@@ -383,16 +434,32 @@ export function useTaskOperations(
       setTaskStatus('paused');
       
       if (currentTaskId) {
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ status: 'paused' })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ status: 'paused' })
+            .eq('id', currentTaskId)
+        );
           
-        // Update the history record if we have a browser task ID
-        await supabase
-          .from('browser_task_history')
-          .update({ status: 'paused' })
-          .eq('browser_task_id', browserTaskId);
+        // Find and update the history record
+        const historyId = await findTaskHistoryByBrowserTaskId(browserTaskId);
+        if (historyId) {
+          updatePromises.push(
+            updateTaskHistory(historyId, { status: 'paused' })
+          );
+        } else {
+          // If we can't find by browser_task_id, try to update all matching records
+          updatePromises.push(
+            supabase
+              .from('browser_task_history')
+              .update({ status: 'paused' })
+              .eq('browser_task_id', browserTaskId)
+          );
+        }
+        
+        await Promise.all(updatePromises);
       }
     } catch (error) {
       console.error("Error in pauseTask:", error);
@@ -434,16 +501,32 @@ export function useTaskOperations(
       setTaskStatus('running');
       
       if (currentTaskId) {
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ status: 'running' })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ status: 'running' })
+            .eq('id', currentTaskId)
+        );
           
-        // Update the history record if we have a browser task ID
-        await supabase
-          .from('browser_task_history')
-          .update({ status: 'running' })
-          .eq('browser_task_id', browserTaskId);
+        // Find and update the history record
+        const historyId = await findTaskHistoryByBrowserTaskId(browserTaskId);
+        if (historyId) {
+          updatePromises.push(
+            updateTaskHistory(historyId, { status: 'running' })
+          );
+        } else {
+          // If we can't find by browser_task_id, try to update all matching records
+          updatePromises.push(
+            supabase
+              .from('browser_task_history')
+              .update({ status: 'running' })
+              .eq('browser_task_id', browserTaskId)
+          );
+        }
+        
+        await Promise.all(updatePromises);
       }
     } catch (error) {
       console.error("Error in resumeTask:", error);
@@ -500,23 +583,43 @@ export function useTaskOperations(
       setIsProcessing(false);
       
       if (currentTaskId) {
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ 
-            status: 'stopped',
-            completed_at: new Date().toISOString()
-          })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ 
+              status: 'stopped',
+              completed_at: new Date().toISOString()
+            })
+            .eq('id', currentTaskId)
+        );
           
-        // Update task history with stopped status
-        await supabase
-          .from('browser_task_history')
-          .update({ 
-            status: 'stopped',
-            completed_at: new Date().toISOString(),
-            output: taskOutput
-          })
-          .eq('browser_task_id', browserTaskId);
+        // Find and update the history record
+        const historyId = await findTaskHistoryByBrowserTaskId(browserTaskId);
+        if (historyId) {
+          updatePromises.push(
+            updateTaskHistory(historyId, { 
+              status: 'stopped',
+              completed_at: new Date().toISOString(),
+              output: taskOutput
+            })
+          );
+        } else {
+          // If we can't find by browser_task_id, try to update all matching records
+          updatePromises.push(
+            supabase
+              .from('browser_task_history')
+              .update({ 
+                status: 'stopped',
+                completed_at: new Date().toISOString(),
+                output: taskOutput
+              })
+              .eq('browser_task_id', browserTaskId)
+          );
+        }
+        
+        await Promise.all(updatePromises);
       }
     } catch (error) {
       console.error("Error in stopTask:", error);
@@ -576,22 +679,30 @@ export function useTaskOperations(
       if (apiError) {
         console.error("Edge function error during restart:", apiError);
         
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ 
-            status: 'failed', 
-            output: JSON.stringify({ error: apiError.message }) 
-          })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ 
+              status: 'failed', 
+              output: JSON.stringify({ error: apiError.message }) 
+            })
+            .eq('id', currentTaskId)
+        );
         
         // Update history with error
         if (historyId) {
-          await updateTaskHistory(historyId, {
-            status: 'failed',
-            output: JSON.stringify({ error: apiError.message }),
-            completed_at: new Date().toISOString()
-          });
+          updatePromises.push(
+            updateTaskHistory(historyId, {
+              status: 'failed',
+              output: JSON.stringify({ error: apiError.message }),
+              completed_at: new Date().toISOString()
+            })
+          );
         }
+        
+        await Promise.all(updatePromises);
         
         setError(`API Error: ${apiError.message}`);
         setTaskStatus('failed');
@@ -604,22 +715,30 @@ export function useTaskOperations(
       if (apiResponse.error) {
         console.error("Browser Use API returned error during restart:", apiResponse.error);
         
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ 
-            status: 'failed', 
-            output: JSON.stringify({ error: apiResponse.error }) 
-          })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ 
+              status: 'failed', 
+              output: JSON.stringify({ error: apiResponse.error }) 
+            })
+            .eq('id', currentTaskId)
+        );
         
         // Update history with error
         if (historyId) {
-          await updateTaskHistory(historyId, {
-            status: 'failed',
-            output: JSON.stringify({ error: apiResponse.error }),
-            completed_at: new Date().toISOString()
-          });
+          updatePromises.push(
+            updateTaskHistory(historyId, {
+              status: 'failed',
+              output: JSON.stringify({ error: apiResponse.error }),
+              completed_at: new Date().toISOString()
+            })
+          );
         }
+        
+        await Promise.all(updatePromises);
         
         setError(`Task Error: ${apiResponse.error}`);
         setTaskStatus('failed');
@@ -632,21 +751,29 @@ export function useTaskOperations(
         console.log(`Updating task ${currentTaskId} with new browser_task_id: ${apiResponse.task_id}`);
         setBrowserTaskId(apiResponse.task_id);
         
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ 
-            browser_task_id: apiResponse.task_id,
-            status: apiResponse.status || 'running'
-          })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ 
+              browser_task_id: apiResponse.task_id,
+              status: apiResponse.status || 'running'
+            })
+            .eq('id', currentTaskId)
+        );
           
         // Update history with browser task ID
         if (historyId) {
-          await updateTaskHistory(historyId, {
-            browser_task_id: apiResponse.task_id,
-            status: apiResponse.status || 'running'
-          });
+          updatePromises.push(
+            updateTaskHistory(historyId, {
+              browser_task_id: apiResponse.task_id,
+              status: apiResponse.status || 'running'
+            })
+          );
         }
+        
+        await Promise.all(updatePromises);
       } else {
         console.warn("No task_id returned from API during restart. This may cause issues with task monitoring.");
       }
@@ -656,17 +783,25 @@ export function useTaskOperations(
         console.log(`Setting initial live URL for restart: ${apiResponse.live_url}`);
         setLiveUrl(apiResponse.live_url);
         
-        await supabase
-          .from('browser_automation_tasks')
-          .update({ live_url: apiResponse.live_url })
-          .eq('id', currentTaskId);
+        const updatePromises = [];
+        
+        updatePromises.push(
+          supabase
+            .from('browser_automation_tasks')
+            .update({ live_url: apiResponse.live_url })
+            .eq('id', currentTaskId)
+        );
           
         // Update history with live URL
         if (historyId) {
-          await updateTaskHistory(historyId, {
-            result_url: apiResponse.live_url
-          });
+          updatePromises.push(
+            updateTaskHistory(historyId, {
+              result_url: apiResponse.live_url
+            })
+          );
         }
+        
+        await Promise.all(updatePromises);
       }
 
       setTaskStatus('running');

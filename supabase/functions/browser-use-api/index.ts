@@ -249,6 +249,57 @@ serve(async (req) => {
           data = { raw_response: responseText };
         }
         
+        // Check if we need to fetch additional media data
+        if (!url_check_only && data && data.id && save_browser_data) {
+          try {
+            // Make a separate request to get media data
+            const mediaResponse = await fetch(`https://api.browser-use.com/api/v1/task/${task_id}/media`, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${apiKey}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (mediaResponse.ok) {
+              const mediaData = await mediaResponse.json();
+              
+              // Add media data to the response
+              if (mediaData) {
+                data.media = mediaData;
+                
+                // Check if we have browser_data object
+                if (!data.browser_data && data.browser) {
+                  data.browser_data = {
+                    cookies: data.browser.cookies || []
+                  };
+                }
+                
+                // Add recording links
+                if (mediaData.recordings && mediaData.recordings.length > 0) {
+                  if (!data.browser_data) {
+                    data.browser_data = {};
+                  }
+                  
+                  data.browser_data.recordings = mediaData.recordings;
+                }
+                
+                // Add screenshots
+                if (mediaData.screenshots && mediaData.screenshots.length > 0) {
+                  if (!data.browser_data) {
+                    data.browser_data = {};
+                  }
+                  
+                  data.browser_data.screenshots = mediaData.screenshots;
+                }
+              }
+            }
+          } catch (mediaError) {
+            console.error("Error fetching media data:", mediaError);
+            // Continue without media data
+          }
+        }
+        
         // Return the API response to the client
         return new Response(
           JSON.stringify(data),
@@ -385,7 +436,8 @@ serve(async (req) => {
           JSON.stringify({
             task_id: data.id,
             status: data.status || 'created',
-            live_url: data.live_url || (data.browser?.live_url) || null
+            live_url: data.live_url || (data.browser?.live_url) || null,
+            browser_data: data.browser_data || null
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

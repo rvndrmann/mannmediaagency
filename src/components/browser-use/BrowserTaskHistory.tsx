@@ -12,10 +12,25 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Badge } from "@/components/ui/badge";
-import { Loader2, Play, ArrowUpRight, ExternalLink } from "lucide-react";
+import { 
+  Loader2, 
+  Play, 
+  ArrowUpRight, 
+  ExternalLink, 
+  Video,
+  Camera,
+  Monitor
+} from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
 import { TaskStatus, BrowserTaskHistory as BrowserTaskHistoryType } from "@/hooks/browser-use/types";
 import { toast } from "sonner";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 type HistoryItem = BrowserTaskHistoryType;
 
@@ -23,6 +38,8 @@ export function BrowserTaskHistory() {
   const [history, setHistory] = useState<HistoryItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [reloadKey, setReloadKey] = useState(0);
+  const [selectedItem, setSelectedItem] = useState<HistoryItem | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -87,6 +104,100 @@ export function BrowserTaskHistory() {
       toast.error("Failed to continue task");
     }
   };
+  
+  const showTaskDetails = (task: HistoryItem) => {
+    setSelectedItem(task);
+    setDetailsOpen(true);
+  };
+  
+  const renderBrowserData = (task: HistoryItem) => {
+    if (!task.browser_data) return <p>No recordings available</p>;
+    
+    const data = task.browser_data as any;
+    
+    return (
+      <div className="space-y-4">
+        {data.recordings && data.recordings.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Recordings</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.recordings.map((recording: any, index: number) => (
+                <div key={index} className="border rounded-md p-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium">Recording {index + 1}</h4>
+                    <a 
+                      href={recording.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline flex items-center gap-1"
+                    >
+                      <Video className="h-4 w-4" />
+                      View
+                    </a>
+                  </div>
+                  {recording.thumbnail && (
+                    <a 
+                      href={recording.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="block"
+                    >
+                      <img 
+                        src={recording.thumbnail} 
+                        alt={`Recording ${index + 1} thumbnail`} 
+                        className="w-full rounded-md border"
+                      />
+                    </a>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {data.screenshots && data.screenshots.length > 0 && (
+          <div>
+            <h3 className="text-lg font-semibold mb-2">Screenshots</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {data.screenshots.map((screenshot: any, index: number) => (
+                <div key={index} className="border rounded-md p-2">
+                  <div className="flex justify-between items-center mb-2">
+                    <h4 className="font-medium">Screenshot {index + 1}</h4>
+                    <a 
+                      href={screenshot.url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="text-blue-500 hover:underline flex items-center gap-1"
+                    >
+                      <Camera className="h-4 w-4" />
+                      View
+                    </a>
+                  </div>
+                  <a 
+                    href={screenshot.url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="block"
+                  >
+                    <img 
+                      src={screenshot.url} 
+                      alt={`Screenshot ${index + 1}`} 
+                      className="w-full rounded-md border"
+                    />
+                  </a>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+        
+        {(!data.recordings || data.recordings.length === 0) && 
+         (!data.screenshots || data.screenshots.length === 0) && (
+          <p>No recordings or screenshots available</p>
+        )}
+      </div>
+    );
+  };
 
   return (
     <Card className="p-4">
@@ -135,19 +246,33 @@ export function BrowserTaskHistory() {
                     {formatDistanceToNow(new Date(task.created_at), { addSuffix: true })}
                   </TableCell>
                   <TableCell>
-                    {task.result_url ? (
-                      <a 
-                        href={task.result_url} 
-                        target="_blank" 
-                        rel="noopener noreferrer"
-                        className="text-blue-500 hover:underline flex items-center gap-1"
-                      >
-                        <ExternalLink className="h-4 w-4" />
-                        View Result
-                      </a>
-                    ) : (
-                      <span className="text-muted-foreground">None</span>
-                    )}
+                    <div className="flex space-x-2">
+                      {task.result_url ? (
+                        <a 
+                          href={task.result_url} 
+                          target="_blank" 
+                          rel="noopener noreferrer"
+                          className="text-blue-500 hover:underline flex items-center gap-1"
+                        >
+                          <Monitor className="h-4 w-4" />
+                          View Live
+                        </a>
+                      ) : (
+                        <span className="text-muted-foreground">None</span>
+                      )}
+                      
+                      {task.browser_data && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          className="px-2 h-6 text-blue-500"
+                          onClick={() => showTaskDetails(task)}
+                        >
+                          <Video className="h-4 w-4 mr-1" />
+                          Recordings
+                        </Button>
+                      )}
+                    </div>
                   </TableCell>
                   <TableCell className="text-right">
                     <Button 
@@ -166,6 +291,59 @@ export function BrowserTaskHistory() {
           </Table>
         </div>
       )}
+      
+      <Dialog open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Task Details</DialogTitle>
+          </DialogHeader>
+          
+          {selectedItem && (
+            <div className="space-y-4">
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Task</h3>
+                <p className="text-sm text-gray-700">{selectedItem.task_input}</p>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Status</h3>
+                <div>{getStatusBadge(selectedItem.status)}</div>
+              </div>
+              
+              <div>
+                <h3 className="text-lg font-semibold mb-1">Recordings and Screenshots</h3>
+                {renderBrowserData(selectedItem)}
+              </div>
+              
+              {selectedItem.result_url && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-1">Live Result</h3>
+                  <a 
+                    href={selectedItem.result_url} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-blue-500 hover:underline flex items-center gap-1"
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                    Open Live Result
+                  </a>
+                </div>
+              )}
+              
+              {selectedItem.output && (
+                <div>
+                  <h3 className="text-lg font-semibold mb-1">Output</h3>
+                  <pre className="bg-gray-100 p-2 rounded-md text-sm overflow-auto max-h-[200px]">
+                    {typeof selectedItem.output === 'string' 
+                      ? selectedItem.output 
+                      : JSON.stringify(selectedItem.output, null, 2)}
+                  </pre>
+                </div>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }

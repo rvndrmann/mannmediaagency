@@ -18,6 +18,5 @@ export default function TraceAnalytics() {
     );
   }
 
-  // The TraceDashboard component should handle the userId internally
   return <TraceDashboard />;
 }

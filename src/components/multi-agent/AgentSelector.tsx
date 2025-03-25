@@ -167,7 +167,8 @@ export const AgentSelector = ({ activeAgent, onAgentSelect }: AgentSelectorProps
         open={showAddAgentDialog}
         onOpenChange={setShowAddAgentDialog}
         onSubmit={handleCreateAgent}
+        isSubmitting={isSubmitting}
       />
     </div>
   );
-};
+}

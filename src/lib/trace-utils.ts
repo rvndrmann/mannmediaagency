@@ -1,3 +1,4 @@
+
 // Utility functions for OpenAI traces
 import { supabase } from '@/integrations/supabase/client';
 
@@ -112,13 +113,11 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
         updatedEvents.push(...trace.events.slice(-5));
       }
       
-      // Create a properly typed object to avoid spread type error
-      const traceObject = typeof existingTrace === 'object' ? existingTrace : {};
-      
+      // Create an updated metadata object with the new trace information
       const updatedMetadata = { 
         ...existingMetadata,
         trace: {
-          ...traceObject,
+          ...(typeof existingTrace === 'object' ? existingTrace : {}),
           events: updatedEvents,
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)

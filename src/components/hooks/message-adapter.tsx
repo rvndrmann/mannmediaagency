@@ -30,7 +30,7 @@ export const adaptMessagesForComponents = (messages: Message[]): SimpleMessage[]
 // Adapter to convert complex Message to simple format expected by some components
 export const adaptToSimpleMessage = (message: Message): SimpleMessage => {
   return {
-    role: message.role === 'system' || message.role === 'tool' ? 'assistant' : msg.role,
+    role: message.role === 'system' || message.role === 'tool' ? 'assistant' : message.role,
     content: message.content,
     status: message.status
   };

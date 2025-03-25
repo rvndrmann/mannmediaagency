@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { Button } from "@/components/ui/button";
-import { PaperClip } from "lucide-react";
+import { Paperclip } from "lucide-react";
 import { Attachment } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 
@@ -64,7 +64,7 @@ export const FileAttachmentButton: React.FC<FileAttachmentButtonProps> = ({
         className="text-muted-foreground hover:text-foreground"
         type="button"
       >
-        <PaperClip className="h-5 w-5" />
+        <Paperclip className="h-5 w-5" />
       </Button>
       <input
         type="file"

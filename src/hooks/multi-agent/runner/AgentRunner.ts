@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { supabase } from '@/integrations/supabase/client';
 import { Message, Attachment, Task, HandoffRequest } from '@/types/message';
 import { toast } from 'sonner';
+import { isTaskInProgress, isTaskCompleted, isTaskFailed, isTaskPending } from './fix-agent-runner';
 
 // Define built-in agent types
 const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];

@@ -32,4 +32,3 @@ export const isTaskPending = (status: string): boolean => {
 // Example usage:
 // Instead of: if (task.status === 'running') { ... }
 // Use: if (isTaskInProgress(task.status)) { ... }
-

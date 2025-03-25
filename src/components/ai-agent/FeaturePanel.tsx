@@ -12,6 +12,7 @@ import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
+import { adaptMessagesForComponents } from "../hooks/message-adapter";
 
 interface FeaturePanelProps {
   messages: Message[];
@@ -62,6 +63,9 @@ interface FeaturePanelProps {
 export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
+  
+  // Adapt messages for components that expect only user/assistant roles
+  const adaptedMessages = adaptMessagesForComponents(messages);
 
   return (
     <div className="bg-[#1A1F29] h-full overflow-hidden">
@@ -86,7 +90,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
               onGuidanceScaleChange={productShotV1.onGuidanceScaleChange}
               onOutputFormatChange={productShotV1.onOutputFormatChange}
               onGenerate={productShotV1.onGenerate}
-              messages={productShotV1.messages}
+              messages={adaptedMessages as any}
               onVideoTemplatesClick={productShotV1.onVideoTemplatesClick}
             />
             <GalleryPanel
@@ -104,7 +108,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
               <div className="space-y-6 min-h-[calc(100vh-16rem)]">
                 <ProductShotForm
                   {...productShotV2}
-                  messages={messages}
+                  messages={adaptedMessages as any}
                 />
               </div>
               <div className="space-y-6">
@@ -124,7 +128,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
             {...imageToVideo}
             prompt={imageToVideoPrompt}
             onPromptChange={setImageToVideoPrompt}
-            messages={messages}
+            messages={adaptedMessages as any}
             aspectRatio={selectedAspectRatio}
             onAspectRatioChange={setSelectedAspectRatio}
             onSelectFromHistory={imageToVideo.onSelectFromHistory || ((jobId, imageUrl) => {})}
@@ -133,13 +137,13 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
 
         <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <FacelessVideoForm
-            messages={messages}
+            messages={adaptedMessages}
             creditsRemaining={productShotV1.creditsRemaining}
           />
         </TabsContent>
 
         <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <ScriptBuilderTab messages={messages} />
+          <ScriptBuilderTab messages={adaptedMessages} />
         </TabsContent>
       </Tabs>
     </div>

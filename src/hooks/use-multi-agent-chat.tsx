@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -80,10 +81,24 @@ export const useMultiAgentChat = () => {
   const onMessage = useCallback((message: Message) => {
     console.log("Received message from agent:", message);
     
-    // Save the interaction in Supabase for analytics
-    if (message.role !== 'thinking' && message.status !== 'thinking') {
+    // Save the interaction in Supabase for analytics - we need to check the status differently
+    if (message.role !== 'system' && message.status !== 'thinking') {
       const saveInteraction = async () => {
         try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) return;
+          
+          // Find the last user message to use as context
+          let userMessage = { content: "" };
+          let effectiveAgentType = message.agentType || activeAgent;
+          
+          for (let i = messages.length - 1; i >= 0; i--) {
+            if (messages[i].role === 'user') {
+              userMessage = messages[i];
+              break;
+            }
+          }
+          
           await supabase.from('agent_interactions').insert({
             user_id: user.id,
             agent_type: message.agentType || effectiveAgentType,
@@ -108,7 +123,7 @@ export const useMultiAgentChat = () => {
     }
     
     setMessages(prev => [...prev, message]);
-  }, []);
+  }, [messages, pendingAttachments, activeAgent, currentConversationId]);
 
   // Helper to create a new task with proper type
   const createTask = (description: string): Task => {

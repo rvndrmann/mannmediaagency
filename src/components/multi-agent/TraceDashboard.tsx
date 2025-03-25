@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -13,6 +14,20 @@ import { AnalyticsData, ConversationData, TraceData } from '@/types/message';
 interface TraceDashboardProps {
   userId: string;
 }
+
+// Safely extract trace data from possibly nested metadata
+const safeExtractTrace = (metadata: any) => {
+  if (!metadata) return null;
+  
+  try {
+    // If it's a string, try to parse it
+    const metadataObj = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    return metadataObj?.trace || null;
+  } catch (e) {
+    console.error("Error parsing metadata:", e);
+    return null;
+  }
+};
 
 export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
   const [isLoading, setIsLoading] = useState(true);
@@ -59,7 +74,7 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
         
         // Process the interactions data
         interactionsData.forEach((interaction: any) => {
-          const traceData = interaction.metadata?.trace;
+          const traceData = safeExtractTrace(interaction.metadata);
           if (!traceData || !traceData.runId) return;
           
           const conversationId = traceData.runId;
@@ -209,7 +224,7 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
       let endTime = '';
       
       interactions.forEach(interaction => {
-        const traceData = interaction.metadata?.trace;
+        const traceData = safeExtractTrace(interaction.metadata);
         
         if (interaction.agent_type) {
           agentTypes.add(interaction.agent_type);
@@ -244,23 +259,27 @@ export const TraceDashboard = ({ userId }: TraceDashboardProps) => {
         : 0;
       
       // Construct messages from interactions
-      const messages = interactions.map((interaction: any) => ({
-        role: interaction.role || (interaction.user_message ? 'user' : 'assistant'),
-        timestamp: interaction.timestamp || interaction.created_at,
-        user_message: interaction.user_message,
-        assistant_response: interaction.assistant_response,
-        agent_type: interaction.agent_type,
-        trace: {
-          events: interaction.metadata?.trace?.events || [],
-          modelUsed: interaction.metadata?.trace?.summary?.modelUsed || interaction.model_used || 'unknown',
-          duration: interaction.metadata?.trace?.summary?.duration || 0,
-          summary: interaction.metadata?.trace?.summary || {
-            handoffs: 0,
-            toolCalls: 0,
-            success: true
+      const messages = interactions.map((interaction: any) => {
+        const trace = safeExtractTrace(interaction.metadata);
+        
+        return {
+          role: interaction.role || (interaction.user_message ? 'user' : 'assistant'),
+          timestamp: interaction.timestamp || interaction.created_at,
+          user_message: interaction.user_message,
+          assistant_response: interaction.assistant_response,
+          agent_type: interaction.agent_type,
+          trace: {
+            events: trace?.events || [],
+            modelUsed: trace?.summary?.modelUsed || interaction.model_used || 'unknown',
+            duration: trace?.summary?.duration || 0,
+            summary: trace?.summary || {
+              handoffs: 0,
+              toolCalls: 0,
+              success: true
+            }
           }
-        }
-      }));
+        };
+      });
       
       // Create trace data object
       const traceData: TraceData = {

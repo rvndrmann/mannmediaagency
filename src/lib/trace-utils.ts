@@ -28,6 +28,27 @@ export type Trace = {
   };
 };
 
+// Function to safely access trace data from metadata
+const safeGetTraceFromMetadata = (metadata: any) => {
+  if (!metadata) return null;
+  
+  // Handle both string and object metadata formats
+  try {
+    // If metadata is a JSON string, parse it
+    const metadataObj = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
+    
+    // Check if trace exists in the metadata
+    if (metadataObj && typeof metadataObj === 'object' && metadataObj.trace) {
+      return metadataObj.trace;
+    }
+    
+    return null;
+  } catch (e) {
+    console.error("Error accessing trace from metadata:", e);
+    return null;
+  }
+};
+
 // Function to save a trace to Supabase
 export const saveTrace = async (trace: Trace): Promise<void> => {
   try {
@@ -35,7 +56,7 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
     const { data: existingData, error: checkError } = await supabase
       .from('agent_interactions')
       .select('id, metadata')
-      .eq('metadata->>runId', trace.id)
+      .filter('metadata->trace->runId', 'eq', trace.id)
       .limit(1);
     
     if (checkError) {
@@ -76,22 +97,16 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
     } else {
       // Update the existing trace with the latest information
       const existingRecord = existingData[0];
-      const updatedMetadata = existingRecord.metadata ? { 
-        ...existingRecord.metadata,
+      const existingMetadata = existingRecord.metadata || {};
+      const existingTrace = safeGetTraceFromMetadata(existingMetadata) || {};
+      
+      const updatedMetadata = { 
+        ...existingMetadata,
         trace: {
-          ...(existingRecord.metadata.trace || {}),
-          events: [...((existingRecord.metadata.trace && existingRecord.metadata.trace.events) || []), ...trace.events.slice(-5)],
+          ...existingTrace,
+          events: [...(existingTrace.events || []), ...trace.events.slice(-5)],
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)
-        }
-      } : {
-        trace: {
-          runId: trace.id,
-          sessionId: trace.sessionId,
-          events: trace.events.slice(-5),
-          endTime: trace.endTime || new Date().toISOString(),
-          summary: generateTraceSummary(trace),
-          startTime: trace.startTime
         }
       };
       

@@ -3,9 +3,28 @@ import { ToolDefinition } from "@/hooks/types";
 import { productShotV1Tool } from "./product-shot-v1-tool";
 import { productShotV2Tool } from "./product-shot-v2-tool";
 import { imageToVideoTool } from "./image-to-video-tool";
-import { browserUseTool } from "./browser-use-tool";
+import { executeBrowserUseTool } from "./browser-use-tool";
 import { productVideoTool } from "./product-video-tool";
 import { customVideoTool } from "./custom-video-tool";
+
+// Define the browserUseTool correctly using executeBrowserUseTool
+export const browserUseTool = {
+  name: "browser-use",
+  description: "Browse the web to perform tasks using an automated browser",
+  executor: executeBrowserUseTool,
+  parameters: {
+    task: {
+      type: "string",
+      description: "The task to perform using the browser"
+    },
+    save_browser_data: {
+      type: "boolean",
+      description: "Whether to save browser data (cookies, etc.)",
+      default: true
+    }
+  },
+  requiredCredits: 1
+};
 
 // Registry of all available tools
 const toolRegistry: Record<string, ToolDefinition> = {

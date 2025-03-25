@@ -49,7 +49,7 @@ export const executeBrowserUseTool = async (
     const taskRecord = {
       id: uuidv4(),
       user_id: userId,
-      task: browserParams.task,
+      input: parameters.task, // Add input field to match the required schema
       status: 'pending',
       trace_id: traceId
     };
@@ -89,7 +89,7 @@ export const executeBrowserUseTool = async (
       await supabase
         .from('browser_automation_tasks')
         .update({
-          external_task_id: result.task_id,
+          browser_task_id: result.task_id,
           status: 'in_progress',
           updated_at: new Date().toISOString()
         })
@@ -108,7 +108,7 @@ export const executeBrowserUseTool = async (
         .from('browser_automation_tasks')
         .update({
           status: 'error',
-          error_message: apiError instanceof Error ? apiError.message : String(apiError),
+          output: apiError instanceof Error ? apiError.message : String(apiError),
           updated_at: new Date().toISOString()
         })
         .eq('id', taskRecord.id);

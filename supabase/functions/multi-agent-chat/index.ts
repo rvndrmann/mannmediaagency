@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { Agent, Context, AgentRunner } from "https://esm.sh/@langchain/openai";
 
 const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 
@@ -34,6 +35,46 @@ const AGENT_INSTRUCTIONS = {
   "custom-video": "You are a custom video specialist, creating personalized video content."
 };
 
+function createAgent(agentType: string, contextData: any) {
+  // Get the model to use
+  const model = contextData.usePerformanceModel ? "gpt-4o-mini" : (AGENT_MODELS[agentType] || "gpt-4o");
+  
+  // Prepare system instruction based on agent type
+  const systemInstruction = AGENT_INSTRUCTIONS[agentType] || AGENT_INSTRUCTIONS.main;
+  
+  // Enhance system instruction with context data
+  let enhancedInstruction = systemInstruction;
+  
+  if (contextData.enableDirectToolExecution) {
+    enhancedInstruction += " You can execute tools directly.";
+  }
+  
+  if (contextData.isHandoffContinuation) {
+    enhancedInstruction += " This conversation was handed off to you from another agent.";
+  }
+  
+  if (contextData.availableTools && Array.isArray(contextData.availableTools)) {
+    enhancedInstruction += " Available tools: " + contextData.availableTools.map(t => t.name).join(", ") + ".";
+  }
+  
+  if (contextData.requestedTool) {
+    enhancedInstruction += ` The user has specifically requested to use the ${contextData.requestedTool} tool.`;
+  }
+
+  // Create an agent with OpenAI
+  const agent = new Agent({
+    name: agentType,
+    instructions: enhancedInstruction,
+    model: model,
+    model_settings: {
+      temperature: 0.7,
+      max_tokens: 1000
+    }
+  });
+
+  return agent;
+}
+
 serve(async (req: Request) => {
   const requestId = crypto.randomUUID();
   console.log(`[${requestId}] New request received`);
@@ -61,74 +102,22 @@ serve(async (req: Request) => {
       console.warn(`[${requestId}] Unknown agent type: ${agentType}, falling back to main`);
     }
     
-    // Prepare the model to use
-    const model = contextData.usePerformanceModel ? "gpt-4o-mini" : (AGENT_MODELS[agentType] || "gpt-4o");
-    console.log(`[${requestId}] Using model: ${model}`);
+    // Create the agent based on agent type
+    const agent = createAgent(agentType, contextData);
     
-    // Prepare system instruction based on agent type
-    const systemInstruction = AGENT_INSTRUCTIONS[agentType] || AGENT_INSTRUCTIONS.main;
+    // Create a context for the agent
+    const context = new Context();
     
-    // Enhance system instruction with context data
-    let enhancedInstruction = systemInstruction;
+    // Call the agent with the messages
+    const agentRunner = new AgentRunner(agent, context);
+    const response = await agentRunner.run(messages);
     
-    if (contextData.enableDirectToolExecution) {
-      enhancedInstruction += " You can execute tools directly.";
-    }
-    
-    if (contextData.isHandoffContinuation) {
-      enhancedInstruction += " This conversation was handed off to you from another agent.";
-    }
-    
-    if (contextData.availableTools && Array.isArray(contextData.availableTools)) {
-      enhancedInstruction += " Available tools: " + contextData.availableTools.map(t => t.name).join(", ") + ".";
-    }
-    
-    if (contextData.requestedTool) {
-      enhancedInstruction += ` The user has specifically requested to use the ${contextData.requestedTool} tool.`;
-    }
-
-    // Prepare messages for OpenAI
-    const openAIMessages = [
-      { role: "system", content: enhancedInstruction },
-      ...messages
-    ];
-    
-    console.log(`[${requestId}] Sending request to OpenAI with ${openAIMessages.length} messages`);
-
-    // Call OpenAI API
-    const response = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: openAIMessages,
-        temperature: 0.7,
-        max_tokens: 1000
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[${requestId}] OpenAI API error (${response.status}): ${errorText}`);
-      throw new Error(`OpenAI API error: ${response.status}`);
-    }
-
-    const openAIResponse = await response.json();
-    
-    if (!openAIResponse.choices || openAIResponse.choices.length === 0) {
-      throw new Error("Invalid response from OpenAI API");
-    }
-
-    const completion = openAIResponse.choices[0].message.content;
-    console.log(`[${requestId}] Received completion from OpenAI (${completion.length} chars)`);
+    console.log(`[${requestId}] Received completion from OpenAI (${response.content.length} chars)`);
 
     // Check if there's a handoff request
     let handoffRequest = null;
     const handoffRegex = /HANDOFF TO:\s*(\w+)(?:\s+REASON:\s*([^\n]+))?/i;
-    const handoffMatch = completion.match(handoffRegex);
+    const handoffMatch = response.content.match(handoffRegex);
     
     if (handoffMatch) {
       handoffRequest = {
@@ -141,9 +130,9 @@ serve(async (req: Request) => {
     // Return the response
     return new Response(
       JSON.stringify({
-        completion: completion,
+        completion: response.content,
         handoffRequest: handoffRequest,
-        modelUsed: model
+        modelUsed: agent.model || "gpt-4o"
       }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );

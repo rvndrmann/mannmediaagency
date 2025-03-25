@@ -89,7 +89,7 @@ export const useMultiAgentChat = () => {
           if (!user) return;
           
           // Find the last user message to use as context
-          let userMessage = { content: "" };
+          let userMessage: Message = { content: "", role: "user", id: "", createdAt: new Date().toISOString() };
           let effectiveAgentType = message.agentType || activeAgent;
           
           for (let i = messages.length - 1; i >= 0; i--) {

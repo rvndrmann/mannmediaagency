@@ -2,6 +2,7 @@
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
 const BROWSER_USE_API_KEY = Deno.env.get('BROWSER_USE_API_KEY');
 
 // Define CORS headers
@@ -10,9 +11,78 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Function to execute browser-use tool
+async function executeBrowserUseTool(parameters: any) {
+  if (!BROWSER_USE_API_KEY) {
+    throw new Error("BROWSER_USE_API_KEY is not set in environment variables");
+  }
+
+  console.log("Executing browser-use tool with parameters:", parameters);
+  
+  // Call the browser-use API
+  const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      task: parameters.task,
+      save_browser_data: parameters.save_browser_data !== false
+    })
+  });
+  
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error("Browser Use API Error Response:", errorText);
+    throw new Error(`Browser Use API error: ${response.status} - ${errorText}`);
+  }
+  
+  const data = await response.json();
+  return {
+    success: true,
+    message: "Browser task submitted successfully",
+    taskId: data.task_id
+  };
+}
+
+// Function to execute product-video tool
+async function executeProductVideoTool(parameters: any) {
+  if (!OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set in environment variables");
+  }
+  
+  console.log("Executing product-video tool with parameters:", parameters);
+  
+  // This would typically call a video generation API
+  // For now, we'll simulate a successful response
+  return {
+    success: true,
+    message: "Product video generation initiated",
+    jobId: crypto.randomUUID()
+  };
+}
+
+// Function to execute custom-video tool
+async function executeCustomVideoTool(parameters: any) {
+  if (!OPENAI_API_KEY) {
+    throw new Error("OPENAI_API_KEY is not set in environment variables");
+  }
+  
+  console.log("Executing custom-video tool with parameters:", parameters);
+  
+  // This would typically call a video generation API
+  // For now, we'll simulate a successful response
+  return {
+    success: true,
+    message: "Custom video generation initiated",
+    jobId: crypto.randomUUID()
+  };
+}
+
 serve(async (req: Request) => {
   const requestId = crypto.randomUUID();
-  console.log(`[${requestId}] New tool execution request received`);
+  console.log(`[${requestId}] New request received`);
   
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -22,33 +92,30 @@ serve(async (req: Request) => {
   try {
     const { toolName, parameters, userId, traceId } = await req.json();
     
-    if (!toolName) {
-      throw new Error("Tool name is required");
+    if (!toolName || !parameters) {
+      throw new Error("Invalid request: toolName and parameters are required");
     }
+
+    console.log(`[${requestId}] Executing tool: ${toolName} with parameters:`, parameters);
     
-    if (!parameters) {
-      throw new Error("Parameters are required");
-    }
-    
-    console.log(`[${requestId}] Executing tool: ${toolName} with parameters:`, JSON.stringify(parameters));
-    
-    // Execute the appropriate tool based on the name
     let result;
     
+    // Execute the appropriate tool
     switch (toolName) {
-      case "browser":
-      case "browser-use":
-        result = await executeBrowserUse(parameters, userId, traceId, requestId);
+      case 'browser-use':
+        result = await executeBrowserUseTool(parameters);
         break;
-      case "product-video":
-        result = await executeProductVideo(parameters, userId, requestId);
+      case 'product-video':
+        result = await executeProductVideoTool(parameters);
         break;
-      case "custom-video":
-        result = await executeCustomVideo(parameters, userId, requestId);
+      case 'custom-video':
+        result = await executeCustomVideoTool(parameters);
         break;
       default:
-        throw new Error(`Unsupported tool: ${toolName}`);
+        throw new Error(`Unknown tool: ${toolName}`);
     }
+    
+    console.log(`[${requestId}] Tool execution result:`, result);
     
     return new Response(
       JSON.stringify(result),
@@ -59,7 +126,8 @@ serve(async (req: Request) => {
     return new Response(
       JSON.stringify({
         success: false,
-        message: error instanceof Error ? error.message : "Unknown error occurred"
+        error: error instanceof Error ? error.message : "Unknown error",
+        message: "Error executing tool"
       }),
       { 
         status: 500,
@@ -68,66 +136,3 @@ serve(async (req: Request) => {
     );
   }
 });
-
-async function executeBrowserUse(parameters: any, userId: string, traceId: string, requestId: string) {
-  if (!BROWSER_USE_API_KEY) {
-    throw new Error("BROWSER_USE_API_KEY is not set in environment variables");
-  }
-  
-  console.log(`[${requestId}] Executing browser-use with task: ${parameters.task}`);
-  
-  try {
-    // Call the Browser Use API
-    const response = await fetch("https://api.browser-use.com/api/v1/run-task", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${BROWSER_USE_API_KEY}`
-      },
-      body: JSON.stringify({
-        task: parameters.task,
-        save_browser_data: parameters.save_browser_data !== false
-      })
-    });
-    
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[${requestId}] Browser Use API error (${response.status}): ${errorText}`);
-      throw new Error(`Browser Use API error: ${response.status}`);
-    }
-    
-    const browserUseResponse = await response.json();
-    console.log(`[${requestId}] Browser Use API response:`, JSON.stringify(browserUseResponse));
-    
-    return {
-      success: true,
-      message: `Browser task started successfully. Task ID: ${browserUseResponse.task_id}`,
-      taskId: browserUseResponse.task_id
-    };
-  } catch (error) {
-    console.error(`[${requestId}] Error executing browser-use:`, error);
-    throw error;
-  }
-}
-
-async function executeProductVideo(parameters: any, userId: string, requestId: string) {
-  console.log(`[${requestId}] Executing product-video with product: ${parameters.product_name}`);
-  
-  // Mock implementation for now
-  return {
-    success: true,
-    message: `Product video generation started for ${parameters.product_name}`,
-    jobId: crypto.randomUUID()
-  };
-}
-
-async function executeCustomVideo(parameters: any, userId: string, requestId: string) {
-  console.log(`[${requestId}] Executing custom-video with title: ${parameters.title}`);
-  
-  // Mock implementation for now
-  return {
-    success: true,
-    message: `Custom video generation started for: ${parameters.title}`,
-    jobId: crypto.randomUUID()
-  };
-}

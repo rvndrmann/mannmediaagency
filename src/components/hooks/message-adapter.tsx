@@ -9,7 +9,7 @@ import { Message } from '@/types/message';
  */
 
 // Simple message adapter for components that expect only 'user' and 'assistant' roles
-export const adaptMessagesForComponents = (messages: Message[]) => {
+export const adaptMessagesForComponents = (messages: Message[]): Message[] => {
   // Filter out messages with incompatible roles for certain components
   return messages.filter(msg => 
     msg.role === 'user' || msg.role === 'assistant'

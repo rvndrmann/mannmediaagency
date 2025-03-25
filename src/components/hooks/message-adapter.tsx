@@ -16,6 +16,15 @@ export const adaptMessagesForComponents = (messages: Message[]) => {
   );
 };
 
+// Adapter to convert complex Message to simple format expected by some components
+export const adaptToSimpleMessage = (message: Message) => {
+  return {
+    role: message.role === 'system' || message.role === 'tool' ? 'assistant' : message.role,
+    content: message.content,
+    status: message.status
+  };
+};
+
 // HOC to wrap components that expect a specific Message type
 export const withMessageAdapter = <P extends { messages: Message[] }>(
   Component: React.ComponentType<P>,
@@ -24,4 +33,17 @@ export const withMessageAdapter = <P extends { messages: Message[] }>(
     const adaptedMessages = adaptMessagesForComponents(props.messages);
     return <Component {...props} messages={adaptedMessages as any} />;
   };
+};
+
+// Function to adapt any Message[] type to a component's expected format
+export const adaptMessages = <T extends { role: string; content: string }>(
+  messages: Message[]
+): T[] => {
+  return messages
+    .filter(msg => msg.role === 'user' || msg.role === 'assistant')
+    .map(msg => ({
+      role: msg.role,
+      content: msg.content,
+      status: msg.status
+    })) as unknown as T[];
 };

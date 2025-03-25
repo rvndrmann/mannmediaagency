@@ -106,10 +106,10 @@ export const useMultiAgentChat = () => {
             assistant_response: message.content,
             timestamp: message.createdAt,
             has_attachments: pendingAttachments.length > 0,
-            group_id: currentConversationId,
             metadata: {
               model_used: message.modelUsed,
               status: message.status,
+              runId: currentConversationId, // Use conversationId as runId
               attachments: pendingAttachments.length > 0 ? pendingAttachments.map(a => a.name) : []
             }
           });

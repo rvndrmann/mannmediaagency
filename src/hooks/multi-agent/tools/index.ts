@@ -7,8 +7,8 @@ import { executeBrowserUseTool } from "./browser-use-tool";
 import { productVideoTool } from "./product-video-tool";
 import { customVideoTool } from "./custom-video-tool";
 
-// Define the browserUseTool correctly using executeBrowserUseTool
-export const browserUseTool = {
+// Define the browserUseTool correctly
+export const browserUseTool: ToolDefinition = {
   name: "browser-use",
   description: "Browse the web to perform tasks using an automated browser",
   executor: executeBrowserUseTool,

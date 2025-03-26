@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -9,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info } from "lucide-react";
+import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserSettings } from "@/components/browser-use/BrowserSettings";
 import { BrowserConfig } from "@/hooks/browser-use/types";
+import { Badge } from "@/components/ui/badge";
 
 interface BrowserTask {
   id: string;
@@ -54,7 +54,7 @@ const BrowserUsePage = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [isTaskLoading, setIsTaskLoading] = useState(false);
   const [taskInput, setTaskInput] = useState("");
-  const [environment, setEnvironment] = useState("browser");
+  const environment = "browser";
   const [intervalId, setIntervalId] = useState<number | null>(null);
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
   const [activeTab, setActiveTab] = useState(activeTask ? "viewing" : "create");
@@ -62,7 +62,6 @@ const BrowserUsePage = () => {
   useEffect(() => {
     fetchTasks();
     
-    // Set up polling for task updates
     const id = window.setInterval(() => {
       if (activeTask) {
         fetchTaskDetails(activeTask.id);
@@ -120,12 +119,10 @@ const BrowserUsePage = () => {
       
       setActiveTask(data);
       
-      // If the task has browser config, update the UI
       if (data.browser_config) {
         setBrowserConfig(data.browser_config);
       }
       
-      // Also update the task in the tasks list
       setTasks(prevTasks => 
         prevTasks.map(task => 
           task.id === taskId ? { ...task, status: data.status } : task
@@ -143,7 +140,6 @@ const BrowserUsePage = () => {
         return false;
       }
       
-      // Additional platform-specific validation could go here
       if (browserConfig.chromePath && !browserConfig.chromePath.includes("/") && !browserConfig.chromePath.includes("\\")) {
         toast.warning("Chrome path should be an absolute path to the Chrome executable");
       }
@@ -157,7 +153,6 @@ const BrowserUsePage = () => {
       return;
     }
     
-    // Validate browser configuration if using own browser
     if (!validateOwnBrowserConfig()) {
       return;
     }
@@ -178,7 +173,6 @@ const BrowserUsePage = () => {
       toast.success("Task started successfully");
       setTaskInput("");
       
-      // Fetch the new task details
       await fetchTaskDetails(data.taskId);
       await fetchTasks();
       setActiveTab("viewing");
@@ -262,29 +256,11 @@ const BrowserUsePage = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="environment">Environment</Label>
-                <div className="flex gap-4">
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      id="browser"
-                      value="browser"
-                      checked={environment === "browser"}
-                      onChange={() => setEnvironment("browser")}
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="browser">Browser</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <input
-                      type="radio"
-                      id="desktop"
-                      value="desktop"
-                      checked={environment === "desktop"}
-                      onChange={() => setEnvironment("desktop")}
-                      className="h-4 w-4"
-                    />
-                    <Label htmlFor="desktop">Desktop</Label>
-                  </div>
+                <div className="flex items-center">
+                  <Badge variant="outline" className="flex items-center gap-1 px-3 py-1">
+                    <Monitor className="h-4 w-4 mr-1" />
+                    Browser
+                  </Badge>
                 </div>
               </div>
               <div className="space-y-2">

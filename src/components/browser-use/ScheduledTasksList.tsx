@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -12,12 +13,22 @@ import { Badge } from "@/components/ui/badge";
 import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { CalendarClock, RotateCcw, PlayCircle, CheckCircle, Timer, AlertCircle } from "lucide-react";
+import { 
+  CalendarClock, 
+  RotateCcw, 
+  PlayCircle, 
+  CheckCircle, 
+  Timer, 
+  AlertCircle,
+  Info
+} from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 
 export function ScheduledTasksList() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [triggeringScheduler, setTriggeringScheduler] = useState(false);
+  const [lastRunResult, setLastRunResult] = useState(null);
 
   useEffect(() => {
     fetchScheduledTasks();
@@ -102,12 +113,26 @@ export function ScheduledTasksList() {
       
       const { data, error } = await supabase.functions.invoke(
         'browser-tasks-scheduler-cron',
-        { method: 'POST' }
+        { 
+          method: 'POST',
+          body: { 
+            manual: true,
+            timestamp: new Date().toISOString()
+          }
+        }
       );
       
       if (error) throw error;
       
-      toast.success("Scheduler triggered successfully");
+      console.log("Scheduler response:", data);
+      setLastRunResult(data);
+      
+      if (data.success) {
+        toast.success(`Scheduler triggered successfully. ${data.tasksFound ? `Found ${data.tasksFound} tasks ready to run.` : 'No tasks ready to run at this time.'}`);
+      } else {
+        toast.error(`Scheduler error: ${data.message}`);
+      }
+      
       // Refresh the task list after a short delay
       setTimeout(() => {
         fetchScheduledTasks();
@@ -165,6 +190,18 @@ export function ScheduledTasksList() {
           </Button>
         </div>
       </div>
+
+      {lastRunResult && (
+        <Alert variant={lastRunResult.success ? "success" : "destructive"} className="mb-4">
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            {lastRunResult.success 
+              ? `Scheduler ran successfully at ${new Date(lastRunResult.timestamp).toLocaleTimeString()}. ${lastRunResult.tasksFound ? `Found ${lastRunResult.tasksFound} tasks ready to run.` : 'No tasks are due to run at this time.'}`
+              : `Scheduler error at ${new Date(lastRunResult.timestamp).toLocaleTimeString()}: ${lastRunResult.message}`
+            }
+          </AlertDescription>
+        </Alert>
+      )}
 
       {tasks.length === 0 ? (
         <div className="text-center p-8 border rounded-lg bg-muted/20">

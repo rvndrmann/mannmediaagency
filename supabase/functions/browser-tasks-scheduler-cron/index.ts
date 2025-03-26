@@ -21,11 +21,27 @@ async function triggerScheduler() {
     
     if (scheduledTasksError) {
       console.error("Error checking scheduled tasks:", scheduledTasksError);
-    } else {
-      console.log(`Found ${scheduledTasks?.length || 0} tasks that should be executed now`);
+      return {
+        success: false,
+        message: `Failed to query scheduled tasks: ${scheduledTasksError.message}`,
+        timestamp: new Date().toISOString()
+      };
+    }
+    
+    const tasksCount = scheduledTasks?.length || 0;
+    console.log(`Found ${tasksCount} tasks that should be executed now`);
+    
+    if (tasksCount === 0) {
+      return {
+        success: true,
+        message: "No tasks scheduled for execution at this time",
+        tasksFound: 0,
+        timestamp: new Date().toISOString()
+      };
     }
     
     // Call the scheduler function
+    console.log("Invoking browser-tasks-scheduler function");
     const { data, error } = await supabase.functions.invoke("browser-tasks-scheduler", {
       method: "POST",
       body: { 
@@ -48,7 +64,8 @@ async function triggerScheduler() {
     return {
       success: true,
       message: data.message || "Tasks processed successfully",
-      tasksFound: scheduledTasks?.length || 0,
+      tasksFound: tasksCount,
+      tasksProcessed: data.tasksProcessed || 0,
       timestamp: new Date().toISOString()
     };
   } catch (error) {
@@ -84,7 +101,9 @@ serve(async (req) => {
   }
   
   try {
+    console.log("Received request to trigger scheduler");
     const result = await triggerScheduler();
+    console.log("Scheduler trigger result:", JSON.stringify(result));
     
     return new Response(
       JSON.stringify(result),

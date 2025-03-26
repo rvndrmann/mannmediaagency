@@ -24,6 +24,13 @@ import {
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 
+type StatusBadgeVariant = "info" | "success" | "destructive" | "warning" | "outline";
+
+interface StatusBadgeProps {
+  variant: StatusBadgeVariant;
+  className?: string;
+}
+
 export function ScheduledTasksList() {
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -52,36 +59,36 @@ export function ScheduledTasksList() {
     }
   };
 
-  const getStatusBadgeProps = (status) => {
+  const getStatusBadgeProps = (status: string): StatusBadgeProps => {
     switch (status) {
       case 'active':
         return { 
-          variant: "info" as const, 
+          variant: "info", 
           className: "bg-blue-50 text-blue-700 border-blue-200" 
         };
       case 'completed':
         return { 
-          variant: "success" as const, 
+          variant: "success", 
           className: "bg-green-50 text-green-700 border-green-200" 
         };
       case 'failed':
         return { 
-          variant: "destructive" as const, 
+          variant: "destructive", 
           className: "bg-red-50 text-red-700 border-red-200" 
         };
       case 'pending':
         return { 
-          variant: "warning" as const, 
+          variant: "warning", 
           className: "bg-amber-50 text-amber-700 border-amber-200" 
         };
       default:
         return { 
-          variant: "outline" as const 
+          variant: "outline"
         };
     }
   };
 
-  const getStatusIcon = (status) => {
+  const getStatusIcon = (status: string) => {
     switch (status) {
       case 'active':
         return <PlayCircle className="h-4 w-4 mr-1" />;
@@ -96,7 +103,7 @@ export function ScheduledTasksList() {
     }
   };
 
-  const formatDate = (dateStr) => {
+  const formatDate = (dateStr: string) => {
     if (!dateStr) return 'N/A';
     try {
       return format(parseISO(dateStr), "MMM d, yyyy 'at' h:mm a");
@@ -128,7 +135,13 @@ export function ScheduledTasksList() {
       setLastRunResult(data);
       
       if (data.success) {
-        toast.success(`Scheduler triggered successfully. ${data.tasksFound ? `Found ${data.tasksFound} tasks ready to run.` : 'No tasks ready to run at this time.'}`);
+        if (data.tasksProcessed && data.tasksProcessed > 0) {
+          toast.success(`Scheduler processed ${data.tasksProcessed} task(s) successfully.`);
+        } else if (data.tasksFound && data.tasksFound > 0) {
+          toast.success(`Scheduler found ${data.tasksFound} task(s) to run.`);
+        } else {
+          toast.info('No tasks are due to run at this time.');
+        }
       } else {
         toast.error(`Scheduler error: ${data.message}`);
       }
@@ -196,7 +209,13 @@ export function ScheduledTasksList() {
           <Info className="h-4 w-4" />
           <AlertDescription>
             {lastRunResult.success 
-              ? `Scheduler ran successfully at ${new Date(lastRunResult.timestamp).toLocaleTimeString()}. ${lastRunResult.tasksFound ? `Found ${lastRunResult.tasksFound} tasks ready to run.` : 'No tasks are due to run at this time.'}`
+              ? `Scheduler ran successfully at ${new Date(lastRunResult.timestamp).toLocaleTimeString()}. ${
+                  lastRunResult.tasksProcessed > 0 
+                    ? `Processed ${lastRunResult.tasksProcessed} task(s).` 
+                    : lastRunResult.tasksFound > 0 
+                      ? `Found ${lastRunResult.tasksFound} task(s) ready to run.` 
+                      : 'No tasks are due to run at this time.'
+                }`
               : `Scheduler error at ${new Date(lastRunResult.timestamp).toLocaleTimeString()}: ${lastRunResult.message}`
             }
           </AlertDescription>
@@ -235,9 +254,14 @@ export function ScheduledTasksList() {
                   <TableCell>{formatDate(task.next_run_at || task.scheduled_time)}</TableCell>
                   <TableCell>{task.last_run_at ? formatDate(task.last_run_at) : 'Never'}</TableCell>
                   <TableCell>
-                    <Badge {...getStatusBadgeProps(task.status)} className="flex items-center w-fit">
-                      {getStatusIcon(task.status)}
-                      {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                    <Badge 
+                      variant={getStatusBadgeProps(task.status).variant} 
+                      className={getStatusBadgeProps(task.status).className}
+                    >
+                      <div className="flex items-center">
+                        {getStatusIcon(task.status)}
+                        {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                      </div>
                     </Badge>
                   </TableCell>
                 </TableRow>

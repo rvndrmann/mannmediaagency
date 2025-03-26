@@ -4,8 +4,7 @@ import {
   Camera,
   Clapperboard,
   FileText,
-  ShoppingBag,
-  Bot
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -54,10 +53,6 @@ export const MobileToolNav = ({
     }
   };
 
-  const handleBrowserWorkerClick = () => {
-    navigate("/browser-use");
-  };
-
   return (
     <div className="flex items-center justify-between bg-[#1E2432] border-t border-white/10 p-2 fixed bottom-0 left-0 right-0 z-50">
       {tools.map((tool) => (
@@ -81,13 +76,6 @@ export const MobileToolNav = ({
       >
         <ShoppingBag className="w-5 h-5 mb-1" />
         <span className="text-xs">Custom</span>
-      </button>
-      <button
-        onClick={handleBrowserWorkerClick}
-        className="flex flex-col items-center justify-center px-3 py-1.5 rounded-md transition-colors text-white/60 hover:text-white"
-      >
-        <Bot className="w-5 h-5 mb-1" />
-        <span className="text-xs">Browser</span>
       </button>
     </div>
   );

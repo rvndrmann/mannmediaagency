@@ -1,11 +1,10 @@
 
-import { Compass, ScrollText, Settings, Package, Users, Globe, Camera, ImagePlus, Film, Video, Bot } from "lucide-react";
+import { Compass, ScrollText, Settings, Package, Users, Globe, Camera, ImagePlus, Film, Video } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-// Limited set of nav items to fit mobile screen better
 const navItems = [
   {
     label: "Explore",
@@ -13,24 +12,49 @@ const navItems = [
     href: "/explore"
   },
   {
-    label: "Shots",
+    label: "Shot V1",
     icon: Camera,
     href: "/product-shoot"
   },
   {
-    label: "Videos",
+    label: "Shot V2",
+    icon: ImagePlus,
+    href: "/product-shoot-v2"
+  },
+  {
+    label: "Img to Video",
+    icon: Film,
+    href: "/image-to-video"
+  },
+  {
+    label: "Product Video",
     icon: Video,
     href: "/create-video"
   },
   {
-    label: "Browser",
-    icon: Bot,
-    href: "/browser-use"
+    label: "Multi-Agent",
+    icon: Users,
+    href: "/multi-agent-chat"
   },
   {
     label: "Dashboard",
     icon: ScrollText,
     href: "/dashboard"
+  },
+  {
+    label: "Custom Orders",
+    icon: Package,
+    href: "/custom-orders"
+  },
+  {
+    label: "Browser Use",
+    icon: Globe,
+    href: "/browser-use"
+  },
+  {
+    label: "Settings",
+    icon: Settings,
+    href: "/profile"
   }
 ];
 

@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -418,7 +417,7 @@ export function BrowserConfigPanel({
             )}
 
             {connectionMethod === "local" && (
-              <Alert variant="info" className="mt-2">
+              <Alert variant="default" className="mt-2">
                 <InfoCircledIcon className="h-4 w-4 mr-2" />
                 <AlertDescription>
                   Local Chrome configuration requires setting "Use Own Browser" to true in the Desktop Settings tab.
@@ -462,7 +461,7 @@ export function BrowserConfigPanel({
             )}
 
             {connectionMethod !== "local" && config.useOwnBrowser && (
-              <Alert variant="warning" className="mt-2">
+              <Alert variant="destructive" className="mt-2">
                 <InfoCircledIcon className="h-4 w-4 mr-2" />
                 <AlertDescription>
                   You've enabled "Use Own Browser" but you're not using the Local Chrome connection method. 

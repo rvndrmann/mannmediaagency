@@ -1,476 +1,159 @@
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { useNavigate } from "react-router-dom";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Separator } from "@/components/ui/separator";
-import { TraceViewer } from "./TraceViewer";
-import { format } from 'date-fns';
-import { BarChartBig, Clock, Hammer, Repeat, Users, Zap } from "lucide-react";
+import { formatDate } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#FF6B6B', '#70D6FF'];
+interface TraceMetadata {
+  id: string;
+  name: string;
+  startTime: string;
+  endTime: string;
+  status: string;
+}
 
-type AnalyticsData = {
-  agent_usage: Record<string, number>;
-  total_interactions: number;
-  total_conversations: number;
-  avg_duration_ms: number;
-  success_rate: number;
-  total_handoffs: number;
-  total_tool_calls: number;
-  model_usage: Record<string, number>;
-};
-
-type ConversationData = {
-  conversation_id: string;
-  start_time: string;
-  end_time: string;
-  message_count: number;
-  agent_types: string[];
-};
-
-export const TraceDashboard = ({ userId }: { userId: string }) => {
-  const [analytics, setAnalytics] = useState<AnalyticsData | null>(null);
-  const [conversations, setConversations] = useState<ConversationData[]>([]);
-  const [selectedConversation, setSelectedConversation] = useState<string | null>(null);
+export function TraceDashboard({ userId }: { userId: string }) {
+  const [traces, setTraces] = useState<any[]>([]);
+  const [traceMetadata, setTraceMetadata] = useState<TraceMetadata | null>(null);
+  const [selectedTraceId, setSelectedTraceId] = useState<string | null>(null);
+  const [traceSpans, setTraceSpans] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const [traceDetails, setTraceDetails] = useState<any | null>(null);
-  const [activeTab, setActiveTab] = useState("overview");
-  
+
   useEffect(() => {
-    const fetchAnalytics = async () => {
-      setIsLoading(true);
-      
-      try {
-        // Fetch analytics data - using normal query instead of RPC
-        const { data: analyticsData, error: analyticsError } = await supabase
-          .from('agent_interactions')
-          .select(`
-            agent_type,
-            metadata,
-            created_at
-          `)
-          .eq('user_id', userId);
-        
-        if (analyticsError) {
-          console.error("Error fetching analytics:", analyticsError);
-        } else if (analyticsData && Array.isArray(analyticsData)) {
-          // Process the raw data into analytics format
-          const processedData: AnalyticsData = {
-            agent_usage: {},
-            model_usage: {},
-            total_interactions: analyticsData.length,
-            total_conversations: 0,
-            avg_duration_ms: 0,
-            success_rate: 0,
-            total_handoffs: 0,
-            total_tool_calls: 0
-          };
-          
-          // Count unique conversations
-          const uniqueConversations = new Set<string>();
-          let totalDuration = 0;
-          let conversationsWithDuration = 0;
-          
-          analyticsData.forEach(item => {
-            // Check if item has the expected structure
-            if (!item || typeof item !== 'object') return;
-            
-            // Count agent usage
-            if (item.agent_type) {
-              processedData.agent_usage[item.agent_type] = 
-                (processedData.agent_usage[item.agent_type] || 0) + 1;
-            }
-            
-            // Extract conversation ID and add to unique set
-            const metadata = item.metadata;
-            if (metadata && typeof metadata === 'object' && metadata.trace && typeof metadata.trace === 'object') {
-              const runId = metadata.trace.runId;
-              if (runId) {
-                uniqueConversations.add(runId);
-              }
-              
-              // Extract model usage
-              const model = metadata.trace.summary?.modelUsed;
-              if (model) {
-                processedData.model_usage[model] = 
-                  (processedData.model_usage[model] || 0) + 1;
-              }
-              
-              // Count handoffs and tool calls
-              const handoffs = metadata.trace.summary?.handoffs || 0;
-              const toolCalls = metadata.trace.summary?.toolCalls || 0;
-              processedData.total_handoffs += handoffs;
-              processedData.total_tool_calls += toolCalls;
-              
-              // Add duration if available
-              const duration = metadata.trace.duration;
-              if (duration) {
-                totalDuration += duration;
-                conversationsWithDuration++;
-              }
-            }
-          });
-          
-          // Calculate averages and totals
-          processedData.total_conversations = uniqueConversations.size;
-          processedData.avg_duration_ms = conversationsWithDuration > 0 ? 
-            totalDuration / conversationsWithDuration : 0;
-          processedData.success_rate = 1.0; // Default to 100% for now
-          
-          setAnalytics(processedData);
-        }
-        
-        // Fetch conversations list - using normal query instead of RPC
-        const { data: conversationsData, error: conversationsError } = await supabase
-          .from('agent_interactions')
-          .select(`
-            metadata
-          `)
-          .eq('user_id', userId)
-          .order('created_at', { ascending: false });
-        
-        if (conversationsError) {
-          console.error("Error fetching conversations:", conversationsError);
-        } else if (conversationsData && Array.isArray(conversationsData)) {
-          // Process the raw data into conversations format
-          const processedConversations: Record<string, ConversationData> = {};
-          
-          conversationsData.forEach(item => {
-            // Check if item has the expected structure
-            if (!item || typeof item !== 'object') return;
-            
-            const metadata = item.metadata;
-            if (metadata && typeof metadata === 'object' && metadata.trace && typeof metadata.trace === 'object') {
-              const runId = metadata.trace.runId;
-              if (!runId) return;
-              
-              const startTime = metadata.trace.startTime;
-              const endTime = metadata.trace.endTime;
-              const agents = metadata.trace.summary?.agents || [];
-              const messageCount = metadata.trace.summary?.messageCount || 0;
-              
-              if (!processedConversations[runId]) {
-                processedConversations[runId] = {
-                  conversation_id: runId,
-                  start_time: startTime || new Date().toISOString(),
-                  end_time: endTime || new Date().toISOString(),
-                  message_count: messageCount,
-                  agent_types: agents
-                };
-              }
-            }
-          });
-          
-          // Convert to array and sort by start time (newest first)
-          const conversationsArray = Object.values(processedConversations)
-            .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
-          
-          setConversations(conversationsArray);
-        }
-      } catch (error) {
-        console.error("Error in analytics fetch:", error);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    
-    fetchAnalytics();
+    fetchTraces();
   }, [userId]);
-  
-  const fetchConversationDetails = async (conversationId: string) => {
+
+  const fetchTraces = async () => {
+    setIsLoading(true);
     try {
-      // Fetch trace details - using normal query instead of RPC
       const { data, error } = await supabase
-        .from('agent_interactions')
-        .select(`
-          metadata,
-          agent_type,
-          user_message,
-          assistant_response,
-          created_at
-        `)
-        .eq('user_id', userId)
-        .filter('metadata->trace->runId', 'eq', conversationId)
-        .order('created_at', { ascending: true });
-      
+        .from("traces")
+        .select("*")
+        .eq("user_id", userId)
+        .order("timestamp", { ascending: false });
+
       if (error) {
-        console.error("Error fetching conversation details:", error);
-      } else if (data && Array.isArray(data)) {
-        // Format the trace data for the viewer
-        const traceData = {
-          id: conversationId,
-          events: data.map(item => {
-            // Ensure item has required properties
-            if (!item || typeof item !== 'object') return null;
-            
-            return {
-              timestamp: item.created_at,
-              agent: item.agent_type,
-              user_message: item.user_message,
-              assistant_response: item.assistant_response,
-              metadata: item.metadata
-            };
-          }).filter(Boolean) // Remove any null items
-        };
-        
-        setTraceDetails(traceData);
-        setSelectedConversation(conversationId);
-        setActiveTab("details");
+        console.error("Error fetching traces:", error);
+      } else {
+        setTraces(data || []);
       }
-    } catch (error) {
-      console.error("Error in conversation details fetch:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
-  
-  // Format agent usage data for pie chart
-  const prepareAgentUsageData = () => {
-    if (!analytics?.agent_usage) return [];
-    
-    return Object.entries(analytics.agent_usage).map(([name, value]) => ({
-      name,
-      value
-    }));
+
+  const viewTrace = async (traceId: string) => {
+    setSelectedTraceId(traceId);
+    try {
+      const { data, error } = await supabase
+        .from("traces")
+        .select("*")
+        .eq("trace_id", traceId)
+        .single();
+
+      if (error) {
+        console.error("Error fetching trace:", error);
+        return;
+      }
+
+      if (data && data.trace && data.trace.spans) {
+        const rootSpan = data.trace.spans.find(span => !span.parent_id);
+        if (rootSpan) {
+          setTraceMetadata({
+            id: data.trace.trace_id,
+            name: rootSpan.name,
+            startTime: rootSpan.start_time,
+            endTime: rootSpan.end_time,
+            status: rootSpan.status
+          });
+        }
+      }
+
+      setTraceSpans(data?.trace?.spans || []);
+    } catch (error) {
+      console.error("Error viewing trace:", error);
+    }
   };
-  
-  // Format model usage data for pie chart
-  const prepareModelUsageData = () => {
-    if (!analytics?.model_usage) return [];
-    
-    return Object.entries(analytics.model_usage).map(([name, value]) => ({
-      name: name === 'gpt-4o-mini' ? 'GPT-4o mini' : name === 'gpt-4o' ? 'GPT-4o' : name,
-      value
-    }));
-  };
-  
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center h-full">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
-      </div>
-    );
-  }
-  
+
   return (
-    <div className="container mx-auto py-6 space-y-6">
-      <h1 className="text-3xl font-bold tracking-tight">Agent Analytics</h1>
-      <p className="text-gray-400">View detailed analytics about your agent interactions and trace information.</p>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid w-full grid-cols-2">
-          <TabsTrigger value="overview">Overview</TabsTrigger>
-          <TabsTrigger value="details">Conversation Details</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="overview" className="space-y-6 mt-6">
-          {/* Summary Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-            <Card>
-              <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-sm font-medium">Total Conversations</CardTitle>
-                <Users className="h-4 w-4 text-blue-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{analytics?.total_conversations || 0}</div>
-                <p className="text-xs text-gray-500 mt-1">Across {analytics?.total_interactions || 0} interactions</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-sm font-medium">Average Duration</CardTitle>
-                <Clock className="h-4 w-4 text-green-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics?.avg_duration_ms 
-                    ? `${(analytics.avg_duration_ms / 1000).toFixed(1)}s` 
-                    : 'N/A'}
+    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-4">
+      {/* Trace List */}
+      <div className="md:col-span-1">
+        <Card>
+          <CardHeader>
+            <CardTitle>Traces</CardTitle>
+          </CardHeader>
+          <CardContent className="p-0">
+            <ScrollArea className="h-[80vh] pr-2">
+              {isLoading ? (
+                <div className="p-4">
+                  <Skeleton className="h-10 w-full mb-2" />
+                  <Skeleton className="h-10 w-full mb-2" />
+                  <Skeleton className="h-10 w-full mb-2" />
                 </div>
-                <p className="text-xs text-gray-500 mt-1">Per conversation</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-sm font-medium">Handoff Rate</CardTitle>
-                <Repeat className="h-4 w-4 text-violet-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics?.total_handoffs && analytics?.total_conversations
-                    ? `${(analytics.total_handoffs / analytics.total_conversations).toFixed(2)}`
-                    : '0'}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Handoffs per conversation</p>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader className="pb-2 flex flex-row items-center justify-between space-y-0">
-                <CardTitle className="text-sm font-medium">Tool Usage</CardTitle>
-                <Hammer className="h-4 w-4 text-amber-600" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">
-                  {analytics?.total_tool_calls || 0}
-                </div>
-                <p className="text-xs text-gray-500 mt-1">Total tool calls</p>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Charts */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <Card>
-              <CardHeader>
-                <CardTitle>Agent Usage Distribution</CardTitle>
-                <CardDescription>Which agents are used most frequently</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={prepareAgentUsageData()}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {prepareAgentUsageData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-            
-            <Card>
-              <CardHeader>
-                <CardTitle>Model Usage</CardTitle>
-                <CardDescription>Distribution of LLM models used</CardDescription>
-              </CardHeader>
-              <CardContent className="h-80">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={prepareModelUsageData()}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={false}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {prepareModelUsageData().map((_, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip />
-                    <Legend />
-                  </PieChart>
-                </ResponsiveContainer>
-              </CardContent>
-            </Card>
-          </div>
-          
-          {/* Recent Conversations */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Conversations</CardTitle>
-              <CardDescription>Your latest agent conversations</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-4">
-                {conversations.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">No conversations yet</p>
-                ) : (
-                  <div className="overflow-auto">
-                    <table className="w-full">
-                      <thead>
-                        <tr className="border-b border-gray-700">
-                          <th className="text-left py-2 px-4 text-xs uppercase text-gray-400">Started</th>
-                          <th className="text-left py-2 px-4 text-xs uppercase text-gray-400">Duration</th>
-                          <th className="text-left py-2 px-4 text-xs uppercase text-gray-400">Messages</th>
-                          <th className="text-left py-2 px-4 text-xs uppercase text-gray-400">Agents</th>
-                          <th className="text-left py-2 px-4 text-xs uppercase text-gray-400">Actions</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {conversations.slice(0, 10).map((conversation) => {
-                          const startTime = new Date(conversation.start_time);
-                          const endTime = new Date(conversation.end_time);
-                          const durationMs = endTime.getTime() - startTime.getTime();
-                          const durationText = durationMs < 60000 
-                            ? `${Math.round(durationMs / 1000)}s` 
-                            : `${Math.round(durationMs / 60000)}m ${Math.round((durationMs % 60000) / 1000)}s`;
-                          
-                          return (
-                            <tr 
-                              key={conversation.conversation_id} 
-                              className="border-b border-gray-800 hover:bg-gray-800/40 cursor-pointer"
-                              onClick={() => fetchConversationDetails(conversation.conversation_id)}
-                            >
-                              <td className="py-3 px-4">{format(startTime, 'MMM dd, HH:mm:ss')}</td>
-                              <td className="py-3 px-4">{durationText}</td>
-                              <td className="py-3 px-4">{conversation.message_count}</td>
-                              <td className="py-3 px-4">
-                                <div className="flex flex-wrap gap-1">
-                                  {conversation.agent_types.map((agent, i) => (
-                                    <span key={i} className="text-xs px-2 py-1 rounded-full bg-gray-700">
-                                      {agent}
-                                    </span>
-                                  ))}
-                                </div>
-                              </td>
-                              <td className="py-3 px-4">
-                                <button 
-                                  className="text-xs text-blue-500 hover:text-blue-400"
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    fetchConversationDetails(conversation.conversation_id);
-                                  }}
-                                >
-                                  View Details
-                                </button>
-                              </td>
-                            </tr>
-                          );
-                        })}
-                      </tbody>
-                    </table>
+              ) : (
+                traces.map((item, index) => (
+                  item && (
+                    <div className="p-4 border rounded-md mb-4 hover:border-blue-500 cursor-pointer" onClick={() => viewTrace(item.trace_id)}>
+                      <h3 className="font-medium">{item.metadata?.name || 'Unnamed Trace'}</h3>
+                      <div className="flex justify-between text-sm text-gray-500">
+                        <span>ID: {item.trace_id}</span>
+                        <span>{formatDate(item.timestamp)}</span>
+                      </div>
+                    </div>
+                  )
+                ))
+              )}
+            </ScrollArea>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Trace Details */}
+      <div className="md:col-span-3">
+        <Card>
+          <CardHeader>
+            <CardTitle>Trace Details</CardTitle>
+          </CardHeader>
+          <CardContent>
+            {selectedTraceId ? (
+              <>
+                {traceMetadata && (
+                  <div className="mb-4">
+                    <h3 className="text-lg font-medium">{traceMetadata.name}</h3>
+                    <div className="flex space-x-2 mb-2">
+                      <Badge variant="secondary">ID: {traceMetadata.id}</Badge>
+                      <Badge variant="secondary">Status: {traceMetadata.status}</Badge>
+                    </div>
+                    <p className="text-sm text-gray-500">
+                      Start: {formatDate(traceMetadata.startTime)}
+                    </p>
+                    <p className="text-sm text-gray-500">
+                      End: {formatDate(traceMetadata.endTime)}
+                    </p>
                   </div>
                 )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="details" className="mt-6">
-          {selectedConversation && traceDetails ? (
-            <TraceViewer traceData={traceDetails} conversationId={selectedConversation} />
-          ) : (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <BarChartBig className="h-12 w-12 text-gray-500 mb-4" />
-                <h3 className="text-xl font-medium mb-2">No Conversation Selected</h3>
-                <p className="text-gray-400 text-center max-w-md">
-                  Select a conversation from the overview tab to see detailed trace information.
-                </p>
-              </CardContent>
-            </Card>
-          )}
-        </TabsContent>
-      </Tabs>
+                <ScrollArea className="h-[70vh] pr-2">
+                  {traceSpans.map((item, index) => (
+                    item && (
+                      <div key={index} className="p-4 border rounded-md mb-4">
+                        <h3 className="font-medium">{item.name}</h3>
+                        <p className="text-sm">Duration: {item.duration_ms}ms</p>
+                        <p className="text-sm text-gray-500">Started at: {formatDate(item.start_time)}</p>
+                        <p className="text-sm">{item.details}</p>
+                      </div>
+                    )
+                  ))}
+                </ScrollArea>
+              </>
+            ) : (
+              <p className="text-center text-gray-500">Select a trace to view details.</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-};
+}

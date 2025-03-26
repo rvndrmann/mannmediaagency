@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { ToolContext, ToolResult } from "../types";
@@ -26,6 +27,7 @@ export const productShotV2Tool = {
   name: "product_shot_v2",
   description: "Generate professional product photography using AI",
   version: "2.0",
+  requiredCredits: 1,
   
   parameters: [
     {
@@ -76,13 +78,13 @@ export const productShotV2Tool = {
     try {
       // Extract parameters
       const params: ProductShotParams = {
-        prompt: command.args.prompt || "",
-        style: command.args.style,
-        background: command.args.background,
-        angle: command.args.angle,
-        lighting: command.args.lighting,
-        resolution: command.args.resolution,
-        format: command.args.format
+        prompt: command.parameters?.prompt || "",
+        style: command.parameters?.style,
+        background: command.parameters?.background,
+        angle: command.parameters?.angle,
+        lighting: command.parameters?.lighting,
+        resolution: command.parameters?.resolution,
+        format: command.parameters?.format
       };
       
       // Validate required parameters

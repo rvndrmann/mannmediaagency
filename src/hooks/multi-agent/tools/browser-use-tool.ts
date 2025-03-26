@@ -11,12 +11,12 @@ interface BrowserUseToolParams {
 
 export const browserUseTool = {
   name: "browser-use",
-  description: "Start a browser automation task with the specified instructions",
+  description: "Start a browser or desktop automation task with the specified instructions",
   requiredCredits: 1,
   parameters: {
     task: {
       type: "string",
-      description: "Clear instructions for what to do in the browser"
+      description: "Clear instructions for what to do in the browser or on the desktop"
     },
     environment: {
       type: "string",
@@ -26,7 +26,7 @@ export const browserUseTool = {
     },
     browser_config: {
       type: "object",
-      description: "Optional browser configuration including headless mode, resolution, user agent, etc.",
+      description: "Optional browser configuration including headless mode, resolution, user agent, desktop applications, etc.",
       optional: true
     }
   },
@@ -90,6 +90,20 @@ export const browserUseTool = {
         };
       }
 
+      // Validate desktop configuration if desktop mode is enabled
+      if (environment === "desktop") {
+        if (!browser_config.chromePath) {
+          toast.error("Chrome executable path is required for desktop automation");
+          return {
+            success: false,
+            message: "Please provide the Chrome executable path in the browser settings.",
+            data: {
+              error: "Chrome executable path is required for desktop automation"
+            }
+          };
+        }
+      }
+
       // Call the edge function to start a browser use task
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: {
@@ -113,10 +127,10 @@ export const browserUseTool = {
       // Return success with the task ID and link to view
       return {
         success: true,
-        message: "Browser automation task started successfully",
+        message: `${environment === 'desktop' ? 'Desktop' : 'Browser'} automation task started successfully`,
         data: {
           taskId: data.taskId,
-          message: `Browser automation task started successfully in ${environment} mode`,
+          message: `${environment === 'desktop' ? 'Desktop' : 'Browser'} automation task started successfully`,
           viewUrl: `/browser-use?task=${data.taskId}`,
           taskDescription: params.task,
           environment: environment

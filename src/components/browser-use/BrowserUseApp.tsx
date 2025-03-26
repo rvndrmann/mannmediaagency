@@ -18,10 +18,11 @@ import {
   RotateCw, 
   Terminal, 
   Monitor, 
-  Laptop
+  Laptop,
+  AlertTriangle
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -139,7 +140,8 @@ export function BrowserUseApp() {
                 </div>
                 
                 {environmentType === "desktop" && !browserConfig.useOwnBrowser && (
-                  <Alert variant="warning" className="mt-3">
+                  <Alert variant="destructive" className="mt-3">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
                     <AlertDescription>
                       Desktop mode requires using your own browser. Please enable it in the Settings tab.
                     </AlertDescription>

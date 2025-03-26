@@ -1,4 +1,3 @@
-
 export type TaskStatus = 'idle' | 'pending' | 'created' | 'running' | 'paused' | 'completed' | 'stopped' | 'failed' | 'expired';
 
 export interface TaskStep {
@@ -94,4 +93,48 @@ export interface CaptureWebsiteResponse {
   error?: string;
   image_url?: string;
   screenshot?: string;
+}
+
+export interface StateSetters {
+  setTaskInput: (value: string) => void;
+  setCurrentTaskId: (value: string | null) => void;
+  setIsProcessing: (value: boolean) => void;
+  setProgress: (value: number) => void;
+  setTaskSteps: (value: TaskStep[]) => void;
+  setTaskOutput: (value: string | null) => void;
+  setTaskStatus: (value: TaskStatus) => void;
+  setCurrentUrl: (value: string | null) => void;
+  setUserCredits: (value: UserCredits | null) => void;
+  setError: (value: string | null) => void;
+  setBrowserConfig: (value: BrowserConfig) => void;
+  setLiveUrl: (value: string | null) => void;
+  setConnectionStatus: (value: "disconnected" | "connecting" | "connected" | "error") => void;
+}
+
+export interface DesktopApplication {
+  name: string;
+  path: string;
+  description?: string;
+  icon?: string;
+  arguments?: string[];
+  isDefault?: boolean;
+}
+
+export interface DesktopShortcut {
+  name: string;
+  description: string;
+  commands: string[];
+  isEnabled: boolean;
+}
+
+export interface DesktopConfig {
+  applications: DesktopApplication[];
+  shortcuts: DesktopShortcut[];
+  defaultTerminal?: string;
+  defaultBrowser?: string;
+  automationLevel: "basic" | "advanced" | "full";
+  sessionTimeout: number; // in minutes
+  streamDesktop: boolean;
+  allowFileSystem: boolean;
+  allowNetworkAccess: boolean;
 }

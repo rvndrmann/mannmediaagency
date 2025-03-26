@@ -168,15 +168,40 @@ serve(async (req) => {
       );
     }
     
+    // Validate desktop requirements
+    if (environment === "desktop") {
+      if (!browser_config || !browser_config.useOwnBrowser) {
+        return new Response(
+          JSON.stringify({ error: 'Desktop mode requires using your own browser' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      if (!browser_config.chromePath) {
+        return new Response(
+          JSON.stringify({ error: 'Chrome executable path is required for desktop automation' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Log desktop apps for debugging
+      if (browser_config.desktopApps && browser_config.desktopApps.length > 0) {
+        console.log("Desktop applications configured:", JSON.stringify(browser_config.desktopApps));
+      }
+    }
+    
     // Prepare request body for Browser Use API
     const requestBody: any = {
       task: task,
       save_browser_data: true
     };
     
+    // Include environment type for the API
+    requestBody.environment = environment;
+    
     // Include browser configuration if provided
     if (browser_config) {
-      console.log("Using custom browser configuration:", JSON.stringify(browser_config));
+      console.log(`Using custom ${environment} configuration:`, JSON.stringify(browser_config));
       requestBody.browser_config = browser_config;
     }
     
@@ -190,15 +215,15 @@ serve(async (req) => {
       body: JSON.stringify(requestBody)
     };
     
-    console.log(`Starting browser task: ${task}`);
+    console.log(`Starting ${environment} automation task: ${task}`);
     const response = await fetch(`${BROWSER_USE_API_URL}/run-task`, options);
     const data = await response.json();
     
     if (!response.ok) {
-      console.error('Error from Browser Use API:', data);
+      console.error(`Error from Browser Use API (${environment} mode):`, data);
       
       return new Response(
-        JSON.stringify({ error: data.error || 'Failed to start browser task' }),
+        JSON.stringify({ error: data.error || `Failed to start ${environment} automation task` }),
         { status: response.status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
@@ -221,12 +246,26 @@ serve(async (req) => {
       console.error('Error logging task in database:', taskError);
     }
     
+    // Deduct a credit for the task
+    const { error: creditUpdateError } = await supabase
+      .from('user_credits')
+      .update({ 
+        credits_remaining: userCredits.credits_remaining - 1,
+        last_used_at: new Date().toISOString()
+      })
+      .eq('user_id', user.id);
+      
+    if (creditUpdateError) {
+      console.error('Error updating user credits:', creditUpdateError);
+    }
+    
     // Return task information
     return new Response(
       JSON.stringify({
         taskId: data.id,
         status: 'running',
-        message: 'Browser automation task started successfully'
+        message: `${environment.charAt(0).toUpperCase() + environment.slice(1)} automation task started successfully`,
+        liveUrl: data.live_url || null
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

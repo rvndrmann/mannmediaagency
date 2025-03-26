@@ -1,5 +1,6 @@
+
 import { useState, useCallback, useEffect } from "react";
-import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserUseError } from "./types";
+import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserUseError, DesktopApplication } from "./types";
 import { useTaskOperations } from "./use-task-operations";
 import { useScreenshot } from "./use-screenshot";
 import { useTaskMonitoring } from "./use-task-monitoring";
@@ -19,6 +20,12 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   chromePath: "",
   chromeUserData: "",
   extraChromiumArgs: [],
+  
+  // Desktop automation settings
+  desktopApps: [],
+  taskTemplates: [],
+  desktopTimeout: 30,
+  streamDesktop: false,
   
   // Context configuration
   contextConfig: {
@@ -76,6 +83,16 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
         };
       }
     }
+  }
+  
+  // Ensure desktop apps array exists
+  if (!validConfig.desktopApps) {
+    validConfig.desktopApps = [];
+  }
+  
+  // Ensure task templates array exists
+  if (!validConfig.taskTemplates) {
+    validConfig.taskTemplates = [];
   }
   
   return validConfig;

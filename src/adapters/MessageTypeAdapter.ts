@@ -6,6 +6,8 @@ export interface SimpleMessage {
   role: "user" | "assistant";
   content: string;
   status?: "thinking" | "working" | "completed" | "error";
+  id?: string;        // Added to match GlobalMessage type
+  createdAt?: string; // Added to match GlobalMessage type
 }
 
 // Convert the global Message type to SimpleMessage for components that expect it
@@ -18,7 +20,9 @@ export function adaptMessageToSimple(message: GlobalMessage): SimpleMessage {
   return {
     role,
     content: message.content,
-    status: message.status
+    status: message.status,
+    id: message.id,
+    createdAt: message.createdAt
   };
 }
 

@@ -6,18 +6,9 @@ import { imageToVideoTool } from "./image-to-video-tool";
 
 // Add more tools as they are implemented
 const tools: ToolDefinition[] = [
-  {
-    ...browserUseTool,
-    version: "1.0.0" // Add missing version property
-  },
-  {
-    ...productShotV1Tool,
-    version: "1.0.0" // Add missing version property
-  },
-  {
-    ...imageToVideoTool,
-    version: "1.0.0" // Add missing version property
-  }
+  browserUseTool,   // Version is now properly defined in the tool definition
+  productShotV1Tool, // Version is now properly defined in the tool definition
+  imageToVideoTool   // Version is now properly defined in the tool definition
 ];
 
 export const getTool = (name: string): ToolDefinition | undefined => {

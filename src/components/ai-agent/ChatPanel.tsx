@@ -1,4 +1,3 @@
-
 import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
@@ -9,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { SimpleMessage } from "@/adapters/MessageTypeAdapter";
 import { Message as GlobalMessage } from "@/types/message";
 import { adaptMessageToSimple, adaptMessagesToSimple } from "@/adapters/MessageTypeAdapter";
+import { convertToSimpleMessages } from "@/utils/messageTypeAdapter";
 
 interface ChatPanelProps {
   messages: GlobalMessage[] | SimpleMessage[];
@@ -37,7 +37,7 @@ export const ChatPanel = ({
   // Process messages to ensure they're in the right format
   const adaptedMessages = "id" in (messages[0] || {}) 
     ? adaptMessagesToSimple(messages as GlobalMessage[])
-    : messages as SimpleMessage[];
+    : convertToSimpleMessages(messages as any[]);
 
   const scrollToBottom = () => {
     if (lastMessageRef.current && scrollAreaRef.current) {
@@ -121,4 +121,4 @@ export const ChatPanel = ({
       </div>
     </div>
   );
-}
+};

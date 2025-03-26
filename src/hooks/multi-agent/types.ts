@@ -37,8 +37,8 @@ export interface ToolContext {
   supabase: typeof supabase;
   addMessage?: (text: string, type: string, attachments?: Attachment[]) => void;
   toolAvailable?: (toolName: string) => boolean;
-  creditsRemaining?: number; // Added to fix tool-executor errors
-  attachments?: Attachment[]; // Added to fix tool attachment errors
+  creditsRemaining?: number;
+  attachments?: Attachment[];
 }
 
 export enum CommandExecutionState {
@@ -46,7 +46,7 @@ export enum CommandExecutionState {
   EXECUTING = 'executing',
   COMPLETED = 'completed',
   FAILED = 'failed',
-  ERROR = 'error' // Adding this to fix comparison errors
+  ERROR = 'error'
 }
 
 export interface HandoffRequest {

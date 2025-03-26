@@ -1,13 +1,16 @@
 
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentInfo, AgentIconType } from "@/types/message";
+import { AgentInfo } from "@/types/message";
 import { toast } from "sonner";
+
+// Define a specific type for database agent icons
+type DatabaseAgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music";
 
 export interface CustomAgentFormData {
   name: string;
   description: string;
-  icon: AgentIconType;
+  icon: DatabaseAgentIconType;
   color: string;
   instructions: string;
 }
@@ -46,7 +49,7 @@ export function useCustomAgents() {
         name: agent.name,
         description: agent.description,
         type: "custom",
-        icon: agent.icon as AgentIconType,
+        icon: agent.icon as DatabaseAgentIconType,
         isBuiltIn: false,
         color: agent.color,
         instructions: agent.instructions,

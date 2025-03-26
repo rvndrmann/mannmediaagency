@@ -54,6 +54,7 @@ const generateProxyNotes = (config: BrowserConfig): string => {
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
   description: "Automates browser tasks like navigating websites, filling forms, taking screenshots, and more",
+  version: "1.0.0", // Added version property to fix the error
   requiredCredits: 1,
   parameters: [
     {

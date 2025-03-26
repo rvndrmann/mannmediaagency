@@ -1,136 +1,130 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
-import { toast } from "sonner";
+import { ToolDefinition, ToolResult, ToolContext } from "../types";
+import { Command } from "@/types/message";
 
 export const productShotV1Tool: ToolDefinition = {
   name: "product-shot-v1",
-  description: "Generate a product image based on a reference image and a prompt",
-  parameters: {
-    prompt: {
+  description: "Generate stunning product photos by transforming your product images with AI",
+  version: "1.0.0",
+  requiredCredits: 5,
+  parameters: [
+    {
+      name: "productImage",
       type: "string",
-      description: "Description of the product shot to generate"
+      description: "URL of the product image to transform",
+      required: true,
+      prompt: "Upload or provide a URL to your product image"
     },
-    imageUrl: {
+    {
+      name: "prompt",
       type: "string",
-      description: "URL of the source product image"
+      description: "Detailed description of the desired scene for the product",
+      required: true
     },
-    imageSize: {
+    {
+      name: "imageSize",
       type: "string",
-      description: "Size of the output image",
-      enum: ["square", "square_hd", "portrait_4_3", "portrait_16_9", "landscape_4_3", "landscape_16_9"],
-      default: "square"
+      description: "Size of the generated image (512x512, 768x768, 1024x1024)",
+      required: false
     },
-    inferenceSteps: {
+    {
+      name: "inferenceSteps",
       type: "number",
-      description: "Number of inference steps",
-      default: 5
+      description: "Number of inference steps (10-50, higher means better quality but slower)",
+      required: false
     },
-    guidanceScale: {
+    {
+      name: "guidanceScale",
       type: "number",
-      description: "Guidance scale for image generation",
-      default: 5
+      description: "Guidance scale (1-20, higher means more adherence to prompt)",
+      required: false
     },
-    outputFormat: {
+    {
+      name: "outputFormat",
       type: "string",
-      description: "Output format of the image",
-      enum: ["png", "jpg"],
-      default: "png"
+      description: "Output format (PNG, JPEG, WEBP)",
+      required: false
     }
-  },
-  requiredCredits: 0.2,
-  execute: async (params, context: ToolContext): Promise<ToolResult> => {
+  ],
+
+  async execute(command: Command, context: ToolContext): Promise<ToolResult> {
     try {
-      // Check if user has enough credits
-      if (context.creditsRemaining < 0.2) {
+      // Extract parameters from the command
+      const productImage = command.parameters?.productImage as string;
+      
+      if (!productImage) {
         return {
           success: false,
-          message: "Insufficient credits to generate a product shot. You need at least 0.2 credits."
+          message: "Product image is required"
         };
       }
 
-      // Get the image URL - either from the params or from attachments
-      let imageUrl = params.imageUrl;
-      if (!imageUrl && context.attachments?.length > 0) {
-        const imageAttachment = context.attachments.find(att => att.type === "image");
+      // Handle both URL and direct attachments
+      let imageUrl = productImage;
+      if (context.attachments && context.attachments.length > 0) {
+        const imageAttachment = context.attachments.find(att => 
+          att.type.startsWith('image/') || att.contentType?.startsWith('image/')
+        );
         if (imageAttachment) {
           imageUrl = imageAttachment.url;
         }
       }
 
-      if (!imageUrl) {
+      const prompt = command.parameters?.prompt as string;
+      if (!prompt) {
         return {
           success: false,
-          message: "No image URL provided. Please provide an image URL or attach an image."
+          message: "Prompt is required to describe the scene for your product"
         };
       }
 
-      // Insert a record in the database with correct schema
-      const { data: jobData, error: jobError } = await supabase
-        .from("image_generation_jobs")
-        .insert({
-          prompt: params.prompt,
+      // Optional parameters with defaults
+      const imageSize = command.parameters?.imageSize as string || "768x768";
+      const inferenceSteps = Number(command.parameters?.inferenceSteps) || 30;
+      const guidanceScale = Number(command.parameters?.guidanceScale) || 7.5;
+      const outputFormat = command.parameters?.outputFormat as string || "PNG";
+
+      // Call the Supabase function to generate the product shot
+      const { data, error } = await context.supabase.functions.invoke("product-shot-v1", {
+        body: {
+          prompt: prompt,
+          sourceImageUrl: imageUrl,
           settings: {
-            source_image_url: imageUrl,
-            image_size: params.imageSize || "square",
-            inference_steps: params.inferenceSteps || 5,
-            guidance_scale: params.guidanceScale || 5,
-            output_format: params.outputFormat || "png"
-          },
-          status: "pending",
-          user_id: context.userId
-        })
-        .select()
-        .single();
-
-      if (jobError) throw jobError;
-
-      // Map the tool parameters to the edge function format
-      const requestBody = {
-        image_url: imageUrl,
-        scene_description: params.prompt,
-        optimize_description: true,
-        num_results: 1,
-        fast: true,
-        placement_type: 'automatic',
-        sync_mode: false
-      };
-
-      // Call the generate-product-shot edge function
-      const { data, error: functionError } = await supabase.functions.invoke(
-        "generate-product-shot",
-        {
-          body: JSON.stringify(requestBody)
+            size: imageSize,
+            inferenceSteps: inferenceSteps,
+            guidanceScale: guidanceScale,
+            outputFormat: outputFormat.toUpperCase()
+          }
         }
-      );
+      });
 
-      if (functionError) throw functionError;
-
-      // Update the job record with the request ID
-      if (data?.requestId) {
-        await supabase
-          .from("image_generation_jobs")
-          .update({ 
-            request_id: data.requestId,
-            status: "processing"
-          })
-          .eq("id", jobData?.id);
+      if (error) {
+        console.error("Error generating product shot:", error);
+        return {
+          success: false,
+          message: `Error generating product shot: ${error.message || "Unknown error"}`
+        };
       }
 
       return {
         success: true,
-        message: "Product shot generation started successfully. You'll be notified when it's ready.",
+        message: "Product shot generated successfully",
         data: {
-          jobId: jobData?.id,
-          requestId: data?.requestId,
-          status: "processing"
+          imageUrl: data.imageUrl,
+          prompt: prompt,
+          settings: {
+            size: imageSize,
+            inferenceSteps: inferenceSteps,
+            guidanceScale: guidanceScale,
+            outputFormat: outputFormat
+          }
         }
       };
     } catch (error) {
       console.error("Error in product-shot-v1 tool:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "An unknown error occurred"
+        message: `Error executing product-shot-v1 tool: ${error instanceof Error ? error.message : "Unknown error"}`
       };
     }
   }

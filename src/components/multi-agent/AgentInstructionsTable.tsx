@@ -54,8 +54,8 @@ export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTablePr
       await updateCustomAgent(customAgent.id, {
         name: customAgent.name,
         description: customAgent.description,
-        icon: customAgent.icon,
-        color: customAgent.color,
+        icon: customAgent.icon as any, // Cast to any to avoid type issues
+        color: customAgent.color || "",
         instructions: instructions
       });
       toast.success("Agent instructions updated successfully");

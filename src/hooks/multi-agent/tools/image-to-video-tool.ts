@@ -1,106 +1,107 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "../types";
+import { ToolDefinition, ToolResult, ToolContext } from "../types";
+import { Command } from "@/types/message";
 
 export const imageToVideoTool: ToolDefinition = {
   name: "image-to-video",
-  description: "Convert an image to a video with motion",
-  parameters: {
-    prompt: {
+  description: "Transform static images into dynamic videos with motion and effects",
+  version: "1.0.0",
+  requiredCredits: 5,
+  parameters: [
+    {
+      name: "sourceImage",
       type: "string",
-      description: "Description of the video to generate"
+      description: "URL or attachment of the image to animate",
+      required: true,
+      prompt: "Upload or provide a URL to the image you want to animate"
     },
-    imageUrl: {
+    {
+      name: "prompt",
       type: "string",
-      description: "URL of the source image"
+      description: "Description of how the image should be animated",
+      required: true
     },
-    aspectRatio: {
+    {
+      name: "aspectRatio",
       type: "string",
-      description: "Aspect ratio of the video",
-      enum: ["16:9", "9:16", "4:3", "1:1"],
-      default: "16:9"
+      description: "Aspect ratio for the video (16:9, 9:16, 1:1)",
+      required: false
     },
-    duration: {
+    {
+      name: "duration",
       type: "string",
       description: "Duration of the video in seconds",
-      default: "5"
+      required: false
     }
-  },
-  requiredCredits: 1,
-  execute: async (params: any, context: ToolContext): Promise<ToolResult> => {
+  ],
+  
+  async execute(command: Command, context: ToolContext): Promise<ToolResult> {
     try {
-      // Check if user has enough credits
-      if (context.creditsRemaining < 1) {
-        return {
-          success: false,
-          message: "Insufficient credits to generate a video. You need at least 1 credit."
-        };
-      }
-
-      // Get the image URL - either from the params or from attachments
-      let imageUrl = params.imageUrl;
-      if (!imageUrl && context.attachments?.length > 0) {
-        const imageAttachment = context.attachments.find(att => att.type === "image");
+      // Extract the source image from attachments or URL
+      const sourceImageParam = command.parameters?.sourceImage as string;
+      let sourceImageUrl = sourceImageParam;
+      
+      // Check if we have attachments and use the first image
+      if (context.attachments && context.attachments.length > 0) {
+        const imageAttachment = context.attachments.find(att => 
+          att.type.startsWith('image/') || att.contentType?.startsWith('image/')
+        );
         if (imageAttachment) {
-          imageUrl = imageAttachment.url;
+          sourceImageUrl = imageAttachment.url;
         }
       }
-
-      if (!imageUrl) {
+      
+      if (!sourceImageUrl) {
         return {
           success: false,
-          message: "No image URL provided. Please provide an image URL or attach an image."
+          message: "Source image is required. Please upload an image or provide a URL."
         };
       }
-
-      // Insert job record in the database
-      const { data: jobData, error: jobError } = await supabase
-        .from('video_generation_jobs')
-        .insert({
-          prompt: params.prompt,
-          source_image_url: imageUrl,
-          duration: params.duration || "5",
-          aspect_ratio: params.aspectRatio || "16:9",
-          status: 'in_queue',
-          user_id: context.userId,
-          settings: {
-            prompt: params.prompt,
-            imageUrl: imageUrl,
-            aspectRatio: params.aspectRatio || "16:9",
-            duration: params.duration || "5"
-          }
-        })
-        .select()
-        .single();
-
-      if (jobError) throw jobError;
-
-      // Call the edge function to start the generation
-      const response = await supabase.functions.invoke('generate-video-from-image', {
+      
+      // Extract other parameters
+      const prompt = command.parameters?.prompt as string;
+      if (!prompt) {
+        return {
+          success: false,
+          message: "Prompt describing the animation is required."
+        };
+      }
+      
+      const aspectRatio = command.parameters?.aspectRatio as string || "16:9";
+      const duration = command.parameters?.duration as string || "5";
+      
+      // Call the Supabase function to generate the video
+      const { data, error } = await context.supabase.functions.invoke("image-to-video", {
         body: {
-          job_id: jobData.id,
-          prompt: params.prompt,
-          image_url: imageUrl,
-          duration: params.duration || "5",
-          aspect_ratio: params.aspectRatio || "16:9",
-        },
+          sourceImageUrl,
+          prompt,
+          aspectRatio,
+          duration
+        }
       });
-
-      if (response.error) throw new Error(response.error.message);
-
+      
+      if (error) {
+        console.error("Error generating video:", error);
+        return {
+          success: false,
+          message: `Failed to start video generation: ${error.message || "Unknown error"}`
+        };
+      }
+      
       return {
         success: true,
-        message: "Video generation started successfully. You'll be notified when it's ready.",
+        message: `Video generation started successfully. Job ID: ${data.jobId}`,
         data: {
-          jobId: jobData.id,
-          status: "in_queue"
+          jobId: data.jobId,
+          estimatedTime: data.estimatedTime || "60-90 seconds",
+          checkStatusUrl: `/video-generation/${data.jobId}`
         }
       };
     } catch (error) {
-      console.error("Error in image-to-video tool:", error);
+      console.error("Error executing image-to-video tool:", error);
       return {
         success: false,
-        message: error instanceof Error ? error.message : "An unknown error occurred"
+        message: `Error with image-to-video tool: ${error instanceof Error ? error.message : "Unknown error"}`
       };
     }
   }

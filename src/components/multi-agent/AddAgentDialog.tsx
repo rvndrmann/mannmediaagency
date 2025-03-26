@@ -29,8 +29,11 @@ import {
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { AgentInfo, AgentIconType } from "@/types/message";
+import { AgentInfo } from "@/types/message";
 import { CustomAgentFormData } from "@/hooks/use-custom-agents";
+
+// Available icon options as a proper union type
+type AgentDialogIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music";
 
 // Available icon options
 const iconOptions = [
@@ -86,9 +89,9 @@ export function AddAgentDialog({
     defaultValues: editAgent ? {
       name: editAgent.name,
       description: editAgent.description,
-      icon: editAgent.icon,
-      color: editAgent.color,
-      instructions: editAgent.instructions
+      icon: editAgent.icon as AgentDialogIconType, // Cast to the appropriate type
+      color: editAgent.color || "from-blue-400 to-indigo-500",
+      instructions: editAgent.instructions || ""
     } : {
       name: "",
       description: "",

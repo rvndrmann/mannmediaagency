@@ -25,7 +25,8 @@ export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgre
     failed: "text-red-500",
     stopped: "text-orange-500",
     completed: "text-emerald-500",
-    expired: "text-red-500"
+    expired: "text-red-500",
+    finished: "text-emerald-500" // Added the missing 'finished' status
   };
   
   const statusColor = statusColorMap[status] || "text-gray-500";

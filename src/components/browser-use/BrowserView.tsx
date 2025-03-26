@@ -1,18 +1,20 @@
 
+import { useState, useEffect } from 'react';
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Loader2, RefreshCw, Camera, Globe, AlertCircle, Maximize2, Minimize2 } from "lucide-react";
-import { BrowserTaskState } from "@/hooks/browser-use/types";
-import { useState } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { LivePreview } from "./LivePreview";
+import { Loader2, Camera, ExternalLink, Globe } from "lucide-react";
+import { ConnectionStatus } from '@/hooks/browser-use/types';
 
 interface BrowserViewProps {
   liveUrl: string | null;
   currentUrl: string | null;
-  setCurrentUrl: (url: string | null) => void;
+  setCurrentUrl: (url: string) => void;
   screenshot: string | null;
-  captureScreenshot: () => Promise<string | null>;
-  connectionStatus: BrowserTaskState["connectionStatus"];
+  captureScreenshot: () => Promise<string>;
+  connectionStatus: ConnectionStatus;
 }
 
 export function BrowserView({
@@ -23,152 +25,139 @@ export function BrowserView({
   captureScreenshot,
   connectionStatus
 }: BrowserViewProps) {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const isConnected = connectionStatus === "connected";
-  const isConnecting = connectionStatus === "connecting";
-  const isError = connectionStatus === "error";
-
+  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
+  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  
+  // Load screenshot from localStorage on mount
+  useEffect(() => {
+    const savedScreenshot = localStorage.getItem('workerAI_lastScreenshot');
+    if (savedScreenshot) {
+      setScreenshotUrl(savedScreenshot);
+    }
+  }, []);
+  
+  // Update screenshot URL when the screenshot prop changes
+  useEffect(() => {
+    if (screenshot) {
+      setScreenshotUrl(screenshot);
+      localStorage.setItem('workerAI_lastScreenshot', screenshot);
+    }
+  }, [screenshot]);
+  
+  // Handle screenshot capture
   const handleCaptureScreenshot = async () => {
-    await captureScreenshot();
-  };
-
-  const toggleExpand = () => {
-    setIsExpanded(!isExpanded);
-  };
-
-  const getStatusMessage = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "Connected to browser";
-      case "connecting":
-        return "Connecting to browser...";
-      case "error":
-        return "Connection error";
-      default:
-        return "Not connected";
+    if (!liveUrl || connectionStatus !== 'connected') return;
+    
+    setIsCapturingScreenshot(true);
+    
+    try {
+      const result = await captureScreenshot();
+      console.log('Screenshot result:', result);
+    } catch (error) {
+      console.error('Error capturing screenshot:', error);
+    } finally {
+      setIsCapturingScreenshot(false);
     }
   };
-
-  const getStatusColor = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "text-green-500";
-      case "connecting":
-        return "text-amber-500";
-      case "error":
-        return "text-red-500";
-      default:
-        return "text-gray-500";
+  
+  // Determine the content to display
+  const renderContent = () => {
+    if (liveUrl && connectionStatus === 'connected') {
+      return <LivePreview url={liveUrl} />;
     }
-  };
-
-  const expandedClasses = isExpanded 
-    ? "fixed inset-0 z-50 bg-background/95 backdrop-blur-sm p-4" 
-    : "";
-
-  return (
-    <Card className={`flex flex-col ${expandedClasses} ${isExpanded ? 'h-full' : 'h-full'}`}>
-      <div className="p-4 border-b flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">Browser View</h3>
-          <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-2 text-sm ${getStatusColor()}`}>
-              <span className={`h-2 w-2 rounded-full ${connectionStatus === "connected" ? "bg-green-500" : connectionStatus === "connecting" ? "bg-amber-500" : connectionStatus === "error" ? "bg-red-500" : "bg-gray-500"}`}></span>
-              {getStatusMessage()}
-            </div>
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleExpand}
-              className="p-1 h-7 w-7"
-            >
-              {isExpanded ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
-            </Button>
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <Input
-            value={currentUrl || ""}
-            onChange={(e) => setCurrentUrl(e.target.value)}
-            placeholder="Current URL"
-            readOnly
-            className="flex-1"
+    
+    if (screenshotUrl) {
+      return (
+        <div className="p-4">
+          <p className="text-sm text-muted-foreground mb-2">Last screenshot:</p>
+          <img 
+            src={screenshotUrl} 
+            alt="Browser screenshot" 
+            className="w-full h-auto rounded-md border border-gray-200 shadow-sm" 
           />
         </div>
-        
-        <div className="flex gap-2">
-          <Button
-            onClick={handleCaptureScreenshot}
-            disabled={!isConnected}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Camera className="h-4 w-4" />
-            <span>Capture Screenshot</span>
-          </Button>
-        </div>
+      );
+    }
+    
+    // Default disconnected state
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
+        <Globe className="h-12 w-12 text-muted-foreground mb-4 opacity-30" />
+        <h3 className="text-lg font-medium mb-2">No active browser session</h3>
+        <p className="text-sm text-muted-foreground mb-4">
+          Start a task to launch a browser session.
+        </p>
       </div>
-
-      <div className="flex-1 p-4 min-h-[300px] relative">
-        {isConnecting && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-              <span className="text-sm">Connecting to browser...</span>
-            </div>
-          </div>
-        )}
-
-        {isError && !liveUrl && !screenshot && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-            <div className="flex flex-col items-center text-center max-w-md">
-              <AlertCircle className="h-8 w-8 text-destructive mb-2" />
-              <span className="text-sm font-medium">Connection error</span>
-              <p className="text-sm text-muted-foreground mt-1">
-                Could not connect to the browser. The task may have expired or encountered an error.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="h-full flex items-center justify-center">
-          {liveUrl ? (
-            <iframe
-              src={liveUrl}
-              className="w-full h-full border rounded"
-              title="Browser View"
-            ></iframe>
-          ) : screenshot ? (
-            <img
-              src={screenshot}
-              alt="Browser Screenshot"
-              className="max-w-full max-h-full object-contain"
-            />
-          ) : (
-            <div className="text-center text-muted-foreground">
-              <Globe className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-              <p>No browser view available</p>
-              <p className="text-sm mt-1">Start a task to see the browser view</p>
+    );
+  };
+  
+  return (
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex-none">
+        <div className="flex items-center justify-between">
+          <CardTitle>Browser View</CardTitle>
+          
+          {liveUrl && (
+            <div className="flex gap-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleCaptureScreenshot}
+                disabled={isCapturingScreenshot || connectionStatus !== 'connected'}
+              >
+                {isCapturingScreenshot ? 
+                  <Loader2 className="h-4 w-4 animate-spin mr-1" /> : 
+                  <Camera className="h-4 w-4 mr-1" />
+                }
+                Capture
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm" 
+                asChild
+              >
+                <a 
+                  href={liveUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-1"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                  <span>Open</span>
+                </a>
+              </Button>
             </div>
           )}
         </div>
-      </div>
+      </CardHeader>
       
-      {isExpanded && (
-        <div className="p-4 border-t">
-          <Button 
-            variant="secondary" 
-            onClick={toggleExpand}
-            className="w-full"
-          >
-            <Minimize2 className="h-4 w-4 mr-2" />
-            Exit Fullscreen
-          </Button>
+      <CardContent className="flex-1 p-0 overflow-hidden">
+        <ScrollArea className="h-[calc(100vh-370px)] md:h-[450px]">
+          {renderContent()}
+        </ScrollArea>
+      </CardContent>
+      
+      <CardFooter className="flex-none">
+        <div className="w-full flex items-center gap-2">
+          <Input
+            placeholder="Current URL"
+            value={currentUrl || ''}
+            onChange={(e) => setCurrentUrl(e.target.value)}
+            disabled={connectionStatus !== 'connected'}
+            className="flex-1"
+          />
+          <div className="flex items-center justify-center w-3 h-3 rounded-full">
+            {connectionStatus === 'connected' ? (
+              <div className="w-2 h-2 rounded-full bg-green-500"></div>
+            ) : connectionStatus === 'connecting' ? (
+              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
+            ) : (
+              <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+            )}
+          </div>
         </div>
-      )}
+      </CardFooter>
     </Card>
   );
 }

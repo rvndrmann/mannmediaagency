@@ -1,48 +1,34 @@
 
-import React, { useState, useRef, useEffect } from 'react';
-import { Card } from "@/components/ui/card";
+import React, { useState, useEffect, useRef } from 'react';
 import { Button } from "@/components/ui/button";
-import { Bot, Send, Loader2, Play, Pause, StopCircle, RefreshCw } from "lucide-react";
-import { TaskStatus } from "@/hooks/browser-use/types";
-import { toast } from "sonner";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Avatar } from "@/components/ui/avatar";
-import { AvatarImage } from "@radix-ui/react-avatar";
-import { AvatarFallback } from "@/components/ui/avatar";
-import { useAuth } from "@/hooks/use-auth";
+import { Loader2, Bot, Send, StopCircle, Pause, Play, RefreshCw } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { TaskStatus, ChatMessage, ConnectionStatus } from '@/hooks/browser-use/types';
+import { BrowserChatMessage } from './BrowserChatMessage';
+import { safeParse } from '@/lib/safe-stringify';
 
 interface BrowserChatInterfaceProps {
   taskInput: string;
   setTaskInput: (value: string) => void;
-  onSubmit: () => Promise<void>;
+  onSubmit: () => void;
   isProcessing: boolean;
   taskStatus: TaskStatus;
   userCredits: number | null;
-  taskOutput: React.ReactNode | string | null;
+  taskOutput: ChatMessage[] | string | any | null; // Handle various output types
   error: string | null;
-  onStop: () => Promise<void>;
-  onPause: () => Promise<void>;
-  onResume: () => Promise<void>;
-  onRestart: () => Promise<void>;
+  onStop: () => void;
+  onPause: () => void;
+  onResume: () => void;
+  onRestart: () => void;
   currentTaskId: string | null;
+  connectionStatus?: ConnectionStatus;
 }
 
-interface ChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: Date;
-  status?: 'processing' | 'complete' | 'error';
-}
-
-// This type is safe to store in localStorage
-interface SerializableChatMessage {
-  role: 'user' | 'assistant';
-  content: string;
-  timestamp: string; // ISO string format
-  status?: 'processing' | 'complete' | 'error';
-}
-
-export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
+export function BrowserChatInterface({
   taskInput,
   setTaskInput,
   onSubmit,
@@ -55,309 +41,308 @@ export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
   onPause,
   onResume,
   onRestart,
-  currentTaskId
-}) => {
-  const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
-  const messagesEndRef = useRef<HTMLDivElement>(null);
-  const { user } = useAuth();
+  currentTaskId,
+  connectionStatus = 'disconnected'
+}: BrowserChatInterfaceProps) {
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
   
-  // Load chat history from localStorage on component mount
+  // Focus input on mount
   useEffect(() => {
-    const savedHistory = localStorage.getItem('workerAI_chatHistory');
-    if (savedHistory) {
+    if (inputRef.current) {
+      inputRef.current.focus();
+    }
+  }, []);
+  
+  // Process task output into chat messages
+  useEffect(() => {
+    if (!taskOutput) return;
+    
+    try {
+      let newMessages: ChatMessage[] = [];
+      
+      // Handle string output
+      if (typeof taskOutput === 'string') {
+        newMessages = [{
+          type: 'system',
+          text: taskOutput,
+          timestamp: new Date().toISOString()
+        }];
+      }
+      // Handle array of ChatMessage objects
+      else if (Array.isArray(taskOutput)) {
+        if (taskOutput.length > 0 && typeof taskOutput[0] === 'object') {
+          // If it's already in the expected format
+          if ('type' in taskOutput[0]) {
+            newMessages = taskOutput.map(msg => {
+              // Ensure the timestamp is set
+              if (!msg.timestamp) {
+                return { ...msg, timestamp: new Date().toISOString() };
+              }
+              return msg;
+            });
+          } 
+          // Try to parse as text messages from array items
+          else {
+            newMessages = taskOutput.map(item => {
+              if (typeof item === 'string') {
+                return {
+                  type: 'system',
+                  text: item,
+                  timestamp: new Date().toISOString()
+                };
+              }
+              // Convert object to string representation
+              return {
+                type: 'system',
+                text: String(item?.text || JSON.stringify(item)),
+                timestamp: new Date().toISOString()
+              };
+            });
+          }
+        }
+      }
+      // Handle object output (trying to extract properties)
+      else if (typeof taskOutput === 'object' && taskOutput !== null) {
+        if ('type' in taskOutput && 'text' in taskOutput) {
+          newMessages = [{ 
+            ...taskOutput,
+            timestamp: taskOutput.timestamp || new Date().toISOString()
+          }];
+        } else {
+          // Convert arbitrary object to a string message
+          newMessages = [{
+            type: 'system',
+            text: JSON.stringify(taskOutput),
+            timestamp: new Date().toISOString()
+          }];
+        }
+      }
+      
+      setMessages(newMessages);
+      
+      // Store messages in localStorage for persistence
       try {
-        const parsed: SerializableChatMessage[] = JSON.parse(savedHistory);
-        setChatHistory(parsed.map((msg: SerializableChatMessage) => ({
-          ...msg,
-          timestamp: new Date(msg.timestamp)
-        })));
-      } catch (e) {
-        console.error("Error parsing saved chat history:", e);
+        localStorage.setItem('workerAI_lastChatMessages', JSON.stringify(newMessages));
+      } catch (storageError) {
+        console.error('Failed to save chat messages to localStorage:', storageError);
+      }
+    } catch (error) {
+      console.error('Error processing task output:', error);
+      setMessages([{
+        type: 'error',
+        text: 'Error processing task output. Please try again.',
+        timestamp: new Date().toISOString()
+      }]);
+    }
+  }, [taskOutput]);
+  
+  // Load saved messages on component mount
+  useEffect(() => {
+    const savedMessages = localStorage.getItem('workerAI_lastChatMessages');
+    if (savedMessages) {
+      const parsedMessages = safeParse<ChatMessage[]>(savedMessages, []);
+      if (parsedMessages.length > 0) {
+        setMessages(parsedMessages);
       }
     }
   }, []);
   
-  // Save chat history to localStorage when it changes
+  // Scroll to bottom when messages change
   useEffect(() => {
-    if (chatHistory.length > 0) {
-      try {
-        // Convert Date objects to strings before serializing
-        const serializableHistory: SerializableChatMessage[] = chatHistory.map(msg => ({
-          ...msg,
-          timestamp: msg.timestamp.toISOString()
-        }));
-        localStorage.setItem('workerAI_chatHistory', JSON.stringify(serializableHistory));
-      } catch (e) {
-        console.error("Error saving chat history to localStorage:", e);
+    if (scrollAreaRef.current) {
+      const scrollElement = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollElement) {
+        scrollElement.scrollTop = scrollElement.scrollHeight;
       }
     }
-  }, [chatHistory]);
-
-  // Process taskOutput for chat display
-  const safeStringify = (value: any): string => {
-    if (value === null || value === undefined) {
-      return '';
-    }
-    
-    if (typeof value === 'string') {
-      return value;
-    }
-    
-    try {
-      // Handle circular references when converting objects to strings
-      return JSON.stringify(value, (key, val) => {
-        // Skip React internal properties that might cause circular references
-        if (key && typeof val === 'object' && val !== null) {
-          if (key.startsWith('__react') || key.startsWith('_reactFiber') || 
-              key.includes('Fiber') || key.includes('fiber')) {
-            return '[React Internal]';
-          }
-          // Skip DOM nodes
-          if (val instanceof Node || val instanceof Element) {
-            return '[DOM Element]';
-          }
-        }
-        return val;
-      }, 2);
-    } catch (e) {
-      console.error("Error stringifying value:", e);
-      return String(value) || '[Object]';
-    }
-  };
-
-  // Add taskOutput to chat history when it changes
-  useEffect(() => {
-    if (taskOutput && (!isProcessing || taskStatus === 'completed')) {
-      // Check if we already have this output in chat history
-      const lastAssistantMessage = [...chatHistory].reverse().find(msg => msg.role === 'assistant');
-      
-      // Convert taskOutput to a safe string representation
-      let outputContent = '';
-      if (typeof taskOutput === 'string') {
-        outputContent = taskOutput;
-      } else if (React.isValidElement(taskOutput)) {
-        outputContent = 'Content available in browser view';
-      } else {
-        outputContent = safeStringify(taskOutput);
-      }
-      
-      // Only add if different from the last message
-      if (!lastAssistantMessage || lastAssistantMessage.content !== outputContent) {
-        setChatHistory(prev => [
-          ...prev.filter(msg => msg.role !== 'assistant' || msg.status !== 'processing'),
-          { 
-            role: 'assistant', 
-            content: outputContent, 
-            timestamp: new Date(),
-            status: 'complete'
-          }
-        ]);
-      }
-    }
-  }, [taskOutput, isProcessing, taskStatus, chatHistory]);
+  }, [messages]);
   
-  // Add error to chat history when it occurs
-  useEffect(() => {
-    if (error) {
-      setChatHistory(prev => [
-        ...prev.filter(msg => msg.role !== 'assistant' || msg.status !== 'processing'),
-        { 
-          role: 'assistant', 
-          content: `Error: ${error}`, 
-          timestamp: new Date(),
-          status: 'error'
-        }
-      ]);
-    }
-  }, [error]);
-
-  // Add "processing" message when task starts
-  useEffect(() => {
-    if (isProcessing && taskStatus === 'running') {
-      // Only add if we don't already have a processing message
-      if (!chatHistory.some(msg => msg.role === 'assistant' && msg.status === 'processing')) {
-        setChatHistory(prev => [
-          ...prev,
-          { 
-            role: 'assistant', 
-            content: 'Working on your task...', 
-            timestamp: new Date(),
-            status: 'processing'
-          }
-        ]);
-      }
-    }
-  }, [isProcessing, taskStatus, chatHistory]);
-
-  // Scroll to bottom of chat when new messages arrive
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [chatHistory]);
-
-  const handleSubmit = async (e: React.FormEvent) => {
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!taskInput.trim()) {
-      toast.error("Please enter a task description");
-      return;
-    }
+    
+    if (!taskInput.trim() || isProcessing) return;
     
     // Add user message to chat
-    setChatHistory(prev => [
+    setMessages(prev => [
       ...prev,
-      { role: 'user', content: taskInput, timestamp: new Date() }
+      {
+        type: 'user',
+        text: taskInput,
+        timestamp: new Date().toISOString()
+      }
     ]);
     
-    try {
-      await onSubmit();
-    } catch (err) {
-      console.error("Error submitting task:", err);
-    }
+    // Call the submit function
+    onSubmit();
   };
-
-  const clearChat = () => {
-    setChatHistory([]);
-    localStorage.removeItem('workerAI_chatHistory');
-  };
-
-  const formatTime = (date: Date) => {
-    return date.toLocaleTimeString(undefined, { 
-      hour: '2-digit', 
-      minute: '2-digit',
-      hour12: true 
-    });
-  };
-
+  
+  // Determine if task controls should be shown
+  const showTaskControls = taskStatus !== 'pending' && taskStatus !== 'completed' && 
+                         taskStatus !== 'failed' && taskStatus !== 'stopped' && 
+                         taskStatus !== 'expired';
+  
+  // Display a welcome message if no messages exist
+  const showWelcomeMessage = messages.length === 0 && !isProcessing;
+  
   return (
-    <Card className="flex flex-col h-[600px] p-0 overflow-hidden">
-      <div className="bg-primary/10 p-3 flex justify-between items-center">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
-          <h3 className="font-medium">Worker AI Assistant</h3>
-        </div>
-        <Button variant="ghost" size="sm" onClick={clearChat}>Clear Chat</Button>
-      </div>
-      
-      <ScrollArea className="flex-1 p-4">
-        {chatHistory.length === 0 ? (
-          <div className="h-full flex flex-col items-center justify-center text-center text-muted-foreground p-4">
-            <Bot className="h-12 w-12 text-primary/30 mb-4" />
-            <h3 className="font-medium text-lg mb-2">Welcome to Worker AI</h3>
-            <p>Describe what you want the AI to do in your web browser and it will execute tasks for you.</p>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            {chatHistory.map((message, index) => (
-              <div
-                key={index}
-                className={`flex gap-3 ${message.role === 'user' ? 'justify-end' : 'justify-start'}`}
-              >
-                {message.role === 'assistant' && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarFallback className="bg-primary text-primary-foreground">AI</AvatarFallback>
-                  </Avatar>
-                )}
-                
-                <div
-                  className={`rounded-lg p-3 max-w-[80%] ${
-                    message.role === 'user'
-                      ? 'bg-primary text-primary-foreground'
-                      : message.status === 'error'
-                      ? 'bg-destructive/10 border border-destructive/20 text-destructive'
-                      : 'bg-muted'
-                  }`}
-                >
-                  <div className="flex flex-col gap-1">
-                    <div className="text-sm break-words whitespace-pre-wrap">{message.content}</div>
-                    <div className="text-xs opacity-70 flex items-center gap-2">
-                      {formatTime(message.timestamp)}
-                      {message.status === 'processing' && (
-                        <Loader2 className="h-3 w-3 animate-spin" />
-                      )}
-                    </div>
-                  </div>
-                </div>
-                
-                {message.role === 'user' && (
-                  <Avatar className="h-8 w-8">
-                    <AvatarImage src={user?.user_metadata?.avatar_url} />
-                    <AvatarFallback>{user?.email?.charAt(0) || 'U'}</AvatarFallback>
-                  </Avatar>
-                )}
-              </div>
-            ))}
-            <div ref={messagesEndRef} />
-          </div>
-        )}
-      </ScrollArea>
-      
-      <div className="p-3 border-t">
-        {isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && (
-          <div className="flex gap-2 mb-3 justify-end">
-            {taskStatus === 'running' ? (
-              <>
-                <Button variant="outline" size="sm" onClick={onPause} className="gap-1">
-                  <Pause className="h-4 w-4" /> Pause
-                </Button>
-                <Button variant="outline" size="sm" onClick={onStop} className="gap-1">
-                  <StopCircle className="h-4 w-4" /> Stop
-                </Button>
-              </>
-            ) : taskStatus === 'paused' ? (
-              <>
-                <Button variant="outline" size="sm" onClick={onResume} className="gap-1">
-                  <Play className="h-4 w-4" /> Resume
-                </Button>
-                <Button variant="outline" size="sm" onClick={onStop} className="gap-1">
-                  <StopCircle className="h-4 w-4" /> Stop
-                </Button>
-              </>
-            ) : null}
-          </div>
-        )}
-      
-        <form onSubmit={handleSubmit} className="flex gap-2">
-          <textarea
-            value={taskInput}
-            onChange={(e) => setTaskInput(e.target.value)}
-            className="flex-1 min-h-[60px] p-2 border rounded-md resize-none"
-            placeholder="Describe what you want the AI to do in your web browser..."
-            disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
-            ref={inputRef}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                handleSubmit(e);
-              }
-            }}
-          />
-          <div className="flex flex-col gap-2">
-            <Button 
-              type="submit"
-              disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired' || !userCredits || userCredits < 1}
-              className="h-full"
-            >
-              {isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Send className="h-4 w-4" />
-              )}
-            </Button>
-            
-            {currentTaskId && (taskStatus === 'completed' || taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'expired') && (
-              <Button 
-                type="button" 
-                variant="outline" 
-                onClick={onRestart}
-                className="h-10"
-                title="Run this task again"
-              >
-                <RefreshCw className="h-4 w-4" />
-              </Button>
+    <Card className="h-full flex flex-col">
+      <CardHeader className="flex-none">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Bot className="h-6 w-6 text-primary" />
+            <CardTitle>Worker AI Assistant</CardTitle>
+            {connectionStatus === 'connected' && (
+              <Badge variant="outline" className="ml-2 bg-green-50 text-green-700 border-green-200">
+                Live
+              </Badge>
             )}
           </div>
+          {userCredits !== null && (
+            <Badge variant="outline">
+              Credits: {userCredits}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      
+      <CardContent className="flex-1 p-0 overflow-hidden">
+        <ScrollArea className="h-[calc(100vh-370px)] md:h-[450px]" ref={scrollAreaRef}>
+          <div className="p-4 space-y-1">
+            {/* Display error message if present */}
+            {error && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            )}
+            
+            {/* Welcome message */}
+            {showWelcomeMessage && (
+              <div className="text-center py-8">
+                <Bot className="h-12 w-12 text-primary mx-auto mb-2 opacity-70" />
+                <h3 className="text-lg font-medium mb-1">Worker AI</h3>
+                <p className="text-sm text-muted-foreground">
+                  Describe what you want the AI to do in your web browser.
+                </p>
+              </div>
+            )}
+            
+            {/* Chat messages */}
+            {messages.map((message, index) => (
+              <BrowserChatMessage 
+                key={index} 
+                message={message}
+                showTimestamp={true}
+              />
+            ))}
+            
+            {/* Loading indicator */}
+            {isProcessing && (
+              <div className="flex items-center justify-center py-4">
+                <Loader2 className="h-5 w-5 animate-spin text-primary mr-2" />
+                <span className="text-sm text-muted-foreground">
+                  {connectionStatus === 'connected' 
+                    ? 'Processing your request...' 
+                    : 'Connecting to browser...'}
+                </span>
+              </div>
+            )}
+          </div>
+        </ScrollArea>
+      </CardContent>
+      
+      <CardFooter className="flex-none pt-0">
+        {/* Show task controls when appropriate */}
+        {showTaskControls && (
+          <div className="w-full mb-3 flex justify-center gap-2">
+            {taskStatus === 'running' ? (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={onPause}
+                className="flex items-center gap-1"
+              >
+                <Pause className="h-4 w-4" />
+                <span>Pause</span>
+              </Button>
+            ) : (
+              taskStatus === 'paused' && (
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={onResume}
+                  className="flex items-center gap-1"
+                >
+                  <Play className="h-4 w-4" />
+                  <span>Resume</span>
+                </Button>
+              )
+            )}
+            
+            <Button 
+              variant="destructive" 
+              size="sm" 
+              onClick={onStop}
+              className="flex items-center gap-1"
+            >
+              <StopCircle className="h-4 w-4" />
+              <span>Stop</span>
+            </Button>
+            
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRestart}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Restart</span>
+            </Button>
+          </div>
+        )}
+        
+        {/* Completed task controls */}
+        {(taskStatus === 'completed' || taskStatus === 'failed' || taskStatus === 'stopped' || taskStatus === 'expired') && (
+          <div className="w-full mb-3 flex justify-center">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={onRestart}
+              className="flex items-center gap-1"
+            >
+              <RefreshCw className="h-4 w-4" />
+              <span>Try another task</span>
+            </Button>
+          </div>
+        )}
+        
+        {/* Input form */}
+        <form onSubmit={handleSubmit} className="w-full flex gap-2">
+          <Input
+            ref={inputRef}
+            placeholder="Describe what you want the AI to do in your web browser"
+            value={taskInput}
+            onChange={(e) => setTaskInput(e.target.value)}
+            disabled={isProcessing || 
+                    taskStatus === 'running' || 
+                    taskStatus === 'paused'}
+            className="flex-1"
+          />
+          <Button 
+            type="submit" 
+            disabled={!taskInput.trim() || 
+                     isProcessing || 
+                     taskStatus === 'running' || 
+                     taskStatus === 'paused'}
+            className="shrink-0"
+          >
+            <Send className="h-4 w-4" />
+            <span className="sr-only">Send</span>
+          </Button>
         </form>
-      </div>
+      </CardFooter>
     </Card>
   );
-};
+}

@@ -12,7 +12,8 @@ import { Bot, History, Settings, Play, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TaskControls } from "./TaskControls";
 import { BrowserChatInterface } from "./BrowserChatInterface";
-import { TaskStatus } from "@/hooks/browser-use/types";
+import { TaskStatus, ChatMessage, BrowserConfig, ConnectionStatus } from "@/hooks/browser-use/types";
+import { safeStringify } from "@/lib/safe-stringify";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
@@ -50,7 +51,7 @@ export function BrowserUseApp() {
     if (savedTaskId) {
       loadPreviousTask(savedTaskId);
     }
-  }, []);
+  }, [loadPreviousTask]);
 
   // Save current task ID to localStorage when it changes
   useEffect(() => {
@@ -59,27 +60,14 @@ export function BrowserUseApp() {
     }
   }, [currentTaskId]);
 
-  // Ensure taskOutput is properly converted to a renderable format
-  const renderTaskOutput = () => {
-    if (!taskOutput) return null;
-    
+  // Custom screenshot handler that returns a string (fixing type error)
+  const handleCaptureScreenshot = async (): Promise<string> => {
     try {
-      // If taskOutput is an array, convert it to string representation
-      if (Array.isArray(taskOutput)) {
-        return taskOutput.map((item, index) => {
-          if (typeof item === 'object' && item !== null) {
-            // For objects, convert to string
-            return <div key={index}>{JSON.stringify(item)}</div>;
-          }
-          return <div key={index}>{String(item)}</div>;
-        });
-      }
-      
-      // For any other type, convert to string
-      return String(taskOutput);
+      const result = await captureScreenshot();
+      return result ? "Screenshot captured" : "Failed to capture screenshot";
     } catch (error) {
-      console.error("Error rendering task output:", error);
-      return "Error rendering task output";
+      console.error("Error capturing screenshot:", error);
+      return "Error capturing screenshot";
     }
   };
 
@@ -122,13 +110,14 @@ export function BrowserUseApp() {
               isProcessing={isProcessing}
               taskStatus={taskStatus || "created" as TaskStatus}
               userCredits={userCredits ? userCredits.credits_remaining : null}
-              taskOutput={typeof taskOutput === 'string' ? taskOutput : renderTaskOutput()}
+              taskOutput={taskOutput}
               error={error}
               onStop={stopTask}
               onPause={pauseTask}
               onResume={resumeTask}
               onRestart={restartTask}
               currentTaskId={currentTaskId}
+              connectionStatus={connectionStatus as ConnectionStatus}
             />
 
             <BrowserView
@@ -136,8 +125,8 @@ export function BrowserUseApp() {
               currentUrl={currentUrl}
               setCurrentUrl={setCurrentUrl}
               screenshot={screenshot}
-              captureScreenshot={captureScreenshot}
-              connectionStatus={connectionStatus}
+              captureScreenshot={handleCaptureScreenshot}
+              connectionStatus={connectionStatus as ConnectionStatus}
             />
           </div>
         </TabsContent>
@@ -148,8 +137,8 @@ export function BrowserUseApp() {
 
         <TabsContent value="settings">
           <BrowserConfigPanel
-            config={browserConfig}
-            setConfig={setBrowserConfig}
+            config={browserConfig as BrowserConfig}
+            setConfig={(config) => setBrowserConfig(config)}
             disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
           />
         </TabsContent>

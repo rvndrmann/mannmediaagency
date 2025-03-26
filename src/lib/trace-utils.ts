@@ -1,253 +1,165 @@
 
-// Utility functions for OpenAI traces
-import { supabase } from '@/integrations/supabase/client';
+import { format, formatDistance } from 'date-fns';
+import { safeStringify } from './safe-stringify';
 
-export type TraceEvent = {
-  eventType: string;
-  timestamp: string;
-  agentType?: string;
-  data: any;
-};
-
-export type TraceSummary = {
-  agentTypes: string[];
-  handoffs: number;
-  toolCalls: number;
-  success: boolean;
-  duration: number;
-  messageCount?: number;
-};
-
-export type Trace = {
-  id: string;
-  runId: string;
-  userId: string;
-  sessionId: string;
-  messages: any[];
-  events: TraceEvent[];
-  startTime: string;
-  endTime?: string;
-  summary?: TraceSummary;
-};
-
-// Function to safely access trace data from metadata
-const safeGetTraceFromMetadata = (metadata: any) => {
-  if (!metadata) return null;
+/**
+ * Format a trace timestamp for display
+ */
+export function formatTraceTimestamp(timestamp: string): string {
+  if (!timestamp) return '';
   
-  // Handle both string and object metadata formats
-  try {
-    // If metadata is a JSON string, parse it
-    const metadataObj = typeof metadata === 'string' ? JSON.parse(metadata) : metadata;
-    
-    // Check if trace exists in the metadata
-    if (metadataObj && typeof metadataObj === 'object' && metadataObj.trace) {
-      return metadataObj.trace;
-    }
-    
-    return null;
-  } catch (e) {
-    console.error("Error accessing trace from metadata:", e);
-    return null;
-  }
-};
-
-// Function to save a trace to Supabase
-export const saveTrace = async (trace: Trace): Promise<void> => {
-  try {
-    // First, check if we already have trace data in the agent_interactions table
-    const { data: existingData, error: checkError } = await supabase
-      .from('agent_interactions')
-      .select('id, metadata')
-      .filter('metadata->trace->runId', 'eq', trace.id)
-      .limit(1);
-    
-    if (checkError) {
-      console.error("Error checking for existing trace:", checkError);
-      return;
-    }
-    
-    // If no existing data, create a summary record
-    if (!existingData || existingData.length === 0) {
-      // Calculate trace summary
-      const summary = generateTraceSummary(trace);
-      
-      // Save summary trace entry
-      const { error } = await supabase
-        .from('agent_interactions')
-        .insert({
-          user_id: trace.userId,
-          agent_type: 'trace_summary',
-          user_message: `Trace ${trace.id}`,
-          assistant_response: `Multi-agent conversation with ${summary.agentTypes.length} agents`,
-          metadata: {
-            trace: {
-              runId: trace.id,
-              sessionId: trace.sessionId,
-              summary,
-              events: trace.events.slice(0, 5), // Just store a few key events
-              startTime: trace.startTime,
-              endTime: trace.endTime || new Date().toISOString()
-            }
-          },
-          timestamp: trace.startTime,
-          group_id: trace.sessionId
-        });
-      
-      if (error) {
-        console.error("Error saving trace summary:", error);
-      }
-    } else {
-      // Update the existing trace with the latest information
-      const existingRecord = existingData[0];
-      const existingMetadata = existingRecord.metadata || {};
-      
-      // Safely access existing trace data
-      let existingTrace = {};
-      if (existingMetadata && typeof existingMetadata === 'object') {
-        existingTrace = existingMetadata.trace || {};
-      }
-      
-      // Initialize updatedEvents array
-      const updatedEvents: TraceEvent[] = [];
-      
-      // If existingTrace.events exists and is an array, add them to updatedEvents
-      if (existingTrace && typeof existingTrace === 'object' && 'events' in existingTrace) {
-        const existingEvents = existingTrace.events;
-        if (Array.isArray(existingEvents)) {
-          updatedEvents.push(...existingEvents);
-        }
-      }
-      
-      // Add the new events, safely appending to existing
-      if (trace.events && Array.isArray(trace.events)) {
-        for (const event of trace.events.slice(-5)) {
-          updatedEvents.push(event);
-        }
-      }
-      
-      // Create an updated metadata object with the new trace information
-      const updatedMetadata = { 
-        ...existingMetadata,
-        trace: {
-          ...(typeof existingTrace === 'object' && existingTrace !== null ? existingTrace : {}),
-          events: updatedEvents,
-          endTime: trace.endTime || new Date().toISOString(),
-          summary: generateTraceSummary(trace)
-        }
-      };
-      
-      const { error } = await supabase
-        .from('agent_interactions')
-        .update({
-          metadata: updatedMetadata
-        })
-        .eq('id', existingRecord.id);
-        
-      if (error) {
-        console.error("Error updating trace:", error);
-      }
-    }
-    
-    console.log("Trace saved/updated:", trace.id);
-  } catch (error) {
-    console.error("Error in saveTrace:", error);
-  }
-};
-
-// Function to format a timestamp
-export const formatTraceTimestamp = (timestamp: string): string => {
-  if (!timestamp) return 'Unknown';
   try {
     const date = new Date(timestamp);
-    return date.toLocaleString();
-  } catch (error) {
-    console.error("Error formatting timestamp:", error);
-    return 'Invalid date';
+    return format(date, 'h:mm:ss a, MMM d');
+  } catch (e) {
+    return timestamp;
   }
-};
+}
 
-// Function to calculate duration between two timestamps in seconds
-export const calculateDuration = (startTime: string, endTime: string): number => {
-  if (!startTime || !endTime) return 0;
-  try {
-    const start = new Date(startTime).getTime();
-    const end = new Date(endTime).getTime();
-    return (end - start) / 1000;
-  } catch (error) {
-    console.error("Error calculating duration:", error);
-    return 0;
+/**
+ * Format a duration in milliseconds to a human-readable string
+ */
+export function formatDuration(durationMs: number): string {
+  if (!durationMs || durationMs <= 0) return '0s';
+  
+  const seconds = Math.floor(durationMs / 1000);
+  
+  if (seconds < 60) {
+    return `${seconds}s`;
   }
-};
-
-// Helper function to format duration in a human-readable way
-export const formatDuration = (seconds: number): string => {
-  if (isNaN(seconds) || seconds < 0) return '0s';
-  if (seconds < 60) return `${seconds.toFixed(1)}s`;
+  
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
-  return `${minutes}m ${remainingSeconds.toFixed(0)}s`;
-};
-
-// Function to generate a simplified trace event
-export const createTraceEvent = (
-  eventType: string, 
-  data: any, 
-  agentType?: string
-): TraceEvent => {
-  return {
-    eventType,
-    timestamp: new Date().toISOString(),
-    agentType,
-    data
-  };
-};
-
-// Function to generate a summary from trace events
-export const generateTraceSummary = (trace: Trace): TraceSummary => {
-  // Extract unique agent types
-  const agentTypes: string[] = [];
   
-  // Safely collect unique agent types
-  if (Array.isArray(trace.events)) {
-    trace.events.forEach(e => {
-      if (e.agentType && !agentTypes.includes(e.agentType)) {
-        agentTypes.push(e.agentType);
-      }
-    });
+  if (minutes < 60) {
+    return `${minutes}m ${remainingSeconds}s`;
   }
   
-  // Count handoffs
-  const handoffs = Array.isArray(trace.events) 
-    ? trace.events.filter(e => e.eventType === 'handoff').length 
-    : 0;
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
   
-  // Count tool calls
-  const toolCalls = Array.isArray(trace.events)
-    ? trace.events.filter(e => e.eventType === 'tool_call').length
-    : 0;
+  return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+}
+
+/**
+ * Calculate time elapsed between two dates
+ */
+export function calculateElapsedTime(startTime?: string, endTime?: string): string {
+  if (!startTime) return '';
   
-  // Determine if successful
-  const success = Array.isArray(trace.events)
-    ? !trace.events.some(e => 
-        e.eventType === 'error' || 
-        (e.eventType === 'completion' && e.data?.success === false)
-      )
-    : false;
+  try {
+    const start = new Date(startTime);
+    const end = endTime ? new Date(endTime) : new Date();
+    
+    return formatDistance(start, end, { includeSeconds: true });
+  } catch (e) {
+    return '';
+  }
+}
+
+/**
+ * Safely extract trace data from metadata
+ */
+export function extractTraceData(metadata: any): any {
+  if (!metadata) return null;
   
-  // Calculate duration
-  const duration = trace.endTime ? 
-    calculateDuration(trace.startTime, trace.endTime) : 
-    0;
+  try {
+    // Handle string metadata (needs parsing)
+    if (typeof metadata === 'string') {
+      try {
+        metadata = JSON.parse(metadata);
+      } catch (e) {
+        return null;
+      }
+    }
+    
+    // Handle different metadata structures
+    if (metadata.trace) {
+      return metadata.trace;
+    }
+    
+    // Some systems store it nested
+    if (typeof metadata === 'object' && metadata !== null) {
+      // Look for trace property at any level
+      const findTrace = (obj: any): any => {
+        if (obj.trace) return obj.trace;
+        
+        for (const key in obj) {
+          if (typeof obj[key] === 'object' && obj[key] !== null) {
+            const result = findTrace(obj[key]);
+            if (result) return result;
+          }
+        }
+        
+        return null;
+      };
+      
+      return findTrace(metadata);
+    }
+  } catch (e) {
+    console.error('Error extracting trace data:', e);
+  }
   
-  // Count messages
-  const messageCount = Array.isArray(trace.messages) ? trace.messages.length : 0;
+  return null;
+}
+
+/**
+ * Get a safe summary of a trace
+ */
+export function getSafeTraceSummary(trace: any): any {
+  if (!trace) return null;
   
-  return {
-    agentTypes,
-    handoffs,
-    toolCalls,
-    success,
-    duration,
-    messageCount
-  };
-};
+  try {
+    // For object traces
+    if (typeof trace === 'object' && trace !== null) {
+      if (trace.summary) {
+        return {
+          agentTypes: Array.isArray(trace.summary.agentTypes) ? trace.summary.agentTypes : [],
+          handoffs: typeof trace.summary.handoffs === 'number' ? trace.summary.handoffs : 0,
+          toolCalls: typeof trace.summary.toolCalls === 'number' ? trace.summary.toolCalls : 0,
+          success: Boolean(trace.summary.success),
+          duration: typeof trace.summary.duration === 'number' ? trace.summary.duration : 0,
+          messageCount: typeof trace.summary.messageCount === 'number' ? trace.summary.messageCount : 0
+        };
+      }
+      
+      // Construct a basic summary if not present
+      return {
+        agentTypes: [],
+        handoffs: 0,
+        toolCalls: 0,
+        success: false,
+        duration: 0,
+        messageCount: 0
+      };
+    }
+  } catch (e) {
+    console.error('Error getting trace summary:', e);
+  }
+  
+  return null;
+}
+
+/**
+ * Safely convert trace events to a serializable format
+ */
+export function safeTraceEvents(events: any[]): any[] {
+  if (!Array.isArray(events)) return [];
+  
+  try {
+    return events.map(event => {
+      // Clean up event data to prevent circular references
+      const safeData = event.data ? JSON.parse(safeStringify(event.data)) : null;
+      
+      return {
+        eventType: event.eventType || 'unknown',
+        timestamp: event.timestamp || '',
+        agentType: event.agentType || 'Unknown',
+        data: safeData
+      };
+    });
+  } catch (e) {
+    console.error('Error processing trace events:', e);
+    return [];
+  }
+}

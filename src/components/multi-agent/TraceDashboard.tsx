@@ -9,17 +9,22 @@ import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { TraceViewer, Trace } from './TraceViewer';
+import { extractTraceData, getSafeTraceSummary, safeTraceEvents } from '@/lib/trace-utils';
+import { safeStringify } from '@/lib/safe-stringify';
 
-interface TraceItem {
+interface AgentInteraction {
   id: string;
   timestamp: string;
   metadata: any;
   user_id: string;
-  group_id?: string; // Make this optional
+  agent_type: string;
+  user_message: string;
+  assistant_response: string;
+  has_attachments: boolean;
 }
 
 export const TraceDashboard: React.FC = () => {
-  const [traces, setTraces] = useState<TraceItem[]>([]);
+  const [traces, setTraces] = useState<AgentInteraction[]>([]);
   const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -40,13 +45,16 @@ export const TraceDashboard: React.FC = () => {
       if (error) throw error;
       
       // Process the data to extract trace information and handle undefined fields
-      const processedTraces = (data || []).map(item => {
+      const processedTraces = (data || []).map((item: AgentInteraction) => {
         return {
           id: item.id,
           timestamp: item.timestamp,
-          group_id: item.group_id || '', // Use empty string as fallback
-          metadata: item.metadata,
-          user_id: item.user_id || ''
+          agent_type: item.agent_type,
+          user_message: item.user_message,
+          assistant_response: item.assistant_response,
+          has_attachments: item.has_attachments,
+          user_id: item.user_id || '',
+          metadata: item.metadata || {}
         };
       });
       
@@ -69,51 +77,32 @@ export const TraceDashboard: React.FC = () => {
       
       if (error) throw error;
       
-      // Safely extract the trace data
-      const metadata = data?.metadata || {};
-      let traceData: any = {};
-      
-      // Check if metadata is an object and has trace property
-      if (typeof metadata === 'object' && metadata !== null && 'trace' in metadata) {
-        traceData = metadata.trace || {};
+      if (!data) {
+        throw new Error('No trace data found');
       }
       
-      if (typeof traceData !== 'object' || traceData === null) {
+      // Safely extract the trace data
+      const traceData = extractTraceData(data.metadata);
+      
+      if (!traceData) {
         throw new Error('Invalid trace data format');
       }
       
       // Safely access properties with defaults
-      const runId = typeof traceData.runId === 'string' ? traceData.runId : '';
+      const runId = typeof traceData.runId === 'string' ? traceData.runId : data.id;
       const sessionId = typeof traceData.sessionId === 'string' ? traceData.sessionId : '';
       const startTime = typeof traceData.startTime === 'string' ? traceData.startTime : '';
       const endTime = typeof traceData.endTime === 'string' ? traceData.endTime : '';
-      const events = Array.isArray(traceData.events) ? traceData.events : [];
+      const events = safeTraceEvents(Array.isArray(traceData.events) ? traceData.events : []);
       
-      // Default summary if not available
-      let summary = {
-        agentTypes: [],
-        handoffs: 0,
-        toolCalls: 0,
-        success: false,
-        duration: 0
-      };
-      
-      // Override with actual summary if available
-      if (typeof traceData.summary === 'object' && traceData.summary !== null) {
-        summary = {
-          agentTypes: Array.isArray(traceData.summary.agentTypes) ? traceData.summary.agentTypes : [],
-          handoffs: typeof traceData.summary.handoffs === 'number' ? traceData.summary.handoffs : 0,
-          toolCalls: typeof traceData.summary.toolCalls === 'number' ? traceData.summary.toolCalls : 0,
-          success: Boolean(traceData.summary.success),
-          duration: typeof traceData.summary.duration === 'number' ? traceData.summary.duration : 0
-        };
-      }
+      // Get the summary safely
+      const summary = getSafeTraceSummary(traceData);
       
       // Construct a complete Trace object
       const trace: Trace = {
         id: runId || data.id,
         runId: runId || data.id,
-        userId: data?.user_id || '',
+        userId: data.user_id || '',
         sessionId: sessionId,
         messages: [],
         events: events,
@@ -164,9 +153,7 @@ export const TraceDashboard: React.FC = () => {
                         </p>
                       </div>
                       <div>
-                        {trace.group_id && (
-                          <Badge variant="secondary">{trace.group_id}</Badge>
-                        )}
+                        <Badge variant="secondary">{trace.agent_type}</Badge>
                       </div>
                       <div>
                         <Button variant="outline" size="sm" onClick={() => viewTraceDetails(trace.id)}>
@@ -189,4 +176,4 @@ export const TraceDashboard: React.FC = () => {
       )}
     </div>
   );
-};
+}

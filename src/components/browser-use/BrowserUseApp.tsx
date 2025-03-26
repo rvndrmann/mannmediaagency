@@ -183,10 +183,14 @@ export function BrowserUseApp() {
             <FileText className="h-4 w-4" />
             <span>Templates</span>
           </TabsTrigger>
-          <TabsTrigger value="scheduled" className="flex items-center gap-2" disabled>
+          <TabsTrigger 
+            value="scheduled" 
+            disabled 
+            className="opacity-50 cursor-not-allowed"
+          >
             <Calendar className="h-4 w-4" />
             <span>Scheduled</span>
-            <Badge variant="outline" className="ml-1 text-xs">Soon</Badge>
+            <Badge variant="outline" className="ml-1 text-xs">Coming Soon</Badge>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />

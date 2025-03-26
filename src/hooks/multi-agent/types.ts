@@ -1,6 +1,23 @@
 
-import { Message, Attachment, Command } from "@/types/message";
-import { supabase } from "@/integrations/supabase/client";
+import { Attachment } from "@/types/message";
+import { CanvasScene } from "@/types/canvas";
+import { SupabaseClient } from "@supabase/supabase-js";
+
+export interface ToolContext {
+  supabase: SupabaseClient;
+  runId: string;
+  groupId: string;
+  userId: string;
+  usePerformanceModel: boolean;
+  enableDirectToolExecution: boolean;
+  tracingDisabled: boolean;
+  metadata: Record<string, any>;
+  abortSignal?: AbortSignal;
+  addMessage?: (text: string, type: string, attachments?: Attachment[]) => void;
+  toolAvailable?: (toolName: string) => boolean;
+  attachments?: Attachment[];
+  canvasScene?: CanvasScene;
+}
 
 export interface ToolResult {
   success: boolean;
@@ -22,34 +39,15 @@ export interface ToolParameter {
   type: string;
   description: string;
   required: boolean;
-  prompt?: string; // Added for tools that need prompt
+  default?: any;
+  enum?: string[];
+  prompt?: string;
 }
 
-export interface ToolContext {
-  runId: string;
-  groupId: string;
-  userId: string;
-  usePerformanceModel: boolean;
-  enableDirectToolExecution: boolean;
-  tracingDisabled: boolean;
-  metadata: Record<string, any>;
-  abortSignal?: AbortSignal;
-  supabase: typeof supabase;
-  addMessage?: (text: string, type: string, attachments?: Attachment[]) => void;
-  toolAvailable?: (toolName: string) => boolean;
-  creditsRemaining?: number;
-  attachments?: Attachment[];
-}
-
-export enum CommandExecutionState {
-  PENDING = 'pending',
-  EXECUTING = 'executing',
-  COMPLETED = 'completed',
-  FAILED = 'failed',
-  ERROR = 'error'
-}
-
-export interface HandoffRequest {
-  targetAgent: string;
-  reason: string;
+export interface Command {
+  name: string;
+  parameters?: Record<string, any>;
+  feature?: string;
+  action?: string;
+  args?: Record<string, any>;
 }

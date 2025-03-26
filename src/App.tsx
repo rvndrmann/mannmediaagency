@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -34,6 +35,7 @@ import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
 import MultiAgentChat from "./pages/MultiAgentChat";
 import BrowserUse from "./pages/BrowserUse";
+import Canvas from "./pages/Canvas";
 import React from "react";
 
 const queryClient = new QueryClient({
@@ -122,6 +124,7 @@ const App = () => {
                   <Route path="/order/:accessCode" element={<CustomOrderForm />} />
                   <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
                   <Route path="/browser-use" element={<ProtectedRoute><BrowserUse /></ProtectedRoute>} />
+                  <Route path="/canvas" element={<ProtectedRoute><Canvas /></ProtectedRoute>} />
                 </Routes>
                 <BottomNav />
               </TooltipProvider>

@@ -10,15 +10,15 @@ export function MainNav() {
 
   const links = [
     {
-      name: "Dashboard",
-      href: "/",
-      active: location.pathname === "/",
-    },
-    {
       name: "Browser Worker AI",
       href: "/browser-use",
       active: location.pathname === "/browser-use",
       icon: <Globe className="w-4 h-4 mr-2" />,
+    },
+    {
+      name: "Dashboard",
+      href: "/",
+      active: location.pathname === "/",
     },
   ];
 

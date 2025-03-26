@@ -1,5 +1,4 @@
-
-import { Compass, ScrollText, Settings, Package, Users, Globe, Camera, ImagePlus, Film, Video } from "lucide-react";
+import { Compass, ScrollText, Settings, Package, Globe, Camera, ImagePlus, Film } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useEffect, useState } from "react";
@@ -46,7 +45,7 @@ const navItems = [
     icon: Settings,
     href: "/profile"
   }
-  // Disabled items removed from mobile navigation
+  // Multi-Agent Chat and Product Video items removed
 ];
 
 export const BottomNav = () => {

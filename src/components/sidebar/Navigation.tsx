@@ -197,24 +197,7 @@ export const Navigation = () => {
     },
   ];
 
-  const disabledItems: NavigationItemWithBadge[] = [
-    {
-      name: "Multi-Agent Chat",
-      subtext: "Advanced AI Collaboration",
-      to: "/multi-agent-chat",
-      icon: Users,
-      disabled: true,
-      comingSoon: true,
-    },
-    {
-      name: "Product Video",
-      subtext: "Create Product Videos",
-      to: "/create-video",
-      icon: Video,
-      disabled: true,
-      comingSoon: true,
-    },
-  ];
+  const disabledItems: NavigationItemWithBadge[] = [];
 
   const combinedNavigation = [...baseNavigation, ...disabledItems];
 

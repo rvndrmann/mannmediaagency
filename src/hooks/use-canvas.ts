@@ -8,15 +8,21 @@ import { toast } from "sonner";
 export const useCanvas = (projectId?: string) => {
   const [project, setProject] = useState<CanvasProject | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
 
   // Load project data
   useEffect(() => {
-    if (!projectId) return;
+    if (!projectId) {
+      setLoading(false);
+      return;
+    }
     
     const fetchProject = async () => {
       try {
         setLoading(true);
+        setError(null);
+        
         const { data, error } = await supabase
           .from('canvas_projects')
           .select('*')
@@ -61,6 +67,7 @@ export const useCanvas = (projectId?: string) => {
         }
       } catch (error) {
         console.error("Error fetching project:", error);
+        setError("Failed to load project");
         toast.error("Failed to load project");
       } finally {
         setLoading(false);
@@ -68,15 +75,19 @@ export const useCanvas = (projectId?: string) => {
     };
 
     fetchProject();
-  }, [projectId]);
+  }, [projectId, selectedSceneId]);
 
   // Create new project
   const createProject = async (title: string, description?: string) => {
     try {
       setLoading(true);
+      setError(null);
       
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
+      if (!user) {
+        toast.error("You must be logged in to create a project");
+        return null;
+      }
       
       const newProjectId = uuidv4();
       
@@ -104,6 +115,7 @@ export const useCanvas = (projectId?: string) => {
       return newProjectId;
     } catch (error) {
       console.error("Error creating project:", error);
+      setError("Failed to create project");
       toast.error("Failed to create project");
       return null;
     } finally {
@@ -116,6 +128,7 @@ export const useCanvas = (projectId?: string) => {
     if (!project) return;
     
     try {
+      setError(null);
       const newSceneOrder = project.scenes.length;
       const sceneId = uuidv4();
       
@@ -151,7 +164,9 @@ export const useCanvas = (projectId?: string) => {
       return sceneId;
     } catch (error) {
       console.error("Error adding scene:", error);
+      setError("Failed to add scene");
       toast.error("Failed to add scene");
+      return undefined;
     }
   };
 
@@ -160,6 +175,7 @@ export const useCanvas = (projectId?: string) => {
     if (!project) return;
     
     try {
+      setError(null);
       // Don't allow deleting if it's the only scene
       if (project.scenes.length <= 1) {
         toast.error("Cannot delete the only scene");
@@ -219,6 +235,7 @@ export const useCanvas = (projectId?: string) => {
       }
     } catch (error) {
       console.error("Error deleting scene:", error);
+      setError("Failed to delete scene");
       toast.error("Failed to delete scene");
     }
   };
@@ -228,6 +245,7 @@ export const useCanvas = (projectId?: string) => {
     if (!project) return;
     
     try {
+      setError(null);
       // Map the type to the database field
       const fieldMap: Record<SceneUpdateType, string> = {
         script: 'script',
@@ -267,6 +285,7 @@ export const useCanvas = (projectId?: string) => {
       toast.success(`Scene ${type} updated`);
     } catch (error) {
       console.error("Error updating scene:", error);
+      setError("Failed to update scene");
       toast.error("Failed to update scene");
     }
   };
@@ -279,6 +298,7 @@ export const useCanvas = (projectId?: string) => {
   return {
     project,
     loading,
+    error,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,

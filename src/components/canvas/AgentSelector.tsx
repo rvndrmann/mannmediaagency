@@ -14,10 +14,28 @@ import {
   Wrench, 
   FileText 
 } from "lucide-react";
+import { useState } from "react";
 
-export function AgentSelector() {
+interface AgentSelectorProps {
+  onChange?: (value: string) => void;
+  defaultValue?: string;
+}
+
+export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelectorProps) {
+  const [selectedAgent, setSelectedAgent] = useState(defaultValue);
+  
+  const handleValueChange = (value: string) => {
+    setSelectedAgent(value);
+    if (onChange) {
+      onChange(value);
+    }
+  };
+  
   return (
-    <Select defaultValue="main">
+    <Select 
+      defaultValue={selectedAgent}
+      onValueChange={handleValueChange}
+    >
       <SelectTrigger>
         <SelectValue placeholder="Select agent" />
       </SelectTrigger>

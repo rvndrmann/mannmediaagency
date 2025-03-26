@@ -8,6 +8,8 @@ import { PanelRight, ChevronRight, Wand2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentSelector } from "./AgentSelector";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
@@ -22,6 +24,21 @@ export function CanvasDetailPanel({
   collapsed,
   setCollapsed,
 }: CanvasDetailPanelProps) {
+  const [selectedAgent, setSelectedAgent] = useState("main");
+  const [aiInstructions, setAiInstructions] = useState("");
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const handleGenerateContent = (contentType: 'script' | 'imagePrompt' | 'image' | 'video') => {
+    if (!scene) return;
+    
+    setIsGenerating(true);
+    // Mock generation for now - would be implemented with actual AI tools
+    setTimeout(() => {
+      toast.success(`Generated ${contentType} using ${selectedAgent} agent`);
+      setIsGenerating(false);
+    }, 1500);
+  };
+  
   if (collapsed) {
     return (
       <div className="w-10 border-l flex flex-col items-center py-4 bg-slate-50 dark:bg-slate-900">
@@ -128,25 +145,48 @@ export function CanvasDetailPanel({
             <div className="space-y-6">
               <div className="space-y-2">
                 <Label>AI Agent</Label>
-                <AgentSelector />
+                <AgentSelector 
+                  onChange={setSelectedAgent}
+                  defaultValue={selectedAgent}
+                />
               </div>
               
               <div className="space-y-2">
                 <Label>Generate</Label>
                 <div className="grid grid-cols-2 gap-2">
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => handleGenerateContent('script')}
+                    disabled={isGenerating}
+                  >
                     <Wand2 className="h-4 w-4 mr-2" />
                     Script
                   </Button>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => handleGenerateContent('imagePrompt')}
+                    disabled={isGenerating}
+                  >
                     <Wand2 className="h-4 w-4 mr-2" />
                     Image Prompt
                   </Button>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => handleGenerateContent('image')}
+                    disabled={isGenerating}
+                  >
                     <Wand2 className="h-4 w-4 mr-2" />
                     Scene Image
                   </Button>
-                  <Button variant="outline" className="w-full">
+                  <Button 
+                    variant="outline" 
+                    className="w-full"
+                    onClick={() => handleGenerateContent('video')}
+                    disabled={isGenerating}
+                  >
                     <Wand2 className="h-4 w-4 mr-2" />
                     Scene Video
                   </Button>
@@ -158,6 +198,8 @@ export function CanvasDetailPanel({
                 <Textarea
                   placeholder="Enter custom instructions for the AI..."
                   className="min-h-[120px]"
+                  value={aiInstructions}
+                  onChange={(e) => setAiInstructions(e.target.value)}
                 />
               </div>
             </div>

@@ -98,11 +98,12 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
         sensitiveData: sensitiveData
       };
 
+      // Prepare the browser_config for database insertion by converting to a JSON-compatible object
       const { error } = await supabase
         .from('scheduled_browser_tasks')
         .insert({
           task_input: taskInput,
-          browser_config: updatedBrowserConfig,
+          browser_config: updatedBrowserConfig as any,
           schedule_type: scheduleType,
           scheduled_time: scheduledDate.toISOString(),
           repeat_interval: scheduleType === "recurring" ? repeatInterval : null,

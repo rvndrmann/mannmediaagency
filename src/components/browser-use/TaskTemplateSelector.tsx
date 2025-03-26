@@ -64,7 +64,7 @@ export function TaskTemplateSelector({
       // Convert the JSON data to match our TaskTemplate interface
       const formattedTemplates = data?.map(template => ({
         ...template,
-        browser_config: template.browser_config as BrowserConfig | null
+        browser_config: template.browser_config as unknown as BrowserConfig | null
       })) || [];
       
       setTemplates(formattedTemplates);
@@ -98,7 +98,7 @@ export function TaskTemplateSelector({
           name: newTemplate.name,
           description: newTemplate.description || null,
           task_input: currentTaskInput,
-          browser_config: currentBrowserConfig,
+          browser_config: currentBrowserConfig as any,
           user_id: session.user.id
         })
         .select()
@@ -109,7 +109,7 @@ export function TaskTemplateSelector({
       // Convert the returned data to match our TaskTemplate interface
       const formattedTemplate = {
         ...data,
-        browser_config: data.browser_config as BrowserConfig | null
+        browser_config: data.browser_config as unknown as BrowserConfig | null
       };
       
       toast.success("Template saved successfully");

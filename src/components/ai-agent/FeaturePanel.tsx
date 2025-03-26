@@ -108,7 +108,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
               <div className="space-y-6 min-h-[calc(100vh-16rem)]">
                 <ProductShotForm
                   {...productShotV2}
-                  messages={formattedMessages}
+                  messages={formattedMessages as any}
                 />
               </div>
               <div className="space-y-6">
@@ -128,7 +128,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
             {...imageToVideo}
             prompt={imageToVideoPrompt}
             onPromptChange={setImageToVideoPrompt}
-            messages={formattedMessages}
+            messages={formattedMessages as any}
             aspectRatio={selectedAspectRatio}
             onAspectRatioChange={setSelectedAspectRatio}
             onSelectFromHistory={imageToVideo.onSelectFromHistory || ((jobId, imageUrl) => {})}
@@ -137,13 +137,13 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
 
         <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <FacelessVideoForm
-            messages={formattedMessages}
+            messages={formattedMessages as any}
             creditsRemaining={productShotV1.creditsRemaining}
           />
         </TabsContent>
 
         <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <ScriptBuilderTab messages={formattedMessages} />
+          <ScriptBuilderTab messages={formattedMessages as any} />
         </TabsContent>
       </Tabs>
     </div>

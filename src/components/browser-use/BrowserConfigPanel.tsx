@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import {
   Accordion,
@@ -275,7 +274,10 @@ export function BrowserConfigPanel({
                 </p>
               </div>
               
-              <ProxyHelper />
+              <ProxyHelper 
+                proxyUrl={config.proxy || ""}
+                onProxyUrlChange={(url) => setConfig({...config, proxy: url})}
+              />
             </div>
           </AccordionContent>
         </AccordionItem>

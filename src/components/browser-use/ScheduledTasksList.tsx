@@ -43,7 +43,7 @@ export function ScheduledTasksList() {
       // Convert the JSON data to match our ScheduledTask interface
       const formattedTasks = data?.map(task => ({
         ...task,
-        browser_config: task.browser_config as BrowserConfig | null,
+        browser_config: task.browser_config as unknown as BrowserConfig | null,
         repeat_interval: task.repeat_interval as string
       })) || [];
       

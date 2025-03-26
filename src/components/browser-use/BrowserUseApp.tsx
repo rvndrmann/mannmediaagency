@@ -21,7 +21,8 @@ import {
   AlertTriangle,
   Info,
   Globe,
-  Database
+  Database,
+  Shield
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -107,6 +108,13 @@ export function BrowserUseApp() {
             </Badge>
           )}
         </div>
+        
+        {browserConfig.proxy && (
+          <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200">
+            <Shield className="h-4 w-4 mr-1" />
+            Proxy Active
+          </Badge>
+        )}
       </div>
 
       <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab}>

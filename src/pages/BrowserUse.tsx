@@ -10,7 +10,7 @@ import { toast } from "sonner";
 import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key, Shield } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { BrowserSettings } from "@/components/browser-use/BrowserSettings";
+import { BrowserConfigPanel } from "@/components/browser-use/BrowserConfigPanel";
 import { BrowserConfig } from "@/hooks/browser-use/types";
 import { Badge } from "@/components/ui/badge";
 import { TaskInputWithPreview } from "@/components/browser-use/TaskInputWithPreview";
@@ -505,12 +505,20 @@ const BrowserUsePage = () => {
               <CardDescription>
                 Configure how the browser operates for automation tasks
               </CardDescription>
+              
+              {browserConfig.proxy && (
+                <Badge variant="outline" className="flex items-center w-fit gap-1 bg-blue-50 text-blue-700 border-blue-200 mt-2">
+                  <Shield className="h-4 w-4 mr-1" />
+                  Proxy Active: {browserConfig.proxy}
+                </Badge>
+              )}
             </CardHeader>
             <CardContent>
-              <BrowserSettings 
-                browserConfig={browserConfig} 
-                onConfigChange={setBrowserConfig}
+              <BrowserConfigPanel 
+                config={browserConfig} 
+                setConfig={setBrowserConfig}
                 isProcessing={isTaskLoading}
+                disabled={isTaskLoading}
               />
               
               {browserConfig.useOwnBrowser && (

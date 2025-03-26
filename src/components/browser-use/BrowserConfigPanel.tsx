@@ -7,7 +7,7 @@ import { BrowserConfig, DesktopApplication } from "@/hooks/browser-use/types";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
 import { Laptop, Plus, Trash2, Bookmark, Terminal, Globe, Database, FileCode, Shield } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -20,6 +20,7 @@ interface BrowserConfigPanelProps {
   config: BrowserConfig;
   setConfig: (config: BrowserConfig) => void;
   disabled?: boolean;
+  isProcessing?: boolean;
   environment?: 'browser' | 'desktop';
   setEnvironment?: (environment: 'browser' | 'desktop') => void;
 }
@@ -28,6 +29,7 @@ export function BrowserConfigPanel({
   config, 
   setConfig, 
   disabled = false,
+  isProcessing = false,
   environment,
   setEnvironment
 }: BrowserConfigPanelProps) {
@@ -39,6 +41,12 @@ export function BrowserConfigPanel({
     config.browserInstancePath ? "binary" : 
     config.chromePath ? "local" : "default"
   );
+
+  useEffect(() => {
+    if (config.proxy && activeTab !== "proxy") {
+      setActiveTab("proxy");
+    }
+  }, []);
 
   const handleToggle = (property: keyof BrowserConfig) => {
     setConfig({
@@ -616,7 +624,7 @@ export function BrowserConfigPanel({
           <ProxyHelper 
             proxyUrl={config.proxy || ''} 
             onProxyUrlChange={(url) => handleInputChange('proxy', url)}
-            isProcessing={disabled}
+            isProcessing={isProcessing}
           />
         </TabsContent>
         

@@ -1,31 +1,24 @@
 
 import React, { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { 
+  Table, 
+  TableBody, 
+  TableCell, 
+  TableHead, 
+  TableHeader, 
+  TableRow 
+} from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { toast } from "sonner";
+import { format, parseISO } from "date-fns";
 import { supabase } from "@/integrations/supabase/client";
-import { format, formatDistanceToNow } from "date-fns";
-import { CalendarDays, Clock, RotateCw, Trash2, PlayCircle, XCircle, Key, Shield } from "lucide-react";
-import { BrowserConfig } from "@/hooks/browser-use/types";
-import { ScrollArea } from "@/components/ui/scroll-area";
-
-interface ScheduledTask {
-  id: string;
-  task_input: string;
-  browser_config: BrowserConfig | null;
-  schedule_type: string;
-  scheduled_time: string;
-  repeat_interval: string | null;
-  last_run_at: string | null;
-  next_run_at: string | null;
-  status: string;
-  created_at: string;
-}
+import { toast } from "sonner";
+import { CalendarClock, RotateCcw, PlayCircle, CheckCircle, Timer, AlertCircle } from "lucide-react";
 
 export function ScheduledTasksList() {
-  const [tasks, setTasks] = useState<ScheduledTask[]>([]);
-  const [isLoading, setIsLoading] = useState(false);
+  const [tasks, setTasks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [triggeringScheduler, setTriggeringScheduler] = useState(false);
 
   useEffect(() => {
     fetchScheduledTasks();
@@ -33,195 +26,176 @@ export function ScheduledTasksList() {
 
   const fetchScheduledTasks = async () => {
     try {
-      setIsLoading(true);
+      setLoading(true);
       const { data, error } = await supabase
         .from('scheduled_browser_tasks')
         .select('*')
-        .order('scheduled_time', { ascending: true });
-      
+        .order('scheduled_time', { ascending: false });
+
       if (error) throw error;
-      // Convert the JSON data to match our ScheduledTask interface
-      const formattedTasks = data?.map(task => ({
-        ...task,
-        browser_config: task.browser_config as unknown as BrowserConfig | null,
-        repeat_interval: task.repeat_interval as string
-      })) || [];
-      
-      setTasks(formattedTasks);
+      setTasks(data || []);
     } catch (error) {
-      console.error("Error fetching scheduled tasks:", error);
-      toast.error("Failed to load scheduled tasks");
+      console.error('Error fetching scheduled tasks:', error);
+      toast.error('Failed to load scheduled tasks');
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
-  const cancelTask = async (id: string) => {
-    if (!confirm("Are you sure you want to cancel this scheduled task?")) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('scheduled_browser_tasks')
-        .update({ status: 'cancelled' })
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      setTasks(tasks.map(task => 
-        task.id === id ? { ...task, status: 'cancelled' } : task
-      ));
-      
-      toast.success("Task cancelled successfully");
-    } catch (error) {
-      console.error("Error cancelling task:", error);
-      toast.error("Failed to cancel task");
-    }
-  };
-
-  const deleteTask = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this scheduled task?")) {
-      return;
-    }
-
-    try {
-      const { error } = await supabase
-        .from('scheduled_browser_tasks')
-        .delete()
-        .eq('id', id);
-      
-      if (error) throw error;
-      
-      setTasks(tasks.filter(task => task.id !== id));
-      toast.success("Task deleted successfully");
-    } catch (error) {
-      console.error("Error deleting task:", error);
-      toast.error("Failed to delete task");
-    }
-  };
-
-  const getStatusBadge = (status: string) => {
+  const getStatusBadgeProps = (status) => {
     switch (status) {
-      case 'pending':
-        return <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200">Pending</Badge>;
       case 'active':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Active</Badge>;
+        return { variant: "outline", className: "bg-blue-50 text-blue-700 border-blue-200" };
       case 'completed':
-        return <Badge variant="outline" className="bg-green-50 text-green-700 border-green-200">Completed</Badge>;
+        return { variant: "outline", className: "bg-green-50 text-green-700 border-green-200" };
       case 'failed':
-        return <Badge variant="outline" className="bg-red-50 text-red-700 border-red-200">Failed</Badge>;
-      case 'cancelled':
-        return <Badge variant="outline" className="bg-gray-50 text-gray-700 border-gray-200">Cancelled</Badge>;
+        return { variant: "outline", className: "bg-red-50 text-red-700 border-red-200" };
+      case 'pending':
+        return { variant: "outline", className: "bg-amber-50 text-amber-700 border-amber-200" };
       default:
-        return <Badge variant="outline">{status}</Badge>;
+        return { variant: "outline" };
     }
   };
 
-  if (isLoading) {
-    return (
-      <div className="flex justify-center py-8">
-        <RotateCw className="h-8 w-8 animate-spin text-gray-500" />
-      </div>
-    );
-  }
+  const getStatusIcon = (status) => {
+    switch (status) {
+      case 'active':
+        return <PlayCircle className="h-4 w-4 mr-1" />;
+      case 'completed':
+        return <CheckCircle className="h-4 w-4 mr-1" />;
+      case 'failed':
+        return <AlertCircle className="h-4 w-4 mr-1" />;
+      case 'pending':
+        return <Timer className="h-4 w-4 mr-1" />;
+      default:
+        return null;
+    }
+  };
 
-  if (tasks.length === 0) {
+  const formatDate = (dateStr) => {
+    if (!dateStr) return 'N/A';
+    try {
+      return format(parseISO(dateStr), "MMM d, yyyy 'at' h:mm a");
+    } catch (error) {
+      console.error('Error formatting date:', error);
+      return dateStr;
+    }
+  };
+
+  const triggerScheduler = async () => {
+    try {
+      setTriggeringScheduler(true);
+      toast.info("Triggering scheduler...");
+      
+      const { data, error } = await supabase.functions.invoke(
+        'browser-tasks-scheduler-cron',
+        { method: 'POST' }
+      );
+      
+      if (error) throw error;
+      
+      toast.success("Scheduler triggered successfully");
+      // Refresh the task list after a short delay
+      setTimeout(() => {
+        fetchScheduledTasks();
+      }, 2000);
+    } catch (error) {
+      console.error('Error triggering scheduler:', error);
+      toast.error('Failed to trigger scheduler');
+    } finally {
+      setTriggeringScheduler(false);
+    }
+  };
+
+  if (loading) {
     return (
-      <div className="text-center py-8">
-        <CalendarDays className="h-12 w-12 mx-auto mb-4 opacity-30" />
-        <p className="text-gray-500">No scheduled tasks found</p>
+      <div className="flex justify-center items-center p-8">
+        <div className="animate-spin h-6 w-6 border-2 border-primary border-t-transparent rounded-full mr-2"></div>
+        <p>Loading scheduled tasks...</p>
       </div>
     );
   }
 
   return (
-    <ScrollArea className="h-[400px] pr-4">
-      <div className="space-y-4">
-        {tasks.map((task) => (
-          <Card key={task.id} className={task.status === 'cancelled' ? "opacity-60" : ""}>
-            <CardHeader className="p-4 pb-2">
-              <div className="flex justify-between items-start">
-                <div>
-                  <CardTitle className="text-base">{getStatusBadge(task.status)}</CardTitle>
-                  <p className="text-sm mt-1 line-clamp-2">{task.task_input}</p>
-                </div>
-                <div className="flex gap-1">
-                  {task.status === 'pending' && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-0"
-                      onClick={() => cancelTask(task.id)}
-                    >
-                      <XCircle className="h-4 w-4 text-red-500" />
-                      <span className="sr-only">Cancel</span>
-                    </Button>
-                  )}
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0"
-                    onClick={() => deleteTask(task.id)}
-                  >
-                    <Trash2 className="h-4 w-4 text-gray-500" />
-                    <span className="sr-only">Delete</span>
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="p-4 pt-0">
-              <div className="grid grid-cols-2 gap-2 text-sm">
-                <div className="flex items-center gap-1 text-gray-500">
-                  <CalendarDays className="h-3.5 w-3.5" />
-                  <span>
-                    {format(new Date(task.scheduled_time), 'MMM d, yyyy')}
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-gray-500">
-                  <Clock className="h-3.5 w-3.5" />
-                  <span>
-                    {format(new Date(task.scheduled_time), 'h:mm a')}
-                  </span>
-                </div>
-                {task.schedule_type === 'recurring' && (
-                  <div className="col-span-2 mt-1">
-                    <Badge variant="outline" className="bg-purple-50 text-purple-700 border-purple-200">
-                      Recurring: {task.repeat_interval?.replace(/^\d+\s/, '') || 'Custom'}
-                    </Badge>
-                  </div>
-                )}
-                
-                {/* Add sensitive data indicator */}
-                {task.browser_config?.sensitiveData && task.browser_config.sensitiveData.length > 0 && (
-                  <div className="col-span-2 mt-1">
-                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
-                      <Key className="h-3 w-3" />
-                      {task.browser_config.sensitiveData.length} Secret{task.browser_config.sensitiveData.length > 1 ? 's' : ''}
-                    </Badge>
-                  </div>
-                )}
-                
-                {/* Add proxy indicator */}
-                {task.browser_config?.proxy && (
-                  <div className="col-span-2 mt-1">
-                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
-                      <Shield className="h-3 w-3" />
-                      Using Proxy
-                    </Badge>
-                  </div>
-                )}
-                
-                {task.next_run_at && (
-                  <div className="col-span-2 mt-1 text-xs text-gray-500">
-                    Next run: {formatDistanceToNow(new Date(task.next_run_at), { addSuffix: true })}
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+    <div className="space-y-4">
+      <div className="flex justify-between items-center">
+        <h2 className="text-xl font-semibold flex items-center">
+          <CalendarClock className="h-5 w-5 mr-2" /> 
+          Scheduled Tasks
+        </h2>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={fetchScheduledTasks}
+          >
+            <RotateCcw className="h-4 w-4 mr-2" />
+            Refresh
+          </Button>
+          <Button
+            variant="default"
+            size="sm"
+            onClick={triggerScheduler}
+            disabled={triggeringScheduler}
+          >
+            {triggeringScheduler ? (
+              <>
+                <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                Running...
+              </>
+            ) : (
+              <>
+                <PlayCircle className="h-4 w-4 mr-2" />
+                Run Scheduler Now
+              </>
+            )}
+          </Button>
+        </div>
       </div>
-    </ScrollArea>
+
+      {tasks.length === 0 ? (
+        <div className="text-center p-8 border rounded-lg bg-muted/20">
+          <CalendarClock className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">No scheduled tasks found.</p>
+        </div>
+      ) : (
+        <div className="border rounded-lg overflow-hidden">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Task</TableHead>
+                <TableHead>Schedule Type</TableHead>
+                <TableHead>Next Run</TableHead>
+                <TableHead>Last Run</TableHead>
+                <TableHead>Status</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {tasks.map((task) => (
+                <TableRow key={task.id}>
+                  <TableCell className="font-medium max-w-md truncate">
+                    {task.task_input}
+                  </TableCell>
+                  <TableCell>
+                    <Badge variant="outline">
+                      {task.schedule_type === 'once' ? 'One-time' : 'Recurring'}
+                      {task.repeat_interval && ` (${task.repeat_interval})`}
+                    </Badge>
+                  </TableCell>
+                  <TableCell>{formatDate(task.next_run_at || task.scheduled_time)}</TableCell>
+                  <TableCell>{task.last_run_at ? formatDate(task.last_run_at) : 'Never'}</TableCell>
+                  <TableCell>
+                    <Badge {...getStatusBadgeProps(task.status)} className="flex items-center w-fit">
+                      {getStatusIcon(task.status)}
+                      {task.status.charAt(0).toUpperCase() + task.status.slice(1)}
+                    </Badge>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </div>
+      )}
+    </div>
   );
 }

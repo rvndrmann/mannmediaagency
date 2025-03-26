@@ -38,3 +38,7 @@ verify_jwt = true
 verify_jwt = true
 [functions.capture-website]
 verify_jwt = true
+[functions.browser-tasks-scheduler]
+verify_jwt = false
+[functions.browser-tasks-scheduler-cron]
+verify_jwt = false

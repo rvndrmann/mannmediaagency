@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -20,9 +19,20 @@ import {
   CheckCircle, 
   Timer, 
   AlertCircle,
-  Info
+  Info,
+  Trash2
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 type StatusBadgeVariant = "info" | "success" | "destructive" | "warning" | "outline";
 
@@ -36,6 +46,8 @@ export function ScheduledTasksList() {
   const [loading, setLoading] = useState(true);
   const [triggeringScheduler, setTriggeringScheduler] = useState(false);
   const [lastRunResult, setLastRunResult] = useState(null);
+  const [taskToDelete, setTaskToDelete] = useState(null);
+  const [deletingTask, setDeletingTask] = useState(false);
 
   useEffect(() => {
     fetchScheduledTasks();
@@ -146,7 +158,6 @@ export function ScheduledTasksList() {
         toast.error(`Scheduler error: ${data.message}`);
       }
       
-      // Refresh the task list after a short delay
       setTimeout(() => {
         fetchScheduledTasks();
       }, 2000);
@@ -155,6 +166,38 @@ export function ScheduledTasksList() {
       toast.error('Failed to trigger scheduler');
     } finally {
       setTriggeringScheduler(false);
+    }
+  };
+
+  const handleDeleteTask = async (taskId: string) => {
+    try {
+      setDeletingTask(true);
+      
+      const { data, error } = await supabase.functions.invoke(
+        'browser-use-api',
+        { 
+          method: 'POST',
+          body: { 
+            action: 'deleteScheduledTask',
+            taskId
+          }
+        }
+      );
+      
+      if (error) throw error;
+      
+      if (data.success) {
+        toast.success('Scheduled task deleted successfully');
+        fetchScheduledTasks(); // Refresh the list
+      } else {
+        toast.error(`Failed to delete task: ${data.error || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Error deleting scheduled task:', error);
+      toast.error('Failed to delete scheduled task');
+    } finally {
+      setDeletingTask(false);
+      setTaskToDelete(null);
     }
   };
 
@@ -237,6 +280,7 @@ export function ScheduledTasksList() {
                 <TableHead>Next Run</TableHead>
                 <TableHead>Last Run</TableHead>
                 <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -264,12 +308,55 @@ export function ScheduledTasksList() {
                       </div>
                     </Badge>
                   </TableCell>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => setTaskToDelete(task)}
+                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </TableCell>
                 </TableRow>
               ))}
             </TableBody>
           </Table>
         </div>
       )}
+
+      <AlertDialog open={taskToDelete !== null} onOpenChange={(open) => !open && setTaskToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Scheduled Task</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete this scheduled task? This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={deletingTask}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                if (taskToDelete) {
+                  handleDeleteTask(taskToDelete.id);
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+              disabled={deletingTask}
+            >
+              {deletingTask ? (
+                <>
+                  <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full mr-2"></div>
+                  Deleting...
+                </>
+              ) : (
+                "Delete"
+              )}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

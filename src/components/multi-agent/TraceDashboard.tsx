@@ -56,7 +56,7 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
         
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
-        } else if (analyticsData) {
+        } else if (analyticsData && Array.isArray(analyticsData)) {
           // Process the raw data into analytics format
           const processedData: AnalyticsData = {
             agent_usage: {},
@@ -75,34 +75,42 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
           let conversationsWithDuration = 0;
           
           analyticsData.forEach(item => {
+            // Check if item has the expected structure
+            if (!item || typeof item !== 'object') return;
+            
             // Count agent usage
-            processedData.agent_usage[item.agent_type] = 
-              (processedData.agent_usage[item.agent_type] || 0) + 1;
+            if (item.agent_type) {
+              processedData.agent_usage[item.agent_type] = 
+                (processedData.agent_usage[item.agent_type] || 0) + 1;
+            }
             
             // Extract conversation ID and add to unique set
-            const runId = item.metadata?.trace?.runId;
-            if (runId) {
-              uniqueConversations.add(runId);
-            }
-            
-            // Extract model usage
-            const model = item.metadata?.trace?.summary?.modelUsed;
-            if (model) {
-              processedData.model_usage[model] = 
-                (processedData.model_usage[model] || 0) + 1;
-            }
-            
-            // Count handoffs and tool calls
-            const handoffs = item.metadata?.trace?.summary?.handoffs || 0;
-            const toolCalls = item.metadata?.trace?.summary?.toolCalls || 0;
-            processedData.total_handoffs += handoffs;
-            processedData.total_tool_calls += toolCalls;
-            
-            // Add duration if available
-            const duration = item.metadata?.trace?.duration;
-            if (duration) {
-              totalDuration += duration;
-              conversationsWithDuration++;
+            const metadata = item.metadata;
+            if (metadata && typeof metadata === 'object' && metadata.trace && typeof metadata.trace === 'object') {
+              const runId = metadata.trace.runId;
+              if (runId) {
+                uniqueConversations.add(runId);
+              }
+              
+              // Extract model usage
+              const model = metadata.trace.summary?.modelUsed;
+              if (model) {
+                processedData.model_usage[model] = 
+                  (processedData.model_usage[model] || 0) + 1;
+              }
+              
+              // Count handoffs and tool calls
+              const handoffs = metadata.trace.summary?.handoffs || 0;
+              const toolCalls = metadata.trace.summary?.toolCalls || 0;
+              processedData.total_handoffs += handoffs;
+              processedData.total_tool_calls += toolCalls;
+              
+              // Add duration if available
+              const duration = metadata.trace.duration;
+              if (duration) {
+                totalDuration += duration;
+                conversationsWithDuration++;
+              }
             }
           });
           
@@ -126,27 +134,33 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
         
         if (conversationsError) {
           console.error("Error fetching conversations:", conversationsError);
-        } else if (conversationsData) {
+        } else if (conversationsData && Array.isArray(conversationsData)) {
           // Process the raw data into conversations format
           const processedConversations: Record<string, ConversationData> = {};
           
           conversationsData.forEach(item => {
-            const runId = item.metadata?.trace?.runId;
-            if (!runId) return;
+            // Check if item has the expected structure
+            if (!item || typeof item !== 'object') return;
             
-            const startTime = item.metadata?.trace?.startTime;
-            const endTime = item.metadata?.trace?.endTime;
-            const agents = item.metadata?.trace?.summary?.agents || [];
-            const messageCount = item.metadata?.trace?.summary?.messageCount || 0;
-            
-            if (!processedConversations[runId]) {
-              processedConversations[runId] = {
-                conversation_id: runId,
-                start_time: startTime || new Date().toISOString(),
-                end_time: endTime || new Date().toISOString(),
-                message_count: messageCount,
-                agent_types: agents
-              };
+            const metadata = item.metadata;
+            if (metadata && typeof metadata === 'object' && metadata.trace && typeof metadata.trace === 'object') {
+              const runId = metadata.trace.runId;
+              if (!runId) return;
+              
+              const startTime = metadata.trace.startTime;
+              const endTime = metadata.trace.endTime;
+              const agents = metadata.trace.summary?.agents || [];
+              const messageCount = metadata.trace.summary?.messageCount || 0;
+              
+              if (!processedConversations[runId]) {
+                processedConversations[runId] = {
+                  conversation_id: runId,
+                  start_time: startTime || new Date().toISOString(),
+                  end_time: endTime || new Date().toISOString(),
+                  message_count: messageCount,
+                  agent_types: agents
+                };
+              }
             }
           });
           
@@ -184,17 +198,22 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
       
       if (error) {
         console.error("Error fetching conversation details:", error);
-      } else if (data) {
+      } else if (data && Array.isArray(data)) {
         // Format the trace data for the viewer
         const traceData = {
           id: conversationId,
-          events: data.map(item => ({
-            timestamp: item.created_at,
-            agent: item.agent_type,
-            user_message: item.user_message,
-            assistant_response: item.assistant_response,
-            metadata: item.metadata
-          }))
+          events: data.map(item => {
+            // Ensure item has required properties
+            if (!item || typeof item !== 'object') return null;
+            
+            return {
+              timestamp: item.created_at,
+              agent: item.agent_type,
+              user_message: item.user_message,
+              assistant_response: item.assistant_response,
+              metadata: item.metadata
+            };
+          }).filter(Boolean) // Remove any null items
         };
         
         setTraceDetails(traceData);

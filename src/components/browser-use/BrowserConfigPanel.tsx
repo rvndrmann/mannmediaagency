@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
@@ -16,9 +15,17 @@ interface BrowserConfigPanelProps {
   config: BrowserConfig;
   setConfig: (config: BrowserConfig) => void;
   disabled?: boolean;
+  environment?: 'browser' | 'desktop';
+  setEnvironment?: (environment: 'browser' | 'desktop') => void;
 }
 
-export function BrowserConfigPanel({ config, setConfig, disabled = false }: BrowserConfigPanelProps) {
+export function BrowserConfigPanel({ 
+  config, 
+  setConfig, 
+  disabled = false,
+  environment,
+  setEnvironment
+}: BrowserConfigPanelProps) {
   const [activeTab, setActiveTab] = useState<string>("general");
   const [newApp, setNewApp] = useState<DesktopApplication>({ name: "", path: "" });
 

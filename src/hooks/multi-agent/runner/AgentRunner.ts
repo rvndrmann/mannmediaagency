@@ -7,6 +7,7 @@ import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceMan
 import { parseToolCommand } from "../tool-parser";
 import { toolExecutor } from "../tool-executor";
 import { getToolsForLLM } from "../tools";
+import { toast } from "sonner"; // Added toast import
 
 const DEFAULT_MAX_TURNS = 10;
 const CHAT_CREDIT_COST = 0.07;

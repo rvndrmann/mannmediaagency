@@ -7,7 +7,8 @@ export function useTaskOperations(state: BrowserTaskState, stateSetters: StateSe
   const {
     taskInput,
     currentTaskId,
-    browserConfig
+    browserConfig,
+    environment
   } = state;
 
   const {
@@ -20,7 +21,9 @@ export function useTaskOperations(state: BrowserTaskState, stateSetters: StateSe
   } = stateSetters;
 
   // Start a new task
-  const startTask = useCallback(async (environment: "browser" | "desktop" = "browser") => {
+  const startTask = useCallback(async (taskEnvironment?: 'browser' | 'desktop') => {
+    const selectedEnvironment = taskEnvironment || environment;
+    
     if (!taskInput.trim()) {
       toast.error("Please enter a task description");
       return;
@@ -32,23 +35,41 @@ export function useTaskOperations(state: BrowserTaskState, stateSetters: StateSe
       setError(null);
       
       // Validate if desktop mode is selected but own browser isn't enabled
-      if (environment === "desktop" && !browserConfig.useOwnBrowser) {
+      if (selectedEnvironment === "desktop" && !browserConfig.useOwnBrowser) {
         setError("Desktop mode requires using your own browser.");
+        toast.error("Desktop mode requires using your own browser. Please enable it in the Settings tab.");
         setIsProcessing(false);
         return;
       }
+      
+      // If desktop mode, make additional validations
+      if (selectedEnvironment === "desktop") {
+        if (!browserConfig.chromePath) {
+          setError("Chrome executable path is required for desktop automation.");
+          toast.error("Chrome executable path is required for desktop automation.");
+          setIsProcessing(false);
+          return;
+        }
+        
+        // Ensure not in headless mode for desktop automation
+        if (browserConfig.headless) {
+          toast.warning("Desktop automation works best with headless mode disabled");
+        }
+      }
+
+      console.log(`Starting task in ${selectedEnvironment} environment`);
 
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: { 
           task: taskInput,
-          environment: environment,
+          environment: selectedEnvironment,
           browser_config: browserConfig
         }
       });
 
       if (error) throw new Error(error.message);
       
-      toast.success("Task started successfully");
+      toast.success(`${selectedEnvironment.charAt(0).toUpperCase() + selectedEnvironment.slice(1)} task started successfully`);
       setCurrentTaskId(data.taskId);
       setTaskStatus('created');
       setProgress(10);
@@ -60,7 +81,7 @@ export function useTaskOperations(state: BrowserTaskState, stateSetters: StateSe
       setError(error instanceof Error ? error.message : "Failed to start task");
       setIsProcessing(false);
     }
-  }, [taskInput, browserConfig, setCurrentTaskId, setIsProcessing, setTaskStatus, setError, setProgress, setLiveUrl]);
+  }, [taskInput, browserConfig, environment, setCurrentTaskId, setIsProcessing, setTaskStatus, setError, setProgress, setLiveUrl]);
 
   // Pause the current task
   const pauseTask = useCallback(async () => {

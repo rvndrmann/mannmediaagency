@@ -439,6 +439,7 @@ export type Database = {
           created_at: string | null
           description: string
           details: string | null
+          environment: string
           id: string
           screenshot: string | null
           status: string
@@ -448,6 +449,7 @@ export type Database = {
           created_at?: string | null
           description: string
           details?: string | null
+          environment?: string
           id?: string
           screenshot?: string | null
           status?: string
@@ -457,6 +459,7 @@ export type Database = {
           created_at?: string | null
           description?: string
           details?: string | null
+          environment?: string
           id?: string
           screenshot?: string | null
           status?: string
@@ -474,11 +477,13 @@ export type Database = {
       }
       browser_automation_tasks: {
         Row: {
+          applications_config: Json | null
           browser_data: Json | null
           browser_task_id: string | null
           completed_at: string | null
           created_at: string | null
           current_url: string | null
+          environment: string
           id: string
           input: string
           live_url: string | null
@@ -489,11 +494,13 @@ export type Database = {
           user_id: string
         }
         Insert: {
+          applications_config?: Json | null
           browser_data?: Json | null
           browser_task_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           current_url?: string | null
+          environment?: string
           id?: string
           input: string
           live_url?: string | null
@@ -504,11 +511,13 @@ export type Database = {
           user_id: string
         }
         Update: {
+          applications_config?: Json | null
           browser_data?: Json | null
           browser_task_id?: string | null
           completed_at?: string | null
           created_at?: string | null
           current_url?: string | null
+          environment?: string
           id?: string
           input?: string
           live_url?: string | null
@@ -526,6 +535,7 @@ export type Database = {
           browser_task_id: string | null
           completed_at: string | null
           created_at: string
+          environment: string
           id: string
           output: string | null
           result_url: string | null
@@ -539,6 +549,7 @@ export type Database = {
           browser_task_id?: string | null
           completed_at?: string | null
           created_at?: string
+          environment?: string
           id?: string
           output?: string | null
           result_url?: string | null
@@ -552,6 +563,7 @@ export type Database = {
           browser_task_id?: string | null
           completed_at?: string | null
           created_at?: string
+          environment?: string
           id?: string
           output?: string | null
           result_url?: string | null

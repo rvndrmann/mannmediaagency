@@ -30,7 +30,6 @@ import { Label } from "@/components/ui/label";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
-  const [environmentType, setEnvironmentType] = useState<"browser" | "desktop">("browser");
   
   const {
     taskInput,
@@ -53,18 +52,26 @@ export function BrowserUseApp() {
     setBrowserConfig,
     liveUrl,
     connectionStatus,
-    taskOutput
+    taskOutput,
+    environment,
+    setEnvironment
   } = useBrowserUseTask();
 
   const handleStartTask = () => {
     // Use the selected environment type when starting a task
-    if (environmentType === "desktop" && !browserConfig.useOwnBrowser) {
+    if (environment === "desktop" && !browserConfig.useOwnBrowser) {
       toast.warning("Desktop mode requires using your own browser. Please enable it in Settings tab.");
       setActiveTab("settings");
       return;
     }
     
-    startTask(environmentType);
+    if (environment === "desktop" && !browserConfig.chromePath) {
+      toast.warning("Desktop mode requires a Chrome executable path. Please set it in Settings tab.");
+      setActiveTab("settings");
+      return;
+    }
+    
+    startTask(environment);
   };
 
   return (
@@ -104,18 +111,18 @@ export function BrowserUseApp() {
                 <Label className="font-medium">Environment:</Label>
                 <div className="flex gap-2">
                   <Button 
-                    variant={environmentType === "browser" ? "default" : "outline"} 
+                    variant={environment === "browser" ? "default" : "outline"} 
                     size="sm"
-                    onClick={() => setEnvironmentType("browser")}
+                    onClick={() => setEnvironment("browser")}
                     className="flex items-center gap-2"
                   >
                     <Monitor className="h-4 w-4" />
                     Browser
                   </Button>
                   <Button 
-                    variant={environmentType === "desktop" ? "default" : "outline"} 
+                    variant={environment === "desktop" ? "default" : "outline"} 
                     size="sm"
-                    onClick={() => setEnvironmentType("desktop")}
+                    onClick={() => setEnvironment("desktop")}
                     className="flex items-center gap-2"
                   >
                     <Laptop className="h-4 w-4" />
@@ -134,16 +141,27 @@ export function BrowserUseApp() {
                     value={taskInput}
                     onChange={(e) => setTaskInput(e.target.value)}
                     className="flex-1 min-h-[120px] p-2 border rounded-md"
-                    placeholder="Describe what you want the browser to do..."
+                    placeholder={environment === "browser" 
+                      ? "Describe what you want the browser to do..." 
+                      : "Describe what you want to automate on your desktop..."}
                     disabled={isProcessing}
                   />
                 </div>
                 
-                {environmentType === "desktop" && !browserConfig.useOwnBrowser && (
+                {environment === "desktop" && !browserConfig.useOwnBrowser && (
                   <Alert variant="destructive" className="mt-3">
                     <AlertTriangle className="h-4 w-4 mr-2" />
                     <AlertDescription>
                       Desktop mode requires using your own browser. Please enable it in the Settings tab.
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {environment === "desktop" && !browserConfig.chromePath && (
+                  <Alert variant="destructive" className="mt-3">
+                    <AlertTriangle className="h-4 w-4 mr-2" />
+                    <AlertDescription>
+                      Desktop mode requires the Chrome executable path. Please set it in the Settings tab.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -156,7 +174,7 @@ export function BrowserUseApp() {
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
-                  Start Task (1 Credit)
+                  Start {environment === "browser" ? "Browser" : "Desktop"} Task (1 Credit)
                 </Button>
 
                 {taskStatus === 'running' && (
@@ -218,6 +236,7 @@ export function BrowserUseApp() {
               screenshot={screenshot}
               captureScreenshot={captureScreenshot}
               connectionStatus={connectionStatus}
+              environment={environment}
             />
 
             <TaskMonitor
@@ -226,6 +245,7 @@ export function BrowserUseApp() {
               error={error}
               isProcessing={isProcessing}
               taskOutput={taskOutput}
+              environment={environment}
             />
           </div>
         </TabsContent>
@@ -239,6 +259,8 @@ export function BrowserUseApp() {
             config={browserConfig}
             setConfig={setBrowserConfig}
             disabled={isProcessing}
+            environment={environment}
+            setEnvironment={setEnvironment}
           />
         </TabsContent>
       </Tabs>

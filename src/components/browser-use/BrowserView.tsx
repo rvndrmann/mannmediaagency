@@ -1,17 +1,17 @@
 
 import { Button } from "@/components/ui/button";
-import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Loader2, RefreshCw, Camera, Globe, AlertCircle } from "lucide-react";
-import { BrowserTaskState } from "@/hooks/browser-use/types";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Skeleton } from "@/components/ui/skeleton";
+import { RefreshCw, ExternalLink, Monitor, Laptop } from "lucide-react";
 
 interface BrowserViewProps {
   liveUrl: string | null;
   currentUrl: string | null;
-  setCurrentUrl: (url: string | null) => void;
+  setCurrentUrl: (url: string) => void;
   screenshot: string | null;
-  captureScreenshot: () => Promise<string | null>;
-  connectionStatus: BrowserTaskState["connectionStatus"];
+  captureScreenshot: () => void;
+  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  environment: 'browser' | 'desktop';
 }
 
 export function BrowserView({
@@ -20,122 +20,102 @@ export function BrowserView({
   setCurrentUrl,
   screenshot,
   captureScreenshot,
-  connectionStatus
+  connectionStatus,
+  environment
 }: BrowserViewProps) {
-  const isConnected = connectionStatus === "connected";
-  const isConnecting = connectionStatus === "connecting";
-  const isError = connectionStatus === "error";
-
-  const handleCaptureScreenshot = async () => {
-    await captureScreenshot();
-  };
-
-  const getStatusMessage = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "Connected to browser";
-      case "connecting":
-        return "Connecting to browser...";
-      case "error":
-        return "Connection error";
-      default:
-        return "Not connected";
-    }
-  };
-
-  const getStatusColor = () => {
-    switch (connectionStatus) {
-      case "connected":
-        return "text-green-500";
-      case "connecting":
-        return "text-amber-500";
-      case "error":
-        return "text-red-500";
-      default:
-        return "text-gray-500";
-    }
-  };
-
   return (
-    <Card className="flex flex-col h-full">
-      <div className="p-4 border-b flex flex-col gap-2">
-        <div className="flex items-center justify-between">
-          <h3 className="font-medium">Browser View</h3>
-          <div className={`flex items-center gap-2 text-sm ${getStatusColor()}`}>
-            <span className={`h-2 w-2 rounded-full ${connectionStatus === "connected" ? "bg-green-500" : connectionStatus === "connecting" ? "bg-amber-500" : connectionStatus === "error" ? "bg-red-500" : "bg-gray-500"}`}></span>
-            {getStatusMessage()}
-          </div>
-        </div>
-        
-        <div className="flex items-center gap-2">
-          <Globe className="h-4 w-4 text-muted-foreground" />
-          <Input
-            value={currentUrl || ""}
-            onChange={(e) => setCurrentUrl(e.target.value)}
-            placeholder="Current URL"
-            readOnly
-            className="flex-1"
-          />
-        </div>
-        
-        <div className="flex gap-2">
-          <Button
-            onClick={handleCaptureScreenshot}
-            disabled={!isConnected}
-            size="sm"
-            variant="outline"
-            className="flex items-center gap-2"
-          >
-            <Camera className="h-4 w-4" />
-            <span>Capture Screenshot</span>
-          </Button>
-        </div>
-      </div>
-
-      <div className="flex-1 p-4 min-h-[300px] relative">
-        {isConnecting && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-            <div className="flex flex-col items-center">
-              <Loader2 className="h-8 w-8 animate-spin text-primary mb-2" />
-              <span className="text-sm">Connecting to browser...</span>
-            </div>
-          </div>
-        )}
-
-        {isError && !liveUrl && !screenshot && (
-          <div className="absolute inset-0 flex items-center justify-center bg-background/50 z-10">
-            <div className="flex flex-col items-center text-center max-w-md">
-              <AlertCircle className="h-8 w-8 text-destructive mb-2" />
-              <span className="text-sm font-medium">Connection error</span>
-              <p className="text-sm text-muted-foreground mt-1">
-                Could not connect to the browser. The task may have expired or encountered an error.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="h-full flex items-center justify-center">
-          {liveUrl ? (
-            <iframe
-              src={liveUrl}
-              className="w-full h-full border rounded"
-              title="Browser View"
-            ></iframe>
-          ) : screenshot ? (
-            <img
-              src={screenshot}
-              alt="Browser Screenshot"
-              className="max-w-full max-h-full object-contain"
-            />
+    <Card>
+      <CardHeader className="flex flex-row items-center justify-between py-3">
+        <CardTitle className="text-base font-medium flex items-center">
+          {environment === 'browser' ? (
+            <><Monitor className="mr-2 h-4 w-4" /> Browser View</>
           ) : (
-            <div className="text-center text-muted-foreground">
-              <Globe className="h-16 w-16 mx-auto mb-4 text-muted-foreground/30" />
-              <p>No browser view available</p>
-              <p className="text-sm mt-1">Start a task to see the browser view</p>
+            <><Laptop className="mr-2 h-4 w-4" /> Desktop View</>
+          )}
+        </CardTitle>
+        <div className="flex items-center gap-1">
+          <div className={`h-2 w-2 rounded-full ${
+            connectionStatus === 'connected' ? 'bg-green-500' :
+            connectionStatus === 'connecting' ? 'bg-yellow-500' :
+            connectionStatus === 'error' ? 'bg-red-500' : 'bg-gray-400'
+          }`} />
+          <span className="text-xs text-muted-foreground">
+            {connectionStatus.charAt(0).toUpperCase() + connectionStatus.slice(1)}
+          </span>
+        </div>
+      </CardHeader>
+      <CardContent className="p-0 overflow-hidden">
+        <div className="browser-view-container relative w-full bg-gray-100 min-h-[300px]">
+          {liveUrl ? (
+            <div className="relative w-full h-full">
+              <iframe 
+                src={liveUrl} 
+                className="w-full min-h-[300px] border-0"
+                title={`${environment === 'browser' ? 'Browser' : 'Desktop'} Automation`}
+              />
+              <div className="absolute top-2 right-2 z-10">
+                <Button 
+                  variant="outline" 
+                  size="sm"
+                  className="bg-white opacity-80 hover:opacity-100"
+                  onClick={() => window.open(liveUrl, '_blank')}
+                >
+                  <ExternalLink className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Open</span>
+                </Button>
+              </div>
+            </div>
+          ) : connectionStatus === 'connecting' ? (
+            <div className="flex flex-col items-center justify-center h-full p-6">
+              <Skeleton className="h-[200px] w-full" />
+              <div className="mt-4 text-center">
+                <p className="text-sm text-muted-foreground animate-pulse">
+                  Connecting to {environment === 'browser' ? 'browser' : 'desktop'} session...
+                </p>
+              </div>
+            </div>
+          ) : screenshot ? (
+            <div className="relative">
+              <img 
+                src={screenshot} 
+                alt="Screenshot" 
+                className="w-full object-contain"
+              />
+              <div className="absolute top-2 right-2">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  onClick={captureScreenshot}
+                  className="bg-white opacity-80 hover:opacity-100"
+                >
+                  <RefreshCw className="h-3 w-3 mr-1" />
+                  <span className="text-xs">Refresh</span>
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center h-[300px] p-6">
+              <div className="text-center opacity-70">
+                {environment === 'browser' ? (
+                  <Monitor className="mx-auto h-16 w-16 mb-4 text-gray-400" />
+                ) : (
+                  <Laptop className="mx-auto h-16 w-16 mb-4 text-gray-400" />
+                )}
+                <p className="text-sm text-muted-foreground">
+                  {environment === 'browser' 
+                    ? 'Browser automation view will appear here when a task is running'
+                    : 'Desktop automation view will appear here when a task is running'}
+                </p>
+                {connectionStatus === 'error' && (
+                  <p className="mt-2 text-sm text-red-500">
+                    Connection error. Please restart the task.
+                  </p>
+                )}
+              </div>
             </div>
           )}
         </div>
-      </div>
+      </CardContent>
     </Card>
   );
 }

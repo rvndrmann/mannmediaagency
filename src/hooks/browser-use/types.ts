@@ -1,3 +1,4 @@
+
 export type TaskStatus = 'idle' | 'pending' | 'created' | 'running' | 'paused' | 'completed' | 'stopped' | 'failed' | 'expired';
 
 export interface TaskStep {
@@ -14,6 +15,34 @@ export interface UserCredits {
   credits_remaining: number;
   created_at: string;
   updated_at: string;
+}
+
+export interface DesktopApplication {
+  name: string;
+  path: string;
+  description?: string;
+  icon?: string;
+  arguments?: string[];
+  isDefault?: boolean;
+}
+
+export interface DesktopShortcut {
+  name: string;
+  description: string;
+  commands: string[];
+  isEnabled: boolean;
+}
+
+export interface DesktopConfig {
+  applications: DesktopApplication[];
+  shortcuts: DesktopShortcut[];
+  defaultTerminal?: string;
+  defaultBrowser?: string;
+  automationLevel: "basic" | "advanced" | "full";
+  sessionTimeout: number; // in minutes
+  streamDesktop: boolean;
+  allowFileSystem: boolean;
+  allowNetworkAccess: boolean;
 }
 
 export interface BrowserConfig {
@@ -35,6 +64,12 @@ export interface BrowserConfig {
   cdpUrl?: string;
   extraChromiumArgs?: string[];
   proxy?: string;
+  
+  // Desktop automation settings
+  desktopApps?: DesktopApplication[];
+  taskTemplates?: string[];
+  desktopTimeout?: number;
+  streamDesktop?: boolean;
   
   // Context configuration
   contextConfig?: {
@@ -72,6 +107,7 @@ export interface BrowserTaskState {
   browserConfig: BrowserConfig;
   liveUrl: string | null;
   connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
+  environment: 'browser' | 'desktop';
 }
 
 export interface BrowserTaskHistory {
@@ -86,6 +122,7 @@ export interface BrowserTaskHistory {
   browser_data: any;
   created_at: string;
   completed_at: string | null;
+  environment: string;
 }
 
 export interface CaptureWebsiteResponse {
@@ -109,32 +146,5 @@ export interface StateSetters {
   setBrowserConfig: (value: BrowserConfig) => void;
   setLiveUrl: (value: string | null) => void;
   setConnectionStatus: (value: "disconnected" | "connecting" | "connected" | "error") => void;
-}
-
-export interface DesktopApplication {
-  name: string;
-  path: string;
-  description?: string;
-  icon?: string;
-  arguments?: string[];
-  isDefault?: boolean;
-}
-
-export interface DesktopShortcut {
-  name: string;
-  description: string;
-  commands: string[];
-  isEnabled: boolean;
-}
-
-export interface DesktopConfig {
-  applications: DesktopApplication[];
-  shortcuts: DesktopShortcut[];
-  defaultTerminal?: string;
-  defaultBrowser?: string;
-  automationLevel: "basic" | "advanced" | "full";
-  sessionTimeout: number; // in minutes
-  streamDesktop: boolean;
-  allowFileSystem: boolean;
-  allowNetworkAccess: boolean;
+  setEnvironment: (value: 'browser' | 'desktop') => void;
 }

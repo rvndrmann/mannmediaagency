@@ -113,6 +113,7 @@ export function useBrowserUseTask() {
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(DEFAULT_BROWSER_CONFIG);
   const [liveUrl, setLiveUrl] = useState<string | null>(null);
   const [connectionStatus, setConnectionStatus] = useState<BrowserTaskState["connectionStatus"]>("disconnected");
+  const [environment, setEnvironment] = useState<'browser' | 'desktop'>('browser');
 
   // Try to load saved browser config from localStorage
   useEffect(() => {
@@ -181,7 +182,8 @@ export function useBrowserUseTask() {
     error,
     browserConfig,
     liveUrl,
-    connectionStatus
+    connectionStatus,
+    environment
   };
 
   const stateSetters = {
@@ -197,7 +199,8 @@ export function useBrowserUseTask() {
     setError,
     setBrowserConfig: updateBrowserConfig,
     setLiveUrl,
-    setConnectionStatus
+    setConnectionStatus,
+    setEnvironment
   };
 
   // Use the refactored hooks
@@ -255,6 +258,8 @@ export function useBrowserUseTask() {
     browserConfig,
     setBrowserConfig: updateBrowserConfig,
     liveUrl,
-    connectionStatus
+    connectionStatus,
+    environment,
+    setEnvironment
   };
 }

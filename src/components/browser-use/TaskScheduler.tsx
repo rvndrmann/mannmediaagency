@@ -6,7 +6,8 @@ import {
   DialogHeader, 
   DialogTitle, 
   DialogTrigger,
-  DialogFooter
+  DialogFooter,
+  DialogDescription
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -22,8 +23,11 @@ import {
 import { format, addDays, addWeeks, addMonths, setHours, setMinutes } from "date-fns";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { BrowserConfig } from "@/hooks/browser-use/types";
-import { CalendarDays, Clock } from "lucide-react";
+import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
+import { CalendarDays, Clock, Key } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { SensitiveDataManager } from "./SensitiveDataManager";
+import { Separator } from "@/components/ui/separator";
 
 interface TaskSchedulerProps {
   taskInput: string;
@@ -37,6 +41,9 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
   const [scheduleType, setScheduleType] = useState<string>("once");
   const [repeatInterval, setRepeatInterval] = useState<string>("1 day");
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [sensitiveData, setSensitiveData] = useState<SensitiveDataItem[]>(
+    browserConfig.sensitiveData || []
+  );
 
   const handleScheduleTask = async () => {
     if (!taskInput.trim()) {
@@ -78,11 +85,17 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
         }
       }
 
+      // Update browser config with sensitive data if changed
+      const updatedBrowserConfig = {
+        ...browserConfig,
+        sensitiveData: sensitiveData
+      };
+
       const { error } = await supabase
         .from('scheduled_browser_tasks')
         .insert({
           task_input: taskInput,
-          browser_config: browserConfig as any,
+          browser_config: updatedBrowserConfig as any,
           schedule_type: scheduleType,
           scheduled_time: scheduledDate.toISOString(),
           repeat_interval: scheduleType === "recurring" ? repeatInterval : null,
@@ -110,9 +123,12 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
           Schedule Task
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="sm:max-w-[600px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Schedule Browser Task</DialogTitle>
+          <DialogDescription>
+            Set up a time to automatically run this browser task
+          </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
           <div className="grid gap-2">
@@ -173,6 +189,32 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
               value={time}
               onChange={(e) => setTime(e.target.value)}
               placeholder="HH:MM"
+            />
+          </div>
+
+          <Separator className="my-2" />
+
+          {/* Sensitive Data Configuration */}
+          <div className="grid gap-2">
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2 text-base">
+                <Key className="h-4 w-4" />
+                Sensitive Data
+              </Label>
+              {sensitiveData.length > 0 && (
+                <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200">
+                  {sensitiveData.length} secret{sensitiveData.length > 1 ? 's' : ''}
+                </Badge>
+              )}
+            </div>
+            <p className="text-sm text-muted-foreground mb-4">
+              Configure any passwords or secrets needed for this scheduled task
+            </p>
+            
+            <SensitiveDataManager
+              sensitiveData={sensitiveData}
+              onChange={setSensitiveData}
+              disabled={isSubmitting}
             />
           </div>
         </div>

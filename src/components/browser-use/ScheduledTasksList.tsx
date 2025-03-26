@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { format, formatDistanceToNow } from "date-fns";
-import { CalendarDays, Clock, RotateCw, Trash2, PlayCircle, XCircle } from "lucide-react";
+import { CalendarDays, Clock, RotateCw, Trash2, PlayCircle, XCircle, Key, Shield } from "lucide-react";
 import { BrowserConfig } from "@/hooks/browser-use/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
@@ -191,6 +191,27 @@ export function ScheduledTasksList() {
                     </Badge>
                   </div>
                 )}
+                
+                {/* Add sensitive data indicator */}
+                {task.browser_config?.sensitiveData && task.browser_config.sensitiveData.length > 0 && (
+                  <div className="col-span-2 mt-1">
+                    <Badge variant="outline" className="bg-amber-50 text-amber-700 border-amber-200 flex items-center gap-1">
+                      <Key className="h-3 w-3" />
+                      {task.browser_config.sensitiveData.length} Secret{task.browser_config.sensitiveData.length > 1 ? 's' : ''}
+                    </Badge>
+                  </div>
+                )}
+                
+                {/* Add proxy indicator */}
+                {task.browser_config?.proxy && (
+                  <div className="col-span-2 mt-1">
+                    <Badge variant="outline" className="bg-blue-50 text-blue-700 border-blue-200 flex items-center gap-1">
+                      <Shield className="h-3 w-3" />
+                      Using Proxy
+                    </Badge>
+                  </div>
+                )}
+                
                 {task.next_run_at && (
                   <div className="col-span-2 mt-1 text-xs text-gray-500">
                     Next run: {formatDistanceToNow(new Date(task.next_run_at), { addSuffix: true })}

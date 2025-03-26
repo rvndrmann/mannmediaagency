@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -71,6 +70,7 @@ export function TaskTemplateSelector({
       })) || [];
       
       setTemplates(formattedTemplates);
+      console.log("Fetched templates:", formattedTemplates);
     } catch (error) {
       console.error("Error fetching templates:", error);
       toast.error("Failed to load task templates");
@@ -162,54 +162,6 @@ export function TaskTemplateSelector({
     toast.success(`Template "${template.name}" loaded`);
   };
 
-  // Render a grid of templates directly in the component
-  const renderTemplateGrid = () => {
-    if (templates.length === 0) {
-      return (
-        <div className="text-center py-6 text-gray-500">
-          <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>No templates saved yet</p>
-          <p className="text-sm">Save your current task configuration as a template for future use</p>
-        </div>
-      );
-    }
-
-    return (
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
-        {templates.map((template) => (
-          <Card 
-            key={template.id} 
-            className="cursor-pointer hover:border-primary transition-colors"
-            onClick={() => handleTemplateSelection(template)}
-          >
-            <CardContent className="p-3">
-              <div className="flex justify-between items-start">
-                <div>
-                  <h4 className="font-medium">{template.name}</h4>
-                  {template.description && (
-                    <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
-                  )}
-                  <p className="text-xs text-gray-400 mt-2 line-clamp-2">{template.task_input}</p>
-                </div>
-                <div className="flex gap-1">
-                  <Button 
-                    variant="ghost" 
-                    size="sm" 
-                    className="h-8 w-8 p-0 rounded-full"
-                    onClick={(e) => deleteTemplate(template.id, e)}
-                  >
-                    <Trash2 className="h-4 w-4 text-red-500" />
-                    <span className="sr-only">Delete</span>
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-    );
-  };
-
   // For compact mode (used in Create Task tab)
   if (displayMode === "compact") {
     return (
@@ -229,8 +181,8 @@ export function TaskTemplateSelector({
             </div>
           </div>
         ) : (
-          <>
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+          <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
               {templates.map((template) => (
                 <Card 
                   key={template.id} 
@@ -273,7 +225,7 @@ export function TaskTemplateSelector({
                 Save Current as Template
               </Button>
             </div>
-          </>
+          </div>
         )}
 
         {/* Save Template Dialog */}

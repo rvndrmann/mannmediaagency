@@ -40,6 +40,7 @@ import {
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
+  const [showTemplatesPanel, setShowTemplatesPanel] = useState(true); // Add state to control template visibility
   
   const {
     taskInput,
@@ -203,13 +204,31 @@ export function BrowserUseApp() {
                 )}
               </div>
 
-              {/* Template Selector Component */}
-              <TaskTemplateSelector
-                onSelectTemplate={handleTemplateSelection}
-                currentTaskInput={taskInput}
-                currentBrowserConfig={browserConfig}
-                displayMode="compact"
-              />
+              {/* Template Selector Component - Make sure it's visible */}
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border mb-4">
+                <div className="flex justify-between items-center mb-3">
+                  <h3 className="text-lg font-medium flex items-center gap-2">
+                    <Bot className="h-5 w-5 text-primary" />
+                    Task Templates
+                  </h3>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowTemplatesPanel(!showTemplatesPanel)}
+                  >
+                    {showTemplatesPanel ? "Hide Templates" : "Show Templates"}
+                  </Button>
+                </div>
+                
+                {showTemplatesPanel && (
+                  <TaskTemplateSelector
+                    onSelectTemplate={handleTemplateSelection}
+                    currentTaskInput={taskInput}
+                    currentBrowserConfig={browserConfig}
+                    displayMode="compact"
+                  />
+                )}
+              </div>
 
               <div>
                 <Label htmlFor="task-input" className="block text-sm font-medium mb-1">

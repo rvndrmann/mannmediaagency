@@ -1,308 +1,139 @@
 
 import { useState, useCallback, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
+import { useToast } from "@/components/ui/use-toast";
+import { ToolContext, ToolResult, TraceManager } from "./multi-agent/types";
+import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
-import { Message, Attachment, Task } from "@/types/message";
-import { toast } from "sonner";
-import { useQuery } from "@tanstack/react-query";
-import { AgentRunner } from "./multi-agent/runner/AgentRunner";
+import { Message, Command, Task, Attachment, HandoffRequest } from "@/types/message";
+import { useAgentRunner } from "./multi-agent/runner/AgentRunner";
 
-// Define built-in agent types (removed browser, product-video, custom-video)
-export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
-export type AgentType = typeof BUILT_IN_AGENT_TYPES[number] | string;
+export type AgentType = "main" | "creative" | "research" | "code" | "image" | "video" | "browser" | "custom" | string;
 
-// Define built-in tool types
-export const BUILT_IN_TOOL_TYPES = ['browser', 'product-video', 'custom-video'];
-export type ToolType = typeof BUILT_IN_TOOL_TYPES[number];
+export interface Environment {
+  userId: string;
+  sessionId: string;
+  attachments: Attachment[];
+  credits: number;
+}
 
-const STORAGE_KEY = "multi_agent_chat_history";
+export interface CustomAgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  instructions: string;
+  icon: string;
+  color: string;
+}
 
-export const useMultiAgentChat = () => {
-  const [messages, setMessages] = useState<Message[]>(() => {
-    try {
-      const savedMessages = localStorage.getItem(STORAGE_KEY);
-      return savedMessages ? JSON.parse(savedMessages) : [];
-    } catch (e) {
-      console.error("Error loading chat history from localStorage:", e);
-      return [];
-    }
-  });
-  
-  const [input, setInput] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<AgentType>("main");
-  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
-  const [usePerformanceModel, setUsePerformanceModel] = useState(false);
-  const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(true);
-  const [tracingEnabled, setTracingEnabled] = useState(true);
-  const [currentConversationId, setCurrentConversationId] = useState<string>(uuidv4());
+export function useMultiAgentChat() {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [currentAgentType, setCurrentAgentType] = useState<AgentType>("main");
+  const [isCustomAgent, setIsCustomAgent] = useState(false);
+  const [customAgents, setCustomAgents] = useState<CustomAgentInfo[]>([]);
+  const [traceId, setTraceId] = useState<string | null>(null);
+  const [currentError, setCurrentError] = useState<string | null>(null);
+  const { toast } = useToast();
+  const traceManager = new TraceManager();
 
-  const { data: userCredits, refetch: refetchCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return null;
-
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .eq("user_id", user.id)
-        .single();
-
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  // Persist messages to localStorage
+  // Load custom agents on mount
   useEffect(() => {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
-    } catch (e) {
-      console.error("Error saving chat history to localStorage:", e);
-    }
-  }, [messages]);
-
-  // Update message helper
-  const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
-    setMessages(prev => {
-      const newMessages = [...prev];
-      if (index >= 0 && index < newMessages.length) {
-        newMessages[index] = {
-          ...newMessages[index],
-          ...updates
-        };
-      }
-      return newMessages;
-    });
+    fetchCustomAgents();
   }, []);
 
-  // Fix the comparison in onMessage
-  const onMessage = useCallback((message: Message) => {
-    console.log("Received message from agent:", message);
-    
-    // Save the interaction in Supabase for analytics - we need to check the status differently
-    if (message.role !== 'system' && message.status !== 'thinking') {
-      const saveInteraction = async () => {
-        try {
-          const { data: { user } } = await supabase.auth.getUser();
-          if (!user) return;
-          
-          // Find the last user message to use as context
-          let userMessage: Message = { content: "", role: "user", id: "", createdAt: new Date().toISOString() };
-          let effectiveAgentType = message.agentType || activeAgent;
-          
-          for (let i = messages.length - 1; i >= 0; i--) {
-            if (messages[i].role === 'user') {
-              userMessage = messages[i];
-              break;
-            }
-          }
-          
-          await supabase.from('agent_interactions').insert({
-            user_id: user.id,
-            agent_type: message.agentType || effectiveAgentType,
-            user_message: userMessage.content,
-            assistant_response: message.content,
-            timestamp: message.createdAt,
-            has_attachments: pendingAttachments.length > 0,
-            metadata: {
-              model_used: message.modelUsed,
-              status: message.status,
-              runId: currentConversationId, // Use conversationId as runId
-              attachments: pendingAttachments.length > 0 ? pendingAttachments.map(a => a.name) : []
-            }
-          });
-          console.log("Saved interaction to database");
-        } catch (error) {
-          console.error("Error saving interaction:", error);
-        }
-      };
+  const fetchCustomAgents = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('custom_agents')
+        .select('id, name, description, instructions, icon, color');
       
-      saveInteraction();
-    }
-    
-    setMessages(prev => [...prev, message]);
-  }, [messages, pendingAttachments, activeAgent, currentConversationId]);
+      if (error) throw error;
 
-  // Helper to create a new task with proper type
-  const createTask = (description: string): Task => {
-    return {
-      id: uuidv4(),
-      description,
-      status: "pending"
-    };
+      if (data) {
+        setCustomAgents(data as CustomAgentInfo[]);
+      }
+    } catch (error) {
+      console.error('Error fetching custom agents:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to load custom agents.',
+        variant: 'destructive',
+      });
+    }
   };
 
-  // Handle message submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const trimmedInput = input.trim();
-    
-    // Log for debugging
-    console.log("Submitting message:", { trimmedInput, pendingAttachments, isLoading });
-    
-    if ((!trimmedInput && pendingAttachments.length === 0) || isLoading) return;
+  const handleAgentChange = useCallback((agentType: AgentType, isCustom: boolean = false) => {
+    setCurrentAgentType(agentType);
+    setIsCustomAgent(isCustom);
+  }, []);
 
-    if (!userCredits || userCredits.credits_remaining < 0.07) {
-      toast.error("You need at least 0.07 credits to send a message.");
-      return;
-    }
+  const addUserMessage = useCallback((content: string, attachments?: Attachment[]) => {
+    const newMessage: Message = {
+      id: uuidv4(),
+      role: 'user',
+      content,
+      createdAt: new Date().toISOString(),
+      attachments: attachments || [],
+    };
 
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage;
+  }, []);
+
+  // This is a simplified placeholder for the actual implementation
+  const sendMessage = useCallback(async (
+    content: string, 
+    attachments: Attachment[] = [],
+    environment?: Environment
+  ) => {
+    setIsProcessing(true);
+    setCurrentError(null);
+    
     try {
-      setIsLoading(true);
+      // Add user message
+      addUserMessage(content, attachments);
       
-      // Add user message to the chat
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: 'user',
-        content: trimmedInput,
-        createdAt: new Date().toISOString(),
-        attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
-      };
+      // Simulate processing delay
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
-      setMessages(prev => [...prev, userMessage]);
-
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error("User not authenticated");
-
-      // Handle when user selects a tool directly, redirect to tool agent
-      const selectedAgentType = activeAgent;
-      const effectiveAgentType = BUILT_IN_TOOL_TYPES.includes(selectedAgentType as ToolType) 
-        ? "tool" // Redirect tool selection to tool agent
-        : selectedAgentType;
-      
-      console.log("Using agent:", { selectedAgentType, effectiveAgentType });
-
-      // Create a new conversationId if messages list is empty
-      if (messages.length === 0) {
-        const newConversationId = uuidv4();
-        setCurrentConversationId(newConversationId);
-        console.log("Started new conversation:", newConversationId);
-      }
-
-      // Create AgentRunner instance with the effective agent type
-      const runner = new AgentRunner(effectiveAgentType, {
-        usePerformanceModel,
-        enableDirectToolExecution,
-        tracingDisabled: !tracingEnabled,
-        metadata: {
-          userId: user.id,
-          sessionId: currentConversationId,
-          requestedTool: BUILT_IN_TOOL_TYPES.includes(selectedAgentType as ToolType) ? selectedAgentType : undefined
-        },
-        runId: uuidv4(), // Generate unique run ID for each interaction
-        groupId: currentConversationId
-      }, {
-        onMessage: onMessage,
-        onError: (error) => {
-          console.error("Agent error:", error);
-          toast.error(error);
-        },
-        onHandoffEnd: (toAgent) => {
-          console.log("Handoff to agent:", toAgent);
-          setActiveAgent(toAgent);
-        }
-      });
-
-      // Run the agent
-      await runner.run(trimmedInput, pendingAttachments, user.id);
-      
-      // Clear input and attachments
-      setInput("");
-      setPendingAttachments([]);
-      
-      // Refresh credits
-      refetchCredits();
-      
-    } catch (error) {
-      console.error("Error in handleSubmit:", error);
-      const errorMessage = error instanceof Error ? error.message : "Unknown error";
-      toast.error(errorMessage);
-      
-      // Add error message to chat
-      const errorResponseMessage: Message = {
+      // Add placeholder response
+      const responseMsg: Message = {
         id: uuidv4(),
         role: 'assistant',
-        content: "I'm sorry, there was an error processing your request. Please try again.",
+        content: `This is a placeholder response from the ${currentAgentType} agent. The actual agent implementation will be added in a future update.`,
         createdAt: new Date().toISOString(),
-        agentType: activeAgent,
-        status: "error"
+        agentType: currentAgentType,
+        agentName: currentAgentType === 'main' ? 'Main Agent' : currentAgentType.charAt(0).toUpperCase() + currentAgentType.slice(1),
+        agentIcon: 'Bot',
+        modelUsed: 'gpt-4',
       };
       
-      setMessages(prev => [...prev, errorResponseMessage]);
+      setMessages(prev => [...prev, responseMsg]);
+    } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
+      setCurrentError(errorMsg);
+      
+      toast({
+        title: 'Error',
+        description: errorMsg,
+        variant: 'destructive',
+      });
     } finally {
-      setIsLoading(false);
+      setIsProcessing(false);
     }
-  };
-
-  // Attachment handlers
-  const addAttachments = useCallback((newAttachments: Attachment[]) => {
-    setPendingAttachments(prev => [...prev, ...newAttachments]);
-  }, []);
-
-  const removeAttachment = useCallback((id: string) => {
-    setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
-  }, []);
-
-  // Agent management
-  const switchAgent = useCallback((agentType: AgentType) => {
-    console.log("Switching to agent:", agentType);
-    setActiveAgent(agentType);
-  }, []);
-
-  // Chat management
-  const clearChat = useCallback(() => {
-    setMessages([]);
-    setPendingAttachments([]);
-    setCurrentConversationId(uuidv4());
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
-
-  const togglePerformanceMode = useCallback(() => {
-    setUsePerformanceModel(prev => !prev);
-    toast.info(usePerformanceModel ? 
-      "Using standard model for higher quality responses." : 
-      "Using performance model for faster responses."
-    );
-  }, [usePerformanceModel]);
-
-  const toggleDirectToolExecution = useCallback(() => {
-    setEnableDirectToolExecution(prev => !prev);
-    toast.info(enableDirectToolExecution ? 
-      "Tools now require handoff to tool agent." : 
-      "Enabled direct tool execution from any agent."
-    );
-  }, [enableDirectToolExecution]);
-
-  const toggleTracing = useCallback(() => {
-    setTracingEnabled(prev => !prev);
-    toast.info(tracingEnabled ? 
-      "Tracing disabled for this session." : 
-      "Tracing enabled for this session."
-    );
-  }, [tracingEnabled]);
+  }, [addUserMessage, currentAgentType, toast]);
 
   return {
     messages,
-    input,
-    setInput,
-    isLoading,
-    activeAgent,
-    userCredits,
-    pendingAttachments,
-    usePerformanceModel,
-    enableDirectToolExecution,
-    tracingEnabled,
-    currentConversationId,
-    handleSubmit,
-    switchAgent,
-    clearChat,
-    addAttachments,
-    removeAttachment,
-    updateMessage,
-    togglePerformanceMode,
-    toggleDirectToolExecution,
-    toggleTracing
+    isProcessing,
+    currentAgentType,
+    isCustomAgent,
+    customAgents,
+    traceId,
+    currentError,
+    handleAgentChange,
+    sendMessage,
+    addUserMessage,
+    fetchCustomAgents,
   };
-};
+}

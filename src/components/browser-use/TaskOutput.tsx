@@ -40,8 +40,13 @@ export function TaskOutput({ messages, taskStatus }: TaskOutputProps) {
     }
   };
 
+  // Helper to check if a status is in a list of valid statuses
+  const statusIsOneOf = (status: TaskStatus, validStatuses: TaskStatus[]): boolean => {
+    return validStatuses.includes(status);
+  };
+
   if (messages.length === 0) {
-    if (taskStatus === 'created' || taskStatus === 'idle' || taskStatus === 'pending') {
+    if (statusIsOneOf(taskStatus, ['created', 'idle', 'pending'] as TaskStatus[])) {
       return (
         <Card className="p-4 text-center text-muted-foreground">
           <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />

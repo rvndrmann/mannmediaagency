@@ -97,6 +97,15 @@ export function useTaskHistory() {
         throw new Error("User not authenticated");
       }
 
+      // Make sure required fields are present
+      if (!task.task_input) {
+        throw new Error("task_input is required");
+      }
+
+      if (!task.status) {
+        task.status = 'pending';
+      }
+
       // Process browser_data to ensure it's JSON-safe
       const processedTask = {
         ...task,
@@ -125,6 +134,11 @@ export function useTaskHistory() {
   // Update a task in history
   const updateTaskHistory = useCallback(async (taskId: string, updates: Partial<BrowserTaskHistory>) => {
     try {
+      // Make sure status is always defined if it's being updated
+      if (updates.hasOwnProperty('status') && !updates.status) {
+        updates.status = 'pending';
+      }
+
       // Process browser_data to ensure it's JSON-safe if it exists
       const processedUpdates = { 
         ...updates,

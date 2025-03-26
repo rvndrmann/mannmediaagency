@@ -1,143 +1,135 @@
 
+// Update TaskControls to handle TaskStatus type correctly
+import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card } from "@/components/ui/card";
-import { Textarea } from "@/components/ui/textarea";
-import { useState } from "react";
-import { TaskStatus } from "@/hooks/browser-use/types";
-import { Loader2, Play, Square, PauseCircle, RotateCcw, Save } from "lucide-react";
+import { TaskStatus } from '@/hooks/browser-use/types';
+import {
+  Play,
+  Pause,
+  RotateCcw,
+  StopCircle,
+  AlertTriangle,
+  CheckCircle,
+  Loader2
+} from "lucide-react";
 
 interface TaskControlsProps {
-  taskInput: string;
-  setTaskInput: (input: string) => void;
-  startTask: () => void;
-  pauseTask: () => void;
-  resumeTask: () => void;
-  stopTask: () => void;
-  isProcessing: boolean;
   taskStatus: TaskStatus;
-  userCredits?: number;
+  isProcessing: boolean;
+  taskInput: string;
+  onStartTask: () => void;
+  onPauseTask: () => void;
+  onResumeTask: () => void;
+  onStopTask: () => void;
 }
 
 export function TaskControls({
-  taskInput,
-  setTaskInput,
-  startTask,
-  pauseTask,
-  resumeTask,
-  stopTask,
-  isProcessing,
   taskStatus,
-  userCredits = 0
+  isProcessing,
+  taskInput,
+  onStartTask,
+  onPauseTask,
+  onResumeTask,
+  onStopTask
 }: TaskControlsProps) {
-  const [isCollapsed, setIsCollapsed] = useState(false);
-  
-  // Helper to check if task is in an active state
-  const isTaskActive = () => {
-    const activeStatuses: TaskStatus[] = ['running', 'paused'];
-    return activeStatuses.includes(taskStatus);
+  const handleStartTask = () => {
+    if (!taskInput.trim()) {
+      alert("Please enter a task description");
+      return;
+    }
+    onStartTask();
   };
-  
-  // Helper to check if task can be started
-  const canStartTask = () => {
-    const inactiveStatuses: TaskStatus[] = ['pending', 'stopped', 'completed', 'failed', 'expired', 'created', 'idle'];
-    return inactiveStatuses.includes(taskStatus) && !isProcessing && taskInput.trim().length > 0 && userCredits > 0;
+
+  // Helper to check if a status is in a list of valid statuses
+  const statusIsOneOf = (status: TaskStatus, validStatuses: TaskStatus[]): boolean => {
+    return validStatuses.includes(status);
   };
-  
-  // Helper to check if task can be paused
-  const canPauseTask = () => {
-    return taskStatus === 'running' && !isProcessing;
-  };
-  
-  // Helper to check if task can be resumed
-  const canResumeTask = () => {
-    return taskStatus === 'paused' && !isProcessing;
-  };
-  
+
   return (
-    <Card className={`p-4 transition-all duration-300 ${isCollapsed ? 'max-h-16' : 'max-h-96'}`}>
-      <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-medium">Task Controls</h3>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={() => setIsCollapsed(!isCollapsed)}
-          >
-            {isCollapsed ? 'Expand' : 'Collapse'}
-          </Button>
+    <div className="flex flex-wrap gap-2">
+      {/* Start Button */}
+      {statusIsOneOf(taskStatus, ['pending', 'created', 'idle'] as TaskStatus[]) && (
+        <Button 
+          variant="default" 
+          className="bg-green-600 hover:bg-green-700" 
+          onClick={handleStartTask}
+          disabled={isProcessing || !taskInput.trim()}
+        >
+          {isProcessing ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <Play className="mr-2 h-4 w-4" />
+          )}
+          Start Task
+        </Button>
+      )}
+
+      {/* Pause Button */}
+      {taskStatus === 'running' && (
+        <Button 
+          variant="outline" 
+          onClick={onPauseTask}
+          disabled={isProcessing}
+        >
+          <Pause className="mr-2 h-4 w-4" />
+          Pause
+        </Button>
+      )}
+
+      {/* Resume Button */}
+      {taskStatus === 'paused' && (
+        <Button 
+          variant="outline" 
+          onClick={onResumeTask}
+          disabled={isProcessing}
+        >
+          <Play className="mr-2 h-4 w-4" />
+          Resume
+        </Button>
+      )}
+
+      {/* Stop Button - available when task is running or paused */}
+      {statusIsOneOf(taskStatus, ['running', 'paused'] as TaskStatus[]) && (
+        <Button 
+          variant="outline" 
+          className="text-red-500 border-red-500 hover:bg-red-50 hover:text-red-600 dark:hover:bg-red-950" 
+          onClick={onStopTask}
+          disabled={isProcessing}
+        >
+          <StopCircle className="mr-2 h-4 w-4" />
+          Stop Task
+        </Button>
+      )}
+
+      {/* Task Failed */}
+      {taskStatus === 'failed' && (
+        <div className="flex items-center text-red-500">
+          <AlertTriangle className="mr-2 h-4 w-4" />
+          <span>Task Failed</span>
         </div>
-        
-        {!isCollapsed && (
-          <>
-            <div className="space-y-2">
-              <label htmlFor="taskInput" className="text-sm font-medium">Task Description</label>
-              <Textarea
-                id="taskInput"
-                placeholder="Describe what you want the browser to do..."
-                className="min-h-24"
-                value={taskInput}
-                onChange={(e) => setTaskInput(e.target.value)}
-                disabled={isTaskActive() || isProcessing}
-              />
-              <p className="text-xs text-muted-foreground">
-                Be specific about the websites to visit and actions to perform.
-              </p>
-            </div>
-            
-            <div className="flex flex-wrap gap-2">
-              <Button
-                onClick={startTask}
-                disabled={!canStartTask()}
-                className="flex-1"
-              >
-                {isProcessing ? (
-                  <><Loader2 className="h-4 w-4 mr-2 animate-spin" /> Processing</>
-                ) : (
-                  <><Play className="h-4 w-4 mr-2" /> Start Task</>
-                )}
-              </Button>
-              
-              {isTaskActive() && (
-                <>
-                  {canPauseTask() && (
-                    <Button
-                      variant="outline"
-                      onClick={pauseTask}
-                      disabled={isProcessing}
-                    >
-                      <PauseCircle className="h-4 w-4 mr-2" /> Pause
-                    </Button>
-                  )}
-                  
-                  {canResumeTask() && (
-                    <Button
-                      variant="outline"
-                      onClick={resumeTask}
-                      disabled={isProcessing}
-                    >
-                      <Play className="h-4 w-4 mr-2" /> Resume
-                    </Button>
-                  )}
-                  
-                  <Button
-                    variant="outline"
-                    onClick={stopTask}
-                    disabled={isProcessing}
-                  >
-                    <Square className="h-4 w-4 mr-2" /> Stop
-                  </Button>
-                </>
-              )}
-            </div>
-            
-            <div className="text-xs text-muted-foreground flex justify-between">
-              <span>Credits: {userCredits.toFixed(2)}</span>
-              <span>1 credit per task</span>
-            </div>
-          </>
-        )}
-      </div>
-    </Card>
+      )}
+
+      {/* Task Completed */}
+      {taskStatus === 'completed' && (
+        <div className="flex items-center text-green-500">
+          <CheckCircle className="mr-2 h-4 w-4" />
+          <span>Task Completed</span>
+        </div>
+      )}
+
+      {/* New Task Button - available when task is completed, failed, or stopped */}
+      {statusIsOneOf(taskStatus, ['completed', 'failed', 'stopped', 'expired'] as TaskStatus[]) && (
+        <Button 
+          variant="outline" 
+          onClick={() => {
+            // Reset to a clean state for a new task
+            window.location.reload();
+          }}
+        >
+          <RotateCcw className="mr-2 h-4 w-4" />
+          New Task
+        </Button>
+      )}
+    </div>
   );
 }

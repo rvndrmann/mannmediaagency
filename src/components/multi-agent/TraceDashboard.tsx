@@ -8,7 +8,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { TraceViewer, Trace } from './TraceViewer';
+import { TraceViewer, Trace as ViewerTrace } from './TraceViewer';
 import { extractTraceData, getSafeTraceSummary, safeTraceEvents } from '@/lib/trace-utils';
 import { safeStringify } from '@/lib/safe-stringify';
 
@@ -25,7 +25,7 @@ interface AgentInteraction {
 
 export const TraceDashboard: React.FC = () => {
   const [traces, setTraces] = useState<AgentInteraction[]>([]);
-  const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
+  const [selectedTrace, setSelectedTrace] = useState<ViewerTrace | null>(null);
   const [loading, setLoading] = useState(true);
   
   useEffect(() => {
@@ -88,26 +88,27 @@ export const TraceDashboard: React.FC = () => {
         throw new Error('Invalid trace data format');
       }
       
-      // Safely access properties with defaults
-      const runId = typeof traceData.runId === 'string' ? traceData.runId : data.id;
-      const sessionId = typeof traceData.sessionId === 'string' ? traceData.sessionId : '';
-      const startTime = typeof traceData.startTime === 'string' ? traceData.startTime : '';
-      const endTime = typeof traceData.endTime === 'string' ? traceData.endTime : '';
-      const events = safeTraceEvents(Array.isArray(traceData.events) ? traceData.events : []);
+      // Convert the trace events to the format expected by TraceViewer
+      const convertedEvents = traceData.events.map(event => ({
+        eventType: event.type || "unknown",
+        timestamp: event.timestamp,
+        agentType: event.data?.agentType || "unknown",
+        data: event.data
+      }));
       
       // Get the summary safely
       const summary = getSafeTraceSummary(traceData);
       
-      // Construct a complete Trace object
-      const trace: Trace = {
-        id: runId || data.id,
-        runId: runId || data.id,
+      // Construct a complete Trace object compatible with TraceViewer
+      const trace: ViewerTrace = {
+        id: traceData.id || data.id,
+        runId: traceData.id || data.id,
         userId: data.user_id || '',
-        sessionId: sessionId,
+        sessionId: traceData.metadata?.sessionId || '',
         messages: [],
-        events: events,
-        startTime: startTime,
-        endTime: endTime,
+        events: convertedEvents,
+        startTime: traceData.start_time,
+        endTime: traceData.end_time,
         summary: summary
       };
       

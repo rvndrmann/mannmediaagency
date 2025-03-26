@@ -121,7 +121,7 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       const updatedMetadata = { 
         ...existingMetadata,
         trace: {
-          ...(typeof existingTrace === 'object' ? existingTrace : {}),
+          ...(typeof existingTrace === 'object' && existingTrace !== null ? existingTrace : {}),
           events: updatedEvents,
           endTime: trace.endTime || new Date().toISOString(),
           summary: generateTraceSummary(trace)
@@ -148,19 +148,32 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
 
 // Function to format a timestamp
 export const formatTraceTimestamp = (timestamp: string): string => {
-  const date = new Date(timestamp);
-  return date.toLocaleString();
+  if (!timestamp) return 'Unknown';
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+  } catch (error) {
+    console.error("Error formatting timestamp:", error);
+    return 'Invalid date';
+  }
 };
 
 // Function to calculate duration between two timestamps in seconds
 export const calculateDuration = (startTime: string, endTime: string): number => {
-  const start = new Date(startTime).getTime();
-  const end = new Date(endTime).getTime();
-  return (end - start) / 1000;
+  if (!startTime || !endTime) return 0;
+  try {
+    const start = new Date(startTime).getTime();
+    const end = new Date(endTime).getTime();
+    return (end - start) / 1000;
+  } catch (error) {
+    console.error("Error calculating duration:", error);
+    return 0;
+  }
 };
 
 // Helper function to format duration in a human-readable way
 export const formatDuration = (seconds: number): string => {
+  if (isNaN(seconds) || seconds < 0) return '0s';
   if (seconds < 60) return `${seconds.toFixed(1)}s`;
   const minutes = Math.floor(seconds / 60);
   const remainingSeconds = seconds % 60;
@@ -212,7 +225,7 @@ export const generateTraceSummary = (trace: Trace): TraceSummary => {
     0;
   
   // Count messages
-  const messageCount = trace.messages?.length || 0;
+  const messageCount = Array.isArray(trace.messages) ? trace.messages.length : 0;
   
   return {
     agentTypes,

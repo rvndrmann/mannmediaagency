@@ -12,6 +12,7 @@ import { Bot, History, Settings, Play, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { TaskControls } from "./TaskControls";
 import { BrowserChatInterface } from "./BrowserChatInterface";
+import { TaskStatus } from "@/hooks/browser-use/types";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
@@ -58,30 +59,28 @@ export function BrowserUseApp() {
     }
   }, [currentTaskId]);
 
-  const captureScreenshot = async () => {
-    // This function should not return a boolean; it should return a string
-    // (the screenshot URL) or null
-    const result = await originalCaptureScreenshot();
-    return result; // This should properly maintain the return type
-  };
-
   // Ensure taskOutput is properly typed or converted to string for rendering
   const renderTaskOutput = () => {
     if (!taskOutput) return null;
     
-    // If taskOutput is an array, convert it to string
-    if (Array.isArray(taskOutput)) {
-      return taskOutput.map((item, index) => {
-        if (typeof item === 'object' && item !== null) {
-          // For objects, convert to string
-          return <div key={index}>{JSON.stringify(item)}</div>;
-        }
-        return <div key={index}>{String(item)}</div>;
-      });
+    try {
+      // If taskOutput is an array, convert it to string
+      if (Array.isArray(taskOutput)) {
+        return taskOutput.map((item, index) => {
+          if (typeof item === 'object' && item !== null) {
+            // For objects, convert to string
+            return <div key={index}>{JSON.stringify(item)}</div>;
+          }
+          return <div key={index}>{String(item)}</div>;
+        });
+      }
+      
+      // For any other type, convert to string
+      return String(taskOutput);
+    } catch (error) {
+      console.error("Error rendering task output:", error);
+      return "Error rendering task output";
     }
-    
-    // For any other type, convert to string
-    return String(taskOutput);
   };
 
   return (
@@ -121,9 +120,9 @@ export function BrowserUseApp() {
               setTaskInput={setTaskInput}
               onSubmit={startTask}
               isProcessing={isProcessing}
-              taskStatus={taskStatus || ""}
+              taskStatus={taskStatus || "created" as TaskStatus}
               userCredits={userCredits ? userCredits.credits_remaining : null}
-              taskOutput={renderTaskOutput()}
+              taskOutput={taskOutput}
               error={error}
               onStop={stopTask}
               onPause={pauseTask}

@@ -34,6 +34,14 @@ interface ChatMessage {
   status?: 'processing' | 'complete' | 'error';
 }
 
+// This type is safe to store in localStorage
+interface SerializableChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  timestamp: string; // ISO string format
+  status?: 'processing' | 'complete' | 'error';
+}
+
 export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
   taskInput,
   setTaskInput,
@@ -59,8 +67,8 @@ export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
     const savedHistory = localStorage.getItem('workerAI_chatHistory');
     if (savedHistory) {
       try {
-        const parsed = JSON.parse(savedHistory);
-        setChatHistory(parsed.map((msg: any) => ({
+        const parsed: SerializableChatMessage[] = JSON.parse(savedHistory);
+        setChatHistory(parsed.map((msg: SerializableChatMessage) => ({
           ...msg,
           timestamp: new Date(msg.timestamp)
         })));
@@ -73,7 +81,16 @@ export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
   // Save chat history to localStorage when it changes
   useEffect(() => {
     if (chatHistory.length > 0) {
-      localStorage.setItem('workerAI_chatHistory', JSON.stringify(chatHistory));
+      try {
+        // Convert Date objects to strings before serializing
+        const serializableHistory: SerializableChatMessage[] = chatHistory.map(msg => ({
+          ...msg,
+          timestamp: msg.timestamp.toISOString()
+        }));
+        localStorage.setItem('workerAI_chatHistory', JSON.stringify(serializableHistory));
+      } catch (e) {
+        console.error("Error saving chat history to localStorage:", e);
+      }
     }
   }, [chatHistory]);
 
@@ -87,14 +104,14 @@ export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
           ...prev.filter(msg => msg.role !== 'assistant' || msg.status !== 'processing'),
           { 
             role: 'assistant', 
-            content: taskOutput, 
+            content: taskOutput.toString(), // Ensure content is a string
             timestamp: new Date(),
             status: 'complete'
           }
         ]);
       }
     }
-  }, [taskOutput, isProcessing, taskStatus]);
+  }, [taskOutput, isProcessing, taskStatus, chatHistory]);
   
   // Add error to chat history when it occurs
   useEffect(() => {

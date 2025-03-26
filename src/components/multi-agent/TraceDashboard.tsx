@@ -15,11 +15,7 @@ interface TraceItem {
   timestamp: string;
   group_id?: string;
   metadata: any;
-  runId: string;
-  summary: any;
-  startTime: string;
-  endTime: string;
-  events: any[];
+  user_id: string;
 }
 
 export const TraceDashboard: React.FC = () => {
@@ -45,28 +41,12 @@ export const TraceDashboard: React.FC = () => {
       
       // Process the data to extract trace information
       const processedTraces = (data || []).map(item => {
-        // Safely access nested metadata.trace properties
-        const metadata = item.metadata || {};
-        
-        // Check if metadata.trace exists and is an object
-        const traceData = typeof metadata === 'object' && metadata !== null && 'trace' in metadata 
-          ? metadata.trace 
-          : {};
-          
-        // Make sure traceData is an object before accessing properties
-        const trace = typeof traceData === 'object' && traceData !== null ? traceData : {};
-        
         return {
           id: item.id,
           timestamp: item.timestamp,
           group_id: item.group_id || '',
           metadata: item.metadata,
-          // Safely extract trace properties
-          runId: trace.runId || '',
-          summary: trace.summary || {},
-          startTime: trace.startTime || '',
-          endTime: trace.endTime || '',
-          events: Array.isArray(trace.events) ? trace.events : [],
+          user_id: item.user_id || ''
         };
       });
       
@@ -78,49 +58,68 @@ export const TraceDashboard: React.FC = () => {
     }
   };
   
-  const viewTraceDetails = async (traceRunId: string) => {
+  const viewTraceDetails = async (traceId: string) => {
     try {
       // Get the full trace data
       const { data, error } = await supabase
         .from('agent_interactions')
         .select('*')
-        .eq('agent_type', 'trace_summary')
-        .filter('metadata->trace->runId', 'eq', traceRunId)
+        .eq('id', traceId)
         .single();
       
       if (error) throw error;
       
       // Safely extract the trace data
       const metadata = data?.metadata || {};
+      let traceData: any = {};
       
-      // Ensure metadata is an object and has trace property
-      if (typeof metadata !== 'object' || metadata === null || !('trace' in metadata)) {
-        throw new Error('Invalid trace data format');
+      // Check if metadata is an object and has trace property
+      if (typeof metadata === 'object' && metadata !== null && 'trace' in metadata) {
+        traceData = metadata.trace || {};
       }
-      
-      const traceData = metadata.trace;
       
       if (typeof traceData !== 'object' || traceData === null) {
         throw new Error('Invalid trace data format');
       }
       
+      // Safely access properties with defaults
+      const runId = typeof traceData.runId === 'string' ? traceData.runId : '';
+      const sessionId = typeof traceData.sessionId === 'string' ? traceData.sessionId : '';
+      const startTime = typeof traceData.startTime === 'string' ? traceData.startTime : '';
+      const endTime = typeof traceData.endTime === 'string' ? traceData.endTime : '';
+      const events = Array.isArray(traceData.events) ? traceData.events : [];
+      
+      // Default summary if not available
+      let summary = {
+        agentTypes: [],
+        handoffs: 0,
+        toolCalls: 0,
+        success: false,
+        duration: 0
+      };
+      
+      // Override with actual summary if available
+      if (typeof traceData.summary === 'object' && traceData.summary !== null) {
+        summary = {
+          agentTypes: Array.isArray(traceData.summary.agentTypes) ? traceData.summary.agentTypes : [],
+          handoffs: typeof traceData.summary.handoffs === 'number' ? traceData.summary.handoffs : 0,
+          toolCalls: typeof traceData.summary.toolCalls === 'number' ? traceData.summary.toolCalls : 0,
+          success: Boolean(traceData.summary.success),
+          duration: typeof traceData.summary.duration === 'number' ? traceData.summary.duration : 0
+        };
+      }
+      
       // Construct a complete Trace object
       const trace: Trace = {
-        id: traceData.runId || '',
-        runId: traceData.runId || '',
+        id: runId || data.id,
+        runId: runId || data.id,
         userId: data?.user_id || '',
-        sessionId: traceData.sessionId || '',
+        sessionId: sessionId,
         messages: [],
-        events: Array.isArray(traceData.events) ? traceData.events : [],
-        startTime: traceData.startTime || '',
-        endTime: traceData.endTime || '',
-        summary: traceData.summary || {
-          agentTypes: [],
-          handoffs: 0,
-          toolCalls: 0,
-          success: false,
-          duration: 0
-        }
+        events: events,
+        startTime: startTime,
+        endTime: endTime,
+        summary: summary
       };
       
       setSelectedTrace(trace);
@@ -159,16 +158,18 @@ export const TraceDashboard: React.FC = () => {
                   <div key={trace.id} className="py-4">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h3 className="text-lg font-medium">{trace.runId}</h3>
+                        <h3 className="text-lg font-medium">Trace ID: {trace.id.substring(0, 8)}...</h3>
                         <p className="text-sm text-gray-500">
                           Created {formatDistanceToNow(new Date(trace.timestamp), { addSuffix: true })}
                         </p>
                       </div>
                       <div>
-                        <Badge variant="secondary">{trace.group_id}</Badge>
+                        {trace.group_id && (
+                          <Badge variant="secondary">{trace.group_id}</Badge>
+                        )}
                       </div>
                       <div>
-                        <Button variant="outline" size="sm" onClick={() => viewTraceDetails(trace.runId)}>
+                        <Button variant="outline" size="sm" onClick={() => viewTraceDetails(trace.id)}>
                           View Details
                         </Button>
                       </div>

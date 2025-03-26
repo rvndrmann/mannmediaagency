@@ -60,7 +60,14 @@ export function TaskTemplateSelector({
         .order('created_at', { ascending: false });
       
       if (error) throw error;
-      setTemplates(data || []);
+      
+      // Convert the JSON data to match our TaskTemplate interface
+      const formattedTemplates = data?.map(template => ({
+        ...template,
+        browser_config: template.browser_config as BrowserConfig | null
+      })) || [];
+      
+      setTemplates(formattedTemplates);
     } catch (error) {
       console.error("Error fetching templates:", error);
       toast.error("Failed to load task templates");
@@ -83,15 +90,21 @@ export function TaskTemplateSelector({
           name: newTemplate.name,
           description: newTemplate.description || null,
           task_input: currentTaskInput,
-          browser_config: currentBrowserConfig
+          browser_config: currentBrowserConfig as any
         })
         .select()
         .single();
       
       if (error) throw error;
       
+      // Convert the returned data to match our TaskTemplate interface
+      const formattedTemplate = {
+        ...data,
+        browser_config: data.browser_config as BrowserConfig | null
+      };
+      
       toast.success("Template saved successfully");
-      setTemplates([data, ...templates]);
+      setTemplates([formattedTemplate, ...templates]);
       setShowSaveDialog(false);
       setNewTemplate({ name: '', description: '' });
     } catch (error) {

@@ -1,4 +1,6 @@
 
+"use client";
+
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,13 +14,14 @@ import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monito
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserConfigPanel } from "@/components/browser-use/BrowserConfigPanel";
-import { BrowserConfig } from "@/hooks/browser-use/types";
+import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
 import { Badge } from "@/components/ui/badge";
 import { TaskInputWithPreview } from "@/components/browser-use/TaskInputWithPreview";
 import { ChevronLeft } from "lucide-react";
 import { TaskTemplateSelector } from "@/components/browser-use/TaskTemplateSelector";
 import { TaskScheduler } from "@/components/browser-use/TaskScheduler";
 import { ScheduledTasksList } from "@/components/browser-use/ScheduledTasksList";
+import { SensitiveDataManager } from "@/components/browser-use/SensitiveDataManager";
 
 interface BrowserTask {
   id: string;
@@ -40,6 +43,7 @@ const getDefaultBrowserConfig = (): BrowserConfig => {
     resolution: "1920x1080",
     theme: "Ocean",
     darkMode: false,
+    sensitiveData: [],
     contextConfig: {
       minWaitPageLoadTime: 0.5,
       waitForNetworkIdlePageLoadTime: 5.0,
@@ -155,6 +159,13 @@ const BrowserUsePage = () => {
       }
     }
     return true;
+  };
+
+  const handleSensitiveDataChange = (data: SensitiveDataItem[]) => {
+    setBrowserConfig({
+      ...browserConfig,
+      sensitiveData: data
+    });
   };
 
   const startNewTask = async () => {
@@ -311,6 +322,13 @@ const BrowserUsePage = () => {
                       Proxy Enabled
                     </Badge>
                   )}
+                  
+                  {browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0 && (
+                    <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-amber-50 text-amber-700 border-amber-200">
+                      <Key className="h-4 w-4 mr-1" />
+                      {browserConfig.sensitiveData.length} Secret{browserConfig.sensitiveData.length > 1 ? 's' : ''}
+                    </Badge>
+                  )}
                 </div>
               </div>
 
@@ -326,6 +344,15 @@ const BrowserUsePage = () => {
                 sensitiveData={browserConfig.sensitiveData || []}
                 isProcessing={isTaskLoading}
               />
+
+              {/* Sensitive Data Section */}
+              <div className="p-4 rounded-lg border bg-card">
+                <SensitiveDataManager
+                  sensitiveData={browserConfig.sensitiveData || []}
+                  onChange={handleSensitiveDataChange}
+                  disabled={isTaskLoading}
+                />
+              </div>
 
               {browserConfig.useOwnBrowser && (
                 <Alert>
@@ -579,6 +606,16 @@ const BrowserUsePage = () => {
                 isProcessing={isTaskLoading}
                 disabled={isTaskLoading}
               />
+              
+              {/* Sensitive Data Management Section */}
+              <div className="mt-8 p-4 rounded-lg border">
+                <h3 className="text-lg font-medium mb-4">Sensitive Data Management</h3>
+                <SensitiveDataManager
+                  sensitiveData={browserConfig.sensitiveData || []}
+                  onChange={handleSensitiveDataChange}
+                  disabled={isTaskLoading}
+                />
+              </div>
               
               {browserConfig.useOwnBrowser && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">

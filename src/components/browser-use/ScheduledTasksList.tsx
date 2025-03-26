@@ -40,7 +40,14 @@ export function ScheduledTasksList() {
         .order('scheduled_time', { ascending: true });
       
       if (error) throw error;
-      setTasks(data || []);
+      // Convert the JSON data to match our ScheduledTask interface
+      const formattedTasks = data?.map(task => ({
+        ...task,
+        browser_config: task.browser_config as BrowserConfig | null,
+        repeat_interval: task.repeat_interval as string
+      })) || [];
+      
+      setTasks(formattedTasks);
     } catch (error) {
       console.error("Error fetching scheduled tasks:", error);
       toast.error("Failed to load scheduled tasks");

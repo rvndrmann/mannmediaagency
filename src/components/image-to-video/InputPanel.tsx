@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -19,6 +18,7 @@ import {
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 import { Message } from "@/types/message";
+import { ensureGlobalMessages } from "@/utils/messageTypeAdapter";
 
 interface InputPanelProps {
   isMobile: boolean;
@@ -33,7 +33,7 @@ interface InputPanelProps {
   creditsRemaining: number | null;
   aspectRatio: string;
   onAspectRatioChange: (value: string) => void;
-  messages: Message[];
+  messages: any[];
 }
 
 export function InputPanel({
@@ -51,6 +51,9 @@ export function InputPanel({
   onAspectRatioChange,
   messages,
 }: InputPanelProps) {
+  // Ensure messages are properly formatted
+  const formattedMessages = ensureGlobalMessages(messages);
+  
   return (
     <div className="flex flex-col h-full bg-[#1A1F2C] border-r border-gray-800">
       <ScrollArea className="flex-1 pb-32">
@@ -86,7 +89,7 @@ export function InputPanel({
                   />
                 </div>
                 <UseAIResponseButton
-                  messages={messages}
+                  messages={formattedMessages}
                   onUseResponse={onPromptChange}
                   variant="compact"
                   className="shrink-0"

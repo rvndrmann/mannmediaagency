@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -127,7 +128,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
             {...imageToVideo}
             prompt={imageToVideoPrompt}
             onPromptChange={setImageToVideoPrompt}
-            messages={messages}
+            messages={formattedMessages}
             aspectRatio={selectedAspectRatio}
             onAspectRatioChange={setSelectedAspectRatio}
             onSelectFromHistory={imageToVideo.onSelectFromHistory || ((jobId, imageUrl) => {})}
@@ -136,13 +137,13 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
 
         <TabsContent value="faceless-video" className="h-[calc(100%-3rem)] overflow-y-auto">
           <FacelessVideoForm
-            messages={messages}
+            messages={formattedMessages}
             creditsRemaining={productShotV1.creditsRemaining}
           />
         </TabsContent>
 
         <TabsContent value="script-builder" className="h-[calc(100%-3rem)] overflow-y-auto">
-          <ScriptBuilderTab messages={messages} />
+          <ScriptBuilderTab messages={formattedMessages} />
         </TabsContent>
       </Tabs>
     </div>

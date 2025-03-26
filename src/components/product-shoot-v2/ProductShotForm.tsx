@@ -1,3 +1,4 @@
+
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -17,6 +18,7 @@ import { AspectRatio } from "@/types/product-shoot";
 import { useEffect } from "react";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 import { Message } from "@/types/message";
+import { ensureGlobalMessages } from "@/utils/messageTypeAdapter";
 
 export interface ProductShotFormProps {
   onSubmit: (formData: any) => Promise<void>;

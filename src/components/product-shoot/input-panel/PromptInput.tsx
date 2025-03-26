@@ -2,13 +2,12 @@
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
-import { Message } from "@/types/message";
 import { ensureGlobalMessages } from "@/utils/messageTypeAdapter";
 
 interface PromptInputProps {
   prompt: string;
   onPromptChange: (value: string) => void;
-  messages: Message[] | any[];
+  messages: any[]; // Accept any message type and convert as needed
 }
 
 export const PromptInput = ({

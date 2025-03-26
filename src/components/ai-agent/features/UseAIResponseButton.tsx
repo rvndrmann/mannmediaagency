@@ -3,11 +3,7 @@ import { Button } from "@/components/ui/button";
 import { PenTool } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-}
+import { Message } from "@/types/message";
 
 interface UseAIResponseButtonProps {
   onUseResponse: (response: string) => void;

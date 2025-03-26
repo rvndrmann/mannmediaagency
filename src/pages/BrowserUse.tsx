@@ -6,7 +6,6 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
 import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key } from "lucide-react";
 import { formatDate } from "@/lib/utils";
@@ -14,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserSettings } from "@/components/browser-use/BrowserSettings";
 import { BrowserConfig } from "@/hooks/browser-use/types";
 import { Badge } from "@/components/ui/badge";
+import { TaskInputWithPreview } from "@/components/browser-use/TaskInputWithPreview";
 
 interface BrowserTask {
   id: string;
@@ -160,6 +160,19 @@ const BrowserUsePage = () => {
     try {
       setIsTaskLoading(true);
       
+      const placeholderPattern = /\{([^}]+)\}/g;
+      const placeholdersInTask = [...taskInput.matchAll(placeholderPattern)].map(match => match[1]);
+      
+      const definedKeys = browserConfig.sensitiveData?.map(item => item.key) || [];
+      const undefinedPlaceholders = placeholdersInTask.filter(p => !definedKeys.includes(p));
+      
+      if (undefinedPlaceholders.length > 0) {
+        toast.warning(`You used placeholder(s) ${undefinedPlaceholders.join(', ')} in your task but haven't defined them. Please add them in Browser Settings > Sensitive Data.`);
+        setIsTaskLoading(false);
+        setActiveTab("settings");
+        return;
+      }
+      
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: { 
           task: taskInput,
@@ -263,44 +276,19 @@ const BrowserUsePage = () => {
                   </Badge>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="task">Task Description</Label>
-                <Textarea
-                  id="task"
-                  placeholder="E.g., Go to Twitter, search for AI news, and take screenshots of the top 3 posts"
-                  value={taskInput}
-                  onChange={(e) => setTaskInput(e.target.value)}
-                  rows={4}
-                />
-                <p className="text-sm text-gray-500">
-                  Be specific about what you want the browser to do. The AI will follow your instructions step by step.
-                </p>
-              </div>
+              
+              <TaskInputWithPreview
+                value={taskInput}
+                onChange={setTaskInput}
+                sensitiveData={browserConfig.sensitiveData || []}
+                isProcessing={isTaskLoading}
+              />
 
               {browserConfig.useOwnBrowser && (
                 <Alert>
                   <Info className="h-4 w-4" />
                   <AlertDescription>
                     You're using your own browser. Make sure it's properly configured in the Browser Settings tab.
-                  </AlertDescription>
-                </Alert>
-              )}
-              
-              {(browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) && (
-                <Alert className="bg-blue-50 border-blue-200">
-                  <Key className="h-4 w-4 text-blue-600" />
-                  <AlertDescription className="text-blue-700">
-                    <strong>Sensitive data placeholders available:</strong>
-                    <ul className="list-disc pl-5 mt-1 space-y-1">
-                      {browserConfig.sensitiveData.map((item, index) => (
-                        <li key={index}><code className="bg-blue-100 px-1 rounded">{item.key}</code></li>
-                      ))}
-                    </ul>
-                    <p className="mt-2 text-sm">
-                      Use these placeholders in your task to securely reference sensitive information.
-                      <br />
-                      Example: "Go to example.com and login with username 'admin' and password '{browserConfig.sensitiveData[0]?.key || "my_password"}'."
-                    </p>
                   </AlertDescription>
                 </Alert>
               )}

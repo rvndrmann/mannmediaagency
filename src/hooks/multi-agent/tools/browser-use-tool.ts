@@ -1,165 +1,119 @@
 
-import { ToolResult, ToolContext, ToolParameter } from "../types";
-import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { ToolDefinition, ToolResult, ToolContext } from "../types";
 import { Command } from "@/types/message";
+import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
 
-interface BrowserUseToolParams {
-  task: string;
-  environment?: "browser" | "desktop";
-  browser_config?: any;
-}
+// Default configuration
+const defaultBrowserConfig: BrowserConfig = {
+  headless: false,
+  disableSecurity: false,
+  useOwnBrowser: false,
+  chromePath: "",
+  persistentSession: true,
+  resolution: "1920x1080",
+  theme: "Ocean",
+  darkMode: false,
+  contextConfig: {
+    minWaitPageLoadTime: 0.5,
+    waitForNetworkIdlePageLoadTime: 5.0,
+    maxWaitPageLoadTime: 15.0,
+    highlightElements: true,
+    viewportExpansion: 500
+  }
+};
 
-export const browserUseTool = {
+// Process task text by replacing sensitive data placeholders
+const processTaskWithSensitiveData = (task: string, sensitiveData?: SensitiveDataItem[]): string => {
+  if (!sensitiveData || sensitiveData.length === 0) return task;
+  
+  let processedTask = task;
+  sensitiveData.forEach(item => {
+    const placeholder = `{${item.key}}`;
+    const regex = new RegExp(placeholder, 'g');
+    processedTask = processedTask.replace(regex, item.value);
+  });
+  
+  return processedTask;
+};
+
+export const browserUseTool: ToolDefinition = {
   name: "browser-use",
-  description: "Start a browser or desktop automation task with the specified instructions",
+  description: "Automates browser tasks like navigating websites, filling forms, taking screenshots, and more",
   requiredCredits: 1,
   parameters: [
     {
       name: "task",
       type: "string",
-      description: "Clear instructions for what to do in the browser or on the desktop",
-      required: true
+      description: "Description of the browser task to perform",
+      required: true,
+      prompt: "Describe the browser task in detail (e.g., 'Go to wikipedia.org and take a screenshot of the main page')"
     },
     {
-      name: "environment",
-      type: "string",
-      description: "Environment to use (browser or desktop)",
-      required: false
-    },
-    {
-      name: "browser_config",
+      name: "browserConfig",
       type: "object",
-      description: "Optional browser configuration including connection methods, resolution, desktop options, etc.",
+      description: "Optional browser configuration options",
       required: false
     }
   ],
-  execute: async (command: Command, context: ToolContext): Promise<ToolResult> => {
+  
+  async execute(command: Command, context: ToolContext): Promise<ToolResult> {
     try {
-      // Extract parameters from the command
-      const params = command.parameters || {};
-      const task = params.task as string;
-      const environment = params.environment as string || "browser";
-      const browser_config = params.browser_config || {};
-
-      // Validate parameters
-      if (!task || task.trim() === "") {
-        return {
-          success: false,
-          message: "Task description is required",
-          data: {
-            error: "Task description is required"
-          }
-        };
-      }
-
-      const { data: { user } } = await supabase.auth.getUser();
+      const task = command.parameters.task as string;
+      const userBrowserConfig = command.parameters.browserConfig as Partial<BrowserConfig> || {};
       
-      if (!user) {
-        toast.error("You need to be logged in to use browser automation");
+      if (!task) {
         return {
           success: false,
-          message: "Authentication required",
-          data: {
-            error: "Authentication required"
-          }
+          message: "Task description is required"
         };
       }
-
-      // Check if user has enough credits
-      const { data: userCredits, error: creditsError } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .eq("user_id", user.id)
-        .single();
-
-      if (creditsError || !userCredits || userCredits.credits_remaining < 1) {
-        toast.error("You need at least 1 credit to use browser automation");
-        return {
-          success: false,
-          message: "Insufficient credits. You need at least 1 credit.",
-          data: {
-            error: "Insufficient credits. You need at least 1 credit."
-          }
-        };
-      }
-
-      // Validate environment before calling the edge function
-      const browserConfig = browser_config || {};
       
-      // For desktop mode, validate connection configuration
-      if (environment === "desktop") {
-        // Check if any connection method is provided
-        const hasConnectionMethod = 
-          browserConfig.wssUrl || 
-          browserConfig.cdpUrl || 
-          browserConfig.browserInstancePath ||
-          (browserConfig.useOwnBrowser && browserConfig.chromePath);
-        
-        if (!hasConnectionMethod) {
-          toast.error("Desktop mode requires a connection method");
-          return {
-            success: false,
-            message: "Desktop mode requires a connection method (wssUrl, cdpUrl, browserInstancePath, or chromePath with useOwnBrowser enabled).",
-            data: {
-              error: "Missing desktop connection configuration"
-            }
-          };
-        }
-        
-        // If using browser instance path or local Chrome, ensure useOwnBrowser is enabled
-        if ((browserConfig.browserInstancePath || browserConfig.chromePath) && !browserConfig.useOwnBrowser) {
-          toast.error("When using local Chrome or browser instance, 'useOwnBrowser' must be enabled");
-          return {
-            success: false,
-            message: "When using local Chrome or browser instance, 'useOwnBrowser' must be enabled.",
-            data: {
-              error: "Invalid desktop configuration"
-            }
-          };
-        }
+      // Merge user provided config with defaults
+      const browserConfig: BrowserConfig = {
+        ...defaultBrowserConfig,
+        ...userBrowserConfig
+      };
+      
+      // Process the task with sensitive data
+      const processedTask = processTaskWithSensitiveData(task, browserConfig.sensitiveData);
+      
+      // Add a note indicating that placeholders were replaced
+      const hasPlaceholders = task.match(/\{([^}]+)\}/g);
+      let placeholdersNote = "";
+      if (hasPlaceholders && browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
+        placeholdersNote = "\n\nNote: Sensitive data placeholders have been securely replaced.";
       }
-
-      // Call the edge function to start a browser use task
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: {
-          task: task,
-          environment: environment,
+      
+      // Execute the browser task
+      const { data, error } = await context.supabase.functions.invoke("browser-use-api", {
+        body: { 
+          task: processedTask,
+          environment: "browser",
           browser_config: browserConfig
         }
       });
-
+      
       if (error) {
         console.error("Error starting browser task:", error);
         return {
           success: false,
-          message: `Failed to start browser task: ${error.message}`,
-          data: {
-            error: `Failed to start browser task: ${error.message}`
-          }
+          message: `Failed to start browser task: ${error.message || "Unknown error"}`
         };
       }
-
-      // Return success with the task ID and link to view
+      
       return {
         success: true,
-        message: `${environment === 'desktop' ? 'Desktop' : 'Browser'} automation task started successfully`,
+        message: `Browser task started successfully. Task ID: ${data.taskId}${placeholdersNote}`,
         data: {
           taskId: data.taskId,
-          message: `${environment === 'desktop' ? 'Desktop' : 'Browser'} automation task started successfully`,
-          viewUrl: `/browser-use?task=${data.taskId}`,
-          taskDescription: task,
-          environment: environment
+          liveUrl: data.liveUrl
         }
       };
     } catch (error) {
-      console.error("Error in browser use tool:", error);
+      console.error("Error executing browser task:", error);
       return {
         success: false,
-        message: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`,
-        data: {
-          error: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`
-        }
+        message: `Error executing browser task: ${error instanceof Error ? error.message : "Unknown error"}`
       };
     }
   }

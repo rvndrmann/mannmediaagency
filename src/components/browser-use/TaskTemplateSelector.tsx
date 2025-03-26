@@ -84,13 +84,22 @@ export function TaskTemplateSelector({
 
     try {
       setIsLoading(true);
+      
+      // Get user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("You must be logged in to save templates");
+        return;
+      }
+      
       const { data, error } = await supabase
         .from('browser_task_templates')
         .insert({
           name: newTemplate.name,
           description: newTemplate.description || null,
           task_input: currentTaskInput,
-          browser_config: currentBrowserConfig as any
+          browser_config: currentBrowserConfig,
+          user_id: session.user.id
         })
         .select()
         .single();

@@ -59,6 +59,13 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
 
     try {
       setIsSubmitting(true);
+      
+      // Get user session
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        toast.error("You must be logged in to schedule tasks");
+        return;
+      }
 
       // Parse time
       const [hours, minutes] = time.split(":").map(Number);
@@ -95,12 +102,13 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
         .from('scheduled_browser_tasks')
         .insert({
           task_input: taskInput,
-          browser_config: updatedBrowserConfig as any,
+          browser_config: updatedBrowserConfig,
           schedule_type: scheduleType,
           scheduled_time: scheduledDate.toISOString(),
           repeat_interval: scheduleType === "recurring" ? repeatInterval : null,
           next_run_at: nextRunDate ? nextRunDate.toISOString() : null,
-          status: 'pending'
+          status: 'pending',
+          user_id: session.user.id
         });
 
       if (error) throw error;

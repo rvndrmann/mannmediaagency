@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -22,6 +21,7 @@ import { TaskTemplateSelector } from "@/components/browser-use/TaskTemplateSelec
 import { TaskScheduler } from "@/components/browser-use/TaskScheduler";
 import { ScheduledTasksList } from "@/components/browser-use/ScheduledTasksList";
 import { SensitiveDataManager } from "@/components/browser-use/SensitiveDataManager";
+import { ProxyHelper } from "@/components/browser-use/ProxyHelper";
 
 interface BrowserTask {
   id: string;
@@ -68,6 +68,8 @@ const BrowserUsePage = () => {
   const [intervalId, setIntervalId] = useState<number | null>(null);
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
   const [activeTab, setActiveTab] = useState(activeTask ? "viewing" : "create");
+  
+  const [proxyUrl, setProxyUrl] = useState(browserConfig.proxy || "");
   
   const handleGoBack = () => {
     navigate(-1);
@@ -147,6 +149,14 @@ const BrowserUsePage = () => {
     }
   };
 
+  const handleProxyUrlChange = (url: string) => {
+    setProxyUrl(url);
+    setBrowserConfig({
+      ...browserConfig,
+      proxy: url
+    });
+  };
+  
   const validateOwnBrowserConfig = () => {
     if (browserConfig.useOwnBrowser) {
       if (!browserConfig.chromePath) {
@@ -616,6 +626,12 @@ const BrowserUsePage = () => {
                   disabled={isTaskLoading}
                 />
               </div>
+              
+              <ProxyHelper 
+                proxyUrl={proxyUrl} 
+                onProxyUrlChange={handleProxyUrlChange}
+                isProcessing={isTaskLoading} 
+              />
               
               {browserConfig.useOwnBrowser && (
                 <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">

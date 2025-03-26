@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -11,13 +10,11 @@ const corsHeaders = {
 };
 
 serve(async (req) => {
-  // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
 
   try {
-    // Verify user authentication
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseKey);
@@ -41,19 +38,14 @@ serve(async (req) => {
       );
     }
     
-    // Get request body
     const requestData = await req.json();
     
-    // Handle different action types
     const action = requestData.action;
     
-    // For GET, LIST, PAUSE, RESUME, STOP operations
     if (action) {
       console.log(`Handling action: ${action}`);
       
-      // Task management operations
       if (action === 'get' && requestData.taskId) {
-        // Get task details
         const options = {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
@@ -67,7 +59,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'list') {
-        // List tasks
         const options = {
           method: 'GET',
           headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
@@ -81,7 +72,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'stop' && requestData.taskId) {
-        // Stop task
         const options = {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
@@ -95,7 +85,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'pause' && requestData.taskId) {
-        // Pause task
         const options = {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
@@ -109,7 +98,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'resume' && requestData.taskId) {
-        // Resume task
         const options = {
           method: 'PUT',
           headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
@@ -123,7 +111,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'getTemplates') {
-        // Get user's browser task templates
         const { data, error } = await supabase
           .from('browser_task_templates')
           .select('*')
@@ -142,7 +129,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'saveTemplate') {
-        // Save a new browser task template
         const { name, description, task_input, browser_config } = requestData;
         
         if (!name || !task_input) {
@@ -176,7 +162,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'deleteTemplate' && requestData.templateId) {
-        // Delete a browser task template
         const { error } = await supabase
           .from('browser_task_templates')
           .delete()
@@ -195,7 +180,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'getScheduledTasks') {
-        // Get user's scheduled browser tasks
         const { data, error } = await supabase
           .from('scheduled_browser_tasks')
           .select('*')
@@ -214,7 +198,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'scheduleTask') {
-        // Schedule a browser task
         const { 
           task_input, 
           browser_config, 
@@ -231,7 +214,6 @@ serve(async (req) => {
           );
         }
         
-        // Ensure scheduled time is in the future
         const scheduledDateTime = new Date(scheduled_time);
         if (scheduledDateTime < new Date()) {
           return new Response(
@@ -240,13 +222,11 @@ serve(async (req) => {
           );
         }
         
-        // Calculate next run time based on schedule type and repeat interval
         let nextRunAt = null;
         
         if (schedule_type === 'recurring' && repeat_interval) {
           nextRunAt = scheduledDateTime;
           
-          // Add the appropriate interval to get the next run time
           if (repeat_interval.includes('day')) {
             nextRunAt.setDate(nextRunAt.getDate() + parseInt(repeat_interval));
           } else if (repeat_interval.includes('week')) {
@@ -284,7 +264,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'cancelScheduledTask' && requestData.taskId) {
-        // Cancel a scheduled browser task
         const { error } = await supabase
           .from('scheduled_browser_tasks')
           .update({ status: 'cancelled' })
@@ -303,7 +282,6 @@ serve(async (req) => {
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       } else if (action === 'deleteScheduledTask' && requestData.taskId) {
-        // Delete a scheduled browser task
         const { error } = await supabase
           .from('scheduled_browser_tasks')
           .delete()
@@ -329,7 +307,6 @@ serve(async (req) => {
       );
     }
 
-    // Below is for starting a new task
     const { task, environment = "browser", browser_config } = requestData;
     
     if (!task) {
@@ -346,7 +323,6 @@ serve(async (req) => {
       );
     }
     
-    // Check user credits before proceeding
     const { data: userCredits, error: creditsError } = await supabase
       .from('user_credits')
       .select('credits_remaining')
@@ -367,12 +343,9 @@ serve(async (req) => {
       );
     }
     
-    // Prepare browser configuration
     const browserConfig = browser_config || {};
     
-    // Process desktop-specific connection methods
     if (environment === "desktop") {
-      // Validate desktop requirements based on connection method
       const hasConnectionConfig = browserConfig.wssUrl || browserConfig.cdpUrl || browserConfig.browserInstancePath || browserConfig.chromePath;
       
       if (!hasConnectionConfig) {
@@ -382,7 +355,6 @@ serve(async (req) => {
         );
       }
       
-      // If using browser instance path or local Chrome, ensure useOwnBrowser is enabled
       if ((browserConfig.browserInstancePath || browserConfig.chromePath) && !browserConfig.useOwnBrowser) {
         return new Response(
           JSON.stringify({ error: 'When using local Chrome or browser instance path, "useOwnBrowser" must be enabled' }),
@@ -390,33 +362,26 @@ serve(async (req) => {
         );
       }
       
-      // Log desktop apps for debugging
       if (browserConfig.desktopApps && browserConfig.desktopApps.length > 0) {
         console.log("Desktop applications configured:", JSON.stringify(browserConfig.desktopApps));
       }
     }
     
-    // Prepare request body for Browser Use API
     const requestBody: any = {
       task: task,
       save_browser_data: true
     };
     
-    // Include environment type for the API
     requestBody.environment = environment;
     
-    // Include browser configuration if provided
     if (Object.keys(browserConfig).length > 0) {
       console.log(`Using custom ${environment} configuration:`, JSON.stringify(browserConfig));
       
-      // Transform the configuration to match the API's expected format
       const apiConfig: any = { ...browserConfig };
       
-      // Handle sensitive data if present
       if (browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
         const sensitiveDataMap: Record<string, string> = {};
         
-        // Convert to the format expected by the API
         browserConfig.sensitiveData.forEach(item => {
           sensitiveDataMap[item.key] = item.value;
         });
@@ -425,7 +390,6 @@ serve(async (req) => {
         delete apiConfig.sensitiveData;
       }
       
-      // Handle connection methods specifically
       if (browserConfig.wssUrl) {
         apiConfig.wss_url = browserConfig.wssUrl;
         delete apiConfig.wssUrl;
@@ -446,12 +410,10 @@ serve(async (req) => {
         delete apiConfig.chromePath;
       }
       
-      // Transform context config if present
       if (browserConfig.contextConfig) {
         apiConfig.context_config = {
           ...browserConfig.contextConfig,
           
-          // Transform camelCase to snake_case for API compatibility
           min_wait_page_load_time: browserConfig.contextConfig.minWaitPageLoadTime,
           wait_for_network_idle_page_load_time: browserConfig.contextConfig.waitForNetworkIdlePageLoadTime,
           max_wait_page_load_time: browserConfig.contextConfig.maxWaitPageLoadTime,
@@ -465,7 +427,6 @@ serve(async (req) => {
           cookies_file: browserConfig.contextConfig.cookiesFile
         };
         
-        // Remove camelCase properties
         delete apiConfig.context_config.minWaitPageLoadTime;
         delete apiConfig.context_config.waitForNetworkIdlePageLoadTime;
         delete apiConfig.context_config.maxWaitPageLoadTime;
@@ -484,7 +445,6 @@ serve(async (req) => {
       requestBody.browser_config = apiConfig;
     }
     
-    // Start a task using the Browser Use API
     const options = {
       method: 'POST',
       headers: {
@@ -507,7 +467,6 @@ serve(async (req) => {
       );
     }
     
-    // Log the task in the database
     const { data: taskRecord, error: taskError } = await supabase
       .from('browser_automation_tasks')
       .insert({
@@ -525,7 +484,6 @@ serve(async (req) => {
       console.error('Error logging task in database:', taskError);
     }
     
-    // Deduct a credit for the task
     const { error: creditUpdateError } = await supabase
       .from('user_credits')
       .update({ 
@@ -538,7 +496,6 @@ serve(async (req) => {
       console.error('Error updating user credits:', creditUpdateError);
     }
     
-    // Return task information
     return new Response(
       JSON.stringify({
         taskId: data.id,

@@ -141,6 +141,27 @@ export const Navigation = () => {
 
   const baseNavigation: NavigationItemWithBadge[] = [
     {
+      name: "Browser Worker AI",
+      subtext: "Web Browser Automation",
+      to: "/browser-use",
+      icon: Globe,
+      current: location.pathname === "/browser-use",
+    },
+    {
+      name: "Dashboard",
+      subtext: "Your Content Overview",
+      to: "/dashboard",
+      icon: ScrollText,
+      badge: notifications.length > 0 ? notifications.length : undefined,
+    },
+    {
+      name: "Custom Orders",
+      subtext: "Request Personalized Content",
+      to: "/custom-orders",
+      icon: PlusSquare,
+      badge: customOrderNotifications > 0 ? customOrderNotifications : undefined,
+    },
+    {
       name: "Explore",
       subtext: "Discover Amazing Content",
       to: "/explore",
@@ -165,32 +186,6 @@ export const Navigation = () => {
       icon: Film,
     },
     {
-      name: "Product Video",
-      subtext: "Create Product Videos",
-      to: "/create-video",
-      icon: Video,
-    },
-    {
-      name: "Dashboard",
-      subtext: "Your Content Overview",
-      to: "/dashboard",
-      icon: ScrollText,
-      badge: notifications.length > 0 ? notifications.length : undefined,
-    },
-    {
-      name: "Multi-Agent Chat",
-      subtext: "Advanced AI Collaboration",
-      to: "/multi-agent-chat",
-      icon: Users,
-    },
-    {
-      name: "Custom Orders",
-      subtext: "Request Personalized Content",
-      to: "/custom-orders",
-      icon: PlusSquare,
-      badge: customOrderNotifications > 0 ? customOrderNotifications : undefined,
-    },
-    {
       name: "Plans & Billing",
       to: "/plans",
       icon: CreditCard,
@@ -200,14 +195,28 @@ export const Navigation = () => {
       to: "/profile",
       icon: User,
     },
+  ];
+
+  const disabledItems: NavigationItemWithBadge[] = [
     {
-      name: "Browser Worker AI",
-      subtext: "Web Browser Automation",
-      to: "/browser-use",
-      icon: Globe,
-      current: location.pathname === "/browser-use",
+      name: "Multi-Agent Chat",
+      subtext: "Advanced AI Collaboration",
+      to: "/multi-agent-chat",
+      icon: Users,
+      disabled: true,
+      comingSoon: true,
+    },
+    {
+      name: "Product Video",
+      subtext: "Create Product Videos",
+      to: "/create-video",
+      icon: Video,
+      disabled: true,
+      comingSoon: true,
     },
   ];
+
+  const combinedNavigation = [...baseNavigation, ...disabledItems];
 
   const adminItem: NavigationItem = {
     name: "Admin",
@@ -225,10 +234,10 @@ export const Navigation = () => {
   };
 
   const mainNavigation: NavigationItem[] = isLoadingAdmin
-    ? baseNavigation
+    ? combinedNavigation
     : isAdmin
-      ? [...baseNavigation, adminItem, integrationsItem]
-      : [...baseNavigation, integrationsItem];
+      ? [...combinedNavigation, adminItem, integrationsItem]
+      : [...combinedNavigation, integrationsItem];
 
   const legalNavigation: BaseNavigationItem[] = [
     {

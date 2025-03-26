@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -73,12 +72,10 @@ export function BrowserUseApp() {
     setEnvironment
   } = useBrowserUseTask();
 
-  // Check if we're coming from a scheduled task
   useEffect(() => {
     if (location.state && location.state.executeScheduledTask) {
       const { taskInput: scheduledTaskInput, browserConfig: scheduledConfig } = location.state;
       
-      // Set the task input and browser config from the scheduled task
       if (scheduledTaskInput) {
         setTaskInput(scheduledTaskInput);
       }
@@ -87,38 +84,29 @@ export function BrowserUseApp() {
         setBrowserConfig(scheduledConfig);
       }
       
-      // Auto-start the task
       setTimeout(() => {
-        // We use setTimeout to ensure the UI has time to update
         if (scheduledTaskInput && userCredits && userCredits.credits_remaining > 0) {
           startTask(environment);
           toast.info("Executing scheduled task automatically");
         }
       }, 500);
       
-      // Clear the location state to prevent re-execution on page refresh
       window.history.replaceState({}, document.title);
     }
   }, [location.state, userCredits]);
 
-  // Handle template selection - update both the task input and browser config
   const handleTemplateSelection = (template) => {
     console.log("Template selection in BrowserUseApp:", template);
     
     if (template) {
-      // Explicitly update the task input with the template's task input
       if (template.task_input) {
-        console.log("Setting task input to:", template.task_input);
         setTaskInput(template.task_input);
       }
       
-      // Update browser config if available
       if (template.browser_config) {
-        console.log("Setting browser config:", template.browser_config);
         setBrowserConfig(template.browser_config);
       }
       
-      // When a template is selected from the Templates tab, switch to task tab
       if (activeTab === "templates") {
         setActiveTab("task");
       }
@@ -127,7 +115,6 @@ export function BrowserUseApp() {
     }
   };
 
-  // Determine if the configuration is valid for the selected environment
   const isConfigValid = () => {
     if (environment === "desktop") {
       const hasConnectionMethod = 
@@ -141,7 +128,6 @@ export function BrowserUseApp() {
     return true;
   };
 
-  // Get connection method display name
   const getConnectionMethodName = () => {
     if (browserConfig.wssUrl) return "WebSocket (WSS)";
     if (browserConfig.cdpUrl) return "Chrome DevTools Protocol";
@@ -197,9 +183,10 @@ export function BrowserUseApp() {
             <FileText className="h-4 w-4" />
             <span>Templates</span>
           </TabsTrigger>
-          <TabsTrigger value="scheduled" className="flex items-center gap-2">
+          <TabsTrigger value="scheduled" className="flex items-center gap-2" disabled>
             <Calendar className="h-4 w-4" />
             <span>Scheduled</span>
+            <Badge variant="outline" className="ml-1 text-xs">Soon</Badge>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -250,7 +237,6 @@ export function BrowserUseApp() {
                 )}
               </div>
 
-              {/* Template Quick Selector */}
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border mb-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-medium flex items-center gap-2">
@@ -397,7 +383,6 @@ export function BrowserUseApp() {
           <BrowserTaskHistory />
         </TabsContent>
 
-        {/* Templates Tab */}
         <TabsContent value="templates">
           <Card className="p-6">
             <div className="space-y-6">

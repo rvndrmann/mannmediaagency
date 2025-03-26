@@ -7,6 +7,21 @@ import { supabase } from "@/integrations/supabase/client";
 
 const navItems = [
   {
+    label: "Browser",
+    icon: Globe,
+    href: "/browser-use"
+  },
+  {
+    label: "Dashboard",
+    icon: ScrollText,
+    href: "/dashboard"
+  },
+  {
+    label: "Orders",
+    icon: Package,
+    href: "/custom-orders"
+  },
+  {
     label: "Explore",
     icon: Compass,
     href: "/explore"
@@ -27,35 +42,11 @@ const navItems = [
     href: "/image-to-video"
   },
   {
-    label: "Product Video",
-    icon: Video,
-    href: "/create-video"
-  },
-  {
-    label: "Multi-Agent",
-    icon: Users,
-    href: "/multi-agent-chat"
-  },
-  {
-    label: "Dashboard",
-    icon: ScrollText,
-    href: "/dashboard"
-  },
-  {
-    label: "Custom Orders",
-    icon: Package,
-    href: "/custom-orders"
-  },
-  {
-    label: "Browser Use",
-    icon: Globe,
-    href: "/browser-use"
-  },
-  {
     label: "Settings",
     icon: Settings,
     href: "/profile"
   }
+  // Disabled items removed from mobile navigation
 ];
 
 export const BottomNav = () => {

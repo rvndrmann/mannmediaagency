@@ -151,8 +151,12 @@ export function TaskTemplateSelector({
   };
 
   const handleTemplateSelection = (template: TaskTemplate) => {
+    // Fix: Pass the entire template object to the onSelectTemplate callback
     onSelectTemplate(template);
     setShowTemplatesGrid(false);
+    
+    // Add a toast notification to improve user feedback
+    toast.success(`Template "${template.name}" loaded`);
   };
 
   // Render a grid of templates directly in the component

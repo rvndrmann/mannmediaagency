@@ -8,6 +8,7 @@ import { BrowserConfigPanel } from "./BrowserConfigPanel";
 import { TaskMonitor } from "./TaskMonitor";
 import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
+import { TaskTemplateSelector } from "./TaskTemplateSelector";
 import { 
   Bot, 
   History, 
@@ -65,6 +66,20 @@ export function BrowserUseApp() {
     environment,
     setEnvironment
   } = useBrowserUseTask();
+
+  // Handle template selection - update both the task input and browser config
+  const handleTemplateSelection = (template) => {
+    if (template && template.task_input) {
+      setTaskInput(template.task_input);
+      
+      // Update browser config if available
+      if (template.browser_config) {
+        setBrowserConfig(template.browser_config);
+      }
+      
+      toast.success(`Template "${template.name}" loaded`);
+    }
+  };
 
   // Determine if the configuration is valid for the selected environment
   const isConfigValid = () => {
@@ -180,6 +195,14 @@ export function BrowserUseApp() {
                   </div>
                 )}
               </div>
+
+              {/* Template Selector Component */}
+              <TaskTemplateSelector
+                onSelectTemplate={handleTemplateSelection}
+                currentTaskInput={taskInput}
+                currentBrowserConfig={browserConfig}
+                displayMode="compact"
+              />
 
               <div>
                 <Label htmlFor="task-input" className="block text-sm font-medium mb-1">

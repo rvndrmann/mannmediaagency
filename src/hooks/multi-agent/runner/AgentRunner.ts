@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { Message, Attachment } from "@/types/message";
 import { getTool } from "../tools";
@@ -84,8 +83,7 @@ export class AgentRunner {
         this.addMessage(agentResponse, "agent", attachments);
       }
 
-      // Fixed comparison to use type checking
-      if (this.status !== "error" && this.status === "running") {
+      if (this.status === "running" || this.status === "error") {
         this.status = "completed";
       }
       

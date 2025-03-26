@@ -1,7 +1,8 @@
 
-import { ToolResult, ToolContext } from "../types";
+import { ToolResult, ToolContext, ToolParameter } from "../types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Command } from "@/types/message";
 
 interface BrowserUseToolParams {
   task: string;
@@ -13,27 +14,36 @@ export const browserUseTool = {
   name: "browser-use",
   description: "Start a browser or desktop automation task with the specified instructions",
   requiredCredits: 1,
-  parameters: {
-    task: {
+  parameters: [
+    {
+      name: "task",
       type: "string",
-      description: "Clear instructions for what to do in the browser or on the desktop"
+      description: "Clear instructions for what to do in the browser or on the desktop",
+      required: true
     },
-    environment: {
+    {
+      name: "environment",
       type: "string",
       description: "Environment to use (browser or desktop)",
-      enum: ["browser", "desktop"],
-      default: "browser"
+      required: false
     },
-    browser_config: {
+    {
+      name: "browser_config",
       type: "object",
       description: "Optional browser configuration including connection methods, resolution, desktop options, etc.",
-      optional: true
+      required: false
     }
-  },
-  execute: async (params: BrowserUseToolParams, context: ToolContext): Promise<ToolResult> => {
+  ],
+  execute: async (command: Command, context: ToolContext): Promise<ToolResult> => {
     try {
+      // Extract parameters from the command
+      const params = command.parameters || {};
+      const task = params.task as string;
+      const environment = params.environment as string || "browser";
+      const browser_config = params.browser_config || {};
+
       // Validate parameters
-      if (!params.task || params.task.trim() === "") {
+      if (!task || task.trim() === "") {
         return {
           success: false,
           message: "Task description is required",
@@ -75,17 +85,16 @@ export const browserUseTool = {
       }
 
       // Validate environment before calling the edge function
-      const environment = params.environment || "browser";
-      const browser_config = params.browser_config || {};
+      const browserConfig = browser_config || {};
       
       // For desktop mode, validate connection configuration
       if (environment === "desktop") {
         // Check if any connection method is provided
         const hasConnectionMethod = 
-          browser_config.wssUrl || 
-          browser_config.cdpUrl || 
-          browser_config.browserInstancePath ||
-          (browser_config.useOwnBrowser && browser_config.chromePath);
+          browserConfig.wssUrl || 
+          browserConfig.cdpUrl || 
+          browserConfig.browserInstancePath ||
+          (browserConfig.useOwnBrowser && browserConfig.chromePath);
         
         if (!hasConnectionMethod) {
           toast.error("Desktop mode requires a connection method");
@@ -99,7 +108,7 @@ export const browserUseTool = {
         }
         
         // If using browser instance path or local Chrome, ensure useOwnBrowser is enabled
-        if ((browser_config.browserInstancePath || browser_config.chromePath) && !browser_config.useOwnBrowser) {
+        if ((browserConfig.browserInstancePath || browserConfig.chromePath) && !browserConfig.useOwnBrowser) {
           toast.error("When using local Chrome or browser instance, 'useOwnBrowser' must be enabled");
           return {
             success: false,
@@ -114,9 +123,9 @@ export const browserUseTool = {
       // Call the edge function to start a browser use task
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: {
-          task: params.task,
+          task: task,
           environment: environment,
-          browser_config: browser_config
+          browser_config: browserConfig
         }
       });
 
@@ -139,7 +148,7 @@ export const browserUseTool = {
           taskId: data.taskId,
           message: `${environment === 'desktop' ? 'Desktop' : 'Browser'} automation task started successfully`,
           viewUrl: `/browser-use?task=${data.taskId}`,
-          taskDescription: params.task,
+          taskDescription: task,
           environment: environment
         }
       };

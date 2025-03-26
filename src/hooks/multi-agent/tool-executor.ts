@@ -39,7 +39,7 @@ export const executeCommand = async (
     }
     
     // Execute the tool
-    const result = await tool.execute(commandData as Command, context);
+    const result = await tool.execute(commandData, context);
     
     if (!result.success) {
       return {

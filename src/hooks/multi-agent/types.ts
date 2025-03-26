@@ -45,7 +45,8 @@ export enum CommandExecutionState {
   PENDING = 'pending',
   EXECUTING = 'executing',
   COMPLETED = 'completed',
-  FAILED = 'failed'
+  FAILED = 'failed',
+  ERROR = 'error' // Adding this to fix comparison errors
 }
 
 export interface HandoffRequest {

@@ -8,9 +8,8 @@ import { AgentSelector } from "./AgentSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { Zap, Trash2, Hammer, BarChartBig, ArrowLeft, AlertCircle } from "lucide-react";
+import { Zap, Trash2, Hammer, BarChartBig } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -31,7 +30,6 @@ export const MultiAgentChat = () => {
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
-    currentConversationId,
     handleSubmit, 
     switchAgent, 
     clearChat,
@@ -42,7 +40,6 @@ export const MultiAgentChat = () => {
     toggleTracing
   } = useMultiAgentChat();
   
-  const navigate = useNavigate();
   const [showInstructions, setShowInstructions] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -64,44 +61,13 @@ export const MultiAgentChat = () => {
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
   };
-  
-  const handleBack = () => {
-    navigate(-1);
-  };
-
-  const handleViewTraces = () => {
-    navigate('/trace-analytics');
-  };
-
-  // Log for debugging
-  useEffect(() => {
-    console.log("Current state:", { 
-      activeAgent, 
-      inputValue: input, 
-      messageCount: messages.length,
-      isLoading,
-      tracingEnabled,
-      conversationId: currentConversationId
-    });
-  }, [activeAgent, input, messages, isLoading, tracingEnabled, currentConversationId]);
 
   return (
     <div className="flex flex-col h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827]">
       <header className="p-2 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
-        <div className="flex items-center gap-2">
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={handleBack}
-            className="text-gray-400 hover:text-white"
-          >
-            <ArrowLeft className="h-4 w-4 mr-1" />
-            Back
-          </Button>
-          <div>
-            <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
-            <p className="text-xs text-gray-400">Interact with specialized AI agents</p>
-          </div>
+        <div>
+          <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
+          <p className="text-xs text-gray-400">Interact with specialized AI agents</p>
         </div>
         
         <div className="flex items-center gap-1.5">
@@ -170,25 +136,6 @@ export const MultiAgentChat = () => {
               </TooltipTrigger>
               <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
                 <p className="text-xs">{tracingEnabled ? "Detailed interaction tracing is enabled" : "Interaction tracing is disabled"}</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
-          
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
-                  variant="outline"
-                  size="sm"
-                  onClick={handleViewTraces}
-                  className="border-blue-600 bg-blue-800/20 text-blue-500 hover:bg-blue-800/30 text-xs h-6 px-2"
-                >
-                  <BarChartBig className="h-3 w-3 mr-1" />
-                  View Analytics
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
-                <p className="text-xs">View detailed analytics and traces</p>
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
@@ -266,15 +213,6 @@ export const MultiAgentChat = () => {
               <p className="text-xs text-gray-400 max-w-md">
                 Choose an agent type above and start chatting. Each agent specializes in different tasks - use the main assistant for general help, or select a specialized agent for specific needs.
               </p>
-              
-              {tracingEnabled && (
-                <div className="mt-4 flex items-center p-2 bg-purple-900/20 border border-purple-800/30 rounded-md">
-                  <AlertCircle className="h-4 w-4 text-purple-400 mr-2 flex-shrink-0" />
-                  <p className="text-xs text-purple-300">
-                    Tracing is enabled. Every interaction will be logged for analysis. View insights in the Analytics panel.
-                  </p>
-                </div>
-              )}
             </div>
           )}
         </div>
@@ -306,25 +244,20 @@ export const MultiAgentChat = () => {
             </div>
           </div>
           
-          <div className="mt-1 text-[10px] text-gray-500 flex justify-between items-center">
+          <div className="mt-1 text-[10px] text-gray-500 flex justify-between">
             <div>
               Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
             </div>
             <div className="flex justify-end gap-2">
               <div>
-                Model: {usePerformanceModel ? "GPT-4o-mini" : "GPT-4o"}
+                Model: {usePerformanceModel ? "GPT-4o-mini (faster)" : "GPT-4o (higher quality)"}
               </div>
               <div>
-                Tool Access: {enableDirectToolExecution ? "Direct" : "Via Tool Agent"}
+                Tool Access: {enableDirectToolExecution ? "Direct (any agent)" : "Via Tool Agent"}
               </div>
-              <div className={tracingEnabled ? "text-purple-400" : ""}>
+              <div>
                 Tracing: {tracingEnabled ? "Enabled" : "Disabled"}
               </div>
-              {currentConversationId && (
-                <div className="text-blue-400">
-                  ID: {currentConversationId.slice(0, 8)}...
-                </div>
-              )}
             </div>
           </div>
         </div>

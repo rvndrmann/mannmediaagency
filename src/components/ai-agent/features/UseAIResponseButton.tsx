@@ -4,15 +4,14 @@ import { PenTool } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
 
-// Define a simplified message interface for this component
-interface ComponentMessage {
-  role: "user" | "assistant" | "system" | "tool";
+interface Message {
+  role: "user" | "assistant";
   content: string;
 }
 
 interface UseAIResponseButtonProps {
   onUseResponse: (response: string) => void;
-  messages: ComponentMessage[];
+  messages: Message[];
   className?: string;
   variant?: "default" | "compact";
 }

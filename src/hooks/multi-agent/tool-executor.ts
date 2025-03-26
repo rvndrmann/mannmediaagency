@@ -37,12 +37,12 @@ export class ToolExecutor {
         return this.handleError(commandId, `Tool '${command.feature}' not found`);
       }
       
-      // Check if the user has enough credits - using optional chaining to safely access properties
-      if (tool.requiredCredits && (context.creditsRemaining ?? 0) < tool.requiredCredits) {
-        console.log(`Insufficient credits for tool ${command.feature}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining ?? 0}`);
+      // Check if the user has enough credits
+      if (context.creditsRemaining < tool.requiredCredits) {
+        console.log(`Insufficient credits for tool ${command.feature}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`);
         return this.handleError(
           commandId, 
-          `Insufficient credits to use ${tool.name}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining ?? 0}`
+          `Insufficient credits to use ${tool.name}. Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining}`
         );
       }
       
@@ -50,10 +50,7 @@ export class ToolExecutor {
       console.log(`Executing tool with parameters:`, command.parameters);
       
       // Execute the tool
-      const result = await tool.execute(command.parameters || {}, {
-        ...context,
-        creditsRemaining: context.creditsRemaining ?? 0 // Ensure creditsRemaining is provided
-      });
+      const result = await tool.execute(command.parameters || {}, context);
       
       // Log the result
       console.log(`Tool execution result:`, result);
@@ -63,7 +60,7 @@ export class ToolExecutor {
         status: result.success ? "completed" : "failed",
         result,
         endTime: new Date(),
-        error: result.success ? undefined : result.error
+        error: result.success ? undefined : result.message
       });
       
       return result;
@@ -106,8 +103,7 @@ export class ToolExecutor {
     
     return {
       success: false,
-      data: null,
-      error: errorMessage
+      message: errorMessage
     };
   }
 }

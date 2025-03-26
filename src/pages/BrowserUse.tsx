@@ -8,7 +8,6 @@ import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { Loader2 } from "lucide-react";
-import { PageTitle } from "@/components/browser-use/PageTitle";
 
 export default function BrowserUsePage() {
   const isMobile = useIsMobile();
@@ -45,7 +44,7 @@ export default function BrowserUsePage() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg font-medium">Loading Worker AI...</p>
+          <p className="text-lg font-medium">Loading Browser Use API...</p>
         </div>
       </div>
     );
@@ -53,7 +52,6 @@ export default function BrowserUsePage() {
   
   return (
     <ProtectedRoute>
-      <PageTitle title="Worker AI | Browser Automation" />
       <SidebarProvider>
         <div className="flex h-screen overflow-hidden">
           {!isMobile && <Sidebar />}

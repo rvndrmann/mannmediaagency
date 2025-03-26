@@ -1,10 +1,10 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, ToolContext, ToolResult } from "@/hooks/types";
+import { ToolDefinition, ToolContext, ToolResult } from "../types";
 
 export const imageToVideoTool: ToolDefinition = {
   name: "image-to-video",
-  description: "Convert an image to a video with motion. The image can be provided as a URL parameter or will use the most recently uploaded image if available.",
+  description: "Convert an image to a video with motion",
   parameters: {
     prompt: {
       type: "string",
@@ -12,8 +12,7 @@ export const imageToVideoTool: ToolDefinition = {
     },
     imageUrl: {
       type: "string",
-      description: "URL of the source image (optional if an image is attached to the message)",
-      required: false
+      description: "URL of the source image"
     },
     aspectRatio: {
       type: "string",
@@ -91,7 +90,7 @@ export const imageToVideoTool: ToolDefinition = {
 
       return {
         success: true,
-        message: "✅ Video generation started successfully! You'll be notified when it's ready. The process typically takes 1-2 minutes.",
+        message: "Video generation started successfully. You'll be notified when it's ready.",
         data: {
           jobId: jobData.id,
           status: "in_queue"
@@ -101,7 +100,7 @@ export const imageToVideoTool: ToolDefinition = {
       console.error("Error in image-to-video tool:", error);
       return {
         success: false,
-        message: error instanceof Error ? `Error: ${error.message}` : "An unknown error occurred"
+        message: error instanceof Error ? error.message : "An unknown error occurred"
       };
     }
   }

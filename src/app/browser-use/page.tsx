@@ -11,7 +11,7 @@ export default function Page() {
       <div className="flex items-center justify-center h-screen">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-          <p className="text-lg font-medium">Loading Worker AI...</p>
+          <p className="text-lg font-medium">Loading Browser Use API...</p>
         </div>
       </div>
     }>

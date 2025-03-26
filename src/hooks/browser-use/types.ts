@@ -1,121 +1,97 @@
 
-// Types for browser automation tasks
-export type TaskStatus = 'pending' | 'running' | 'paused' | 'stopped' | 'completed' | 'failed' | 'expired' | 'created' | 'idle';
+export type TaskStatus = 'idle' | 'pending' | 'created' | 'running' | 'paused' | 'completed' | 'stopped' | 'failed' | 'expired';
 
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'checking' | 'error' | 'retry';
+export interface TaskStep {
+  id: string;
+  description: string;
+  status: string;
+  timestamp?: string;
+  details?: any;
+}
 
-export interface BrowserContextConfig {
-  minWaitPageLoadTime?: number;
-  waitForNetworkIdlePageLoadTime?: number;
-  maxWaitPageLoadTime?: number;
-  highlightElements?: boolean;
-  viewportExpansion?: number;
-  userAgent?: string;
-  locale?: string;
-  allowedDomains?: string[] | string;
+export interface UserCredits {
+  id: string;
+  user_id: string;
+  credits_remaining: number;
+  created_at: string;
+  updated_at: string;
 }
 
 export interface BrowserConfig {
-  saveSession: boolean;
-  autoRetry: boolean;
-  autoRefresh: boolean;
-  maxRetries: number;
-  // Properties that were missing - now explicitly defined
-  headless?: boolean;
-  disableSecurity?: boolean;
-  persistentSession?: boolean;
-  resolution?: string;
-  darkMode?: boolean;
-  proxy?: string;
-  theme?: string;
-  useOwnBrowser?: boolean;
-  chromePath?: string;
+  // Browser core settings
+  headless: boolean;
+  disableSecurity: boolean;
+  useOwnBrowser: boolean;
+  chromePath: string;
+  chromeUserData?: string;
+  persistentSession: boolean;
+  
+  // Display and resolution settings
+  resolution: string;
+  theme: string;
+  darkMode: boolean;
+  
+  // Advanced settings
+  wssUrl?: string;
+  cdpUrl?: string;
   extraChromiumArgs?: string[];
-  contextConfig?: BrowserContextConfig;
+  proxy?: string;
+  
+  // Context configuration
+  contextConfig?: {
+    minWaitPageLoadTime?: number;
+    waitForNetworkIdlePageLoadTime?: number;
+    maxWaitPageLoadTime?: number;
+    browserWindowSize?: { width: number; height: number };
+    highlightElements?: boolean;
+    viewportExpansion?: number;
+    locale?: string;
+    userAgent?: string;
+    allowedDomains?: string[] | string;
+    saveRecordingPath?: string;
+    tracePath?: string;
+    cookiesFile?: string;
+  };
 }
 
-export interface TaskStep {
-  step: number;
-  next_goal: string;
-  evaluation_previous_goal?: string;
-  // Properties that were missing - now explicitly defined
-  id?: string;
-  status?: string;
-  description?: string;
-  details?: string;
-}
-
-export interface BrowserTaskMedia {
-  recordings?: string[];
-  screenshots?: string[];
-}
-
-export interface BrowserTaskData {
-  cookies?: any[];
-  steps?: TaskStep[];
-  recordings?: string[];
-  screenshots?: string[];
-}
-
-export interface ChatMessage {
-  type: 'user' | 'system' | 'error' | 'step' | 'recording';
-  text?: string;
-  stepNumber?: number;
-  goal?: string;
-  evaluation?: string;
-  urls?: string[];
-  timestamp?: string;
-}
-
-export interface BrowserTaskHistory {
-  id: string;
-  task_input: string;
-  status: TaskStatus;
-  user_id: string;
-  browser_task_id?: string;
-  output?: string | null;
-  screenshot_url?: string | null;
-  result_url?: string | null;
-  browser_data?: BrowserTaskData | null;
-  completed_at?: string | null;
-  created_at?: string;
+export interface BrowserUseError {
+  message: string;
+  code?: string;
+  details?: any;
 }
 
 export interface BrowserTaskState {
   taskInput: string;
-  isProcessing: boolean;
   currentTaskId: string | null;
-  browserTaskId: string | null;
+  isProcessing: boolean;
   progress: number;
+  taskSteps: TaskStep[];
+  taskOutput: string | null;
   taskStatus: TaskStatus;
-  error: string | null;
-  screenshot: string | null;
   currentUrl: string | null;
-  liveUrl: string | null;
-  connectionStatus: ConnectionStatus;
-  taskOutput: ChatMessage[];
+  error: string | null;
   browserConfig: BrowserConfig;
+  liveUrl: string | null;
+  connectionStatus: 'connected' | 'connecting' | 'disconnected' | 'error';
 }
 
-export interface UserCredits {
-  credits_remaining: number;
+export interface BrowserTaskHistory {
+  id: string;
+  user_id: string;
+  task_input: string;
+  output: string | null;
+  status: string;
+  browser_task_id: string | null;
+  screenshot_url: string | null;
+  result_url: string | null;
+  browser_data: any;
+  created_at: string;
+  completed_at: string | null;
 }
 
-// Define missing types for API responses
 export interface CaptureWebsiteResponse {
+  success?: boolean;
+  error?: string;
   image_url?: string;
   screenshot?: string;
-  error?: string;
-}
-
-// Define JSON-compatible data interfaces for Supabase
-export interface SupabaseBrowserTaskData {
-  cookies?: any[];
-  steps?: Record<string, any>[];
-  recordings?: string[];
-  screenshots?: string[];
-}
-
-export interface LivePreviewProps {
-  url: string;
 }

@@ -1,134 +1,126 @@
 
-import React from 'react';
-import { Card } from "@/components/ui/card";
-import { Separator } from "@/components/ui/separator";
+import { TaskStatus, TaskStep } from "@/hooks/browser-use/types";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
-import { TaskStatus, TaskStep, ChatMessage } from '@/hooks/browser-use/types';
-import {
-  User,
-  Bot,
-  AlertCircle,
-  ListChecks,
-  Film,
-  CheckCircle2,
-  Clock,
-  Play
-} from 'lucide-react';
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
 
 interface TaskOutputProps {
-  messages: ChatMessage[];
+  output: string | null;
+  taskSteps: TaskStep[];
   taskStatus: TaskStatus;
 }
 
-export function TaskOutput({ messages, taskStatus }: TaskOutputProps) {
-  // Helper to get message icon based on type
-  const getMessageIcon = (type: string) => {
-    switch (type) {
-      case 'user':
-        return <User className="h-5 w-5 text-blue-500" />;
-      case 'system':
-        return <Bot className="h-5 w-5 text-green-500" />;
-      case 'error':
-        return <AlertCircle className="h-5 w-5 text-red-500" />;
-      case 'step':
-        return <ListChecks className="h-5 w-5 text-purple-500" />;
-      case 'recording':
-        return <Film className="h-5 w-5 text-amber-500" />;
+export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
+  const getStatusBadge = (status: TaskStatus) => {
+    switch(status) {
+      case 'completed':
+        return <Badge className="bg-green-500">Completed</Badge>;
+      case 'failed':
+        return <Badge className="bg-red-500">Failed</Badge>;
+      case 'stopped':
+        return <Badge className="bg-orange-500">Stopped</Badge>;
+      case 'running':
+        return <Badge className="bg-blue-500">Running</Badge>;
+      case 'paused':
+        return <Badge className="bg-yellow-500">Paused</Badge>;
+      case 'expired':
+        return <Badge className="bg-red-500">Expired</Badge>;
+      case 'pending':
+      case 'created':
+      case 'idle':
       default:
-        return <Bot className="h-5 w-5 text-gray-500" />;
+        return <Badge className="bg-gray-500">Pending</Badge>;
     }
   };
-
-  // Helper to check if a status is in a list of valid statuses
-  const statusIsOneOf = (status: TaskStatus, validStatuses: TaskStatus[]): boolean => {
-    return validStatuses.includes(status);
-  };
-
-  if (messages.length === 0) {
-    if (statusIsOneOf(taskStatus, ['created', 'idle', 'pending'] as TaskStatus[])) {
-      return (
-        <Card className="p-4 text-center text-muted-foreground">
-          <Clock className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-          <h3 className="text-lg font-medium mb-2">Waiting to Start</h3>
-          <p>Enter a task description and click "Start Task" to begin.</p>
-        </Card>
-      );
-    }
-    
-    return (
-      <Card className="p-4 text-center text-muted-foreground">
-        <Play className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-        <h3 className="text-lg font-medium mb-2">Task in Progress</h3>
-        <p>The browser automation task is running. Results will appear here.</p>
-      </Card>
-    );
-  }
-
+  
   return (
-    <Card className="h-full flex flex-col">
-      <ScrollArea className="flex-1 p-4">
-        <div className="space-y-4">
-          {messages.map((message, index) => (
-            <div key={index} className="flex gap-3">
-              <div className="flex-shrink-0 mt-1">
-                {getMessageIcon(message.type)}
-              </div>
-              
-              <div className="flex-1">
-                {message.type === 'step' && (
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="font-medium">Step {message.stepNumber || 'N/A'}</span>
-                    {message.goal && (
-                      <Badge variant="outline">{message.goal}</Badge>
-                    )}
-                  </div>
-                )}
-                
-                {message.type === 'recording' && message.urls && message.urls.length > 0 && (
-                  <div className="mb-3 space-y-2">
-                    {message.urls.map((url, urlIndex) => (
-                      <div key={urlIndex} className="flex flex-col">
-                        <a 
-                          href={url} 
-                          target="_blank" 
-                          rel="noopener noreferrer"
-                          className="text-blue-500 hover:underline flex items-center gap-1"
-                        >
-                          <Film className="h-4 w-4" />
-                          View Recording {urlIndex + 1}
-                        </a>
-                      </div>
-                    ))}
-                  </div>
-                )}
-                
-                {message.text && (
-                  <p className={`text-sm ${message.type === 'error' ? 'text-red-500' : ''}`}>
-                    {message.text}
-                  </p>
-                )}
-                
-                {message.evaluation && (
-                  <div className="mt-2 p-2 bg-gray-50 dark:bg-gray-800 rounded-md border border-gray-200 dark:border-gray-700">
-                    <div className="flex items-center mb-1">
-                      <CheckCircle2 className="h-4 w-4 text-green-500 mr-1" />
-                      <span className="text-xs font-medium">Evaluation</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground">{message.evaluation}</p>
-                  </div>
-                )}
-                
-                {message.timestamp && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    {new Date(message.timestamp).toLocaleTimeString()}
-                  </p>
-                )}
-              </div>
-            </div>
-          ))}
+    <div className="space-y-4">
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-medium">Task Result</h3>
+        {getStatusBadge(taskStatus)}
+      </div>
+      
+      {['running', 'pending', 'created', 'paused'].includes(taskStatus) && (
+        <div className="flex items-center justify-center p-6">
+          <div className="text-center">
+            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
+            <p className="text-muted-foreground">Task in progress...</p>
+          </div>
         </div>
-      </ScrollArea>
-    </Card>
+      )}
+      
+      {taskStatus === 'completed' && output && (
+        <div className="rounded-md border p-4 bg-muted/50">
+          <div className="flex gap-2 items-center mb-2">
+            <CheckCircle className="h-5 w-5 text-green-500" />
+            <span className="font-medium">Task Completed</span>
+          </div>
+          <ScrollArea className="h-[300px] w-full">
+            <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
+          </ScrollArea>
+        </div>
+      )}
+      
+      {['failed', 'stopped', 'expired'].includes(taskStatus) && (
+        <Alert variant={taskStatus === 'failed' || taskStatus === 'expired' ? 'destructive' : 'default'}>
+          <AlertCircle className="h-4 w-4" />
+          <AlertDescription>
+            {taskStatus === 'failed' 
+              ? "Task failed to complete. Check the logs below for details." 
+              : taskStatus === 'expired'
+              ? "Task has expired. Please restart the task to continue."
+              : "Task was manually stopped."}
+          </AlertDescription>
+        </Alert>
+      )}
+      
+      {!output && ['completed', 'failed', 'stopped', 'expired'].includes(taskStatus) && (
+        <div className="bg-muted rounded-md p-4">
+          <p className="text-muted-foreground text-sm">No output available.</p>
+        </div>
+      )}
+      
+      {output && ['failed', 'stopped', 'expired'].includes(taskStatus) && (
+        <div className="rounded-md border p-4 bg-muted/50">
+          <ScrollArea className="h-[300px] w-full">
+            <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
+          </ScrollArea>
+        </div>
+      )}
+      
+      {taskSteps.length > 0 && (
+        <div className="mt-6">
+          <h4 className="text-sm font-medium mb-2">Task Steps</h4>
+          <ScrollArea className="h-[200px]">
+            <div className="space-y-2">
+              {taskSteps.map((step) => (
+                <div key={step.id} className="p-3 rounded-md border bg-card">
+                  <div className="flex items-start">
+                    <Badge 
+                      className={`mr-2 ${
+                        step.status === 'completed' ? 'bg-green-500' : 
+                        step.status === 'failed' ? 'bg-red-500' : 
+                        step.status === 'running' ? 'bg-blue-500' : 'bg-gray-500'
+                      }`}
+                    >
+                      {step.status ? step.status.charAt(0).toUpperCase() + step.status.slice(1) : 'Pending'}
+                    </Badge>
+                    <div className="flex-1">
+                      <p className="font-medium text-sm">{step.description}</p>
+                      {step.details && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          {step.details}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </ScrollArea>
+        </div>
+      )}
+    </div>
   );
 }

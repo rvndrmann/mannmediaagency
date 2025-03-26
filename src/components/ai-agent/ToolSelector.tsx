@@ -8,9 +8,7 @@ import {
   ShoppingBag,
   VideoIcon,
   ArrowLeft,
-  MessageSquare,
-  Globe,
-  Video
+  MessageSquare
 } from "lucide-react";
 import { 
   Tooltip,
@@ -60,39 +58,15 @@ export const ToolSelector = ({
     },
     {
       id: "image-to-video",
-      name: "Image to Video",
+      name: "Video",
       icon: Clapperboard,
       tooltip: "Create videos from images"
-    },
-    {
-      id: "browser-use",
-      name: "Browser Use",
-      icon: Globe,
-      tooltip: "Automate browser tasks"
-    },
-    {
-      id: "product-video",
-      name: "Product Video",
-      icon: Video,
-      tooltip: "Create professional product videos"
     }
   ];
 
   return (
     <div className="flex items-center justify-center py-2 bg-[#1E2432] border-b border-white/10">
       <div className="flex bg-[#262B38] rounded-lg p-1 gap-1">
-        {onBackClick && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onBackClick}
-            className="flex items-center gap-2 px-4 py-1.5 text-sm rounded-md text-white/70 hover:bg-[#333945] hover:text-white"
-          >
-            <ArrowLeft className="h-5 w-5" />
-            <span>Back</span>
-          </Button>
-        )}
-        
         {tools.map((tool) => (
           <Button
             key={tool.id}

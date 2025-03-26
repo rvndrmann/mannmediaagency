@@ -1,78 +1,104 @@
 
-import React from 'react';
+import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
-import { Paperclip } from "lucide-react";
-import { Attachment } from "@/types/message";
+import { Paperclip, X, Image, File, Upload } from "lucide-react";
+import { toast } from "sonner";
 import { v4 as uuidv4 } from "uuid";
+import { supabase } from "@/integrations/supabase/client";
+import { Attachment } from "@/types/message";
 
-export interface FileAttachmentButtonProps {
+interface FileAttachmentButtonProps {
   onAttach: (attachments: Attachment[]) => void;
-  disabled?: boolean;
 }
 
-export const FileAttachmentButton: React.FC<FileAttachmentButtonProps> = ({ 
-  onAttach, 
-  disabled = false 
-}) => {
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
+export function FileAttachmentButton({ onAttach }: FileAttachmentButtonProps) {
+  const [isUploading, setIsUploading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const handleButtonClick = () => {
+  const handleFileUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    const newAttachments: Attachment[] = [];
+
+    try {
+      for (let i = 0; i < files.length; i++) {
+        const file = files[i];
+        const fileId = uuidv4();
+        const fileExt = file.name.split('.').pop();
+        const filePath = `chat-attachments/${fileId}.${fileExt}`;
+        const isImage = file.type.startsWith('image/');
+        
+        // Upload file to Supabase storage
+        const { error: uploadError } = await supabase.storage
+          .from('chat-attachments')
+          .upload(filePath, file);
+          
+        if (uploadError) {
+          throw uploadError;
+        }
+        
+        // Get the public URL
+        const { data: publicUrlData } = supabase.storage
+          .from('chat-attachments')
+          .getPublicUrl(filePath);
+          
+        newAttachments.push({
+          id: fileId,
+          type: isImage ? 'image' : 'file',
+          url: publicUrlData.publicUrl,
+          name: file.name,
+          size: file.size,
+          contentType: file.type
+        });
+      }
+      
+      onAttach(newAttachments);
+      toast.success(`${newAttachments.length} file${newAttachments.length > 1 ? 's' : ''} attached`);
+      
+      // Reset the file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    } catch (error) {
+      console.error('Error uploading file:', error);
+      toast.error('Failed to upload file');
+    } finally {
+      setIsUploading(false);
+    }
+  };
+
+  const triggerFileInput = () => {
     if (fileInputRef.current) {
       fileInputRef.current.click();
     }
   };
 
-  const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const files = e.target.files;
-    if (!files || files.length === 0) return;
-
-    const attachments: Attachment[] = [];
-
-    for (let i = 0; i < files.length; i++) {
-      const file = files[i];
-      
-      // Create a new attachment with optional size and contentType
-      const attachment: Attachment = {
-        id: uuidv4(),
-        name: file.name,
-        type: file.type,
-        url: URL.createObjectURL(file),
-        contentType: file.type,
-        size: file.size
-      };
-      
-      attachments.push(attachment);
-    }
-
-    if (attachments.length > 0) {
-      onAttach(attachments);
-    }
-
-    // Reset the input
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  };
-
   return (
-    <>
-      <Button
-        variant="ghost"
-        size="icon"
-        onClick={handleButtonClick}
-        disabled={disabled}
-        className="text-muted-foreground hover:text-foreground"
-        type="button"
+    <div>
+      <Button 
+        type="button" 
+        variant="ghost" 
+        size="icon" 
+        className="text-white/70 hover:text-white hover:bg-white/10 h-4 w-4 p-0"
+        onClick={triggerFileInput}
+        disabled={isUploading}
       >
-        <Paperclip className="h-5 w-5" />
+        {isUploading ? (
+          <Upload className="h-3 w-3 animate-pulse" />
+        ) : (
+          <Paperclip className="h-3 w-3" />
+        )}
       </Button>
       <input
         type="file"
         ref={fileInputRef}
-        onChange={handleFileChange}
+        onChange={handleFileUpload}
         className="hidden"
         multiple
+        accept="image/*,.pdf,.doc,.docx,.txt,.csv,.xlsx"
       />
-    </>
+    </div>
   );
-};
+}

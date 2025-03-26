@@ -1,191 +1,179 @@
 
-import { useState } from "react";
+import { Card } from "@/components/ui/card";
+import ReactMarkdown from "react-markdown";
+import { Message, Task } from "@/types/message";
+import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw, ArrowRightLeft } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
-import { Avatar } from "@/components/chat/Avatar";
-import { motion } from "framer-motion";
-import { Message, SimpleMessage } from "@/types/message";
 
 interface ChatMessageProps {
   message: Message;
+  onRetry?: () => void;
   showAgentName?: boolean;
 }
 
-export const ChatMessage = ({ message, showAgentName = false }: ChatMessageProps) => {
-  const [isFocused, setIsFocused] = useState(false);
-  
-  const isUser = message.role === 'user';
-  const isSystem = message.role === 'system';
-  const isTool = message.role === 'tool';
-  
-  if (isTool) {
-    return (
-      <div className="flex items-start gap-2 text-gray-400 text-xs bg-gray-800/40 p-2 rounded">
-        <div className="font-mono">[Tool Output]: {message.content}</div>
-      </div>
-    );
-  }
-  
-  if (isSystem) {
-    return (
-      <div className="flex items-start gap-2 text-gray-400 text-xs italic">
-        <div>{message.content}</div>
-      </div>
-    );
-  }
-  
-  const isSimpleMessage = (msg: any): msg is SimpleMessage => {
-    return typeof msg === 'object' && ('role' in msg) && !('id' in msg);
+export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProps) => {
+  // Helper to render task status icon
+  const getTaskStatusIcon = (status: Task["status"]) => {
+    switch (status) {
+      case "pending":
+        return <Clock className="h-4 w-4 text-gray-400" />;
+      case "in-progress":
+        return <Loader2 className="h-4 w-4 text-blue-400 animate-spin" />;
+      case "completed":
+        return <Check className="h-4 w-4 text-green-400" />;
+      case "error":
+        return <XCircle className="h-4 w-4 text-red-400" />;
+      default:
+        return null;
+    }
   };
-  
-  const normalizedMessage: Message = isSimpleMessage(message) 
-    ? {
-        id: `msg-${Math.random().toString(36).substr(2, 9)}`,
-        role: message.role,
-        content: message.content,
-        createdAt: new Date().toISOString(),
-        status: message.status
-      } 
-    : message;
-  
+
+  const isError = message.status === "error";
+  const isUser = message.role === "user";
+  const isAgent = message.role === "assistant" && message.agentType;
+  const hasAttachments = message.attachments && message.attachments.length > 0;
+  const hasHandoffRequest = message.handoffRequest != null;
+
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3 }}
-      onMouseEnter={() => setIsFocused(true)}
-      onMouseLeave={() => setIsFocused(false)}
+    <Card
       className={cn(
-        "flex items-start gap-3 p-3 rounded-lg transition-all",
-        isUser ? "bg-blue-900/20" : "bg-gray-800/40",
-        isFocused && "bg-opacity-70"
+        "p-4 shadow-md transition-all animate-in duration-300",
+        isUser
+          ? "ml-auto bg-gradient-to-r from-[#9b87f5] to-[#8a77e1] text-white max-w-[80%] rounded-tl-lg rounded-tr-lg rounded-bl-lg rounded-br-sm"
+          : isError 
+            ? "bg-red-900/30 text-white/90 border-red-500/30 max-w-[80%] rounded-tl-lg rounded-tr-sm rounded-bl-lg rounded-br-lg" 
+            : "bg-[#333333] text-white/90 border-white/10 max-w-[80%] rounded-tl-lg rounded-tr-sm rounded-bl-lg rounded-br-lg"
       )}
     >
-      <Avatar 
-        isUser={isUser} 
-        agentType={normalizedMessage.agentType} 
-        agentIcon={normalizedMessage.agentIcon}
-        agentColor={normalizedMessage.agentColor}
-      />
-      
-      <div className="flex-1 space-y-2 overflow-hidden">
-        {(showAgentName && !isUser && normalizedMessage.agentType) && (
-          <div className="text-xs font-medium text-purple-400">
-            {normalizedMessage.agentName || normalizedMessage.agentType.charAt(0).toUpperCase() + normalizedMessage.agentType.slice(1)} Agent
-          </div>
-        )}
-        
-        <div className={cn(
-          "text-sm prose prose-invert max-w-none",
-          normalizedMessage.status === "thinking" && "text-gray-400"
-        )}>
-          {normalizedMessage.status === "thinking" ? (
-            <ThinkingAnimation content={normalizedMessage.content} />
-          ) : (
-            <div dangerouslySetInnerHTML={{ __html: formatMessageContent(normalizedMessage.content) }} />
-          )}
+      {isError && (
+        <div className="mb-2 flex items-center gap-2 text-red-300">
+          <AlertTriangle className="h-4 w-4" />
+          <span className="text-sm font-medium">Error processing request</span>
         </div>
-        
-        {normalizedMessage.status === "error" && (
-          <div className="mt-2 text-xs text-red-400">
-            There was an error processing this message. Please try again.
-          </div>
-        )}
-        
-        {normalizedMessage.tasks && normalizedMessage.tasks.length > 0 && (
-          <div className="mt-2 space-y-1">
-            {normalizedMessage.tasks.map((task) => (
-              <div key={task.id} className="flex items-center text-xs">
-                <StatusIcon status={task.status} />
-                <span className={cn(
-                  "ml-1.5",
-                  task.status === "completed" ? "text-green-400" : 
-                  task.status === "failed" || task.status === "error" ? "text-red-400" : 
-                  "text-gray-400"
-                )}>
-                  {task.name} {task.details && `- ${task.details}`}
-                </span>
-              </div>
-            ))}
-          </div>
-        )}
+      )}
+      
+      {isAgent && message.agentType && showAgentName && (
+        <Badge 
+          variant={
+            message.agentType === "main" ? "default" : 
+            message.agentType === "script" ? "info" : 
+            message.agentType === "image" ? "warning" : 
+            "success"
+          }
+          className="mb-3 text-xs"
+        >
+          {message.agentType === "main" ? "Main Assistant" : 
+           message.agentType === "script" ? "Script Writer" : 
+           message.agentType === "image" ? "Image Prompt" : "Tool Orchestrator"}
+        </Badge>
+      )}
+      
+      {hasAttachments && (
+        <div className={cn("rounded-md overflow-hidden", isUser ? "bg-white/10" : "bg-black/20")}>
+          <AttachmentPreview 
+            attachments={message.attachments} 
+            isRemovable={false}
+          />
+        </div>
+      )}
+      
+      <div className={cn(hasAttachments ? "mt-3" : "")}>
+        <ReactMarkdown
+          components={{
+            code({ children, className, ...props }) {
+              const match = /language-(\w+)/.exec(className || '');
+              return (
+                <code
+                  className={`${match ? 'bg-black/30 p-2 block rounded' : 'bg-black/30 px-1 py-0.5 rounded'} ${className}`}
+                  {...props}
+                >
+                  {children}
+                </code>
+              );
+            },
+            p({ children }) {
+              return <p className="mb-3 last:mb-0">{children}</p>;
+            },
+          }}
+        >
+          {message.content}
+        </ReactMarkdown>
       </div>
-    </motion.div>
-  );
-};
 
-const ThinkingAnimation = ({ content }: { content: string }) => {
-  return (
-    <div className="flex items-center">
-      <span>{content}</span>
-      <span className="inline-flex ml-1">
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0] }}
-          transition={{ repeat: Infinity, duration: 1.4, repeatDelay: 0 }}
-          className="mx-[1px]"
-        >
-          .
-        </motion.span>
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0] }}
-          transition={{ repeat: Infinity, duration: 1.4, delay: 0.2, repeatDelay: 0 }}
-          className="mx-[1px]"
-        >
-          .
-        </motion.span>
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: [0, 1, 0] }}
-          transition={{ repeat: Infinity, duration: 1.4, delay: 0.4, repeatDelay: 0 }}
-          className="mx-[1px]"
-        >
-          .
-        </motion.span>
-      </span>
-    </div>
-  );
-};
+      {hasHandoffRequest && (
+        <div className="mt-3 pt-2 border-t border-white/10 flex items-center gap-2 text-blue-300">
+          <ArrowRightLeft className="h-4 w-4" />
+          <span className="text-sm">
+            Transferring to{" "}
+            <Badge variant="outline" className="text-xs py-0 px-1 border-blue-400/30">
+              {message.handoffRequest?.targetAgent === "main" ? "Main Assistant" : 
+               message.handoffRequest?.targetAgent === "script" ? "Script Writer" : 
+               message.handoffRequest?.targetAgent === "image" ? "Image Prompt" : "Tool Orchestrator"}
+            </Badge>
+          </span>
+        </div>
+      )}
 
-const StatusIcon = ({ status }: { status: string }) => {
-  return (
-    <div className={cn(
-      "w-3 h-3 rounded-full",
-      status === "pending" ? "bg-gray-500" :
-      status === "in_progress" || status === "in-progress" ? "bg-blue-500 animate-pulse" :
-      status === "completed" ? "bg-green-500" :
-      "bg-red-500" // error or failed
-    )} />
+      {message.tasks && message.tasks.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-white/10">
+          <div className="text-xs font-medium text-white/60 mb-2 flex items-center justify-between">
+            <span>
+              {message.status === "thinking" && "Analyzing your request..."}
+              {message.status === "working" && "Working on tasks..."}
+              {message.status === "completed" && "All tasks completed"}
+              {message.status === "error" && "Error occurred"}
+            </span>
+            
+            {isError && onRetry && (
+              <Button 
+                variant="ghost" 
+                size="sm" 
+                onClick={onRetry}
+                className="h-6 px-2 text-xs text-red-300 hover:text-white hover:bg-red-800/50"
+              >
+                <RefreshCw className="h-3 w-3 mr-1" />
+                Retry
+              </Button>
+            )}
+          </div>
+          
+          <ul className="space-y-2">
+            {message.tasks.map((task) => (
+              <li key={task.id} className="flex items-start gap-2 text-sm">
+                <div className="mt-0.5 flex-shrink-0">
+                  {getTaskStatusIcon(task.status)}
+                </div>
+                <div className="flex-1">
+                  <div className={`font-medium ${
+                    task.status === "error" ? "text-red-300" : "text-white/80"
+                  }`}>
+                    {task.name}
+                  </div>
+                  {task.details && (
+                    <div className="text-xs text-white/60 mt-0.5">{task.details}</div>
+                  )}
+                  {task.status === "in-progress" && (
+                    <div className="w-full h-1 bg-white/10 rounded-full mt-1 overflow-hidden">
+                      <div className="h-full bg-blue-400 rounded-full animate-pulse" style={{ width: '60%' }}></div>
+                    </div>
+                  )}
+                </div>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      
+      {isError && message.command && (
+        <div className="mt-3 pt-3 border-t border-red-500/30">
+          <div className="text-xs text-red-300">
+            <p>Connection to AI service failed. Please try again later.</p>
+          </div>
+        </div>
+      )}
+    </Card>
   );
-};
-
-const formatMessageContent = (content: string): string => {
-  let formattedContent = content.replace(
-    /(https?:\/\/[^\s]+)/g, 
-    '<a href="$1" target="_blank" rel="noopener noreferrer" class="text-blue-400 hover:underline">$1</a>'
-  );
-  
-  formattedContent = formattedContent.replace(
-    /```([a-z]*)\n([\s\S]*?)\n```/g,
-    '<pre class="bg-gray-900 p-3 rounded-md overflow-x-auto my-2"><code class="text-gray-300 font-mono text-sm">$2</code></pre>'
-  );
-  
-  formattedContent = formattedContent.replace(
-    /`([^`]+)`/g,
-    '<code class="bg-gray-900 px-1 py-0.5 rounded text-gray-300 font-mono text-sm">$1</code>'
-  );
-  
-  formattedContent = formattedContent.replace(
-    /\*\*([^*]+)\*\*/g,
-    '<strong>$1</strong>'
-  );
-  
-  formattedContent = formattedContent.replace(
-    /\*([^*]+)\*/g,
-    '<em>$1</em>'
-  );
-  
-  formattedContent = formattedContent.replace(/\n/g, '<br>');
-  
-  return formattedContent;
 };

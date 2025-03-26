@@ -17,6 +17,7 @@ import { GenerateButton } from "./components/GenerateButton";
 import { AspectRatio } from "@/types/product-shoot";
 import { useEffect } from "react";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
+import { Message } from "@/types/message";
 
 export interface ProductShotFormProps {
   onSubmit: (formData: any) => Promise<void>;
@@ -24,7 +25,7 @@ export interface ProductShotFormProps {
   isSubmitting: boolean;
   availableCredits: number | undefined;
   initialSceneDescription?: string;
-  messages: any[]; // Accept any message format
+  messages: Message[];
 }
 
 export function ProductShotForm({ 

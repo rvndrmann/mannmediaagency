@@ -4,8 +4,7 @@ import {
   Camera,
   Clapperboard,
   FileText,
-  ShoppingBag,
-  Globe
+  ShoppingBag
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useNavigate } from "react-router-dom";
@@ -44,11 +43,6 @@ export const MobileToolNav = ({
       name: "Video",
       icon: Clapperboard,
     },
-    {
-      id: "browser-use",
-      name: "Browser",
-      icon: Globe,
-    }
   ];
 
   const handleCustomOrderClick = () => {

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { Bot, PenLine, Image, Wrench, Coffee, Globe, Video, ShoppingBag, FileText } from 'lucide-react';
+import { Bot, PenLine, Image, Wrench, Coffee } from 'lucide-react';
 
 type AgentBadgeProps = {
   agentType: string;
@@ -33,26 +33,6 @@ export const AgentBadge = ({ agentType }: AgentBadgeProps) => {
       label = "Tool";
       icon = <Wrench className="h-3.5 w-3.5" />;
       className = "bg-amber-600";
-      break;
-    case 'scene':
-      label = "Scene";
-      icon = <FileText className="h-3.5 w-3.5" />;
-      className = "bg-emerald-600";
-      break;
-    case 'browser':
-      label = "Browser";
-      icon = <Globe className="h-3.5 w-3.5" />;
-      className = "bg-cyan-600";
-      break;
-    case 'product-video':
-      label = "Product Video";
-      icon = <Video className="h-3.5 w-3.5" />;
-      className = "bg-red-600";
-      break;
-    case 'custom-video':
-      label = "Custom Video";
-      icon = <ShoppingBag className="h-3.5 w-3.5" />;
-      className = "bg-pink-600";
       break;
     default:
       label = "Custom";

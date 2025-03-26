@@ -1,98 +1,64 @@
 
 import { Command } from "@/types/message";
 
-export interface ParsedToolCall {
-  toolName: string;
-  parameters: Record<string, any>;
-}
-
-export function parseToolCall(text: string): Command | null {
-  // Try to find a markdown-formatted tool call
-  const markdownRegex = /```(?:json)?\s*({[\s\S]*?})\s*```/;
-  const markdownMatch = text.match(markdownRegex);
-  
-  if (markdownMatch) {
-    try {
-      const jsonData = JSON.parse(markdownMatch[1]);
+/**
+ * Parse a tool command from text output
+ */
+export function parseToolCommand(text: string): Command | null {
+  try {
+    // First try the formal TOOL format used by the tool orchestrator
+    const toolMatch = text.match(/TOOL:\s*([a-z0-9-]+)/i);
+    const paramsMatch = text.match(/PARAMETERS:\s*(\{.+\})/s);
+    
+    if (toolMatch) {
+      const feature = toolMatch[1].toLowerCase();
+      let parameters = {};
       
-      // Handle various formats
-      if (jsonData.toolName && (jsonData.parameters || jsonData.args)) {
-        return {
-          toolName: jsonData.toolName,
-          feature: jsonData.toolName,
-          parameters: jsonData.parameters || jsonData.args
-        };
+      if (paramsMatch) {
+        try {
+          parameters = JSON.parse(paramsMatch[1]);
+          console.log(`Parsed tool parameters:`, parameters);
+        } catch (e) {
+          console.error("Error parsing tool parameters:", e);
+        }
       }
-      
-      if (jsonData.tool && jsonData.parameters) {
-        return {
-          toolName: jsonData.tool,
-          feature: jsonData.tool,
-          parameters: jsonData.parameters
-        };
-      }
-    } catch (e) {
-      console.error("Error parsing JSON from markdown block:", e);
-    }
-  }
-  
-  // Try to find a tool call with TOOL: and PARAMETERS: format
-  const toolRegex = /TOOL:\s*([a-z0-9_-]+)(?:[,\s]\s*PARAMETERS:|\s+PARAMETERS:)\s*(\{.+\})/is;
-  const toolMatch = text.match(toolRegex);
-  
-  if (toolMatch) {
-    try {
-      const toolName = toolMatch[1].trim();
-      const parameters = JSON.parse(toolMatch[2]);
       
       return {
-        toolName,
-        feature: toolName,
-        parameters
+        feature: feature as Command["feature"],
+        action: "create",
+        parameters,
+        confidence: 0.9
       };
-    } catch (e) {
-      console.error("Error parsing tool parameters:", e);
     }
-  }
-  
-  // Try to find a tool in a more natural language format
-  const naturalLanguageRegex = /(?:use|execute|run|call|activate)\s+(?:the\s+)?(?:tool\s+)?['"]?([a-z0-9_-]+)['"]?(?:\s+tool)?(?:\s+with\s+(?:parameters|args|arguments|params|data)\s*[:=])?\s*(\{.+\})/is;
-  const naturalMatch = text.match(naturalLanguageRegex);
-  
-  if (naturalMatch) {
-    try {
-      const toolName = naturalMatch[1].trim();
-      const parameters = JSON.parse(naturalMatch[2]);
+    
+    // If no match with the formal TOOL format, try the more flexible direct agent format
+    // This looks for standard JSON tool calls in the LLM output
+    const toolCallPattern = /I'll use the ([a-z0-9-]+) tool.*?(\{.*?\})/is;
+    const directMatch = text.match(toolCallPattern);
+    
+    if (directMatch) {
+      const feature = directMatch[1].toLowerCase();
       
-      return {
-        toolName,
-        feature: toolName,
-        parameters
-      };
-    } catch (e) {
-      console.error("Error parsing natural language tool parameters:", e);
-    }
-  }
-  
-  // Try to find any JSON object that might contain tool information
-  const jsonRegex = /(\{[\s\S]*?\})/g;
-  const jsonMatches = [...text.matchAll(jsonRegex)];
-  
-  for (const match of jsonMatches) {
-    try {
-      const jsonData = JSON.parse(match[1]);
-      
-      if ((jsonData.toolName || jsonData.tool) && (jsonData.parameters || jsonData.args)) {
+      try {
+        const parameters = JSON.parse(directMatch[2]);
+        console.log(`Parsed direct tool parameters:`, parameters);
+        
         return {
-          toolName: jsonData.toolName || jsonData.tool,
-          feature: jsonData.toolName || jsonData.tool,
-          parameters: jsonData.parameters || jsonData.args
+          feature: feature as Command["feature"],
+          action: "create",
+          parameters,
+          confidence: 0.8,
+          type: "direct"
         };
+      } catch (e) {
+        console.error("Error parsing direct tool parameters:", e);
       }
-    } catch (e) {
-      // Skip invalid JSON
     }
+    
+    console.log("No tool command found in text");
+    return null;
+  } catch (error) {
+    console.error("Error parsing tool command:", error);
+    return null;
   }
-  
-  return null;
 }

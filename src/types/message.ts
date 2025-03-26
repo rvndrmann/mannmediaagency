@@ -1,47 +1,22 @@
-
-export type AgentIconType = 
-  | "Bot" 
-  | "PenLine" 
-  | "Image" 
-  | "Wrench" 
-  | "Code" 
-  | "FileText" 
-  | "Zap" 
-  | "Brain" 
-  | "Lightbulb" 
-  | "Music" 
-  | "Video" 
-  | "Globe" 
-  | "ShoppingBag";
-
-export interface Attachment {
-  id: string;
-  name: string;
-  url: string;
-  type?: 'image' | 'video' | 'file' | string;
-  size?: number;
-  contentType?: string;
-}
-
-export interface Command {
-  toolName: string;
-  feature: string;
-  parameters: any;
-}
-
-export interface Task {
-  id: string;
-  name?: string;
-  description: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed' | 'error';
-  result?: any;
-  details?: string;
+export interface Message {
+  role: "user" | "assistant";
+  content: string;
+  status?: "thinking" | "working" | "completed" | "error";
+  tasks?: Task[];
+  command?: Command;
+  agentType?: string;
+  selectedTool?: string;
+  attachments?: Attachment[];
+  handoffRequest?: HandoffRequest;
+  modelUsed?: string;
 }
 
 export interface HandoffRequest {
   targetAgent: string;
   reason: string;
 }
+
+export type AgentIconType = "Bot" | "PenLine" | "Image" | "Wrench" | "Code" | "FileText" | "Zap" | "Brain" | "Lightbulb" | "Music";
 
 export interface AgentInfo {
   id: string;
@@ -50,36 +25,64 @@ export interface AgentInfo {
   icon: AgentIconType;
   color: string;
   instructions: string;
+  isCustom?: boolean;
 }
 
-export interface SimpleMessage {
-  role: "user" | "assistant" | "system" | "tool";
-  content: string;
-  status?: "thinking" | "completed" | "error";
-  id?: string;
-  createdAt?: string;
-}
-
-export interface AgentMessage extends SimpleMessage {
-  agentType?: string;
-}
-
-export interface Message {
+export interface Attachment {
   id: string;
-  role: 'user' | 'assistant' | 'system' | 'tool';
-  content: string;
-  createdAt: string;
-  status?: 'thinking' | 'completed' | 'error';
-  agentType?: string;
-  agentName?: string;
-  agentIcon?: AgentIconType;
-  agentColor?: string;
-  modelUsed?: string;
-  attachments?: Attachment[];
-  command?: Command;
-  tasks?: Task[];
-  handoff?: {
-    to: string;
-    reason: string;
+  type: "image" | "file";
+  url: string;
+  name: string;
+  size?: number;
+  contentType?: string;
+}
+
+export interface Task {
+  id: string;
+  name: string;
+  status: "pending" | "in-progress" | "completed" | "error";
+  details?: string;
+}
+
+export interface Command {
+  feature: "product-shot-v1" | "product-shot-v2" | "image-to-video" | "product-video" | "default-image";
+  action: "create" | "convert" | "save" | "use" | "list";
+  parameters?: {
+    name?: string;
+    imageId?: string;
+    imageUrl?: string;
+    prompt?: string;
+    autoGenerate?: boolean;
+    contextualData?: any;
+    requestId?: string;
+    [key: string]: any;
   };
+  confidence?: number;
+  type?: string;
+  tool?: string;
+  selectedTool?: string;
+}
+
+export interface Notification {
+  id: string;
+  user_id: string;
+  title: string;
+  message: string;
+  type: string;
+  read: boolean;
+  created_at: string;
+}
+
+export interface AgentMessage {
+  role: "user" | "assistant" | "system";
+  content: string;
+  name?: string;
+}
+
+export interface AgentCompletion {
+  id: string;
+  agentType: string;
+  content: string;
+  status: "completed" | "processing" | "error";
+  createdAt: string;
 }

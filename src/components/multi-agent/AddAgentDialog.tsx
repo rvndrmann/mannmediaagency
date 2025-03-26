@@ -1,151 +1,236 @@
-import { useState } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
-import { Button } from "@/components/ui/button";
+
+import React from "react";
+import { z } from "zod";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { 
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter
+} from "@/components/ui/dialog";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage
+} from "@/components/ui/form";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue
+} from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { Loader2 } from "lucide-react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Button } from "@/components/ui/button";
+import { AgentInfo, AgentIconType } from "@/types/message";
+import { CustomAgentFormData } from "@/hooks/use-custom-agents";
 
-export interface CustomAgentFormData {
-  name: string;
-  description: string;
-  color: string;
-  icon: string;
-  instructions: string;
-}
+// Available icon options
+const iconOptions = [
+  { value: "Bot", label: "Robot" },
+  { value: "PenLine", label: "Pen" },
+  { value: "Image", label: "Image" },
+  { value: "Wrench", label: "Tool" },
+  { value: "Code", label: "Code" },
+  { value: "FileText", label: "Document" },
+  { value: "Zap", label: "Lightning" },
+  { value: "Brain", label: "Brain" },
+  { value: "Lightbulb", label: "Idea" },
+  { value: "Music", label: "Music" }
+];
 
-export interface AddAgentDialogProps {
+// Available color options
+const colorOptions = [
+  { value: "from-blue-400 to-indigo-500", label: "Blue" },
+  { value: "from-purple-400 to-pink-500", label: "Purple" },
+  { value: "from-green-400 to-teal-500", label: "Green" },
+  { value: "from-amber-400 to-orange-500", label: "Orange" },
+  { value: "from-red-400 to-rose-500", label: "Red" },
+  { value: "from-cyan-400 to-blue-500", label: "Cyan" }
+];
+
+// Validation schema for the form
+const formSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters").max(50, "Name must be less than 50 characters"),
+  description: z.string().min(5, "Description must be at least 5 characters").max(150, "Description must be less than 150 characters"),
+  icon: z.enum(["Bot", "PenLine", "Image", "Wrench", "Code", "FileText", "Zap", "Brain", "Lightbulb", "Music"]),
+  color: z.string().min(1, "Please select a color"),
+  instructions: z.string().min(10, "Instructions must be at least 10 characters").max(1000, "Instructions must be less than 1000 characters")
+});
+
+interface AddAgentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  onSubmit: (formData: CustomAgentFormData) => Promise<void>;
-  isSubmitting?: boolean; // Make isSubmitting optional
+  onSubmit: (data: CustomAgentFormData) => void;
+  editAgent?: AgentInfo | null;
+  title?: string;
 }
 
-export function AddAgentDialog({ open, onOpenChange, onSubmit, isSubmitting = false }: AddAgentDialogProps) {
-  const [name, setName] = useState("");
-  const [description, setDescription] = useState("");
-  const [color, setColor] = useState("from-blue-400 to-indigo-500");
-  const [icon, setIcon] = useState("Bot");
-  const [instructions, setInstructions] = useState("");
-  
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!name.trim() || !instructions.trim()) return;
-    
-    // Ensure all fields are provided
-    const formData: CustomAgentFormData = {
-      name: name.trim(),
-      description: description.trim() || `A custom agent named ${name}`,
-      color,
-      icon,
-      instructions: instructions.trim()
-    };
-    
-    await onSubmit(formData);
-    resetForm();
+export function AddAgentDialog({
+  open,
+  onOpenChange,
+  onSubmit,
+  editAgent = null,
+  title = "Add Custom Agent"
+}: AddAgentDialogProps) {
+  // Initialize form with default values or edit agent values
+  const form = useForm<z.infer<typeof formSchema>>({
+    resolver: zodResolver(formSchema),
+    defaultValues: editAgent ? {
+      name: editAgent.name,
+      description: editAgent.description,
+      icon: editAgent.icon,
+      color: editAgent.color,
+      instructions: editAgent.instructions
+    } : {
+      name: "",
+      description: "",
+      icon: "Bot",
+      color: "from-blue-400 to-indigo-500",
+      instructions: ""
+    }
+  });
+
+  // Handle form submission
+  const handleSubmit = (values: z.infer<typeof formSchema>) => {
+    onSubmit(values as CustomAgentFormData);
+    if (!editAgent) {
+      form.reset(); // Only reset if creating a new agent, not editing
+    }
   };
-  
-  const resetForm = () => {
-    setName("");
-    setDescription("");
-    setColor("from-blue-400 to-indigo-500");
-    setIcon("Bot");
-    setInstructions("");
-  };
-  
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[425px]">
+      <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Add Custom Agent</DialogTitle>
+          <DialogTitle>{title}</DialogTitle>
           <DialogDescription>
-            Create a new agent to use in your multi-agent chats.
+            {editAgent 
+              ? "Edit your custom agent's details and instructions." 
+              : "Create a new agent with custom instructions and capabilities."}
           </DialogDescription>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="grid gap-4 py-4">
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="name" className="text-right">
-              Name
-            </Label>
-            <Input
-              type="text"
-              id="name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="col-span-3"
-              placeholder="Agent Name"
+
+        <Form {...form}>
+          <form onSubmit={form.handleSubmit(handleSubmit)} className="space-y-4">
+            <FormField
+              control={form.control}
+              name="name"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Name</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., SEO Expert" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="description" className="text-right">
-              Description
-            </Label>
-            <Textarea
-              id="description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              className="col-span-3"
-              placeholder="Agent Description"
+            
+            <FormField
+              control={form.control}
+              name="description"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Description</FormLabel>
+                  <FormControl>
+                    <Input placeholder="e.g., Specialized in SEO optimization" {...field} />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="color" className="text-right">
-              Color
-            </Label>
-            <Select value={color} onValueChange={setColor}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select a color" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="from-blue-400 to-indigo-500">Blue to Indigo</SelectItem>
-                <SelectItem value="from-green-400 to-emerald-500">Green to Emerald</SelectItem>
-                <SelectItem value="from-red-400 to-orange-500">Red to Orange</SelectItem>
-                <SelectItem value="from-purple-400 to-pink-500">Purple to Pink</SelectItem>
-                <SelectItem value="from-yellow-400 to-amber-500">Yellow to Amber</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-center gap-4">
-            <Label htmlFor="icon" className="text-right">
-              Icon
-            </Label>
-            <Select value={icon} onValueChange={setIcon}>
-              <SelectTrigger className="col-span-3">
-                <SelectValue placeholder="Select an icon" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="Bot">Bot</SelectItem>
-                <SelectItem value="User">User</SelectItem>
-                <SelectItem value="Settings">Settings</SelectItem>
-                <SelectItem value="Code">Code</SelectItem>
-                <SelectItem value="MessageCircle">MessageCircle</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid grid-cols-4 items-start gap-4">
-            <Label htmlFor="instructions" className="text-right mt-2">
-              Instructions
-            </Label>
-            <Textarea
-              id="instructions"
-              value={instructions}
-              onChange={(e) => setInstructions(e.target.value)}
-              className="col-span-3"
-              placeholder="Agent Instructions"
+            
+            <div className="grid grid-cols-2 gap-4">
+              <FormField
+                control={form.control}
+                name="icon"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Icon</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select icon" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {iconOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              
+              <FormField
+                control={form.control}
+                name="color"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Color Theme</FormLabel>
+                    <Select 
+                      onValueChange={field.onChange} 
+                      defaultValue={field.value}
+                    >
+                      <FormControl>
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select color" />
+                        </SelectTrigger>
+                      </FormControl>
+                      <SelectContent>
+                        {colorOptions.map(option => (
+                          <SelectItem key={option.value} value={option.value}>
+                            {option.label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+            </div>
+            
+            <FormField
+              control={form.control}
+              name="instructions"
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>Instructions</FormLabel>
+                  <FormControl>
+                    <Textarea 
+                      placeholder="Detailed instructions for how the agent should behave and respond..." 
+                      className="min-h-[150px]"
+                      {...field} 
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
             />
-          </div>
-          <Button type="submit" disabled={isSubmitting}>
-            {isSubmitting ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Please wait
-              </>
-            ) : (
-              "Add Agent"
-            )}
-          </Button>
-        </form>
+            
+            <DialogFooter>
+              <Button type="submit" className="w-full">
+                {editAgent ? "Save Changes" : "Create Agent"}
+              </Button>
+            </DialogFooter>
+          </form>
+        </Form>
       </DialogContent>
     </Dialog>
   );

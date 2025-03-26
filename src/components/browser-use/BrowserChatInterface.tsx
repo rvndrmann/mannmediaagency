@@ -18,7 +18,7 @@ interface BrowserChatInterfaceProps {
   isProcessing: boolean;
   taskStatus: TaskStatus;
   userCredits: number | null;
-  taskOutput: string | null;
+  taskOutput: React.ReactNode | string | null;
   error: string | null;
   onStop: () => Promise<void>;
   onPause: () => Promise<void>;
@@ -94,17 +94,61 @@ export const BrowserChatInterface: React.FC<BrowserChatInterfaceProps> = ({
     }
   }, [chatHistory]);
 
+  // Process taskOutput for chat display
+  const safeStringify = (value: any): string => {
+    if (value === null || value === undefined) {
+      return '';
+    }
+    
+    if (typeof value === 'string') {
+      return value;
+    }
+    
+    try {
+      // Handle circular references when converting objects to strings
+      return JSON.stringify(value, (key, val) => {
+        // Skip React internal properties that might cause circular references
+        if (key && typeof val === 'object' && val !== null) {
+          if (key.startsWith('__react') || key.startsWith('_reactFiber') || 
+              key.includes('Fiber') || key.includes('fiber')) {
+            return '[React Internal]';
+          }
+          // Skip DOM nodes
+          if (val instanceof Node || val instanceof Element) {
+            return '[DOM Element]';
+          }
+        }
+        return val;
+      }, 2);
+    } catch (e) {
+      console.error("Error stringifying value:", e);
+      return String(value) || '[Object]';
+    }
+  };
+
   // Add taskOutput to chat history when it changes
   useEffect(() => {
     if (taskOutput && (!isProcessing || taskStatus === 'completed')) {
       // Check if we already have this output in chat history
       const lastAssistantMessage = [...chatHistory].reverse().find(msg => msg.role === 'assistant');
-      if (!lastAssistantMessage || lastAssistantMessage.content !== taskOutput) {
+      
+      // Convert taskOutput to a safe string representation
+      let outputContent = '';
+      if (typeof taskOutput === 'string') {
+        outputContent = taskOutput;
+      } else if (React.isValidElement(taskOutput)) {
+        outputContent = 'Content available in browser view';
+      } else {
+        outputContent = safeStringify(taskOutput);
+      }
+      
+      // Only add if different from the last message
+      if (!lastAssistantMessage || lastAssistantMessage.content !== outputContent) {
         setChatHistory(prev => [
           ...prev.filter(msg => msg.role !== 'assistant' || msg.status !== 'processing'),
           { 
             role: 'assistant', 
-            content: taskOutput.toString(), // Ensure content is a string
+            content: outputContent, 
             timestamp: new Date(),
             status: 'complete'
           }

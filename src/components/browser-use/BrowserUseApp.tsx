@@ -31,7 +31,7 @@ export function BrowserUseApp() {
     currentUrl,
     setCurrentUrl,
     screenshot,
-    captureScreenshot: originalCaptureScreenshot,
+    captureScreenshot,
     userCredits,
     error,
     browserConfig,
@@ -59,12 +59,12 @@ export function BrowserUseApp() {
     }
   }, [currentTaskId]);
 
-  // Ensure taskOutput is properly typed or converted to string for rendering
+  // Ensure taskOutput is properly converted to a renderable format
   const renderTaskOutput = () => {
     if (!taskOutput) return null;
     
     try {
-      // If taskOutput is an array, convert it to string
+      // If taskOutput is an array, convert it to string representation
       if (Array.isArray(taskOutput)) {
         return taskOutput.map((item, index) => {
           if (typeof item === 'object' && item !== null) {
@@ -122,7 +122,7 @@ export function BrowserUseApp() {
               isProcessing={isProcessing}
               taskStatus={taskStatus || "created" as TaskStatus}
               userCredits={userCredits ? userCredits.credits_remaining : null}
-              taskOutput={taskOutput}
+              taskOutput={typeof taskOutput === 'string' ? taskOutput : renderTaskOutput()}
               error={error}
               onStop={stopTask}
               onPause={pauseTask}
@@ -136,8 +136,8 @@ export function BrowserUseApp() {
               currentUrl={currentUrl}
               setCurrentUrl={setCurrentUrl}
               screenshot={screenshot}
-              captureScreenshot={originalCaptureScreenshot}
-              connectionStatus={connectionStatus || "disconnected"}
+              captureScreenshot={captureScreenshot}
+              connectionStatus={connectionStatus}
             />
           </div>
         </TabsContent>
@@ -148,12 +148,8 @@ export function BrowserUseApp() {
 
         <TabsContent value="settings">
           <BrowserConfigPanel
-            config={browserConfig || {}}
-            setConfig={(config) => {
-              if (setBrowserConfig) {
-                setBrowserConfig(config);
-              }
-            }}
+            config={browserConfig}
+            setConfig={setBrowserConfig}
             disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
           />
         </TabsContent>

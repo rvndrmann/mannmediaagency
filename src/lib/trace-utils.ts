@@ -100,14 +100,22 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       // Update the existing trace with the latest information
       const existingRecord = existingData[0];
       const existingMetadata = existingRecord.metadata || {};
-      const existingTrace = safeGetTraceFromMetadata(existingMetadata) || {};
+      
+      // Safely access existing trace data
+      let existingTrace = {};
+      if (existingMetadata && typeof existingMetadata === 'object') {
+        existingTrace = existingMetadata.trace || {};
+      }
       
       // Initialize updatedEvents array
-      const updatedEvents: any[] = [];
+      const updatedEvents: TraceEvent[] = [];
       
       // If existingTrace.events exists and is an array, add them to updatedEvents
-      if (existingTrace && typeof existingTrace === 'object' && 'events' in existingTrace && Array.isArray(existingTrace.events)) {
-        updatedEvents.push(...existingTrace.events);
+      if (existingTrace && typeof existingTrace === 'object' && 'events' in existingTrace) {
+        const existingEvents = existingTrace.events;
+        if (Array.isArray(existingEvents)) {
+          updatedEvents.push(...existingEvents);
+        }
       }
       
       // Add the new events, safely appending to existing
@@ -197,27 +205,34 @@ export const createTraceEvent = (
 // Function to generate a summary from trace events
 export const generateTraceSummary = (trace: Trace): TraceSummary => {
   // Extract unique agent types
-  const agentTypes = [...new Set(
-    trace.events
-      .filter(e => e.agentType)
-      .map(e => e.agentType)
-  )] as string[];
+  const agentTypes: string[] = [];
+  
+  // Safely collect unique agent types
+  if (Array.isArray(trace.events)) {
+    trace.events.forEach(e => {
+      if (e.agentType && !agentTypes.includes(e.agentType)) {
+        agentTypes.push(e.agentType);
+      }
+    });
+  }
   
   // Count handoffs
-  const handoffs = trace.events
-    .filter(e => e.eventType === 'handoff')
-    .length;
+  const handoffs = Array.isArray(trace.events) 
+    ? trace.events.filter(e => e.eventType === 'handoff').length 
+    : 0;
   
   // Count tool calls
-  const toolCalls = trace.events
-    .filter(e => e.eventType === 'tool_call')
-    .length;
+  const toolCalls = Array.isArray(trace.events)
+    ? trace.events.filter(e => e.eventType === 'tool_call').length
+    : 0;
   
   // Determine if successful
-  const success = !trace.events.some(e => 
-    e.eventType === 'error' || 
-    (e.eventType === 'completion' && e.data?.success === false)
-  );
+  const success = Array.isArray(trace.events)
+    ? !trace.events.some(e => 
+        e.eventType === 'error' || 
+        (e.eventType === 'completion' && e.data?.success === false)
+      )
+    : false;
   
   // Calculate duration
   const duration = trace.endTime ? 

@@ -63,14 +63,19 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
       // Convert to string if it's an object
       if (typeof data === 'object') {
         return JSON.stringify(data, (key, value) => {
-          // Handle circular references
+          // Handle circular references and React internal props
           if (key && typeof value === 'object' && value !== null) {
-            if (key.startsWith('__react') || key.startsWith('_reactFiber')) {
+            if (key.startsWith('__react') || key.startsWith('_reactFiber') ||
+                key.includes('Fiber') || key.includes('fiber')) {
               return '[React Internal]';
             }
             // Skip DOM nodes and elements that might contain circular refs
             if (value instanceof Node || value instanceof Element) {
               return '[DOM Element]';
+            }
+            // Skip functions
+            if (typeof value === 'function') {
+              return '[Function]';
             }
           }
           return value;

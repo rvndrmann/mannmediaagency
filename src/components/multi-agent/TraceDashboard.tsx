@@ -13,9 +13,9 @@ import { TraceViewer, Trace } from './TraceViewer';
 interface TraceItem {
   id: string;
   timestamp: string;
-  group_id?: string;
   metadata: any;
   user_id: string;
+  group_id?: string; // Make this optional
 }
 
 export const TraceDashboard: React.FC = () => {
@@ -39,12 +39,12 @@ export const TraceDashboard: React.FC = () => {
       
       if (error) throw error;
       
-      // Process the data to extract trace information
+      // Process the data to extract trace information and handle undefined fields
       const processedTraces = (data || []).map(item => {
         return {
           id: item.id,
           timestamp: item.timestamp,
-          group_id: item.group_id || '',
+          group_id: item.group_id || '', // Use empty string as fallback
           metadata: item.metadata,
           user_id: item.user_id || ''
         };

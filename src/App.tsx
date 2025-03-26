@@ -1,3 +1,4 @@
+
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -33,7 +34,8 @@ import { BottomNav } from "./components/mobile/BottomNav";
 import CustomOrderForm from "./pages/CustomOrderForm";
 import CustomOrders from "./pages/CustomOrders";
 import MultiAgentChat from "./pages/MultiAgentChat";
-import BrowserUsePage from "./pages/BrowserUse";
+import BrowserUse from "./pages/BrowserUse";
+import React from "react";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -85,49 +87,51 @@ const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
 };
 
 const App = () => (
-  <ThemeProvider defaultTheme="dark" enableSystem>
-    <QueryClientProvider client={queryClient}>
-      <div className="min-h-screen bg-background font-sans antialiased">
-        <BrowserRouter>
-          <TooltipProvider>
-            <Routes>
-              <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
-              <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
-              <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
-              <Route path="/auth/login" element={<LoginForm />} />
-              <Route path="/auth/signup" element={<SignupForm />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/about" element={<AboutUs />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
-              <Route path="/product-shoot" element={<ProtectedRoute><ProductShoot /></ProtectedRoute>} />
-              <Route path="/product-shoot-v2" element={<ProtectedRoute><ProductShootV2 /></ProtectedRoute>} />
-              <Route path="/image-to-video" element={<ProtectedRoute><ImageToVideo /></ProtectedRoute>} />
-              <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
-              <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
-              <Route path="/multi-agent-chat" element={<ProtectedRoute><MultiAgentChat /></ProtectedRoute>} />
-              <Route path="/custom-orders" element={<ProtectedRoute><CustomOrders /></ProtectedRoute>} />
-              <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
-              <Route path="/payment" element={<Payment />} />
-              <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
-              <Route path="/payment/failure" element={<ProtectedRoute><PaymentFailure /></ProtectedRoute>} />
-              <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
-              <Route path="/order/:accessCode" element={<CustomOrderForm />} />
-              <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
-              <Route path="/browser-use" element={<BrowserUsePage />} />
-            </Routes>
-            <BottomNav />
-          </TooltipProvider>
-          <Toaster />
-          <Sonner />
-        </BrowserRouter>
-      </div>
-    </QueryClientProvider>
-  </ThemeProvider>
+  <React.StrictMode>
+    <ThemeProvider defaultTheme="dark" enableSystem>
+      <QueryClientProvider client={queryClient}>
+        <div className="min-h-screen bg-background font-sans antialiased">
+          <BrowserRouter>
+            <TooltipProvider>
+              <Routes>
+                <Route path="/" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/dashboard" element={<ProtectedRoute><Index /></ProtectedRoute>} />
+                <Route path="/explore" element={<ProtectedRoute><Explore /></ProtectedRoute>} />
+                <Route path="/profile" element={<ProtectedRoute><ProfileSettings /></ProtectedRoute>} />
+                <Route path="/auth/login" element={<LoginForm />} />
+                <Route path="/auth/signup" element={<SignupForm />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/plans" element={<Plans />} />
+                <Route path="/about" element={<AboutUs />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/create-video" element={<ProtectedRoute><CreateVideo /></ProtectedRoute>} />
+                <Route path="/product-shoot" element={<ProtectedRoute><ProductShoot /></ProtectedRoute>} />
+                <Route path="/product-shoot-v2" element={<ProtectedRoute><ProductShootV2 /></ProtectedRoute>} />
+                <Route path="/image-to-video" element={<ProtectedRoute><ImageToVideo /></ProtectedRoute>} />
+                <Route path="/metadata/:storyId?" element={<ProtectedRoute><Metadata /></ProtectedRoute>} />
+                <Route path="/integrations" element={<ProtectedRoute><Integrations /></ProtectedRoute>} />
+                <Route path="/multi-agent-chat" element={<ProtectedRoute><MultiAgentChat /></ProtectedRoute>} />
+                <Route path="/custom-orders" element={<ProtectedRoute><CustomOrders /></ProtectedRoute>} />
+                <Route path="/admin" element={<ProtectedRoute><Admin /></ProtectedRoute>} />
+                <Route path="/payment" element={<Payment />} />
+                <Route path="/payment/success" element={<ProtectedRoute><PaymentSuccess /></ProtectedRoute>} />
+                <Route path="/payment/failure" element={<ProtectedRoute><PaymentFailure /></ProtectedRoute>} />
+                <Route path="/payment/cancel" element={<ProtectedRoute><PaymentCancel /></ProtectedRoute>} />
+                <Route path="/order/:accessCode" element={<CustomOrderForm />} />
+                <Route path="/custom-order/:accessCode" element={<CustomOrderForm />} />
+                <Route path="/browser-use" element={<ProtectedRoute><BrowserUse /></ProtectedRoute>} />
+              </Routes>
+              <BottomNav />
+            </TooltipProvider>
+            <Toaster />
+            <Sonner />
+          </BrowserRouter>
+        </div>
+      </QueryClientProvider>
+    </ThemeProvider>
+  </React.StrictMode>
 );
 
 export default App;

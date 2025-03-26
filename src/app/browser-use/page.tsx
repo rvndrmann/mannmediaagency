@@ -4,6 +4,7 @@
 import { Suspense } from "react";
 import BrowserUsePage from "@/pages/BrowserUse";
 import { Loader2 } from "lucide-react";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function Page() {
   return (
@@ -15,7 +16,9 @@ export default function Page() {
         </div>
       </div>
     }>
-      <BrowserUsePage />
+      <TooltipProvider>
+        <BrowserUsePage />
+      </TooltipProvider>
     </Suspense>
   );
 }

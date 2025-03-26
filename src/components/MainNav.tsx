@@ -1,4 +1,5 @@
 
+import React from 'react';
 import { useLocation } from "react-router-dom";
 import { Link } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -14,7 +15,7 @@ export function MainNav() {
       active: location.pathname === "/",
     },
     {
-      name: "Browser Use - Operator",
+      name: "Browser Worker AI",
       href: "/browser-use",
       active: location.pathname === "/browser-use",
       icon: <Globe className="w-4 h-4 mr-2" />,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,6 +14,7 @@ import { BrowserConfigPanel } from "@/components/browser-use/BrowserConfigPanel"
 import { BrowserConfig } from "@/hooks/browser-use/types";
 import { Badge } from "@/components/ui/badge";
 import { TaskInputWithPreview } from "@/components/browser-use/TaskInputWithPreview";
+import { ChevronLeft } from "lucide-react";
 
 interface BrowserTask {
   id: string;
@@ -46,6 +47,7 @@ const getDefaultBrowserConfig = (): BrowserConfig => {
 };
 
 const BrowserUsePage = () => {
+  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const taskIdFromUrl = searchParams.get("task");
   
@@ -59,6 +61,10 @@ const BrowserUsePage = () => {
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
   const [activeTab, setActiveTab] = useState(activeTask ? "viewing" : "create");
   
+  const handleGoBack = () => {
+    navigate(-1);
+  };
+
   useEffect(() => {
     fetchTasks();
     
@@ -248,7 +254,18 @@ const BrowserUsePage = () => {
 
   return (
     <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-6">Browser Automation</h1>
+      <div className="flex items-center mb-6">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleGoBack} 
+          className="mr-4"
+        >
+          <ChevronLeft className="h-5 w-5 mr-2" />
+          Back
+        </Button>
+        <h1 className="text-3xl font-bold">Browser Worker AI</h1>
+      </div>
       
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key } from "lucide-react";
+import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key, Shield } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserSettings } from "@/components/browser-use/BrowserSettings";
@@ -269,11 +269,18 @@ const BrowserUsePage = () => {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="environment">Environment</Label>
-                <div className="flex items-center">
+                <div className="flex items-center gap-2">
                   <Badge variant="outline" className="flex items-center gap-1 px-3 py-1">
                     <Monitor className="h-4 w-4 mr-1" />
                     Browser
                   </Badge>
+                  
+                  {browserConfig.proxy && (
+                    <Badge variant="outline" className="flex items-center gap-1 px-3 py-1 bg-blue-50 text-blue-700 border-blue-200">
+                      <Shield className="h-4 w-4 mr-1" />
+                      Proxy Enabled
+                    </Badge>
+                  )}
                 </div>
               </div>
               
@@ -334,8 +341,15 @@ const BrowserUsePage = () => {
                     {activeTask.status.toUpperCase()}
                   </span>
                 </CardTitle>
-                <CardDescription>
-                  Created: {formatDate(activeTask.created_at)}
+                <CardDescription className="flex items-center gap-2">
+                  <span>Created: {formatDate(activeTask.created_at)}</span>
+                  
+                  {activeTask.browser_config?.proxy && (
+                    <Badge variant="outline" className="flex items-center gap-1 px-2 py-0.5 bg-blue-50 text-blue-700 border-blue-200">
+                      <Shield className="h-3 w-3 mr-1" />
+                      Using Proxy
+                    </Badge>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -349,6 +363,15 @@ const BrowserUsePage = () => {
                     <Info className="h-4 w-4" />
                     <AlertDescription>
                       This task is using your own Chrome browser at: {activeTask.browser_config.chromePath}
+                    </AlertDescription>
+                  </Alert>
+                )}
+                
+                {activeTask.browser_config?.proxy && (
+                  <Alert variant="default" className="bg-blue-50 border-blue-200">
+                    <Shield className="h-4 w-4 text-blue-600" />
+                    <AlertDescription className="text-blue-700">
+                      This task is using a proxy: {activeTask.browser_config.proxy}
                     </AlertDescription>
                   </Alert>
                 )}

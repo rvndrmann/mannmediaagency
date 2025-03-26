@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { BrowserConfig, DesktopApplication } from "@/hooks/browser-use/types";
 import { Separator } from "@/components/ui/separator";
 import { Button } from "@/components/ui/button";
-import { Laptop, Plus, Trash2, Bookmark, Terminal, Globe, Database, FileCode } from "lucide-react";
+import { Laptop, Plus, Trash2, Bookmark, Terminal, Globe, Database, FileCode, Shield } from "lucide-react";
 import { useState } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { InfoCircledIcon } from "@radix-ui/react-icons";
+import { ProxyHelper } from "./ProxyHelper";
 
 interface BrowserConfigPanelProps {
   config: BrowserConfig;
@@ -56,7 +57,6 @@ export function BrowserConfigPanel({
   const handleConnectionMethodChange = (method: string) => {
     setConnectionMethod(method);
     
-    // Reset all connection-related properties
     const updatedConfig = {
       ...config,
       wssUrl: undefined,
@@ -214,6 +214,7 @@ export function BrowserConfigPanel({
           <TabsTrigger value="connection">Connection</TabsTrigger>
           <TabsTrigger value="desktop">Desktop Settings</TabsTrigger>
           <TabsTrigger value="templates">Task Templates</TabsTrigger>
+          <TabsTrigger value="proxy">Proxy</TabsTrigger>
           <TabsTrigger value="advanced">Advanced</TabsTrigger>
         </TabsList>
         
@@ -611,19 +612,15 @@ export function BrowserConfigPanel({
           </div>
         </TabsContent>
         
+        <TabsContent value="proxy" className="space-y-6">
+          <ProxyHelper 
+            proxyUrl={config.proxy || ''} 
+            onProxyUrlChange={(url) => handleInputChange('proxy', url)}
+            isProcessing={disabled}
+          />
+        </TabsContent>
+        
         <TabsContent value="advanced" className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="proxy" className="text-sm">Proxy URL</Label>
-            <Input
-              id="proxy"
-              placeholder="http://username:password@proxy.example.com:8080"
-              value={config.proxy || ''}
-              onChange={(e) => handleInputChange('proxy', e.target.value)}
-              disabled={disabled}
-            />
-            <p className="text-xs text-muted-foreground">Format: http://username:password@proxy.example.com:port</p>
-          </div>
-          
           <div className="space-y-2">
             <Label htmlFor="extraChromiumArgs" className="text-sm">Extra Chrome Arguments</Label>
             <Input

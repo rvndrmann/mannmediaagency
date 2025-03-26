@@ -36,6 +36,21 @@ const processTaskWithSensitiveData = (task: string, sensitiveData?: SensitiveDat
   return processedTask;
 };
 
+// Add a function to generate proxy notes
+const generateProxyNotes = (config: BrowserConfig): string => {
+  if (!config.proxy) return '';
+  
+  // Get the proxy type from the URL
+  const proxyType = config.proxy.startsWith('https://') ? 'HTTPS' :
+                    config.proxy.startsWith('socks5://') ? 'SOCKS5' :
+                    config.proxy.startsWith('socks4://') ? 'SOCKS4' : 'HTTP';
+                    
+  // Check if proxy contains authentication
+  const hasAuth = config.proxy.includes('@');
+  
+  return `\n\nNote: Using ${proxyType} proxy${hasAuth ? ' with authentication' : ''} for this task.`;
+};
+
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
   description: "Automates browser tasks like navigating websites, filling forms, taking screenshots, and more",
@@ -51,7 +66,7 @@ export const browserUseTool: ToolDefinition = {
     {
       name: "browserConfig",
       type: "object",
-      description: "Optional browser configuration options",
+      description: "Optional browser configuration options including proxy settings",
       required: false
     }
   ],
@@ -77,11 +92,42 @@ export const browserUseTool: ToolDefinition = {
       // Process the task with sensitive data
       const processedTask = processTaskWithSensitiveData(task, browserConfig.sensitiveData);
       
-      // Add a note indicating that placeholders were replaced
+      // Add notes for placeholders and proxy
       const hasPlaceholders = task.match(/\{([^}]+)\}/g);
-      let placeholdersNote = "";
+      let notesText = "";
+      
       if (hasPlaceholders && browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
-        placeholdersNote = "\n\nNote: Sensitive data placeholders have been securely replaced.";
+        notesText += "\n\nNote: Sensitive data placeholders have been securely replaced.";
+      }
+      
+      if (browserConfig.proxy) {
+        notesText += generateProxyNotes(browserConfig);
+      }
+      
+      // Check if this is a proxy test request
+      if (command.parameters.action === "test-proxy" && browserConfig.proxy) {
+        const testUrl = command.parameters.testUrl as string || "https://httpbin.org/ip";
+        
+        const { data, error } = await context.supabase.functions.invoke("browser-use-api", {
+          body: { 
+            action: "test-proxy",
+            proxyUrl: browserConfig.proxy,
+            testUrl
+          }
+        });
+        
+        if (error) {
+          return {
+            success: false,
+            message: `Failed to test proxy: ${error.message || "Unknown error"}`
+          };
+        }
+        
+        return {
+          success: data.success,
+          message: data.message,
+          data: data.data
+        };
       }
       
       // Execute the browser task
@@ -103,10 +149,11 @@ export const browserUseTool: ToolDefinition = {
       
       return {
         success: true,
-        message: `Browser task started successfully. Task ID: ${data.taskId}${placeholdersNote}`,
+        message: `Browser task started successfully. Task ID: ${data.taskId}${notesText}`,
         data: {
           taskId: data.taskId,
-          liveUrl: data.liveUrl
+          liveUrl: data.liveUrl,
+          usingProxy: !!browserConfig.proxy
         }
       };
     } catch (error) {

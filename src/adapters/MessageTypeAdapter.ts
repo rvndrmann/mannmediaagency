@@ -3,22 +3,17 @@ import { Message as GlobalMessage } from "@/types/message";
 
 // Simple Message type for components that only need basic message functionality
 export interface SimpleMessage {
-  role: "user" | "assistant";
+  role: "user" | "assistant" | "system" | "tool";
   content: string;
   status?: "thinking" | "working" | "completed" | "error";
-  id?: string;        // Added to match GlobalMessage type
-  createdAt?: string; // Added to match GlobalMessage type
+  id: string;        // Changed to required to match GlobalMessage
+  createdAt: string; // Changed to required to match GlobalMessage
 }
 
 // Convert the global Message type to SimpleMessage for components that expect it
 export function adaptMessageToSimple(message: GlobalMessage): SimpleMessage {
-  // Filter role to only "user" or "assistant"
-  const role = message.role === "system" || message.role === "tool" 
-    ? "assistant" // Default system and tool messages to assistant
-    : message.role;
-  
   return {
-    role,
+    role: message.role,
     content: message.content,
     status: message.status,
     id: message.id,

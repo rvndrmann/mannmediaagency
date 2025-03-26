@@ -5,6 +5,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useUserCredits } from "@/hooks/use-user-credits";
 import { Message, Task } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
+import { createGlobalMessage } from "@/adapters/MessageTypeAdapter";
 
 const STORAGE_KEY = "ai_agent_chat_history";
 const CHAT_CREDIT_COST = 0.07;
@@ -134,10 +135,13 @@ export function useChatHandler(setInput: (value: string) => void) {
     const deductionSuccessful = await deductCredits();
     if (!deductionSuccessful) return;
 
-    const userMessage: Message = { role: "user", content: input };
+    const userMessage = createGlobalMessage({ 
+      role: "user", 
+      content: input 
+    });
     
     // Create assistant message with initial tasks
-    const assistantMessage: Message = { 
+    const assistantMessage = createGlobalMessage({ 
       role: "assistant", 
       content: "I'm analyzing your request...", 
       status: "thinking",
@@ -146,7 +150,7 @@ export function useChatHandler(setInput: (value: string) => void) {
         createTask("Checking for commands"),
         createTask("Preparing response")
       ]
-    };
+    });
     
     // Update messages state with new messages
     setMessages(prevMessages => {

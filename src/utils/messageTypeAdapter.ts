@@ -53,12 +53,16 @@ export function convertToSimpleMessage(message: any): SimpleMessage {
 }
 
 /**
- * Convert any role type to a simple role ("user" or "assistant")
+ * Convert any role type to a simple role
  */
-function getSimpleRole(role: string | undefined): "user" | "assistant" {
+function getSimpleRole(role: string | undefined): "user" | "assistant" | "system" | "tool" {
   if (!role) return "assistant";
   
-  return role === "user" ? "user" : "assistant";
+  if (role === "user" || role === "assistant" || role === "system" || role === "tool") {
+    return role;
+  }
+  
+  return "assistant";
 }
 
 /**

@@ -3,11 +3,12 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
 import { Message } from "@/types/message";
+import { ensureGlobalMessages } from "@/utils/messageTypeAdapter";
 
 interface PromptInputProps {
   prompt: string;
   onPromptChange: (value: string) => void;
-  messages: Message[];
+  messages: Message[] | any[];
 }
 
 export const PromptInput = ({
@@ -15,6 +16,9 @@ export const PromptInput = ({
   onPromptChange,
   messages
 }: PromptInputProps) => {
+  // Ensure messages are properly formatted
+  const formattedMessages = ensureGlobalMessages(messages);
+  
   return (
     <div className="space-y-2">
       <Label htmlFor="prompt" className="text-white">Prompt</Label>
@@ -29,7 +33,7 @@ export const PromptInput = ({
           />
         </div>
         <UseAIResponseButton
-          messages={messages}
+          messages={formattedMessages}
           onUseResponse={onPromptChange}
           variant="compact"
           className="shrink-0"

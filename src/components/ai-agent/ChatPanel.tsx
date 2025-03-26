@@ -1,3 +1,4 @@
+
 import { useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
@@ -8,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { SimpleMessage } from "@/adapters/MessageTypeAdapter";
 import { Message as GlobalMessage } from "@/types/message";
 import { adaptMessageToSimple, adaptMessagesToSimple } from "@/adapters/MessageTypeAdapter";
-import { convertToSimpleMessages } from "@/utils/messageTypeAdapter";
+import { convertToSimpleMessages, ensureGlobalMessages } from "@/utils/messageTypeAdapter";
 
 interface ChatPanelProps {
   messages: GlobalMessage[] | SimpleMessage[];
@@ -35,8 +36,8 @@ export const ChatPanel = ({
   const lastMessageRef = useRef<HTMLDivElement>(null);
 
   // Process messages to ensure they're in the right format
-  const adaptedMessages = "id" in (messages[0] || {}) 
-    ? adaptMessagesToSimple(messages as GlobalMessage[])
+  const adaptedMessages: SimpleMessage[] = messages.length > 0 && "id" in (messages[0] || {}) 
+    ? adaptMessagesToSimple(ensureGlobalMessages(messages as GlobalMessage[]))
     : convertToSimpleMessages(messages as any[]);
 
   const scrollToBottom = () => {
@@ -104,7 +105,7 @@ export const ChatPanel = ({
         >
           <div className={`space-y-4 p-4 ${isMobile ? "pb-20" : "pb-16"}`}>
             {adaptedMessages.map((message, index) => (
-              <ChatMessage key={index} message={message} />
+              <ChatMessage key={message.id || index} message={message} />
             ))}
             <div ref={lastMessageRef} className="h-px" />
           </div>

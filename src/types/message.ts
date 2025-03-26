@@ -15,6 +15,7 @@ export interface Message {
   handoffRequest?: HandoffRequest;
   timestamp?: string;
   type?: MessageType;
+  selectedTool?: string; // Added for use-ai-chat.tsx
 }
 
 export interface Attachment {
@@ -54,9 +55,9 @@ export interface AgentInfo {
   id: string;
   name: string;
   description: string;
-  type: string;
+  type: string; // Required 
   icon: AgentIconType | string; // Modified to accept both enum and string
-  isBuiltIn: boolean;
+  isBuiltIn: boolean; // Required
   color?: string;
   instructions?: string;
 }

@@ -56,6 +56,27 @@ export const useAIChat = () => {
     }
   }, [messages]);
 
+  // Function to create a proper Message object
+  const createMessage = (data: Partial<Message>): Message => {
+    return {
+      id: data.id || crypto.randomUUID(),
+      role: data.role || "assistant",
+      content: data.content || "",
+      createdAt: data.createdAt || new Date().toISOString(),
+      status: data.status,
+      tasks: data.tasks,
+      attachments: data.attachments,
+      tool_name: data.tool_name,
+      tool_arguments: data.tool_arguments,
+      agentType: data.agentType,
+      command: data.command,
+      handoffRequest: data.handoffRequest,
+      timestamp: data.timestamp,
+      type: data.type,
+      selectedTool: data.selectedTool
+    };
+  };
+
   const createTask = (name: string): Task => ({
     id: uuidv4(),
     name,
@@ -199,12 +220,9 @@ export const useAIChat = () => {
     const requestId = `chat-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
     setProcessingRequestId(requestId);
 
-    const userMessage: Message = { 
-      role: "user", 
-      content: trimmedInput
-    };
+    const userMessage = createMessage({ role: "user", content: trimmedInput });
 
-    const assistantMessage: Message = { 
+    const assistantMessage = createMessage({ 
       role: "assistant", 
       content: "I'm analyzing your request...", 
       status: "thinking",
@@ -212,7 +230,7 @@ export const useAIChat = () => {
         createTask("Processing with AI"),
         createTask("Preparing response")
       ]
-    };
+    });
 
     setMessages(prev => [...prev, userMessage, assistantMessage]);
     setInput("");

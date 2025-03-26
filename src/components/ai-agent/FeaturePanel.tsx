@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent } from "@/components/ui/tabs";
 import { ScriptBuilderTab } from "@/components/research/ScriptBuilderTab";
@@ -12,6 +11,7 @@ import { useState } from "react";
 import { GeneratedImage } from "@/types/product-shoot";
 import { Message } from "@/types/message";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
+import { ensureGlobalMessages } from "@/utils/messageTypeAdapter";
 
 interface FeaturePanelProps {
   messages: Message[];
@@ -63,6 +63,9 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
   const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
 
+  // Ensure messages are properly formatted
+  const formattedMessages = ensureGlobalMessages(messages);
+
   return (
     <div className="bg-[#1A1F29] h-full overflow-hidden">
       <Tabs value={activeTool} className="h-[calc(100vh-8rem)]">
@@ -104,7 +107,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
               <div className="space-y-6 min-h-[calc(100vh-16rem)]">
                 <ProductShotForm
                   {...productShotV2}
-                  messages={messages}
+                  messages={formattedMessages}
                 />
               </div>
               <div className="space-y-6">

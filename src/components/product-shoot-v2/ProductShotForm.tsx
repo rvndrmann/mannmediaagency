@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -25,7 +24,7 @@ export interface ProductShotFormProps {
   isSubmitting: boolean;
   availableCredits: number | undefined;
   initialSceneDescription?: string;
-  messages: Message[];
+  messages: any[]; // Allow any message type
 }
 
 export function ProductShotForm({ 
@@ -68,6 +67,9 @@ export function ProductShotForm({
     }
   }, [initialSceneDescription, setSceneDescription]);
 
+  // Use global message adapter
+  const formattedMessages = ensureGlobalMessages(messages);
+
   return (
     <form onSubmit={handleSubmit}>
       <div className="space-y-6">
@@ -103,7 +105,7 @@ export function ProductShotForm({
                   />
                 </div>
                 <UseAIResponseButton
-                  messages={messages}
+                  messages={formattedMessages}
                   onUseResponse={setSceneDescription}
                   variant="compact"
                   className="shrink-0"

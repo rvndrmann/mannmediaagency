@@ -121,3 +121,85 @@ export function findChildEvents(trace: Trace, parentId: string): TraceEvent[] {
 export function exportTraceAsJson(trace: Trace): string {
   return safeStringify(trace);
 }
+
+// Format trace timestamp
+export function formatTraceTimestamp(timestamp: string): string {
+  try {
+    const date = new Date(timestamp);
+    return date.toLocaleString();
+  } catch (error) {
+    return timestamp;
+  }
+}
+
+// Format duration between two timestamps in milliseconds
+export function formatDuration(duration: number): string {
+  if (duration < 1000) {
+    return `${duration}ms`;
+  } else if (duration < 60000) {
+    return `${(duration / 1000).toFixed(2)}s`;
+  } else {
+    const minutes = Math.floor(duration / 60000);
+    const seconds = ((duration % 60000) / 1000).toFixed(1);
+    return `${minutes}m ${seconds}s`;
+  }
+}
+
+// Extract trace data safely
+export function extractTraceData(trace: any): Trace {
+  if (!trace) {
+    return createTrace('Empty Trace');
+  }
+  
+  try {
+    if (typeof trace === 'string') {
+      trace = JSON.parse(trace);
+    }
+    
+    return {
+      id: trace.id || uuidv4(),
+      name: trace.name || 'Unnamed Trace',
+      start_time: trace.start_time || new Date().toISOString(),
+      end_time: trace.end_time,
+      events: Array.isArray(trace.events) ? trace.events : [],
+      metadata: trace.metadata || {}
+    };
+  } catch (error) {
+    console.error('Error extracting trace data:', error);
+    return createTrace('Error Trace');
+  }
+}
+
+// Get safe trace summary
+export function getSafeTraceSummary(trace: Trace): any {
+  try {
+    if (!trace) return { success: false, error: 'No trace data' };
+    
+    const handoffs = trace.events.filter(e => e.type === 'handoff').length;
+    const toolCalls = trace.events.filter(e => e.type === 'tool_call').length;
+    const errorEvents = trace.events.filter(e => e.type === 'error');
+    
+    return {
+      agentTypes: Array.from(new Set(trace.events
+        .filter(e => e.data?.agentType)
+        .map(e => e.data.agentType))),
+      handoffs,
+      toolCalls,
+      success: errorEvents.length === 0,
+      duration: trace.end_time 
+        ? new Date(trace.end_time).getTime() - new Date(trace.start_time).getTime()
+        : 0,
+    };
+  } catch (error) {
+    console.error('Error getting trace summary:', error);
+    return { success: false, error: 'Failed to process trace data' };
+  }
+}
+
+// Get safe trace events (with error handling)
+export function safeTraceEvents(trace: Trace): TraceEvent[] {
+  if (!trace || !Array.isArray(trace.events)) {
+    return [];
+  }
+  return trace.events;
+}

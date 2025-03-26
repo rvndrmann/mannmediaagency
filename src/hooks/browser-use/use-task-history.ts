@@ -56,7 +56,7 @@ export function useTaskHistory() {
       }
 
       const { data, error } = await supabase
-        .from("browser_tasks")
+        .from("browser_task_history")
         .select("*")
         .eq("user_id", user.user.id)
         .order("created_at", { ascending: false });
@@ -105,7 +105,7 @@ export function useTaskHistory() {
       };
 
       const { error } = await supabase
-        .from("browser_tasks")
+        .from("browser_task_history")
         .upsert([processedTask]);
 
       if (error) {
@@ -122,6 +122,34 @@ export function useTaskHistory() {
     }
   }, [fetchTaskHistory]);
 
+  // Update a task in history
+  const updateTaskHistory = useCallback(async (taskId: string, updates: Partial<BrowserTaskHistory>) => {
+    try {
+      // Process browser_data to ensure it's JSON-safe if it exists
+      const processedUpdates = { 
+        ...updates,
+        browser_data: updates.browser_data ? taskDataToJson(updates.browser_data) : undefined
+      };
+
+      const { error } = await supabase
+        .from("browser_task_history")
+        .update(processedUpdates)
+        .eq("id", taskId);
+
+      if (error) {
+        throw error;
+      }
+
+      // Refresh task history after update
+      await fetchTaskHistory();
+      return true;
+    } catch (error) {
+      console.error("Error updating task:", error);
+      toast.error("Failed to update task");
+      return false;
+    }
+  }, [fetchTaskHistory]);
+
   // Load task history on mount
   useEffect(() => {
     fetchTaskHistory();
@@ -132,6 +160,7 @@ export function useTaskHistory() {
     isLoading,
     error,
     fetchTaskHistory,
-    saveTaskToHistory
+    saveTaskToHistory,
+    updateTaskHistory
   };
 }

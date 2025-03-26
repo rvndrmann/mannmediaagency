@@ -1,57 +1,79 @@
 
-import { useCallback } from "react";
+import { useState, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { CaptureWebsiteResponse } from "./types";
 
-export function useScreenshot(
-  currentUrl: string | null,
-  setScreenshot: (screenshot: string | null) => void,
-  setError: (error: string | null) => void
-) {
-  const captureScreenshot = useCallback(async (): Promise<string | null> => {
-    if (!currentUrl) {
-      setError("No URL to capture screenshot from");
+export function useScreenshot() {
+  const [screenshot, setScreenshot] = useState<string | null>(null);
+  const [isCapturing, setIsCapturing] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const captureWebsite = useCallback(async (url: string): Promise<CaptureWebsiteResponse> => {
+    try {
+      setIsCapturing(true);
+      setError(null);
+
+      const { data, error } = await supabase.functions.invoke("capture-website", {
+        body: { url }
+      });
+
+      if (error) {
+        throw new Error(error.message);
+      }
+
+      if (data.error) {
+        throw new Error(data.error);
+      }
+
+      return data as CaptureWebsiteResponse;
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to capture website");
+      console.error("Error capturing website:", error);
+      return { error: error instanceof Error ? error.message : "Failed to capture website" };
+    } finally {
+      setIsCapturing(false);
+    }
+  }, []);
+
+  const captureScreenshot = useCallback(async (url?: string): Promise<string | null> => {
+    if (!url) {
+      setError("URL is required for capturing a screenshot");
       return null;
     }
-    
+
     try {
-      setError(null);
+      setIsCapturing(true);
       
-      const { data, error } = await supabase.functions.invoke('capture-website', {
-        body: { url: currentUrl }
-      });
-      
-      if (error) {
-        console.error("Error invoking capture-website function:", error);
-        setError(`Failed to capture screenshot: ${error.message}`);
-        return null;
-      }
-      
-      const response = data as CaptureWebsiteResponse;
+      const response = await captureWebsite(url);
       
       if (response.error) {
-        console.error("Screenshot capture error:", response.error);
-        setError(`Screenshot error: ${response.error}`);
-        return null;
+        throw new Error(response.error);
       }
       
-      // Handle both image_url (from API) and screenshot (for backwards compatibility)
-      if (response.image_url) {
-        setScreenshot(response.image_url);
-        return response.image_url;
-      } else if (response.screenshot) {
-        setScreenshot(response.screenshot);
-        return response.screenshot;
-      } else {
-        setError("No screenshot URL returned");
-        return null;
+      const screenshotUrl = response.screenshot || response.image_url;
+      
+      if (!screenshotUrl) {
+        throw new Error("No screenshot URL returned");
       }
+      
+      setScreenshot(screenshotUrl);
+      return screenshotUrl;
     } catch (error) {
+      setError(error instanceof Error ? error.message : "Failed to capture screenshot");
+      toast.error("Failed to capture screenshot");
       console.error("Error capturing screenshot:", error);
-      setError(error instanceof Error ? error.message : "Unknown error capturing screenshot");
       return null;
+    } finally {
+      setIsCapturing(false);
     }
-  }, [currentUrl, setScreenshot, setError]);
-  
-  return { captureScreenshot };
+  }, [captureWebsite]);
+
+  return {
+    screenshot,
+    isCapturing,
+    error,
+    captureScreenshot,
+    captureWebsite
+  };
 }

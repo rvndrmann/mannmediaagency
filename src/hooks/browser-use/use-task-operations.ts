@@ -145,9 +145,11 @@ export function useTaskOperations(
       setTaskStatus('paused');
       
       // Update task in history
-      updateTaskHistory(state.currentTaskId || "", {
-        status: 'paused'
-      });
+      if (state.currentTaskId) {
+        await updateTaskHistory(state.currentTaskId, {
+          status: 'paused'
+        });
+      }
       
       toast.success("Task paused");
     } catch (error) {
@@ -182,9 +184,11 @@ export function useTaskOperations(
       setTaskStatus('running');
       
       // Update task in history
-      updateTaskHistory(state.currentTaskId || "", {
-        status: 'running'
-      });
+      if (state.currentTaskId) {
+        await updateTaskHistory(state.currentTaskId, {
+          status: 'running'
+        });
+      }
       
       toast.success("Task resumed");
     } catch (error) {
@@ -220,9 +224,11 @@ export function useTaskOperations(
       setIsProcessing(false);
       
       // Update task in history
-      updateTaskHistory(state.currentTaskId || "", {
-        status: 'stopped'
-      });
+      if (state.currentTaskId) {
+        await updateTaskHistory(state.currentTaskId, {
+          status: 'stopped'
+        });
+      }
       
       toast.success("Task stopped");
     } catch (error) {

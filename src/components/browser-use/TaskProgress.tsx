@@ -35,7 +35,7 @@ export function TaskProgress({ taskStatus, steps, progress }: TaskProgressProps)
   };
 
   // Status icon configurations
-  const statusIcons = {
+  const statusIcons: Record<string, React.ReactNode> = {
     pending: <Hourglass size={16} />,
     running: <Play size={16} />,
     paused: <PauseCircle size={16} />,
@@ -51,7 +51,7 @@ export function TaskProgress({ taskStatus, steps, progress }: TaskProgressProps)
   const StatusIcon = () => {
     // Cast taskStatus to string to ensure compatibility with statusIcons keys
     const status = taskStatus as string;
-    const IconComponent = statusIcons[status as keyof typeof statusIcons] || statusIcons.idle;
+    const IconComponent = statusIcons[status] || statusIcons.idle;
     return IconComponent;
   };
 

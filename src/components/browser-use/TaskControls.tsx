@@ -34,14 +34,14 @@ export function TaskControls({
   
   // Helper to check if task is in an active state
   const isTaskActive = () => {
-    const activeStatuses: string[] = ['running', 'paused'];
-    return activeStatuses.includes(taskStatus as string);
+    const activeStatuses: TaskStatus[] = ['running', 'paused'];
+    return activeStatuses.includes(taskStatus);
   };
   
   // Helper to check if task can be started
   const canStartTask = () => {
-    const inactiveStatuses: string[] = ['pending', 'stopped', 'completed', 'failed', 'expired', 'created', 'idle'];
-    return inactiveStatuses.includes(taskStatus as string) && !isProcessing && taskInput.trim().length > 0 && userCredits > 0;
+    const inactiveStatuses: TaskStatus[] = ['pending', 'stopped', 'completed', 'failed', 'expired', 'created', 'idle'];
+    return inactiveStatuses.includes(taskStatus) && !isProcessing && taskInput.trim().length > 0 && userCredits > 0;
   };
   
   // Helper to check if task can be paused

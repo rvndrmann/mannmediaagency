@@ -1,12 +1,25 @@
 
-import { useState, useEffect } from 'react';
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import React, { useState } from 'react';
+import { 
+  Card, 
+  CardHeader, 
+  CardTitle, 
+  CardContent,
+  CardFooter
+} from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { Badge } from "@/components/ui/badge";
 import { LivePreview } from "./LivePreview";
-import { Loader2, Camera, ExternalLink, Globe } from "lucide-react";
 import { ConnectionStatus } from '@/hooks/browser-use/types';
+import { 
+  ExternalLink, 
+  Camera, 
+  RefreshCcw, 
+  Loader2,
+  Wifi, 
+  WifiOff
+} from 'lucide-react';
 
 interface BrowserViewProps {
   liveUrl: string | null;
@@ -17,146 +30,140 @@ interface BrowserViewProps {
   connectionStatus: ConnectionStatus;
 }
 
-export function BrowserView({
-  liveUrl,
-  currentUrl,
+export function BrowserView({ 
+  liveUrl, 
+  currentUrl, 
   setCurrentUrl,
   screenshot,
   captureScreenshot,
   connectionStatus
 }: BrowserViewProps) {
-  const [screenshotUrl, setScreenshotUrl] = useState<string | null>(null);
-  const [isCapturingScreenshot, setIsCapturingScreenshot] = useState(false);
+  const [inputUrl, setInputUrl] = useState("");
+  const [isCapturing, setIsCapturing] = useState(false);
   
-  // Load screenshot from localStorage on mount
-  useEffect(() => {
-    const savedScreenshot = localStorage.getItem('workerAI_lastScreenshot');
-    if (savedScreenshot) {
-      setScreenshotUrl(savedScreenshot);
+  const handleNavigate = () => {
+    if (inputUrl.trim()) {
+      let url = inputUrl.trim();
+      
+      // Add protocol if missing
+      if (!/^https?:\/\//i.test(url)) {
+        url = 'https://' + url;
+      }
+      
+      setCurrentUrl(url);
+      window.open(url, '_blank');
     }
-  }, []);
+  };
   
-  // Update screenshot URL when the screenshot prop changes
-  useEffect(() => {
-    if (screenshot) {
-      setScreenshotUrl(screenshot);
-      localStorage.setItem('workerAI_lastScreenshot', screenshot);
-    }
-  }, [screenshot]);
-  
-  // Handle screenshot capture
   const handleCaptureScreenshot = async () => {
-    if (!liveUrl || connectionStatus !== 'connected') return;
-    
-    setIsCapturingScreenshot(true);
-    
+    setIsCapturing(true);
     try {
-      const result = await captureScreenshot();
-      console.log('Screenshot result:', result);
-    } catch (error) {
-      console.error('Error capturing screenshot:', error);
+      await captureScreenshot();
     } finally {
-      setIsCapturingScreenshot(false);
+      setIsCapturing(false);
     }
   };
   
-  // Determine the content to display
-  const renderContent = () => {
-    if (liveUrl && connectionStatus === 'connected') {
-      return <LivePreview url={liveUrl} />;
+  const getConnectionStatusColor = () => {
+    switch (connectionStatus) {
+      case 'connected': return 'text-green-500';
+      case 'connecting': return 'text-amber-500';
+      case 'error': return 'text-red-500';
+      case 'retry': return 'text-amber-500';
+      default: return 'text-gray-500';
     }
-    
-    if (screenshotUrl) {
-      return (
-        <div className="p-4">
-          <p className="text-sm text-muted-foreground mb-2">Last screenshot:</p>
-          <img 
-            src={screenshotUrl} 
-            alt="Browser screenshot" 
-            className="w-full h-auto rounded-md border border-gray-200 shadow-sm" 
-          />
-        </div>
-      );
-    }
-    
-    // Default disconnected state
-    return (
-      <div className="flex flex-col items-center justify-center h-full p-8 text-center">
-        <Globe className="h-12 w-12 text-muted-foreground mb-4 opacity-30" />
-        <h3 className="text-lg font-medium mb-2">No active browser session</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Start a task to launch a browser session.
-        </p>
-      </div>
-    );
   };
   
+  const getConnectionIcon = () => {
+    if (connectionStatus === 'connected' || connectionStatus === 'connecting') {
+      return <Wifi className={`h-4 w-4 ${getConnectionStatusColor()}`} />;
+    }
+    return <WifiOff className={`h-4 w-4 ${getConnectionStatusColor()}`} />;
+  };
+
   return (
     <Card className="h-full flex flex-col">
-      <CardHeader className="flex-none">
-        <div className="flex items-center justify-between">
-          <CardTitle>Browser View</CardTitle>
-          
-          {liveUrl && (
-            <div className="flex gap-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleCaptureScreenshot}
-                disabled={isCapturingScreenshot || connectionStatus !== 'connected'}
-              >
-                {isCapturingScreenshot ? 
-                  <Loader2 className="h-4 w-4 animate-spin mr-1" /> : 
-                  <Camera className="h-4 w-4 mr-1" />
-                }
-                Capture
-              </Button>
-              
-              <Button 
-                variant="outline" 
-                size="sm" 
-                asChild
-              >
-                <a 
-                  href={liveUrl} 
-                  target="_blank" 
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                  <span>Open</span>
-                </a>
-              </Button>
-            </div>
-          )}
+      <CardHeader className="pb-2">
+        <div className="flex justify-between items-center">
+          <CardTitle className="text-lg">Browser View</CardTitle>
+          <Badge 
+            variant="outline" 
+            className={`flex items-center gap-1 ${getConnectionStatusColor()}`}
+          >
+            {getConnectionIcon()}
+            <span className="capitalize">{connectionStatus}</span>
+          </Badge>
         </div>
       </CardHeader>
       
-      <CardContent className="flex-1 p-0 overflow-hidden">
-        <ScrollArea className="h-[calc(100vh-370px)] md:h-[450px]">
-          {renderContent()}
-        </ScrollArea>
+      <CardContent className="p-2 flex-1 overflow-hidden">
+        <div className="bg-gray-50 dark:bg-gray-900 rounded-md h-full flex items-center justify-center overflow-hidden">
+          {liveUrl ? (
+            <div className="w-full h-full">
+              <LivePreview url={liveUrl} />
+            </div>
+          ) : screenshot ? (
+            <div className="w-full h-full flex items-center justify-center">
+              <img 
+                src={screenshot} 
+                alt="Browser screenshot" 
+                className="max-w-full max-h-full object-contain"
+              />
+            </div>
+          ) : (
+            <div className="text-center p-6">
+              <p className="text-gray-500 mb-2">No content to display.</p>
+              <p className="text-sm text-gray-400">
+                Start a task or navigate to a URL to see content here.
+              </p>
+            </div>
+          )}
+        </div>
       </CardContent>
       
-      <CardFooter className="flex-none">
-        <div className="w-full flex items-center gap-2">
+      <CardFooter className="flex flex-col gap-2">
+        <div className="flex w-full gap-2">
           <Input
-            placeholder="Current URL"
-            value={currentUrl || ''}
-            onChange={(e) => setCurrentUrl(e.target.value)}
-            disabled={connectionStatus !== 'connected'}
-            className="flex-1"
+            placeholder="Enter URL to navigate (e.g., google.com)"
+            value={inputUrl}
+            onChange={(e) => setInputUrl(e.target.value)}
+            onKeyDown={(e) => e.key === 'Enter' && handleNavigate()}
           />
-          <div className="flex items-center justify-center w-3 h-3 rounded-full">
-            {connectionStatus === 'connected' ? (
-              <div className="w-2 h-2 rounded-full bg-green-500"></div>
-            ) : connectionStatus === 'connecting' ? (
-              <div className="w-2 h-2 rounded-full bg-yellow-500 animate-pulse"></div>
-            ) : (
-              <div className="w-2 h-2 rounded-full bg-gray-300"></div>
+          <Button
+            variant="outline"
+            onClick={handleNavigate}
+          >
+            <ExternalLink className="h-4 w-4 mr-2" />
+            Open
+          </Button>
+          <Button
+            variant="outline"
+            onClick={handleCaptureScreenshot}
+            disabled={isCapturing}
+          >
+            {isCapturing ? 
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" /> : 
+              <Camera className="h-4 w-4 mr-2" />
+            }
+            Screenshot
+          </Button>
+        </div>
+        
+        {currentUrl && (
+          <div className="text-xs text-muted-foreground flex justify-between w-full">
+            <span>Current URL: {currentUrl}</span>
+            {connectionStatus === 'connected' && (
+              <Button 
+                variant="ghost" 
+                size="icon" 
+                className="h-4 w-4 p-0" 
+                onClick={handleCaptureScreenshot}
+              >
+                <RefreshCcw className="h-3 w-3" />
+              </Button>
             )}
           </div>
-        </div>
+        )}
       </CardFooter>
     </Card>
   );

@@ -20,7 +20,7 @@ export interface BrowserConfig {
   autoRetry: boolean;
   autoRefresh: boolean;
   maxRetries: number;
-  // Added properties that were missing
+  // Properties that were missing - now explicitly defined
   headless?: boolean;
   disableSecurity?: boolean;
   persistentSession?: boolean;
@@ -38,7 +38,7 @@ export interface TaskStep {
   step: number;
   next_goal: string;
   evaluation_previous_goal?: string;
-  // Added properties that were missing
+  // Properties that were missing - now explicitly defined
   id?: string;
   status?: string;
   description?: string;

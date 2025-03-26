@@ -10,6 +10,7 @@ import { useCanvas } from "@/hooks/use-canvas";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 export default function Canvas() {
   const [searchParams] = useSearchParams();
@@ -100,36 +101,38 @@ export default function Canvas() {
 
   // Main canvas UI
   return (
-    <div className="flex flex-col h-screen overflow-hidden">
-      <CanvasHeader 
-        project={project} 
-        sidebarCollapsed={sidebarCollapsed}
-        setSidebarCollapsed={setSidebarCollapsed}
-      />
-      
-      <div className="flex flex-1 overflow-hidden">
-        <CanvasSidebar 
-          project={project}
-          selectedSceneId={selectedSceneId}
-          setSelectedSceneId={setSelectedSceneId}
-          addScene={addScene}
-          deleteScene={deleteScene}
-          collapsed={sidebarCollapsed}
+    <TooltipProvider>
+      <div className="flex flex-col h-screen overflow-hidden">
+        <CanvasHeader 
+          project={project} 
+          sidebarCollapsed={sidebarCollapsed}
+          setSidebarCollapsed={setSidebarCollapsed}
         />
         
-        <CanvasWorkspace 
-          project={project}
-          selectedScene={selectedScene}
-          updateScene={updateScene}
-        />
-        
-        <CanvasDetailPanel 
-          scene={selectedScene}
-          updateScene={updateScene}
-          collapsed={detailPanelCollapsed}
-          setCollapsed={setDetailPanelCollapsed}
-        />
+        <div className="flex flex-1 overflow-hidden">
+          <CanvasSidebar 
+            project={project}
+            selectedSceneId={selectedSceneId}
+            setSelectedSceneId={setSelectedSceneId}
+            addScene={addScene}
+            deleteScene={deleteScene}
+            collapsed={sidebarCollapsed}
+          />
+          
+          <CanvasWorkspace 
+            project={project}
+            selectedScene={selectedScene}
+            updateScene={updateScene}
+          />
+          
+          <CanvasDetailPanel 
+            scene={selectedScene}
+            updateScene={updateScene}
+            collapsed={detailPanelCollapsed}
+            setCollapsed={setDetailPanelCollapsed}
+          />
+        </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
 }

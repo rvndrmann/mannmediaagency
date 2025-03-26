@@ -20,6 +20,7 @@ import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
+  TooltipProvider
 } from "@/components/ui/tooltip";
 import clsx from "clsx";
 
@@ -53,37 +54,41 @@ export function CanvasSidebar({
     return (
       <div className="w-14 border-r bg-slate-50 dark:bg-slate-900 flex flex-col">
         <div className="p-2 border-b">
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="w-full"
-                onClick={handleAddScene}
-              >
-                <Plus className="h-5 w-5" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="right">Add new scene</TooltipContent>
-          </Tooltip>
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="w-full"
+                  onClick={handleAddScene}
+                >
+                  <Plus className="h-5 w-5" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Add new scene</TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
         </div>
         
         <ScrollArea className="flex-1">
           <div className="p-2 space-y-2">
             {project.scenes.map((scene) => (
-              <Tooltip key={scene.id}>
-                <TooltipTrigger asChild>
-                  <Button
-                    variant={selectedSceneId === scene.id ? "secondary" : "ghost"}
-                    size="icon"
-                    className="w-full"
-                    onClick={() => setSelectedSceneId(scene.id)}
-                  >
-                    <Video className="h-5 w-5" />
-                  </Button>
-                </TooltipTrigger>
-                <TooltipContent side="right">{scene.title}</TooltipContent>
-              </Tooltip>
+              <TooltipProvider key={scene.id}>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant={selectedSceneId === scene.id ? "secondary" : "ghost"}
+                      size="icon"
+                      className="w-full"
+                      onClick={() => setSelectedSceneId(scene.id)}
+                    >
+                      <Video className="h-5 w-5" />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right">{scene.title}</TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             ))}
           </div>
         </ScrollArea>

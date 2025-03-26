@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentSelector } from "./AgentSelector";
 import { useState } from "react";
 import { toast } from "sonner";
+import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
@@ -71,141 +72,143 @@ export function CanvasDetailPanel({
   }
 
   return (
-    <div className="w-80 border-l bg-slate-50 dark:bg-slate-900 flex flex-col relative">
-      <div className="p-4 border-b bg-background flex justify-between items-center">
-        <h3 className="font-medium">Scene Details</h3>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => setCollapsed(true)}
-        >
-          <PanelRight className="h-5 w-5" />
-        </Button>
-      </div>
-      
-      <Tabs defaultValue="edit" className="flex-1 flex flex-col">
-        <TabsList className="w-full">
-          <TabsTrigger value="edit" className="flex-1">Edit</TabsTrigger>
-          <TabsTrigger value="ai" className="flex-1">AI</TabsTrigger>
-        </TabsList>
+    <TooltipProvider>
+      <div className="w-80 border-l bg-slate-50 dark:bg-slate-900 flex flex-col relative">
+        <div className="p-4 border-b bg-background flex justify-between items-center">
+          <h3 className="font-medium">Scene Details</h3>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setCollapsed(true)}
+          >
+            <PanelRight className="h-5 w-5" />
+          </Button>
+        </div>
         
-        <TabsContent value="edit" className="flex-1 p-0">
-          <ScrollArea className="flex-1 p-4 h-full">
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="scene-title">Scene Title</Label>
-                <Input
-                  id="scene-title"
-                  value={scene.title}
-                  onChange={() => {}}
-                  placeholder="Scene title"
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="scene-script">Script</Label>
-                <Textarea
-                  id="scene-script"
-                  value={scene.script || ""}
-                  onChange={(e) => updateScene(scene.id, 'script', e.target.value)}
-                  className="min-h-[120px]"
-                  placeholder="Enter script for this scene..."
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="scene-image-prompt">Image Prompt</Label>
-                <Textarea
-                  id="scene-image-prompt"
-                  value={scene.imagePrompt || ""}
-                  onChange={(e) => updateScene(scene.id, 'imagePrompt', e.target.value)}
-                  className="min-h-[120px]"
-                  placeholder="Enter image prompt for this scene..."
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Scene Duration</Label>
-                <div className="flex items-center gap-2">
+        <Tabs defaultValue="edit" className="flex-1 flex flex-col">
+          <TabsList className="w-full">
+            <TabsTrigger value="edit" className="flex-1">Edit</TabsTrigger>
+            <TabsTrigger value="ai" className="flex-1">AI</TabsTrigger>
+          </TabsList>
+          
+          <TabsContent value="edit" className="flex-1 p-0">
+            <ScrollArea className="flex-1 p-4 h-full">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label htmlFor="scene-title">Scene Title</Label>
                   <Input
-                    type="number"
-                    min="1"
-                    value={scene.duration || 5}
+                    id="scene-title"
+                    value={scene.title}
                     onChange={() => {}}
+                    placeholder="Scene title"
                   />
-                  <span className="text-muted-foreground">seconds</span>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="scene-script">Script</Label>
+                  <Textarea
+                    id="scene-script"
+                    value={scene.script || ""}
+                    onChange={(e) => updateScene(scene.id, 'script', e.target.value)}
+                    className="min-h-[120px]"
+                    placeholder="Enter script for this scene..."
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="scene-image-prompt">Image Prompt</Label>
+                  <Textarea
+                    id="scene-image-prompt"
+                    value={scene.imagePrompt || ""}
+                    onChange={(e) => updateScene(scene.id, 'imagePrompt', e.target.value)}
+                    className="min-h-[120px]"
+                    placeholder="Enter image prompt for this scene..."
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Scene Duration</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={scene.duration || 5}
+                      onChange={() => {}}
+                    />
+                    <span className="text-muted-foreground">seconds</span>
+                  </div>
                 </div>
               </div>
-            </div>
-          </ScrollArea>
-        </TabsContent>
-        
-        <TabsContent value="ai" className="flex-1 p-0">
-          <ScrollArea className="flex-1 p-4 h-full">
-            <div className="space-y-6">
-              <div className="space-y-2">
-                <Label>AI Agent</Label>
-                <AgentSelector 
-                  onChange={setSelectedAgent}
-                  defaultValue={selectedAgent}
-                />
-              </div>
-              
-              <div className="space-y-2">
-                <Label>Generate</Label>
-                <div className="grid grid-cols-2 gap-2">
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => handleGenerateContent('script')}
-                    disabled={isGenerating}
-                  >
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Script
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => handleGenerateContent('imagePrompt')}
-                    disabled={isGenerating}
-                  >
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Image Prompt
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => handleGenerateContent('image')}
-                    disabled={isGenerating}
-                  >
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Scene Image
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    className="w-full"
-                    onClick={() => handleGenerateContent('video')}
-                    disabled={isGenerating}
-                  >
-                    <Wand2 className="h-4 w-4 mr-2" />
-                    Scene Video
-                  </Button>
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="ai" className="flex-1 p-0">
+            <ScrollArea className="flex-1 p-4 h-full">
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <Label>AI Agent</Label>
+                  <AgentSelector 
+                    onChange={setSelectedAgent}
+                    defaultValue={selectedAgent}
+                  />
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>Generate</Label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => handleGenerateContent('script')}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Script
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => handleGenerateContent('imagePrompt')}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Image Prompt
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => handleGenerateContent('image')}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Scene Image
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => handleGenerateContent('video')}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Scene Video
+                    </Button>
+                  </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label>AI Instructions</Label>
+                  <Textarea
+                    placeholder="Enter custom instructions for the AI..."
+                    className="min-h-[120px]"
+                    value={aiInstructions}
+                    onChange={(e) => setAiInstructions(e.target.value)}
+                  />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label>AI Instructions</Label>
-                <Textarea
-                  placeholder="Enter custom instructions for the AI..."
-                  className="min-h-[120px]"
-                  value={aiInstructions}
-                  onChange={(e) => setAiInstructions(e.target.value)}
-                />
-              </div>
-            </div>
-          </ScrollArea>
-        </TabsContent>
-      </Tabs>
-    </div>
+            </ScrollArea>
+          </TabsContent>
+        </Tabs>
+      </div>
+    </TooltipProvider>
   );
 }

@@ -10,18 +10,25 @@ import { AgentBadge } from './AgentBadge';
 
 export interface TraceEvent {
   eventType: string;
-  timestamp: string;
+  timestamp: number; // Changed from string to number
   agentType?: string;
   data: any;
 }
 
 export interface TraceSummary {
+  id: string;
+  name: string;
   agentTypes: string[];
+  messageCount: number;
+  toolCallCount: number;
   handoffs: number;
   toolCalls: number;
   success: boolean;
-  duration: number;
-  messageCount?: number;
+  startTime: number;
+  endTime: number;
+  duration: string;
+  runId: string;
+  sessionId: string;
 }
 
 export interface Trace {
@@ -31,8 +38,8 @@ export interface Trace {
   sessionId: string;
   messages: any[];
   events: TraceEvent[];
-  startTime: string;
-  endTime?: string;
+  startTime: number; // Changed from string to number
+  endTime?: number; // Changed from string to number
   summary?: TraceSummary;
 }
 
@@ -45,9 +52,24 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
   
   // Safe access to trace properties with fallbacks
   const events = trace?.events || [];
-  const summary = trace?.summary || { agentTypes: [], handoffs: 0, toolCalls: 0, success: false, duration: 0 };
-  const startTime = trace?.startTime || '';
-  const endTime = trace?.endTime || '';
+  const summary = trace?.summary || { 
+    id: trace?.id || '',
+    name: trace?.name || '',
+    agentTypes: [], 
+    handoffs: 0, 
+    toolCalls: 0, 
+    success: false, 
+    startTime: trace?.startTime || Date.now(),
+    endTime: trace?.endTime || Date.now(),
+    duration: "0ms",
+    messageCount: 0,
+    toolCallCount: 0,
+    runId: trace?.runId || '',
+    sessionId: trace?.sessionId || ''
+  };
+  
+  const startTime = trace?.startTime || Date.now();
+  const endTime = trace?.endTime || Date.now();
   
   const handoffEvents = events.filter(e => e.eventType === 'handoff');
   const toolCallEvents = events.filter(e => e.eventType === 'tool_call');
@@ -132,7 +154,6 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
   const success = summary.success || false;
   const handoffs = summary.handoffs || 0;
   const toolCalls = summary.toolCalls || 0;
-  const duration = summary.duration || 0;
   
   return (
     <div className="space-y-4">
@@ -149,7 +170,7 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
               )}
             </p>
             <p>
-              <span className="font-medium">Duration:</span> {formatDuration(duration)}
+              <span className="font-medium">Duration:</span> {formatDuration(startTime, endTime)}
             </p>
             <p>
               <span className="font-medium">Start Time:</span> {formatTraceTimestamp(startTime)}

@@ -8,9 +8,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { formatDistanceToNow } from 'date-fns';
 import { Loader2, RefreshCw } from 'lucide-react';
-import { TraceViewer, Trace as ViewerTrace } from './TraceViewer';
+import { TraceViewer, Trace as ViewerTrace, TraceSummary } from './TraceViewer';
 import { extractTraceData, getSafeTraceSummary, safeTraceEvents } from '@/lib/trace-utils';
 import { safeStringify } from '@/lib/safe-stringify';
+import { Trace } from '@/lib/trace-utils';
 
 interface AgentInteraction {
   id: string;
@@ -81,34 +82,36 @@ export const TraceDashboard: React.FC = () => {
         throw new Error('No trace data found');
       }
       
-      // Safely extract the trace data
-      const traceData = extractTraceData(data.metadata);
+      // Parse the metadata safely to ensure we have a valid object
+      const traceData = typeof data.metadata === 'string' 
+        ? JSON.parse(data.metadata)
+        : data.metadata;
       
       if (!traceData) {
         throw new Error('Invalid trace data format');
       }
       
-      // Convert the trace events to the format expected by TraceViewer
-      const convertedEvents = traceData.events.map(event => ({
+      // Use the trace-utils functions to process the data safely
+      const summary = getSafeTraceSummary(traceData) as TraceSummary;
+      
+      // Convert the events to the format expected by TraceViewer
+      const events = safeTraceEvents(traceData).map(event => ({
         eventType: event.type || "unknown",
         timestamp: event.timestamp,
         agentType: event.data?.agentType || "unknown",
         data: event.data
       }));
       
-      // Get the summary safely
-      const summary = getSafeTraceSummary(traceData);
-      
       // Construct a complete Trace object compatible with TraceViewer
       const trace: ViewerTrace = {
         id: traceData.id || data.id,
-        runId: traceData.id || data.id,
+        runId: traceData.runId || data.id,
         userId: data.user_id || '',
-        sessionId: traceData.metadata?.sessionId || '',
+        sessionId: traceData.sessionId || '',
         messages: [],
-        events: convertedEvents,
-        startTime: traceData.start_time,
-        endTime: traceData.end_time,
+        events: events,
+        startTime: summary.startTime,
+        endTime: summary.endTime,
         summary: summary
       };
       

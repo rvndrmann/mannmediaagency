@@ -41,7 +41,8 @@ export const executeBrowserUseTool = async (parameters: any, context: any): Prom
     console.error("Error in executeBrowserUseTool:", error);
     return {
       success: false,
-      message: error instanceof Error ? error.message : "Unknown error executing browser-use tool"
+      data: null,
+      error: error instanceof Error ? error.message : "Unknown error executing browser-use tool"
     };
   }
 };

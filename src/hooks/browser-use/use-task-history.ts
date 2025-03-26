@@ -60,8 +60,8 @@ export function useTaskHistory() {
         user_id: user.id,
         status: task.status || 'pending' as TaskStatus,
         task_input: task.task_input || '',
-        // Convert browser_data to JSON to satisfy the typing
-        browser_data: task.browser_data ? JSON.parse(JSON.stringify(task.browser_data)) : null
+        // Properly handle browser_data by converting to JSON string if needed
+        browser_data: task.browser_data ? JSON.stringify(task.browser_data) : null
       };
       
       const { data, error } = await supabase
@@ -84,7 +84,9 @@ export function useTaskHistory() {
         result_url: data.result_url,
         completed_at: data.completed_at,
         created_at: data.created_at,
-        browser_data: data.browser_data
+        browser_data: typeof data.browser_data === 'string' 
+          ? JSON.parse(data.browser_data) 
+          : data.browser_data
       };
       
       setTaskHistory(prev => [newTask, ...prev]);
@@ -102,8 +104,8 @@ export function useTaskHistory() {
       // Ensure browser_data is properly stringified if it exists
       const updatedData = {
         ...updates,
-        // Convert browser_data to JSON to satisfy the typing
-        browser_data: updates.browser_data ? JSON.parse(JSON.stringify(updates.browser_data)) : undefined
+        // Properly handle browser_data by converting to JSON string if needed
+        browser_data: updates.browser_data ? JSON.stringify(updates.browser_data) : undefined
       };
       
       const { data, error } = await supabase
@@ -128,7 +130,9 @@ export function useTaskHistory() {
         result_url: data.result_url,
         completed_at: data.completed_at,
         created_at: data.created_at,
-        browser_data: data.browser_data
+        browser_data: typeof data.browser_data === 'string' 
+          ? JSON.parse(data.browser_data) 
+          : data.browser_data
       };
       
       setTaskHistory(prev => prev.map(task => 
@@ -152,35 +156,21 @@ export function useTaskHistory() {
         user_id: user.id,
         status: task.status || 'pending' as TaskStatus, 
         task_input: task.task_input || '',
-        // Convert browser_data to JSON to satisfy the typing
-        browser_data: task.browser_data ? JSON.parse(JSON.stringify(task.browser_data)) : null
+        // Properly handle browser_data by converting to JSON string if needed
+        browser_data: task.browser_data ? JSON.stringify(task.browser_data) : null
       }));
       
-      // Use upsert instead of insert for multiple records
+      // Use upsert with an array instead of single object
       const { data, error } = await supabase
         .from('browser_task_history')
-        .upsert(tasksToSave)
-        .select('*');
+        .upsert(tasksToSave);
       
       if (error) throw error;
       
-      // Convert and refresh the task history
-      const savedTasks = (data || []).map(item => ({
-        id: item.id,
-        user_id: item.user_id,
-        task_input: item.task_input,
-        output: item.output,
-        status: item.status as TaskStatus,
-        browser_task_id: item.browser_task_id,
-        screenshot_url: item.screenshot_url,
-        result_url: item.result_url,
-        completed_at: item.completed_at,
-        created_at: item.created_at,
-        browser_data: item.browser_data
-      }));
-      
+      // Refresh task history after saving multiple tasks
       await fetchTaskHistory();
-      return savedTasks;
+      
+      return data || [];
     } catch (err) {
       console.error('Error saving multiple tasks:', err);
       throw err;

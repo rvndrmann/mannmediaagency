@@ -6,12 +6,21 @@ import { imageToVideoTool } from "./image-to-video-tool";
 import { executeBrowserUseTool } from "./browser-use-tool";
 import { productVideoTool } from "./product-video-tool";
 import { customVideoTool } from "./custom-video-tool";
+import { ToolContext } from "../types";
 
-// Define the browserUseTool correctly
+// Define the browserUseTool correctly with the right execute signature
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
   description: "Browse the web to perform tasks using an automated browser",
-  execute: executeBrowserUseTool,
+  execute: async (params: Record<string, any>, context: ToolContext) => {
+    // Call the executeBrowserUseTool but adapt the result to match ToolDefinition's expected return type
+    const result = await executeBrowserUseTool(params, context);
+    return {
+      success: result.success,
+      message: result.message || (result.error || "Unknown error"),
+      data: result.data
+    };
+  },
   parameters: {
     task: {
       type: "string",

@@ -158,40 +158,51 @@ export function formatDuration(startTime: number, endTime: number): string {
 /**
  * Extract key data from a trace for display
  */
-export function extractTraceData(trace: Trace) {
-  const agentTypes = new Set<string>();
-  const toolCalls = [];
-  const messages = [];
+export function extractTraceData(trace: Trace | any) {
+  if (!trace) return null;
   
-  trace.events.forEach(event => {
-    if (event.type === TraceEventType.MESSAGE) {
-      messages.push(event);
-      if (event.data?.agentType) {
-        agentTypes.add(event.data.agentType);
+  try {
+    const agentTypes = new Set<string>();
+    const toolCalls = [];
+    const messages = [];
+    const events = Array.isArray(trace.events) ? trace.events : [];
+    
+    events.forEach(event => {
+      if (event.type === TraceEventType.MESSAGE) {
+        messages.push(event);
+        if (event.data?.agentType) {
+          agentTypes.add(event.data.agentType);
+        }
+      } else if (event.type === TraceEventType.TOOL_CALL) {
+        toolCalls.push(event);
       }
-    } else if (event.type === TraceEventType.TOOL_CALL) {
-      toolCalls.push(event);
-    }
-  });
-  
-  return {
-    id: trace.id,
-    name: trace.name,
-    agentTypes: Array.from(agentTypes),
-    messageCount: messages.length,
-    toolCallCount: toolCalls.length,
-    startTime: trace.start_time,
-    endTime: trace.end_time || Date.now(),
-    duration: formatDuration(trace.start_time, trace.end_time || Date.now()),
-    runId: trace.runId,
-    sessionId: trace.sessionId
-  };
+    });
+    
+    return {
+      id: trace.id,
+      name: trace.name,
+      agentTypes: Array.from(agentTypes),
+      messageCount: messages.length,
+      toolCallCount: toolCalls.length,
+      handoffs: 0, // Default value for required property in TraceSummary
+      toolCalls: toolCalls.length, // Default value for required property in TraceSummary
+      success: true, // Default value for required property in TraceSummary
+      startTime: trace.start_time,
+      endTime: trace.end_time || Date.now(),
+      duration: formatDuration(trace.start_time, trace.end_time || Date.now()),
+      runId: trace.runId,
+      sessionId: trace.sessionId
+    };
+  } catch (error) {
+    console.error('Error extracting trace data:', error);
+    return null;
+  }
 }
 
 /**
  * Get a safe summary of a trace
  */
-export function getSafeTraceSummary(trace: Trace) {
+export function getSafeTraceSummary(trace: Trace | any) {
   if (!trace) return null;
   
   try {
@@ -204,9 +215,14 @@ export function getSafeTraceSummary(trace: Trace) {
       agentTypes: [],
       messageCount: 0,
       toolCallCount: 0,
+      handoffs: 0,
+      toolCalls: 0,
+      success: false,
       startTime: trace.start_time || Date.now(),
       endTime: trace.end_time || Date.now(),
       duration: '0ms',
+      runId: trace.runId || 'unknown',
+      sessionId: trace.sessionId || 'unknown',
       error: 'Error processing trace data'
     };
   }
@@ -215,7 +231,7 @@ export function getSafeTraceSummary(trace: Trace) {
 /**
  * Get safe trace events (with fallbacks for corrupted data)
  */
-export function safeTraceEvents(trace: Trace): TraceEvent[] {
+export function safeTraceEvents(trace: Trace | any): TraceEvent[] {
   if (!trace || !trace.events || !Array.isArray(trace.events)) {
     return [];
   }

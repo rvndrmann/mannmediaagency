@@ -7,11 +7,24 @@ export interface ToolContext {
   sessionId: string;
   messageId: string;
   attachments: any[];
+  creditsRemaining: number; // Added to match the ToolContext from hooks/types.ts
 }
 
 export interface ToolResult {
   success: boolean;
   data: any;
+  error?: string;
+  message?: string; // Added to match the ToolResult from hooks/types.ts
+  credits_used?: number;
+}
+
+// Added CommandExecutionState to fix tool-executor.ts errors
+export interface CommandExecutionState {
+  commandId: string;
+  status: "pending" | "executing" | "completed" | "failed";
+  startTime: Date;
+  endTime?: Date;
+  result?: ToolResult;
   error?: string;
 }
 

@@ -1,13 +1,11 @@
 
-// Only update the specific line that has the invalid toast variant
 import { useState, useCallback } from "react";
 import { v4 as uuidv4 } from 'uuid';
 import { useToast } from "@/components/ui/use-toast";
-import { createTrace, createTraceEvent, saveTrace } from "@/lib/trace-utils";
+import { createTrace, createTraceEvent, TraceEventType } from "@/lib/trace-utils";
+import { AgentType } from "@/hooks/use-multi-agent-chat";
 
 // Define missing types
-type AgentType = string;
-type Environment = string;
 interface ChatMessage {
   id: string;
   type: string;
@@ -20,7 +18,7 @@ export const useAgentRunner = ({
   userId,
   sessionId,
   environment,
-  initialAgentType = "CREATIVE",
+  initialAgentType = "main",
   onData,
   onMessages,
   onAgentTypeChange,
@@ -30,7 +28,7 @@ export const useAgentRunner = ({
   task: string;
   userId: string;
   sessionId: string;
-  environment: Environment;
+  environment: any;
   initialAgentType?: AgentType;
   onData: (data: string) => void;
   onMessages: (messages: ChatMessage[]) => void;
@@ -47,21 +45,12 @@ export const useAgentRunner = ({
   const [completion, setCompletion] = useState<string>('');
   
   // Initialize trace when the component mounts
-  useCallback(() => {
-    const initializeTrace = async () => {
-      const newTrace = createTrace('Agent Run', {
-        task: task,
-        userId: userId,
-        sessionId: sessionId,
-        environment: environment,
-        agentType: agentType
-      });
-      setTraceId(newTrace.id);
-      onTraceId(newTrace.id);
-    };
-    
-    initializeTrace();
-  }, [task, userId, sessionId, environment, agentType, onTraceId]);
+  const initializeTrace = useCallback(() => {
+    const trace = createTrace('Agent Run');
+    setTraceId(trace.id);
+    onTraceId(trace.id);
+    return trace.id;
+  }, [onTraceId]);
   
   // Update agent type and persist to local storage
   const handleAgentTypeChange = useCallback((newAgentType: AgentType) => {
@@ -77,7 +66,7 @@ export const useAgentRunner = ({
   
   // Start the agent run
   const startAgent = useCallback(async () => {
-    if (!task || !userId || !sessionId || !environment) {
+    if (!task || !userId || !sessionId) {
       console.error("Missing required parameters to start agent");
       toast({
         title: "Missing Parameters",
@@ -93,6 +82,9 @@ export const useAgentRunner = ({
     setCompletion('');
     setMessages([]);
     
+    // Initialize a new trace
+    const newTraceId = initializeTrace();
+    
     try {
       // Simulated agent response
       const simulatedResponse = `This is a placeholder response for "${task}". The actual agent implementation will be added in a future update.`;
@@ -104,6 +96,13 @@ export const useAgentRunner = ({
         text: task,
         timestamp: new Date().toISOString()
       });
+      
+      // Create trace event for the user message
+      const thinkingEvent = createTraceEvent(
+        TraceEventType.THINKING,
+        { agentType, prompt: task }
+      );
+      console.log("Created thinking event:", thinkingEvent);
       
       // Simulate processing delay
       await new Promise(resolve => setTimeout(resolve, 1500));
@@ -121,8 +120,11 @@ export const useAgentRunner = ({
       onData(simulatedResponse);
       
       // Create trace event for the successful run
-      const successEvent = createTraceEvent('completed', { output: simulatedResponse }, traceId || undefined);
-      console.log("Created trace event:", successEvent);
+      const successEvent = createTraceEvent(
+        TraceEventType.MESSAGE,
+        { output: simulatedResponse }
+      );
+      console.log("Created success event:", successEvent);
       
       // Log success
       console.log("Agent run completed successfully");
@@ -148,7 +150,7 @@ export const useAgentRunner = ({
       setIsRunning(false);
       onIsRunning(false);
     }
-  }, [task, userId, sessionId, environment, traceId, onData, addMessage, toast, onIsRunning]);
+  }, [task, userId, sessionId, agentType, initializeTrace, addMessage, onData, toast, onIsRunning]);
   
   return {
     agentType,

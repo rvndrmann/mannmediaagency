@@ -26,7 +26,22 @@ export function useTaskHistory() {
       
       if (error) throw error;
       
-      setTaskHistory(data || []);
+      // Convert raw DB data to BrowserTaskHistory[] with correct types
+      const typedHistory = (data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        task_input: item.task_input,
+        output: item.output,
+        status: item.status as TaskStatus, // Cast string to TaskStatus enum
+        browser_task_id: item.browser_task_id,
+        screenshot_url: item.screenshot_url,
+        result_url: item.result_url,
+        completed_at: item.completed_at,
+        created_at: item.created_at,
+        browser_data: item.browser_data as any // Cast Json to any for browser_data
+      }));
+      
+      setTaskHistory(typedHistory);
     } catch (err) {
       console.error('Error fetching task history:', err);
       setError(err instanceof Error ? err.message : 'Failed to fetch task history');
@@ -57,8 +72,23 @@ export function useTaskHistory() {
       
       if (error) throw error;
       
-      await fetchTaskHistory();
-      return data;
+      // Convert and add the new task to the history
+      const newTask: BrowserTaskHistory = {
+        id: data.id,
+        user_id: data.user_id,
+        task_input: data.task_input,
+        output: data.output,
+        status: data.status as TaskStatus,
+        browser_task_id: data.browser_task_id,
+        screenshot_url: data.screenshot_url,
+        result_url: data.result_url,
+        completed_at: data.completed_at,
+        created_at: data.created_at,
+        browser_data: data.browser_data
+      };
+      
+      setTaskHistory(prev => [newTask, ...prev]);
+      return newTask;
     } catch (err) {
       console.error('Error saving task:', err);
       throw err;
@@ -86,8 +116,26 @@ export function useTaskHistory() {
       
       if (error) throw error;
       
-      await fetchTaskHistory();
-      return data;
+      // Update the task history state
+      const updatedTask: BrowserTaskHistory = {
+        id: data.id,
+        user_id: data.user_id,
+        task_input: data.task_input,
+        output: data.output,
+        status: data.status as TaskStatus,
+        browser_task_id: data.browser_task_id,
+        screenshot_url: data.screenshot_url,
+        result_url: data.result_url,
+        completed_at: data.completed_at,
+        created_at: data.created_at,
+        browser_data: data.browser_data
+      };
+      
+      setTaskHistory(prev => prev.map(task => 
+        task.id === id ? updatedTask : task
+      ));
+      
+      return updatedTask;
     } catch (err) {
       console.error('Error updating task:', err);
       throw err;
@@ -116,8 +164,23 @@ export function useTaskHistory() {
       
       if (error) throw error;
       
+      // Convert and refresh the task history
+      const savedTasks = (data || []).map(item => ({
+        id: item.id,
+        user_id: item.user_id,
+        task_input: item.task_input,
+        output: item.output,
+        status: item.status as TaskStatus,
+        browser_task_id: item.browser_task_id,
+        screenshot_url: item.screenshot_url,
+        result_url: item.result_url,
+        completed_at: item.completed_at,
+        created_at: item.created_at,
+        browser_data: item.browser_data
+      }));
+      
       await fetchTaskHistory();
-      return data || [];
+      return savedTasks;
     } catch (err) {
       console.error('Error saving multiple tasks:', err);
       throw err;
@@ -136,7 +199,8 @@ export function useTaskHistory() {
       
       if (error) throw error;
       
-      await fetchTaskHistory();
+      // Update the local state
+      setTaskHistory(prev => prev.filter(task => task.id !== id));
     } catch (err) {
       console.error('Error deleting task:', err);
       throw err;

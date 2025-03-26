@@ -12,6 +12,7 @@ export interface TraceEvent {
   type: string; 
   data: any;
   parentId?: string;
+  eventType?: string; // Added for compatibility with TraceViewer
 }
 
 /**
@@ -43,14 +44,15 @@ export enum TraceEventType {
 /**
  * Create a new trace
  */
-export function createTrace(name: string): Trace {
+export function createTrace(name: string, metadata?: any): Trace {
   return {
     id: uuidv4(),
     name,
     start_time: Date.now(),
     events: [],
     runId: uuidv4(),
-    sessionId: uuidv4()
+    sessionId: uuidv4(),
+    ...(metadata || {})
   };
 }
 
@@ -66,6 +68,7 @@ export function createTraceEvent(
     id: uuidv4(),
     timestamp: Date.now(),
     type,
+    eventType: type, // Added for compatibility with TraceViewer
     data,
     parentId
   };
@@ -125,4 +128,107 @@ export function getTraces(): Trace[] {
  */
 export function clearTraces(): void {
   localStorage.removeItem('ai_traces');
+}
+
+/**
+ * Format trace timestamp for display
+ */
+export function formatTraceTimestamp(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString() + '.' + date.getMilliseconds().toString().padStart(3, '0');
+}
+
+/**
+ * Format duration in milliseconds
+ */
+export function formatDuration(startTime: number, endTime: number): string {
+  const duration = endTime - startTime;
+  
+  if (duration < 1000) {
+    return `${duration}ms`;
+  } else if (duration < 60000) {
+    return `${(duration / 1000).toFixed(2)}s`;
+  } else {
+    const minutes = Math.floor(duration / 60000);
+    const seconds = ((duration % 60000) / 1000).toFixed(2);
+    return `${minutes}m ${seconds}s`;
+  }
+}
+
+/**
+ * Extract key data from a trace for display
+ */
+export function extractTraceData(trace: Trace) {
+  const agentTypes = new Set<string>();
+  const toolCalls = [];
+  const messages = [];
+  
+  trace.events.forEach(event => {
+    if (event.type === TraceEventType.MESSAGE) {
+      messages.push(event);
+      if (event.data?.agentType) {
+        agentTypes.add(event.data.agentType);
+      }
+    } else if (event.type === TraceEventType.TOOL_CALL) {
+      toolCalls.push(event);
+    }
+  });
+  
+  return {
+    id: trace.id,
+    name: trace.name,
+    agentTypes: Array.from(agentTypes),
+    messageCount: messages.length,
+    toolCallCount: toolCalls.length,
+    startTime: trace.start_time,
+    endTime: trace.end_time || Date.now(),
+    duration: formatDuration(trace.start_time, trace.end_time || Date.now()),
+    runId: trace.runId,
+    sessionId: trace.sessionId
+  };
+}
+
+/**
+ * Get a safe summary of a trace
+ */
+export function getSafeTraceSummary(trace: Trace) {
+  if (!trace) return null;
+  
+  try {
+    return extractTraceData(trace);
+  } catch (error) {
+    console.error('Error generating trace summary:', error);
+    return {
+      id: trace.id || 'unknown',
+      name: trace.name || 'Unnamed Trace',
+      agentTypes: [],
+      messageCount: 0,
+      toolCallCount: 0,
+      startTime: trace.start_time || Date.now(),
+      endTime: trace.end_time || Date.now(),
+      duration: '0ms',
+      error: 'Error processing trace data'
+    };
+  }
+}
+
+/**
+ * Get safe trace events (with fallbacks for corrupted data)
+ */
+export function safeTraceEvents(trace: Trace): TraceEvent[] {
+  if (!trace || !trace.events || !Array.isArray(trace.events)) {
+    return [];
+  }
+  
+  return trace.events.map(event => {
+    // Ensure each event has basic required properties
+    return {
+      id: event.id || uuidv4(),
+      timestamp: event.timestamp || Date.now(),
+      type: event.type || 'unknown',
+      eventType: event.type || 'unknown', // For compatibility with TraceViewer
+      data: event.data || {},
+      parentId: event.parentId
+    };
+  });
 }

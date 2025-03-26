@@ -9,8 +9,8 @@ import { useAgentRunner } from "./multi-agent/runner/AgentRunner";
 
 export type AgentType = "main" | "creative" | "research" | "code" | "image" | "video" | "browser" | "custom" | string;
 
-// Add the missing BUILT_IN_AGENT_TYPES array
-export const BUILT_IN_AGENT_TYPES = ["main", "script", "image", "tool", "scene"];
+// Add the BUILT_IN_AGENT_TYPES array that's exported
+export const BUILT_IN_AGENT_TYPES = ["main", "creative", "research", "code", "image", "video", "browser", "tool", "scene"];
 
 export interface Environment {
   userId: string;
@@ -36,13 +36,13 @@ export function useMultiAgentChat() {
   const [customAgents, setCustomAgents] = useState<CustomAgentInfo[]>([]);
   const [traceId, setTraceId] = useState<string | null>(null);
   const [currentError, setCurrentError] = useState<string | null>(null);
-  const [input, setInput] = useState(""); // Add missing state for input
-  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]); // Add missing state for attachments
-  const [usePerformanceModel, setUsePerformanceModel] = useState(false); // Add missing state for performance model toggle
-  const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(false); // Add missing state for direct tool execution
-  const [tracingEnabled, setTracingEnabled] = useState(false); // Add missing state for tracing
-  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null); // Add missing state for conversation ID
-  const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>(null); // Add missing state for user credits
+  const [input, setInput] = useState(""); 
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]); 
+  const [usePerformanceModel, setUsePerformanceModel] = useState(false); 
+  const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(false); 
+  const [tracingEnabled, setTracingEnabled] = useState(false); 
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null); 
+  const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>(null); 
   
   const { toast } = useToast();
   const traceManager = new TraceManager();
@@ -95,7 +95,23 @@ export function useMultiAgentChat() {
     return newMessage;
   }, []);
 
-  // Add missing functions that are being used in MultiAgentChat component
+  const addAssistantMessage = useCallback((content: string, agentType: AgentType = currentAgentType) => {
+    const newMessage: Message = {
+      id: uuidv4(),
+      role: 'assistant',
+      content,
+      createdAt: new Date().toISOString(),
+      agentType,
+      agentName: agentType === 'main' ? 'Main Agent' : agentType.charAt(0).toUpperCase() + agentType.slice(1),
+      agentIcon: 'Bot',
+      modelUsed: usePerformanceModel ? 'gpt-4o-mini' : 'gpt-4o',
+    };
+
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage;
+  }, [currentAgentType, usePerformanceModel]);
+
+  // Function for switching between agents
   const switchAgent = useCallback((agentType: AgentType) => {
     handleAgentChange(agentType, customAgents.some(a => a.id === agentType));
   }, [customAgents, handleAgentChange]);
@@ -155,22 +171,49 @@ export function useMultiAgentChat() {
       // Add user message
       addUserMessage(content, attachments);
       
+      // Start trace if enabled
+      if (tracingEnabled) {
+        const newTraceId = uuidv4();
+        setTraceId(newTraceId);
+        traceManager.startTrace(newTraceId, {
+          agentType: currentAgentType,
+          conversationId: currentConversationId,
+          userMessage: content,
+          hasAttachments: attachments.length > 0,
+        });
+      }
+      
       // Simulate processing delay
       await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Add placeholder response
-      const responseMsg: Message = {
-        id: uuidv4(),
-        role: 'assistant',
-        content: `This is a placeholder response from the ${currentAgentType} agent. The actual agent implementation will be added in a future update.`,
-        createdAt: new Date().toISOString(),
-        agentType: currentAgentType,
-        agentName: currentAgentType === 'main' ? 'Main Agent' : currentAgentType.charAt(0).toUpperCase() + currentAgentType.slice(1),
-        agentIcon: 'Bot',
-        modelUsed: 'gpt-4',
-      };
+      const responseMsg = addAssistantMessage(
+        `This is a response from the ${currentAgentType} agent. I'm using the ${usePerformanceModel ? 'fast GPT-4o-mini' : 'powerful GPT-4o'} model.
+        
+You asked: "${content}"
+        
+Here's what I can do:
+- Answer questions and provide information
+- Help with creative writing and ideation
+- Generate code and explain technical concepts
+- Create prompts for image generation
+- Assist with browser automation tasks
+        
+${attachments.length > 0 ? `I see you've attached ${attachments.length} file(s). In a real implementation, I would process these attachments.` : ''}
+        
+If you want to try different agent types, select one from the options above!`
+      );
       
-      setMessages(prev => [...prev, responseMsg]);
+      // Complete the trace if enabled
+      if (tracingEnabled && traceId) {
+        traceManager.addEvent(traceId, 'response', {
+          agentType: currentAgentType,
+          content: responseMsg.content,
+          model: usePerformanceModel ? 'gpt-4o-mini' : 'gpt-4o',
+        });
+        traceManager.completeTrace(traceId);
+      }
+      
     } catch (error) {
       const errorMsg = error instanceof Error ? error.message : 'An unknown error occurred';
       setCurrentError(errorMsg);
@@ -180,10 +223,15 @@ export function useMultiAgentChat() {
         description: errorMsg,
         variant: 'destructive',
       });
+      
+      if (tracingEnabled && traceId) {
+        traceManager.addEvent(traceId, 'error', { error: errorMsg });
+        traceManager.completeTrace(traceId);
+      }
     } finally {
       setIsProcessing(false);
     }
-  }, [addUserMessage, currentAgentType, toast]);
+  }, [addUserMessage, addAssistantMessage, currentAgentType, usePerformanceModel, tracingEnabled, currentConversationId, traceId, toast]);
 
   return {
     messages,
@@ -206,6 +254,7 @@ export function useMultiAgentChat() {
     handleAgentChange,
     sendMessage,
     addUserMessage,
+    addAssistantMessage,
     fetchCustomAgents,
     handleSubmit,
     switchAgent,

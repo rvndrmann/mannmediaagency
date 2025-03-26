@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key, Shield, CalendarDays } from "lucide-react";
+import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key, Shield, CalendarDays, FileText } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserConfigPanel } from "@/components/browser-use/BrowserConfigPanel";
@@ -22,6 +22,7 @@ import { TaskTemplateSelector } from "@/components/browser-use/TaskTemplateSelec
 import { ScheduledTasksList } from "@/components/browser-use/ScheduledTasksList";
 import { SensitiveDataManager } from "@/components/browser-use/SensitiveDataManager";
 import { ProxyHelper } from "@/components/browser-use/ProxyHelper";
+import { TaskScheduler } from "@/components/browser-use/TaskScheduler";
 
 interface BrowserTask {
   id: string;
@@ -68,6 +69,7 @@ const BrowserUsePage = () => {
   const [intervalId, setIntervalId] = useState<number | null>(null);
   const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
   const [activeTab, setActiveTab] = useState(activeTask ? "viewing" : "create");
+  const [showTemplatesPanel, setShowTemplatesPanel] = useState(true);
   
   const [proxyUrl, setProxyUrl] = useState(browserConfig.proxy || "");
   
@@ -283,6 +285,7 @@ const BrowserUsePage = () => {
       setBrowserConfig(template.browser_config);
     }
     toast.success(`Template "${template.name}" loaded`);
+    setShowTemplatesPanel(false);
   };
 
   return (
@@ -342,11 +345,31 @@ const BrowserUsePage = () => {
                 </div>
               </div>
 
-              <TaskTemplateSelector 
-                onSelectTemplate={handleSelectTemplate}
-                currentTaskInput={taskInput}
-                currentBrowserConfig={browserConfig}
-              />
+              {/* Template Selection UI - Always visible with toggle option */}
+              <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border">
+                <div className="flex justify-between items-center mb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText className="h-5 w-5 text-primary" />
+                    <h3 className="text-lg font-medium">Task Templates</h3>
+                  </div>
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => setShowTemplatesPanel(!showTemplatesPanel)}
+                  >
+                    {showTemplatesPanel ? "Hide Templates" : "Show Templates"}
+                  </Button>
+                </div>
+                
+                {showTemplatesPanel && (
+                  <TaskTemplateSelector 
+                    onSelectTemplate={handleSelectTemplate}
+                    currentTaskInput={taskInput}
+                    currentBrowserConfig={browserConfig}
+                    displayMode="compact"
+                  />
+                )}
+              </div>
               
               <TaskInputWithPreview
                 value={taskInput}
@@ -384,11 +407,21 @@ const BrowserUsePage = () => {
                 </Button>
                 <Button
                   variant="outline"
-                  onClick={() => setActiveTab("scheduled")}
-                  disabled={isTaskLoading}
+                  onClick={() => {
+                    if (!taskInput.trim()) {
+                      toast.error("Please create a task first");
+                      return;
+                    }
+                    setActiveTab("scheduled");
+                    // Delay to ensure the tab switches before clicking the button
+                    setTimeout(() => {
+                      document.getElementById("schedule-task-button")?.click();
+                    }, 100);
+                  }}
+                  disabled={isTaskLoading || !taskInput.trim()}
                 >
                   <CalendarDays className="h-4 w-4 mr-2" />
-                  View Scheduled Tasks
+                  Schedule This Task
                 </Button>
               </div>
               <Button onClick={startNewTask} disabled={isTaskLoading || !taskInput.trim()}>
@@ -593,24 +626,35 @@ const BrowserUsePage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="mb-4">
+              <div className="mb-6 p-4 bg-slate-50 dark:bg-slate-900 border rounded-lg">
+                <h3 className="text-lg font-medium mb-3 flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4 text-primary" />
+                  Schedule New Task
+                </h3>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Schedule the task you created in the "Create Task" tab to run automatically at specific times.
+                </p>
                 <Button 
+                  className="flex items-center gap-2 w-full sm:w-auto"
                   onClick={() => {
                     if (!taskInput.trim()) {
                       toast.error("Please create a task in the Create Task tab first");
                       setActiveTab("create");
                       return;
                     }
-                    // Show the schedule dialog that we'll create next
+                    // Show the schedule dialog
                     document.getElementById("schedule-task-button")?.click();
                   }}
-                  className="flex items-center gap-2"
                 >
                   <CalendarDays className="h-4 w-4" />
                   Schedule Current Task
                 </Button>
               </div>
-              <ScheduledTasksList />
+              
+              <div className="mt-4">
+                <h3 className="text-lg font-medium mb-3">Your Scheduled Tasks</h3>
+                <ScheduledTasksList />
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -717,3 +761,4 @@ const BrowserUsePage = () => {
 };
 
 export default BrowserUsePage;
+

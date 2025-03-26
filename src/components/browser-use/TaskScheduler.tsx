@@ -141,6 +141,11 @@ export function TaskScheduler({ taskInput, browserConfig, triggerId }: TaskSched
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-4">
+          <div className="p-3 bg-slate-50 dark:bg-slate-900 border rounded-md mb-2">
+            <h3 className="font-medium text-sm mb-2">Task to Schedule:</h3>
+            <p className="text-sm break-words line-clamp-3">{taskInput}</p>
+          </div>
+          
           <div className="grid gap-2">
             <Label htmlFor="schedule-type">Schedule Type</Label>
             <Select 

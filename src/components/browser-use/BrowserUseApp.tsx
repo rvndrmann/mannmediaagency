@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -36,9 +35,12 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { MobileHeader } from "./MobileHeader";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
+  const isMobile = useIsMobile();
   
   const {
     taskInput,
@@ -102,39 +104,52 @@ export function BrowserUseApp() {
   };
 
   return (
-    <div className="container mx-auto py-6 max-w-6xl">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2">
-          <Bot className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Browser Automation</h1>
-          {userCredits && (
-            <Badge variant="outline" className="ml-2">
-              Credits: {userCredits.credits_remaining}
+    <div className="container mx-auto py-2 md:py-6 px-2 md:px-6 max-w-6xl">
+      {isMobile && (
+        <MobileHeader 
+          title="Browser Worker AI" 
+          creditsRemaining={userCredits?.credits_remaining} 
+          className="mb-4 -mx-2"
+        />
+      )}
+
+      {!isMobile && (
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-2">
+            <Bot className="h-6 w-6 text-primary" />
+            <h1 className="text-2xl font-bold">Browser Automation</h1>
+            {userCredits && (
+              <Badge variant="outline" className="ml-2">
+                Credits: {userCredits.credits_remaining}
+              </Badge>
+            )}
+          </div>
+          
+          {browserConfig.proxy && (
+            <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200">
+              <Shield className="h-4 w-4 mr-1" />
+              Proxy Active
             </Badge>
           )}
         </div>
-        
-        {browserConfig.proxy && (
-          <Badge variant="outline" className="flex items-center gap-1 bg-blue-50 text-blue-700 border-blue-200">
-            <Shield className="h-4 w-4 mr-1" />
-            Proxy Active
-          </Badge>
-        )}
-      </div>
+      )}
 
-      <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab}>
+      <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="grid grid-cols-3 mb-4">
           <TabsTrigger value="task" className="flex items-center gap-2">
             <Terminal className="h-4 w-4" />
-            <span>Task Setup</span>
+            <span className={isMobile ? "" : "hidden md:inline"}>Task Setup</span>
+            <span className={isMobile ? "hidden" : "md:hidden"}>Task</span>
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
-            <span>Task History</span>
+            <span className={isMobile ? "" : "hidden md:inline"}>Task History</span>
+            <span className={isMobile ? "hidden" : "md:hidden"}>History</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
-            <span>Settings</span>
+            <span className={isMobile ? "" : "hidden md:inline"}>Settings</span>
+            <span className={isMobile ? "hidden" : "md:hidden"}>Config</span>
           </TabsTrigger>
         </TabsList>
 
@@ -213,7 +228,8 @@ export function BrowserUseApp() {
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
-                  Start Browser Task (1 Credit)
+                  <span className={isMobile ? "hidden" : ""}>Start Browser Task (1 Credit)</span>
+                  <span className={isMobile ? "" : "hidden"}>Start Task</span>
                 </Button>
 
                 {taskStatus === 'running' && (
@@ -260,7 +276,8 @@ export function BrowserUseApp() {
                     className="flex items-center gap-2"
                   >
                     <RotateCw className="h-4 w-4" />
-                    Restart Task (1 Credit)
+                    <span className={isMobile ? "hidden" : ""}>Restart Task (1 Credit)</span>
+                    <span className={isMobile ? "" : "hidden"}>Restart</span>
                   </Button>
                 )}
               </div>

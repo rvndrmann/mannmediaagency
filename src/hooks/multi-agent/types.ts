@@ -22,6 +22,7 @@ export interface ToolParameter {
   type: string;
   description: string;
   required: boolean;
+  prompt?: string; // Added for tools that need prompt
 }
 
 export interface ToolContext {
@@ -36,6 +37,15 @@ export interface ToolContext {
   supabase: typeof supabase;
   addMessage?: (text: string, type: string, attachments?: Attachment[]) => void;
   toolAvailable?: (toolName: string) => boolean;
+  creditsRemaining?: number; // Added to fix tool-executor errors
+  attachments?: Attachment[]; // Added to fix tool attachment errors
+}
+
+export enum CommandExecutionState {
+  PENDING = 'pending',
+  EXECUTING = 'executing',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
 }
 
 export interface HandoffRequest {

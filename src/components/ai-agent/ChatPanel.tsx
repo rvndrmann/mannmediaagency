@@ -6,15 +6,12 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { Info, AlertCircle } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
-
-interface Message {
-  role: "user" | "assistant";
-  content: string;
-  status?: "thinking" | "working" | "completed" | "error";
-}
+import { SimpleMessage } from "@/adapters/MessageTypeAdapter";
+import { Message as GlobalMessage } from "@/types/message";
+import { adaptMessageToSimple, adaptMessagesToSimple } from "@/adapters/MessageTypeAdapter";
 
 interface ChatPanelProps {
-  messages: Message[];
+  messages: GlobalMessage[] | SimpleMessage[];
   input: string;
   isLoading: boolean;
   userCredits: { credits_remaining: number } | null;
@@ -36,6 +33,11 @@ export const ChatPanel = ({
 }: ChatPanelProps) => {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
+
+  // Process messages to ensure they're in the right format
+  const adaptedMessages = "id" in (messages[0] || {}) 
+    ? adaptMessagesToSimple(messages as GlobalMessage[])
+    : messages as SimpleMessage[];
 
   const scrollToBottom = () => {
     if (lastMessageRef.current && scrollAreaRef.current) {
@@ -64,7 +66,7 @@ export const ChatPanel = ({
   }, [isVisible]);
 
   // Check if there are any error messages
-  const hasErrors = messages.some(msg => msg.status === "error");
+  const hasErrors = adaptedMessages.some(msg => msg.status === "error");
 
   return (
     <div className="flex flex-col h-full relative">
@@ -101,7 +103,7 @@ export const ChatPanel = ({
           className={`h-full ${isMobile ? "min-h-[calc(100vh-16rem)]" : "min-h-[calc(100vh-16rem)]"}`}
         >
           <div className={`space-y-4 p-4 ${isMobile ? "pb-20" : "pb-16"}`}>
-            {messages.map((message, index) => (
+            {adaptedMessages.map((message, index) => (
               <ChatMessage key={index} message={message} />
             ))}
             <div ref={lastMessageRef} className="h-px" />

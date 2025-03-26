@@ -1,64 +1,63 @@
 
 import { Command } from "@/types/message";
 
-/**
- * Parse a tool command from text output
- */
-export function parseToolCommand(text: string): Command | null {
+export const parseToolCall = (text: string): Command | null => {
+  // Extract commands in the format: {{tool:command(params)}}
+  const commandRegex = /\{\{tool:([^(]+)\(([^)]*)\)\}\}/;
+  const match = text.match(commandRegex);
+  
+  if (!match) return null;
+  
+  const toolName = match[1].trim();
+  const paramsString = match[2].trim();
+  
   try {
-    // First try the formal TOOL format used by the tool orchestrator
-    const toolMatch = text.match(/TOOL:\s*([a-z0-9-]+)/i);
-    const paramsMatch = text.match(/PARAMETERS:\s*(\{.+\})/s);
+    // Parse parameters - handle both JSON format and simple key=value format
+    let parameters: Record<string, any> = {};
     
-    if (toolMatch) {
-      const feature = toolMatch[1].toLowerCase();
-      let parameters = {};
-      
-      if (paramsMatch) {
-        try {
-          parameters = JSON.parse(paramsMatch[1]);
-          console.log(`Parsed tool parameters:`, parameters);
-        } catch (e) {
-          console.error("Error parsing tool parameters:", e);
-        }
-      }
-      
-      return {
-        feature: feature as Command["feature"],
-        action: "create",
-        parameters,
-        confidence: 0.9
-      };
-    }
-    
-    // If no match with the formal TOOL format, try the more flexible direct agent format
-    // This looks for standard JSON tool calls in the LLM output
-    const toolCallPattern = /I'll use the ([a-z0-9-]+) tool.*?(\{.*?\})/is;
-    const directMatch = text.match(toolCallPattern);
-    
-    if (directMatch) {
-      const feature = directMatch[1].toLowerCase();
-      
-      try {
-        const parameters = JSON.parse(directMatch[2]);
-        console.log(`Parsed direct tool parameters:`, parameters);
-        
-        return {
-          feature: feature as Command["feature"],
-          action: "create",
-          parameters,
-          confidence: 0.8,
-          type: "direct"
-        };
-      } catch (e) {
-        console.error("Error parsing direct tool parameters:", e);
+    if (paramsString) {
+      if (paramsString.startsWith('{') && paramsString.endsWith('}')) {
+        // JSON format
+        parameters = JSON.parse(paramsString);
+      } else {
+        // Simple key=value format
+        paramsString.split(',').forEach(pair => {
+          const [key, value] = pair.split('=').map(s => s.trim());
+          parameters[key] = value;
+        });
       }
     }
     
-    console.log("No tool command found in text");
-    return null;
+    return {
+      name: toolName,
+      parameters
+    };
   } catch (error) {
-    console.error("Error parsing tool command:", error);
+    console.error('Error parsing tool parameters:', error);
     return null;
   }
-}
+};
+
+export const parseJsonToolCall = (text: string): Command | null => {
+  try {
+    // Try to extract JSON object enclosed in triple backticks
+    const jsonRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/;
+    const match = text.match(jsonRegex);
+    
+    if (!match) return null;
+    
+    const jsonString = match[1];
+    const data = JSON.parse(jsonString);
+    
+    // Check if it has the required structure
+    if (!data.name) return null;
+    
+    return {
+      name: data.name,
+      parameters: data.parameters || {}
+    };
+  } catch (error) {
+    console.error('Error parsing JSON tool call:', error);
+    return null;
+  }
+};

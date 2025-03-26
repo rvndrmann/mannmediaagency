@@ -84,7 +84,8 @@ export class AgentRunner {
         this.addMessage(agentResponse, "agent", attachments);
       }
 
-      if (this.status !== "error") {
+      // Fixed comparison to use type checking
+      if (this.status !== "error" && this.status === "running") {
         this.status = "completed";
       }
       

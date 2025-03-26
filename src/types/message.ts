@@ -55,10 +55,13 @@ export interface AgentInfo {
   name: string;
   description: string;
   type: string;
-  icon: AgentIconType;
+  icon: AgentIconType | string; // Modified to accept both enum and string
   isBuiltIn: boolean;
+  color?: string;
+  instructions?: string;
 }
 
+// Allow both enum values and string literals to support different component usage patterns
 export type AgentIconType = 
   | "assistant" 
   | "script" 
@@ -66,7 +69,17 @@ export type AgentIconType =
   | "tool" 
   | "scene" 
   | "browser" 
-  | "custom";
+  | "custom"
+  | "Bot" 
+  | "PenLine" 
+  | "Image" 
+  | "Wrench" 
+  | "Code" 
+  | "FileText" 
+  | "Zap" 
+  | "Brain" 
+  | "Lightbulb" 
+  | "Music";
 
 export interface AgentMessage extends Message {
   agentType: string;

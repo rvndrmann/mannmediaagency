@@ -1,13 +1,12 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentType, BUILT_IN_AGENT_TYPES } from "@/hooks/use-multi-agent-chat";
 import { Attachment, Command, Message, Task } from "@/types/message";
-import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceManager, Trace } from "../types";
+import { RunConfig, RunEvent, RunHooks, RunResult, RunState, RunStatus, TraceManager, Trace, ToolContext, ToolResult } from "../types";
 import { parseToolCommand } from "../tool-parser";
 import { toolExecutor } from "../tool-executor";
 import { getToolsForLLM } from "../tools";
-import { ToolContext, ToolResult } from "../types";
-import { toast } from "sonner";
 
 const DEFAULT_MAX_TURNS = 10;
 const CHAT_CREDIT_COST = 0.07;

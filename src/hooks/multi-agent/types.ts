@@ -1,10 +1,37 @@
 import { AgentType } from "@/hooks/use-multi-agent-chat";
 import { AgentMessage, Command, HandoffRequest, Message, Task } from "@/types/message";
-import { ToolContext, ToolResult } from "../types";
 
-/**
- * Configuration for an agent run
- */
+export interface ToolContext {
+  userId: string;
+  creditsRemaining: number;
+  attachments?: any[];
+  selectedTool?: string;
+  previousOutputs: Record<string, any>;
+}
+
+export interface ToolResult {
+  success: boolean;
+  message?: string;
+  data?: any;
+}
+
+export interface CommandExecutionState {
+  commandId: string;
+  status: "pending" | "executing" | "completed" | "failed";
+  startTime: Date;
+  endTime?: Date;
+  result?: ToolResult;
+  error?: string;
+}
+
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  requiredCredits: number;
+  execute: (params: any, context: ToolContext) => Promise<ToolResult>;
+}
+
 export interface RunConfig {
   // The model to use for this run
   model?: "gpt-4o-mini" | "gpt-4o";

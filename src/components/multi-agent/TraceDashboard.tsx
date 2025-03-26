@@ -1,6 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, ResponsiveContainer } from 'recharts';
@@ -43,24 +44,117 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
       setIsLoading(true);
       
       try {
-        // Fetch analytics data
+        // Fetch analytics data - using normal query instead of RPC
         const { data: analyticsData, error: analyticsError } = await supabase
-          .rpc('get_agent_trace_analytics', { user_id_param: userId });
+          .from('agent_interactions')
+          .select(`
+            agent_type,
+            metadata,
+            created_at
+          `)
+          .eq('user_id', userId);
         
         if (analyticsError) {
           console.error("Error fetching analytics:", analyticsError);
-        } else {
-          setAnalytics(analyticsData);
+        } else if (analyticsData) {
+          // Process the raw data into analytics format
+          const processedData: AnalyticsData = {
+            agent_usage: {},
+            model_usage: {},
+            total_interactions: analyticsData.length,
+            total_conversations: 0,
+            avg_duration_ms: 0,
+            success_rate: 0,
+            total_handoffs: 0,
+            total_tool_calls: 0
+          };
+          
+          // Count unique conversations
+          const uniqueConversations = new Set<string>();
+          let totalDuration = 0;
+          let conversationsWithDuration = 0;
+          
+          analyticsData.forEach(item => {
+            // Count agent usage
+            processedData.agent_usage[item.agent_type] = 
+              (processedData.agent_usage[item.agent_type] || 0) + 1;
+            
+            // Extract conversation ID and add to unique set
+            const runId = item.metadata?.trace?.runId;
+            if (runId) {
+              uniqueConversations.add(runId);
+            }
+            
+            // Extract model usage
+            const model = item.metadata?.trace?.summary?.modelUsed;
+            if (model) {
+              processedData.model_usage[model] = 
+                (processedData.model_usage[model] || 0) + 1;
+            }
+            
+            // Count handoffs and tool calls
+            const handoffs = item.metadata?.trace?.summary?.handoffs || 0;
+            const toolCalls = item.metadata?.trace?.summary?.toolCalls || 0;
+            processedData.total_handoffs += handoffs;
+            processedData.total_tool_calls += toolCalls;
+            
+            // Add duration if available
+            const duration = item.metadata?.trace?.duration;
+            if (duration) {
+              totalDuration += duration;
+              conversationsWithDuration++;
+            }
+          });
+          
+          // Calculate averages and totals
+          processedData.total_conversations = uniqueConversations.size;
+          processedData.avg_duration_ms = conversationsWithDuration > 0 ? 
+            totalDuration / conversationsWithDuration : 0;
+          processedData.success_rate = 1.0; // Default to 100% for now
+          
+          setAnalytics(processedData);
         }
         
-        // Fetch conversations list
+        // Fetch conversations list - using normal query instead of RPC
         const { data: conversationsData, error: conversationsError } = await supabase
-          .rpc('get_user_conversations', { user_id_param: userId });
+          .from('agent_interactions')
+          .select(`
+            metadata
+          `)
+          .eq('user_id', userId)
+          .order('created_at', { ascending: false });
         
         if (conversationsError) {
           console.error("Error fetching conversations:", conversationsError);
-        } else {
-          setConversations(conversationsData || []);
+        } else if (conversationsData) {
+          // Process the raw data into conversations format
+          const processedConversations: Record<string, ConversationData> = {};
+          
+          conversationsData.forEach(item => {
+            const runId = item.metadata?.trace?.runId;
+            if (!runId) return;
+            
+            const startTime = item.metadata?.trace?.startTime;
+            const endTime = item.metadata?.trace?.endTime;
+            const agents = item.metadata?.trace?.summary?.agents || [];
+            const messageCount = item.metadata?.trace?.summary?.messageCount || 0;
+            
+            if (!processedConversations[runId]) {
+              processedConversations[runId] = {
+                conversation_id: runId,
+                start_time: startTime || new Date().toISOString(),
+                end_time: endTime || new Date().toISOString(),
+                message_count: messageCount,
+                agent_types: agents
+              };
+            }
+          });
+          
+          // Convert to array and sort by start time (newest first)
+          const conversationsArray = Object.values(processedConversations)
+            .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime());
+          
+          setConversations(conversationsArray);
         }
       } catch (error) {
         console.error("Error in analytics fetch:", error);
@@ -74,16 +168,36 @@ export const TraceDashboard = ({ userId }: { userId: string }) => {
   
   const fetchConversationDetails = async (conversationId: string) => {
     try {
+      // Fetch trace details - using normal query instead of RPC
       const { data, error } = await supabase
-        .rpc('get_conversation_trace', { 
-          conversation_id: conversationId,
-          user_id_param: userId
-        });
+        .from('agent_interactions')
+        .select(`
+          metadata,
+          agent_type,
+          user_message,
+          assistant_response,
+          created_at
+        `)
+        .eq('user_id', userId)
+        .filter('metadata->trace->runId', 'eq', conversationId)
+        .order('created_at', { ascending: true });
       
       if (error) {
         console.error("Error fetching conversation details:", error);
-      } else {
-        setTraceDetails(data);
+      } else if (data) {
+        // Format the trace data for the viewer
+        const traceData = {
+          id: conversationId,
+          events: data.map(item => ({
+            timestamp: item.created_at,
+            agent: item.agent_type,
+            user_message: item.user_message,
+            assistant_response: item.assistant_response,
+            metadata: item.metadata
+          }))
+        };
+        
+        setTraceDetails(traceData);
         setSelectedConversation(conversationId);
         setActiveTab("details");
       }

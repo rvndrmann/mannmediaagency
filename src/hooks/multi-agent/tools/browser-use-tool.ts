@@ -1,5 +1,5 @@
 
-import { ToolResult } from "../types";
+import { ToolResult, ToolContext } from "../types";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -30,12 +30,13 @@ export const browserUseTool = {
       optional: true
     }
   },
-  execute: async (params: BrowserUseToolParams, context: any): Promise<ToolResult> => {
+  execute: async (params: BrowserUseToolParams, context: ToolContext): Promise<ToolResult> => {
     try {
       // Validate parameters
       if (!params.task || params.task.trim() === "") {
         return {
           success: false,
+          message: "Task description is required",
           data: {
             error: "Task description is required"
           }
@@ -48,6 +49,7 @@ export const browserUseTool = {
         toast.error("You need to be logged in to use browser automation");
         return {
           success: false,
+          message: "Authentication required",
           data: {
             error: "Authentication required"
           }
@@ -65,6 +67,7 @@ export const browserUseTool = {
         toast.error("You need at least 1 credit to use browser automation");
         return {
           success: false,
+          message: "Insufficient credits. You need at least 1 credit.",
           data: {
             error: "Insufficient credits. You need at least 1 credit."
           }
@@ -84,6 +87,7 @@ export const browserUseTool = {
         console.error("Error starting browser task:", error);
         return {
           success: false,
+          message: `Failed to start browser task: ${error.message}`,
           data: {
             error: `Failed to start browser task: ${error.message}`
           }
@@ -93,6 +97,7 @@ export const browserUseTool = {
       // Return success with the task ID and link to view
       return {
         success: true,
+        message: "Browser automation task started successfully",
         data: {
           taskId: data.taskId,
           message: "Browser automation task started successfully",
@@ -104,6 +109,7 @@ export const browserUseTool = {
       console.error("Error in browser use tool:", error);
       return {
         success: false,
+        message: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`,
         data: {
           error: `An unexpected error occurred: ${error instanceof Error ? error.message : String(error)}`
         }

@@ -27,7 +27,7 @@ export const imageToVideoTool: ToolDefinition = {
     }
   },
   requiredCredits: 1,
-  execute: async (params, context: ToolContext): Promise<ToolResult> => {
+  execute: async (params: any, context: ToolContext): Promise<ToolResult> => {
     try {
       // Check if user has enough credits
       if (context.creditsRemaining < 1) {

@@ -1,4 +1,5 @@
-import { useState } from "react";
+
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -18,7 +19,10 @@ import {
   Terminal, 
   Monitor, 
   Laptop,
-  AlertTriangle
+  AlertTriangle,
+  Info,
+  Globe,
+  Database
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -26,6 +30,7 @@ import { toast } from "sonner";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
@@ -56,18 +61,36 @@ export function BrowserUseApp() {
     setEnvironment
   } = useBrowserUseTask();
 
-  const handleStartTask = () => {
-    // Use the selected environment type when starting a task
-    if (environment === "desktop" && !browserConfig.useOwnBrowser) {
-      toast.warning("Desktop mode requires using your own browser. Please enable it in Settings tab.");
-      setActiveTab("settings");
-      return;
+  // Determine if the configuration is valid for the selected environment
+  const isConfigValid = () => {
+    if (environment === "desktop") {
+      const hasConnectionMethod = 
+        browserConfig.wssUrl || 
+        browserConfig.cdpUrl || 
+        browserConfig.browserInstancePath ||
+        (browserConfig.useOwnBrowser && browserConfig.chromePath);
+      
+      return !!hasConnectionMethod;
     }
-    
-    if (environment === "desktop" && !browserConfig.chromePath) {
-      toast.warning("Desktop mode requires a Chrome executable path. Please set it in Settings tab.");
-      setActiveTab("settings");
-      return;
+    return true;
+  };
+
+  // Get connection method display name
+  const getConnectionMethodName = () => {
+    if (browserConfig.wssUrl) return "WebSocket (WSS)";
+    if (browserConfig.cdpUrl) return "Chrome DevTools Protocol";
+    if (browserConfig.browserInstancePath) return "Browser Instance";
+    if (browserConfig.useOwnBrowser && browserConfig.chromePath) return "Local Chrome";
+    return "Default Cloud";
+  };
+
+  const handleStartTask = () => {
+    if (!isConfigValid()) {
+      if (environment === "desktop") {
+        toast.warning("Desktop mode requires a connection method. Please configure it in Settings tab.");
+        setActiveTab("settings");
+        return;
+      }
     }
     
     startTask(environment);
@@ -106,28 +129,57 @@ export function BrowserUseApp() {
         <TabsContent value="task" className="space-y-4">
           <Card className="p-4">
             <div className="space-y-4">
-              <div className="flex flex-row gap-4 items-center">
-                <Label className="font-medium">Environment:</Label>
-                <div className="flex gap-2">
-                  <Button 
-                    variant={environment === "browser" ? "default" : "outline"} 
-                    size="sm"
-                    onClick={() => setEnvironment("browser")}
-                    className="flex items-center gap-2"
-                  >
-                    <Monitor className="h-4 w-4" />
-                    Browser
-                  </Button>
-                  <Button 
-                    variant={environment === "desktop" ? "default" : "outline"} 
-                    size="sm"
-                    onClick={() => setEnvironment("desktop")}
-                    className="flex items-center gap-2"
-                  >
-                    <Laptop className="h-4 w-4" />
-                    Desktop
-                  </Button>
+              <div className="flex flex-col gap-4">
+                <div className="flex items-center gap-4">
+                  <Label className="font-medium min-w-[100px]">Environment:</Label>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant={environment === "browser" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setEnvironment("browser")}
+                      className="flex items-center gap-2"
+                    >
+                      <Monitor className="h-4 w-4" />
+                      Browser
+                    </Button>
+                    <Button 
+                      variant={environment === "desktop" ? "default" : "outline"} 
+                      size="sm"
+                      onClick={() => setEnvironment("desktop")}
+                      className="flex items-center gap-2"
+                    >
+                      <Laptop className="h-4 w-4" />
+                      Desktop
+                    </Button>
+                  </div>
                 </div>
+
+                {environment === "desktop" && (
+                  <div className="flex items-center gap-4">
+                    <Label className="font-medium min-w-[100px]">Connection:</Label>
+                    <Badge variant="outline" className="flex items-center gap-1">
+                      {browserConfig.wssUrl && <Database className="h-3 w-3" />}
+                      {browserConfig.cdpUrl && <Terminal className="h-3 w-3" />}
+                      {browserConfig.browserInstancePath && <Laptop className="h-3 w-3" />}
+                      {!browserConfig.wssUrl && !browserConfig.cdpUrl && !browserConfig.browserInstancePath && <Globe className="h-3 w-3" />}
+                      {getConnectionMethodName()}
+                    </Badge>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger>
+                          <Info className="h-4 w-4 text-muted-foreground" />
+                        </TooltipTrigger>
+                        <TooltipContent>
+                          <p className="max-w-xs">
+                            Configure connection methods in the Settings tab. For desktop automation, 
+                            you need to configure a connection method like Local Chrome, WebSocket (WSS), 
+                            Chrome DevTools Protocol, or Browser Instance.
+                          </p>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  </div>
+                )}
               </div>
 
               <div>
@@ -147,20 +199,11 @@ export function BrowserUseApp() {
                   />
                 </div>
                 
-                {environment === "desktop" && !browserConfig.useOwnBrowser && (
+                {environment === "desktop" && !isConfigValid() && (
                   <Alert variant="destructive" className="mt-3">
                     <AlertTriangle className="h-4 w-4 mr-2" />
                     <AlertDescription>
-                      Desktop mode requires using your own browser. Please enable it in the Settings tab.
-                    </AlertDescription>
-                  </Alert>
-                )}
-                
-                {environment === "desktop" && !browserConfig.chromePath && (
-                  <Alert variant="destructive" className="mt-3">
-                    <AlertTriangle className="h-4 w-4 mr-2" />
-                    <AlertDescription>
-                      Desktop mode requires the Chrome executable path. Please set it in the Settings tab.
+                      Desktop mode requires a connection method. Please configure it in the Settings tab.
                     </AlertDescription>
                   </Alert>
                 )}
@@ -169,7 +212,7 @@ export function BrowserUseApp() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={handleStartTask}
-                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
+                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1 || (environment === "desktop" && !isConfigValid())}
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
@@ -215,7 +258,7 @@ export function BrowserUseApp() {
                 {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
                   <Button
                     onClick={restartTask}
-                    disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
+                    disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1 || (environment === "desktop" && !isConfigValid())}
                     variant="outline"
                     className="flex items-center gap-2"
                   >

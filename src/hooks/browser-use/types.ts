@@ -59,11 +59,14 @@ export interface BrowserConfig {
   theme: string;
   darkMode: boolean;
   
-  // Advanced settings
+  // Connection methods (new)
   wssUrl?: string;
   cdpUrl?: string;
-  extraChromiumArgs?: string[];
+  browserInstancePath?: string;
+  
+  // Advanced settings
   proxy?: string;
+  extraChromiumArgs?: string[];
   
   // Desktop automation settings
   desktopApps?: DesktopApplication[];

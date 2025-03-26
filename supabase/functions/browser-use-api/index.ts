@@ -168,25 +168,32 @@ serve(async (req) => {
       );
     }
     
-    // Validate desktop requirements
+    // Prepare browser configuration
+    const browserConfig = browser_config || {};
+    
+    // Process desktop-specific connection methods
     if (environment === "desktop") {
-      if (!browser_config || !browser_config.useOwnBrowser) {
+      // Validate desktop requirements based on connection method
+      const hasConnectionConfig = browserConfig.wssUrl || browserConfig.cdpUrl || browserConfig.browserInstancePath || browserConfig.chromePath;
+      
+      if (!hasConnectionConfig) {
         return new Response(
-          JSON.stringify({ error: 'Desktop mode requires using your own browser' }),
+          JSON.stringify({ error: 'Desktop mode requires a connection method (chromePath, wssUrl, cdpUrl, or browserInstancePath)' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
-      if (!browser_config.chromePath) {
+      // If using browser instance path or local Chrome, ensure useOwnBrowser is enabled
+      if ((browserConfig.browserInstancePath || browserConfig.chromePath) && !browserConfig.useOwnBrowser) {
         return new Response(
-          JSON.stringify({ error: 'Chrome executable path is required for desktop automation' }),
+          JSON.stringify({ error: 'When using local Chrome or browser instance path, "useOwnBrowser" must be enabled' }),
           { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
       
       // Log desktop apps for debugging
-      if (browser_config.desktopApps && browser_config.desktopApps.length > 0) {
-        console.log("Desktop applications configured:", JSON.stringify(browser_config.desktopApps));
+      if (browserConfig.desktopApps && browserConfig.desktopApps.length > 0) {
+        console.log("Desktop applications configured:", JSON.stringify(browserConfig.desktopApps));
       }
     }
     
@@ -200,9 +207,69 @@ serve(async (req) => {
     requestBody.environment = environment;
     
     // Include browser configuration if provided
-    if (browser_config) {
-      console.log(`Using custom ${environment} configuration:`, JSON.stringify(browser_config));
-      requestBody.browser_config = browser_config;
+    if (Object.keys(browserConfig).length > 0) {
+      console.log(`Using custom ${environment} configuration:`, JSON.stringify(browserConfig));
+      
+      // Transform the configuration to match the API's expected format
+      const apiConfig: any = { ...browserConfig };
+      
+      // Handle connection methods specifically
+      if (browserConfig.wssUrl) {
+        apiConfig.wss_url = browserConfig.wssUrl;
+        delete apiConfig.wssUrl;
+      }
+      
+      if (browserConfig.cdpUrl) {
+        apiConfig.cdp_url = browserConfig.cdpUrl;
+        delete apiConfig.cdpUrl;
+      }
+      
+      if (browserConfig.browserInstancePath) {
+        apiConfig.browser_instance_path = browserConfig.browserInstancePath;
+        delete apiConfig.browserInstancePath;
+      }
+      
+      if (browserConfig.chromePath) {
+        apiConfig.chrome_path = browserConfig.chromePath;
+        delete apiConfig.chromePath;
+      }
+      
+      // Transform context config if present
+      if (browserConfig.contextConfig) {
+        apiConfig.context_config = {
+          ...browserConfig.contextConfig,
+          
+          // Transform camelCase to snake_case for API compatibility
+          min_wait_page_load_time: browserConfig.contextConfig.minWaitPageLoadTime,
+          wait_for_network_idle_page_load_time: browserConfig.contextConfig.waitForNetworkIdlePageLoadTime,
+          max_wait_page_load_time: browserConfig.contextConfig.maxWaitPageLoadTime,
+          browser_window_size: browserConfig.contextConfig.browserWindowSize,
+          highlight_elements: browserConfig.contextConfig.highlightElements,
+          viewport_expansion: browserConfig.contextConfig.viewportExpansion,
+          user_agent: browserConfig.contextConfig.userAgent,
+          allowed_domains: browserConfig.contextConfig.allowedDomains,
+          save_recording_path: browserConfig.contextConfig.saveRecordingPath,
+          trace_path: browserConfig.contextConfig.tracePath,
+          cookies_file: browserConfig.contextConfig.cookiesFile
+        };
+        
+        // Remove camelCase properties
+        delete apiConfig.context_config.minWaitPageLoadTime;
+        delete apiConfig.context_config.waitForNetworkIdlePageLoadTime;
+        delete apiConfig.context_config.maxWaitPageLoadTime;
+        delete apiConfig.context_config.browserWindowSize;
+        delete apiConfig.context_config.highlightElements;
+        delete apiConfig.context_config.viewportExpansion;
+        delete apiConfig.context_config.userAgent;
+        delete apiConfig.context_config.allowedDomains;
+        delete apiConfig.context_config.saveRecordingPath;
+        delete apiConfig.context_config.tracePath;
+        delete apiConfig.context_config.cookiesFile;
+        
+        delete apiConfig.contextConfig;
+      }
+      
+      requestBody.browser_config = apiConfig;
     }
     
     // Start a task using the Browser Use API
@@ -237,7 +304,7 @@ serve(async (req) => {
         task_description: task,
         environment: environment,
         status: 'running',
-        browser_config: browser_config || null
+        browser_config: browserConfig || null
       })
       .select()
       .single();

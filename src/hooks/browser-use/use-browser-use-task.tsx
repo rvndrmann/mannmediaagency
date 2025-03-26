@@ -21,6 +21,11 @@ const DEFAULT_BROWSER_CONFIG: BrowserConfig = {
   chromeUserData: "",
   extraChromiumArgs: [],
   
+  // Connection methods
+  wssUrl: "",
+  cdpUrl: "",
+  browserInstancePath: "",
+  
   // Desktop automation settings
   desktopApps: [],
   taskTemplates: [],
@@ -94,6 +99,11 @@ const validateConfig = (config: BrowserConfig): BrowserConfig => {
   if (!validConfig.taskTemplates) {
     validConfig.taskTemplates = [];
   }
+  
+  // Clean up empty string values for connection methods
+  if (validConfig.wssUrl === "") validConfig.wssUrl = undefined;
+  if (validConfig.cdpUrl === "") validConfig.cdpUrl = undefined;
+  if (validConfig.browserInstancePath === "") validConfig.browserInstancePath = undefined;
   
   return validConfig;
 };

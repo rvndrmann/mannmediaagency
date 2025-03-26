@@ -2,7 +2,11 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
-import { RefreshCw, ExternalLink, Monitor, Laptop } from "lucide-react";
+import { RefreshCw, ExternalLink, Monitor, Laptop, Camera } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { useEffect, useState } from "react";
+import { AlertCircle } from "lucide-react";
 
 interface BrowserViewProps {
   liveUrl: string | null;
@@ -23,14 +27,44 @@ export function BrowserView({
   connectionStatus,
   environment
 }: BrowserViewProps) {
+  const [iframeLoading, setIframeLoading] = useState(true);
+  const [iframeError, setIframeError] = useState<string | null>(null);
+  const [showScreenshot, setShowScreenshot] = useState(false);
+
+  // Reset iframe state when liveUrl changes
+  useEffect(() => {
+    if (liveUrl) {
+      setIframeLoading(true);
+      setIframeError(null);
+    }
+  }, [liveUrl]);
+
+  const handleIframeLoad = () => {
+    setIframeLoading(false);
+  };
+
+  const handleIframeError = () => {
+    setIframeLoading(false);
+    setIframeError("Failed to load live view. The session may have expired or the connection was lost.");
+  };
+
+  const toggleView = () => {
+    setShowScreenshot(!showScreenshot);
+  };
+
   return (
-    <Card>
+    <Card className="h-full flex flex-col">
       <CardHeader className="flex flex-row items-center justify-between py-3">
         <CardTitle className="text-base font-medium flex items-center">
           {environment === 'browser' ? (
             <><Monitor className="mr-2 h-4 w-4" /> Browser View</>
           ) : (
             <><Laptop className="mr-2 h-4 w-4" /> Desktop View</>
+          )}
+          {environment === 'desktop' && (
+            <Badge variant="outline" className="ml-2 text-xs font-normal">
+              Desktop
+            </Badge>
           )}
         </CardTitle>
         <div className="flex items-center gap-1">
@@ -44,78 +78,104 @@ export function BrowserView({
           </span>
         </div>
       </CardHeader>
-      <CardContent className="p-0 overflow-hidden">
-        <div className="browser-view-container relative w-full bg-gray-100 min-h-[300px]">
-          {liveUrl ? (
-            <div className="relative w-full h-full">
+      <CardContent className="p-0 overflow-hidden flex-grow">
+        <div className="browser-view-container relative w-full h-full bg-gray-100 min-h-[300px]">
+          {liveUrl && !showScreenshot ? (
+            <div className="relative w-full h-full min-h-[300px]">
+              {iframeLoading && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100 z-10">
+                  <div className="text-center">
+                    <Skeleton className="h-[200px] w-full mb-2" />
+                    <Skeleton className="h-4 w-3/4 mx-auto mb-2" />
+                    <Skeleton className="h-4 w-1/2 mx-auto" />
+                  </div>
+                </div>
+              )}
+              
               <iframe 
                 src={liveUrl} 
-                className="w-full min-h-[300px] border-0"
-                title={`${environment === 'browser' ? 'Browser' : 'Desktop'} Automation`}
+                className="w-full h-full min-h-[300px] border-0"
+                onLoad={handleIframeLoad}
+                onError={handleIframeError}
+                title={environment === 'browser' ? "Browser Automation" : "Desktop Automation"}
               />
-              <div className="absolute top-2 right-2 z-10">
-                <Button 
-                  variant="outline" 
-                  size="sm"
-                  className="bg-white opacity-80 hover:opacity-100"
-                  onClick={() => window.open(liveUrl, '_blank')}
-                >
-                  <ExternalLink className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Open</span>
-                </Button>
-              </div>
+              
+              {iframeError && (
+                <div className="absolute inset-0 flex items-center justify-center bg-gray-100/80 z-20">
+                  <Alert variant="destructive" className="w-[90%] max-w-md">
+                    <AlertCircle className="h-4 w-4 mr-2" />
+                    <AlertDescription>
+                      {iframeError}
+                    </AlertDescription>
+                  </Alert>
+                </div>
+              )}
             </div>
-          ) : connectionStatus === 'connecting' ? (
-            <div className="flex flex-col items-center justify-center h-full p-6">
-              <Skeleton className="h-[200px] w-full" />
-              <div className="mt-4 text-center">
-                <p className="text-sm text-muted-foreground animate-pulse">
-                  Connecting to {environment === 'browser' ? 'browser' : 'desktop'} session...
-                </p>
-              </div>
-            </div>
-          ) : screenshot ? (
-            <div className="relative">
+          ) : screenshot && (showScreenshot || !liveUrl) ? (
+            <div className="relative w-full h-full flex items-center justify-center">
               <img 
                 src={screenshot} 
-                alt="Screenshot" 
-                className="w-full object-contain"
+                alt="Browser Screenshot" 
+                className="max-w-full max-h-full object-contain"
               />
-              <div className="absolute top-2 right-2">
-                <Button 
-                  variant="outline" 
-                  size="sm" 
-                  onClick={captureScreenshot}
-                  className="bg-white opacity-80 hover:opacity-100"
-                >
-                  <RefreshCw className="h-3 w-3 mr-1" />
-                  <span className="text-xs">Refresh</span>
-                </Button>
-              </div>
             </div>
           ) : (
-            <div className="flex flex-col items-center justify-center h-[300px] p-6">
-              <div className="text-center opacity-70">
-                {environment === 'browser' ? (
-                  <Monitor className="mx-auto h-16 w-16 mb-4 text-gray-400" />
-                ) : (
-                  <Laptop className="mx-auto h-16 w-16 mb-4 text-gray-400" />
-                )}
-                <p className="text-sm text-muted-foreground">
-                  {environment === 'browser' 
-                    ? 'Browser automation view will appear here when a task is running'
-                    : 'Desktop automation view will appear here when a task is running'}
+            <div className="h-full min-h-[300px] flex items-center justify-center">
+              <div className="text-center p-4">
+                <Monitor className="h-12 w-12 mx-auto mb-4 text-gray-400" />
+                <p className="text-muted-foreground mb-2">
+                  No {environment === 'browser' ? 'browser' : 'desktop'} session active
                 </p>
-                {connectionStatus === 'error' && (
-                  <p className="mt-2 text-sm text-red-500">
-                    Connection error. Please restart the task.
-                  </p>
-                )}
+                <p className="text-xs text-muted-foreground">
+                  Start a task to see the live view here
+                </p>
               </div>
             </div>
           )}
         </div>
       </CardContent>
+      <div className="p-3 border-t flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          {currentUrl && (
+            <div className="text-xs text-muted-foreground truncate max-w-[200px]">
+              {currentUrl}
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          {liveUrl && screenshot && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={toggleView}
+            >
+              {showScreenshot ? <Monitor className="h-4 w-4 mr-2" /> : <Camera className="h-4 w-4 mr-2" />}
+              {showScreenshot ? "Live View" : "Screenshot"}
+            </Button>
+          )}
+
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={captureScreenshot}
+            disabled={connectionStatus !== 'connected'}
+          >
+            <Camera className="h-4 w-4 mr-2" />
+            Capture
+          </Button>
+          
+          {liveUrl && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => window.open(liveUrl, '_blank')}
+            >
+              <ExternalLink className="h-4 w-4 mr-2" />
+              Open
+            </Button>
+          )}
+        </div>
+      </div>
     </Card>
   );
 }

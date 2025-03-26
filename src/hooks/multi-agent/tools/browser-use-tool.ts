@@ -26,7 +26,7 @@ export const browserUseTool = {
     },
     browser_config: {
       type: "object",
-      description: "Optional browser configuration including headless mode, resolution, user agent, desktop applications, etc.",
+      description: "Optional browser configuration including connection methods, resolution, desktop options, etc.",
       optional: true
     }
   },
@@ -78,27 +78,34 @@ export const browserUseTool = {
       const environment = params.environment || "browser";
       const browser_config = params.browser_config || {};
       
-      // If desktop mode is selected, make sure useOwnBrowser is enabled
-      if (environment === "desktop" && !browser_config.useOwnBrowser) {
-        toast.error("Desktop mode requires using your own browser");
-        return {
-          success: false,
-          message: "Desktop mode requires using your own browser. Please enable it in the settings.",
-          data: {
-            error: "Desktop mode requires using your own browser"
-          }
-        };
-      }
-
-      // Validate desktop configuration if desktop mode is enabled
+      // For desktop mode, validate connection configuration
       if (environment === "desktop") {
-        if (!browser_config.chromePath) {
-          toast.error("Chrome executable path is required for desktop automation");
+        // Check if any connection method is provided
+        const hasConnectionMethod = 
+          browser_config.wssUrl || 
+          browser_config.cdpUrl || 
+          browser_config.browserInstancePath ||
+          (browser_config.useOwnBrowser && browser_config.chromePath);
+        
+        if (!hasConnectionMethod) {
+          toast.error("Desktop mode requires a connection method");
           return {
             success: false,
-            message: "Please provide the Chrome executable path in the browser settings.",
+            message: "Desktop mode requires a connection method (wssUrl, cdpUrl, browserInstancePath, or chromePath with useOwnBrowser enabled).",
             data: {
-              error: "Chrome executable path is required for desktop automation"
+              error: "Missing desktop connection configuration"
+            }
+          };
+        }
+        
+        // If using browser instance path or local Chrome, ensure useOwnBrowser is enabled
+        if ((browser_config.browserInstancePath || browser_config.chromePath) && !browser_config.useOwnBrowser) {
+          toast.error("When using local Chrome or browser instance, 'useOwnBrowser' must be enabled");
+          return {
+            success: false,
+            message: "When using local Chrome or browser instance, 'useOwnBrowser' must be enabled.",
+            data: {
+              error: "Invalid desktop configuration"
             }
           };
         }

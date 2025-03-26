@@ -1,208 +1,222 @@
+
 import { useCallback } from "react";
-import { BrowserTaskState, StateSetters, TaskStatus } from "./types";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { BrowserTaskState, StateSetters } from "./types";
+import { supabase } from "@/integrations/supabase/client";
 
-export function useTaskOperations(state: BrowserTaskState, stateSetters: StateSetters) {
-  const {
-    taskInput,
-    currentTaskId,
-    browserConfig,
-    environment
+export function useTaskOperations(
+  state: BrowserTaskState,
+  stateSetters: StateSetters
+) {
+  const { 
+    taskInput, 
+    currentTaskId, 
+    browserConfig, 
+    environment 
   } = state;
-
-  const {
-    setCurrentTaskId,
-    setIsProcessing,
-    setTaskStatus,
-    setError,
-    setProgress,
-    setLiveUrl
+  
+  const { 
+    setCurrentTaskId, 
+    setIsProcessing, 
+    setProgress, 
+    setTaskSteps, 
+    setTaskOutput, 
+    setTaskStatus, 
+    setCurrentUrl, 
+    setError, 
+    setLiveUrl,
+    setConnectionStatus
   } = stateSetters;
-
-  // Start a new task
-  const startTask = useCallback(async (taskEnvironment?: 'browser' | 'desktop') => {
-    const selectedEnvironment = taskEnvironment || environment;
+  
+  const resetTaskState = useCallback(() => {
+    setProgress(0);
+    setTaskSteps([]);
+    setTaskOutput(null);
+    setCurrentUrl(null);
+    setError(null);
+    setLiveUrl(null);
+  }, [setProgress, setTaskSteps, setTaskOutput, setCurrentUrl, setError, setLiveUrl]);
+  
+  const validateDesktopConfiguration = useCallback(() => {
+    if (environment !== 'desktop') return true;
     
+    // Check for any connection method
+    const hasConnectionMethod = 
+      browserConfig.wssUrl || 
+      browserConfig.cdpUrl || 
+      browserConfig.browserInstancePath ||
+      (browserConfig.useOwnBrowser && browserConfig.chromePath);
+    
+    if (!hasConnectionMethod) {
+      toast.error("Desktop mode requires a connection method. Please configure it in Settings tab.");
+      setError("Desktop mode requires a connection method. Please configure it in Settings tab.");
+      return false;
+    }
+    
+    // If using local Chrome or browser instance, ensure useOwnBrowser is enabled
+    if ((browserConfig.browserInstancePath || browserConfig.chromePath) && !browserConfig.useOwnBrowser) {
+      toast.error("When using local Chrome or browser instance, 'useOwnBrowser' must be enabled.");
+      setError("When using local Chrome or browser instance, 'useOwnBrowser' must be enabled.");
+      return false;
+    }
+    
+    return true;
+  }, [browserConfig, environment, setError]);
+  
+  const startTask = useCallback(async (envType: 'browser' | 'desktop' = 'browser') => {
     if (!taskInput.trim()) {
       toast.error("Please enter a task description");
       return;
     }
-
+    
+    // Validate desktop configuration if applicable
+    if (envType === 'desktop' && !validateDesktopConfiguration()) {
+      return;
+    }
+    
     try {
       setIsProcessing(true);
-      setProgress(0);
-      setError(null);
+      setTaskStatus('pending');
+      setConnectionStatus('connecting');
+      resetTaskState();
       
-      // Validate if desktop mode is selected but own browser isn't enabled
-      if (selectedEnvironment === "desktop" && !browserConfig.useOwnBrowser) {
-        setError("Desktop mode requires using your own browser.");
-        toast.error("Desktop mode requires using your own browser. Please enable it in the Settings tab.");
-        setIsProcessing(false);
-        return;
-      }
-      
-      // If desktop mode, make additional validations
-      if (selectedEnvironment === "desktop") {
-        if (!browserConfig.chromePath) {
-          setError("Chrome executable path is required for desktop automation.");
-          toast.error("Chrome executable path is required for desktop automation.");
-          setIsProcessing(false);
-          return;
-        }
-        
-        // Ensure not in headless mode for desktop automation
-        if (browserConfig.headless) {
-          toast.warning("Desktop automation works best with headless mode disabled");
-        }
-      }
-
-      console.log(`Starting task in ${selectedEnvironment} environment`);
-
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { 
+        body: {
           task: taskInput,
-          environment: selectedEnvironment,
+          environment: envType,
           browser_config: browserConfig
         }
       });
-
-      if (error) throw new Error(error.message);
       
-      toast.success(`${selectedEnvironment.charAt(0).toUpperCase() + selectedEnvironment.slice(1)} task started successfully`);
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      if (!data || !data.taskId) {
+        throw new Error("Failed to start task: No task ID received");
+      }
+      
       setCurrentTaskId(data.taskId);
       setTaskStatus('created');
-      setProgress(10);
       setLiveUrl(data.liveUrl || null);
       
+      toast.success(`${envType.charAt(0).toUpperCase() + envType.slice(1)} task started successfully`);
+      
     } catch (error) {
-      toast.error("Failed to start task: " + (error instanceof Error ? error.message : "Unknown error"));
       console.error("Error starting task:", error);
+      setIsProcessing(false);
+      setTaskStatus('idle');
+      setConnectionStatus('error');
       setError(error instanceof Error ? error.message : "Failed to start task");
-      setIsProcessing(false);
+      toast.error(error instanceof Error ? error.message : "Failed to start task");
     }
-  }, [taskInput, browserConfig, environment, setCurrentTaskId, setIsProcessing, setTaskStatus, setError, setProgress, setLiveUrl]);
-
-  // Pause the current task
-  const pauseTask = useCallback(async () => {
-    if (!currentTaskId) {
-      toast.error("No task is currently running");
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { action: "pause", taskId: currentTaskId }
-      });
-
-      if (error) throw new Error(error.message);
-
-      toast.success("Task paused successfully");
-      setTaskStatus('paused');
-    } catch (error) {
-      toast.error("Failed to pause task: " + (error instanceof Error ? error.message : "Unknown error"));
-      setError(error instanceof Error ? error.message : "Failed to pause task");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [currentTaskId, setIsProcessing, setTaskStatus, setError]);
-
-  // Resume a paused task
-  const resumeTask = useCallback(async () => {
-    if (!currentTaskId) {
-      toast.error("No task is currently paused");
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { action: "resume", taskId: currentTaskId }
-      });
-
-      if (error) throw new Error(error.message);
-
-      toast.success("Task resumed successfully");
-      setTaskStatus('running');
-    } catch (error) {
-      toast.error("Failed to resume task: " + (error instanceof Error ? error.message : "Unknown error"));
-      setError(error instanceof Error ? error.message : "Failed to resume task");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [currentTaskId, setIsProcessing, setTaskStatus, setError]);
-
-  // Stop the current task
+  }, [
+    taskInput, 
+    browserConfig, 
+    setIsProcessing, 
+    setTaskStatus, 
+    resetTaskState, 
+    setCurrentTaskId,
+    setLiveUrl,
+    setError,
+    setConnectionStatus,
+    validateDesktopConfiguration
+  ]);
+  
   const stopTask = useCallback(async () => {
     if (!currentTaskId) {
-      toast.error("No task is currently running");
+      toast.error("No active task to stop");
       return;
     }
-
+    
     try {
-      setIsProcessing(true);
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { action: "stop", taskId: currentTaskId }
-      });
-
-      if (error) throw new Error(error.message);
-
-      toast.success("Task stopped successfully");
-      setTaskStatus('stopped');
-    } catch (error) {
-      toast.error("Failed to stop task: " + (error instanceof Error ? error.message : "Unknown error"));
-      setError(error instanceof Error ? error.message : "Failed to stop task");
-    } finally {
-      setIsProcessing(false);
-    }
-  }, [currentTaskId, setIsProcessing, setTaskStatus, setError]);
-
-  // Restart a task
-  const restartTask = useCallback(async () => {
-    if (!taskInput.trim()) {
-      toast.error("Please enter a task description");
-      return;
-    }
-
-    if (!currentTaskId) {
-      toast.error("No task is currently selected");
-      return;
-    }
-
-    try {
-      setIsProcessing(true);
-      setProgress(0);
-      setError(null);
-      setTaskStatus('pending');
-
-      const { data, error } = await supabase.functions.invoke("browser-use-api", {
-        body: { 
-          action: "restart",
-          taskId: currentTaskId,
-          task: taskInput,
-          browser_config: browserConfig
+        body: {
+          action: "stop",
+          taskId: currentTaskId
         }
       });
-
-      if (error) throw new Error(error.message);
-
-      toast.success("Task restarted successfully");
-      setTaskStatus('created');
-      setProgress(10);
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setTaskStatus('stopped');
+      toast.success("Task stopped successfully");
+      
     } catch (error) {
-      toast.error("Failed to restart task: " + (error instanceof Error ? error.message : "Unknown error"));
-      setError(error instanceof Error ? error.message : "Failed to restart task");
-    } finally {
-      setIsProcessing(false);
+      console.error("Error stopping task:", error);
+      setError(error instanceof Error ? error.message : "Failed to stop task");
+      toast.error(error instanceof Error ? error.message : "Failed to stop task");
     }
-  }, [taskInput, currentTaskId, browserConfig, setIsProcessing, setProgress, setError, setTaskStatus]);
+  }, [currentTaskId, setTaskStatus, setError]);
+  
+  const pauseTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error("No active task to pause");
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("browser-use-api", {
+        body: {
+          action: "pause",
+          taskId: currentTaskId
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setTaskStatus('paused');
+      toast.success("Task paused successfully");
+      
+    } catch (error) {
+      console.error("Error pausing task:", error);
+      setError(error instanceof Error ? error.message : "Failed to pause task");
+      toast.error(error instanceof Error ? error.message : "Failed to pause task");
+    }
+  }, [currentTaskId, setTaskStatus, setError]);
+  
+  const resumeTask = useCallback(async () => {
+    if (!currentTaskId) {
+      toast.error("No active task to resume");
+      return;
+    }
+    
+    try {
+      const { data, error } = await supabase.functions.invoke("browser-use-api", {
+        body: {
+          action: "resume",
+          taskId: currentTaskId
+        }
+      });
+      
+      if (error) {
+        throw new Error(error.message);
+      }
+      
+      setTaskStatus('running');
+      toast.success("Task resumed successfully");
+      
+    } catch (error) {
+      console.error("Error resuming task:", error);
+      setError(error instanceof Error ? error.message : "Failed to resume task");
+      toast.error(error instanceof Error ? error.message : "Failed to resume task");
+    }
+  }, [currentTaskId, setTaskStatus, setError]);
+  
+  const restartTask = useCallback(() => {
+    // Just start a new task with the same input
+    startTask(environment);
+  }, [startTask, environment]);
   
   return {
     startTask,
+    stopTask,
     pauseTask,
     resumeTask,
-    stopTask,
     restartTask
   };
 }

@@ -1,3 +1,4 @@
+
 export type TaskStatus = 'idle' | 'pending' | 'created' | 'running' | 'paused' | 'completed' | 'stopped' | 'failed' | 'expired' | 'finished';
 
 export interface TaskStep {
@@ -150,3 +151,17 @@ export interface StateSetters {
   setConnectionStatus: (value: "disconnected" | "connecting" | "connected" | "error") => void;
   setEnvironment: (value: 'browser' | 'desktop') => void;
 }
+
+// Define a mapping of task status values to user-friendly display strings
+export const taskStatusDisplayMap: Record<TaskStatus, string> = {
+  idle: 'Idle',
+  pending: 'Pending',
+  created: 'Created',
+  running: 'Running',
+  paused: 'Paused',
+  completed: 'Completed',
+  stopped: 'Stopped',
+  failed: 'Failed',
+  expired: 'Expired',
+  finished: 'Finished'
+};

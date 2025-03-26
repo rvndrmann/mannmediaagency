@@ -1,3 +1,4 @@
+
 export interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "tool";
@@ -7,6 +8,13 @@ export interface Message {
   attachments?: Attachment[];
   tool_name?: string;
   tool_arguments?: string;
+  // Additional fields for multi-agent chat
+  status?: "thinking" | "working" | "completed" | "error";
+  tasks?: Task[];
+  command?: Command;
+  handoffRequest?: HandoffRequest;
+  timestamp?: string;
+  type?: MessageType;
 }
 
 export interface Attachment {
@@ -14,6 +22,8 @@ export interface Attachment {
   name: string;
   url: string;
   type: string;
+  size?: number;
+  contentType?: string;
 }
 
 export interface Command {
@@ -21,4 +31,43 @@ export interface Command {
   parameters?: Record<string, any>;
   // Maintaining backwards compatibility
   args?: Record<string, any>;
+  feature?: string;
+  action?: string;
+}
+
+export interface Task {
+  id: string;
+  name: string;
+  status: "pending" | "in-progress" | "completed" | "error";
+  details?: string;
+}
+
+export interface HandoffRequest {
+  targetAgent: string;
+  reason: string;
+}
+
+export type MessageType = "user" | "agent" | "system" | "tool";
+
+// Agent types
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  type: string;
+  icon: AgentIconType;
+  isBuiltIn: boolean;
+}
+
+export type AgentIconType = 
+  | "assistant" 
+  | "script" 
+  | "image" 
+  | "tool" 
+  | "scene" 
+  | "browser" 
+  | "custom";
+
+export interface AgentMessage extends Message {
+  agentType: string;
 }

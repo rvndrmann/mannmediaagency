@@ -1,5 +1,6 @@
+
 import { v4 as uuidv4 } from "uuid";
-import { Message, MessageType, Attachment } from "@/types/message";
+import { Message, Attachment } from "@/types/message";
 import { getTool } from "../tools";
 import { ToolContext } from "../types";
 import { supabase } from "@/integrations/supabase/client";
@@ -83,7 +84,10 @@ export class AgentRunner {
         this.addMessage(agentResponse, "agent", attachments);
       }
 
-      this.status = "completed";
+      if (this.status !== "error") {
+        this.status = "completed";
+      }
+      
       if (nextAgent) {
         this.callbacks.onHandoffEnd(nextAgent);
       }
@@ -98,8 +102,7 @@ export class AgentRunner {
 
   private createAgentContext(userId: string): ToolContext {
     return {
-      addMessage: this.addMessage.bind(this),
-      toolAvailable: this.toolAvailable.bind(this),
+      supabase,
       runId: this.params.runId,
       groupId: this.params.groupId,
       userId: userId,
@@ -107,16 +110,18 @@ export class AgentRunner {
       enableDirectToolExecution: this.params.enableDirectToolExecution,
       tracingDisabled: this.params.tracingDisabled,
       metadata: this.params.metadata,
-      abortSignal: this.controller?.signal
+      abortSignal: this.controller?.signal,
+      addMessage: this.addMessage.bind(this),
+      toolAvailable: this.toolAvailable.bind(this)
     };
   }
 
-  private addMessage(text: string, type: MessageType, attachments: Attachment[] = []) {
+  private addMessage(text: string, type: string, attachments: Attachment[] = []) {
     const message: Message = {
       id: uuidv4(),
-      type: type,
+      role: type === "agent" ? "assistant" : "user",
       content: text,
-      timestamp: new Date().toISOString(),
+      createdAt: new Date().toISOString(),
       agentType: this.agentType,
       attachments: attachments
     };

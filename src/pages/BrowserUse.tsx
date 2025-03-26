@@ -354,8 +354,8 @@ const BrowserUsePage = () => {
               </CardHeader>
               <CardContent className="space-y-4">
                 <div>
-                  <h3 className="font-medium mb-2">Task Description</h3>
-                  <p className="p-3 bg-gray-50 rounded">{activeTask.task}</p>
+                  <h3 className="font-medium mb-2 text-black dark:text-white">Task Description</h3>
+                  <p className="p-3 bg-gray-50 dark:bg-gray-800 text-black dark:text-white rounded">{activeTask.task}</p>
                 </div>
                 
                 {activeTask.browser_config?.useOwnBrowser && (
@@ -397,8 +397,8 @@ const BrowserUsePage = () => {
                 
                 {activeTask.output && (
                   <div>
-                    <h3 className="font-medium mb-2">Task Output</h3>
-                    <pre className="p-3 bg-gray-50 rounded text-sm overflow-auto max-h-[300px]">
+                    <h3 className="font-medium mb-2 text-black dark:text-white">Task Output</h3>
+                    <pre className="p-3 bg-gray-50 dark:bg-gray-800 text-black dark:text-white rounded text-sm overflow-auto max-h-[300px]">
                       {activeTask.output}
                     </pre>
                   </div>
@@ -440,7 +440,7 @@ const BrowserUsePage = () => {
           ) : (
             <Card>
               <CardContent className="py-8 text-center">
-                <p>No task selected. Create a new task or select one from history.</p>
+                <p className="text-black dark:text-white">No task selected. Create a new task or select one from history.</p>
               </CardContent>
             </Card>
           )}

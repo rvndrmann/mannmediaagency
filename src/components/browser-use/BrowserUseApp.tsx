@@ -9,6 +9,7 @@ import { TaskMonitor } from "./TaskMonitor";
 import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
 import { TaskTemplateSelector } from "./TaskTemplateSelector";
+import { ScheduledTasksList } from "./ScheduledTasksList";
 import { 
   Bot, 
   History, 
@@ -39,10 +40,12 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import { useLocation } from "react-router-dom";
 
 export function BrowserUseApp() {
+  const location = useLocation();
   const [activeTab, setActiveTab] = useState("task");
-  const [showTemplatesPanel, setShowTemplatesPanel] = useState(true); // Add state to control template visibility
+  const [showTemplatesPanel, setShowTemplatesPanel] = useState(true);
   
   const {
     taskInput,
@@ -69,6 +72,34 @@ export function BrowserUseApp() {
     environment,
     setEnvironment
   } = useBrowserUseTask();
+
+  // Check if we're coming from a scheduled task
+  useEffect(() => {
+    if (location.state && location.state.executeScheduledTask) {
+      const { taskInput: scheduledTaskInput, browserConfig: scheduledConfig } = location.state;
+      
+      // Set the task input and browser config from the scheduled task
+      if (scheduledTaskInput) {
+        setTaskInput(scheduledTaskInput);
+      }
+      
+      if (scheduledConfig) {
+        setBrowserConfig(scheduledConfig);
+      }
+      
+      // Auto-start the task
+      setTimeout(() => {
+        // We use setTimeout to ensure the UI has time to update
+        if (scheduledTaskInput && userCredits && userCredits.credits_remaining > 0) {
+          startTask(environment);
+          toast.info("Executing scheduled task automatically");
+        }
+      }, 500);
+      
+      // Clear the location state to prevent re-execution on page refresh
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state, userCredits]);
 
   // Handle template selection - update both the task input and browser config
   const handleTemplateSelection = (template) => {
@@ -366,7 +397,7 @@ export function BrowserUseApp() {
           <BrowserTaskHistory />
         </TabsContent>
 
-        {/* New dedicated Templates Tab */}
+        {/* Templates Tab */}
         <TabsContent value="templates">
           <Card className="p-6">
             <div className="space-y-6">
@@ -392,7 +423,7 @@ export function BrowserUseApp() {
         </TabsContent>
 
         <TabsContent value="scheduled">
-          {/* Content for scheduled tasks tab */}
+          <ScheduledTasksList />
         </TabsContent>
 
         <TabsContent value="settings">

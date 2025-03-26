@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -33,6 +34,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
+import { useNavigate } from "react-router-dom";
 
 type StatusBadgeVariant = "info" | "success" | "destructive" | "warning" | "outline";
 
@@ -42,12 +44,14 @@ interface StatusBadgeProps {
 }
 
 export function ScheduledTasksList() {
+  const navigate = useNavigate();
   const [tasks, setTasks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [triggeringScheduler, setTriggeringScheduler] = useState(false);
   const [lastRunResult, setLastRunResult] = useState(null);
   const [taskToDelete, setTaskToDelete] = useState(null);
   const [deletingTask, setDeletingTask] = useState(false);
+  const [executingTask, setExecutingTask] = useState(null);
 
   useEffect(() => {
     fetchScheduledTasks();
@@ -201,6 +205,26 @@ export function ScheduledTasksList() {
     }
   };
 
+  const executeScheduledTask = async (task) => {
+    try {
+      setExecutingTask(task.id);
+      
+      // Navigate to the task setup page and prepare to execute this task
+      navigate("/browser-use", { 
+        state: { 
+          executeScheduledTask: true,
+          taskInput: task.task_input,
+          browserConfig: task.browser_config 
+        }
+      });
+      
+    } catch (error) {
+      console.error("Error executing scheduled task:", error);
+      toast.error("Failed to execute task");
+      setExecutingTask(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="flex justify-center items-center p-8">
@@ -309,14 +333,29 @@ export function ScheduledTasksList() {
                     </Badge>
                   </TableCell>
                   <TableCell className="text-right">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => setTaskToDelete(task)}
-                      className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </Button>
+                    <div className="flex justify-end gap-1">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => executeScheduledTask(task)}
+                        className="h-8 w-8 text-primary hover:text-primary hover:bg-primary/10"
+                        disabled={executingTask === task.id}
+                      >
+                        {executingTask === task.id ? (
+                          <div className="animate-spin h-4 w-4 border-2 border-current border-t-transparent rounded-full" />
+                        ) : (
+                          <PlayCircle className="h-4 w-4" />
+                        )}
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        onClick={() => setTaskToDelete(task)}
+                        className="h-8 w-8 text-destructive hover:text-destructive hover:bg-destructive/10"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

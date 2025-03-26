@@ -47,7 +47,8 @@ async function triggerScheduler() {
       body: { 
         scheduled: true,
         forceRun: true,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        tasks: scheduledTasks // Pass the actual task data to be executed
       }
     });
 
@@ -66,6 +67,7 @@ async function triggerScheduler() {
       message: data.message || "Tasks processed successfully",
       tasksFound: tasksCount,
       tasksProcessed: data.tasksProcessed || 0,
+      tasks: scheduledTasks, // Return the tasks data for UI purposes
       timestamp: new Date().toISOString()
     };
   } catch (error) {

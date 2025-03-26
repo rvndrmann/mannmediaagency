@@ -5,6 +5,7 @@ import { Suspense } from "react";
 import BrowserUsePage from "@/pages/BrowserUse";
 import { Loader2 } from "lucide-react";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { ThemeProvider } from "next-themes";
 
 export default function Page() {
   return (
@@ -16,9 +17,11 @@ export default function Page() {
         </div>
       </div>
     }>
-      <TooltipProvider>
-        <BrowserUsePage />
-      </TooltipProvider>
+      <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
+        <TooltipProvider>
+          <BrowserUsePage />
+        </TooltipProvider>
+      </ThemeProvider>
     </Suspense>
   );
 }

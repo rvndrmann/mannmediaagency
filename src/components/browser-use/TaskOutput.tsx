@@ -37,7 +37,7 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Task Result</h3>
+        <h3 className="text-lg font-medium text-black dark:text-white">Task Result</h3>
         {getStatusBadge(taskStatus)}
       </div>
       
@@ -54,10 +54,10 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
         <div className="rounded-md border p-4 bg-muted/50">
           <div className="flex gap-2 items-center mb-2">
             <CheckCircle className="h-5 w-5 text-green-500" />
-            <span className="font-medium">Task Completed</span>
+            <span className="font-medium text-black dark:text-white">Task Completed</span>
           </div>
           <ScrollArea className="h-[300px] w-full">
-            <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
+            <pre className="text-sm whitespace-pre-wrap break-words p-2 text-black dark:text-white">{output}</pre>
           </ScrollArea>
         </div>
       )}
@@ -65,7 +65,7 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
       {['failed', 'stopped', 'expired'].includes(taskStatus) && (
         <Alert variant={taskStatus === 'failed' || taskStatus === 'expired' ? 'destructive' : 'default'}>
           <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
+          <AlertDescription className="text-black dark:text-white">
             {taskStatus === 'failed' 
               ? "Task failed to complete. Check the logs below for details." 
               : taskStatus === 'expired'
@@ -77,21 +77,21 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
       
       {!output && ['completed', 'failed', 'stopped', 'expired'].includes(taskStatus) && (
         <div className="bg-muted rounded-md p-4">
-          <p className="text-muted-foreground text-sm">No output available.</p>
+          <p className="text-muted-foreground text-sm text-black dark:text-white">No output available.</p>
         </div>
       )}
       
       {output && ['failed', 'stopped', 'expired'].includes(taskStatus) && (
         <div className="rounded-md border p-4 bg-muted/50">
           <ScrollArea className="h-[300px] w-full">
-            <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
+            <pre className="text-sm whitespace-pre-wrap break-words p-2 text-black dark:text-white">{output}</pre>
           </ScrollArea>
         </div>
       )}
       
       {taskSteps.length > 0 && (
         <div className="mt-6">
-          <h4 className="text-sm font-medium mb-2">Task Steps</h4>
+          <h4 className="text-sm font-medium mb-2 text-black dark:text-white">Task Steps</h4>
           <ScrollArea className="h-[200px]">
             <div className="space-y-2">
               {taskSteps.map((step) => (
@@ -107,9 +107,9 @@ export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
                       {step.status ? step.status.charAt(0).toUpperCase() + step.status.slice(1) : 'Pending'}
                     </Badge>
                     <div className="flex-1">
-                      <p className="font-medium text-sm">{step.description}</p>
+                      <p className="font-medium text-sm text-black dark:text-white">{step.description}</p>
                       {step.details && (
-                        <p className="text-xs text-muted-foreground mt-1">
+                        <p className="text-xs text-black/70 dark:text-white/70 mt-1">
                           {step.details}
                         </p>
                       )}

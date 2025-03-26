@@ -1,126 +1,197 @@
 
-import { TaskStatus, TaskStep } from "@/hooks/browser-use/types";
+import { useState, useRef, useEffect } from "react";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Badge } from "@/components/ui/badge";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { AlertCircle, CheckCircle, Loader2 } from "lucide-react";
+import { BrowserChatMessage } from "./BrowserChatMessage";
+import { ChatMessage, TaskStatus, TaskStep } from "@/hooks/browser-use/types";
+import { Card } from "../ui/card";
+import { formatRelativeTime } from "@/lib/format-utils";
 
 interface TaskOutputProps {
-  output: string | null;
-  taskSteps: TaskStep[];
+  messages: ChatMessage[];
   taskStatus: TaskStatus;
+  currentTaskId: string | null;
+  steps: TaskStep[];
+  recordings?: string[];
 }
 
-export function TaskOutput({ output, taskSteps, taskStatus }: TaskOutputProps) {
-  const getStatusBadge = (status: TaskStatus) => {
-    switch(status) {
-      case 'completed':
-        return <Badge className="bg-green-500">Completed</Badge>;
-      case 'failed':
-        return <Badge className="bg-red-500">Failed</Badge>;
-      case 'stopped':
-        return <Badge className="bg-orange-500">Stopped</Badge>;
-      case 'running':
-        return <Badge className="bg-blue-500">Running</Badge>;
-      case 'paused':
-        return <Badge className="bg-yellow-500">Paused</Badge>;
-      case 'expired':
-        return <Badge className="bg-red-500">Expired</Badge>;
-      case 'pending':
-      case 'created':
-      case 'idle':
-      default:
-        return <Badge className="bg-gray-500">Pending</Badge>;
+export function TaskOutput({ 
+  messages, 
+  taskStatus, 
+  currentTaskId,
+  steps,
+  recordings = []
+}: TaskOutputProps) {
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const [autoScroll, setAutoScroll] = useState(true);
+  
+  // Auto-scroll to bottom when new messages appear
+  useEffect(() => {
+    if (autoScroll && scrollRef.current) {
+      const scrollContainer = scrollRef.current;
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
+  }, [messages, autoScroll]);
+  
+  // Check if we should show an empty state message
+  const showEmptyState = () => {
+    // Type safety: ensure we compare with compatible types
+    const status = taskStatus as string;
+    const emptyConditions = [
+      status === "created",
+      status === "idle",
+      messages.length === 0
+    ];
+    
+    return emptyConditions.some(condition => condition);
   };
   
-  return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-medium">Task Result</h3>
-        {getStatusBadge(taskStatus)}
+  // Render empty state message
+  const renderEmptyState = () => {
+    return (
+      <div className="h-full flex items-center justify-center p-8 text-center">
+        <div className="space-y-2">
+          <h3 className="text-lg font-medium">No Task Output Yet</h3>
+          <p className="text-muted-foreground text-sm">
+            Start a task to see the output here. The agent will provide updates as it works.
+          </p>
+        </div>
       </div>
+    );
+  };
+  
+  // Group messages by timestamp (day)
+  const groupedMessages = messages.reduce((groups: Record<string, ChatMessage[]>, message) => {
+    if (!message.timestamp) {
+      const key = 'Unknown';
+      if (!groups[key]) groups[key] = [];
+      groups[key].push(message);
+      return groups;
+    }
+    
+    const date = new Date(message.timestamp);
+    const key = date.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    if (!groups[key]) {
+      groups[key] = [];
+    }
+    
+    groups[key].push(message);
+    return groups;
+  }, {});
+  
+  // Handle step data conversion to chat messages
+  const convertStepsToMessages = (): ChatMessage[] => {
+    return steps.map((step) => {
+      // Use safe access to properties
+      const stepId = typeof step.id === 'string' ? step.id : `step-${step.step}`;
       
-      {['running', 'pending', 'created', 'paused'].includes(taskStatus) && (
-        <div className="flex items-center justify-center p-6">
-          <div className="text-center">
-            <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-primary" />
-            <p className="text-muted-foreground">Task in progress...</p>
-          </div>
-        </div>
-      )}
-      
-      {taskStatus === 'completed' && output && (
-        <div className="rounded-md border p-4 bg-muted/50">
-          <div className="flex gap-2 items-center mb-2">
-            <CheckCircle className="h-5 w-5 text-green-500" />
-            <span className="font-medium">Task Completed</span>
-          </div>
-          <ScrollArea className="h-[300px] w-full">
-            <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
-          </ScrollArea>
-        </div>
-      )}
-      
-      {['failed', 'stopped', 'expired'].includes(taskStatus) && (
-        <Alert variant={taskStatus === 'failed' || taskStatus === 'expired' ? 'destructive' : 'default'}>
-          <AlertCircle className="h-4 w-4" />
-          <AlertDescription>
-            {taskStatus === 'failed' 
-              ? "Task failed to complete. Check the logs below for details." 
-              : taskStatus === 'expired'
-              ? "Task has expired. Please restart the task to continue."
-              : "Task was manually stopped."}
-          </AlertDescription>
-        </Alert>
-      )}
-      
-      {!output && ['completed', 'failed', 'stopped', 'expired'].includes(taskStatus) && (
-        <div className="bg-muted rounded-md p-4">
-          <p className="text-muted-foreground text-sm">No output available.</p>
-        </div>
-      )}
-      
-      {output && ['failed', 'stopped', 'expired'].includes(taskStatus) && (
-        <div className="rounded-md border p-4 bg-muted/50">
-          <ScrollArea className="h-[300px] w-full">
-            <pre className="text-sm whitespace-pre-wrap break-words p-2">{output}</pre>
-          </ScrollArea>
-        </div>
-      )}
-      
-      {taskSteps.length > 0 && (
-        <div className="mt-6">
-          <h4 className="text-sm font-medium mb-2">Task Steps</h4>
-          <ScrollArea className="h-[200px]">
-            <div className="space-y-2">
-              {taskSteps.map((step) => (
-                <div key={step.id} className="p-3 rounded-md border bg-card">
-                  <div className="flex items-start">
-                    <Badge 
-                      className={`mr-2 ${
-                        step.status === 'completed' ? 'bg-green-500' : 
-                        step.status === 'failed' ? 'bg-red-500' : 
-                        step.status === 'running' ? 'bg-blue-500' : 'bg-gray-500'
-                      }`}
-                    >
-                      {step.status ? step.status.charAt(0).toUpperCase() + step.status.slice(1) : 'Pending'}
-                    </Badge>
-                    <div className="flex-1">
-                      <p className="font-medium text-sm">{step.description}</p>
-                      {step.details && (
-                        <p className="text-xs text-muted-foreground mt-1">
-                          {step.details}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              ))}
+      return {
+        type: 'step',
+        stepNumber: step.step,
+        goal: step.description || step.next_goal,
+        evaluation: step.evaluation_previous_goal,
+        timestamp: new Date().toISOString(),
+      };
+    });
+  };
+  
+  // Add recordings as messages
+  const recordingMessages: ChatMessage[] = recordings.map((url, index) => ({
+    type: 'recording',
+    text: `Recording ${index + 1}`,
+    urls: [url],
+    timestamp: new Date().toISOString(),
+  }));
+  
+  // Combine all messages
+  const allMessages = [
+    ...messages,
+    ...convertStepsToMessages(),
+    ...recordingMessages
+  ];
+  
+  // We show the empty state if there are no messages or steps
+  if (showEmptyState() && steps.length === 0 && recordings.length === 0) {
+    return renderEmptyState();
+  }
+  
+  return (
+    <ScrollArea className="h-[calc(100vh-250px)]" ref={scrollRef}>
+      <div className="p-4 space-y-8">
+        {Object.entries(groupedMessages).map(([date, dateMessages]) => (
+          <div key={date} className="space-y-2">
+            <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2">
+              <h3 className="text-sm font-medium text-muted-foreground">
+                {date !== 'Unknown' ? formatRelativeTime(new Date(date)) : 'Unknown Date'}
+              </h3>
             </div>
-          </ScrollArea>
-        </div>
-      )}
-    </div>
+            
+            <Card className="p-4">
+              {dateMessages.map((message, index) => (
+                <BrowserChatMessage key={`${date}-${index}`} message={message} />
+              ))}
+            </Card>
+          </div>
+        ))}
+        
+        {/* Show steps as messages */}
+        {steps.length > 0 && (
+          <div className="space-y-2">
+            <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Steps</h3>
+            </div>
+            
+            <Card className="p-4">
+              {steps.map((step) => {
+                // Use safe access to properties that might not exist in TaskStep
+                const stepId = typeof step.id === 'string' ? step.id : `step-${step.step}`;
+                
+                return (
+                  <div key={stepId} className="py-3 border-b last:border-b-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-sm font-medium">Step {step.step}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full ${
+                        step.status === 'completed' ? 'bg-green-100 text-green-800' : 
+                        step.status === 'failed' ? 'bg-red-100 text-red-800' : 
+                        'bg-blue-100 text-blue-800'
+                      }`}>
+                        {step.status || 'pending'}
+                      </span>
+                    </div>
+                    <p className="text-sm">{step.description || step.next_goal}</p>
+                    {step.details && (
+                      <p className="text-xs text-muted-foreground mt-1">{step.details}</p>
+                    )}
+                  </div>
+                );
+              })}
+            </Card>
+          </div>
+        )}
+        
+        {/* Show recordings if available */}
+        {recordings.length > 0 && (
+          <div className="space-y-2">
+            <div className="sticky top-0 bg-background/95 backdrop-blur-sm z-10 py-2">
+              <h3 className="text-sm font-medium text-muted-foreground">Recordings</h3>
+            </div>
+            
+            <Card className="p-4">
+              {recordings.map((url, index) => (
+                <BrowserChatMessage 
+                  key={`recording-${index}`} 
+                  message={{
+                    type: 'recording',
+                    text: `Recording ${index + 1}`,
+                    urls: [url],
+                    timestamp: new Date().toISOString(),
+                  }} 
+                />
+              ))}
+            </Card>
+          </div>
+        )}
+      </div>
+    </ScrollArea>
   );
 }

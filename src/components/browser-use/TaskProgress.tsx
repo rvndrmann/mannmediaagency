@@ -1,106 +1,119 @@
 
-import { useState } from "react";
-import { Card, CardContent } from "@/components/ui/card";
 import { Progress } from "@/components/ui/progress";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { TaskStatus, TaskStep } from "@/hooks/browser-use/types";
-import { ExternalLink, ChevronDown, ChevronUp } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { 
+  Check,
+  Clock,
+  Play,
+  AlertCircle,
+  RotateCcw,
+  Hourglass,
+  PauseCircle
+} from "lucide-react";
 
 interface TaskProgressProps {
-  progress: number;
-  status: TaskStatus;
+  taskStatus: TaskStatus;
   steps: TaskStep[];
-  currentUrl: string | null;
+  progress: number;
 }
 
-export function TaskProgress({ progress, status, steps, currentUrl }: TaskProgressProps) {
-  const [expanded, setExpanded] = useState(false);
-  
-  const statusColorMap: Record<TaskStatus, string> = {
-    idle: "text-gray-500",
-    pending: "text-blue-500",
-    created: "text-blue-500",
-    running: "text-green-500",
-    paused: "text-yellow-500",
-    failed: "text-red-500",
-    stopped: "text-orange-500",
-    completed: "text-emerald-500",
-    expired: "text-red-500"
+export function TaskProgress({ taskStatus, steps, progress }: TaskProgressProps) {
+  // Status badge configurations
+  const statusConfigs: Record<string, string> = {
+    pending: "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-300",
+    running: "bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-300",
+    paused: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+    stopped: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    completed: "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300",
+    failed: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300",
+    expired: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300",
+    created: "bg-purple-100 text-purple-800 dark:bg-purple-900/30 dark:text-purple-300",
+    idle: "bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300"
   };
-  
-  const statusColor = statusColorMap[status] || "text-gray-500";
-  
-  const toggleExpanded = () => {
-    setExpanded(!expanded);
+
+  // Status icon configurations
+  const statusIcons = {
+    pending: <Hourglass size={16} />,
+    running: <Play size={16} />,
+    paused: <PauseCircle size={16} />,
+    stopped: <RotateCcw size={16} />,
+    completed: <Check size={16} />,
+    failed: <AlertCircle size={16} />,
+    expired: <Clock size={16} />,
+    created: <Hourglass size={16} />,
+    idle: <Clock size={16} />
   };
-  
+
+  // Get icon for current status
+  const StatusIcon = () => {
+    // Cast taskStatus to string to ensure compatibility with statusIcons keys
+    const status = taskStatus as string;
+    const IconComponent = statusIcons[status as keyof typeof statusIcons] || statusIcons.idle;
+    return IconComponent;
+  };
+
   return (
-    <Card>
-      <CardContent className="p-4">
-        <div className="flex justify-between items-center mb-2">
-          <div>
-            <span className="font-medium">Status: </span>
-            <span className={statusColor}>{
-              // Capitalize the first letter of the status
-              typeof status === 'string' && status.length > 0 
-                ? status.charAt(0).toUpperCase() + status.slice(1) 
-                : 'Unknown'
-            }</span>
-          </div>
-          <div className="text-sm text-gray-500">Progress: {Math.round(progress)}%</div>
+    <div className="space-y-4">
+      <div className="flex items-center justify-between mb-2">
+        <div className="flex items-center space-x-2">
+          <h3 className="text-md font-medium">Task Progress</h3>
+          <Badge className={`${statusConfigs[taskStatus as string]} flex items-center gap-1`}>
+            <StatusIcon />
+            <span className="capitalize">{taskStatus}</span>
+          </Badge>
         </div>
-        
-        <Progress value={progress} className="mb-4" />
-        
-        {currentUrl && (
-          <div className="text-sm mb-2 flex items-center gap-1 text-gray-700">
-            <span>Current URL:</span>
-            <a 
-              href={currentUrl} 
-              target="_blank" 
-              rel="noopener noreferrer"
-              className="text-blue-500 hover:underline flex items-center"
-            >
-              {currentUrl.length > 45 ? `${currentUrl.substring(0, 45)}...` : currentUrl}
-              <ExternalLink className="h-3 w-3 ml-1" />
-            </a>
-          </div>
-        )}
-        
-        {steps.length > 0 && (
-          <div className="mt-4">
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={toggleExpanded}
-              className="flex items-center justify-between w-full"
-            >
-              <span>Task Steps ({steps.length})</span>
-              {expanded ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
-            </Button>
-            
-            {expanded && (
-              <div className="mt-2 space-y-2 max-h-48 overflow-y-auto">
-                {steps.map((step) => (
-                  <div key={step.id} className="p-2 border rounded text-sm">
-                    <div className="flex justify-between">
-                      <div className="font-medium">{step.description}</div>
-                      <div className={
-                        step.status === 'completed' ? 'text-green-500' : 
-                        step.status === 'failed' ? 'text-red-500' : 
-                        step.status === 'running' ? 'text-blue-500' : 'text-gray-500'
-                      }>
-                        {step.status}
-                      </div>
+        <span className="text-sm text-muted-foreground">{progress}%</span>
+      </div>
+
+      <Progress value={progress} className="h-2" />
+
+      {steps.length > 0 ? (
+        <ScrollArea className="h-[300px] pr-4">
+          <div className="space-y-4">
+            {steps.map((step, index) => {
+              // Make sure step has an id or use index
+              const stepId = step.id || `step-${index}`;
+              
+              return (
+                <div key={stepId} className="relative pl-6 pb-4">
+                  <div className="absolute left-0 top-0 bottom-0 w-px bg-gray-200 dark:bg-gray-700"></div>
+                  <div className={`absolute left-[-4px] top-1 w-2 h-2 rounded-full ${
+                    step.status === 'completed' ? 'bg-green-500' : 
+                    step.status === 'failed' ? 'bg-red-500' : 
+                    step.status === 'running' ? 'bg-blue-500' : 
+                    'bg-gray-300 dark:bg-gray-600'
+                  }`}></div>
+                  
+                  <div className="space-y-1">
+                    <div className="flex items-start">
+                      <span className="text-sm font-medium mr-2">Step {step.step}:</span>
+                      <span className="text-sm flex-1">{step.description || step.next_goal}</span>
                     </div>
-                    {step.details && <div className="text-gray-600 mt-1">{step.details}</div>}
+                    
+                    {step.evaluation_previous_goal && (
+                      <p className="text-xs text-muted-foreground">{step.evaluation_previous_goal}</p>
+                    )}
+                    
+                    {step.details && (
+                      <p className="text-xs text-gray-500 mt-1 italic">{step.details}</p>
+                    )}
                   </div>
-                ))}
-              </div>
-            )}
+                  
+                  {index < steps.length - 1 && <Separator className="mt-4" />}
+                </div>
+              );
+            })}
           </div>
-        )}
-      </CardContent>
-    </Card>
+        </ScrollArea>
+      ) : (
+        <div className="py-8 text-center text-muted-foreground text-sm">
+          <p>No steps recorded yet.</p>
+          <p>Task steps will appear here as they are executed.</p>
+        </div>
+      )}
+    </div>
   );
 }

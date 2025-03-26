@@ -1,165 +1,123 @@
 
-import { format, formatDistance } from 'date-fns';
-import { safeStringify } from './safe-stringify';
+import { v4 as uuidv4 } from "uuid";
+import { safeStringify } from "./safe-stringify";
 
-/**
- * Format a trace timestamp for display
- */
-export function formatTraceTimestamp(timestamp: string): string {
-  if (!timestamp) return '';
-  
-  try {
-    const date = new Date(timestamp);
-    return format(date, 'h:mm:ss a, MMM d');
-  } catch (e) {
-    return timestamp;
-  }
+// Basic trace event type
+export interface TraceEvent {
+  id: string;
+  type: string;
+  timestamp: string;
+  data?: any;
+  parent_id?: string;
 }
 
-/**
- * Format a duration in milliseconds to a human-readable string
- */
-export function formatDuration(durationMs: number): string {
-  if (!durationMs || durationMs <= 0) return '0s';
-  
-  const seconds = Math.floor(durationMs / 1000);
-  
-  if (seconds < 60) {
-    return `${seconds}s`;
-  }
-  
-  const minutes = Math.floor(seconds / 60);
-  const remainingSeconds = seconds % 60;
-  
-  if (minutes < 60) {
-    return `${minutes}m ${remainingSeconds}s`;
-  }
-  
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-  
-  return `${hours}h ${remainingMinutes}m ${remainingSeconds}s`;
+// Trace metadata
+export interface Trace {
+  id: string;
+  name: string;
+  start_time: string;
+  end_time?: string;
+  events: TraceEvent[];
+  metadata?: Record<string, any>;
 }
 
-/**
- * Calculate time elapsed between two dates
- */
-export function calculateElapsedTime(startTime?: string, endTime?: string): string {
-  if (!startTime) return '';
-  
-  try {
-    const start = new Date(startTime);
-    const end = endTime ? new Date(endTime) : new Date();
-    
-    return formatDistance(start, end, { includeSeconds: true });
-  } catch (e) {
-    return '';
-  }
+// Create a new trace
+export function createTrace(name: string, metadata?: Record<string, any>): Trace {
+  return {
+    id: uuidv4(),
+    name,
+    start_time: new Date().toISOString(),
+    events: [],
+    metadata
+  };
 }
 
-/**
- * Safely extract trace data from metadata
- */
-export function extractTraceData(metadata: any): any {
-  if (!metadata) return null;
+// Add event to a trace
+export function addTraceEvent(
+  trace: Trace,
+  eventType: string,
+  data?: any,
+  parentId?: string
+): Trace {
+  // Make a copy to avoid mutating the original
+  const updatedTrace = { ...trace };
   
-  try {
-    // Handle string metadata (needs parsing)
-    if (typeof metadata === 'string') {
-      try {
-        metadata = JSON.parse(metadata);
-      } catch (e) {
-        return null;
-      }
+  // Process data to ensure it's serializable
+  const safeData = data ? JSON.parse(safeStringify(data)) : undefined;
+  
+  // Add the new event
+  updatedTrace.events = [
+    ...updatedTrace.events,
+    {
+      id: uuidv4(),
+      type: eventType,
+      timestamp: new Date().toISOString(),
+      data: safeData,
+      parent_id: parentId
     }
-    
-    // Handle different metadata structures
-    if (metadata.trace) {
-      return metadata.trace;
-    }
-    
-    // Some systems store it nested
-    if (typeof metadata === 'object' && metadata !== null) {
-      // Look for trace property at any level
-      const findTrace = (obj: any): any => {
-        if (obj.trace) return obj.trace;
-        
-        for (const key in obj) {
-          if (typeof obj[key] === 'object' && obj[key] !== null) {
-            const result = findTrace(obj[key]);
-            if (result) return result;
-          }
-        }
-        
-        return null;
-      };
-      
-      return findTrace(metadata);
-    }
-  } catch (e) {
-    console.error('Error extracting trace data:', e);
-  }
+  ];
   
-  return null;
+  return updatedTrace;
 }
 
-/**
- * Get a safe summary of a trace
- */
-export function getSafeTraceSummary(trace: any): any {
-  if (!trace) return null;
-  
-  try {
-    // For object traces
-    if (typeof trace === 'object' && trace !== null) {
-      if (trace.summary) {
-        return {
-          agentTypes: Array.isArray(trace.summary.agentTypes) ? trace.summary.agentTypes : [],
-          handoffs: typeof trace.summary.handoffs === 'number' ? trace.summary.handoffs : 0,
-          toolCalls: typeof trace.summary.toolCalls === 'number' ? trace.summary.toolCalls : 0,
-          success: Boolean(trace.summary.success),
-          duration: typeof trace.summary.duration === 'number' ? trace.summary.duration : 0,
-          messageCount: typeof trace.summary.messageCount === 'number' ? trace.summary.messageCount : 0
-        };
-      }
-      
-      // Construct a basic summary if not present
-      return {
-        agentTypes: [],
-        handoffs: 0,
-        toolCalls: 0,
-        success: false,
-        duration: 0,
-        messageCount: 0
-      };
+// Complete a trace
+export function completeTrace(trace: Trace, metadata?: Record<string, any>): Trace {
+  return {
+    ...trace,
+    end_time: new Date().toISOString(),
+    metadata: {
+      ...trace.metadata,
+      ...metadata
     }
-  } catch (e) {
-    console.error('Error getting trace summary:', e);
-  }
-  
-  return null;
+  };
 }
 
-/**
- * Safely convert trace events to a serializable format
- */
-export function safeTraceEvents(events: any[]): any[] {
-  if (!Array.isArray(events)) return [];
+// Create a trace event (for the runner)
+export function createTraceEvent(
+  eventType: string,
+  data?: any,
+  parentId?: string
+): TraceEvent {
+  // Process data to ensure it's serializable
+  const safeData = data ? JSON.parse(safeStringify(data)) : undefined;
   
+  return {
+    id: uuidv4(),
+    type: eventType,
+    timestamp: new Date().toISOString(),
+    data: safeData,
+    parent_id: parentId
+  };
+}
+
+// Save trace (for the runner)
+export async function saveTrace(trace: Trace): Promise<boolean> {
   try {
-    return events.map(event => {
-      // Clean up event data to prevent circular references
-      const safeData = event.data ? JSON.parse(safeStringify(event.data)) : null;
-      
-      return {
-        eventType: event.eventType || 'unknown',
-        timestamp: event.timestamp || '',
-        agentType: event.agentType || 'Unknown',
-        data: safeData
-      };
-    });
-  } catch (e) {
-    console.error('Error processing trace events:', e);
-    return [];
+    // This would be implemented to save to your backend
+    console.log("Saving trace:", trace.id);
+    return true;
+  } catch (error) {
+    console.error("Error saving trace:", error);
+    return false;
   }
+}
+
+// Helper to find events of a specific type in a trace
+export function findEventsByType(trace: Trace, eventType: string): TraceEvent[] {
+  return trace.events.filter(event => event.type === eventType);
+}
+
+// Helper to find an event by ID
+export function findEventById(trace: Trace, eventId: string): TraceEvent | undefined {
+  return trace.events.find(event => event.id === eventId);
+}
+
+// Helper to find child events of a parent
+export function findChildEvents(trace: Trace, parentId: string): TraceEvent[] {
+  return trace.events.filter(event => event.parent_id === parentId);
+}
+
+// Export trace as JSON
+export function exportTraceAsJson(trace: Trace): string {
+  return safeStringify(trace);
 }

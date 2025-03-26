@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -119,6 +120,205 @@ serve(async (req) => {
         
         return new Response(
           JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'getTemplates') {
+        // Get user's browser task templates
+        const { data, error } = await supabase
+          .from('browser_task_templates')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('created_at', { ascending: false });
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ templates: data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'saveTemplate') {
+        // Save a new browser task template
+        const { name, description, task_input, browser_config } = requestData;
+        
+        if (!name || !task_input) {
+          return new Response(
+            JSON.stringify({ error: 'Name and task input are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        const { data, error } = await supabase
+          .from('browser_task_templates')
+          .insert({
+            user_id: user.id,
+            name,
+            description,
+            task_input,
+            browser_config
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ template: data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'deleteTemplate' && requestData.templateId) {
+        // Delete a browser task template
+        const { error } = await supabase
+          .from('browser_task_templates')
+          .delete()
+          .eq('id', requestData.templateId)
+          .eq('user_id', user.id);
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'getScheduledTasks') {
+        // Get user's scheduled browser tasks
+        const { data, error } = await supabase
+          .from('scheduled_browser_tasks')
+          .select('*')
+          .eq('user_id', user.id)
+          .order('scheduled_time', { ascending: true });
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ scheduled_tasks: data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'scheduleTask') {
+        // Schedule a browser task
+        const { 
+          task_input, 
+          browser_config, 
+          template_id, 
+          schedule_type, 
+          scheduled_time, 
+          repeat_interval 
+        } = requestData;
+        
+        if (!task_input || !schedule_type || !scheduled_time) {
+          return new Response(
+            JSON.stringify({ error: 'Task input, schedule type, and scheduled time are required' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Ensure scheduled time is in the future
+        const scheduledDateTime = new Date(scheduled_time);
+        if (scheduledDateTime < new Date()) {
+          return new Response(
+            JSON.stringify({ error: 'Scheduled time must be in the future' }),
+            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        // Calculate next run time based on schedule type and repeat interval
+        let nextRunAt = null;
+        
+        if (schedule_type === 'recurring' && repeat_interval) {
+          nextRunAt = scheduledDateTime;
+          
+          // Add the appropriate interval to get the next run time
+          if (repeat_interval.includes('day')) {
+            nextRunAt.setDate(nextRunAt.getDate() + parseInt(repeat_interval));
+          } else if (repeat_interval.includes('week')) {
+            nextRunAt.setDate(nextRunAt.getDate() + (parseInt(repeat_interval) * 7));
+          } else if (repeat_interval.includes('month')) {
+            nextRunAt.setMonth(nextRunAt.getMonth() + parseInt(repeat_interval));
+          }
+        }
+        
+        const { data, error } = await supabase
+          .from('scheduled_browser_tasks')
+          .insert({
+            user_id: user.id,
+            task_input,
+            browser_config,
+            template_id: template_id || null,
+            schedule_type,
+            scheduled_time: scheduledDateTime.toISOString(),
+            repeat_interval,
+            next_run_at: nextRunAt ? nextRunAt.toISOString() : null,
+            status: 'pending'
+          })
+          .select()
+          .single();
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ scheduled_task: data }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'cancelScheduledTask' && requestData.taskId) {
+        // Cancel a scheduled browser task
+        const { error } = await supabase
+          .from('scheduled_browser_tasks')
+          .update({ status: 'cancelled' })
+          .eq('id', requestData.taskId)
+          .eq('user_id', user.id);
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ success: true }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'deleteScheduledTask' && requestData.taskId) {
+        // Delete a scheduled browser task
+        const { error } = await supabase
+          .from('scheduled_browser_tasks')
+          .delete()
+          .eq('id', requestData.taskId)
+          .eq('user_id', user.id);
+        
+        if (error) {
+          return new Response(
+            JSON.stringify({ error: error.message }),
+            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+          );
+        }
+        
+        return new Response(
+          JSON.stringify({ success: true }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }

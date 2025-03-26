@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { useSearchParams, useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -7,7 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
-import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key, Shield } from "lucide-react";
+import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key, Shield, CalendarDays } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserConfigPanel } from "@/components/browser-use/BrowserConfigPanel";
@@ -15,6 +16,9 @@ import { BrowserConfig } from "@/hooks/browser-use/types";
 import { Badge } from "@/components/ui/badge";
 import { TaskInputWithPreview } from "@/components/browser-use/TaskInputWithPreview";
 import { ChevronLeft } from "lucide-react";
+import { TaskTemplateSelector } from "@/components/browser-use/TaskTemplateSelector";
+import { TaskScheduler } from "@/components/browser-use/TaskScheduler";
+import { ScheduledTasksList } from "@/components/browser-use/ScheduledTasksList";
 
 interface BrowserTask {
   id: string;
@@ -252,6 +256,14 @@ const BrowserUsePage = () => {
     }
   };
 
+  const handleSelectTemplate = (template: any) => {
+    setTaskInput(template.task_input);
+    if (template.browser_config) {
+      setBrowserConfig(template.browser_config);
+    }
+    toast.success(`Template "${template.name}" loaded`);
+  };
+
   return (
     <div className="container mx-auto py-8">
       <div className="flex items-center mb-6">
@@ -272,6 +284,7 @@ const BrowserUsePage = () => {
           <TabsTrigger value="create">Create Task</TabsTrigger>
           <TabsTrigger value="viewing" disabled={!activeTask}>View Task</TabsTrigger>
           <TabsTrigger value="history">Task History</TabsTrigger>
+          <TabsTrigger value="scheduled">Scheduled Tasks</TabsTrigger>
           <TabsTrigger value="settings">Browser Settings</TabsTrigger>
         </TabsList>
         
@@ -300,6 +313,12 @@ const BrowserUsePage = () => {
                   )}
                 </div>
               </div>
+
+              <TaskTemplateSelector 
+                onSelectTemplate={handleSelectTemplate}
+                currentTaskInput={taskInput}
+                currentBrowserConfig={browserConfig}
+              />
               
               <TaskInputWithPreview
                 value={taskInput}
@@ -318,14 +337,20 @@ const BrowserUsePage = () => {
               )}
             </CardContent>
             <CardFooter className="flex justify-between">
-              <Button 
-                variant="outline" 
-                onClick={() => setActiveTab("settings")}
-                disabled={isTaskLoading}
-              >
-                Configure Browser
-              </Button>
-              <Button onClick={startNewTask} disabled={isTaskLoading}>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={() => setActiveTab("settings")}
+                  disabled={isTaskLoading}
+                >
+                  Configure Browser
+                </Button>
+                <TaskScheduler 
+                  taskInput={taskInput}
+                  browserConfig={browserConfig}
+                />
+              </div>
+              <Button onClick={startNewTask} disabled={isTaskLoading || !taskInput.trim()}>
                 {isTaskLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -512,6 +537,23 @@ const BrowserUsePage = () => {
                 Refresh
               </Button>
             </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="scheduled">
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center">
+                <CalendarDays className="h-5 w-5 mr-2" />
+                Scheduled Tasks
+              </CardTitle>
+              <CardDescription>
+                Tasks scheduled to run automatically at specific times
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ScheduledTasksList />
+            </CardContent>
           </Card>
         </TabsContent>
         

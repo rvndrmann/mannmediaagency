@@ -574,6 +574,39 @@ export type Database = {
         }
         Relationships: []
       }
+      browser_task_templates: {
+        Row: {
+          browser_config: Json | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          task_input: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          browser_config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          task_input: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          browser_config?: Json | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          task_input?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       chat_usage: {
         Row: {
           created_at: string | null
@@ -1797,6 +1830,62 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      scheduled_browser_tasks: {
+        Row: {
+          browser_config: Json | null
+          created_at: string
+          id: string
+          last_run_at: string | null
+          next_run_at: string | null
+          repeat_interval: unknown | null
+          schedule_type: string
+          scheduled_time: string
+          status: string
+          task_input: string
+          template_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          browser_config?: Json | null
+          created_at?: string
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          repeat_interval?: unknown | null
+          schedule_type: string
+          scheduled_time: string
+          status?: string
+          task_input: string
+          template_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          browser_config?: Json | null
+          created_at?: string
+          id?: string
+          last_run_at?: string | null
+          next_run_at?: string | null
+          repeat_interval?: unknown | null
+          schedule_type?: string
+          scheduled_time?: string
+          status?: string
+          task_input?: string
+          template_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_browser_tasks_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "browser_task_templates"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       scheduled_posts: {
         Row: {

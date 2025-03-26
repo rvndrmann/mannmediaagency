@@ -59,8 +59,29 @@ export function BrowserUseApp() {
   }, [currentTaskId]);
 
   const captureScreenshot = async () => {
-    await originalCaptureScreenshot();
-    return null;
+    // This function should not return a boolean; it should return a string
+    // (the screenshot URL) or null
+    const result = await originalCaptureScreenshot();
+    return result; // This should properly maintain the return type
+  };
+
+  // Ensure taskOutput is properly typed or converted to string for rendering
+  const renderTaskOutput = () => {
+    if (!taskOutput) return null;
+    
+    // If taskOutput is an array, convert it to string
+    if (Array.isArray(taskOutput)) {
+      return taskOutput.map((item, index) => {
+        if (typeof item === 'object' && item !== null) {
+          // For objects, convert to string
+          return <div key={index}>{JSON.stringify(item)}</div>;
+        }
+        return <div key={index}>{String(item)}</div>;
+      });
+    }
+    
+    // For any other type, convert to string
+    return String(taskOutput);
   };
 
   return (
@@ -100,9 +121,9 @@ export function BrowserUseApp() {
               setTaskInput={setTaskInput}
               onSubmit={startTask}
               isProcessing={isProcessing}
-              taskStatus={taskStatus}
+              taskStatus={taskStatus || ""}
               userCredits={userCredits ? userCredits.credits_remaining : null}
-              taskOutput={taskOutput}
+              taskOutput={renderTaskOutput()}
               error={error}
               onStop={stopTask}
               onPause={pauseTask}
@@ -117,7 +138,7 @@ export function BrowserUseApp() {
               setCurrentUrl={setCurrentUrl}
               screenshot={screenshot}
               captureScreenshot={originalCaptureScreenshot}
-              connectionStatus={connectionStatus}
+              connectionStatus={connectionStatus || "disconnected"}
             />
           </div>
         </TabsContent>
@@ -128,8 +149,12 @@ export function BrowserUseApp() {
 
         <TabsContent value="settings">
           <BrowserConfigPanel
-            config={browserConfig}
-            setConfig={setBrowserConfig}
+            config={browserConfig || {}}
+            setConfig={(config) => {
+              if (setBrowserConfig) {
+                setBrowserConfig(config);
+              }
+            }}
             disabled={isProcessing && taskStatus !== 'completed' && taskStatus !== 'failed' && taskStatus !== 'stopped' && taskStatus !== 'expired'}
           />
         </TabsContent>

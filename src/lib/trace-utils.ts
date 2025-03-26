@@ -106,7 +106,7 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       const updatedEvents: any[] = [];
       
       // If existingTrace.events exists and is an array, add them to updatedEvents
-      if (existingTrace.events && Array.isArray(existingTrace.events)) {
+      if (existingTrace && typeof existingTrace === 'object' && 'events' in existingTrace && Array.isArray(existingTrace.events)) {
         updatedEvents.push(...existingTrace.events);
       }
       

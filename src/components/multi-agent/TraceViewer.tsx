@@ -53,6 +53,25 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
   const toolCallEvents = events.filter(e => e.eventType === 'tool_call');
   const errorEvents = events.filter(e => e.eventType === 'error');
   
+  // Helper function to safely render event data
+  const renderEventData = (data: any) => {
+    if (data === null || data === undefined) {
+      return null;
+    }
+    
+    try {
+      // Convert to string if it's an object
+      if (typeof data === 'object') {
+        return JSON.stringify(data, null, 2);
+      }
+      // Convert to string for all other types
+      return String(data);
+    } catch (e) {
+      console.error("Error rendering event data:", e);
+      return "Error rendering data";
+    }
+  };
+  
   const renderAgentFlow = () => (
     <Card className="p-4">
       <h3 className="text-lg font-semibold mb-2">Agent Flow</h3>
@@ -81,7 +100,7 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
               <p className="font-medium">{event.eventType}</p>
               {event.data && (
                 <pre className="text-xs bg-gray-100 p-2 rounded-md overflow-auto max-h-40">
-                  {JSON.stringify(event.data, null, 2)}
+                  {renderEventData(event.data)}
                 </pre>
               )}
             </div>
@@ -126,7 +145,8 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
           </div>
           <div>
             <p>
-              <span className="font-medium">Agents:</span> {agentTypes.map((agentType, index) => (
+              <span className="font-medium">Agents:</span>{" "}
+              {agentTypes.map((agentType, index) => (
                 <AgentBadge key={index} agentType={agentType} />
               ))}
             </p>

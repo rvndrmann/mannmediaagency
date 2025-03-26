@@ -47,7 +47,14 @@ export const TraceDashboard: React.FC = () => {
       const processedTraces = (data || []).map(item => {
         // Safely access nested metadata.trace properties
         const metadata = item.metadata || {};
-        const traceData = metadata.trace || {};
+        
+        // Check if metadata.trace exists and is an object
+        const traceData = typeof metadata === 'object' && metadata !== null && 'trace' in metadata 
+          ? metadata.trace 
+          : {};
+          
+        // Make sure traceData is an object before accessing properties
+        const trace = typeof traceData === 'object' && traceData !== null ? traceData : {};
         
         return {
           id: item.id,
@@ -55,11 +62,11 @@ export const TraceDashboard: React.FC = () => {
           group_id: item.group_id || '',
           metadata: item.metadata,
           // Safely extract trace properties
-          runId: traceData.runId || '',
-          summary: traceData.summary || {},
-          startTime: traceData.startTime || '',
-          endTime: traceData.endTime || '',
-          events: traceData.events || [],
+          runId: trace.runId || '',
+          summary: trace.summary || {},
+          startTime: trace.startTime || '',
+          endTime: trace.endTime || '',
+          events: Array.isArray(trace.events) ? trace.events : [],
         };
       });
       
@@ -85,7 +92,17 @@ export const TraceDashboard: React.FC = () => {
       
       // Safely extract the trace data
       const metadata = data?.metadata || {};
-      const traceData = metadata.trace || {};
+      
+      // Ensure metadata is an object and has trace property
+      if (typeof metadata !== 'object' || metadata === null || !('trace' in metadata)) {
+        throw new Error('Invalid trace data format');
+      }
+      
+      const traceData = metadata.trace;
+      
+      if (typeof traceData !== 'object' || traceData === null) {
+        throw new Error('Invalid trace data format');
+      }
       
       // Construct a complete Trace object
       const trace: Trace = {
@@ -94,7 +111,7 @@ export const TraceDashboard: React.FC = () => {
         userId: data?.user_id || '',
         sessionId: traceData.sessionId || '',
         messages: [],
-        events: traceData.events || [],
+        events: Array.isArray(traceData.events) ? traceData.events : [],
         startTime: traceData.startTime || '',
         endTime: traceData.endTime || '',
         summary: traceData.summary || {

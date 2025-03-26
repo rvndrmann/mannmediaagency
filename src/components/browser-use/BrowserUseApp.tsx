@@ -23,7 +23,9 @@ import {
   Info,
   Globe,
   Database,
-  Shield
+  Shield,
+  FileText,
+  Calendar
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -83,6 +85,11 @@ export function BrowserUseApp() {
       if (template.browser_config) {
         console.log("Setting browser config:", template.browser_config);
         setBrowserConfig(template.browser_config);
+      }
+      
+      // When a template is selected from the Templates tab, switch to task tab
+      if (activeTab === "templates") {
+        setActiveTab("task");
       }
       
       toast.success(`Template "${template.name}" loaded`);
@@ -146,7 +153,7 @@ export function BrowserUseApp() {
       </div>
 
       <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid grid-cols-3 mb-4">
+        <TabsList className="grid grid-cols-5 mb-4">
           <TabsTrigger value="task" className="flex items-center gap-2">
             <Terminal className="h-4 w-4" />
             <span>Task Setup</span>
@@ -154,6 +161,14 @@ export function BrowserUseApp() {
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
             <span>Task History</span>
+          </TabsTrigger>
+          <TabsTrigger value="templates" className="flex items-center gap-2">
+            <FileText className="h-4 w-4" />
+            <span>Templates</span>
+          </TabsTrigger>
+          <TabsTrigger value="scheduled" className="flex items-center gap-2">
+            <Calendar className="h-4 w-4" />
+            <span>Scheduled</span>
           </TabsTrigger>
           <TabsTrigger value="settings" className="flex items-center gap-2">
             <Settings className="h-4 w-4" />
@@ -204,20 +219,29 @@ export function BrowserUseApp() {
                 )}
               </div>
 
-              {/* Template Selector Component - Make sure it's visible */}
+              {/* Template Quick Selector */}
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border mb-4">
                 <div className="flex justify-between items-center mb-3">
                   <h3 className="text-lg font-medium flex items-center gap-2">
-                    <Bot className="h-5 w-5 text-primary" />
-                    Task Templates
+                    <FileText className="h-5 w-5 text-primary" />
+                    Quick Templates
                   </h3>
-                  <Button 
-                    variant="outline" 
-                    size="sm" 
-                    onClick={() => setShowTemplatesPanel(!showTemplatesPanel)}
-                  >
-                    {showTemplatesPanel ? "Hide Templates" : "Show Templates"}
-                  </Button>
+                  <div className="flex gap-2">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      onClick={() => setShowTemplatesPanel(!showTemplatesPanel)}
+                    >
+                      {showTemplatesPanel ? "Hide Templates" : "Show Templates"}
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setActiveTab("templates")}
+                    >
+                      Browse All Templates
+                    </Button>
+                  </div>
                 </div>
                 
                 {showTemplatesPanel && (
@@ -340,6 +364,35 @@ export function BrowserUseApp() {
 
         <TabsContent value="history">
           <BrowserTaskHistory />
+        </TabsContent>
+
+        {/* New dedicated Templates Tab */}
+        <TabsContent value="templates">
+          <Card className="p-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                <h2 className="text-2xl font-bold flex items-center gap-2">
+                  <FileText className="h-6 w-6 text-primary" />
+                  Task Templates
+                </h2>
+              </div>
+              
+              <p className="text-muted-foreground">
+                Save and manage your task templates to quickly reuse them for future browser automation tasks.
+              </p>
+              
+              <TaskTemplateSelector
+                onSelectTemplate={handleTemplateSelection}
+                currentTaskInput={taskInput}
+                currentBrowserConfig={browserConfig}
+                displayMode="standard"
+              />
+            </div>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="scheduled">
+          {/* Content for scheduled tasks tab */}
         </TabsContent>
 
         <TabsContent value="settings">

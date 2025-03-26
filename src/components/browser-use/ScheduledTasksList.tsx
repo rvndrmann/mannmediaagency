@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Table, 
@@ -45,15 +44,29 @@ export function ScheduledTasksList() {
   const getStatusBadgeProps = (status) => {
     switch (status) {
       case 'active':
-        return { variant: "outline", className: "bg-blue-50 text-blue-700 border-blue-200" };
+        return { 
+          variant: "info" as const, 
+          className: "bg-blue-50 text-blue-700 border-blue-200" 
+        };
       case 'completed':
-        return { variant: "outline", className: "bg-green-50 text-green-700 border-green-200" };
+        return { 
+          variant: "success" as const, 
+          className: "bg-green-50 text-green-700 border-green-200" 
+        };
       case 'failed':
-        return { variant: "outline", className: "bg-red-50 text-red-700 border-red-200" };
+        return { 
+          variant: "destructive" as const, 
+          className: "bg-red-50 text-red-700 border-red-200" 
+        };
       case 'pending':
-        return { variant: "outline", className: "bg-amber-50 text-amber-700 border-amber-200" };
+        return { 
+          variant: "warning" as const, 
+          className: "bg-amber-50 text-amber-700 border-amber-200" 
+        };
       default:
-        return { variant: "outline" };
+        return { 
+          variant: "outline" as const 
+        };
     }
   };
 

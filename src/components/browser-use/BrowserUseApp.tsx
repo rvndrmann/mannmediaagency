@@ -18,7 +18,6 @@ import {
   RotateCw, 
   Terminal, 
   Monitor, 
-  Laptop,
   AlertTriangle,
   Info,
   Globe,
@@ -132,26 +131,13 @@ export function BrowserUseApp() {
               <div className="flex flex-col gap-4">
                 <div className="flex items-center gap-4">
                   <Label className="font-medium min-w-[100px]">Environment:</Label>
-                  <div className="flex gap-2">
-                    <Button 
-                      variant={environment === "browser" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setEnvironment("browser")}
-                      className="flex items-center gap-2"
-                    >
-                      <Monitor className="h-4 w-4" />
-                      Browser
-                    </Button>
-                    <Button 
-                      variant={environment === "desktop" ? "default" : "outline"} 
-                      size="sm"
-                      onClick={() => setEnvironment("desktop")}
-                      className="flex items-center gap-2"
-                    >
-                      <Laptop className="h-4 w-4" />
-                      Desktop
-                    </Button>
-                  </div>
+                  <Badge 
+                    variant="outline" 
+                    className="flex items-center gap-1 px-3 py-1"
+                  >
+                    <Monitor className="h-4 w-4 mr-1" />
+                    Browser
+                  </Badge>
                 </div>
 
                 {environment === "desktop" && (
@@ -160,7 +146,7 @@ export function BrowserUseApp() {
                     <Badge variant="outline" className="flex items-center gap-1">
                       {browserConfig.wssUrl && <Database className="h-3 w-3" />}
                       {browserConfig.cdpUrl && <Terminal className="h-3 w-3" />}
-                      {browserConfig.browserInstancePath && <Laptop className="h-3 w-3" />}
+                      {browserConfig.browserInstancePath && <Monitor className="h-3 w-3" />}
                       {!browserConfig.wssUrl && !browserConfig.cdpUrl && !browserConfig.browserInstancePath && <Globe className="h-3 w-3" />}
                       {getConnectionMethodName()}
                     </Badge>
@@ -192,9 +178,7 @@ export function BrowserUseApp() {
                     value={taskInput}
                     onChange={(e) => setTaskInput(e.target.value)}
                     className="flex-1 min-h-[120px] p-2 border rounded-md"
-                    placeholder={environment === "browser" 
-                      ? "Describe what you want the browser to do..." 
-                      : "Describe what you want to automate on your desktop..."}
+                    placeholder="Describe what you want the browser to do..."
                     disabled={isProcessing}
                   />
                 </div>
@@ -212,11 +196,11 @@ export function BrowserUseApp() {
               <div className="flex flex-wrap gap-2">
                 <Button
                   onClick={handleStartTask}
-                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1 || (environment === "desktop" && !isConfigValid())}
+                  disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
                   className="flex items-center gap-2"
                 >
                   <Play className="h-4 w-4" />
-                  Start {environment === "browser" ? "Browser" : "Desktop"} Task (1 Credit)
+                  Start Browser Task (1 Credit)
                 </Button>
 
                 {taskStatus === 'running' && (
@@ -258,7 +242,7 @@ export function BrowserUseApp() {
                 {(taskStatus === 'completed' || taskStatus === 'stopped' || taskStatus === 'failed' || taskStatus === 'expired') && (
                   <Button
                     onClick={restartTask}
-                    disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1 || (environment === "desktop" && !isConfigValid())}
+                    disabled={!taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
                     variant="outline"
                     className="flex items-center gap-2"
                   >

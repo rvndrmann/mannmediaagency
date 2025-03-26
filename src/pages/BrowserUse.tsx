@@ -9,8 +9,11 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink } from "lucide-react";
+import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info } from "lucide-react";
 import { formatDate } from "@/lib/utils";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { BrowserSettings } from "@/components/browser-use/BrowserSettings";
+import { BrowserConfig } from "@/hooks/browser-use/types";
 
 interface BrowserTask {
   id: string;
@@ -19,7 +22,28 @@ interface BrowserTask {
   created_at: string;
   live_url?: string;
   output?: string;
+  browser_config?: BrowserConfig;
 }
+
+const getDefaultBrowserConfig = (): BrowserConfig => {
+  return {
+    headless: false,
+    disableSecurity: false,
+    useOwnBrowser: false,
+    chromePath: "",
+    persistentSession: true,
+    resolution: "1920x1080",
+    theme: "Ocean",
+    darkMode: false,
+    contextConfig: {
+      minWaitPageLoadTime: 0.5,
+      waitForNetworkIdlePageLoadTime: 5.0,
+      maxWaitPageLoadTime: 15.0,
+      highlightElements: true,
+      viewportExpansion: 500
+    }
+  };
+};
 
 const BrowserUsePage = () => {
   const [searchParams] = useSearchParams();
@@ -32,7 +56,9 @@ const BrowserUsePage = () => {
   const [taskInput, setTaskInput] = useState("");
   const [environment, setEnvironment] = useState("browser");
   const [intervalId, setIntervalId] = useState<number | null>(null);
-
+  const [browserConfig, setBrowserConfig] = useState<BrowserConfig>(getDefaultBrowserConfig());
+  const [activeTab, setActiveTab] = useState(activeTask ? "viewing" : "create");
+  
   useEffect(() => {
     fetchTasks();
     
@@ -73,6 +99,7 @@ const BrowserUsePage = () => {
         const foundTask = data.tasks.find((t: any) => t.id === taskIdFromUrl);
         if (foundTask) {
           setActiveTask(foundTask);
+          setActiveTab("viewing");
         }
       }
     } catch (error) {
@@ -93,6 +120,11 @@ const BrowserUsePage = () => {
       
       setActiveTask(data);
       
+      // If the task has browser config, update the UI
+      if (data.browser_config) {
+        setBrowserConfig(data.browser_config);
+      }
+      
       // Also update the task in the tasks list
       setTasks(prevTasks => 
         prevTasks.map(task => 
@@ -104,9 +136,29 @@ const BrowserUsePage = () => {
     }
   };
 
+  const validateOwnBrowserConfig = () => {
+    if (browserConfig.useOwnBrowser) {
+      if (!browserConfig.chromePath) {
+        toast.error("Chrome executable path is required when using your own browser");
+        return false;
+      }
+      
+      // Additional platform-specific validation could go here
+      if (browserConfig.chromePath && !browserConfig.chromePath.includes("/") && !browserConfig.chromePath.includes("\\")) {
+        toast.warning("Chrome path should be an absolute path to the Chrome executable");
+      }
+    }
+    return true;
+  };
+
   const startNewTask = async () => {
     if (!taskInput.trim()) {
       toast.error("Please enter a task description");
+      return;
+    }
+    
+    // Validate browser configuration if using own browser
+    if (!validateOwnBrowserConfig()) {
       return;
     }
     
@@ -116,7 +168,8 @@ const BrowserUsePage = () => {
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: { 
           task: taskInput,
-          environment
+          environment,
+          browser_config: browserConfig
         }
       });
       
@@ -128,6 +181,7 @@ const BrowserUsePage = () => {
       // Fetch the new task details
       await fetchTaskDetails(data.taskId);
       await fetchTasks();
+      setActiveTab("viewing");
       
     } catch (error) {
       console.error("Error starting task:", error);
@@ -189,11 +243,12 @@ const BrowserUsePage = () => {
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-6">Browser Automation</h1>
       
-      <Tabs defaultValue={activeTask ? "viewing" : "create"} className="w-full">
+      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <TabsList className="mb-4">
           <TabsTrigger value="create">Create Task</TabsTrigger>
           <TabsTrigger value="viewing" disabled={!activeTask}>View Task</TabsTrigger>
           <TabsTrigger value="history">Task History</TabsTrigger>
+          <TabsTrigger value="settings">Browser Settings</TabsTrigger>
         </TabsList>
         
         <TabsContent value="create">
@@ -245,8 +300,24 @@ const BrowserUsePage = () => {
                   Be specific about what you want the browser to do. The AI will follow your instructions step by step.
                 </p>
               </div>
+
+              {browserConfig.useOwnBrowser && (
+                <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertDescription>
+                    You're using your own browser. Make sure it's properly configured in the Browser Settings tab.
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
-            <CardFooter>
+            <CardFooter className="flex justify-between">
+              <Button 
+                variant="outline" 
+                onClick={() => setActiveTab("settings")}
+                disabled={isTaskLoading}
+              >
+                Configure Browser
+              </Button>
               <Button onClick={startNewTask} disabled={isTaskLoading}>
                 {isTaskLoading ? (
                   <>
@@ -289,6 +360,15 @@ const BrowserUsePage = () => {
                   <h3 className="font-medium mb-2">Task Description</h3>
                   <p className="p-3 bg-gray-50 rounded">{activeTask.task}</p>
                 </div>
+                
+                {activeTask.browser_config?.useOwnBrowser && (
+                  <Alert>
+                    <Info className="h-4 w-4" />
+                    <AlertDescription>
+                      This task is using your own Chrome browser at: {activeTask.browser_config.chromePath}
+                    </AlertDescription>
+                  </Alert>
+                )}
                 
                 {activeTask.live_url && (
                   <div>
@@ -375,8 +455,7 @@ const BrowserUsePage = () => {
                   {tasks.map(task => (
                     <Card key={task.id} className="overflow-hidden cursor-pointer hover:border-blue-300 transition-colors" onClick={() => {
                       setActiveTask(task);
-                      const tabTrigger = document.querySelector('[data-state="inactive"][value="viewing"]') as HTMLButtonElement;
-                      if (tabTrigger) tabTrigger.click();
+                      setActiveTab("viewing");
                     }}>
                       <div className="flex items-center p-4">
                         <div className="flex-1">
@@ -408,6 +487,55 @@ const BrowserUsePage = () => {
               <Button variant="outline" onClick={fetchTasks}>
                 <RotateCcw className="h-4 w-4 mr-2" />
                 Refresh
+              </Button>
+            </CardFooter>
+          </Card>
+        </TabsContent>
+        
+        <TabsContent value="settings">
+          <Card>
+            <CardHeader>
+              <CardTitle>Browser Settings</CardTitle>
+              <CardDescription>
+                Configure how the browser operates for automation tasks
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <BrowserSettings 
+                browserConfig={browserConfig} 
+                onConfigChange={setBrowserConfig}
+                isProcessing={isTaskLoading}
+              />
+              
+              {browserConfig.useOwnBrowser && (
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border border-blue-100">
+                  <h3 className="font-medium text-blue-800 mb-2">Using Your Own Browser</h3>
+                  <p className="text-sm text-blue-700 mb-3">
+                    When using your own browser, you must:
+                  </p>
+                  <ul className="text-sm text-blue-700 list-disc pl-5 space-y-1">
+                    <li>Make sure Chrome/Chromium is installed on your system</li>
+                    <li>Provide the correct absolute path to the Chrome executable</li>
+                    <li>Ensure you have appropriate permissions to launch Chrome</li>
+                    <li>Consider using a dedicated Chrome profile for automation</li>
+                  </ul>
+                  <div className="mt-4">
+                    <h4 className="font-medium text-blue-800 mb-1">Common Chrome Executable Paths:</h4>
+                    <ul className="text-xs text-blue-700 space-y-1">
+                      <li><strong>Windows:</strong> C:\Program Files\Google\Chrome\Application\chrome.exe</li>
+                      <li><strong>macOS:</strong> /Applications/Google Chrome.app/Contents/MacOS/Google Chrome</li>
+                      <li><strong>Linux:</strong> /usr/bin/google-chrome or /usr/bin/chromium-browser</li>
+                    </ul>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+            <CardFooter className="flex justify-between">
+              <Button variant="outline" onClick={() => setBrowserConfig(getDefaultBrowserConfig())}>
+                Reset to Defaults
+              </Button>
+              <Button onClick={() => setActiveTab("create")}>
+                Save and Return
               </Button>
             </CardFooter>
           </Card>

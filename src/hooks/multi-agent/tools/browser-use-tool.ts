@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 interface BrowserUseToolParams {
   task: string;
   environment?: string;
+  browser_config?: any;
 }
 
 export const browserUseTool = {
@@ -22,6 +23,11 @@ export const browserUseTool = {
       description: "Environment to use (browser or desktop)",
       enum: ["browser", "desktop"],
       default: "browser"
+    },
+    browser_config: {
+      type: "object",
+      description: "Optional browser configuration including headless mode, resolution, user agent, etc.",
+      optional: true
     }
   },
   execute: async (params: BrowserUseToolParams, context: any): Promise<ToolResult> => {
@@ -69,7 +75,8 @@ export const browserUseTool = {
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: {
           task: params.task,
-          environment: params.environment || "browser"
+          environment: params.environment || "browser",
+          browser_config: params.browser_config
         }
       });
 

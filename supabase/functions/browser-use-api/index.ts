@@ -42,7 +42,96 @@ serve(async (req) => {
     }
     
     // Get request body
-    const { task, environment = "browser" } = await req.json();
+    const requestData = await req.json();
+    
+    // Handle different action types
+    const action = requestData.action;
+    
+    // For GET, LIST, PAUSE, RESUME, STOP operations
+    if (action) {
+      console.log(`Handling action: ${action}`);
+      
+      // Task management operations
+      if (action === 'get' && requestData.taskId) {
+        // Get task details
+        const options = {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
+        };
+        
+        const response = await fetch(`${BROWSER_USE_API_URL}/task/${requestData.taskId}`, options);
+        const data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'list') {
+        // List tasks
+        const options = {
+          method: 'GET',
+          headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
+        };
+        
+        const response = await fetch(`${BROWSER_USE_API_URL}/tasks`, options);
+        const data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'stop' && requestData.taskId) {
+        // Stop task
+        const options = {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
+        };
+        
+        const response = await fetch(`${BROWSER_USE_API_URL}/stop-task?task_id=${requestData.taskId}`, options);
+        const data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'pause' && requestData.taskId) {
+        // Pause task
+        const options = {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
+        };
+        
+        const response = await fetch(`${BROWSER_USE_API_URL}/pause-task?task_id=${requestData.taskId}`, options);
+        const data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      } else if (action === 'resume' && requestData.taskId) {
+        // Resume task
+        const options = {
+          method: 'PUT',
+          headers: { 'Authorization': `Bearer ${BROWSER_USE_API_KEY}` }
+        };
+        
+        const response = await fetch(`${BROWSER_USE_API_URL}/resume-task?task_id=${requestData.taskId}`, options);
+        const data = await response.json();
+        
+        return new Response(
+          JSON.stringify(data),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      return new Response(
+        JSON.stringify({ error: 'Invalid action or missing required parameters' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+
+    // Below is for starting a new task
+    const { task, environment = "browser", browser_config } = requestData;
     
     if (!task) {
       return new Response(
@@ -79,6 +168,18 @@ serve(async (req) => {
       );
     }
     
+    // Prepare request body for Browser Use API
+    const requestBody: any = {
+      task: task,
+      save_browser_data: true
+    };
+    
+    // Include browser configuration if provided
+    if (browser_config) {
+      console.log("Using custom browser configuration:", JSON.stringify(browser_config));
+      requestBody.browser_config = browser_config;
+    }
+    
     // Start a task using the Browser Use API
     const options = {
       method: 'POST',
@@ -86,10 +187,7 @@ serve(async (req) => {
         'Authorization': `Bearer ${BROWSER_USE_API_KEY}`,
         'Content-Type': 'application/json'
       },
-      body: JSON.stringify({
-        task: task,
-        save_browser_data: true
-      })
+      body: JSON.stringify(requestBody)
     };
     
     console.log(`Starting browser task: ${task}`);
@@ -113,7 +211,8 @@ serve(async (req) => {
         task_id: data.id,
         task_description: task,
         environment: environment,
-        status: 'running'
+        status: 'running',
+        browser_config: browser_config || null
       })
       .select()
       .single();

@@ -16,12 +16,10 @@ import {
   Bell,
   PlusSquare,
   LucideIcon,
-  Users,
   Globe,
   Camera,
   ImagePlus,
-  Film,
-  Video
+  Film
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";

@@ -70,6 +70,7 @@ export function BrowserUseApp() {
   // Handle template selection - update both the task input and browser config
   const handleTemplateSelection = (template) => {
     if (template && template.task_input) {
+      // Update the task input with the template's task input
       setTaskInput(template.task_input);
       
       // Update browser config if available

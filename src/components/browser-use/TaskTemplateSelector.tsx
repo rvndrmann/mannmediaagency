@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { Plus, Save, Trash2, Copy, FileText } from "lucide-react";
+import { Plus, Save, Trash2, Copy, FileText, LayoutGrid } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { BrowserConfig } from "@/hooks/browser-use/types";
@@ -42,6 +42,7 @@ export function TaskTemplateSelector({
   const [templates, setTemplates] = useState<TaskTemplate[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [showSaveDialog, setShowSaveDialog] = useState(false);
+  const [showTemplatesGrid, setShowTemplatesGrid] = useState(false);
   const [newTemplate, setNewTemplate] = useState({
     name: '',
     description: '',
@@ -147,61 +148,93 @@ export function TaskTemplateSelector({
     }
   };
 
+  const handleTemplateSelection = (template: TaskTemplate) => {
+    onSelectTemplate(template);
+    setShowTemplatesGrid(false);
+  };
+
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
-        <h3 className="text-lg font-medium">Task Templates</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-lg font-medium">Task Templates</h3>
+          {templates.length > 0 && (
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={() => setShowTemplatesGrid(true)}
+              className="flex items-center gap-1"
+            >
+              <LayoutGrid className="h-4 w-4" />
+              Browse Templates
+            </Button>
+          )}
+        </div>
         <Button 
           variant="outline" 
           size="sm" 
           onClick={() => setShowSaveDialog(true)}
           className="flex items-center gap-1"
+          disabled={!currentTaskInput.trim()}
         >
           <Save className="h-4 w-4" />
           Save as Template
         </Button>
       </div>
 
-      {templates.length === 0 ? (
-        <div className="text-center py-6 text-gray-500">
-          <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
-          <p>No templates saved yet</p>
-          <p className="text-sm">Save your current task configuration as a template for future use</p>
-        </div>
-      ) : (
-        <ScrollArea className="h-[200px]">
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-            {templates.map((template) => (
-              <Card 
-                key={template.id} 
-                className="cursor-pointer hover:border-primary transition-colors"
-                onClick={() => onSelectTemplate(template)}
-              >
-                <CardContent className="p-3">
-                  <div className="flex justify-between items-start">
-                    <div>
-                      <h4 className="font-medium">{template.name}</h4>
-                      {template.description && (
-                        <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
-                      )}
-                      <p className="text-xs text-gray-400 mt-2 line-clamp-2">{template.task_input}</p>
-                    </div>
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
-                      className="h-8 w-8 p-0 rounded-full"
-                      onClick={(e) => deleteTemplate(template.id, e)}
-                    >
-                      <Trash2 className="h-4 w-4 text-red-500" />
-                      <span className="sr-only">Delete</span>
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
-      )}
+      {/* Template Selection Dialog */}
+      <Dialog open={showTemplatesGrid} onOpenChange={setShowTemplatesGrid}>
+        <DialogContent className="sm:max-w-[700px] max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle>Select a Template</DialogTitle>
+          </DialogHeader>
+          <ScrollArea className="h-[500px] pr-4 mt-4">
+            {templates.length === 0 ? (
+              <div className="text-center py-6 text-gray-500">
+                <FileText className="h-12 w-12 mx-auto mb-2 opacity-50" />
+                <p>No templates saved yet</p>
+                <p className="text-sm">Save your current task configuration as a template for future use</p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                {templates.map((template) => (
+                  <Card 
+                    key={template.id} 
+                    className="cursor-pointer hover:border-primary transition-colors"
+                    onClick={() => handleTemplateSelection(template)}
+                  >
+                    <CardContent className="p-3">
+                      <div className="flex justify-between items-start">
+                        <div>
+                          <h4 className="font-medium">{template.name}</h4>
+                          {template.description && (
+                            <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
+                          )}
+                          <p className="text-xs text-gray-400 mt-2 line-clamp-2">{template.task_input}</p>
+                        </div>
+                        <div className="flex gap-1">
+                          <Button 
+                            variant="ghost" 
+                            size="sm" 
+                            className="h-8 w-8 p-0 rounded-full"
+                            onClick={(e) => deleteTemplate(template.id, e)}
+                          >
+                            <Trash2 className="h-4 w-4 text-red-500" />
+                            <span className="sr-only">Delete</span>
+                          </Button>
+                        </div>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </ScrollArea>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowTemplatesGrid(false)}>Cancel</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Save Template Dialog */}
       <Dialog open={showSaveDialog} onOpenChange={setShowSaveDialog}>

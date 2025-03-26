@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -18,7 +19,6 @@ import { Badge } from "@/components/ui/badge";
 import { TaskInputWithPreview } from "@/components/browser-use/TaskInputWithPreview";
 import { ChevronLeft } from "lucide-react";
 import { TaskTemplateSelector } from "@/components/browser-use/TaskTemplateSelector";
-import { TaskScheduler } from "@/components/browser-use/TaskScheduler";
 import { ScheduledTasksList } from "@/components/browser-use/ScheduledTasksList";
 import { SensitiveDataManager } from "@/components/browser-use/SensitiveDataManager";
 import { ProxyHelper } from "@/components/browser-use/ProxyHelper";
@@ -382,10 +382,14 @@ const BrowserUsePage = () => {
                 >
                   Configure Browser
                 </Button>
-                <TaskScheduler 
-                  taskInput={taskInput}
-                  browserConfig={browserConfig}
-                />
+                <Button
+                  variant="outline"
+                  onClick={() => setActiveTab("scheduled")}
+                  disabled={isTaskLoading}
+                >
+                  <CalendarDays className="h-4 w-4 mr-2" />
+                  View Scheduled Tasks
+                </Button>
               </div>
               <Button onClick={startNewTask} disabled={isTaskLoading || !taskInput.trim()}>
                 {isTaskLoading ? (
@@ -589,6 +593,23 @@ const BrowserUsePage = () => {
               </CardDescription>
             </CardHeader>
             <CardContent>
+              <div className="mb-4">
+                <Button 
+                  onClick={() => {
+                    if (!taskInput.trim()) {
+                      toast.error("Please create a task in the Create Task tab first");
+                      setActiveTab("create");
+                      return;
+                    }
+                    // Show the schedule dialog that we'll create next
+                    document.getElementById("schedule-task-button")?.click();
+                  }}
+                  className="flex items-center gap-2"
+                >
+                  <CalendarDays className="h-4 w-4" />
+                  Schedule Current Task
+                </Button>
+              </div>
               <ScheduledTasksList />
             </CardContent>
           </Card>
@@ -682,6 +703,15 @@ const BrowserUsePage = () => {
           </Card>
         </TabsContent>
       </Tabs>
+      
+      {/* Floating invisible button that will be clicked programmatically */}
+      <div className="hidden">
+        <TaskScheduler 
+          taskInput={taskInput}
+          browserConfig={browserConfig}
+          triggerId="schedule-task-button"
+        />
+      </div>
     </div>
   );
 };

@@ -32,9 +32,10 @@ import { Separator } from "@/components/ui/separator";
 interface TaskSchedulerProps {
   taskInput: string;
   browserConfig: BrowserConfig;
+  triggerId?: string;
 }
 
-export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) {
+export function TaskScheduler({ taskInput, browserConfig, triggerId }: TaskSchedulerProps) {
   const [open, setOpen] = useState(false);
   const [date, setDate] = useState<Date>(addDays(new Date(), 1));
   const [time, setTime] = useState("09:00");
@@ -127,7 +128,7 @@ export function TaskScheduler({ taskInput, browserConfig }: TaskSchedulerProps) 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="outline" className="flex items-center gap-2">
+        <Button id={triggerId} variant="outline" className="flex items-center gap-2">
           <CalendarDays className="h-4 w-4" />
           Schedule Task
         </Button>

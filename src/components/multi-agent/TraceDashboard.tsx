@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -9,8 +10,20 @@ import { formatDistanceToNow } from 'date-fns';
 import { Loader2, RefreshCw } from 'lucide-react';
 import { TraceViewer, Trace } from './TraceViewer';
 
+interface TraceItem {
+  id: string;
+  timestamp: string;
+  group_id?: string;
+  metadata: any;
+  runId: string;
+  summary: any;
+  startTime: string;
+  endTime: string;
+  events: any[];
+}
+
 export const TraceDashboard: React.FC = () => {
-  const [traces, setTraces] = useState<any[]>([]);
+  const [traces, setTraces] = useState<TraceItem[]>([]);
   const [selectedTrace, setSelectedTrace] = useState<Trace | null>(null);
   const [loading, setLoading] = useState(true);
   
@@ -39,7 +52,7 @@ export const TraceDashboard: React.FC = () => {
         return {
           id: item.id,
           timestamp: item.timestamp,
-          groupId: item.group_id,
+          group_id: item.group_id || '',
           metadata: item.metadata,
           // Safely extract trace properties
           runId: traceData.runId || '',
@@ -84,7 +97,13 @@ export const TraceDashboard: React.FC = () => {
         events: traceData.events || [],
         startTime: traceData.startTime || '',
         endTime: traceData.endTime || '',
-        summary: traceData.summary || {}
+        summary: traceData.summary || {
+          agentTypes: [],
+          handoffs: 0,
+          toolCalls: 0,
+          success: false,
+          duration: 0
+        }
       };
       
       setSelectedTrace(trace);
@@ -129,7 +148,7 @@ export const TraceDashboard: React.FC = () => {
                         </p>
                       </div>
                       <div>
-                        <Badge variant="secondary">{trace.groupId}</Badge>
+                        <Badge variant="secondary">{trace.group_id}</Badge>
                       </div>
                       <div>
                         <Button variant="outline" size="sm" onClick={() => viewTraceDetails(trace.runId)}>

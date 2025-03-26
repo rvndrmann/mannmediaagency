@@ -9,6 +9,15 @@ export type TraceEvent = {
   data: any;
 };
 
+export type TraceSummary = {
+  agentTypes: string[];
+  handoffs: number;
+  toolCalls: number;
+  success: boolean;
+  duration: number;
+  messageCount?: number;
+};
+
 export type Trace = {
   id: string;
   runId: string;
@@ -18,14 +27,7 @@ export type Trace = {
   events: TraceEvent[];
   startTime: string;
   endTime?: string;
-  summary?: {
-    agentTypes: string[];
-    handoffs: number;
-    toolCalls: number;
-    success: boolean;
-    duration: number;
-    messageCount?: number;
-  };
+  summary?: TraceSummary;
 };
 
 // Function to safely access trace data from metadata
@@ -105,9 +107,7 @@ export const saveTrace = async (trace: Trace): Promise<void> => {
       
       // If existingTrace.events exists and is an array, add them to updatedEvents
       if (existingTrace.events && Array.isArray(existingTrace.events)) {
-        for (const event of existingTrace.events) {
-          updatedEvents.push(event);
-        }
+        updatedEvents.push(...existingTrace.events);
       }
       
       // Add the new events, safely appending to existing
@@ -182,7 +182,7 @@ export const createTraceEvent = (
 };
 
 // Function to generate a summary from trace events
-export const generateTraceSummary = (trace: Trace): Trace['summary'] => {
+export const generateTraceSummary = (trace: Trace): TraceSummary => {
   // Extract unique agent types
   const agentTypes = [...new Set(
     trace.events

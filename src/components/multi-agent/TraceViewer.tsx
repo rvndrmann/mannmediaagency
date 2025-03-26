@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,15 @@ export interface TraceEvent {
   data: any;
 }
 
+export interface TraceSummary {
+  agentTypes: string[];
+  handoffs: number;
+  toolCalls: number;
+  success: boolean;
+  duration: number;
+  messageCount?: number;
+}
+
 export interface Trace {
   id: string;
   runId: string;
@@ -23,14 +33,7 @@ export interface Trace {
   events: TraceEvent[];
   startTime: string;
   endTime?: string;
-  summary?: {
-    agentTypes: string[];
-    handoffs: number;
-    toolCalls: number;
-    success: boolean;
-    duration: number;
-    messageCount?: number;
-  };
+  summary?: TraceSummary;
 }
 
 interface TraceProps {
@@ -42,7 +45,7 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
   
   // Safe access to trace properties with fallbacks
   const events = trace?.events || [];
-  const summary = trace?.summary || {};
+  const summary = trace?.summary || { agentTypes: [], handoffs: 0, toolCalls: 0, success: false, duration: 0 };
   const startTime = trace?.startTime || '';
   const endTime = trace?.endTime || '';
   
@@ -88,12 +91,12 @@ export const TraceViewer: React.FC<TraceProps> = ({ trace }) => {
     </Card>
   );
   
-  // Safely access summary properties with fallbacks
-  const agentTypes = summary?.agentTypes || [];
-  const success = summary?.success || false;
-  const handoffs = summary?.handoffs || 0;
-  const toolCalls = summary?.toolCalls || 0;
-  const duration = summary?.duration || 0;
+  // Safely access summary properties with fallbacks from the properly typed summary object
+  const agentTypes = summary.agentTypes || [];
+  const success = summary.success || false;
+  const handoffs = summary.handoffs || 0;
+  const toolCalls = summary.toolCalls || 0;
+  const duration = summary.duration || 0;
   
   return (
     <div className="space-y-4">

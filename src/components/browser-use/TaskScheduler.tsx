@@ -37,7 +37,7 @@ interface TaskSchedulerProps {
 
 export function TaskScheduler({ taskInput, browserConfig, triggerId }: TaskSchedulerProps) {
   const [open, setOpen] = useState(false);
-  const [date, setDate] = useState<Date>(addDays(new Date(), 1));
+  const [date, setDate] = useState<Date>(new Date()); // Default to today instead of tomorrow
   const [time, setTime] = useState("09:00");
   const [scheduleType, setScheduleType] = useState<string>("once");
   const [repeatInterval, setRepeatInterval] = useState<string>("1 day");
@@ -189,7 +189,14 @@ export function TaskScheduler({ taskInput, browserConfig, triggerId }: TaskSched
               selected={date}
               onSelect={(date) => date && setDate(date)}
               initialFocus
-              disabled={(date) => date < new Date()}
+              disabled={(date) => {
+                // Only disable dates in the past (before today)
+                const today = new Date();
+                today.setHours(0, 0, 0, 0);
+                const compareDate = new Date(date);
+                compareDate.setHours(0, 0, 0, 0);
+                return compareDate < today;
+              }}
               className="rounded-md border"
             />
           </div>

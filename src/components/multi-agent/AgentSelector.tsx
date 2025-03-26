@@ -1,4 +1,3 @@
-
 import React from 'react';
 import { Bot, PenLine, Image, Wrench, FileText } from 'lucide-react';
 import { AgentInfo } from '@/types/message';
@@ -8,7 +7,7 @@ interface AgentSelectorProps {
   selectedAgentId: string;
 }
 
-const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selectedAgentId }) => {
+export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selectedAgentId }) => {
   // Built-in agent definitions with required type and isBuiltIn properties
   const agents: AgentInfo[] = [
     {

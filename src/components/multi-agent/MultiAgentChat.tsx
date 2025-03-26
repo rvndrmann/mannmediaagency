@@ -1,4 +1,3 @@
-
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -173,7 +172,7 @@ export const MultiAgentChat = () => {
       </header>
       
       <div className="flex-1 container mx-auto max-w-4xl px-4 pb-2 pt-2 flex flex-col h-full overflow-hidden">
-        <AgentSelector activeAgent={activeAgent} onAgentSelect={switchAgent} />
+        <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
         
         {showInstructions && <AgentInstructionsTable activeAgent={activeAgent} />}
         

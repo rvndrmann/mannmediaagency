@@ -1,11 +1,11 @@
-
-import { BrowserConfig } from "@/hooks/browser-use/types";
+import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { SensitiveDataManager } from "./SensitiveDataManager";
 
 export interface BrowserSettingsProps {
   browserConfig: BrowserConfig;
@@ -42,6 +42,14 @@ export function BrowserSettings({
     const parsed = parseFloat(value);
     return isNaN(parsed) ? 0 : parsed;
   };
+
+  // Handler for updating sensitive data
+  const updateSensitiveData = (data: SensitiveDataItem[]) => {
+    onConfigChange({
+      ...browserConfig,
+      sensitiveData: data
+    });
+  };
   
   return (
     <div className="space-y-6">
@@ -58,7 +66,7 @@ export function BrowserSettings({
           <AccordionTrigger>Basic Settings</AccordionTrigger>
           <AccordionContent>
             <div className="space-y-4">
-              <div className="grid gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <Label htmlFor="resolution">Resolution</Label>
@@ -323,6 +331,17 @@ export function BrowserSettings({
                 </p>
               </div>
             </div>
+          </AccordionContent>
+        </AccordionItem>
+        
+        <AccordionItem value="sensitive-data">
+          <AccordionTrigger>Sensitive Data</AccordionTrigger>
+          <AccordionContent>
+            <SensitiveDataManager 
+              sensitiveData={browserConfig.sensitiveData || []}
+              onChange={updateSensitiveData}
+              disabled={isProcessing}
+            />
           </AccordionContent>
         </AccordionItem>
       </Accordion>

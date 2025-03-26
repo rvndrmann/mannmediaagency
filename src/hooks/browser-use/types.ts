@@ -1,4 +1,3 @@
-
 export type TaskStatus = 'idle' | 'pending' | 'created' | 'running' | 'paused' | 'completed' | 'stopped' | 'failed' | 'expired' | 'finished';
 
 export interface TaskStep {
@@ -45,6 +44,11 @@ export interface DesktopConfig {
   allowNetworkAccess: boolean;
 }
 
+export interface SensitiveDataItem {
+  key: string;
+  value: string;
+}
+
 export interface BrowserConfig {
   // Browser core settings
   headless: boolean;
@@ -73,6 +77,9 @@ export interface BrowserConfig {
   taskTemplates?: string[];
   desktopTimeout?: number;
   streamDesktop?: boolean;
+  
+  // Sensitive data handling
+  sensitiveData?: SensitiveDataItem[];
   
   // Context configuration
   contextConfig?: {

@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { toast } from "sonner";
-import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor } from "lucide-react";
+import { Loader2, Play, Pause, StopCircle, RotateCcw, ExternalLink, Info, Monitor, Key } from "lucide-react";
 import { formatDate } from "@/lib/utils";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { BrowserSettings } from "@/components/browser-use/BrowserSettings";
@@ -285,6 +285,25 @@ const BrowserUsePage = () => {
                   </AlertDescription>
                 </Alert>
               )}
+              
+              {(browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) && (
+                <Alert className="bg-blue-50 border-blue-200">
+                  <Key className="h-4 w-4 text-blue-600" />
+                  <AlertDescription className="text-blue-700">
+                    <strong>Sensitive data placeholders available:</strong>
+                    <ul className="list-disc pl-5 mt-1 space-y-1">
+                      {browserConfig.sensitiveData.map((item, index) => (
+                        <li key={index}><code className="bg-blue-100 px-1 rounded">{item.key}</code></li>
+                      ))}
+                    </ul>
+                    <p className="mt-2 text-sm">
+                      Use these placeholders in your task to securely reference sensitive information.
+                      <br />
+                      Example: "Go to example.com and login with username 'admin' and password '{browserConfig.sensitiveData[0]?.key || "my_password"}'."
+                    </p>
+                  </AlertDescription>
+                </Alert>
+              )}
             </CardContent>
             <CardFooter className="flex justify-between">
               <Button 
@@ -503,6 +522,21 @@ const BrowserUsePage = () => {
                       <li><strong>Linux:</strong> /usr/bin/google-chrome or /usr/bin/chromium-browser</li>
                     </ul>
                   </div>
+                </div>
+              )}
+              
+              {(browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) && (
+                <div className="mt-6 p-4 bg-yellow-50 rounded-lg border border-yellow-100">
+                  <h3 className="font-medium text-yellow-800 mb-2">Using Sensitive Data</h3>
+                  <p className="text-sm text-yellow-700 mb-3">
+                    You have configured {browserConfig.sensitiveData.length} sensitive data placeholders.
+                  </p>
+                  <ul className="text-sm text-yellow-700 list-disc pl-5 space-y-1">
+                    <li>Use these placeholder keys in your task description</li>
+                    <li>The actual values will be securely substituted when the task runs</li>
+                    <li>Example: "Login with username 'admin' and password '{browserConfig.sensitiveData[0]?.key || "my_password"}'."</li>
+                    <li>The model only sees the placeholder name, never the actual value</li>
+                  </ul>
                 </div>
               )}
             </CardContent>

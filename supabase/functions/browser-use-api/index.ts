@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -212,6 +211,19 @@ serve(async (req) => {
       
       // Transform the configuration to match the API's expected format
       const apiConfig: any = { ...browserConfig };
+      
+      // Handle sensitive data if present
+      if (browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
+        const sensitiveDataMap: Record<string, string> = {};
+        
+        // Convert to the format expected by the API
+        browserConfig.sensitiveData.forEach(item => {
+          sensitiveDataMap[item.key] = item.value;
+        });
+        
+        apiConfig.sensitive_data = sensitiveDataMap;
+        delete apiConfig.sensitiveData;
+      }
       
       // Handle connection methods specifically
       if (browserConfig.wssUrl) {

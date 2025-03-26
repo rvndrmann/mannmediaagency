@@ -96,6 +96,47 @@ export type Database = {
         }
         Relationships: []
       }
+      agent_orchestration_workflows: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          current_stage: string | null
+          id: string
+          order_id: string
+          status: string
+          updated_at: string
+          workflow_data: Json | null
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          current_stage?: string | null
+          id?: string
+          order_id: string
+          status?: string
+          updated_at?: string
+          workflow_data?: Json | null
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          current_stage?: string | null
+          id?: string
+          order_id?: string
+          status?: string
+          updated_at?: string
+          workflow_data?: Json | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_orchestration_workflows_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       ai_prompts: {
         Row: {
           category: string
@@ -1259,6 +1300,53 @@ export type Database = {
           user_id?: string
         }
         Relationships: []
+      }
+      order_processing_stages: {
+        Row: {
+          agent_type: string
+          completed_at: string | null
+          created_at: string
+          id: string
+          input_data: Json | null
+          order_id: string
+          output_data: Json | null
+          stage_name: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          agent_type: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          input_data?: Json | null
+          order_id: string
+          output_data?: Json | null
+          stage_name: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          agent_type?: string
+          completed_at?: string | null
+          created_at?: string
+          id?: string
+          input_data?: Json | null
+          order_id?: string
+          output_data?: Json | null
+          stage_name?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_processing_stages_order_id_fkey"
+            columns: ["order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       payment_links: {
         Row: {
@@ -2661,6 +2749,12 @@ export type Database = {
           amount: number
         }
         Returns: boolean
+      }
+      start_order_orchestration: {
+        Args: {
+          order_id_param: string
+        }
+        Returns: string
       }
       update_custom_order_status: {
         Args: {

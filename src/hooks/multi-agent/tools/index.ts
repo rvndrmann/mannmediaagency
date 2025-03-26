@@ -3,12 +3,14 @@ import { ToolDefinition } from "../types";
 import { productShotV1Tool } from "./product-shot-v1-tool";
 import { productShotV2Tool } from "./product-shot-v2-tool";
 import { imageToVideoTool } from "./image-to-video-tool";
+import { browserUseTool } from "./browser-use-tool";
 
 // Registry of all available tools
 const toolRegistry: Record<string, ToolDefinition> = {
   "product-shot-v1": productShotV1Tool,
   "product-shot-v2": productShotV2Tool,
   "image-to-video": imageToVideoTool,
+  "browser-use": browserUseTool
 };
 
 // Export the tool registry

@@ -151,15 +151,15 @@ export function TaskTemplateSelector({
   };
 
   const handleTemplateSelection = (template: TaskTemplate) => {
-    // Pass the entire template object to the onSelectTemplate callback
+    console.log("Template selected in TaskTemplateSelector:", template);
+    console.log("Template task_input:", template.task_input);
+    
+    // Make sure we're passing the full template object to the callback
     onSelectTemplate(template);
     setShowTemplatesGrid(false);
     
     // Add a toast notification to improve user feedback
     toast.success(`Template "${template.name}" loaded`);
-    
-    // Log for debugging
-    console.log("Template selected:", template);
   };
 
   // Render a grid of templates directly in the component
@@ -230,7 +230,38 @@ export function TaskTemplateSelector({
           </div>
         ) : (
           <>
-            {renderTemplateGrid()}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 mt-3">
+              {templates.map((template) => (
+                <Card 
+                  key={template.id} 
+                  className="cursor-pointer hover:border-primary transition-colors"
+                  onClick={() => handleTemplateSelection(template)}
+                >
+                  <CardContent className="p-3">
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h4 className="font-medium">{template.name}</h4>
+                        {template.description && (
+                          <p className="text-sm text-gray-500 mt-1 line-clamp-2">{template.description}</p>
+                        )}
+                        <p className="text-xs text-gray-400 mt-2 line-clamp-2">{template.task_input}</p>
+                      </div>
+                      <div className="flex gap-1">
+                        <Button 
+                          variant="ghost" 
+                          size="sm" 
+                          className="h-8 w-8 p-0 rounded-full"
+                          onClick={(e) => deleteTemplate(template.id, e)}
+                        >
+                          <Trash2 className="h-4 w-4 text-red-500" />
+                          <span className="sr-only">Delete</span>
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
             <div className="flex justify-end mt-3">
               <Button 
                 variant="outline" 

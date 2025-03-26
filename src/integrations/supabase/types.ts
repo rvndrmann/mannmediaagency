@@ -607,6 +607,128 @@ export type Database = {
         }
         Relationships: []
       }
+      canvas_media_assets: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          project_id: string
+          scene_id: string | null
+          type: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          project_id: string
+          scene_id?: string | null
+          type: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          project_id?: string
+          scene_id?: string | null
+          type?: string
+          url?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_media_assets_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_projects"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "canvas_media_assets_scene_id_fkey"
+            columns: ["scene_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_scenes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      canvas_projects: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      canvas_scenes: {
+        Row: {
+          created_at: string
+          duration: number | null
+          id: string
+          image_prompt: string | null
+          image_url: string | null
+          project_id: string
+          scene_order: number
+          script: string | null
+          title: string
+          updated_at: string
+          video_url: string | null
+        }
+        Insert: {
+          created_at?: string
+          duration?: number | null
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          project_id: string
+          scene_order: number
+          script?: string | null
+          title: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Update: {
+          created_at?: string
+          duration?: number | null
+          id?: string
+          image_prompt?: string | null
+          image_url?: string | null
+          project_id?: string
+          scene_order?: number
+          script?: string | null
+          title?: string
+          updated_at?: string
+          video_url?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "canvas_scenes_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       chat_usage: {
         Row: {
           created_at: string | null

@@ -13,7 +13,7 @@ export interface CanvasScene {
   id: string;
   projectId: string;
   title: string;
-  order: number;
+  order: number; // We'll map this to scene_order in the database
   script?: string;
   imagePrompt?: string;
   imageUrl?: string;

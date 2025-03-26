@@ -29,7 +29,7 @@ export const useCanvas = (projectId?: string) => {
           .from('canvas_scenes')
           .select('*')
           .eq('project_id', projectId)
-          .order('order', { ascending: true });
+          .order('scene_order', { ascending: true });
 
         if (scenesError) throw scenesError;
 
@@ -44,7 +44,7 @@ export const useCanvas = (projectId?: string) => {
             id: scene.id,
             projectId: scene.project_id,
             title: scene.title,
-            order: scene.order,
+            order: scene.scene_order, // Map scene_order to order
             script: scene.script,
             imagePrompt: scene.image_prompt,
             imageUrl: scene.image_url,
@@ -95,7 +95,7 @@ export const useCanvas = (projectId?: string) => {
         id: sceneId,
         project_id: newProjectId,
         title: 'Scene 1',
-        order: 0
+        scene_order: 0 // Use scene_order instead of order
       });
 
       if (sceneError) throw sceneError;
@@ -123,7 +123,7 @@ export const useCanvas = (projectId?: string) => {
         id: sceneId,
         project_id: project.id,
         title: `Scene ${newSceneOrder + 1}`,
-        order: newSceneOrder
+        scene_order: newSceneOrder // Use scene_order instead of order
       });
 
       if (error) throw error;
@@ -198,6 +198,23 @@ export const useCanvas = (projectId?: string) => {
           setSelectedSceneId(remainingScenes[0].id);
         } else {
           setSelectedSceneId(null);
+        }
+      }
+      
+      // Update scene_order for all remaining scenes in the database
+      const { data: remainingScenes } = await supabase
+        .from('canvas_scenes')
+        .select('*')
+        .eq('project_id', project.id)
+        .order('scene_order', { ascending: true });
+      
+      if (remainingScenes && remainingScenes.length > 0) {
+        // Update each scene's order
+        for (let i = 0; i < remainingScenes.length; i++) {
+          await supabase
+            .from('canvas_scenes')
+            .update({ scene_order: i })
+            .eq('id', remainingScenes[i].id);
         }
       }
     } catch (error) {

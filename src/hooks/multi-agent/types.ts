@@ -3,6 +3,12 @@ import { Attachment } from "@/types/message";
 import { CanvasScene } from "@/types/canvas";
 import { SupabaseClient } from "@supabase/supabase-js";
 
+export enum CommandExecutionState {
+  PENDING = "pending",
+  COMPLETED = "completed",
+  FAILED = "failed"
+}
+
 export interface ToolContext {
   supabase: SupabaseClient;
   runId: string;
@@ -17,6 +23,7 @@ export interface ToolContext {
   toolAvailable?: (toolName: string) => boolean;
   attachments?: Attachment[];
   canvasScene?: CanvasScene;
+  creditsRemaining?: number;
 }
 
 export interface ToolResult {

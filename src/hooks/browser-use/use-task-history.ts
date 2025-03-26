@@ -1,180 +1,163 @@
 
-import { useState, useEffect, useCallback } from "react";
-import { supabase } from "@/integrations/supabase/client";
-import { BrowserTaskHistory, BrowserTaskData, SupabaseBrowserTaskData, TaskStatus } from "./types";
-import { toast } from "sonner";
-import { safeStringify, safeParse } from "@/lib/safe-stringify";
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useAuth } from '@/hooks/use-auth';
+import { BrowserTaskHistory, BrowserTaskData, TaskStatus } from './types';
+import { Json } from '@/integrations/supabase/types';
 
 export function useTaskHistory() {
   const [taskHistory, setTaskHistory] = useState<BrowserTaskHistory[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const { user } = useAuth();
 
-  // Convert BrowserTaskData to a JSON-safe format for Supabase
-  const taskDataToJson = (data: BrowserTaskData | null): any => {
-    if (!data) return null;
+  const fetchTaskHistory = async () => {
+    if (!user) return;
     
-    // Create a new object with transformed properties
-    return {
-      cookies: data.cookies,
-      recordings: data.recordings,
-      screenshots: data.screenshots,
-      // Convert task steps to plain objects if needed
-      steps: data.steps?.map(step => ({
-        step: step.step,
-        next_goal: step.next_goal,
-        evaluation_previous_goal: step.evaluation_previous_goal,
-        id: step.id,
-        status: step.status,
-        description: step.description,
-        details: step.details
-      }))
-    };
-  };
-
-  // Convert from Supabase JSON format back to our typed format
-  const jsonToTaskData = (json: any): BrowserTaskData | null => {
-    if (!json) return null;
+    setIsLoading(true);
+    setError(null);
     
-    return {
-      cookies: json.cookies,
-      recordings: json.recordings,
-      screenshots: json.screenshots,
-      steps: json.steps
-    };
-  };
-
-  const fetchTaskHistory = useCallback(async () => {
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user.user) {
-        throw new Error("User not authenticated");
-      }
-
       const { data, error } = await supabase
-        .from("browser_task_history")
-        .select("*")
-        .eq("user_id", user.user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      // Transform the data to our BrowserTaskHistory format
-      const transformedData: BrowserTaskHistory[] = data.map(item => ({
-        id: item.id,
-        task_input: item.task_input,
-        status: item.status as TaskStatus,
-        user_id: item.user_id,
-        browser_task_id: item.browser_task_id,
-        output: item.output,
-        screenshot_url: item.screenshot_url,
-        result_url: item.result_url,
-        browser_data: jsonToTaskData(item.browser_data),
-        completed_at: item.completed_at,
-        created_at: item.created_at
-      }));
-
-      setTaskHistory(transformedData);
-    } catch (error) {
-      console.error("Error fetching task history:", error);
-      setError(error instanceof Error ? error.message : "Failed to fetch task history");
+        .from('browser_task_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (error) throw error;
+      
+      setTaskHistory(data || []);
+    } catch (err) {
+      console.error('Error fetching task history:', err);
+      setError(err instanceof Error ? err.message : 'Failed to fetch task history');
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  };
 
-  const saveTaskToHistory = useCallback(async (task: Partial<BrowserTaskHistory>) => {
+  const saveTask = async (task: Partial<BrowserTaskHistory>) => {
+    if (!user) return null;
+    
     try {
-      const { data: user } = await supabase.auth.getUser();
-      
-      if (!user.user) {
-        throw new Error("User not authenticated");
-      }
-
       // Make sure required fields are present
-      if (!task.task_input) {
-        throw new Error("task_input is required");
-      }
-
-      if (!task.status) {
-        task.status = 'pending';
-      }
-
-      // Process browser_data to ensure it's JSON-safe
-      const processedTask = {
+      const taskData = {
         ...task,
-        user_id: user.user.id,
-        browser_data: taskDataToJson(task.browser_data || null)
+        user_id: user.id,
+        status: task.status || 'pending' as TaskStatus,
+        task_input: task.task_input || '',
+        // Convert browser_data to JSON to satisfy the typing
+        browser_data: task.browser_data ? JSON.parse(JSON.stringify(task.browser_data)) : null
       };
-
-      const { error } = await supabase
-        .from("browser_task_history")
-        .upsert([processedTask]);
-
-      if (error) {
-        throw error;
-      }
-
-      // Refresh task history after saving
+      
+      const { data, error } = await supabase
+        .from('browser_task_history')
+        .insert(taskData)
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
       await fetchTaskHistory();
-      return true;
-    } catch (error) {
-      console.error("Error saving task:", error);
-      toast.error("Failed to save task to history");
-      return false;
+      return data;
+    } catch (err) {
+      console.error('Error saving task:', err);
+      throw err;
     }
-  }, [fetchTaskHistory]);
+  };
 
-  // Update a task in history
-  const updateTaskHistory = useCallback(async (taskId: string, updates: Partial<BrowserTaskHistory>) => {
+  const updateTask = async (id: string, updates: Partial<BrowserTaskHistory>) => {
+    if (!user) return null;
+    
     try {
-      // Make sure status is always defined if it's being updated
-      if (updates.hasOwnProperty('status') && !updates.status) {
-        updates.status = 'pending';
-      }
-
-      // Process browser_data to ensure it's JSON-safe if it exists
-      const processedUpdates = { 
+      // Ensure browser_data is properly stringified if it exists
+      const updatedData = {
         ...updates,
-        browser_data: updates.browser_data ? taskDataToJson(updates.browser_data) : undefined
+        // Convert browser_data to JSON to satisfy the typing
+        browser_data: updates.browser_data ? JSON.parse(JSON.stringify(updates.browser_data)) : undefined
       };
-
-      const { error } = await supabase
-        .from("browser_task_history")
-        .update(processedUpdates)
-        .eq("id", taskId);
-
-      if (error) {
-        throw error;
-      }
-
-      // Refresh task history after update
+      
+      const { data, error } = await supabase
+        .from('browser_task_history')
+        .update(updatedData)
+        .eq('id', id)
+        .eq('user_id', user.id)
+        .select('*')
+        .single();
+      
+      if (error) throw error;
+      
       await fetchTaskHistory();
-      return true;
-    } catch (error) {
-      console.error("Error updating task:", error);
-      toast.error("Failed to update task");
-      return false;
+      return data;
+    } catch (err) {
+      console.error('Error updating task:', err);
+      throw err;
     }
-  }, [fetchTaskHistory]);
+  };
 
-  // Load task history on mount
+  const saveMultipleTasks = async (tasks: Partial<BrowserTaskHistory>[]) => {
+    if (!user || !tasks.length) return [];
+    
+    try {
+      // Ensure all tasks have the user_id and required fields
+      const tasksToSave = tasks.map(task => ({
+        ...task,
+        user_id: user.id,
+        status: task.status || 'pending' as TaskStatus, 
+        task_input: task.task_input || '',
+        // Convert browser_data to JSON to satisfy the typing
+        browser_data: task.browser_data ? JSON.parse(JSON.stringify(task.browser_data)) : null
+      }));
+      
+      // Use upsert instead of insert for multiple records
+      const { data, error } = await supabase
+        .from('browser_task_history')
+        .upsert(tasksToSave)
+        .select('*');
+      
+      if (error) throw error;
+      
+      await fetchTaskHistory();
+      return data || [];
+    } catch (err) {
+      console.error('Error saving multiple tasks:', err);
+      throw err;
+    }
+  };
+
+  const deleteTask = async (id: string) => {
+    if (!user) return;
+    
+    try {
+      const { error } = await supabase
+        .from('browser_task_history')
+        .delete()
+        .eq('id', id)
+        .eq('user_id', user.id);
+      
+      if (error) throw error;
+      
+      await fetchTaskHistory();
+    } catch (err) {
+      console.error('Error deleting task:', err);
+      throw err;
+    }
+  };
+
+  // Load task history when user changes
   useEffect(() => {
-    fetchTaskHistory();
-  }, [fetchTaskHistory]);
+    if (user) {
+      fetchTaskHistory();
+    }
+  }, [user]);
 
   return {
     taskHistory,
     isLoading,
     error,
     fetchTaskHistory,
-    saveTaskToHistory,
-    updateTaskHistory
+    saveTask,
+    updateTask,
+    saveMultipleTasks,
+    deleteTask
   };
 }

@@ -9,6 +9,9 @@ import { useAgentRunner } from "./multi-agent/runner/AgentRunner";
 
 export type AgentType = "main" | "creative" | "research" | "code" | "image" | "video" | "browser" | "custom" | string;
 
+// Add the missing BUILT_IN_AGENT_TYPES array
+export const BUILT_IN_AGENT_TYPES = ["main", "script", "image", "tool", "scene"];
+
 export interface Environment {
   userId: string;
   sessionId: string;
@@ -33,12 +36,24 @@ export function useMultiAgentChat() {
   const [customAgents, setCustomAgents] = useState<CustomAgentInfo[]>([]);
   const [traceId, setTraceId] = useState<string | null>(null);
   const [currentError, setCurrentError] = useState<string | null>(null);
+  const [input, setInput] = useState(""); // Add missing state for input
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]); // Add missing state for attachments
+  const [usePerformanceModel, setUsePerformanceModel] = useState(false); // Add missing state for performance model toggle
+  const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(false); // Add missing state for direct tool execution
+  const [tracingEnabled, setTracingEnabled] = useState(false); // Add missing state for tracing
+  const [currentConversationId, setCurrentConversationId] = useState<string | null>(null); // Add missing state for conversation ID
+  const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>(null); // Add missing state for user credits
+  
   const { toast } = useToast();
   const traceManager = new TraceManager();
 
   // Load custom agents on mount
   useEffect(() => {
     fetchCustomAgents();
+    // Initialize conversation ID
+    setCurrentConversationId(uuidv4());
+    // Load user credits (mock implementation)
+    setUserCredits({ credits_remaining: 50 });
   }, []);
 
   const fetchCustomAgents = async () => {
@@ -79,6 +94,53 @@ export function useMultiAgentChat() {
     setMessages(prev => [...prev, newMessage]);
     return newMessage;
   }, []);
+
+  // Add missing functions that are being used in MultiAgentChat component
+  const switchAgent = useCallback((agentType: AgentType) => {
+    handleAgentChange(agentType, customAgents.some(a => a.id === agentType));
+  }, [customAgents, handleAgentChange]);
+
+  const clearChat = useCallback(() => {
+    setMessages([]);
+    setInput("");
+    setPendingAttachments([]);
+    setCurrentConversationId(uuidv4());
+  }, []);
+
+  const addAttachments = useCallback((newAttachments: Attachment[]) => {
+    setPendingAttachments(prev => [...prev, ...newAttachments]);
+  }, []);
+
+  const removeAttachment = useCallback((id: string) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== id));
+  }, []);
+
+  const togglePerformanceMode = useCallback(() => {
+    setUsePerformanceModel(prev => !prev);
+  }, []);
+
+  const toggleDirectToolExecution = useCallback(() => {
+    setEnableDirectToolExecution(prev => !prev);
+  }, []);
+
+  const toggleTracing = useCallback(() => {
+    setTracingEnabled(prev => !prev);
+  }, []);
+
+  const handleSubmit = useCallback((e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() && pendingAttachments.length === 0) return;
+
+    const content = input;
+    const attachments = [...pendingAttachments];
+    
+    // Reset input and attachments
+    setInput("");
+    setPendingAttachments([]);
+    
+    // Send the message
+    sendMessage(content, attachments);
+  }, [input, pendingAttachments]);
 
   // This is a simplified placeholder for the actual implementation
   const sendMessage = useCallback(async (
@@ -131,9 +193,27 @@ export function useMultiAgentChat() {
     customAgents,
     traceId,
     currentError,
+    input,
+    setInput,
+    isLoading: isProcessing, // Alias for isProcessing for compatibility
+    activeAgent: currentAgentType, // Alias for currentAgentType for compatibility
+    userCredits,
+    pendingAttachments,
+    usePerformanceModel,
+    enableDirectToolExecution,
+    tracingEnabled,
+    currentConversationId,
     handleAgentChange,
     sendMessage,
     addUserMessage,
     fetchCustomAgents,
+    handleSubmit,
+    switchAgent,
+    clearChat,
+    addAttachments,
+    removeAttachment,
+    togglePerformanceMode,
+    toggleDirectToolExecution,
+    toggleTracing
   };
 }

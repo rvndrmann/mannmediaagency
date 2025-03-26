@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { BrowserTaskState, TaskStep, TaskStatus, UserCredits, BrowserConfig, BrowserUseError } from "./types";
 import { useTaskOperations } from "./use-task-operations";
@@ -190,6 +189,7 @@ export function useBrowserUseTask() {
     stateSetters
   );
 
+  // Use the screenshot hook
   const { captureScreenshot } = useScreenshot(
     currentUrl,
     setScreenshot,

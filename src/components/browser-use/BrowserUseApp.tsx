@@ -8,11 +8,28 @@ import { BrowserConfigPanel } from "./BrowserConfigPanel";
 import { TaskMonitor } from "./TaskMonitor";
 import { BrowserTaskHistory } from "./BrowserTaskHistory";
 import { BrowserView } from "./BrowserView";
-import { Bot, History, Settings, Play, Pause, StopCircle, RotateCw } from "lucide-react";
+import { 
+  Bot, 
+  History, 
+  Settings, 
+  Play, 
+  Pause, 
+  StopCircle, 
+  RotateCw, 
+  Terminal, 
+  Monitor, 
+  Laptop
+} from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Alert, AlertDescription, AlertIcon } from "@/components/ui/alert";
+import { toast } from "sonner";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 
 export function BrowserUseApp() {
   const [activeTab, setActiveTab] = useState("task");
+  const [environmentType, setEnvironmentType] = useState<"browser" | "desktop">("browser");
   
   const {
     taskInput,
@@ -38,12 +55,23 @@ export function BrowserUseApp() {
     taskOutput
   } = useBrowserUseTask();
 
+  const handleStartTask = () => {
+    // Use the selected environment type when starting a task
+    if (environmentType === "desktop" && !browserConfig.useOwnBrowser) {
+      toast.warning("Desktop mode requires using your own browser. Please enable it in Settings tab.");
+      setActiveTab("settings");
+      return;
+    }
+    
+    startTask(environmentType);
+  };
+
   return (
     <div className="container mx-auto py-6 max-w-6xl">
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-2">
           <Bot className="h-6 w-6 text-primary" />
-          <h1 className="text-2xl font-bold">Browser Use API</h1>
+          <h1 className="text-2xl font-bold">Browser Automation</h1>
           {userCredits && (
             <Badge variant="outline" className="ml-2">
               Credits: {userCredits.credits_remaining}
@@ -55,8 +83,8 @@ export function BrowserUseApp() {
       <Tabs defaultValue="task" value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="grid grid-cols-3 mb-4">
           <TabsTrigger value="task" className="flex items-center gap-2">
-            <Play className="h-4 w-4" />
-            <span>Task Execution</span>
+            <Terminal className="h-4 w-4" />
+            <span>Task Setup</span>
           </TabsTrigger>
           <TabsTrigger value="history" className="flex items-center gap-2">
             <History className="h-4 w-4" />
@@ -71,25 +99,57 @@ export function BrowserUseApp() {
         <TabsContent value="task" className="space-y-4">
           <Card className="p-4">
             <div className="space-y-4">
-              <div>
-                <label htmlFor="task-input" className="block text-sm font-medium mb-1">
-                  Task Description
-                </label>
+              <div className="flex flex-row gap-4 items-center">
+                <Label className="font-medium">Environment:</Label>
                 <div className="flex gap-2">
-                  <textarea
+                  <Button 
+                    variant={environmentType === "browser" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => setEnvironmentType("browser")}
+                    className="flex items-center gap-2"
+                  >
+                    <Monitor className="h-4 w-4" />
+                    Browser
+                  </Button>
+                  <Button 
+                    variant={environmentType === "desktop" ? "default" : "outline"} 
+                    size="sm"
+                    onClick={() => setEnvironmentType("desktop")}
+                    className="flex items-center gap-2"
+                  >
+                    <Laptop className="h-4 w-4" />
+                    Desktop
+                  </Button>
+                </div>
+              </div>
+
+              <div>
+                <Label htmlFor="task-input" className="block text-sm font-medium mb-1">
+                  Task Description
+                </Label>
+                <div className="flex gap-2">
+                  <Textarea
                     id="task-input"
                     value={taskInput}
                     onChange={(e) => setTaskInput(e.target.value)}
-                    className="flex-1 min-h-[80px] p-2 border rounded-md"
+                    className="flex-1 min-h-[120px] p-2 border rounded-md"
                     placeholder="Describe what you want the browser to do..."
                     disabled={isProcessing}
                   />
                 </div>
+                
+                {environmentType === "desktop" && !browserConfig.useOwnBrowser && (
+                  <Alert variant="warning" className="mt-3">
+                    <AlertDescription>
+                      Desktop mode requires using your own browser. Please enable it in the Settings tab.
+                    </AlertDescription>
+                  </Alert>
+                )}
               </div>
 
               <div className="flex flex-wrap gap-2">
                 <Button
-                  onClick={startTask}
+                  onClick={handleStartTask}
                   disabled={isProcessing || !taskInput.trim() || !userCredits || userCredits.credits_remaining < 1}
                   className="flex items-center gap-2"
                 >

@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface BrowserUseToolParams {
   task: string;
-  environment?: string;
+  environment?: "browser" | "desktop";
   browser_config?: any;
 }
 
@@ -74,12 +74,28 @@ export const browserUseTool = {
         };
       }
 
+      // Validate environment before calling the edge function
+      const environment = params.environment || "browser";
+      const browser_config = params.browser_config || {};
+      
+      // If desktop mode is selected, make sure useOwnBrowser is enabled
+      if (environment === "desktop" && !browser_config.useOwnBrowser) {
+        toast.error("Desktop mode requires using your own browser");
+        return {
+          success: false,
+          message: "Desktop mode requires using your own browser. Please enable it in the settings.",
+          data: {
+            error: "Desktop mode requires using your own browser"
+          }
+        };
+      }
+
       // Call the edge function to start a browser use task
       const { data, error } = await supabase.functions.invoke("browser-use-api", {
         body: {
           task: params.task,
-          environment: params.environment || "browser",
-          browser_config: params.browser_config
+          environment: environment,
+          browser_config: browser_config
         }
       });
 
@@ -100,9 +116,10 @@ export const browserUseTool = {
         message: "Browser automation task started successfully",
         data: {
           taskId: data.taskId,
-          message: "Browser automation task started successfully",
+          message: `Browser automation task started successfully in ${environment} mode`,
           viewUrl: `/browser-use?task=${data.taskId}`,
-          taskDescription: params.task
+          taskDescription: params.task,
+          environment: environment
         }
       };
     } catch (error) {

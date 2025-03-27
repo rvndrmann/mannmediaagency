@@ -1,12 +1,22 @@
-
 import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject } from "@/types/canvas";
-import { ArrowLeft, Video, Calendar, Clock } from "lucide-react";
+import { ArrowLeft, Video, Calendar, Clock, Trash2 } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle 
+} from "@/components/ui/alert-dialog";
 
 interface ProjectHistoryProps {
   projectId: string;
@@ -16,38 +26,46 @@ interface ProjectHistoryProps {
 export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
   const [projects, setProjects] = useState<CanvasProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
+  const navigate = useNavigate();
+  
+  const fetchProjects = async () => {
+    try {
+      setLoading(true);
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) throw userError;
+      
+      const { data, error } = await supabase
+        .from("canvas_projects")
+        .select("*")
+        .eq("user_id", userData.user?.id)
+        .order("created_at", { ascending: false });
+        
+      if (error) throw error;
+      
+      // Format the data to match CanvasProject type
+      const formattedProjects = data.map(project => ({
+        id: project.id,
+        title: project.title,
+        description: project.description,
+        fullScript: project.full_script,
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
+        userId: project.user_id,
+        scenes: [] // We don't need scenes for the history view
+      }));
+      
+      setProjects(formattedProjects);
+    } catch (error) {
+      console.error("Error fetching projects:", error);
+      toast.error("Failed to load project history");
+    } finally {
+      setLoading(false);
+    }
+  };
   
   useEffect(() => {
-    async function fetchProjects() {
-      try {
-        const { data, error } = await supabase
-          .from("canvas_projects")
-          .select("*")
-          .eq("user_id", (await supabase.auth.getUser()).data.user?.id)
-          .order("created_at", { ascending: false });
-          
-        if (error) throw error;
-        
-        // Format the data to match CanvasProject type
-        const formattedProjects = data.map(project => ({
-          id: project.id,
-          title: project.title,
-          description: project.description,
-          createdAt: project.created_at,
-          updatedAt: project.updated_at,
-          userId: project.user_id,
-          scenes: [] // We don't need scenes for the history view
-        }));
-        
-        setProjects(formattedProjects);
-      } catch (error) {
-        console.error("Error fetching projects:", error);
-        toast.error("Failed to load project history");
-      } finally {
-        setLoading(false);
-      }
-    }
-    
     fetchProjects();
   }, [projectId]);
   
@@ -60,6 +78,49 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
       hour: '2-digit',
       minute: '2-digit'
     }).format(date);
+  };
+  
+  const handleProjectSelect = (selectedProjectId: string) => {
+    if (selectedProjectId === projectId) return;
+    navigate(`/canvas?projectId=${selectedProjectId}`);
+  };
+  
+  const handleDeleteProject = async () => {
+    if (!projectToDelete) return;
+    
+    try {
+      // First delete all scenes associated with the project
+      const { error: scenesError } = await supabase
+        .from('canvas_scenes')
+        .delete()
+        .eq('project_id', projectToDelete);
+      
+      if (scenesError) throw scenesError;
+      
+      // Then delete the project
+      const { error: projectError } = await supabase
+        .from('canvas_projects')
+        .delete()
+        .eq('id', projectToDelete);
+      
+      if (projectError) throw projectError;
+      
+      toast.success("Project deleted successfully");
+      
+      // If deleted the current project, navigate to /canvas to create a new one
+      if (projectToDelete === projectId) {
+        navigate('/canvas');
+      } else {
+        // Otherwise just refresh the list
+        fetchProjects();
+      }
+      
+    } catch (error) {
+      console.error("Error deleting project:", error);
+      toast.error("Failed to delete project");
+    } finally {
+      setProjectToDelete(null);
+    }
   };
   
   return (
@@ -93,12 +154,30 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {projects.length > 0 ? (
               projects.map((project) => (
-                <Card key={project.id} className={project.id === projectId ? "border-primary" : ""}>
-                  <CardHeader className="pb-2">
+                <Card 
+                  key={project.id} 
+                  className={`${project.id === projectId ? "border-primary" : ""} transition-all hover:shadow-md cursor-pointer`}
+                  onClick={() => handleProjectSelect(project.id)}
+                >
+                  <CardHeader className="pb-2 relative">
                     <CardTitle className="text-base flex items-center">
                       <Video className="h-4 w-4 mr-2 text-primary" />
                       {project.title}
                     </CardTitle>
+                    {project.id !== projectId && (
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setProjectToDelete(project.id);
+                        }}
+                      >
+                        <Trash2 className="h-4 w-4" />
+                        <span className="sr-only">Delete</span>
+                      </Button>
+                    )}
                   </CardHeader>
                   <CardContent className="text-sm">
                     <div className="flex items-center text-muted-foreground mb-1">
@@ -123,6 +202,23 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
           </div>
         )}
       </div>
+      
+      <AlertDialog open={!!projectToDelete} onOpenChange={() => setProjectToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This will permanently delete the project and all its scenes. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={handleDeleteProject} className="bg-red-500 hover:bg-red-600">
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

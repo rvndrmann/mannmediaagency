@@ -2,7 +2,7 @@
 import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronDown, ChevronUp, Save, Wand2 } from "lucide-react";
+import { ChevronDown, ChevronUp, Save, Wand2, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 interface ScriptInputPanelProps {

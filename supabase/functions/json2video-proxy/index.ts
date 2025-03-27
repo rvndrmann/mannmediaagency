@@ -31,6 +31,8 @@ serve(async (req) => {
       method = 'GET'
     }
     
+    console.log(`Making ${method} request to ${endpoint} with operation: ${operation}`)
+    
     // Forward the request to JSON2Video API
     const response = await fetch(endpoint, {
       method: method,
@@ -43,6 +45,8 @@ serve(async (req) => {
     })
     
     const data = await response.json()
+    
+    console.log(`JSON2Video API response:`, JSON.stringify(data))
     
     if (!response.ok) {
       throw new Error(`JSON2Video API error: ${JSON.stringify(data)}`)

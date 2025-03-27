@@ -18,6 +18,34 @@ export interface VideoProjectResponse {
 }
 
 /**
+ * Checks if the JSON2Video API key is configured
+ * @returns A promise that resolves to a boolean indicating if the API key is configured
+ */
+export const checkApiKeyStatus = async (): Promise<{success: boolean, message: string}> => {
+  try {
+    const { data, error } = await supabase.functions.invoke('json2video-status');
+    
+    if (error) {
+      console.error('Error checking JSON2Video API key:', error);
+      return { success: false, message: error.message };
+    }
+    
+    if (!data || !data.success) {
+      const errorMessage = data?.error || 'Unknown error checking JSON2Video API key';
+      return { success: false, message: errorMessage };
+    }
+    
+    return { success: true, message: data.message || 'API key is configured' };
+  } catch (error) {
+    console.error('Exception checking JSON2Video API key:', error);
+    return { 
+      success: false, 
+      message: error instanceof Error ? error.message : 'Unknown error' 
+    };
+  }
+};
+
+/**
  * Creates a new video project using the JSON2Video API
  * @param jsonData The JSON configuration for the video project
  * @returns The API response with project details
@@ -25,6 +53,12 @@ export interface VideoProjectResponse {
 export const createVideo = async (jsonData: any): Promise<VideoProjectResponse> => {
   try {
     console.log("Creating video with JSON data:", JSON.stringify(jsonData, null, 2));
+    
+    // First check if API key is configured
+    const apiStatus = await checkApiKeyStatus();
+    if (!apiStatus.success) {
+      throw new Error(`JSON2Video API key error: ${apiStatus.message}`);
+    }
     
     const { data, error } = await supabase.functions.invoke('json2video-proxy', {
       body: {

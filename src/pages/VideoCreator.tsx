@@ -7,7 +7,8 @@ import {
   createVideo, 
   getVideoStatus, 
   formatVideoProject, 
-  VideoProject
+  VideoProject,
+  checkApiKeyStatus
 } from "@/services/json2videoService";
 import { VideoCreatorForm } from "@/components/video-creator/VideoCreatorForm";
 import { VideoProjectsList } from "@/components/video-creator/VideoProjectsList";
@@ -21,6 +22,7 @@ const VideoCreator = () => {
   const [isCreating, setIsCreating] = useState(false);
   const [savedProjects, setSavedProjects] = useState<VideoProject[]>([]);
   const [setupError, setSetupError] = useState<string | null>(null);
+  const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
   
   // Check if user is authenticated
   const { data: session, isLoading: isSessionLoading } = useQuery({
@@ -34,6 +36,24 @@ const VideoCreator = () => {
       return session;
     },
   });
+  
+  // Check if API key is configured
+  useEffect(() => {
+    const checkApiKey = async () => {
+      try {
+        const status = await checkApiKeyStatus();
+        setApiKeyMissing(!status.success);
+        if (!status.success) {
+          console.error('API key missing or invalid:', status.message);
+        }
+      } catch (err) {
+        console.error('Error checking API key:', err);
+        setApiKeyMissing(true);
+      }
+    };
+    
+    checkApiKey();
+  }, []);
   
   // Call setup function to ensure buckets exist
   useEffect(() => {
@@ -88,6 +108,10 @@ const VideoCreator = () => {
     try {
       setIsCreating(true);
       
+      if (apiKeyMissing) {
+        throw new Error("JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable.");
+      }
+      
       // Add console log to debug the JSON data being sent
       console.log("Sending JSON data to API:", JSON.stringify(jsonData, null, 2));
       
@@ -115,6 +139,10 @@ const VideoCreator = () => {
   
   const handleRefreshStatus = async (projectId: string) => {
     try {
+      if (apiKeyMissing) {
+        throw new Error("JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable.");
+      }
+      
       const response = await getVideoStatus(projectId);
       const updatedProject = formatVideoProject(response);
       
@@ -160,6 +188,16 @@ const VideoCreator = () => {
           <h1 className="text-3xl font-bold">Video Creator</h1>
         </div>
         
+        {apiKeyMissing && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>API Key Missing</AlertTitle>
+            <AlertDescription>
+              The JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY in Supabase Edge Function secrets.
+            </AlertDescription>
+          </Alert>
+        )}
+        
         {setupError && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
@@ -173,6 +211,7 @@ const VideoCreator = () => {
             <VideoCreatorForm
               onCreateVideo={handleCreateVideo}
               isLoading={isCreating}
+              apiKeyMissing={apiKeyMissing}
             />
           </div>
           

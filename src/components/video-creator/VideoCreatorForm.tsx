@@ -11,39 +11,21 @@ import { toast } from "sonner";
 import { FileUploader } from "./FileUploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { checkApiKeyStatus } from "@/services/json2videoService";
 
 interface VideoCreatorFormProps {
   onCreateVideo: (jsonData: any) => Promise<void>;
   isLoading: boolean;
+  apiKeyMissing?: boolean;
 }
 
-export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormProps) {
+export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = false }: VideoCreatorFormProps) {
   const [resolution, setResolution] = useState<string>("full-hd");
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
   const [jsonConfig, setJsonConfig] = useState<string>("");
   const [useCustomJson, setUseCustomJson] = useState<boolean>(false);
   const [inputMode, setInputMode] = useState<"url" | "upload">("url");
-  const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
-  
-  // Check if the API key is configured
-  useEffect(() => {
-    const checkApiKey = async () => {
-      try {
-        // Make a simple call to check if our proxy works
-        const { error } = await fetch('/api/json2video-status')
-          .then(res => res.json())
-          .catch(() => ({ error: true }));
-        
-        setApiKeyMissing(!!error);
-      } catch (err) {
-        console.error("Error checking API key:", err);
-        setApiKeyMissing(true);
-      }
-    };
-    
-    checkApiKey();
-  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,7 +93,7 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>API Key Missing</AlertTitle>
               <AlertDescription>
-                The JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable.
+                The JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable in Supabase Edge Functions secrets.
               </AlertDescription>
             </Alert>
           )}

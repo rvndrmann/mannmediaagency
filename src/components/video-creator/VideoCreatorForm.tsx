@@ -10,6 +10,7 @@ import { Loader2, Video, Upload } from "lucide-react";
 import { toast } from "sonner";
 import { FileUploader } from "./FileUploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useSupabaseUpload } from "@/hooks/use-supabase-upload";
 
 interface VideoCreatorFormProps {
   onCreateVideo: (jsonData: any) => Promise<void>;
@@ -23,6 +24,51 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
   const [jsonConfig, setJsonConfig] = useState<string>("");
   const [useCustomJson, setUseCustomJson] = useState<boolean>(false);
   const [inputMode, setInputMode] = useState<"url" | "upload">("url");
+  
+  // Add supabase upload hook instances for video and audio
+  const {
+    uploadProgress: videoUploadProgress,
+    uploadedFileName: videoFileName,
+    handleFileUpload: handleVideoFileUpload
+  } = useSupabaseUpload();
+  
+  const {
+    uploadProgress: audioUploadProgress,
+    uploadedFileName: audioFileName,
+    handleFileUpload: handleAudioFileUpload
+  } = useSupabaseUpload();
+  
+  const handleVideoUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const url = await handleVideoFileUpload(file, 'videos', 'video');
+        if (url) {
+          setVideoUrl(url);
+          toast.success("Video uploaded successfully");
+        }
+      } catch (error) {
+        toast.error("Failed to upload video");
+        console.error("Video upload error:", error);
+      }
+    }
+  };
+  
+  const handleAudioUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      try {
+        const url = await handleAudioFileUpload(file, 'audio', 'audio');
+        if (url) {
+          setAudioUrl(url);
+          toast.success("Audio uploaded successfully");
+        }
+      } catch (error) {
+        toast.error("Failed to upload audio");
+        console.error("Audio upload error:", error);
+      }
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -63,8 +109,14 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
         }
       }
       
+      if ((!useCustomJson && !videoUrl) || (useCustomJson && !jsonConfig)) {
+        toast.error("Please provide a video URL or custom JSON configuration");
+        return;
+      }
+      
       await onCreateVideo(jsonData);
     } catch (error) {
+      console.error("Form submission error:", error);
       toast.error("Failed to create video");
     }
   };
@@ -104,7 +156,6 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
                 placeholder='{"resolution": "full-hd", "scenes": [...]}'
                 value={jsonConfig}
                 onChange={(e) => setJsonConfig(e.target.value)}
-                required
               />
             </div>
           ) : (
@@ -141,7 +192,6 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
                       placeholder="https://example.com/video.mp4"
                       value={videoUrl}
                       onChange={(e) => setVideoUrl(e.target.value)}
-                      required={inputMode === "url"}
                     />
                     <p className="text-sm text-muted-foreground">
                       Enter a publicly accessible URL to your video file
@@ -160,19 +210,59 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
                 </TabsContent>
                 
                 <TabsContent value="upload" className="space-y-4">
-                  <FileUploader
-                    label="Video File"
-                    accept="video/*"
-                    onFileUploaded={(url) => setVideoUrl(url)}
-                    buttonText="Upload Video"
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="video-file">Video File</Label>
+                    <div className="mt-1">
+                      <Input
+                        id="video-file"
+                        type="file"
+                        accept="video/*"
+                        onChange={handleVideoUpload}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-primary-50 file:text-primary hover:file:bg-primary-100"
+                      />
+                      {videoUploadProgress > 0 && videoUploadProgress < 100 && (
+                        <div className="mt-2">
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full" 
+                              style={{ width: `${videoUploadProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-xs mt-1 text-gray-500">{`Uploading: ${videoUploadProgress}%`}</p>
+                        </div>
+                      )}
+                      {videoFileName && (
+                        <p className="text-sm mt-1 text-green-600">Uploaded: {videoFileName}</p>
+                      )}
+                    </div>
+                  </div>
                   
-                  <FileUploader
-                    label="Background Audio (Optional)"
-                    accept="audio/*"
-                    onFileUploaded={(url) => setAudioUrl(url)}
-                    buttonText="Upload Audio"
-                  />
+                  <div className="space-y-2">
+                    <Label htmlFor="audio-file">Background Audio (Optional)</Label>
+                    <div className="mt-1">
+                      <Input
+                        id="audio-file"
+                        type="file"
+                        accept="audio/*"
+                        onChange={handleAudioUpload}
+                        className="file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:bg-primary-50 file:text-primary hover:file:bg-primary-100"
+                      />
+                      {audioUploadProgress > 0 && audioUploadProgress < 100 && (
+                        <div className="mt-2">
+                          <div className="h-2 bg-gray-200 rounded-full overflow-hidden">
+                            <div 
+                              className="h-full bg-primary rounded-full" 
+                              style={{ width: `${audioUploadProgress}%` }}
+                            />
+                          </div>
+                          <p className="text-xs mt-1 text-gray-500">{`Uploading: ${audioUploadProgress}%`}</p>
+                        </div>
+                      )}
+                      {audioFileName && (
+                        <p className="text-sm mt-1 text-green-600">Uploaded: {audioFileName}</p>
+                      )}
+                    </div>
+                  </div>
                 </TabsContent>
               </Tabs>
             </div>

@@ -30,6 +30,8 @@ export const createVideo = async (jsonData: any): Promise<VideoProjectResponse> 
     throw new Error('JSON2Video API key is missing. Please set the VITE_JSON2VIDEO_API_KEY environment variable.');
   }
   
+  console.log("Creating video with JSON data:", JSON.stringify(jsonData, null, 2));
+  
   try {
     const response = await axios.post(
       'https://api.json2video.com/v2/movies',
@@ -41,6 +43,7 @@ export const createVideo = async (jsonData: any): Promise<VideoProjectResponse> 
         },
       }
     );
+    console.log("API response:", response.data);
     return response.data;
   } catch (error) {
     console.error('Error creating video:', error);
@@ -52,15 +55,23 @@ export const createVideo = async (jsonData: any): Promise<VideoProjectResponse> 
         const statusCode = error.response.status;
         const errorData = error.response.data;
         
+        console.error('API error details:', {
+          statusCode,
+          errorData,
+          headers: error.response.headers,
+        });
+        
         if (statusCode === 401 || statusCode === 403) {
           throw new Error('Authentication failed. Please check your API key.');
         } else if (statusCode === 400) {
-          throw new Error(`Invalid request: ${errorData.message || 'Please check your JSON configuration'}`);
+          const errorMessage = errorData.message || errorData.error || JSON.stringify(errorData);
+          throw new Error(`Invalid request: ${errorMessage}`);
         } else {
           throw new Error(`API error (${statusCode}): ${errorData.message || error.message}`);
         }
       } else if (error.request) {
         // Request was made but no response received
+        console.error('No response received:', error.request);
         throw new Error('No response from JSON2Video API. Please try again later.');
       } else {
         // Error setting up the request

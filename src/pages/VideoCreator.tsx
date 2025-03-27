@@ -82,7 +82,11 @@ const VideoCreator = () => {
     try {
       setIsCreating(true);
       
+      // Add console log to debug the JSON data being sent
+      console.log("Sending JSON data to API:", jsonData);
+      
       const response = await createVideo(jsonData);
+      console.log("API response:", response);
       
       const newProject = formatVideoProject(response);
       const updatedProjects = [newProject, ...savedProjects];
@@ -96,6 +100,7 @@ const VideoCreator = () => {
       
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An error occurred";
+      console.error("Video creation error:", error);
       toast.error(`Failed to create video: ${errorMessage}`);
     } finally {
       setIsCreating(false);
@@ -121,6 +126,7 @@ const VideoCreator = () => {
         toast.info(`Video status: ${updatedProject.status}`);
       }
     } catch (error) {
+      console.error("Error refreshing status:", error);
       toast.error("Failed to refresh video status");
     }
   };

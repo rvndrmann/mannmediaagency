@@ -1,4 +1,3 @@
-
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, RocketIcon, TagIcon } from "lucide-react";
@@ -14,19 +13,7 @@ const Auth = () => {
       {/* Navigation Bar */}
       <div className="w-full px-6 lg:px-12 py-6 flex flex-col sm:flex-row justify-between items-center gap-4 relative z-10">
         <div className="flex items-center gap-4 w-full sm:w-auto text-center sm:text-left">
-          <img
-            src="/lovable-uploads/dcaf0d85-758b-4188-b88e-73f268a054f1.png"
-            alt="MANNMEDIAAGENCY Logo"
-            className="h-12 w-12 object-contain"
-          />
-          <div>
-            <div className="text-2xl font-bold text-white">
-              MANNMEDIAAGENCY
-            </div>
-            <div className="text-sm text-gray-400">
-              mannmediaagency.com
-            </div>
-          </div>
+          {/* Removed MANN logo and text */}
         </div>
         <div className="flex items-center gap-4 w-full sm:w-auto justify-center sm:justify-end">
           <Button

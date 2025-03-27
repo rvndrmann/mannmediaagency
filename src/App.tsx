@@ -30,6 +30,7 @@ import TraceAnalytics from './pages/TraceAnalytics';
 import MultiAgentChat from './pages/MultiAgentChat';
 import Explore from './pages/Explore';
 import Canvas from './pages/Canvas';
+import VideoCreator from './pages/VideoCreator';
 import LoginForm from './components/auth/LoginForm';
 import SignupForm from './components/auth/SignupForm';
 import AuthCallback from './components/auth/AuthCallback';
@@ -69,6 +70,11 @@ function App() {
             <Route path="/product-ad" element={<ProductAd />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/create-video" element={<CreateVideo />} />
+            <Route path="/video-creator" element={
+              <ProtectedRoute>
+                <VideoCreator />
+              </ProtectedRoute>
+            } />
             <Route path="/settings" element={
               <ProtectedRoute>
                 <ProfileSettings />

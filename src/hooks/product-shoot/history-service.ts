@@ -1,43 +1,59 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { GeneratedImage } from "@/types/product-shoot";
-import { useQueryClient } from "@tanstack/react-query";
 
-export async function saveToHistory(
-  image: GeneratedImage, 
-  sourceUrl: string,
+export const saveToHistory = async (
+  image: GeneratedImage,
+  sourceImageUrl: string,
   settings: any
-) {
-  const { data: { session } } = await supabase.auth.getSession();
-  if (!session) {
-    console.error('No session found when trying to save to history');
-    return;
-  }
-
+): Promise<boolean> => {
   try {
-    const historyEntry = {
-      user_id: session.user.id,
-      result_url: image.url,
-      source_image_url: sourceUrl,
-      scene_description: image.prompt || null,
-      settings: settings || {}
-    };
+    console.log("Saving image to history:", image.id);
+    
+    // Call the edge function to save the product shot
+    const { data, error } = await supabase.functions.invoke("save-product-shot", {
+      body: {
+        imageUrl: image.url,
+        sourceImageUrl,
+        prompt: image.prompt,
+        settings
+      }
+    });
 
-    console.log('Saving history entry:', historyEntry);
-
-    const { error: dbError } = await supabase
-      .from('product_shot_history')
-      .insert(historyEntry);
-
-    if (dbError) {
-      console.error('Error saving to history:', dbError);
-      throw dbError;
+    if (error) {
+      console.error("Error saving to history:", error);
+      return false;
     }
 
-    const queryClient = useQueryClient();
-    queryClient.invalidateQueries({ queryKey: ["product-shot-history"] });
-  } catch (error) {
-    console.error('Error saving to history:', error);
-    throw error;
+    console.log("Successfully saved to history:", data);
+    return true;
+  } catch (err) {
+    console.error("Exception in saveToHistory:", err);
+    return false;
   }
-}
+};
+
+export const getHistory = async (): Promise<GeneratedImage[]> => {
+  try {
+    const { data, error } = await supabase
+      .from("product_shot_history")
+      .select("*")
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching history:", error);
+      return [];
+    }
+
+    return data.map((item) => ({
+      id: item.id,
+      url: item.result_image_url,
+      content_type: "image/jpeg",
+      status: "completed",
+      prompt: item.prompt
+    }));
+  } catch (err) {
+    console.error("Exception in getHistory:", err);
+    return [];
+  }
+};

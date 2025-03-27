@@ -13,36 +13,13 @@ interface GenerationQueueItem {
   settings: any;
 }
 
-const POLLING_INTERVAL = 15000; // Changed from 2000 to 15000 (15 seconds)
-const MAX_RETRIES = 8; // Changed from 30 to 8 to maintain similar total wait time
+const POLLING_INTERVAL = 10000; // 10 seconds
+const MAX_RETRIES = 12; // 2 minutes total (12 * 10 seconds)
 
 export function useGenerationQueue() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
   const [generationQueue, setGenerationQueue] = useState<GenerationQueueItem[]>([]);
-
-  const updateImageJobStatus = async (requestId: string, status: string, resultUrl?: string) => {
-    try {
-      const updateData: any = {
-        status: status
-      };
-      
-      if (resultUrl) {
-        updateData.result_url = resultUrl;
-      }
-
-      const { error } = await supabase
-        .from('image_generation_jobs')
-        .update(updateData)
-        .eq('request_id', requestId);
-
-      if (error) {
-        console.error('Error updating image job status:', error);
-      }
-    } catch (err) {
-      console.error('Error in updateImageJobStatus:', err);
-    }
-  };
 
   useEffect(() => {
     if (generationQueue.length === 0) return;
@@ -102,6 +79,8 @@ export function useGenerationQueue() {
               updatedQueue.splice(i, 1);
               queueChanged = true;
               i--;
+              
+              toast.success("Image generation complete!");
             } else if (response.data.status === 'failed') {
               console.error('[Queue] Generation failed:', response.data.error);
               

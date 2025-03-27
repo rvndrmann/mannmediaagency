@@ -1,5 +1,4 @@
 
-// Import from a more recent version of Deno standard library
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -43,6 +42,7 @@ serve(async (req) => {
     // Get the FAL_KEY from environment
     const FAL_KEY = Deno.env.get('FAL_KEY')
     if (!FAL_KEY) {
+      console.error('FAL_KEY environment variable is not set');
       throw new Error('FAL_KEY environment variable is not set')
     }
 
@@ -59,19 +59,28 @@ serve(async (req) => {
 
     // Validate required fields
     if (!requestBody.image_url) {
+      console.error('Missing image_url in request');
       throw new Error('image_url is required');
     }
 
     if (!requestBody.scene_description && !requestBody.ref_image_url) {
+      console.error('Missing scene_description or ref_image_url in request');
       throw new Error('Either scene_description or ref_image_url must be provided');
     }
+
+    // Log complete request for debugging
+    console.log('Request validation passed, preparing to submit to fal.ai');
+    console.log('Image URL:', requestBody.image_url.substring(0, 50) + '...');
+    console.log('Scene description:', requestBody.scene_description);
+    console.log('Placement type:', requestBody.placement_type);
+    console.log('Fast mode:', requestBody.fast);
 
     // Force async mode for all requests
     requestBody.sync_mode = false;
 
     // Submit request to queue
-    console.log('Submitting request to fal.ai with payload:', requestBody);
-
+    console.log('Submitting request to fal.ai');
+    
     const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {
       method: 'POST',
       headers: {
@@ -83,14 +92,15 @@ serve(async (req) => {
 
     if (!submitResponse.ok) {
       const errorText = await submitResponse.text();
-      console.error('Fal.ai API error:', errorText);
+      console.error('Fal.ai API error response:', errorText);
       throw new Error(`Failed to submit to queue: ${errorText}`);
     }
 
     const queueResponse: RequestResponse = await submitResponse.json();
-    console.log('Queue response:', queueResponse);
+    console.log('Fal.ai queue response:', queueResponse);
 
     if (!queueResponse.request_id) {
+      console.error('No request ID received from fal.ai');
       throw new Error('No request ID received from fal.ai');
     }
 
@@ -98,7 +108,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         requestId: queueResponse.request_id,
-        status: 'processing'
+        status: 'processing',
+        statusUrl: queueResponse.status_url
       }),
       {
         headers: {

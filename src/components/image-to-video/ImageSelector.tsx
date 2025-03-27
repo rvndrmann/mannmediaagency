@@ -44,7 +44,7 @@ export function ImageSelector({
           onFileSelect={onFileSelect}
           onClear={onClear}
           aspectRatio={aspectRatio}
-          helpText={helpText}
+          helpText={helpText || "Upload an image (9:16 aspect ratio)"}
         />
       </TabsContent>
       <TabsContent value="history" className="mt-0">

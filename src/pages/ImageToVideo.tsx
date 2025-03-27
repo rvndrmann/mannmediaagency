@@ -40,7 +40,7 @@ const ImageToVideo = () => {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
-  const [aspectRatio, setAspectRatio] = useState<string>("16:9");
+  const [aspectRatio, setAspectRatio] = useState<string>("9:16");
   const [messages, setMessages] = useState<Message[]>([]);
 
   const { data: session } = useQuery({

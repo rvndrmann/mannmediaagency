@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -104,8 +105,8 @@ export function InputPanel({
                   <SelectValue placeholder="Select aspect ratio" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
                   <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
                   <SelectItem value="1:1">1:1 (Square)</SelectItem>
                 </SelectContent>
               </Select>

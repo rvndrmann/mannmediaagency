@@ -62,7 +62,7 @@ interface FeaturePanelProps {
 
 export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVideo, activeTool }: FeaturePanelProps) {
   const [imageToVideoPrompt, setImageToVideoPrompt] = useState("");
-  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("16:9");
+  const [selectedAspectRatio, setSelectedAspectRatio] = useState<string>("9:16");
 
   // Ensure messages are properly formatted
   const formattedMessages = ensureGlobalMessages(messages);

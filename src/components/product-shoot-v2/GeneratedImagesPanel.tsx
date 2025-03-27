@@ -1,6 +1,7 @@
 
 import { GeneratedImage } from "@/types/product-shoot";
-import { Loader2 } from "lucide-react";
+import { Loader2, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface GeneratedImagesPanelProps {
   images: GeneratedImage[];
@@ -12,6 +13,15 @@ export function GeneratedImagesPanel({ images, isGenerating }: GeneratedImagesPa
   const hasProcessingImages = images.some(image => image.status === 'processing');
   const hasFailedImages = images.some(image => image.status === 'failed');
 
+  const handleDownload = (url: string, index: number) => {
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `product-shot-${index}.jpg`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   return (
     <div className="space-y-4">
       <h3 className="text-lg font-semibold text-white">Generated Images</h3>
@@ -19,20 +29,30 @@ export function GeneratedImagesPanel({ images, isGenerating }: GeneratedImagesPa
       {hasCompletedImages ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {images.filter(image => image.status === 'completed' && image.url).map((image, index) => (
-            <div key={image.id || index} className="relative">
+            <div key={image.id || index} className="relative group">
               <img
                 src={image.url}
                 alt={`Generated image ${index + 1}`}
                 className="w-full h-auto rounded-lg border border-gray-800"
               />
-              <a 
-                href={image.url} 
-                target="_blank"
-                rel="noopener noreferrer" 
-                className="absolute bottom-2 right-2 bg-black/50 hover:bg-black/70 text-white px-3 py-1 rounded text-xs"
-              >
-                View Full
-              </a>
+              <div className="absolute bottom-2 right-2 flex space-x-2">
+                <a 
+                  href={image.url} 
+                  target="_blank"
+                  rel="noopener noreferrer" 
+                  className="bg-black/50 hover:bg-black/70 text-white px-3 py-1 rounded text-xs"
+                >
+                  View Full
+                </a>
+                <Button
+                  variant="outline" 
+                  size="icon"
+                  className="h-8 w-8 bg-black/50 hover:bg-black/70 border-none"
+                  onClick={() => handleDownload(image.url, index)}
+                >
+                  <Download className="h-4 w-4 text-white" />
+                </Button>
+              </div>
             </div>
           ))}
         </div>

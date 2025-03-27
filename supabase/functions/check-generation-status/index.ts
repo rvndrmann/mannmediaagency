@@ -45,7 +45,6 @@ serve(async (req) => {
     console.log(`Checking status for request: ${requestId}`)
 
     // Check status from fal.ai using the correct endpoint
-    // The key issue was using the wrong URL format - we need to use the specific endpoint format
     const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
       method: 'GET',
       headers: {
@@ -67,16 +66,45 @@ serve(async (req) => {
     if (statusData.status === 'COMPLETED' || statusData.status === 'completed') {
       console.log('Processing completed results');
       
-      // Extract the output from the response
-      const output = statusData.result || statusData.output || {};
-      const images = output.images || [];
+      // Extract the output from the response - check different response structures
+      // Sometimes it's in result, sometimes in output, and sometimes it has a nested images array
+      let images = [];
+      let prompt = '';
       
+      if (statusData.result) {
+        // First, try to find images in the result property
+        if (Array.isArray(statusData.result?.images)) {
+          images = statusData.result.images;
+          prompt = statusData.result.prompt || '';
+        } else if (statusData.result?.url) {
+          // If result has a direct URL
+          images = [{ url: statusData.result.url }];
+        }
+      } else if (statusData.output) {
+        // Try to find images in the output property
+        if (Array.isArray(statusData.output?.images)) {
+          images = statusData.output.images;
+          prompt = statusData.output.prompt || '';
+        } else if (statusData.output?.url) {
+          // If output has a direct URL
+          images = [{ url: statusData.output.url }];
+        }
+      }
+      
+      // If no images found in standard locations, look for any URL properties at the top level
+      if (images.length === 0 && statusData.url) {
+        images = [{ url: statusData.url }];
+      }
+      
+      console.log('Extracted images:', JSON.stringify(images));
+      
+      // Format the images according to our expected structure
       const formattedImages: GeneratedImage[] = images.map((img: any, index: number) => ({
         id: `${requestId}-${index}`,
         url: img.url,
         content_type: 'image/jpeg', // fal.ai default
         status: 'completed',
-        prompt: output.prompt || ''
+        prompt: prompt
       }));
       
       console.log('Formatted images:', JSON.stringify(formattedImages));

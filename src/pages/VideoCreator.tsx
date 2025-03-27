@@ -12,6 +12,8 @@ import {
 import { VideoCreatorForm } from "@/components/video-creator/VideoCreatorForm";
 import { VideoProjectsList } from "@/components/video-creator/VideoProjectsList";
 import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { ArrowLeft } from "lucide-react";
 
 const VideoCreator = () => {
   const navigate = useNavigate();
@@ -30,6 +32,28 @@ const VideoCreator = () => {
       return session;
     },
   });
+  
+  // Call setup function to ensure buckets exist
+  useEffect(() => {
+    const setupStorage = async () => {
+      try {
+        if (!session) return;
+        
+        // Call edge function to set up storage buckets
+        const { data, error } = await supabase.functions.invoke('setup-video-storage');
+        
+        if (error) {
+          console.error('Error setting up storage:', error);
+        } else {
+          console.log('Storage setup complete:', data);
+        }
+      } catch (err) {
+        console.error('Failed to set up storage:', err);
+      }
+    };
+    
+    setupStorage();
+  }, [session]);
   
   // Load saved projects from localStorage
   useEffect(() => {
@@ -66,6 +90,10 @@ const VideoCreator = () => {
       saveProjects(updatedProjects);
       
       toast.success("Video creation started successfully!");
+      
+      // Log the created project to help with debugging
+      console.log("Created video project:", newProject);
+      
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : "An error occurred";
       toast.error(`Failed to create video: ${errorMessage}`);
@@ -108,7 +136,17 @@ const VideoCreator = () => {
   return (
     <div className="min-h-screen bg-background">
       <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold mb-8">Video Creator</h1>
+        <div className="flex items-center mb-8">
+          <Button 
+            variant="ghost" 
+            onClick={() => navigate("/")}
+            className="mr-4"
+          >
+            <ArrowLeft className="w-4 h-4 mr-2" />
+            Back
+          </Button>
+          <h1 className="text-3xl font-bold">Video Creator</h1>
+        </div>
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">

@@ -8,6 +8,8 @@ import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Loader2, Video, Upload } from "lucide-react";
 import { toast } from "sonner";
+import { FileUploader } from "./FileUploader";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 interface VideoCreatorFormProps {
   onCreateVideo: (jsonData: any) => Promise<void>;
@@ -17,8 +19,10 @@ interface VideoCreatorFormProps {
 export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormProps) {
   const [resolution, setResolution] = useState<string>("full-hd");
   const [videoUrl, setVideoUrl] = useState<string>("");
+  const [audioUrl, setAudioUrl] = useState<string>("");
   const [jsonConfig, setJsonConfig] = useState<string>("");
   const [useCustomJson, setUseCustomJson] = useState<boolean>(false);
+  const [inputMode, setInputMode] = useState<"url" | "upload">("url");
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -34,7 +38,7 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
           return;
         }
       } else {
-        // Create simple JSON data with video URL
+        // Create simple JSON data with video and audio URLs
         jsonData = {
           "resolution": resolution,
           "scenes": [
@@ -48,6 +52,15 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
             }
           ]
         };
+
+        // Add audio if provided
+        if (audioUrl) {
+          jsonData.scenes[0].elements.push({
+            "type": "audio",
+            "src": audioUrl,
+            "volume": 1
+          });
+        }
       }
       
       await onCreateVideo(jsonData);
@@ -113,19 +126,55 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="video-url">Video URL</Label>
-                <Input
-                  id="video-url"
-                  placeholder="https://example.com/video.mp4"
-                  value={videoUrl}
-                  onChange={(e) => setVideoUrl(e.target.value)}
-                  required
-                />
-                <p className="text-sm text-muted-foreground">
-                  Enter a publicly accessible URL to your video file
-                </p>
-              </div>
+              
+              <Tabs value={inputMode} onValueChange={(value) => setInputMode(value as "url" | "upload")}>
+                <TabsList className="grid w-full grid-cols-2 mb-4">
+                  <TabsTrigger value="url">URL Input</TabsTrigger>
+                  <TabsTrigger value="upload">File Upload</TabsTrigger>
+                </TabsList>
+                
+                <TabsContent value="url" className="space-y-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="video-url">Video URL</Label>
+                    <Input
+                      id="video-url"
+                      placeholder="https://example.com/video.mp4"
+                      value={videoUrl}
+                      onChange={(e) => setVideoUrl(e.target.value)}
+                      required={inputMode === "url"}
+                    />
+                    <p className="text-sm text-muted-foreground">
+                      Enter a publicly accessible URL to your video file
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <Label htmlFor="audio-url">Background Audio URL (Optional)</Label>
+                    <Input
+                      id="audio-url"
+                      placeholder="https://example.com/audio.mp3"
+                      value={audioUrl}
+                      onChange={(e) => setAudioUrl(e.target.value)}
+                    />
+                  </div>
+                </TabsContent>
+                
+                <TabsContent value="upload" className="space-y-4">
+                  <FileUploader
+                    label="Video File"
+                    accept="video/*"
+                    onFileUploaded={(url) => setVideoUrl(url)}
+                    buttonText="Upload Video"
+                  />
+                  
+                  <FileUploader
+                    label="Background Audio (Optional)"
+                    accept="audio/*"
+                    onFileUploaded={(url) => setAudioUrl(url)}
+                    buttonText="Upload Audio"
+                  />
+                </TabsContent>
+              </Tabs>
             </div>
           )}
         </CardContent>
@@ -133,7 +182,10 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
           <Button 
             type="submit" 
             className="w-full"
-            disabled={isLoading || ((!useCustomJson && !videoUrl) || (useCustomJson && !jsonConfig))}
+            disabled={isLoading || 
+              ((!useCustomJson && inputMode === "url" && !videoUrl) || 
+               (!useCustomJson && inputMode === "upload" && !videoUrl) || 
+               (useCustomJson && !jsonConfig))}
           >
             {isLoading ? (
               <>

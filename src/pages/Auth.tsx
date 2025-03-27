@@ -1,3 +1,4 @@
+
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { LogIn, RocketIcon, TagIcon } from "lucide-react";
@@ -44,13 +45,13 @@ const Auth = () => {
 
       {/* Main Content */}
       <div className="px-6 lg:px-12 py-12 lg:py-24 relative z-10">
-        {/* Main Heading */}
+        {/* Main Heading - Updated with Browser Worker AI text */}
         <div className="text-center mb-16">
           <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
-            Create Amazing Videos with AI
+            Revolutionize Your Workflow with Browser Worker AI
           </h1>
-          <p className="text-xl text-gray-300">
-            Transform your content into engaging videos in minutes
+          <p className="text-xl text-gray-300 max-w-3xl mx-auto">
+            Unleash the power of automation with Browser Worker AI, effortlessly mimicking human browsing behavior to streamline your online tasks. Elevate your productivity by letting our advanced AI handle repetitive online activities, so you can focus on innovation and growth. Experience the future of intelligent automation today!
           </p>
         </div>
 

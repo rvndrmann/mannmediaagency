@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils";
 import { MobilePanelToggle } from "@/components/product-shoot/MobilePanelToggle";
 import { InputPanel } from "@/components/product-shoot/InputPanel";
 import { GalleryPanel } from "@/components/product-shoot/GalleryPanel";
-import { ChatSection } from "@/components/product-shoot/ChatSection";
 import { useNavigate } from "react-router-dom";
 import { Message } from "@/types/message";
 import { useProductShotV1 } from "@/hooks/use-product-shot-v1";
@@ -17,7 +16,6 @@ const ProductShoot = () => {
   const isMobile = useIsMobile();
   const navigate = useNavigate();
   const [messages, setMessages] = useState<Message[]>([]);
-  const [chatExpanded, setChatExpanded] = useState(true);
   const queryClient = useQueryClient();
 
   const { data: session } = useQuery({
@@ -107,8 +105,7 @@ const ProductShoot = () => {
       <MobilePanelToggle title="Product Shot V1" />
       <div className={cn(
         "transition-all duration-300 relative",
-        isMobile ? "flex flex-col h-[calc(100vh-64px)]" : "flex h-[calc(100vh-64px-3rem)]",
-        chatExpanded && isMobile && "h-[calc(70vh-64px)]"
+        isMobile ? "flex flex-col h-[calc(100vh-64px)]" : "flex h-[calc(100vh-64px)]"
       )}>
         <div className={cn(
           "bg-[#1A1F2C]/80 backdrop-blur-xl border-white/10",
@@ -147,11 +144,6 @@ const ProductShoot = () => {
           />
         </div>
       </div>
-      
-      <ChatSection 
-        expanded={chatExpanded}
-        onToggle={() => setChatExpanded(!chatExpanded)}
-      />
     </div>
   );
 };

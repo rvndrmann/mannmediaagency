@@ -2,10 +2,10 @@
 import { Sidebar } from "@/components/Sidebar";
 import { Dashboard } from "@/components/Dashboard";
 import { SidebarProvider } from "@/components/ui/sidebar";
-import { VideoShowcase } from "@/components/auth/VideoShowcase";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
+import Auth from "./Auth";
 
 const Index = () => {
   const isMobile = useIsMobile();
@@ -28,11 +28,7 @@ const Index = () => {
             </main>
           </div>
         ) : (
-          <div className="flex-1">
-            <div className="w-full">
-              <VideoShowcase />
-            </div>
-          </div>
+          <Auth />
         )}
       </div>
     </SidebarProvider>

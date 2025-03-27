@@ -7,7 +7,7 @@ interface UseSupabaseUploadResult {
   uploadProgress: number;
   uploadedFileName: string | null;
   previewUrl: string | null;
-  handleFileUpload: (file: File, bucket: string, fileType: 'audio' | 'image') => Promise<string | null>;
+  handleFileUpload: (file: File, bucket: string, fileType: 'audio' | 'image' | 'video') => Promise<string | null>;
 }
 
 export const useSupabaseUpload = (initialFileName: string | null = null): UseSupabaseUploadResult => {
@@ -16,8 +16,14 @@ export const useSupabaseUpload = (initialFileName: string | null = null): UseSup
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const handleFileUpload = async (file: File, bucket: string, fileType: 'audio' | 'image'): Promise<string | null> => {
-    if (!file.type.startsWith(`${fileType}/`)) {
+  const handleFileUpload = async (file: File, bucket: string, fileType: 'audio' | 'image' | 'video'): Promise<string | null> => {
+    const fileTypeMap = {
+      'audio': 'audio/',
+      'image': 'image/',
+      'video': 'video/'
+    };
+    
+    if (!file.type.startsWith(fileTypeMap[fileType])) {
       toast({
         title: "Error",
         description: `Please upload a ${fileType} file`,
@@ -46,30 +52,6 @@ export const useSupabaseUpload = (initialFileName: string | null = null): UseSup
           return prev + 10;
         });
       }, 300);
-
-      // Create the bucket if it doesn't exist
-      try {
-        // First check if bucket exists
-        const { data: buckets } = await supabase.storage.listBuckets();
-        const bucketExists = buckets.some(b => b.name === bucket);
-        
-        if (!bucketExists) {
-          console.log(`Bucket ${bucket} doesn't exist, attempting to create...`);
-          // Try to create the bucket
-          const { error: createError } = await supabase.storage.createBucket(bucket, {
-            public: true,
-            fileSizeLimit: 50 * 1024 * 1024, // 50MB limit
-          });
-          
-          if (createError) {
-            console.error("Error creating bucket:", createError);
-            throw new Error(`Failed to create storage bucket: ${createError.message}`);
-          }
-        }
-      } catch (bucketError) {
-        console.error("Error with bucket operation:", bucketError);
-        // Continue with the upload anyway - the bucket might exist but the user doesn't have permission to list buckets
-      }
 
       const fileExt = file.name.split('.').pop();
       const filePath = `${crypto.randomUUID()}.${fileExt}`;

@@ -22,7 +22,7 @@ serve(async (req) => {
     const response = await fetch('https://api.json2video.com/v2/status', {
       method: 'GET',
       headers: {
-        'x-api-key': json2videoApiKey,
+        'x-api-key': json2videoApiKey.trim(),
         'Content-Type': 'application/json',
       }
     })

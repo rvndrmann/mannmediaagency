@@ -39,7 +39,7 @@ serve(async (req) => {
     const response = await fetch(endpoint, {
       method: method,
       headers: {
-        'x-api-key': json2videoApiKey,
+        'x-api-key': json2videoApiKey.trim(),
         'Content-Type': 'application/json',
       },
       // Only include body for POST requests

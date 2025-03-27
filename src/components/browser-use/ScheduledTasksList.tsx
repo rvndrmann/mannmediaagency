@@ -25,7 +25,7 @@ export function ScheduledTasksList() {
             The ability to schedule browser automation tasks is coming soon. This feature will allow you to set up recurring tasks or schedule them for specific times.
           </p>
           
-          <Alert variant="info" className="mt-4 max-w-md bg-blue-50 dark:bg-blue-950">
+          <Alert variant="default" className="mt-4 max-w-md bg-blue-50 dark:bg-blue-950">
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription>
               We're actively working on this feature and it will be available in an upcoming update.

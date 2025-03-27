@@ -33,6 +33,8 @@ import Canvas from './pages/Canvas';
 import LoginForm from './components/auth/LoginForm';
 import SignupForm from './components/auth/SignupForm';
 import AuthCallback from './components/auth/AuthCallback';
+import Admin from './pages/Admin';
+import { ProtectedRoute } from './components/auth/ProtectedRoute';
 import './App.css';
 
 // Create a client
@@ -67,7 +69,16 @@ function App() {
             <Route path="/product-ad" element={<ProductAd />} />
             <Route path="/plans" element={<Plans />} />
             <Route path="/create-video" element={<CreateVideo />} />
-            <Route path="/settings" element={<ProfileSettings />} />
+            <Route path="/settings" element={
+              <ProtectedRoute>
+                <ProfileSettings />
+              </ProtectedRoute>
+            } />
+            <Route path="/profile" element={
+              <ProtectedRoute>
+                <ProfileSettings />
+              </ProtectedRoute>
+            } />
             <Route path="/integrations" element={<Integrations />} />
             <Route path="/payment-success" element={<PaymentSuccess />} />
             <Route path="/payment-failure" element={<PaymentFailure />} />
@@ -80,6 +91,11 @@ function App() {
             <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
             <Route path="/explore" element={<Explore />} />
             <Route path="/canvas" element={<Canvas />} />
+            <Route path="/admin" element={
+              <ProtectedRoute>
+                <Admin />
+              </ProtectedRoute>
+            } />
           </Routes>
           <Toaster />
         </Router>

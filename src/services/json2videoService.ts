@@ -1,8 +1,8 @@
 
 import axios from 'axios';
 
-// This should be stored in Supabase Edge Function Secrets in production
-const API_KEY = process.env.JSON2VIDEO_API_KEY || '';
+// In browser environments, we can use import.meta.env instead of process.env
+const API_KEY = import.meta.env.VITE_JSON2VIDEO_API_KEY || '';
 
 export interface VideoProject {
   projectId: string;

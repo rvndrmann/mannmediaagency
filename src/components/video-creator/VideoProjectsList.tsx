@@ -1,10 +1,9 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { VideoProject } from "@/services/json2videoService";
-import { Play, ExternalLink, RefreshCw } from "lucide-react";
+import { Play, ExternalLink, RefreshCw, Loader2 } from "lucide-react";
 
 interface VideoProjectsListProps {
   projects: VideoProject[];

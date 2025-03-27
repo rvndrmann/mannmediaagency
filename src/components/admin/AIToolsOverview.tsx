@@ -4,6 +4,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { BarChart } from "@/components/ui/chart";
 import { supabase } from "@/integrations/supabase/client";
+import { Button } from "@/components/ui/button";
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { RefreshCw } from "lucide-react";
+import { toast } from "sonner";
 
 // Extended type to include the selected_tool field
 interface ChatUsage {
@@ -16,11 +20,23 @@ interface ChatUsage {
   selected_tool?: string; // Make it optional as it might not be present in all records
 }
 
+interface ImageGenerationJob {
+  id: string;
+  request_id: string;
+  status: string;
+  created_at: string;
+  prompt: string;
+  user_id: string;
+  result_url?: string;
+}
+
 export const AIToolsOverview = () => {
   const [toolUsageData, setToolUsageData] = useState<{ [key: string]: number }>({});
   const [chatUsage, setChatUsage] = useState<ChatUsage[]>([]);
+  const [pendingImageJobs, setPendingImageJobs] = useState<ImageGenerationJob[]>([]);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
+  const [isRetrying, setIsRetrying] = useState(false);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -46,6 +62,16 @@ export const AIToolsOverview = () => {
         });
         
         setToolUsageData(toolCounts);
+
+        // Fetch pending image generation jobs
+        const { data: imageJobs, error: imageError } = await supabase
+          .from('image_generation_jobs')
+          .select('*')
+          .in('status', ['pending', 'processing'])
+          .order('created_at', { ascending: false });
+
+        if (imageError) throw imageError;
+        setPendingImageJobs(imageJobs as ImageGenerationJob[]);
       } catch (error) {
         console.error('Error fetching AI tool usage data:', error);
       } finally {
@@ -73,6 +99,64 @@ export const AIToolsOverview = () => {
     ],
   };
 
+  const handleRetryAll = async () => {
+    if (pendingImageJobs.length === 0) {
+      toast.info("No pending image jobs to retry");
+      return;
+    }
+
+    setIsRetrying(true);
+    let successCount = 0;
+    let failCount = 0;
+
+    try {
+      toast.info(`Starting retry for ${pendingImageJobs.length} image jobs...`);
+
+      for (const job of pendingImageJobs) {
+        if (!job.request_id) {
+          failCount++;
+          continue;
+        }
+
+        try {
+          // Call the edge function to check the status
+          const response = await supabase.functions.invoke('check-generation-status', {
+            body: { requestId: job.request_id }
+          });
+
+          if (response.error) {
+            console.error(`Error checking status for job ${job.id}:`, response.error);
+            failCount++;
+          } else {
+            successCount++;
+            console.log(`Successfully checked status for job ${job.id}:`, response.data);
+          }
+        } catch (jobError) {
+          console.error(`Error processing job ${job.id}:`, jobError);
+          failCount++;
+        }
+      }
+
+      // Refresh the list after retrying
+      const { data: refreshedJobs, error: refreshError } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false });
+
+      if (!refreshError) {
+        setPendingImageJobs(refreshedJobs as ImageGenerationJob[]);
+      }
+
+      toast.success(`Retry complete: ${successCount} successful, ${failCount} failed`);
+    } catch (error) {
+      console.error('Error in retry operation:', error);
+      toast.error('Error retrying image jobs');
+    } finally {
+      setIsRetrying(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-3xl font-bold tracking-tight">AI Tools Overview</h2>
@@ -81,6 +165,7 @@ export const AIToolsOverview = () => {
         <TabsList className="mb-4">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="usage-log">Usage Log</TabsTrigger>
+          <TabsTrigger value="image-jobs">Image Jobs</TabsTrigger>
         </TabsList>
         
         <TabsContent value="overview">
@@ -153,6 +238,66 @@ export const AIToolsOverview = () => {
                 </div>
               ) : (
                 <p>No chat usage data available</p>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="image-jobs">
+          <Card>
+            <CardHeader className="flex flex-row items-start justify-between">
+              <div>
+                <CardTitle>Pending Image Generation Jobs</CardTitle>
+                <CardDescription>
+                  Manage pending and processing image generation jobs
+                </CardDescription>
+              </div>
+              <Button 
+                variant="outline" 
+                onClick={handleRetryAll} 
+                disabled={isRetrying || pendingImageJobs.length === 0}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+                {isRetrying ? 'Retrying...' : 'Retry All Jobs'}
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {loading ? (
+                <p>Loading data...</p>
+              ) : pendingImageJobs.length > 0 ? (
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Created</TableHead>
+                      <TableHead>Request ID</TableHead>
+                      <TableHead>Status</TableHead>
+                      <TableHead>Prompt</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {pendingImageJobs.map((job) => (
+                      <TableRow key={job.id}>
+                        <TableCell>{new Date(job.created_at).toLocaleString()}</TableCell>
+                        <TableCell className="font-mono text-xs">{job.request_id || 'N/A'}</TableCell>
+                        <TableCell>
+                          <span className={`px-2 py-1 rounded-full text-xs font-medium ${
+                            job.status === 'processing' 
+                              ? 'bg-blue-100 text-blue-800' 
+                              : 'bg-yellow-100 text-yellow-800'
+                          }`}>
+                            {job.status}
+                          </span>
+                        </TableCell>
+                        <TableCell className="max-w-xs truncate">{job.prompt}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              ) : (
+                <div className="p-4 text-center">
+                  <p>No pending image generation jobs</p>
+                </div>
               )}
             </CardContent>
           </Card>

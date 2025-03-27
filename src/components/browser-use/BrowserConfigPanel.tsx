@@ -14,6 +14,7 @@ import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
 import { ProxyHelper } from "@/components/browser-use/ProxyHelper";
 import { SensitiveDataManager } from "@/components/browser-use/SensitiveDataManager";
 import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 
 interface BrowserConfigPanelProps {
@@ -216,22 +217,25 @@ export function BrowserConfigPanel({
               <div className="flex items-center space-x-2">
                 <Switch 
                   id="useOwnBrowser" 
-                  checked={config.useOwnBrowser} 
-                  onCheckedChange={handleBooleanChange("useOwnBrowser")}
-                  disabled={disabled}
+                  checked={false}
+                  onCheckedChange={() => {}}
+                  disabled={true}
                 />
-                <Label htmlFor="useOwnBrowser">Use My Own Chrome Browser</Label>
+                <Label htmlFor="useOwnBrowser" className="flex items-center gap-2">
+                  Use My Own Chrome Browser 
+                  <Badge variant="secondary" className="text-xs">Coming Soon</Badge>
+                </Label>
               </div>
               
               {config.useOwnBrowser && (
-                <div className="space-y-2">
+                <div className="space-y-2 opacity-50 cursor-not-allowed">
                   <Label htmlFor="chromePath">Chrome Executable Path</Label>
                   <Input 
                     id="chromePath" 
                     value={config.chromePath} 
-                    onChange={handleStringChange("chromePath")}
+                    onChange={() => {}}
                     placeholder="/path/to/chrome"
-                    disabled={disabled}
+                    disabled={true}
                   />
                   <p className="text-xs text-muted-foreground">
                     Provide the full path to the Chrome executable on your system

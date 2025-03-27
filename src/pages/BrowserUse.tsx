@@ -1,4 +1,3 @@
-
 "use client";
 
 import React, { useState, useEffect } from "react";
@@ -345,7 +344,6 @@ const BrowserUsePage = () => {
                 </div>
               </div>
 
-              {/* Template Selection UI - Always visible with toggle option */}
               <div className="bg-slate-50 dark:bg-slate-900 rounded-lg p-4 border">
                 <div className="flex justify-between items-center mb-3">
                   <div className="flex items-center gap-2">
@@ -378,7 +376,6 @@ const BrowserUsePage = () => {
                 isProcessing={isTaskLoading}
               />
 
-              {/* Sensitive Data Section */}
               <div className="p-4 rounded-lg border bg-card">
                 <SensitiveDataManager
                   sensitiveData={browserConfig.sensitiveData || []}
@@ -408,20 +405,13 @@ const BrowserUsePage = () => {
                 <Button
                   variant="outline"
                   onClick={() => {
-                    if (!taskInput.trim()) {
-                      toast.error("Please create a task first");
-                      return;
-                    }
-                    setActiveTab("scheduled");
-                    // Delay to ensure the tab switches before clicking the button
-                    setTimeout(() => {
-                      document.getElementById("schedule-task-button")?.click();
-                    }, 100);
+                    toast.info("Scheduling tasks is coming soon");
                   }}
-                  disabled={isTaskLoading || !taskInput.trim()}
+                  disabled
                 >
                   <CalendarDays className="h-4 w-4 mr-2" />
                   Schedule This Task
+                  <Badge variant="secondary" className="ml-2 text-xs">Coming Soon</Badge>
                 </Button>
               </div>
               <Button onClick={startNewTask} disabled={isTaskLoading || !taskInput.trim()}>
@@ -682,7 +672,6 @@ const BrowserUsePage = () => {
                 disabled={isTaskLoading}
               />
               
-              {/* Sensitive Data Management Section */}
               <div className="mt-8 p-4 rounded-lg border">
                 <h3 className="text-lg font-medium mb-4">Sensitive Data Management</h3>
                 <SensitiveDataManager
@@ -748,7 +737,6 @@ const BrowserUsePage = () => {
         </TabsContent>
       </Tabs>
       
-      {/* Floating invisible button that will be clicked programmatically */}
       <div className="hidden">
         <TaskScheduler 
           taskInput={taskInput}
@@ -761,4 +749,3 @@ const BrowserUsePage = () => {
 };
 
 export default BrowserUsePage;
-

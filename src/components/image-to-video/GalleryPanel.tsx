@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 interface Video {
   id: string;
   prompt: string;
-  result_url?: string | null;  // Made optional to match SupabaseVideoJob type
+  result_url?: string | null;
   status: string;
+  aspect_ratio?: string;
 }
 
 interface GalleryPanelProps {
@@ -25,6 +26,22 @@ export function GalleryPanel({
   isLoading,
   onDownload,
 }: GalleryPanelProps) {
+  // Helper function to get CSS class based on aspect ratio
+  const getAspectRatioClass = (aspectRatio?: string) => {
+    if (!aspectRatio) return "aspect-video"; // Default fallback
+    
+    switch (aspectRatio) {
+      case "9:16":
+        return "aspect-[9/16]";
+      case "16:9":
+        return "aspect-[16/9]";
+      case "1:1":
+        return "aspect-square";
+      default:
+        return "aspect-video"; // Default fallback
+    }
+  };
+
   return (
     <div className={cn(
       "bg-background w-full",
@@ -65,7 +82,10 @@ export function GalleryPanel({
                     <div className="relative group">
                       <video
                         src={video.result_url}
-                        className="w-full aspect-video rounded-lg object-cover"
+                        className={cn(
+                          "w-full rounded-lg object-contain bg-black mx-auto", 
+                          getAspectRatioClass(video.aspect_ratio)
+                        )}
                         controls
                         playsInline
                         preload="metadata"

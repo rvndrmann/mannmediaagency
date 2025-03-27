@@ -30,7 +30,8 @@ export default function CustomOrders() {
   };
 
   const handleBack = () => {
-    navigate("/ai-agent");
+    // Changed navigation from "/ai-agent" to "/" (index page)
+    navigate("/");
   };
 
   return (

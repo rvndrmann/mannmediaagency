@@ -9,12 +9,15 @@ serve(async (req) => {
   }
 
   try {
-    const json2videoApiKey = Deno.env.get('VITE_JSON2VIDEO_API_KEY')
+    const json2videoApiKey = Deno.env.get('JSON2VIDEO_API_KEY')
     
     if (!json2videoApiKey) {
+      console.log('Missing JSON2VIDEO_API_KEY in environment variables')
       throw new Error('JSON2Video API key is not configured')
     }
 
+    console.log('Checking JSON2Video API status with key length:', json2videoApiKey.length)
+    
     // Attempt to make a simple call to JSON2Video API to verify the key works
     const response = await fetch('https://api.json2video.com/v2/status', {
       method: 'GET',
@@ -24,12 +27,16 @@ serve(async (req) => {
       }
     })
 
+    console.log('JSON2Video status response status:', response.status)
+    
     if (!response.ok) {
-      const data = await response.json()
-      throw new Error(`JSON2Video API error: ${JSON.stringify(data)}`)
+      const errorData = await response.json()
+      console.error('JSON2Video API error response:', JSON.stringify(errorData))
+      throw new Error(`JSON2Video API error: ${JSON.stringify(errorData)}`)
     }
 
     const data = await response.json()
+    console.log('JSON2Video API success response:', JSON.stringify(data))
     
     return new Response(
       JSON.stringify({ 

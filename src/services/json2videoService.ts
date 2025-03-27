@@ -23,6 +23,7 @@ export interface VideoProjectResponse {
  */
 export const checkApiKeyStatus = async (): Promise<{success: boolean, message: string}> => {
   try {
+    console.log('Checking JSON2Video API key status');
     const { data, error } = await supabase.functions.invoke('json2video-status');
     
     if (error) {
@@ -32,9 +33,11 @@ export const checkApiKeyStatus = async (): Promise<{success: boolean, message: s
     
     if (!data || !data.success) {
       const errorMessage = data?.error || 'Unknown error checking JSON2Video API key';
+      console.error('API key validation failed:', errorMessage);
       return { success: false, message: errorMessage };
     }
     
+    console.log('API key validation successful:', data.message);
     return { success: true, message: data.message || 'API key is configured' };
   } catch (error) {
     console.error('Exception checking JSON2Video API key:', error);

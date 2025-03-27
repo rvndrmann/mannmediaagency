@@ -44,8 +44,9 @@ serve(async (req) => {
 
     console.log(`Checking status for request: ${requestId}`)
 
-    // Check status from fal.ai
-    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/product-shot/status/${requestId}`, {
+    // Check status from fal.ai using the correct endpoint
+    // The key issue was using the wrong URL format - we need to use the specific endpoint format
+    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Key ${FAL_KEY}`,
@@ -59,24 +60,64 @@ serve(async (req) => {
       throw new Error(`Failed to check status: ${errorText}`)
     }
 
-    const statusData: StatusResponse = await statusResponse.json()
-    console.log(`Status for request ${requestId}: ${statusData.status}`)
+    const statusData = await statusResponse.json()
+    console.log(`Status for request ${requestId}:`, JSON.stringify(statusData))
 
     // Process completed results to match our expected format
-    if (statusData.status === 'completed' && statusData.output) {
+    if (statusData.status === 'COMPLETED' || statusData.status === 'completed') {
       console.log('Processing completed results');
-      const images: GeneratedImage[] = statusData.output.images.map((img: any, index: number) => ({
+      
+      // Extract the output from the response
+      const output = statusData.result || statusData.output || {};
+      const images = output.images || [];
+      
+      const formattedImages: GeneratedImage[] = images.map((img: any, index: number) => ({
         id: `${requestId}-${index}`,
         url: img.url,
         content_type: 'image/jpeg', // fal.ai default
         status: 'completed',
-        prompt: statusData.output.prompt || ''
+        prompt: output.prompt || ''
       }));
+      
+      console.log('Formatted images:', JSON.stringify(formattedImages));
       
       return new Response(
         JSON.stringify({
           status: 'completed',
-          images: images
+          images: formattedImages
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    } else if (statusData.status === 'FAILED' || statusData.status === 'failed' || statusData.error) {
+      // Handle failed status
+      return new Response(
+        JSON.stringify({
+          status: 'failed',
+          error: statusData.error || 'Unknown error occurred'
+        }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json'
+          }
+        }
+      )
+    } else {
+      // For in-progress status, normalize the status field
+      let normalizedStatus = 'processing';
+      if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
+        normalizedStatus = 'processing';
+      }
+      
+      return new Response(
+        JSON.stringify({
+          status: normalizedStatus,
+          error: statusData.error
         }),
         {
           headers: {
@@ -86,20 +127,6 @@ serve(async (req) => {
         }
       )
     }
-
-    // For non-completed status, just return the status data
-    return new Response(
-      JSON.stringify({
-        status: statusData.status,
-        error: statusData.error
-      }),
-      {
-        headers: {
-          ...corsHeaders,
-          'Content-Type': 'application/json'
-        }
-      }
-    )
 
   } catch (error) {
     console.error('Error in check-generation-status:', error)

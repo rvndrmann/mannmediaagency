@@ -78,7 +78,7 @@ serve(async (req) => {
     // Force async mode for all requests
     requestBody.sync_mode = false;
 
-    // Submit request to queue
+    // Submit request to queue using the correct endpoint
     console.log('Submitting request to fal.ai');
     
     const submitResponse = await fetch('https://queue.fal.run/fal-ai/bria/product-shot', {

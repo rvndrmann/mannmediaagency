@@ -124,7 +124,29 @@ export function useGenerationQueue() {
           }
         } catch (error) {
           console.error('[Queue] Polling error:', error);
-          // Don't remove from queue on error, will retry next interval
+          // Update retry count but don't remove from queue on network errors
+          if (item.retries >= MAX_RETRIES) {
+            // If we've hit max retries, mark as failed
+            const placeholderIndex = newGeneratedImages.findIndex(
+              img => img.id === `temp-${item.requestId}`
+            );
+            
+            if (placeholderIndex !== -1) {
+              newGeneratedImages[placeholderIndex] = {
+                ...newGeneratedImages[placeholderIndex],
+                status: 'failed'
+              };
+            }
+            
+            updatedQueue.splice(i, 1);
+            i--;
+          } else {
+            updatedQueue[i] = {
+              ...item,
+              retries: item.retries + 1
+            };
+          }
+          queueChanged = true;
         }
       }
 

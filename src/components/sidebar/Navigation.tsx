@@ -148,9 +148,10 @@ export const Navigation = () => {
     {
       name: "Dashboard",
       subtext: "Your Content Overview",
-      to: "/dashboard",
+      to: "/",
       icon: ScrollText,
       badge: notifications.length > 0 ? notifications.length : undefined,
+      current: location.pathname === "/" || location.pathname === "/dashboard",
     },
     {
       name: "Custom Orders",

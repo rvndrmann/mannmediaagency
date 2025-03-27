@@ -1,3 +1,4 @@
+
 import { Compass, ScrollText, Settings, Package, Globe, Camera, ImagePlus, Film } from "lucide-react";
 import { Link, useLocation } from "react-router-dom";
 import { cn } from "@/lib/utils";
@@ -13,7 +14,7 @@ const navItems = [
   {
     label: "Dashboard",
     icon: ScrollText,
-    href: "/dashboard"
+    href: "/"
   },
   {
     label: "Orders",
@@ -88,7 +89,9 @@ export const BottomNav = () => {
             className={cn(
               "flex flex-col items-center justify-center flex-1 h-full px-2 gap-1",
               "text-muted-foreground hover:text-foreground transition-colors",
-              location.pathname === item.href && "text-foreground"
+              (location.pathname === item.href || 
+               (item.href === "/" && location.pathname === "/dashboard"))
+                && "text-foreground"
             )}
           >
             <item.icon className="h-5 w-5" />

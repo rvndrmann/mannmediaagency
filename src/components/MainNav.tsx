@@ -18,7 +18,7 @@ export function MainNav() {
     {
       name: "Dashboard",
       href: "/",
-      active: location.pathname === "/",
+      active: location.pathname === "/" || location.pathname === "/dashboard",
     },
   ];
 

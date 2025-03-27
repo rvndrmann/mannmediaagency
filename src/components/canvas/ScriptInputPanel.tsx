@@ -5,32 +5,40 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
 import { Save, FileText } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
-import { useCanvasStore } from '@/hooks/use-canvas';
 
 interface ScriptInputPanelProps {
   className?: string;
+  fullScript?: string;
+  scenes?: Array<{ id: string; title: string }>;
+  onScriptDivide?: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
+  onSaveFullScript?: (script: string) => Promise<void>;
 }
 
-export function ScriptInputPanel({ className }: ScriptInputPanelProps) {
+export function ScriptInputPanel({ 
+  className,
+  fullScript = '',
+  scenes = [],
+  onScriptDivide,
+  onSaveFullScript
+}: ScriptInputPanelProps) {
   const { toast } = useToast();
-  const { currentProject, updateProject } = useCanvasStore();
   const [script, setScript] = useState('');
   const [isSaving, setIsSaving] = useState(false);
 
-  // Initialize script from current project
+  // Initialize script from props
   useEffect(() => {
-    if (currentProject && currentProject.full_script) {
-      setScript(currentProject.full_script);
+    if (fullScript) {
+      setScript(fullScript);
     } else {
       setScript('');
     }
-  }, [currentProject]);
+  }, [fullScript]);
 
   const handleSaveScript = async () => {
-    if (!currentProject) {
+    if (!onSaveFullScript) {
       toast({
-        title: "No active project",
-        description: "Please create or select a project first",
+        title: "Cannot save script",
+        description: "Save functionality is not available",
         variant: "destructive",
       });
       return;
@@ -38,18 +46,12 @@ export function ScriptInputPanel({ className }: ScriptInputPanelProps) {
 
     setIsSaving(true);
     try {
-      // Only update if the script has changed
-      if (script !== currentProject.full_script) {
-        await updateProject({
-          ...currentProject,
-          full_script: script
-        });
-        
-        toast({
-          title: "Script saved",
-          description: "Your script has been saved successfully",
-        });
-      }
+      await onSaveFullScript(script);
+      
+      toast({
+        title: "Script saved",
+        description: "Your script has been saved successfully",
+      });
     } catch (error) {
       console.error("Error saving script:", error);
       toast({
@@ -81,7 +83,7 @@ export function ScriptInputPanel({ className }: ScriptInputPanelProps) {
       <CardFooter className="flex justify-end">
         <Button 
           onClick={handleSaveScript} 
-          disabled={isSaving || !currentProject}
+          disabled={isSaving}
         >
           <Save className="mr-2 h-4 w-4" />
           {isSaving ? 'Saving...' : 'Save Script'}

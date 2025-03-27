@@ -83,7 +83,7 @@ const VideoCreator = () => {
       setIsCreating(true);
       
       // Add console log to debug the JSON data being sent
-      console.log("Sending JSON data to API:", jsonData);
+      console.log("Sending JSON data to API:", JSON.stringify(jsonData, null, 2));
       
       const response = await createVideo(jsonData);
       console.log("API response:", response);

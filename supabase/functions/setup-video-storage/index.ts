@@ -1,78 +1,86 @@
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.48.1';
+import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
+import { corsHeaders } from '../_shared/cors.ts'
+import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.34.0'
 
-// Define buckets to create
-const BUCKETS = [
-  { name: 'videos', public: true },
-  { name: 'audio', public: true }
-];
+serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response(null, { headers: corsHeaders, status: 204 })
+  }
 
-Deno.serve(async (req) => {
   try {
-    // Create Supabase client
-    const supabaseClient = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
+    const supabaseAdmin = createClient(
+      Deno.env.get('SUPABASE_URL') ?? '',
+      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
+      {
+        auth: {
+          persistSession: false,
+          autoRefreshToken: false
+        }
+      }
     );
 
-    const results = [];
+    // Create the videos bucket if it doesn't exist
+    const { data: videoBucket, error: videoError } = await supabaseAdmin
+      .storage
+      .createBucket('videos', {
+        public: true,
+        fileSizeLimit: 1024 * 1024 * 100, // 100MB
+        allowedMimeTypes: ['video/mp4', 'video/webm', 'video/quicktime']
+      })
+      .catch(error => ({ data: null, error }));
 
-    for (const bucket of BUCKETS) {
-      try {
-        // Check if bucket exists
-        const { data: existingBuckets } = await supabaseClient.storage.listBuckets();
-        const bucketExists = existingBuckets.some(b => b.name === bucket.name);
-        
-        if (!bucketExists) {
-          // Create bucket
-          const { data, error } = await supabaseClient.storage.createBucket(
-            bucket.name,
-            { public: bucket.public }
-          );
-          
-          if (error) throw error;
-          
-          results.push({
-            bucket: bucket.name,
-            status: 'created',
-            data
-          });
-          
-          // Add policies to allow public access if public bucket
-          if (bucket.public) {
-            // Add policy for anonymous users to download files
-            const { error: policyError } = await supabaseClient.rpc('create_storage_policy', {
-              bucket_name: bucket.name,
-              policy_name: `${bucket.name}_public_select`,
-              definition: `bucket_id = '${bucket.name}'`,
-              action: 'SELECT'
-            });
-            
-            if (policyError) throw policyError;
-          }
-        } else {
-          results.push({
-            bucket: bucket.name,
-            status: 'already exists'
-          });
-        }
-      } catch (bucketError) {
-        results.push({
-          bucket: bucket.name,
-          status: 'error',
-          error: bucketError.message
-        });
-      }
-    }
+    // Create the audio bucket if it doesn't exist
+    const { data: audioBucket, error: audioError } = await supabaseAdmin
+      .storage
+      .createBucket('audio', {
+        public: true,
+        fileSizeLimit: 1024 * 1024 * 20, // 20MB
+        allowedMimeTypes: ['audio/mpeg', 'audio/mp3', 'audio/wav', 'audio/ogg']
+      })
+      .catch(error => ({ data: null, error }));
+
+    // Set policy to allow public access to videos
+    const videoPolicyResult = await supabaseAdmin
+      .storage
+      .from('videos')
+      .createSignedUploadUrl('policy-setup-dummy-file')
+      .then(() => ({
+        error: null
+      }))
+      .catch(error => ({ error }));
+
+    // Set policy to allow public access to audio
+    const audioPolicyResult = await supabaseAdmin
+      .storage
+      .from('audio')
+      .createSignedUploadUrl('policy-setup-dummy-file')
+      .then(() => ({
+        error: null
+      }))
+      .catch(error => ({ error }));
+
+    const results = {
+      videoBucket: videoBucket ? 'created' : 'error',
+      videoError: videoError?.message || null,
+      audioBucket: audioBucket ? 'created' : 'error',
+      audioError: audioError?.message || null,
+      videoPolicy: videoPolicyResult.error ? 'error' : 'set',
+      videoPolicyError: videoPolicyResult.error?.message || null,
+      audioPolicy: audioPolicyResult.error ? 'error' : 'set',
+      audioPolicyError: audioPolicyResult.error?.message || null,
+    };
 
     return new Response(
-      JSON.stringify({ success: true, results }),
-      { headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify(results),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 200 }
     );
   } catch (error) {
+    console.error('Error setting up storage:', error);
     return new Response(
-      JSON.stringify({ success: false, error: error.message }),
-      { status: 500, headers: { 'Content-Type': 'application/json' } }
+      JSON.stringify({ error: error.message }),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' }, status: 500 }
     );
   }
 });

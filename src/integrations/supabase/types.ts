@@ -1558,12 +1558,14 @@ export type Database = {
         Row: {
           amount: number
           created_at: string | null
+          guest_id: string | null
           id: string
           payment_method: string | null
           payment_response: Json | null
           payment_status: string | null
           payu_data: Json | null
           payu_transaction_id: string | null
+          related_order_id: string | null
           status: string
           subscription_id: string | null
           transaction_id: string
@@ -1574,12 +1576,14 @@ export type Database = {
         Insert: {
           amount: number
           created_at?: string | null
+          guest_id?: string | null
           id?: string
           payment_method?: string | null
           payment_response?: Json | null
           payment_status?: string | null
           payu_data?: Json | null
           payu_transaction_id?: string | null
+          related_order_id?: string | null
           status?: string
           subscription_id?: string | null
           transaction_id: string
@@ -1590,12 +1594,14 @@ export type Database = {
         Update: {
           amount?: number
           created_at?: string | null
+          guest_id?: string | null
           id?: string
           payment_method?: string | null
           payment_response?: Json | null
           payment_status?: string | null
           payu_data?: Json | null
           payu_transaction_id?: string | null
+          related_order_id?: string | null
           status?: string
           subscription_id?: string | null
           transaction_id?: string
@@ -1604,6 +1610,20 @@ export type Database = {
           webhook_received_at?: string | null
         }
         Relationships: [
+          {
+            foreignKeyName: "payment_transactions_guest_id_fkey"
+            columns: ["guest_id"]
+            isOneToOne: false
+            referencedRelation: "custom_order_guests"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "payment_transactions_related_order_id_fkey"
+            columns: ["related_order_id"]
+            isOneToOne: false
+            referencedRelation: "custom_orders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "payment_transactions_subscription_id_fkey"
             columns: ["subscription_id"]

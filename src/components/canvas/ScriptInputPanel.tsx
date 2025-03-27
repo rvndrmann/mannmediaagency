@@ -42,36 +42,106 @@ export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptIn
     setIsProcessing(true);
 
     try {
-      // Split the script into words
-      const words = fullScript.trim().split(/\s+/).filter(Boolean);
+      // Split the script into sentences
+      const sentences = fullScript.match(/[^.!?]+[.!?]+/g) || [];
       
-      // Calculate how many words per scene (maximum 70)
-      const maxWordsPerScene = 70;
+      // If no sentences are found (e.g., incomplete sentences without punctuation),
+      // fall back to treating the whole script as one sentence
+      if (sentences.length === 0 && fullScript.trim()) {
+        sentences.push(fullScript.trim());
+      }
+      
+      // Initialize array to hold scripts for each scene
       const sceneScripts: Array<{ id: string; content: string }> = [];
       
-      let currentWordIndex = 0;
+      // Initialize variables to track current scene's content
+      let currentSceneContent: string[] = [];
+      let currentSceneWordCount = 0;
+      let sceneIndex = 0;
       
-      // Distribute words to scenes
-      scenes.forEach((scene) => {
-        if (currentWordIndex >= words.length) {
-          // No more words to distribute
-          sceneScripts.push({ id: scene.id, content: "" });
-        } else {
-          // Calculate how many words to assign to this scene
-          const wordsLeft = words.length - currentWordIndex;
-          const wordsForThisScene = Math.min(wordsLeft, maxWordsPerScene);
+      // Process each sentence
+      for (let i = 0; i < sentences.length; i++) {
+        const sentence = sentences[i].trim();
+        const sentenceWordCount = sentence.split(/\s+/).filter(Boolean).length;
+        
+        // If this sentence would exceed the max words per scene and we already have content,
+        // move to the next scene
+        if (currentSceneWordCount + sentenceWordCount > 70 && currentSceneWordCount > 0) {
+          // Save the current scene content
+          if (sceneIndex < scenes.length) {
+            sceneScripts.push({
+              id: scenes[sceneIndex].id,
+              content: currentSceneContent.join(" ")
+            });
+            sceneIndex++;
+          }
           
-          // Get the words for this scene and join them
-          const sceneContent = words
-            .slice(currentWordIndex, currentWordIndex + wordsForThisScene)
-            .join(" ");
-          
-          sceneScripts.push({ id: scene.id, content: sceneContent });
-          
-          // Move the index forward
-          currentWordIndex += wordsForThisScene;
+          // Reset for next scene
+          currentSceneContent = [];
+          currentSceneWordCount = 0;
         }
-      });
+        
+        // Handle case where a single sentence is longer than 70 words
+        if (sentenceWordCount > 70) {
+          // Split the sentence into chunks of max 70 words, trying to break at spaces
+          const words = sentence.split(/\s+/);
+          let chunk: string[] = [];
+          let chunkWordCount = 0;
+          
+          for (const word of words) {
+            if (chunkWordCount + 1 <= 70) {
+              chunk.push(word);
+              chunkWordCount++;
+            } else {
+              // Save current chunk to a scene
+              if (sceneIndex < scenes.length) {
+                sceneScripts.push({
+                  id: scenes[sceneIndex].id,
+                  content: chunk.join(" ")
+                });
+                sceneIndex++;
+              }
+              
+              // Reset for next chunk
+              chunk = [word];
+              chunkWordCount = 1;
+            }
+          }
+          
+          // Add any remaining words from the long sentence
+          if (chunk.length > 0 && sceneIndex < scenes.length) {
+            currentSceneContent = chunk;
+            currentSceneWordCount = chunkWordCount;
+          }
+        } else {
+          // Add this sentence to the current scene
+          currentSceneContent.push(sentence);
+          currentSceneWordCount += sentenceWordCount;
+        }
+        
+        // If we've filled all scenes, stop processing
+        if (sceneIndex >= scenes.length) {
+          break;
+        }
+      }
+      
+      // Add any remaining content to the last scene
+      if (currentSceneContent.length > 0 && sceneIndex < scenes.length) {
+        sceneScripts.push({
+          id: scenes[sceneIndex].id,
+          content: currentSceneContent.join(" ")
+        });
+        sceneIndex++;
+      }
+      
+      // Assign empty content to any remaining scenes
+      while (sceneIndex < scenes.length) {
+        sceneScripts.push({
+          id: scenes[sceneIndex].id,
+          content: ""
+        });
+        sceneIndex++;
+      }
 
       // Update scenes with their new scripts
       onScriptDivide(sceneScripts)
@@ -122,7 +192,7 @@ export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptIn
             ref={textareaRef}
             value={fullScript}
             onChange={handleScriptChange}
-            placeholder="Write your full script here. It will be automatically divided into scenes (max 70 words per scene)."
+            placeholder="Write your full script here. It will be divided into scenes at sentence boundaries (max 70 words per scene)."
             className="min-h-[120px] mb-4"
           />
           <div className="flex justify-between items-center">
@@ -143,7 +213,7 @@ export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptIn
               </Button>
             </div>
             <div className="text-sm text-slate-500 dark:text-slate-400">
-              Script will be divided into scenes with max 70 words each
+              Script will be divided into scenes at sentence boundaries with max 70 words each
             </div>
           </div>
         </div>

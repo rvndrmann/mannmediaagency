@@ -1,5 +1,5 @@
 
-import { serve } from "std/server";
+import { serve } from "std/http/server.ts";
 import { createClient } from "supabase-js";
 
 interface ScheduledTask {

@@ -30,6 +30,9 @@ import TraceAnalytics from './pages/TraceAnalytics';
 import MultiAgentChat from './pages/MultiAgentChat';
 import Explore from './pages/Explore';
 import Canvas from './pages/Canvas';
+import LoginForm from './components/auth/LoginForm';
+import SignupForm from './components/auth/SignupForm';
+import AuthCallback from './components/auth/AuthCallback';
 import './App.css';
 
 // Create a client
@@ -50,6 +53,9 @@ function App() {
           <Routes>
             <Route path="/" element={<Index />} />
             <Route path="/auth" element={<Auth />} />
+            <Route path="/auth/login" element={<LoginForm />} />
+            <Route path="/auth/signup" element={<SignupForm />} />
+            <Route path="/auth/callback" element={<AuthCallback />} />
             <Route path="/about" element={<AboutUs />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/terms" element={<Terms />} />

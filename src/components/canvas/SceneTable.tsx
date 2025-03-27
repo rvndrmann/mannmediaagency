@@ -24,6 +24,7 @@ export function SceneTable({
   const [editingField, setEditingField] = useState<{sceneId: string, field: 'script' | 'imagePrompt'} | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video'} | null>(null);
+  const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   
   const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt', content: string = "") => {
     setEditingField({ sceneId, field });
@@ -52,23 +53,42 @@ export function SceneTable({
   };
 
   const handleAddMedia = (sceneId: string, type: 'image' | 'video') => {
-    setUploadingMedia({ sceneId, type });
-    // Mock implementation - would be replaced with actual file upload
-    setTimeout(() => {
-      const mockUrl = type === 'image' 
-        ? 'https://picsum.photos/300/200'
-        : 'https://example.com/video.mp4';
+    // Create a file input element
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'image' ? 'image/*' : 'video/*';
+    setFileInput(input);
+    
+    // Handle file selection
+    input.onchange = async (e) => {
+      const target = e.target as HTMLInputElement;
+      const file = target.files?.[0];
       
-      updateScene(sceneId, type, mockUrl)
-        .then(() => {
+      if (!file) return;
+      
+      setUploadingMedia({ sceneId, type });
+      
+      try {
+        // For demo purposes, we'll create a data URL to display the image/video
+        const reader = new FileReader();
+        reader.onload = async (event) => {
+          const dataUrl = event.target?.result as string;
+          
+          // Update the scene with the data URL
+          await updateScene(sceneId, type, dataUrl);
           toast.success(`${type} added successfully`);
           setUploadingMedia(null);
-        })
-        .catch(error => {
-          toast.error(`Failed to add ${type}: ${error}`);
-          setUploadingMedia(null);
-        });
-    }, 1500);
+        };
+        reader.readAsDataURL(file);
+      } catch (error) {
+        console.error(`Error adding ${type}:`, error);
+        toast.error(`Failed to add ${type}`);
+        setUploadingMedia(null);
+      }
+    };
+    
+    // Trigger file selection dialog
+    input.click();
   };
 
   const handleRemoveMedia = (sceneId: string, type: 'image' | 'video') => {
@@ -189,7 +209,15 @@ export function SceneTable({
     return (
       <div className="relative group">
         <div className="h-[100px] bg-slate-800 flex items-center justify-center rounded">
-          <Video className="h-8 w-8 text-slate-400" />
+          {url.startsWith('data:video') || url.includes('.mp4') ? (
+            <video 
+              src={url} 
+              className="h-full w-full object-cover" 
+              controls={false}
+            />
+          ) : (
+            <Video className="h-8 w-8 text-slate-400" />
+          )}
         </div>
         <div className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/30 rounded">
           <div className="flex space-x-2">

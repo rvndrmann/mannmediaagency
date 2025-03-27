@@ -1,15 +1,16 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
-import { Loader2, Video } from "lucide-react";
+import { Loader2, Video, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { FileUploader } from "./FileUploader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface VideoCreatorFormProps {
   onCreateVideo: (jsonData: any) => Promise<void>;
@@ -23,6 +24,26 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
   const [jsonConfig, setJsonConfig] = useState<string>("");
   const [useCustomJson, setUseCustomJson] = useState<boolean>(false);
   const [inputMode, setInputMode] = useState<"url" | "upload">("url");
+  const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
+  
+  // Check if the API key is configured
+  useEffect(() => {
+    const checkApiKey = async () => {
+      try {
+        // Make a simple call to check if our proxy works
+        const { error } = await fetch('/api/json2video-status')
+          .then(res => res.json())
+          .catch(() => ({ error: true }));
+        
+        setApiKeyMissing(!!error);
+      } catch (err) {
+        console.error("Error checking API key:", err);
+        setApiKeyMissing(true);
+      }
+    };
+    
+    checkApiKey();
+  }, []);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -85,6 +106,16 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
+          {apiKeyMissing && (
+            <Alert variant="destructive" className="mb-4">
+              <AlertCircle className="h-4 w-4" />
+              <AlertTitle>API Key Missing</AlertTitle>
+              <AlertDescription>
+                The JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable.
+              </AlertDescription>
+            </Alert>
+          )}
+          
           <div className="space-y-1">
             <Label 
               htmlFor="json-toggle" 
@@ -192,7 +223,7 @@ export function VideoCreatorForm({ onCreateVideo, isLoading }: VideoCreatorFormP
           <Button 
             type="submit" 
             className="w-full"
-            disabled={isLoading || 
+            disabled={isLoading || apiKeyMissing ||
               ((!useCustomJson && inputMode === "url" && !videoUrl) || 
                (!useCustomJson && inputMode === "upload" && !videoUrl) || 
                (useCustomJson && !jsonConfig))}

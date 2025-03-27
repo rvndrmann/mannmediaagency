@@ -13,12 +13,14 @@ import { VideoCreatorForm } from "@/components/video-creator/VideoCreatorForm";
 import { VideoProjectsList } from "@/components/video-creator/VideoProjectsList";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 const VideoCreator = () => {
   const navigate = useNavigate();
   const [isCreating, setIsCreating] = useState(false);
   const [savedProjects, setSavedProjects] = useState<VideoProject[]>([]);
+  const [setupError, setSetupError] = useState<string | null>(null);
   
   // Check if user is authenticated
   const { data: session, isLoading: isSessionLoading } = useQuery({
@@ -44,11 +46,14 @@ const VideoCreator = () => {
         
         if (error) {
           console.error('Error setting up storage:', error);
+          setSetupError('Failed to set up storage: ' + error.message);
         } else {
           console.log('Storage setup complete:', data);
+          setSetupError(null);
         }
       } catch (err) {
         console.error('Failed to set up storage:', err);
+        setSetupError('Failed to set up storage: ' + (err instanceof Error ? err.message : String(err)));
       }
     };
     
@@ -65,6 +70,7 @@ const VideoCreator = () => {
           setSavedProjects(projects);
         } catch (error) {
           console.error('Error loading saved projects:', error);
+          toast.error('Failed to load saved projects');
         }
       }
     };
@@ -153,6 +159,14 @@ const VideoCreator = () => {
           </Button>
           <h1 className="text-3xl font-bold">Video Creator</h1>
         </div>
+        
+        {setupError && (
+          <Alert variant="destructive" className="mb-6">
+            <AlertCircle className="h-4 w-4" />
+            <AlertTitle>Error</AlertTitle>
+            <AlertDescription>{setupError}</AlertDescription>
+          </Alert>
+        )}
         
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
           <div className="lg:col-span-1">

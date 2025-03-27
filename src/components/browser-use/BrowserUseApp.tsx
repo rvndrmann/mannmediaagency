@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -86,7 +87,8 @@ export function BrowserUseApp() {
       
       setTimeout(() => {
         if (scheduledTaskInput && userCredits && userCredits.credits_remaining > 0) {
-          startTask(environment);
+          // Fix: Remove the environment argument as startTask doesn't expect it anymore
+          startTask();
           toast.info("Executing scheduled task automatically");
         }
       }, 500);
@@ -145,7 +147,8 @@ export function BrowserUseApp() {
       }
     }
     
-    startTask(environment);
+    // Fix: Remove the environment argument as startTask doesn't expect it anymore
+    startTask();
   };
 
   return (
@@ -428,3 +431,4 @@ export function BrowserUseApp() {
     </div>
   );
 }
+

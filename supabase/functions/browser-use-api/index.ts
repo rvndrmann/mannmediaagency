@@ -128,177 +128,6 @@ serve(async (req) => {
           JSON.stringify({ templates: data }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
-      } else if (action === 'saveTemplate') {
-        const { name, description, task_input, browser_config } = requestData;
-        
-        if (!name || !task_input) {
-          return new Response(
-            JSON.stringify({ error: 'Name and task input are required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        const { data, error } = await supabase
-          .from('browser_task_templates')
-          .insert({
-            user_id: user.id,
-            name,
-            description,
-            task_input,
-            browser_config
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ template: data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else if (action === 'deleteTemplate' && requestData.templateId) {
-        const { error } = await supabase
-          .from('browser_task_templates')
-          .delete()
-          .eq('id', requestData.templateId)
-          .eq('user_id', user.id);
-        
-        if (error) {
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else if (action === 'getScheduledTasks') {
-        const { data, error } = await supabase
-          .from('scheduled_browser_tasks')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('scheduled_time', { ascending: true });
-        
-        if (error) {
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ scheduled_tasks: data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else if (action === 'scheduleTask') {
-        const { 
-          task_input, 
-          browser_config, 
-          template_id, 
-          schedule_type, 
-          scheduled_time, 
-          repeat_interval 
-        } = requestData;
-        
-        if (!task_input || !schedule_type || !scheduled_time) {
-          return new Response(
-            JSON.stringify({ error: 'Task input, schedule type, and scheduled time are required' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        const scheduledDateTime = new Date(scheduled_time);
-        if (scheduledDateTime < new Date()) {
-          return new Response(
-            JSON.stringify({ error: 'Scheduled time must be in the future' }),
-            { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        let nextRunAt = null;
-        
-        if (schedule_type === 'recurring' && repeat_interval) {
-          nextRunAt = scheduledDateTime;
-          
-          if (repeat_interval.includes('day')) {
-            nextRunAt.setDate(nextRunAt.getDate() + parseInt(repeat_interval));
-          } else if (repeat_interval.includes('week')) {
-            nextRunAt.setDate(nextRunAt.getDate() + (parseInt(repeat_interval) * 7));
-          } else if (repeat_interval.includes('month')) {
-            nextRunAt.setMonth(nextRunAt.getMonth() + parseInt(repeat_interval));
-          }
-        }
-        
-        const { data, error } = await supabase
-          .from('scheduled_browser_tasks')
-          .insert({
-            user_id: user.id,
-            task_input,
-            browser_config,
-            template_id: template_id || null,
-            schedule_type,
-            scheduled_time: scheduledDateTime.toISOString(),
-            repeat_interval,
-            next_run_at: nextRunAt ? nextRunAt.toISOString() : null,
-            status: 'pending'
-          })
-          .select()
-          .single();
-        
-        if (error) {
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ scheduled_task: data }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else if (action === 'cancelScheduledTask' && requestData.taskId) {
-        const { error } = await supabase
-          .from('scheduled_browser_tasks')
-          .update({ status: 'cancelled' })
-          .eq('id', requestData.taskId)
-          .eq('user_id', user.id);
-        
-        if (error) {
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      } else if (action === 'deleteScheduledTask' && requestData.taskId) {
-        const { error } = await supabase
-          .from('scheduled_browser_tasks')
-          .delete()
-          .eq('id', requestData.taskId)
-          .eq('user_id', user.id);
-        
-        if (error) {
-          return new Response(
-            JSON.stringify({ error: error.message }),
-            { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-          );
-        }
-        
-        return new Response(
-          JSON.stringify({ success: true }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
       }
       
       return new Response(
@@ -345,6 +174,17 @@ serve(async (req) => {
     
     const browserConfig = browser_config || {};
     
+    let processedTask = task;
+    if (browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
+      browserConfig.sensitiveData.forEach(item => {
+        if (item.key && item.value) {
+          const placeholder = `{${item.key}}`;
+          const regex = new RegExp(placeholder, 'g');
+          processedTask = processedTask.replace(regex, item.value);
+        }
+      });
+    }
+    
     if (environment === "desktop") {
       const hasConnectionConfig = browserConfig.wssUrl || browserConfig.cdpUrl || browserConfig.browserInstancePath || browserConfig.chromePath;
       
@@ -368,7 +208,7 @@ serve(async (req) => {
     }
     
     const requestBody: any = {
-      task: task,
+      task: processedTask,
       save_browser_data: true
     };
     
@@ -454,7 +294,7 @@ serve(async (req) => {
       body: JSON.stringify(requestBody)
     };
     
-    console.log(`Starting ${environment} automation task: ${task}`);
+    console.log(`Starting ${environment} automation task: ${processedTask}`);
     const response = await fetch(`${BROWSER_USE_API_URL}/run-task`, options);
     const data = await response.json();
     

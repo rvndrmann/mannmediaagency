@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,15 +31,22 @@ export function VideoCreatorForm({
   const [useCustomJson, setUseCustomJson] = useState<boolean>(false);
   const [inputMode, setInputMode] = useState<"url" | "upload">("url");
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean>(false);
+  const [isCheckingApiKey, setIsCheckingApiKey] = useState<boolean>(true);
 
   useEffect(() => {
     const checkApiKey = async () => {
       try {
+        setIsCheckingApiKey(true);
         const status = await checkApiKeyStatus();
         setIsApiKeyValid(status.success);
+        if (!status.success) {
+          console.error('API key validation failed:', status.message);
+        }
       } catch (error) {
         console.error('API key validation error:', error);
         setIsApiKeyValid(false);
+      } finally {
+        setIsCheckingApiKey(false);
       }
     };
 
@@ -109,15 +117,23 @@ export function VideoCreatorForm({
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          {(apiKeyMissing || !isApiKeyValid) && (
+          {isCheckingApiKey ? (
+            <Alert className="mb-4">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <AlertTitle>Checking API Key</AlertTitle>
+              <AlertDescription>
+                Verifying the JSON2Video API key configuration...
+              </AlertDescription>
+            </Alert>
+          ) : (apiKeyMissing || !isApiKeyValid) ? (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>API Key Error</AlertTitle>
               <AlertDescription>
-                The JSON2Video API key is not configured or invalid. Please check your Supabase Edge Function secrets.
+                The JSON2Video API key is not configured or is invalid. Please check your Supabase Edge Function secrets.
               </AlertDescription>
             </Alert>
-          )}
+          ) : null}
           
           <div className="space-y-1">
             <Label 
@@ -228,6 +244,7 @@ export function VideoCreatorForm({
             className="w-full"
             disabled={
               isLoading || 
+              isCheckingApiKey ||
               apiKeyMissing || 
               !isApiKeyValid ||
               ((!useCustomJson && inputMode === "url" && !videoUrl) || 

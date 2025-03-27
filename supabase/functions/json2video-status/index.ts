@@ -24,12 +24,13 @@ serve(async (req) => {
       }
     })
 
-    const data = await response.json()
-    
     if (!response.ok) {
+      const data = await response.json()
       throw new Error(`JSON2Video API error: ${JSON.stringify(data)}`)
     }
 
+    const data = await response.json()
+    
     return new Response(
       JSON.stringify({ 
         success: true,

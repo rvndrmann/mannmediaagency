@@ -289,6 +289,51 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Update multiple scenes' scripts from dividing a full script
+  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string }>) => {
+    if (!project) return;
+    
+    try {
+      setError(null);
+      
+      // Update each scene in the database
+      for (const sceneScript of sceneScripts) {
+        const { error } = await supabase
+          .from('canvas_scenes')
+          .update({ script: sceneScript.content })
+          .eq('id', sceneScript.id);
+          
+        if (error) throw error;
+      }
+      
+      // Update local state
+      setProject(prev => {
+        if (!prev) return null;
+        
+        return {
+          ...prev,
+          scenes: prev.scenes.map(scene => {
+            const updatedScript = sceneScripts.find(s => s.id === scene.id);
+            if (updatedScript) {
+              return {
+                ...scene,
+                script: updatedScript.content,
+                updatedAt: new Date().toISOString()
+              };
+            }
+            return scene;
+          })
+        };
+      });
+      
+    } catch (error) {
+      console.error("Error updating scene scripts:", error);
+      setError("Failed to divide script");
+      toast.error("Failed to divide script");
+      throw error;
+    }
+  };
+
   // Get the currently selected scene
   const selectedScene = selectedSceneId && project
     ? project.scenes.find(scene => scene.id === selectedSceneId) || null
@@ -304,6 +349,7 @@ export const useCanvas = (projectId?: string) => {
     createProject,
     addScene,
     deleteScene,
-    updateScene
+    updateScene,
+    divideScriptToScenes
   };
 };

@@ -43,7 +43,8 @@ export default function Canvas() {
     createProject,
     addScene,
     deleteScene,
-    updateScene
+    updateScene,
+    divideScriptToScenes
   } = useCanvas(projectId || undefined);
 
   // Create a new project if none is provided
@@ -110,6 +111,7 @@ export default function Canvas() {
             setSelectedSceneId={setSelectedSceneId}
             addScene={addScene}
             updateScene={updateScene}
+            divideScriptToScenes={divideScriptToScenes}
           />
         </div>
       </div>

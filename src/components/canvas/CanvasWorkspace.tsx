@@ -1,6 +1,7 @@
 
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { SceneTable } from "./SceneTable";
+import { ScriptInputPanel } from "./ScriptInputPanel";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
 import { Plus, History } from "lucide-react";
@@ -14,6 +15,7 @@ interface CanvasWorkspaceProps {
   setSelectedSceneId: (id: string) => void;
   addScene: () => Promise<string | undefined>;
   updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'image' | 'video', value: string) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
 }
 
 export function CanvasWorkspace({
@@ -23,6 +25,7 @@ export function CanvasWorkspace({
   setSelectedSceneId,
   addScene,
   updateScene,
+  divideScriptToScenes,
 }: CanvasWorkspaceProps) {
   const [showHistory, setShowHistory] = useState(false);
 
@@ -64,6 +67,13 @@ export function CanvasWorkspace({
           </Button>
         </div>
       </div>
+      
+      {/* Add the ScriptInputPanel component */}
+      <ScriptInputPanel 
+        projectId={project.id}
+        scenes={project.scenes.map(scene => ({ id: scene.id, title: scene.title }))}
+        onScriptDivide={divideScriptToScenes}
+      />
       
       <ScrollArea className="flex-1 p-4">
         <SceneTable 

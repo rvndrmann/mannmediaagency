@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +43,7 @@ export const useCanvas = (projectId?: string) => {
           id: data.id,
           title: data.title,
           description: data.description,
+          fullScript: data.full_script || "",
           createdAt: data.created_at,
           updatedAt: data.updated_at,
           userId: data.user_id,
@@ -94,7 +96,8 @@ export const useCanvas = (projectId?: string) => {
         id: newProjectId,
         title,
         description,
-        user_id: user.id
+        user_id: user.id,
+        full_script: ""
       });
 
       if (error) throw error;
@@ -289,6 +292,39 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Save the full script to the project
+  const saveFullScript = async (script: string) => {
+    if (!project) return;
+    
+    try {
+      setError(null);
+      
+      const { error } = await supabase
+        .from('canvas_projects')
+        .update({ full_script: script })
+        .eq('id', project.id);
+        
+      if (error) throw error;
+      
+      // Update local state
+      setProject(prev => {
+        if (!prev) return null;
+        
+        return {
+          ...prev,
+          fullScript: script,
+          updatedAt: new Date().toISOString()
+        };
+      });
+      
+    } catch (error) {
+      console.error("Error saving full script:", error);
+      setError("Failed to save full script");
+      toast.error("Failed to save full script");
+      throw error;
+    }
+  };
+
   // Update multiple scenes' scripts from dividing a full script
   const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string }>) => {
     if (!project) return;
@@ -350,6 +386,7 @@ export const useCanvas = (projectId?: string) => {
     addScene,
     deleteScene,
     updateScene,
-    divideScriptToScenes
+    divideScriptToScenes,
+    saveFullScript
   };
 };

@@ -3,6 +3,7 @@ export interface CanvasProject {
   id: string;
   title: string;
   description?: string;
+  fullScript?: string;
   createdAt: string;
   updatedAt: string;
   userId: string;

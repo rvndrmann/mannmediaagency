@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -13,18 +12,21 @@ interface SceneTableProps {
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string) => void;
   updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'image' | 'video', value: string) => Promise<void>;
+  deleteScene: (id: string) => Promise<void>;
 }
 
 export function SceneTable({
   scenes,
   selectedSceneId,
   setSelectedSceneId,
-  updateScene
+  updateScene,
+  deleteScene
 }: SceneTableProps) {
   const [editingField, setEditingField] = useState<{sceneId: string, field: 'script' | 'imagePrompt'} | null>(null);
   const [editedContent, setEditedContent] = useState("");
   const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video'} | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
+  const [deletingScene, setDeletingScene] = useState<string | null>(null);
   
   const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt', content: string = "") => {
     setEditingField({ sceneId, field });
@@ -53,13 +55,11 @@ export function SceneTable({
   };
 
   const handleAddMedia = (sceneId: string, type: 'image' | 'video') => {
-    // Create a file input element
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = type === 'image' ? 'image/*' : 'video/*';
     setFileInput(input);
     
-    // Handle file selection
     input.onchange = async (e) => {
       const target = e.target as HTMLInputElement;
       const file = target.files?.[0];
@@ -69,12 +69,10 @@ export function SceneTable({
       setUploadingMedia({ sceneId, type });
       
       try {
-        // For demo purposes, we'll create a data URL to display the image/video
         const reader = new FileReader();
         reader.onload = async (event) => {
           const dataUrl = event.target?.result as string;
           
-          // Update the scene with the data URL
           await updateScene(sceneId, type, dataUrl);
           toast.success(`${type} added successfully`);
           setUploadingMedia(null);
@@ -87,7 +85,6 @@ export function SceneTable({
       }
     };
     
-    // Trigger file selection dialog
     input.click();
   };
 
@@ -95,6 +92,20 @@ export function SceneTable({
     updateScene(sceneId, type, '')
       .then(() => toast.success(`${type} removed`))
       .catch(error => toast.error(`Failed to remove ${type}: ${error}`));
+  };
+  
+  const handleDeleteScene = async (sceneId: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setDeletingScene(sceneId);
+    
+    try {
+      await deleteScene(sceneId);
+      toast.success("Scene deleted successfully");
+    } catch (error) {
+      toast.error(`Failed to delete scene: ${error}`);
+    } finally {
+      setDeletingScene(null);
+    }
   };
   
   const renderField = (scene: CanvasScene, field: 'script' | 'imagePrompt') => {
@@ -248,6 +259,7 @@ export function SceneTable({
             <TableHead className="w-[30%]">Image Prompt</TableHead>
             <TableHead>Image</TableHead>
             <TableHead>Video</TableHead>
+            <TableHead className="w-[60px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -262,6 +274,21 @@ export function SceneTable({
               <TableCell>{renderField(scene, 'imagePrompt')}</TableCell>
               <TableCell>{renderMedia(scene, 'image')}</TableCell>
               <TableCell>{renderMedia(scene, 'video')}</TableCell>
+              <TableCell>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-destructive"
+                  onClick={(e) => handleDeleteScene(scene.id, e)}
+                  disabled={deletingScene === scene.id || scenes.length <= 1}
+                >
+                  {deletingScene === scene.id ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash className="h-4 w-4" />
+                  )}
+                </Button>
+              </TableCell>
             </TableRow>
           ))}
         </TableBody>

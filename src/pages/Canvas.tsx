@@ -12,7 +12,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 
 export default function Canvas() {
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   const navigate = useNavigate();
   
@@ -44,7 +44,8 @@ export default function Canvas() {
     addScene,
     deleteScene,
     updateScene,
-    divideScriptToScenes
+    divideScriptToScenes,
+    saveFullScript
   } = useCanvas(projectId || undefined);
 
   // Create a new project if none is provided
@@ -65,6 +66,18 @@ export default function Canvas() {
       createNewProject();
     }
   }, [loading, projectId, createProject, navigate, isAuthenticated]);
+
+  const handleCreateNewProject = async () => {
+    try {
+      const newProjectId = await createProject("New Video Project");
+      if (newProjectId) {
+        navigate(`/canvas?projectId=${newProjectId}`);
+      }
+    } catch (err) {
+      console.error("Failed to create new project:", err);
+      toast.error("Failed to create new project");
+    }
+  };
 
   // Show loading state
   if (loading || isAuthenticated === null) {
@@ -110,8 +123,11 @@ export default function Canvas() {
             selectedSceneId={selectedSceneId}
             setSelectedSceneId={setSelectedSceneId}
             addScene={addScene}
+            deleteScene={deleteScene}
             updateScene={updateScene}
             divideScriptToScenes={divideScriptToScenes}
+            saveFullScript={saveFullScript}
+            createNewProject={handleCreateNewProject}
           />
         </div>
       </div>

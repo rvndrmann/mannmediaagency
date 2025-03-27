@@ -8,14 +8,23 @@ import { toast } from "sonner";
 interface ScriptInputPanelProps {
   projectId: string;
   scenes: Array<{ id: string; title: string }>;
+  fullScript?: string;
   onScriptDivide: (scenes: Array<{ id: string; content: string }>) => Promise<void>;
+  onSaveFullScript?: (script: string) => Promise<void>;
 }
 
-export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptInputPanelProps) {
-  const [fullScript, setFullScript] = useState("");
+export function ScriptInputPanel({ 
+  projectId, 
+  scenes, 
+  fullScript: initialScript = "", 
+  onScriptDivide, 
+  onSaveFullScript 
+}: ScriptInputPanelProps) {
+  const [fullScript, setFullScript] = useState(initialScript);
   const [isExpanded, setIsExpanded] = useState(true);
   const [wordCount, setWordCount] = useState(0);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
@@ -24,8 +33,30 @@ export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptIn
     setWordCount(words);
   }, [fullScript]);
 
+  useEffect(() => {
+    // Update the fullScript when initialScript changes
+    if (initialScript) {
+      setFullScript(initialScript);
+    }
+  }, [initialScript]);
+
   const handleScriptChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
     setFullScript(e.target.value);
+  };
+
+  const saveFullScript = async () => {
+    if (!fullScript.trim() || !onSaveFullScript) return;
+    
+    setIsSaving(true);
+    try {
+      await onSaveFullScript(fullScript);
+      toast.success("Full script saved successfully");
+    } catch (error) {
+      console.error("Error saving full script:", error);
+      toast.error("Failed to save full script");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const divideScript = () => {
@@ -147,6 +178,14 @@ export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptIn
       onScriptDivide(sceneScripts)
         .then(() => {
           toast.success("Script divided across scenes successfully");
+          
+          // After dividing, also save the full script if the function is available
+          if (onSaveFullScript) {
+            onSaveFullScript(fullScript).catch(error => {
+              console.error("Error saving full script after division:", error);
+            });
+          }
+          
           setIsProcessing(false);
         })
         .catch((error) => {
@@ -204,6 +243,20 @@ export function ScriptInputPanel({ projectId, scenes, onScriptDivide }: ScriptIn
                 <Save className="h-4 w-4 mr-2" />
                 Divide into Scenes
               </Button>
+              {onSaveFullScript && (
+                <Button 
+                  variant="outline" 
+                  onClick={saveFullScript}
+                  disabled={isSaving || !fullScript.trim()}
+                >
+                  {isSaving ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4 mr-2" />
+                  )}
+                  Save Full Script
+                </Button>
+              )}
               <Button 
                 variant="outline" 
                 onClick={handleGenerateWithAI}

@@ -1,7 +1,7 @@
 
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { LogIn, RocketIcon, TagIcon } from "lucide-react";
+import { LogIn, RocketIcon, TagIcon, Camera, Video, Play, RefreshCw } from "lucide-react";
 import { VideoShowcase } from "@/components/auth/VideoShowcase";
 import { SplashCursor } from "@/components/ui/splash-cursor";
 
@@ -45,14 +45,73 @@ const Auth = () => {
 
       {/* Main Content */}
       <div className="px-6 lg:px-12 py-12 lg:py-24 relative z-10">
-        {/* Main Heading - Updated with Browser Worker AI text */}
-        <div className="text-center mb-16">
+        {/* Main Heading */}
+        <div className="text-center mb-12">
           <h1 className="text-4xl lg:text-6xl font-bold text-white leading-tight mb-6">
-            Revolutionize Your Workflow with Browser Worker AI
+            AI-Powered Marketing Tools for Modern Businesses
           </h1>
           <p className="text-xl text-gray-300 max-w-3xl mx-auto">
-            Unleash the power of automation with Browser Worker AI, effortlessly mimicking human browsing behavior to streamline your online tasks. Elevate your productivity by letting our advanced AI handle repetitive online activities, so you can focus on innovation and growth. Experience the future of intelligent automation today!
+            Transform your marketing workflow with our suite of AI-powered tools. Create professional product imagery, 
+            custom videos, and automate repetitive browsing tasks - all in one platform.
           </p>
+        </div>
+
+        {/* Feature Boxes */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto mb-16">
+          {/* Product Shoot Feature */}
+          <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all">
+            <div className="flex justify-center mb-4">
+              <div className="bg-purple-800/50 p-3 rounded-full">
+                <Camera className="h-8 w-8 text-purple-200" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-white text-center mb-3">Professional Product Imagery</h3>
+            <p className="text-gray-300 text-center">
+              Transform simple product photos into stunning marketing materials with our AI-powered image generation tools.
+            </p>
+          </div>
+
+          {/* Video Creation Feature */}
+          <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all">
+            <div className="flex justify-center mb-4">
+              <div className="bg-purple-800/50 p-3 rounded-full">
+                <Video className="h-8 w-8 text-purple-200" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-white text-center mb-3">Custom Video Creation</h3>
+            <p className="text-gray-300 text-center">
+              Create engaging product videos that convert with our intuitive video generation tools and customizable templates.
+            </p>
+          </div>
+
+          {/* Browser Automation Feature */}
+          <div className="bg-black/20 backdrop-blur-sm rounded-xl p-6 border border-purple-500/20 hover:border-purple-500/50 transition-all">
+            <div className="flex justify-center mb-4">
+              <div className="bg-purple-800/50 p-3 rounded-full">
+                <RefreshCw className="h-8 w-8 text-purple-200" />
+              </div>
+            </div>
+            <h3 className="text-xl font-semibold text-white text-center mb-3">Browser Worker AI</h3>
+            <p className="text-gray-300 text-center">
+              Automate repetitive online tasks with our intelligent browser automation that mimics human browsing behavior.
+            </p>
+          </div>
+        </div>
+
+        {/* Image to Video Feature Highlight */}
+        <div className="bg-gradient-to-r from-purple-900/30 to-blue-900/30 backdrop-blur-sm rounded-xl p-8 max-w-4xl mx-auto mb-16 border border-purple-500/20">
+          <div className="flex flex-col md:flex-row items-center gap-6">
+            <div className="bg-purple-800/50 p-4 rounded-full">
+              <Play className="h-10 w-10 text-purple-200" />
+            </div>
+            <div>
+              <h3 className="text-2xl font-semibold text-white mb-2">Image to Video Conversion</h3>
+              <p className="text-gray-300">
+                Turn static images into dynamic videos that capture attention. Our advanced AI technology adds motion, 
+                effects, and professional transitions to make your products stand out.
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Powered By Section */}

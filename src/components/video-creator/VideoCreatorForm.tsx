@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
@@ -19,16 +18,40 @@ interface VideoCreatorFormProps {
   apiKeyMissing?: boolean;
 }
 
-export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = false }: VideoCreatorFormProps) {
+export function VideoCreatorForm({ 
+  onCreateVideo, 
+  isLoading, 
+  apiKeyMissing = false 
+}: VideoCreatorFormProps) {
   const [resolution, setResolution] = useState<string>("full-hd");
   const [videoUrl, setVideoUrl] = useState<string>("");
   const [audioUrl, setAudioUrl] = useState<string>("");
   const [jsonConfig, setJsonConfig] = useState<string>("");
   const [useCustomJson, setUseCustomJson] = useState<boolean>(false);
   const [inputMode, setInputMode] = useState<"url" | "upload">("url");
-  
+  const [isApiKeyValid, setIsApiKeyValid] = useState<boolean>(false);
+
+  useEffect(() => {
+    const checkApiKey = async () => {
+      try {
+        const status = await checkApiKeyStatus();
+        setIsApiKeyValid(status.success);
+      } catch (error) {
+        console.error('API key validation error:', error);
+        setIsApiKeyValid(false);
+      }
+    };
+
+    checkApiKey();
+  }, []);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    if (apiKeyMissing || !isApiKeyValid) {
+      toast.error("JSON2Video API key is not configured or invalid.");
+      return;
+    }
     
     try {
       let jsonData;
@@ -41,7 +64,6 @@ export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = fal
           return;
         }
       } else {
-        // Create simple JSON data with video and audio URLs
         jsonData = {
           "resolution": resolution,
           "scenes": [
@@ -56,7 +78,6 @@ export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = fal
           ]
         };
 
-        // Add audio if provided
         if (audioUrl) {
           jsonData.scenes[0].elements.push({
             "type": "audio",
@@ -88,12 +109,12 @@ export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = fal
       </CardHeader>
       <form onSubmit={handleSubmit}>
         <CardContent className="space-y-6">
-          {apiKeyMissing && (
+          {(apiKeyMissing || !isApiKeyValid) && (
             <Alert variant="destructive" className="mb-4">
               <AlertCircle className="h-4 w-4" />
-              <AlertTitle>API Key Missing</AlertTitle>
+              <AlertTitle>API Key Error</AlertTitle>
               <AlertDescription>
-                The JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable in Supabase Edge Functions secrets.
+                The JSON2Video API key is not configured or invalid. Please check your Supabase Edge Function secrets.
               </AlertDescription>
             </Alert>
           )}
@@ -205,10 +226,14 @@ export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = fal
           <Button 
             type="submit" 
             className="w-full"
-            disabled={isLoading || apiKeyMissing ||
+            disabled={
+              isLoading || 
+              apiKeyMissing || 
+              !isApiKeyValid ||
               ((!useCustomJson && inputMode === "url" && !videoUrl) || 
                (!useCustomJson && inputMode === "upload" && !videoUrl) || 
-               (useCustomJson && !jsonConfig))}
+               (useCustomJson && !jsonConfig))
+            }
           >
             {isLoading ? (
               <>
@@ -216,9 +241,7 @@ export function VideoCreatorForm({ onCreateVideo, isLoading, apiKeyMissing = fal
                 Creating Video...
               </>
             ) : (
-              <>
-                Create Video
-              </>
+              "Create Video"
             )}
           </Button>
         </CardFooter>

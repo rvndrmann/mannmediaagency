@@ -3,14 +3,11 @@ import { useState } from "react";
 import { CanvasProject } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
 import {
-  Menu,
-  PanelLeft,
-  ChevronDown,
-  Share2,
   Download,
   Save,
   MoreHorizontal,
-  FileVideo
+  FileVideo,
+  Share2
 } from "lucide-react";
 import {
   DropdownMenu,
@@ -19,19 +16,17 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface CanvasHeaderProps {
   project: CanvasProject;
-  sidebarCollapsed: boolean;
-  setSidebarCollapsed: (collapsed: boolean) => void;
 }
 
 export function CanvasHeader({
   project,
-  sidebarCollapsed,
-  setSidebarCollapsed,
 }: CanvasHeaderProps) {
   const [title, setTitle] = useState(project.title);
+  const navigate = useNavigate();
 
   const handleTitleChange = (e: React.FocusEvent<HTMLInputElement>) => {
     // Here you would implement logic to update the project title in the database
@@ -50,16 +45,20 @@ export function CanvasHeader({
     toast.success("Project saved");
   };
 
+  const handleBack = () => {
+    navigate("/");
+  };
+
   return (
     <div className="h-14 border-b flex items-center justify-between px-4 bg-background">
       <div className="flex items-center">
         <Button
           variant="ghost"
-          size="icon"
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
+          size="sm"
+          onClick={handleBack}
           className="mr-2"
         >
-          {sidebarCollapsed ? <Menu /> : <PanelLeft />}
+          Back
         </Button>
         
         <div className="flex items-center">
@@ -89,7 +88,6 @@ export function CanvasHeader({
             <Button variant="outline" size="sm">
               <Download className="h-4 w-4 mr-1" />
               Export
-              <ChevronDown className="h-3 w-3 ml-1" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="end">

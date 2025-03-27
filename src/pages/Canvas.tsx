@@ -1,16 +1,15 @@
 
 import { useState, useEffect } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
-import { CanvasSidebar } from "@/components/canvas/CanvasSidebar";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
-import { CanvasDetailPanel } from "@/components/canvas/CanvasDetailPanel";
 import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
 import { useCanvas } from "@/hooks/use-canvas";
 import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Button } from "@/components/ui/button";
 
 export default function Canvas() {
   const [searchParams] = useSearchParams();
@@ -47,9 +46,6 @@ export default function Canvas() {
     updateScene
   } = useCanvas(projectId || undefined);
 
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
-  
   // Create a new project if none is provided
   useEffect(() => {
     if (!loading && !projectId && isAuthenticated) {
@@ -84,12 +80,11 @@ export default function Canvas() {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
         <p className="text-xl text-red-500 mb-4">{error}</p>
-        <button 
-          className="px-4 py-2 bg-primary text-white rounded-md"
+        <Button 
           onClick={() => navigate("/")}
         >
           Return to Home
-        </button>
+        </Button>
       </div>
     );
   }
@@ -104,32 +99,17 @@ export default function Canvas() {
     <TooltipProvider>
       <div className="flex flex-col h-screen overflow-hidden">
         <CanvasHeader 
-          project={project} 
-          sidebarCollapsed={sidebarCollapsed}
-          setSidebarCollapsed={setSidebarCollapsed}
+          project={project}
         />
         
         <div className="flex flex-1 overflow-hidden">
-          <CanvasSidebar 
-            project={project}
-            selectedSceneId={selectedSceneId}
-            setSelectedSceneId={setSelectedSceneId}
-            addScene={addScene}
-            deleteScene={deleteScene}
-            collapsed={sidebarCollapsed}
-          />
-          
           <CanvasWorkspace 
             project={project}
             selectedScene={selectedScene}
+            selectedSceneId={selectedSceneId}
+            setSelectedSceneId={setSelectedSceneId}
+            addScene={addScene}
             updateScene={updateScene}
-          />
-          
-          <CanvasDetailPanel 
-            scene={selectedScene}
-            updateScene={updateScene}
-            collapsed={detailPanelCollapsed}
-            setCollapsed={setDetailPanelCollapsed}
           />
         </div>
       </div>

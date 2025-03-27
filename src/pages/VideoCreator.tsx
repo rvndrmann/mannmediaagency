@@ -23,6 +23,7 @@ const VideoCreator = () => {
   const [savedProjects, setSavedProjects] = useState<VideoProject[]>([]);
   const [setupError, setSetupError] = useState<string | null>(null);
   const [apiKeyMissing, setApiKeyMissing] = useState<boolean>(false);
+  const [apiKeyErrorMessage, setApiKeyErrorMessage] = useState<string>("");
   
   // Check if user is authenticated
   const { data: session, isLoading: isSessionLoading } = useQuery({
@@ -43,12 +44,15 @@ const VideoCreator = () => {
       try {
         const status = await checkApiKeyStatus();
         setApiKeyMissing(!status.success);
+        setApiKeyErrorMessage(status.message);
         if (!status.success) {
           console.error('API key missing or invalid:', status.message);
         }
       } catch (err) {
-        console.error('Error checking API key:', err);
+        const message = err instanceof Error ? err.message : String(err);
+        console.error('Error checking API key:', message);
         setApiKeyMissing(true);
+        setApiKeyErrorMessage(message);
       }
     };
     
@@ -109,7 +113,7 @@ const VideoCreator = () => {
       setIsCreating(true);
       
       if (apiKeyMissing) {
-        throw new Error("JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable.");
+        throw new Error(`JSON2Video API key error: ${apiKeyErrorMessage || "API key is missing or invalid"}`);
       }
       
       // Add console log to debug the JSON data being sent
@@ -140,7 +144,7 @@ const VideoCreator = () => {
   const handleRefreshStatus = async (projectId: string) => {
     try {
       if (apiKeyMissing) {
-        throw new Error("JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY environment variable.");
+        throw new Error(`JSON2Video API key error: ${apiKeyErrorMessage || "API key is missing or invalid"}`);
       }
       
       const response = await getVideoStatus(projectId);
@@ -191,9 +195,9 @@ const VideoCreator = () => {
         {apiKeyMissing && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
-            <AlertTitle>API Key Missing</AlertTitle>
+            <AlertTitle>API Key Error</AlertTitle>
             <AlertDescription>
-              The JSON2Video API key is not configured. Please set the VITE_JSON2VIDEO_API_KEY in Supabase Edge Function secrets.
+              {apiKeyErrorMessage || "The JSON2Video API key is not configured or is invalid. Please set the JSON2VIDEO_API_KEY in Supabase Edge Function secrets."}
             </AlertDescription>
           </Alert>
         )}

@@ -33,6 +33,7 @@ serve(async (req) => {
     }
     
     console.log(`Making ${method} request to ${endpoint} with operation: ${operation}`)
+    console.log(`Using API key with length: ${json2videoApiKey.length}`)
     
     // Forward the request to JSON2Video API
     const response = await fetch(endpoint, {
@@ -45,8 +46,18 @@ serve(async (req) => {
       ...(method === 'POST' && { body: JSON.stringify(body) }),
     })
     
+    console.log(`JSON2Video API response status: ${response.status}`)
+    
     if (!response.ok) {
-      const errorData = await response.json()
+      const errorText = await response.text()
+      let errorData;
+      
+      try {
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        errorData = { message: errorText }
+      }
+      
       console.error('JSON2Video API error response:', JSON.stringify(errorData))
       throw new Error(`JSON2Video API error: ${JSON.stringify(errorData)}`)
     }

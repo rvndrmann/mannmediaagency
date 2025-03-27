@@ -94,6 +94,12 @@ export const createVideo = async (jsonData: any): Promise<VideoProjectResponse> 
  */
 export const getVideoStatus = async (projectId: string): Promise<VideoProjectResponse> => {
   try {
+    // First check if API key is configured
+    const apiStatus = await checkApiKeyStatus();
+    if (!apiStatus.success) {
+      throw new Error(`JSON2Video API key error: ${apiStatus.message}`);
+    }
+    
     const { data, error } = await supabase.functions.invoke('json2video-proxy', {
       body: {
         operation: 'getStatus',

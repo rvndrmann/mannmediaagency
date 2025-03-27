@@ -32,19 +32,25 @@ export function VideoCreatorForm({
   const [inputMode, setInputMode] = useState<"url" | "upload">("url");
   const [isApiKeyValid, setIsApiKeyValid] = useState<boolean>(false);
   const [isCheckingApiKey, setIsCheckingApiKey] = useState<boolean>(true);
+  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
 
   useEffect(() => {
     const checkApiKey = async () => {
       try {
         setIsCheckingApiKey(true);
+        setApiKeyError(null);
         const status = await checkApiKeyStatus();
         setIsApiKeyValid(status.success);
         if (!status.success) {
-          console.error('API key validation failed:', status.message);
+          const errorMsg = status.message || 'API key validation failed';
+          console.error('API key validation failed:', errorMsg);
+          setApiKeyError(errorMsg);
         }
       } catch (error) {
-        console.error('API key validation error:', error);
+        const errorMsg = error instanceof Error ? error.message : 'Unknown error';
+        console.error('API key validation error:', errorMsg);
         setIsApiKeyValid(false);
+        setApiKeyError(errorMsg);
       } finally {
         setIsCheckingApiKey(false);
       }
@@ -130,7 +136,15 @@ export function VideoCreatorForm({
               <AlertCircle className="h-4 w-4" />
               <AlertTitle>API Key Error</AlertTitle>
               <AlertDescription>
-                The JSON2Video API key is not configured or is invalid. Please check your Supabase Edge Function secrets.
+                {apiKeyError ? (
+                  <>
+                    Error: {apiKeyError}. Please check your Supabase Edge Function secrets.
+                  </>
+                ) : (
+                  <>
+                    The JSON2Video API key is not configured or is invalid. Please check your Supabase Edge Function secrets.
+                  </>
+                )}
               </AlertDescription>
             </Alert>
           ) : null}

@@ -30,7 +30,15 @@ serve(async (req) => {
     console.log('JSON2Video status response status:', response.status)
     
     if (!response.ok) {
-      const errorData = await response.json()
+      const errorText = await response.text()
+      let errorData;
+      
+      try {
+        errorData = JSON.parse(errorText)
+      } catch (e) {
+        errorData = { message: errorText }
+      }
+      
       console.error('JSON2Video API error response:', JSON.stringify(errorData))
       throw new Error(`JSON2Video API error: ${JSON.stringify(errorData)}`)
     }

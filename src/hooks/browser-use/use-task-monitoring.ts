@@ -1,5 +1,5 @@
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { BrowserTaskState, TaskStatus } from "./types";
 
@@ -22,8 +22,7 @@ export function useTaskMonitoring(
   const { 
     currentTaskId, 
     isProcessing, 
-    taskStatus, 
-    error
+    taskStatus
   } = state;
 
   const {
@@ -43,7 +42,9 @@ export function useTaskMonitoring(
   const lastErrorRef = useRef<string | null>(null);
   const taskExpiredRef = useRef<boolean>(false);
   const browserTaskIdRef = useRef<string | null>(null);
+  const currentBrowserTaskIdRef = useRef<string | null>(null);
 
+  // Track when task status changes to expired
   useEffect(() => {
     if (taskStatus === 'expired') {
       taskExpiredRef.current = true;
@@ -52,10 +53,45 @@ export function useTaskMonitoring(
     }
   }, [taskStatus]);
 
+  // Reset browser task ID when current task ID changes
   useEffect(() => {
     browserTaskIdRef.current = null;
+    currentBrowserTaskIdRef.current = null;
   }, [currentTaskId]);
 
+  const fetchBrowserTaskId = useCallback(async () => {
+    try {
+      if (!browserTaskIdRef.current && currentTaskId) {
+        console.log(`Fetching browser_task_id for task ${currentTaskId}`);
+        
+        const { data, error } = await supabase
+          .from('browser_automation_tasks')
+          .select('browser_task_id')
+          .eq('id', currentTaskId)
+          .single();
+          
+        if (error) {
+          console.error("Error fetching browser_task_id:", error);
+          return null;
+        }
+        
+        if (data && data.browser_task_id) {
+          console.log(`Found browser_task_id: ${data.browser_task_id}`);
+          browserTaskIdRef.current = data.browser_task_id;
+          currentBrowserTaskIdRef.current = data.browser_task_id;
+        } else {
+          console.warn("No browser_task_id found for this task");
+        }
+      }
+      
+      return browserTaskIdRef.current;
+    } catch (err) {
+      console.error("Error in fetchBrowserTaskId:", err);
+      return null;
+    }
+  }, [currentTaskId]);
+
+  // The main monitoring effect
   useEffect(() => {
     if (!currentTaskId || !isProcessing || taskExpiredRef.current) {
       if (intervalRef.current) {
@@ -64,37 +100,6 @@ export function useTaskMonitoring(
       }
       return;
     }
-
-    const fetchBrowserTaskId = async () => {
-      try {
-        if (!browserTaskIdRef.current) {
-          console.log(`Fetching browser_task_id for task ${currentTaskId}`);
-          
-          const { data, error } = await supabase
-            .from('browser_automation_tasks')
-            .select('browser_task_id')
-            .eq('id', currentTaskId)
-            .single();
-            
-          if (error) {
-            console.error("Error fetching browser_task_id:", error);
-            return null;
-          }
-          
-          if (data && data.browser_task_id) {
-            console.log(`Found browser_task_id: ${data.browser_task_id}`);
-            browserTaskIdRef.current = data.browser_task_id;
-          } else {
-            console.warn("No browser_task_id found for this task");
-          }
-        }
-        
-        return browserTaskIdRef.current;
-      } catch (err) {
-        console.error("Error in fetchBrowserTaskId:", err);
-        return null;
-      }
-    };
 
     errorCountRef.current = 0;
     
@@ -107,41 +112,58 @@ export function useTaskMonitoring(
           return;
         }
         
+        // Make sure we're getting updates for the current task
+        if (currentBrowserTaskIdRef.current !== browserTaskId) {
+          currentBrowserTaskIdRef.current = browserTaskId;
+          console.log(`Switched to monitoring browser task: ${browserTaskId}`);
+        }
+        
+        // Check for live URL if we don't have one yet
         if (!state.liveUrl) {
           try {
             const { data: mediaData, error: mediaError } = await supabase.functions.invoke('browser-use-api', {
               body: {
-                task_id: browserTaskId,
-                url_check_only: true
+                action: 'get',
+                taskId: browserTaskId
               }
             });
 
             if (mediaError) {
               console.error("Error fetching media URL:", mediaError);
-            } else if (mediaData?.recording_url) {
-              console.log("Setting live URL from media endpoint:", mediaData.recording_url);
-              setLiveUrl(mediaData.recording_url);
-              
-              await supabase
-                .from('browser_automation_tasks')
-                .update({ live_url: mediaData.recording_url })
-                .eq('id', currentTaskId);
             } else if (mediaData?.live_url) {
-              console.log("Setting live URL from media endpoint:", mediaData.live_url);
+              console.log("Setting live URL:", mediaData.live_url);
               setLiveUrl(mediaData.live_url);
               
               await supabase
                 .from('browser_automation_tasks')
                 .update({ live_url: mediaData.live_url })
                 .eq('id', currentTaskId);
+              
+              // Also update the task history for this browser task ID
+              const { data: historyData } = await supabase
+                .from('browser_task_history')
+                .select('id')
+                .eq('browser_task_id', browserTaskId)
+                .maybeSingle();
+                
+              if (historyData?.id) {
+                await supabase
+                  .from('browser_task_history')
+                  .update({ result_url: mediaData.live_url })
+                  .eq('id', historyData.id);
+              }
             }
           } catch (mediaCheckError) {
             console.error("Error checking media:", mediaCheckError);
           }
         }
 
+        // Get task status and details
         const { data, error: apiError } = await supabase.functions.invoke('browser-use-api', {
-          body: { task_id: browserTaskId }
+          body: { 
+            action: 'get',
+            taskId: browserTaskId 
+          }
         });
 
         if (apiError) {
@@ -186,14 +208,23 @@ export function useTaskMonitoring(
               })
               .eq('id', currentTaskId);
               
-            await supabase
+            // Update the specific task history record matching this browser task ID
+            const { data: historyData } = await supabase
               .from('browser_task_history')
-              .update({ 
-                status: 'expired',
-                completed_at: new Date().toISOString(),
-                output: JSON.stringify({ error: errorMsg })
-              })
-              .eq('browser_task_id', browserTaskId);
+              .select('id')
+              .eq('browser_task_id', browserTaskId)
+              .maybeSingle();
+              
+            if (historyData?.id) {
+              await supabase
+                .from('browser_task_history')
+                .update({ 
+                  status: 'expired',
+                  completed_at: new Date().toISOString(),
+                  output: JSON.stringify({ error: errorMsg })
+                })
+                .eq('id', historyData.id);
+            }
             
             if (intervalRef.current) {
               clearInterval(intervalRef.current);
@@ -209,7 +240,7 @@ export function useTaskMonitoring(
         lastErrorRef.current = null;
 
         if (data) {
-          console.log("Task status data:", data);
+          console.log(`Task status update for ${browserTaskId}:`, data.status);
           
           if (data.status) {
             const normalizedStatus = data.status === 'finished' ? 'completed' : data.status;
@@ -229,15 +260,24 @@ export function useTaskMonitoring(
               const outputData = data.output ? 
                 (typeof data.output === 'string' ? data.output : JSON.stringify(data.output)) : 
                 null;
-                
-              await supabase
+              
+              // Update the specific task history record
+              const { data: historyData } = await supabase
                 .from('browser_task_history')
-                .update({ 
-                  status: normalizedStatus,
-                  completed_at: new Date().toISOString(),
-                  output: outputData
-                })
-                .eq('browser_task_id', browserTaskId);
+                .select('id')
+                .eq('browser_task_id', browserTaskId)
+                .maybeSingle();
+                
+              if (historyData?.id) {
+                await supabase
+                  .from('browser_task_history')
+                  .update({ 
+                    status: normalizedStatus,
+                    completed_at: new Date().toISOString(),
+                    output: outputData
+                  })
+                  .eq('id', historyData.id);
+              }
                 
               if (intervalRef.current) {
                 clearInterval(intervalRef.current);
@@ -255,23 +295,19 @@ export function useTaskMonitoring(
               .update({ live_url: data.live_url })
               .eq('id', currentTaskId);
               
-            await supabase
+            // Update the specific task history record
+            const { data: historyData } = await supabase
               .from('browser_task_history')
-              .update({ result_url: data.live_url })
-              .eq('browser_task_id', browserTaskId);
-          } else if (data.browser?.live_url && !state.liveUrl) {
-            console.log("Setting live URL from browser data:", data.browser.live_url);
-            setLiveUrl(data.browser.live_url);
-            
-            await supabase
-              .from('browser_automation_tasks')
-              .update({ live_url: data.browser.live_url })
-              .eq('id', currentTaskId);
+              .select('id')
+              .eq('browser_task_id', browserTaskId)
+              .maybeSingle();
               
-            await supabase
-              .from('browser_task_history')
-              .update({ result_url: data.browser.live_url })
-              .eq('browser_task_id', browserTaskId);
+            if (historyData?.id) {
+              await supabase
+                .from('browser_task_history')
+                .update({ result_url: data.live_url })
+                .eq('id', historyData.id);
+            }
           }
           
           if (data.current_url) {
@@ -339,10 +375,19 @@ export function useTaskMonitoring(
               .update({ output: formattedOutput })
               .eq('id', currentTaskId);
               
-            await supabase
+            // Update the specific task history record with the output
+            const { data: historyData } = await supabase
               .from('browser_task_history')
-              .update({ output: formattedOutput })
-              .eq('browser_task_id', browserTaskId);
+              .select('id')
+              .eq('browser_task_id', browserTaskId)
+              .maybeSingle();
+              
+            if (historyData?.id) {
+              await supabase
+                .from('browser_task_history')
+                .update({ output: formattedOutput })
+                .eq('id', historyData.id);
+            }
           }
         }
       } catch (error) {
@@ -350,8 +395,10 @@ export function useTaskMonitoring(
       }
     };
 
+    // Initial poll when monitoring starts
     pollStatus();
 
+    // Different polling intervals based on status to reduce load
     const pollInterval = taskStatus === 'running' ? 5000 : 3000;
     intervalRef.current = setInterval(pollStatus, pollInterval) as unknown as number;
 
@@ -361,5 +408,20 @@ export function useTaskMonitoring(
         intervalRef.current = null;
       }
     };
-  }, [currentTaskId, isProcessing, taskStatus, state.liveUrl, setProgress, setTaskStatus, setCurrentUrl, setTaskSteps, setTaskOutput, setIsProcessing, setLiveUrl, setError, setConnectionStatus]);
+  }, [
+    currentTaskId, 
+    isProcessing, 
+    taskStatus, 
+    state.liveUrl, 
+    fetchBrowserTaskId,
+    setProgress, 
+    setTaskStatus, 
+    setCurrentUrl, 
+    setTaskSteps, 
+    setTaskOutput, 
+    setIsProcessing, 
+    setLiveUrl, 
+    setError, 
+    setConnectionStatus
+  ]);
 }

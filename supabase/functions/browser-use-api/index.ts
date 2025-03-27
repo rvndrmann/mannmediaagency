@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.1";
 
@@ -174,6 +175,7 @@ serve(async (req) => {
     
     const browserConfig = browser_config || {};
     
+    // Process sensitive data replacements in the task text
     let processedTask = task;
     if (browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
       browserConfig.sensitiveData.forEach(item => {
@@ -183,6 +185,8 @@ serve(async (req) => {
           processedTask = processedTask.replace(regex, item.value);
         }
       });
+      
+      console.log(`Task processed with sensitive data replacements`);
     }
     
     if (environment === "desktop") {
@@ -294,7 +298,7 @@ serve(async (req) => {
       body: JSON.stringify(requestBody)
     };
     
-    console.log(`Starting ${environment} automation task: ${processedTask}`);
+    console.log(`Starting ${environment} automation task: ${processedTask.substring(0, 100)}${processedTask.length > 100 ? '...' : ''}`);
     const response = await fetch(`${BROWSER_USE_API_URL}/run-task`, options);
     const data = await response.json();
     
@@ -307,12 +311,14 @@ serve(async (req) => {
       );
     }
     
+    console.log(`Task created successfully with ID: ${data.id}`);
+    
     const { data: taskRecord, error: taskError } = await supabase
       .from('browser_automation_tasks')
       .insert({
         user_id: user.id,
-        task_id: data.id,
         task_description: task,
+        browser_task_id: data.id,
         environment: environment,
         status: 'running',
         browser_config: browserConfig || null

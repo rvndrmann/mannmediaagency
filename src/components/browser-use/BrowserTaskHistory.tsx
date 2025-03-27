@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useTaskHistory } from "@/hooks/browser-use/use-task-history";
 import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,8 @@ import {
   Calendar, 
   Filter,
   ExternalLink,
-  List
+  List,
+  Trash2
 } from "lucide-react";
 import { formatDistanceToNow, format } from "date-fns";
 import { Input } from "@/components/ui/input";
@@ -44,9 +45,17 @@ import {
   PaginationNext,
   PaginationPrevious,
 } from "@/components/ui/pagination";
+import { useToast } from "@/components/ui/use-toast";
 
 export function BrowserTaskHistory() {
-  const { taskHistory, isLoading, error, fetchTaskHistory } = useTaskHistory();
+  const { toast } = useToast();
+  const { 
+    taskHistory, 
+    isLoading, 
+    error, 
+    fetchTaskHistory 
+  } = useTaskHistory();
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [dateRange, setDateRange] = useState<{
@@ -54,11 +63,31 @@ export function BrowserTaskHistory() {
     to: Date | undefined;
   }>({ from: undefined, to: undefined });
   const [currentPage, setCurrentPage] = useState(1);
+  const [expandedTasks, setExpandedTasks] = useState<Record<string, boolean>>({});
   const tasksPerPage = 5;
+  const [selectedTask, setSelectedTask] = useState<string | null>(null);
 
+  // Avoid excessive renders by making this a dependency
+  const refresh = useCallback(() => {
+    fetchTaskHistory(true);
+    toast({
+      description: "Task history refreshed",
+      duration: 2000
+    });
+  }, [fetchTaskHistory, toast]);
+
+  // Only refresh when the component mounts
   useEffect(() => {
     fetchTaskHistory();
   }, [fetchTaskHistory]);
+
+  // Toggle task details expansion
+  const toggleTaskExpansion = (taskId: string) => {
+    setExpandedTasks(prev => ({
+      ...prev,
+      [taskId]: !prev[taskId]
+    }));
+  };
 
   // Helper function to get badge variants based on status
   const getBadgeVariant = (status: string) => {
@@ -98,6 +127,7 @@ export function BrowserTaskHistory() {
     }
   };
 
+  // Apply all filters consistently
   const filteredTasks = taskHistory.filter((task) => {
     // Filter by search query
     const matchesSearch = 
@@ -148,6 +178,11 @@ export function BrowserTaskHistory() {
     return null;
   };
 
+  // Reset to page 1 when filters change
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchQuery, statusFilter, dateRange]);
+
   if (isLoading && taskHistory.length === 0) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -165,7 +200,7 @@ export function BrowserTaskHistory() {
         <div className="text-center">
           <AlertCircle className="h-8 w-8 mx-auto mb-4 text-destructive" />
           <p className="text-muted-foreground">{error}</p>
-          <Button onClick={fetchTaskHistory} variant="outline" className="mt-4">
+          <Button onClick={() => fetchTaskHistory(true)} variant="outline" className="mt-4">
             Try Again
           </Button>
         </div>
@@ -189,7 +224,7 @@ export function BrowserTaskHistory() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h2 className="text-xl font-semibold">Task History</h2>
-        <Button variant="outline" size="sm" onClick={fetchTaskHistory}>
+        <Button variant="outline" size="sm" onClick={refresh}>
           <RotateCw className="mr-2 h-4 w-4" />
           Refresh
         </Button>
@@ -289,7 +324,11 @@ export function BrowserTaskHistory() {
           <ScrollArea className="h-[500px]">
             <div className="space-y-4 pr-4">
               {currentTasks.map((task) => (
-                <Card key={task.id} className="p-4 overflow-hidden">
+                <Card 
+                  key={task.id} 
+                  className={`p-4 overflow-hidden ${selectedTask === task.id ? 'ring-2 ring-primary' : ''}`}
+                  onClick={() => setSelectedTask(task.id === selectedTask ? null : task.id)}
+                >
                   <div className="flex flex-col gap-2">
                     <div className="flex items-start justify-between">
                       <div className="font-medium line-clamp-2">{task.task_input}</div>
@@ -310,6 +349,11 @@ export function BrowserTaskHistory() {
                           • Completed {formatDistanceToNow(new Date(task.completed_at), { addSuffix: true })}
                         </span>
                       )}
+                      {task.browser_task_id && (
+                        <span className="ml-2">
+                          • Task ID: {task.browser_task_id.substring(0, 8)}...
+                        </span>
+                      )}
                     </div>
                     
                     <div className="flex flex-wrap gap-2 mt-1">
@@ -324,67 +368,73 @@ export function BrowserTaskHistory() {
                             href={task.result_url} 
                             target="_blank" 
                             rel="noopener noreferrer"
+                            onClick={(e) => e.stopPropagation()}
                           >
                             <ExternalLink className="h-3 w-3" />
                             View Recording
                           </a>
                         </Button>
                       )}
+                      
+                      <Button 
+                        variant="ghost" 
+                        size="sm" 
+                        className="text-xs flex items-center gap-1 h-7"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          toggleTaskExpansion(task.id);
+                        }}
+                      >
+                        <List className="h-3 w-3" />
+                        {expandedTasks[task.id] ? 'Hide Details' : 'View Details'}
+                      </Button>
                     </div>
                     
-                    {task.output && (
+                    {task.output && expandedTasks[task.id] && (
                       <div className="mt-2">
                         <Separator className="my-2" />
-                        <Collapsible>
-                          <CollapsibleTrigger asChild>
-                            <Button variant="ghost" size="sm" className="flex items-center gap-1 h-7 p-2">
-                              <List className="h-3 w-3" />
-                              <span className="text-xs font-medium">View Details</span>
-                            </Button>
-                          </CollapsibleTrigger>
-                          <CollapsibleContent>
-                            {parseTaskSteps(task.output) ? (
-                              <div className="mt-2 space-y-2">
-                                <p className="text-xs font-medium">Task Steps:</p>
-                                {parseTaskSteps(task.output)?.map((step, index) => (
-                                  <div 
-                                    key={index} 
-                                    className={`p-2 text-xs rounded-md ${
-                                      step.status === 'completed' ? 'bg-green-500/10 border border-green-500/20' : 
-                                      step.status === 'failed' ? 'bg-red-500/10 border border-red-500/20' : 
-                                      'bg-muted/50 border border-border/50'
-                                    }`}
-                                  >
-                                    <div className="flex gap-1 items-start">
-                                      <Badge 
-                                        variant="outline" 
-                                        className={`text-[10px] h-5 min-w-6 flex justify-center ${
-                                          step.status === 'completed' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-700' : 
-                                          step.status === 'failed' ? 'bg-red-500/20 hover:bg-red-500/30 text-red-700' : 
-                                          'bg-gray-200 hover:bg-gray-300'
-                                        }`}
-                                      >
-                                        {index + 1}
-                                      </Badge>
-                                      <div>
-                                        <p className="font-medium">{step.description}</p>
-                                        {step.details && (
-                                          <p className="text-muted-foreground mt-1">{step.details}</p>
-                                        )}
-                                      </div>
+                        <div>
+                          {parseTaskSteps(task.output) ? (
+                            <div className="mt-2 space-y-2">
+                              <p className="text-xs font-medium">Task Steps:</p>
+                              {parseTaskSteps(task.output)?.map((step, index) => (
+                                <div 
+                                  key={index} 
+                                  className={`p-2 text-xs rounded-md ${
+                                    step.status === 'completed' ? 'bg-green-500/10 border border-green-500/20' : 
+                                    step.status === 'failed' ? 'bg-red-500/10 border border-red-500/20' : 
+                                    'bg-muted/50 border border-border/50'
+                                  }`}
+                                >
+                                  <div className="flex gap-1 items-start">
+                                    <Badge 
+                                      variant="outline" 
+                                      className={`text-[10px] h-5 min-w-6 flex justify-center ${
+                                        step.status === 'completed' ? 'bg-green-500/20 hover:bg-green-500/30 text-green-700' : 
+                                        step.status === 'failed' ? 'bg-red-500/20 hover:bg-red-500/30 text-red-700' : 
+                                        'bg-gray-200 hover:bg-gray-300'
+                                      }`}
+                                    >
+                                      {index + 1}
+                                    </Badge>
+                                    <div>
+                                      <p className="font-medium">{step.description}</p>
+                                      {step.details && (
+                                        <p className="text-muted-foreground mt-1">{step.details}</p>
+                                      )}
                                     </div>
                                   </div>
-                                ))}
-                              </div>
-                            ) : (
-                              <div className="mt-2 p-2 bg-muted rounded-md">
-                                <pre className="text-xs overflow-x-auto max-h-32 whitespace-pre-wrap break-words">
-                                  {task.output}
-                                </pre>
-                              </div>
-                            )}
-                          </CollapsibleContent>
-                        </Collapsible>
+                                </div>
+                              ))}
+                            </div>
+                          ) : (
+                            <div className="mt-2 p-2 bg-muted rounded-md">
+                              <pre className="text-xs overflow-x-auto max-h-32 whitespace-pre-wrap break-words">
+                                {task.output}
+                              </pre>
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -405,16 +455,34 @@ export function BrowserTaskHistory() {
                   />
                 </PaginationItem>
                 
-                {Array.from({ length: totalPages }).map((_, index) => (
-                  <PaginationItem key={index}>
-                    <PaginationLink
-                      isActive={currentPage === index + 1}
-                      onClick={() => setCurrentPage(index + 1)}
-                    >
-                      {index + 1}
-                    </PaginationLink>
-                  </PaginationItem>
-                ))}
+                {/* Show limited page numbers for better UX */}
+                {Array.from({ length: Math.min(5, totalPages) }).map((_, index) => {
+                  let pageNumber;
+                  
+                  // Calculate which page numbers to show
+                  if (totalPages <= 5) {
+                    pageNumber = index + 1;
+                  } else {
+                    if (currentPage <= 3) {
+                      pageNumber = index + 1;
+                    } else if (currentPage >= totalPages - 2) {
+                      pageNumber = totalPages - 4 + index;
+                    } else {
+                      pageNumber = currentPage - 2 + index;
+                    }
+                  }
+                  
+                  return (
+                    <PaginationItem key={index}>
+                      <PaginationLink
+                        isActive={currentPage === pageNumber}
+                        onClick={() => setCurrentPage(pageNumber)}
+                      >
+                        {pageNumber}
+                      </PaginationLink>
+                    </PaginationItem>
+                  );
+                })}
                 
                 <PaginationItem>
                   <PaginationNext 

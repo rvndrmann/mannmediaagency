@@ -9,7 +9,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { GeneratedImage } from "@/types/product-shoot";
 
 export default function ProductShootV2() {
-  const { isGenerating, isSubmitting, generatedImages, handleGenerate } = useProductShoot();
+  const { isGenerating, isSubmitting, generatedImages, handleGenerate, handleRetryImageCheck } = useProductShoot();
 
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -43,6 +43,7 @@ export default function ProductShootV2() {
           <GeneratedImagesPanel 
             images={generatedImages}
             isGenerating={isGenerating}
+            onRetry={handleRetryImageCheck}
           />
 
           <div className="bg-gray-900 rounded-lg border border-gray-800">

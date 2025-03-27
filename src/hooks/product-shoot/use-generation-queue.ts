@@ -182,10 +182,112 @@ export function useGenerationQueue() {
     setIsGenerating(true);
   };
 
+  // New manual retry function for failed image generations
+  const retryCheck = async (imageId: string) => {
+    // Find the failed image
+    const failedImage = generatedImages.find(img => img.id === imageId && img.status === 'failed');
+    
+    if (!failedImage) {
+      toast.error("Can't retry - image not found or not in failed state");
+      return;
+    }
+    
+    // Get the original request ID (removing the 'temp-' prefix if it's a placeholder)
+    const requestId = imageId.startsWith('temp-') ? imageId.substring(5) : imageId.split('-')[0];
+    
+    if (!requestId) {
+      toast.error("Unable to retry - could not determine request ID");
+      return;
+    }
+    
+    // Mark the image as processing again
+    setGeneratedImages(prev => 
+      prev.map(img => 
+        img.id === imageId
+          ? { ...img, status: 'processing' as const }
+          : img
+      )
+    );
+    
+    try {
+      toast.info("Checking image status...");
+      
+      // Manual check with the API
+      const response = await supabase.functions.invoke<GenerationResult>(
+        'check-generation-status',
+        {
+          body: { requestId }
+        }
+      );
+      
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      
+      if (!response.data) {
+        throw new Error("No response received from server");
+      }
+
+      // Process the response
+      if (response.data.status === 'completed' && response.data.images?.[0]) {
+        const completedImage = response.data.images[0];
+        
+        // Update the image in state
+        setGeneratedImages(prev => 
+          prev.map(img => 
+            img.id === imageId
+              ? completedImage
+              : img
+          )
+        );
+        
+        toast.success("Successfully retrieved the generated image!");
+      } else if (response.data.status === 'processing') {
+        // If still processing, add back to queue for continued polling
+        const existingQueueItem = generationQueue.find(item => item.requestId === requestId);
+        
+        if (!existingQueueItem) {
+          // Create a new queue item if not already in queue
+          setGenerationQueue(prev => [
+            ...prev, 
+            { 
+              requestId, 
+              prompt: failedImage.prompt || "", 
+              retries: 0,
+              sourceUrl: "", // We don't have this info for retries
+              settings: {} // We don't have this info for retries
+            }
+          ]);
+          setIsGenerating(true);
+          toast.info("Image is still processing. Added back to monitoring queue.");
+        } else {
+          toast.info("Image is already being monitored.");
+        }
+      } else {
+        // Still failed
+        toast.error(response.data.error || "Generation still failed. Please try creating a new image.");
+      }
+    } catch (error: any) {
+      console.error('[Retry] Error:', error);
+      
+      // Revert back to failed state
+      setGeneratedImages(prev => 
+        prev.map(img => 
+          img.id === imageId
+            ? { ...img, status: 'failed' as const }
+            : img
+        )
+      );
+      
+      toast.error(error.message || "Failed to check image status. Please try again.");
+    }
+  };
+
   return {
     isGenerating,
     generatedImages,
     addToQueue,
-    setGeneratedImages
+    setGeneratedImages,
+    retryCheck
   };
 }

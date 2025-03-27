@@ -22,6 +22,7 @@ interface FeaturePanelProps {
     isSubmitting: boolean;
     availableCredits: number;
     generatedImages: GeneratedImage[];
+    onRetryImageCheck?: (imageId: string) => Promise<void>;
   };
   productShotV1: {
     isMobile: boolean;
@@ -116,6 +117,7 @@ export function FeaturePanel({ messages, productShotV2, productShotV1, imageToVi
                   <GeneratedImagesPanel
                     images={productShotV2.generatedImages}
                     isGenerating={productShotV2.isGenerating}
+                    onRetry={productShotV2.onRetryImageCheck}
                   />
                 )}
               </div>

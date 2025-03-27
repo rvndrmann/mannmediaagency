@@ -1,4 +1,3 @@
-
 import { GeneratedImage, ProductShotFormData } from "@/types/product-shoot";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -8,7 +7,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 
 export function useProductShoot() {
-  const { isGenerating, generatedImages, addToQueue, setGeneratedImages } = useGenerationQueue();
+  const { isGenerating, generatedImages, addToQueue, setGeneratedImages, retryCheck } = useGenerationQueue();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { data: session } = useQuery({
@@ -156,10 +155,20 @@ export function useProductShoot() {
     }
   };
 
+  const handleRetryImageCheck = async (imageId: string) => {
+    if (!retryCheck) {
+      toast.error("Retry functionality not available");
+      return;
+    }
+    
+    await retryCheck(imageId);
+  };
+
   return {
     isGenerating,
     isSubmitting,
     generatedImages,
-    handleGenerate
+    handleGenerate,
+    handleRetryImageCheck
   };
 }

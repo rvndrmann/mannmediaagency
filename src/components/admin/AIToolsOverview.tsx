@@ -38,47 +38,56 @@ export const AIToolsOverview = () => {
   const [activeTab, setActiveTab] = useState("overview");
   const [isRetrying, setIsRetrying] = useState(false);
 
+  const fetchData = async () => {
+    try {
+      setLoading(true);
+      const { data, error } = await supabase
+        .from('chat_usage')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(100);
+
+      if (error) throw error;
+      
+      setChatUsage(data as ChatUsage[]);
+      
+      // Calculate tool usage
+      const toolCounts: { [key: string]: number } = {};
+      data.forEach((chat: ChatUsage) => {
+        if (chat.selected_tool) {
+          const tool = chat.selected_tool;
+          toolCounts[tool] = (toolCounts[tool] || 0) + 1;
+        }
+      });
+      
+      setToolUsageData(toolCounts);
+
+      // Fetch pending image generation jobs
+      await fetchPendingImageJobs();
+    } catch (error) {
+      console.error('Error fetching AI tool usage data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fetchPendingImageJobs = async () => {
+    try {
+      const { data: imageJobs, error: imageError } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .in('status', ['pending', 'processing'])
+        .order('created_at', { ascending: false });
+
+      if (imageError) throw imageError;
+      setPendingImageJobs(imageJobs as ImageGenerationJob[]);
+    } catch (error) {
+      console.error('Error fetching pending image jobs:', error);
+      toast.error("Failed to fetch pending image jobs");
+    }
+  };
+
   useEffect(() => {
-    const fetchData = async () => {
-      try {
-        setLoading(true);
-        const { data, error } = await supabase
-          .from('chat_usage')
-          .select('*')
-          .order('created_at', { ascending: false })
-          .limit(100);
-
-        if (error) throw error;
-        
-        setChatUsage(data as ChatUsage[]);
-        
-        // Calculate tool usage
-        const toolCounts: { [key: string]: number } = {};
-        data.forEach((chat: ChatUsage) => {
-          if (chat.selected_tool) {
-            const tool = chat.selected_tool;
-            toolCounts[tool] = (toolCounts[tool] || 0) + 1;
-          }
-        });
-        
-        setToolUsageData(toolCounts);
-
-        // Fetch pending image generation jobs
-        const { data: imageJobs, error: imageError } = await supabase
-          .from('image_generation_jobs')
-          .select('*')
-          .in('status', ['pending', 'processing'])
-          .order('created_at', { ascending: false });
-
-        if (imageError) throw imageError;
-        setPendingImageJobs(imageJobs as ImageGenerationJob[]);
-      } catch (error) {
-        console.error('Error fetching AI tool usage data:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchData();
   }, []);
 
@@ -106,52 +115,43 @@ export const AIToolsOverview = () => {
     }
 
     setIsRetrying(true);
-    let successCount = 0;
-    let failCount = 0;
-
+    
     try {
       toast.info(`Starting retry for ${pendingImageJobs.length} image jobs...`);
+      
+      // Extract all job IDs
+      const jobIds = pendingImageJobs.map(job => job.id);
 
-      for (const job of pendingImageJobs) {
-        if (!job.request_id) {
-          failCount++;
-          continue;
-        }
+      // Call the retry-image-generation edge function
+      const response = await supabase.functions.invoke('retry-image-generation', {
+        body: { jobIds }
+      });
 
-        try {
-          // Call the edge function to check the status
-          const response = await supabase.functions.invoke('check-generation-status', {
-            body: { requestId: job.request_id }
-          });
-
-          if (response.error) {
-            console.error(`Error checking status for job ${job.id}:`, response.error);
-            failCount++;
-          } else {
-            successCount++;
-            console.log(`Successfully checked status for job ${job.id}:`, response.data);
-          }
-        } catch (jobError) {
-          console.error(`Error processing job ${job.id}:`, jobError);
-          failCount++;
-        }
+      if (response.error) {
+        throw new Error(response.error.message);
       }
 
-      // Refresh the list after retrying
-      const { data: refreshedJobs, error: refreshError } = await supabase
-        .from('image_generation_jobs')
-        .select('*')
-        .in('status', ['pending', 'processing'])
-        .order('created_at', { ascending: false });
+      const data = response.data;
+      console.log("Retry response:", data);
 
-      if (!refreshError) {
-        setPendingImageJobs(refreshedJobs as ImageGenerationJob[]);
+      if (data.success) {
+        const successCount = data.results.filter((r: any) => r.success).length;
+        const failCount = data.results.length - successCount;
+        
+        // Refresh the job list to show updated statuses
+        await fetchPendingImageJobs();
+        
+        if (successCount > 0) {
+          toast.success(`Successfully processed ${successCount} jobs, ${failCount} failed`);
+        } else {
+          toast.warning(`Processed ${data.results.length} jobs, but none were completed. They may still be processing.`);
+        }
+      } else {
+        throw new Error(data.error || "Unknown error occurred");
       }
-
-      toast.success(`Retry complete: ${successCount} successful, ${failCount} failed`);
     } catch (error) {
       console.error('Error in retry operation:', error);
-      toast.error('Error retrying image jobs');
+      toast.error(error.message || 'Error retrying image jobs');
     } finally {
       setIsRetrying(false);
     }
@@ -252,15 +252,24 @@ export const AIToolsOverview = () => {
                   Manage pending and processing image generation jobs
                 </CardDescription>
               </div>
-              <Button 
-                variant="outline" 
-                onClick={handleRetryAll} 
-                disabled={isRetrying || pendingImageJobs.length === 0}
-                className="flex items-center gap-2"
-              >
-                <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
-                {isRetrying ? 'Retrying...' : 'Retry All Jobs'}
-              </Button>
+              <div className="flex gap-2">
+                <Button 
+                  variant="outline" 
+                  onClick={fetchPendingImageJobs}
+                  disabled={isRetrying}
+                >
+                  Refresh List
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleRetryAll} 
+                  disabled={isRetrying || pendingImageJobs.length === 0}
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
+                  {isRetrying ? 'Retrying...' : 'Retry All Jobs'}
+                </Button>
+              </div>
             </CardHeader>
             <CardContent>
               {loading ? (
@@ -273,6 +282,7 @@ export const AIToolsOverview = () => {
                       <TableHead>Request ID</TableHead>
                       <TableHead>Status</TableHead>
                       <TableHead>Prompt</TableHead>
+                      <TableHead>User ID</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -290,6 +300,7 @@ export const AIToolsOverview = () => {
                           </span>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">{job.prompt}</TableCell>
+                        <TableCell className="font-mono text-xs">{job.user_id}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

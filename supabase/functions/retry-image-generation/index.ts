@@ -12,6 +12,7 @@ interface JobResult {
   success: boolean;
   error?: string;
   status?: string;
+  result_url?: string;
 }
 
 serve(async (req) => {
@@ -127,7 +128,10 @@ serve(async (req) => {
             
             // Extract image URL (various response structures possible)
             let imageUrl = null
-            if (resultData.images && resultData.images.length > 0) {
+            
+            if (resultData.result && resultData.result.images && resultData.result.images.length > 0) {
+              imageUrl = resultData.result.images[0].url
+            } else if (resultData.images && resultData.images.length > 0) {
               imageUrl = resultData.images[0].url
             } else if (resultData.output && resultData.output.images && resultData.output.images.length > 0) {
               imageUrl = resultData.output.images[0].url
@@ -135,18 +139,26 @@ serve(async (req) => {
               imageUrl = resultData.url
             } else if (resultData.output && resultData.output.url) {
               imageUrl = resultData.output.url
+            } else if (resultData.result && resultData.result.url) {
+              imageUrl = resultData.result.url
             }
             
             if (imageUrl) {
               resultUrl = imageUrl
               dbStatus = 'completed'
+              console.log(`Found image URL for job ${job.id}: ${imageUrl}`)
+            } else {
+              console.error(`No image URL found in response for job ${job.id}`)
             }
           } else {
-            console.error(`Error fetching result for job ${job.id}:`, await resultResponse.text())
+            const errorText = await resultResponse.text()
+            console.error(`Error fetching result for job ${job.id}:`, errorText)
           }
         } else if (statusData.status === 'FAILED' || statusData.status === 'failed') {
           dbStatus = 'failed'
         }
+        
+        console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`)
         
         // Update the job in the database
         const { error: updateError } = await supabase
@@ -170,7 +182,8 @@ serve(async (req) => {
             id: job.id,
             request_id: job.request_id,
             success: true,
-            status: dbStatus
+            status: dbStatus,
+            result_url: resultUrl
           })
         }
       } catch (error) {

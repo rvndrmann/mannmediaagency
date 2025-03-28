@@ -36,6 +36,7 @@ export interface Attachment {
   size: number;
   url?: string;
   file?: File;
+  contentType?: string; // Added contentType property
 }
 
 export interface Command {

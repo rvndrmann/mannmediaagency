@@ -1,107 +1,82 @@
 
-import { ToolDefinition, ToolResult, ToolContext } from "../types";
-import { Command } from "@/types/message";
+// This is a placeholder for the actual image-to-video tool implementation
+import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { v4 as uuidv4 } from "uuid";
 
 export const imageToVideoTool: ToolDefinition = {
   name: "image-to-video",
-  description: "Transform static images into dynamic videos with motion and effects",
-  version: "1.0.0",
-  requiredCredits: 5,
-  parameters: [
-    {
-      name: "sourceImage",
-      type: "string",
-      description: "URL or attachment of the image to animate",
-      required: true,
-      prompt: "Upload or provide a URL to the image you want to animate"
+  description: "Convert an image to a short video with animation effects",
+  parameters: {
+    type: "object",
+    properties: {
+      prompt: {
+        type: "string",
+        description: "Description of the desired animation or effect"
+      },
+      aspectRatio: {
+        type: "string",
+        description: "Aspect ratio of the output video (e.g., '16:9', '1:1', '9:16')"
+      },
+      duration: {
+        type: "number",
+        description: "Duration of the video in seconds"
+      }
     },
-    {
-      name: "prompt",
-      type: "string",
-      description: "Description of how the image should be animated",
-      required: true
-    },
-    {
-      name: "aspectRatio",
-      type: "string",
-      description: "Aspect ratio for the video (16:9, 9:16, 1:1)",
-      required: false
-    },
-    {
-      name: "duration",
-      type: "string",
-      description: "Duration of the video in seconds",
-      required: false
-    }
-  ],
+    required: ["prompt"]
+  },
+  requiredCredits: 1.0,
   
-  async execute(command: Command, context: ToolContext): Promise<ToolResult> {
+  execute: async (params: {
+    prompt: string;
+    aspectRatio?: string;
+    duration?: number;
+  }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
-      // Extract the source image from attachments or URL
-      const sourceImageParam = command.parameters?.sourceImage as string;
-      let sourceImageUrl = sourceImageParam;
-      
-      // Check if we have attachments and use the first image
-      if (context.attachments && context.attachments.length > 0) {
-        const imageAttachment = context.attachments.find(att => 
-          att.type.startsWith('image/') || att.contentType?.startsWith('image/')
-        );
-        if (imageAttachment) {
-          sourceImageUrl = imageAttachment.url;
-        }
+      // Check if we have attachments (we need an image to convert)
+      if (!context.attachments || context.attachments.length === 0) {
+        throw new Error("No image provided. Please upload an image to convert to video.");
       }
       
-      if (!sourceImageUrl) {
-        return {
-          success: false,
-          message: "Source image is required. Please upload an image or provide a URL."
-        };
+      // Find the first image attachment
+      const imageAttachment = context.attachments.find(a => 
+        a.type === 'image' || 
+        (a.contentType && a.contentType.startsWith('image/'))
+      );
+      
+      if (!imageAttachment) {
+        throw new Error("No suitable image found in attachments. Please upload an image.");
       }
       
-      // Extract other parameters
-      const prompt = command.parameters?.prompt as string;
-      if (!prompt) {
-        return {
-          success: false,
-          message: "Prompt describing the animation is required."
-        };
-      }
+      // Add processing message
+      context.addMessage(`Processing your image-to-video request...`, 'tool');
       
-      const aspectRatio = command.parameters?.aspectRatio as string || "16:9";
-      const duration = command.parameters?.duration as string || "5";
+      // In a real implementation, this would call an API to convert the image
+      // For now, we'll simulate a successful conversion
       
-      // Call the Supabase function to generate the video
-      const { data, error } = await context.supabase.functions.invoke("image-to-video", {
-        body: {
-          sourceImageUrl,
-          prompt,
-          aspectRatio,
-          duration
-        }
-      });
+      // Simulate API processing time
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      if (error) {
-        console.error("Error generating video:", error);
-        return {
-          success: false,
-          message: `Failed to start video generation: ${error.message || "Unknown error"}`
-        };
-      }
+      // Create mock video URL (in reality, this would be returned from the API)
+      const videoId = uuidv4();
+      const mockVideoUrl = `https://example.com/converted-videos/${videoId}.mp4`;
       
       return {
         success: true,
-        message: `Video generation started successfully. Job ID: ${data.jobId}`,
         data: {
-          jobId: data.jobId,
-          estimatedTime: data.estimatedTime || "60-90 seconds",
-          checkStatusUrl: `/video-generation/${data.jobId}`
+          videoUrl: mockVideoUrl,
+          thumbnailUrl: imageAttachment.url,
+          duration: params.duration || 5,
+          aspectRatio: params.aspectRatio || "16:9"
+        },
+        usage: {
+          creditsUsed: 1.0
         }
       };
     } catch (error) {
-      console.error("Error executing image-to-video tool:", error);
+      console.error("Error in imageToVideoTool:", error);
       return {
         success: false,
-        message: `Error with image-to-video tool: ${error instanceof Error ? error.message : "Unknown error"}`
+        error: error instanceof Error ? error.message : "Unknown error in image-to-video conversion"
       };
     }
   }

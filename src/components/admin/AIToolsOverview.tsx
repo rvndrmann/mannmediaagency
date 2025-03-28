@@ -6,7 +6,7 @@ import { BarChart } from "@/components/ui/chart";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { RefreshCw } from "lucide-react";
+import { RefreshCw, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
 // Extended type to include the selected_tool field
@@ -28,6 +28,7 @@ interface ImageGenerationJob {
   prompt: string;
   user_id: string;
   result_url?: string;
+  error_message?: string;
 }
 
 export const AIToolsOverview = () => {
@@ -37,6 +38,7 @@ export const AIToolsOverview = () => {
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("overview");
   const [isRetrying, setIsRetrying] = useState(false);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -157,6 +159,45 @@ export const AIToolsOverview = () => {
     }
   };
 
+  const handleDeleteFailedJobs = async () => {
+    const failedJobs = pendingImageJobs.filter(job => job.error_message?.includes('400'));
+    
+    if (failedJobs.length === 0) {
+      toast.info("No jobs with 400 status found to delete");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete ${failedJobs.length} failed jobs?`)) {
+      return;
+    }
+
+    setIsDeleting(true);
+    
+    try {
+      toast.info(`Deleting ${failedJobs.length} failed jobs...`);
+      
+      // Extract job IDs that have 400 errors
+      const jobIds = failedJobs.map(job => job.id);
+
+      // Delete the jobs from the database
+      const { data, error } = await supabase
+        .from('image_generation_jobs')
+        .delete()
+        .in('id', jobIds);
+
+      if (error) throw error;
+      
+      // Refresh the job list
+      await fetchPendingImageJobs();
+      toast.success(`Successfully deleted ${jobIds.length} failed jobs`);
+    } catch (error) {
+      console.error('Error deleting failed jobs:', error);
+      toast.error('Error deleting failed jobs');
+    } finally {
+      setIsDeleting(false);
+    }
+  };
+
   return (
     <div className="space-y-4">
       <h2 className="text-3xl font-bold tracking-tight">AI Tools Overview</h2>
@@ -256,18 +297,27 @@ export const AIToolsOverview = () => {
                 <Button 
                   variant="outline" 
                   onClick={fetchPendingImageJobs}
-                  disabled={isRetrying}
+                  disabled={isRetrying || isDeleting}
                 >
                   Refresh List
                 </Button>
                 <Button 
                   variant="outline" 
                   onClick={handleRetryAll} 
-                  disabled={isRetrying || pendingImageJobs.length === 0}
+                  disabled={isRetrying || isDeleting || pendingImageJobs.length === 0}
                   className="flex items-center gap-2"
                 >
                   <RefreshCw className={`h-4 w-4 ${isRetrying ? 'animate-spin' : ''}`} />
                   {isRetrying ? 'Retrying...' : 'Retry All Jobs'}
+                </Button>
+                <Button 
+                  variant="outline" 
+                  onClick={handleDeleteFailedJobs}
+                  disabled={isRetrying || isDeleting}
+                  className="flex items-center gap-2 text-red-500 hover:text-red-700"
+                >
+                  <Trash2 className="h-4 w-4" />
+                  Delete Failed Jobs (400)
                 </Button>
               </div>
             </CardHeader>
@@ -283,6 +333,7 @@ export const AIToolsOverview = () => {
                       <TableHead>Status</TableHead>
                       <TableHead>Prompt</TableHead>
                       <TableHead>User ID</TableHead>
+                      <TableHead>Error</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -294,13 +345,18 @@ export const AIToolsOverview = () => {
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                             job.status === 'processing' 
                               ? 'bg-blue-100 text-blue-800' 
-                              : 'bg-yellow-100 text-yellow-800'
+                              : job.error_message?.includes('400')
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-yellow-100 text-yellow-800'
                           }`}>
                             {job.status}
                           </span>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">{job.prompt}</TableCell>
                         <TableCell className="font-mono text-xs">{job.user_id}</TableCell>
+                        <TableCell className="max-w-xs truncate text-red-500">
+                          {job.error_message || 'None'}
+                        </TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

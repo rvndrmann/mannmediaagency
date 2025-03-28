@@ -1,10 +1,9 @@
 
-import { useState, useEffect } from "react";
-import { CanvasProject } from "@/types/canvas";
+import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { ChevronLeft, Wand2, Save, Scissors } from "lucide-react";
-import { ScriptInputPanel } from "./ScriptInputPanel";
+import { X, Save, Magic } from "lucide-react";
+import { CanvasProject } from "@/types/canvas";
 import { toast } from "sonner";
 
 interface CanvasScriptPanelProps {
@@ -14,29 +13,20 @@ interface CanvasScriptPanelProps {
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
 }
 
-export function CanvasScriptPanel({ 
-  project, 
-  onClose, 
+export function CanvasScriptPanel({
+  project,
+  onClose,
   saveFullScript,
   divideScriptToScenes
 }: CanvasScriptPanelProps) {
-  const [script, setScript] = useState(project.fullScript || "");
+  const [fullScript, setFullScript] = useState(project.fullScript || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
   
-  useEffect(() => {
-    setScript(project.fullScript || "");
-  }, [project.fullScript]);
-  
   const handleSaveScript = async () => {
-    if (!script.trim()) {
-      toast.error("Script cannot be empty");
-      return;
-    }
-    
     setIsSaving(true);
     try {
-      await saveFullScript(script);
+      await saveFullScript(fullScript);
       toast.success("Script saved successfully");
     } catch (error) {
       console.error("Error saving script:", error);
@@ -47,17 +37,59 @@ export function CanvasScriptPanel({
   };
   
   const handleDivideScript = async () => {
-    if (!script.trim()) {
-      toast.error("Script cannot be empty");
+    if (!fullScript.trim()) {
+      toast.error("Please enter a script first");
+      return;
+    }
+    
+    if (project.scenes.length <= 0) {
+      toast.error("Please add at least one scene first");
       return;
     }
     
     setIsDividing(true);
     try {
-      const sceneScripts = project.scenes.map(scene => ({
-        id: scene.id,
-        content: "",
-      }));
+      // Simple division logic - divide script evenly among scenes
+      const scenes = project.scenes;
+      const paragraphs = fullScript.split("\n\n").filter(p => p.trim());
+      
+      // If fewer paragraphs than scenes, duplicate the last one
+      const adjustedParagraphs = [...paragraphs];
+      while (adjustedParagraphs.length < scenes.length) {
+        adjustedParagraphs.push(paragraphs[paragraphs.length - 1] || "");
+      }
+      
+      // If more paragraphs than scenes, combine extras into the last scene
+      const sceneScripts: Array<{ id: string; content: string }> = [];
+      if (paragraphs.length <= scenes.length) {
+        // One paragraph per scene
+        for (let i = 0; i < scenes.length; i++) {
+          sceneScripts.push({
+            id: scenes[i].id,
+            content: adjustedParagraphs[i] || ""
+          });
+        }
+      } else {
+        // Distribute paragraphs evenly, with extras going to the last scene
+        const paragraphsPerScene = Math.floor(paragraphs.length / scenes.length);
+        for (let i = 0; i < scenes.length - 1; i++) {
+          const startIdx = i * paragraphsPerScene;
+          const content = paragraphs.slice(startIdx, startIdx + paragraphsPerScene).join("\n\n");
+          sceneScripts.push({
+            id: scenes[i].id,
+            content
+          });
+        }
+        
+        // Last scene gets all remaining paragraphs
+        const startIdx = (scenes.length - 1) * paragraphsPerScene;
+        const content = paragraphs.slice(startIdx).join("\n\n");
+        sceneScripts.push({
+          id: scenes[scenes.length - 1].id,
+          content
+        });
+      }
+      
       await divideScriptToScenes(sceneScripts);
       toast.success("Script divided into scenes");
     } catch (error) {
@@ -69,49 +101,44 @@ export function CanvasScriptPanel({
   };
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="flex items-center justify-between p-2 border-b">
-        <div className="flex items-center">
-          <Button
-            variant="ghost"
+    <div className="flex-1 flex flex-col">
+      <div className="p-4 border-b flex justify-between items-center">
+        <h3 className="font-medium">Full Script</h3>
+        <div className="flex gap-2">
+          <Button 
+            variant="outline" 
             size="sm"
-            onClick={onClose}
-            className="h-8 w-8 p-0 mr-2"
-          >
-            <ChevronLeft className="h-4 w-4" />
-            <span className="sr-only">Back</span>
-          </Button>
-          <h3 className="text-sm font-medium">Script Editor</h3>
-        </div>
-        
-        <div className="flex space-x-2">
-          <Button
-            size="sm"
-            variant="outline"
             onClick={handleDivideScript}
-            disabled={isDividing || !script.trim()}
+            disabled={isDividing || !fullScript}
           >
-            <Scissors className="h-4 w-4 mr-2" />
+            <Magic className="h-4 w-4 mr-1" />
             {isDividing ? "Dividing..." : "Divide to Scenes"}
           </Button>
-          <Button
+          <Button 
+            variant="outline" 
             size="sm"
-            variant="default"
             onClick={handleSaveScript}
-            disabled={isSaving || !script.trim()}
+            disabled={isSaving}
           >
-            <Save className="h-4 w-4 mr-2" />
-            {isSaving ? "Saving..." : "Save Script"}
+            <Save className="h-4 w-4 mr-1" />
+            {isSaving ? "Saving..." : "Save"}
+          </Button>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            onClick={onClose}
+          >
+            <X className="h-4 w-4" />
           </Button>
         </div>
       </div>
       
-      <div className="flex-1 p-4 overflow-auto">
+      <div className="flex-1 p-4">
         <Textarea
-          value={script}
-          onChange={(e) => setScript(e.target.value)}
-          placeholder="Write your script here..."
-          className="min-h-[500px] font-mono text-sm"
+          value={fullScript}
+          onChange={(e) => setFullScript(e.target.value)}
+          placeholder="Enter your full script here. You can divide it into scenes using the 'Divide to Scenes' button."
+          className="h-full min-h-[300px]"
         />
       </div>
     </div>

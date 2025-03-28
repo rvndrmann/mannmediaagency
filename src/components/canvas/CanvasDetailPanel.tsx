@@ -1,3 +1,4 @@
+
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -492,7 +493,7 @@ export function CanvasDetailPanel({
           <DialogHeader>
             <DialogTitle>Canvas AI Agent</DialogTitle>
             <DialogDescription>
-              Agent: {activeAgent.charAt(0).toUpperCase() + activeAgent.slice(1)}
+              Agent: {activeAgent ? activeAgent.charAt(0).toUpperCase() + activeAgent.slice(1) : "Assistant"}
               {isGenerating && " (Processing...)"}
             </DialogDescription>
           </DialogHeader>

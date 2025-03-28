@@ -1,190 +1,192 @@
 
 import { useState, useRef, useEffect } from "react";
-import { Message, Attachment } from "@/types/message";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { ChatMessage } from "@/components/chat/ChatMessage";
-import { ChatInput } from "@/components/chat/ChatInput";
 import { Button } from "@/components/ui/button";
-import { XCircle, MessageSquare, Bot, Paperclip } from "lucide-react";
-import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
-import { AgentSelector } from "@/components/multi-agent/AgentSelector";
-import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
-import { FileAttachmentButton } from "@/components/multi-agent/FileAttachmentButton";
-import { useCanvasAgent } from "@/hooks/use-canvas-agent";
-import { useCanvas } from "@/hooks/use-canvas";
+import { Input } from "@/components/ui/input";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { X, Send, Paperclip, Loader2 } from "lucide-react";
+import { ChatMessage } from "@/components/chat/ChatMessage";
+import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
-import { v4 as uuidv4 } from "uuid";
+import { useMultiAgentChat, AgentType } from "@/hooks/use-multi-agent-chat";
+import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 
 interface CanvasChatProps {
-  onClose: () => void;
   projectId?: string;
+  onClose: () => void;
 }
 
-export function CanvasChat({ onClose, projectId }: CanvasChatProps) {
+export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
   const [input, setInput] = useState("");
-  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
-  const [messages, setMessages] = useState<Message[]>([]);
-  const [activeAgent, setActiveAgent] = useState<string>("script");
-  
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const lastMessageRef = useRef<HTMLDivElement>(null);
-  
-  const { project, selectedScene, updateScene, saveFullScript, divideScriptToScenes } = useCanvas(projectId);
+  const [attachments, setAttachments] = useState<Attachment[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const { 
-    isProcessing,
-    agentMessages,
-    processAgentRequest
-  } = useCanvasAgent({
-    projectId: project?.id || "",
-    sceneId: selectedScene?.id,
-    updateScene,
-    saveFullScript,
-    divideScriptToScenes
+    messages, 
+    isLoading, 
+    sendMessage 
+  } = useMultiAgentChat({
+    initialMessages: [
+      {
+        id: "welcome",
+        role: "system",
+        content: "Welcome to Canvas Assistant. How can I help you with your video project today?",
+        createdAt: new Date().toISOString(),
+      }
+    ]
   });
-  
-  // Keep local messages in sync with agent messages
-  useEffect(() => {
-    setMessages(agentMessages);
-  }, [agentMessages]);
   
   // Scroll to bottom when messages change
   useEffect(() => {
-    if (lastMessageRef.current && scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
-      }
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (!input.trim() && !pendingAttachments.length) return;
-    if (!project) {
+    if (!input.trim() && attachments.length === 0) return;
+    
+    if (!projectId) {
       toast.error("No project selected");
       return;
     }
     
-    const userMessage = input;
-    setInput("");
-    
-    // Add context about the current project and scene
-    let contextInfo = `This is for project "${project.title}".`;
-    if (selectedScene) {
-      contextInfo += ` I'm currently working on scene "${selectedScene.title}".`;
-      
-      if (selectedScene.script) {
-        contextInfo += ` The scene script is: "${selectedScene.script.substring(0, 200)}${selectedScene.script.length > 200 ? '...' : ''}"`;
-      }
-    }
-    
     try {
-      await processAgentRequest(`${userMessage}\n\nContext: ${contextInfo}`, {
-        projectTitle: project.title,
-        sceneTitle: selectedScene?.title,
-        sceneId: selectedScene?.id,
-      }, activeAgent);
+      await sendMessage(input, "canvas" as AgentType);
+      setInput("");
+      setAttachments([]);
     } catch (error) {
-      console.error("Error processing chat request:", error);
-      toast.error("Failed to process request");
+      console.error("Error sending message:", error);
+      toast.error("Failed to send message");
     }
   };
   
-  const switchAgent = (agentId: string) => {
-    setActiveAgent(agentId);
+  const handleAttachmentClick = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
   };
   
-  const addAttachments = (files: File[]) => {
-    // Convert File objects to Attachment objects
-    const newAttachments: Attachment[] = files.map(file => ({
-      id: uuidv4(),
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (!files) return;
+    
+    const newAttachments: Attachment[] = Array.from(files).map(file => ({
+      id: crypto.randomUUID(),
       name: file.name,
       type: file.type,
       size: file.size,
       file: file
     }));
     
-    setPendingAttachments(prev => [...prev, ...newAttachments]);
-    toast.info("Attachments added to chat");
+    setAttachments(prev => [...prev, ...newAttachments]);
+    
+    // Reset file input
+    if (e.target) {
+      e.target.value = '';
+    }
   };
   
-  const removeAttachment = (id: string) => {
-    setPendingAttachments(prev => prev.filter(att => att.id !== id));
+  const handleRemoveAttachment = (id: string) => {
+    setAttachments(prev => prev.filter(attach => attach.id !== id));
+  };
+  
+  const handleAttachments = (files: File[]) => {
+    const newAttachments: Attachment[] = files.map(file => ({
+      id: crypto.randomUUID(),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      file: file
+    }));
+    
+    setAttachments(prev => [...prev, ...newAttachments]);
   };
 
   return (
-    <div className="flex flex-col h-full bg-[#1A1F29] border-r border-gray-700/50">
-      <div className="flex items-center justify-between p-3 border-b border-gray-700/50">
-        <div className="flex items-center gap-2">
-          <Bot className="h-5 w-5 text-primary" />
-          <h2 className="text-sm font-medium text-white">Canvas Assistant</h2>
-        </div>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          className="h-8 w-8 text-gray-400 hover:text-white"
-          onClick={onClose}
-        >
-          <XCircle className="h-5 w-5" />
+    <div className="flex flex-col h-full overflow-hidden border-r">
+      <div className="p-4 border-b flex justify-between items-center bg-background">
+        <h3 className="font-medium">Canvas Assistant</h3>
+        <Button variant="ghost" size="icon" onClick={onClose}>
+          <X className="h-5 w-5" />
         </Button>
       </div>
       
-      <div className="border-b border-gray-700/50">
-        <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
-      </div>
-      
-      <ScrollArea className="flex-1 p-4" ref={scrollAreaRef}>
-        {messages.length > 0 ? (
-          <div className="space-y-6">
-            {messages.map((message, index) => (
-              <ChatMessage 
-                key={index} 
-                message={message} 
-                showAgentName={message.role === "assistant" && message.agentType !== undefined}
-              />
-            ))}
-            <div ref={lastMessageRef} className="h-px" />
-          </div>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full text-center py-10">
-            <div className="bg-primary/10 p-3 rounded-full mb-3">
-              <MessageSquare className="h-8 w-8 text-primary" />
+      <ScrollArea className="flex-1 p-4">
+        <div className="space-y-4">
+          {messages.map((message, index) => (
+            <ChatMessage 
+              key={message.id || index} 
+              message={message}
+              showAgentName
+            />
+          ))}
+          <div ref={messagesEndRef} />
+          
+          {isLoading && (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              <span>Thinking...</span>
             </div>
-            <h3 className="text-lg font-semibold text-white">Canvas Assistant</h3>
-            <p className="text-sm text-gray-400 max-w-[250px] mt-2">
-              Ask me about your video project or for help with specific scenes.
-            </p>
-          </div>
-        )}
+          )}
+        </div>
       </ScrollArea>
       
-      <div className="p-3 border-t border-gray-700/50">
-        {pendingAttachments && pendingAttachments.length > 0 && (
-          <div className="mb-2">
-            <AttachmentPreview
-              attachments={pendingAttachments}
-              onRemove={removeAttachment}
-              isRemovable={true}
-            />
+      {attachments.length > 0 && (
+        <div className="px-4 py-2 border-t">
+          <div className="flex flex-wrap gap-2">
+            {attachments.map(attachment => (
+              <div 
+                key={attachment.id} 
+                className="flex items-center gap-1 bg-muted text-muted-foreground rounded px-2 py-1"
+              >
+                <span className="text-xs truncate max-w-[100px]">
+                  {attachment.name}
+                </span>
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-4 w-4" 
+                  onClick={() => handleRemoveAttachment(attachment.id)}
+                >
+                  <X className="h-3 w-3" />
+                </Button>
+              </div>
+            ))}
           </div>
-        )}
-
-        <div className="flex items-end gap-2">
-          <div className="flex-1">
-            <ChatInput
-              input={input}
-              isLoading={isProcessing}
-              onInputChange={setInput}
-              onSubmit={handleSubmit}
-              showAttachmentButton={false}
-            />
-          </div>
-          
-          <FileAttachmentButton onAttach={addAttachments} />
         </div>
-      </div>
+      )}
+      
+      <form onSubmit={handleSubmit} className="p-4 border-t flex gap-2">
+        <input
+          type="file"
+          ref={fileInputRef}
+          onChange={handleFileChange}
+          className="hidden"
+          multiple
+        />
+        <Button
+          type="button"
+          variant="ghost"
+          size="icon"
+          onClick={handleAttachmentClick}
+          className="shrink-0"
+        >
+          <Paperclip className="h-5 w-5" />
+        </Button>
+        <Input
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          placeholder="Ask anything about your video project..."
+          className="flex-1"
+          disabled={isLoading}
+        />
+        <Button type="submit" disabled={isLoading} className="shrink-0">
+          <Send className="h-5 w-5" />
+        </Button>
+      </form>
     </div>
   );
 }

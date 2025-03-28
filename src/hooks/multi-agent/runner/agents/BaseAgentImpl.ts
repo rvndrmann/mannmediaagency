@@ -24,7 +24,7 @@ export class BaseAgentImpl implements BaseAgent {
     return this.config.instructions || '';
   }
   
-  async run(input: string, attachments: any[]): Promise<AgentResult> {
+  async run(input: string, attachments: any[] = []): Promise<AgentResult> {
     throw new Error("Method not implemented in base class.");
   }
   

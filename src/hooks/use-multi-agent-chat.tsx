@@ -1,8 +1,8 @@
 
 import { useState } from "react";
-import { Message } from "@/types/message";
+import { Message, Attachment } from "@/types/message";
 
-type AgentType = string;
+export type AgentType = string;
 
 interface UseMultiAgentChatOptions {
   initialMessages?: Message[];

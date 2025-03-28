@@ -4,15 +4,15 @@ import { SceneUpdateType } from "@/types/canvas";
 import { Message } from "@/types/message";
 import { toast } from "sonner";
 
-type CanvasAgentContext = {
+type AgentType = "script" | "image" | "description";
+
+export type CanvasAgentContext = {
   projectId: string;
   sceneId?: string;
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
-  saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
+  saveFullScript?: (script: string) => Promise<void>;
+  divideScriptToScenes?: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
 };
-
-type AgentType = "script" | "image" | "description";
 
 export function useCanvasAgent({
   projectId,
@@ -23,6 +23,58 @@ export function useCanvasAgent({
 }: CanvasAgentContext) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [agentMessages, setAgentMessages] = useState<Message[]>([]);
+  const [activeAgent, setActiveAgent] = useState<string>('assistant');
+  
+  // Generate Script for a scene
+  const generateSceneScript = useCallback(async (sceneId: string, context: string = '') => {
+    if (!projectId) {
+      toast.error("Project ID is required");
+      return;
+    }
+    
+    setActiveAgent('script');
+    
+    const prompt = `Generate a creative and engaging script for a video scene.${context}`;
+    return await processAgentRequest(
+      prompt, 
+      { projectTitle: "Video Project", sceneId, sceneTitle: "Scene" },
+      "script"
+    );
+  }, [projectId]);
+  
+  // Generate Image Prompt for a scene
+  const generateImagePrompt = useCallback(async (sceneId: string, context: string = '') => {
+    if (!projectId) {
+      toast.error("Project ID is required");
+      return;
+    }
+    
+    setActiveAgent('image');
+    
+    const prompt = `Generate a detailed image prompt for a video scene that can be used for AI image generation.${context}`;
+    return await processAgentRequest(
+      prompt, 
+      { projectTitle: "Video Project", sceneId, sceneTitle: "Scene" },
+      "image"
+    );
+  }, [projectId]);
+  
+  // Generate Description for a scene
+  const generateSceneDescription = useCallback(async (sceneId: string, context: string = '') => {
+    if (!projectId) {
+      toast.error("Project ID is required");
+      return;
+    }
+    
+    setActiveAgent('description');
+    
+    const prompt = `Generate a concise but descriptive scene description for a video.${context}`;
+    return await processAgentRequest(
+      prompt, 
+      { projectTitle: "Video Project", sceneId, sceneTitle: "Scene" },
+      "description"
+    );
+  }, [projectId]);
   
   // Process responses based on agent type
   const processAgentRequest = useCallback(async (
@@ -63,7 +115,7 @@ export function useCanvasAgent({
           // Check if we need to update a scene script or full script
           if (context.sceneId && sceneId) {
             await updateScene(sceneId, "script", extractScript(response));
-          } else {
+          } else if (saveFullScript) {
             // This would be for full script
             const fullScript = extractScript(response);
             if (fullScript) {
@@ -153,6 +205,10 @@ I've updated the scene description. This will help guide the visual direction fo
   return {
     isProcessing,
     agentMessages,
+    activeAgent,
+    generateSceneScript,
+    generateImagePrompt,
+    generateSceneDescription,
     processAgentRequest
   };
 }

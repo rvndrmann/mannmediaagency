@@ -42,7 +42,7 @@ export function CanvasChat({ onClose }: CanvasChatProps) {
         </Button>
       </div>
       
-      <div className="p-3 border-b border-gray-700/50 max-h-[400px] overflow-hidden">
+      <div className="p-3 border-b border-gray-700/50">
         <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
       </div>
       

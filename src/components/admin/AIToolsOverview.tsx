@@ -23,7 +23,7 @@ export function AIToolsOverview() {
       const { data: imageJobs, error: imageError } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['in_queue', 'failed']) // Use the database's actual enum values
+        .in('status', ['in_queue', 'failed']) // Using the new enum values
         .order('created_at', { ascending: false });
 
       if (imageError) throw imageError;

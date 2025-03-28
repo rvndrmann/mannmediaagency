@@ -118,7 +118,7 @@ serve(async (req) => {
                 .from('image_generation_jobs')
                 .update({ 
                   request_id: requestId, 
-                  status: 'in_queue',  // Using lowercase in the database
+                  status: 'in_queue',  // Using new enum value
                   result_url: null,
                   error_message: null,
                   retried_at: new Date().toISOString()

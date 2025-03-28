@@ -1331,7 +1331,7 @@ export type Database = {
           request_id: string | null
           result_url: string | null
           settings: Json
-          status: Database["public"]["Enums"]["image_generation_status"]
+          status: Database["public"]["Enums"]["image_generation_status_new"]
           updated_at: string
           user_id: string
           visibility: string
@@ -1344,7 +1344,7 @@ export type Database = {
           request_id?: string | null
           result_url?: string | null
           settings?: Json
-          status?: Database["public"]["Enums"]["image_generation_status"]
+          status?: Database["public"]["Enums"]["image_generation_status_new"]
           updated_at?: string
           user_id: string
           visibility?: string
@@ -1357,7 +1357,7 @@ export type Database = {
           request_id?: string | null
           result_url?: string | null
           settings?: Json
-          status?: Database["public"]["Enums"]["image_generation_status"]
+          status?: Database["public"]["Enums"]["image_generation_status_new"]
           updated_at?: string
           user_id?: string
           visibility?: string
@@ -3035,7 +3035,7 @@ export type Database = {
         | "Brain"
         | "Lightbulb"
         | "Music"
-      image_generation_status: "pending" | "processing" | "completed" | "failed"
+      image_generation_status_new: "in_queue" | "completed" | "failed"
       product_ad_status:
         | "draft"
         | "script_generated"

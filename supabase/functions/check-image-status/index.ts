@@ -189,8 +189,8 @@ serve(async (req) => {
 
     // Return response with normalized uppercase status for client
     const clientStatus = dbStatus === 'in_queue' ? 'IN_QUEUE' : 
-                         dbStatus === 'completed' ? 'COMPLETED' : 
-                         dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE';
+                        dbStatus === 'completed' ? 'COMPLETED' : 
+                        dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE';
 
     return new Response(
       JSON.stringify({

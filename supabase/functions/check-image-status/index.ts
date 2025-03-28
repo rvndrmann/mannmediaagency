@@ -114,104 +114,150 @@ serve(async (req) => {
     
     console.log(`Checking status for request_id: ${requestId}`);
     
-    // Use flux-subject endpoint for consistency with retry-image-generation function
-    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
-      method: 'GET',
-      headers: {
-        'Authorization': `Key ${FAL_KEY}`,
-        'Content-Type': 'application/json'
-      }
-    });
-    
-    if (!statusResponse.ok) {
-      const statusCode = statusResponse.status;
-      const errorText = await statusResponse.text();
-      console.error(`Fal.ai status check error for request_id ${requestId} (Status: ${statusCode}):`, errorText);
+    try {
+      // Use flux-subject endpoint for consistency with retry-image-generation function
+      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Key ${FAL_KEY}`,
+          'Content-Type': 'application/json'
+        }
+      });
       
-      // Update the job in the database as failed if we get a permanent error (4xx)
-      if (statusCode >= 400 && statusCode < 500) {
+      if (!statusResponse.ok) {
+        const statusCode = statusResponse.status;
+        const errorText = await statusResponse.text();
+        console.error(`Fal.ai status check error for request_id ${requestId} (Status: ${statusCode}):`, errorText);
+        
+        // If we get a 404, the job is gone on Fal.ai's side
+        if (statusCode === 404) {
+          // Update the job to indicate we need to regenerate
+          const { error: updateError } = await supabase
+            .from('image_generation_jobs')
+            .update({
+              status: 'failed',
+              error_message: `API Error (${statusCode}): Resource not found. Request may have expired.`
+            })
+            .eq('id', jobId);
+            
+          if (updateError) {
+            console.error('Error updating job as failed:', updateError);
+          }
+          
+          return new Response(
+            JSON.stringify({
+              jobId: job.id,
+              requestId: requestId,
+              status: 'FAILED',
+              error: `API Error (${statusCode}): Resource not found. Try regenerating the image.`
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        
+        // Update the job in the database as failed if we get a permanent error (4xx)
+        if (statusCode >= 400 && statusCode < 500) {
+          const { error: updateError } = await supabase
+            .from('image_generation_jobs')
+            .update({
+              status: 'failed',
+              error_message: `API Error (${statusCode}): ${errorText}`
+            })
+            .eq('id', jobId);
+            
+          if (updateError) {
+            console.error('Error updating job as failed:', updateError);
+          }
+          
+          return new Response(
+            JSON.stringify({
+              jobId: job.id,
+              requestId: requestId,
+              status: 'FAILED',
+              error: `API Error (${statusCode}): ${errorText}`
+            }),
+            {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            }
+          );
+        }
+        
+        throw new Error(`Failed to check status: ${errorText} (Status: ${statusCode})`);
+      }
+      
+      const statusData = await statusResponse.json();
+      console.log(`Status for request_id ${requestId}:`, JSON.stringify(statusData));
+      
+      // Map Fal.ai status to our internal status - ensure uppercase
+      const normalizedStatus = normalizeStatus(statusData.status);
+      console.log(`Normalized status for ${requestId}: ${normalizedStatus}`);
+      
+      // Extract result URL if completed
+      let resultUrl = null;
+      if (normalizedStatus === 'COMPLETED' && statusData.result?.url) {
+        resultUrl = statusData.result.url;
+        
+        // Update the job in the database
+        const { error: updateError } = await supabase
+          .from('image_generation_jobs')
+          .update({
+            status: 'completed',
+            result_url: resultUrl
+          })
+          .eq('id', jobId);
+        
+        if (updateError) {
+          console.error('Error updating job:', updateError);
+        }
+      } else if (normalizedStatus === 'FAILED') {
+        // Update the job in the database as failed
         const { error: updateError } = await supabase
           .from('image_generation_jobs')
           .update({
             status: 'failed',
-            error_message: `API Error (${statusCode}): ${errorText}`
+            error_message: statusData.error || 'Unknown error'
           })
           .eq('id', jobId);
-          
-        if (updateError) {
-          console.error('Error updating job as failed:', updateError);
-        }
         
-        return new Response(
-          JSON.stringify({
-            jobId: job.id,
-            requestId: requestId,
-            status: 'FAILED',
-            error: `API Error (${statusCode}): ${errorText}`
-          }),
-          {
-            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-          }
-        );
+        if (updateError) {
+          console.error('Error updating job:', updateError);
+        }
       }
       
-      throw new Error(`Failed to check status: ${errorText} (Status: ${statusCode})`);
+      // Prepare response
+      const response: JobStatus = {
+        jobId: job.id,
+        requestId: requestId,
+        status: normalizedStatus,
+        resultUrl: resultUrl || job.result_url,
+        error: normalizedStatus === 'FAILED' ? (statusData.error || 'Unknown error') : undefined
+      };
+      
+      return new Response(
+        JSON.stringify(response),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
+    } catch (requestError) {
+      console.error(`Error checking status with Fal.ai for job ${jobId}:`, requestError);
+      
+      // Return the job's current status from database as fallback
+      return new Response(
+        JSON.stringify({
+          jobId: job.id,
+          requestId: requestId,
+          status: mapDbStatusToApiStatus(job.status),
+          resultUrl: job.result_url,
+          error: `Failed to check status with Fal.ai: ${requestError.message}`
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        }
+      );
     }
-    
-    const statusData = await statusResponse.json();
-    console.log(`Status for request_id ${requestId}:`, JSON.stringify(statusData));
-    
-    // Map Fal.ai status to our internal status - ensure uppercase
-    const normalizedStatus = normalizeStatus(statusData.status);
-    console.log(`Normalized status for ${requestId}: ${normalizedStatus}`);
-    
-    // Extract result URL if completed
-    let resultUrl = null;
-    if (normalizedStatus === 'COMPLETED' && statusData.result?.url) {
-      resultUrl = statusData.result.url;
-      
-      // Update the job in the database
-      const { error: updateError } = await supabase
-        .from('image_generation_jobs')
-        .update({
-          status: 'completed',
-          result_url: resultUrl
-        })
-        .eq('id', jobId);
-      
-      if (updateError) {
-        console.error('Error updating job:', updateError);
-      }
-    } else if (normalizedStatus === 'FAILED') {
-      // Update the job in the database as failed
-      const { error: updateError } = await supabase
-        .from('image_generation_jobs')
-        .update({
-          status: 'failed',
-          error_message: statusData.error || 'Unknown error'
-        })
-        .eq('id', jobId);
-      
-      if (updateError) {
-        console.error('Error updating job:', updateError);
-      }
-    }
-    
-    // Prepare response
-    const response: JobStatus = {
-      jobId: job.id,
-      requestId: requestId,
-      status: normalizedStatus,
-      resultUrl: resultUrl || job.result_url,
-      error: normalizedStatus === 'FAILED' ? (statusData.error || 'Unknown error') : undefined
-    };
-    
-    return new Response(
-      JSON.stringify(response),
-      {
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
-      }
-    );
     
   } catch (error) {
     console.error('Error in check-image-status:', error);

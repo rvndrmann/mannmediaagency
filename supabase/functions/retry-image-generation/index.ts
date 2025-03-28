@@ -107,9 +107,46 @@ serve(async (req) => {
           }
           
           let requestId = '';
+          let shouldRegenerate = forceRegenerate;
           
-          // If no request ID exists or force regenerate, create a new generation
-          if (!job.request_id || forceRegenerate) {
+          // If job has a request ID, try to check its status first
+          if (job.request_id && !shouldRegenerate) {
+            try {
+              // First check if the original request exists
+              console.log(`Checking status for existing request_id: ${job.request_id}`);
+              
+              const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}/status`, {
+                headers: {
+                  "Authorization": `Key ${FAL_KEY}`
+                }
+              });
+              
+              // If we get a 404, the request no longer exists in Fal.ai's system
+              // We should regenerate in this case
+              if (statusResponse.status === 404) {
+                console.log(`Request_id ${job.request_id} not found (404). Will regenerate.`);
+                shouldRegenerate = true;
+              } else if (!statusResponse.ok) {
+                // For other errors, we'll still log but might not need to regenerate
+                const errorText = await statusResponse.text();
+                console.error(`Error checking status for request_id ${job.request_id}: ${statusResponse.status} - ${errorText}`);
+                
+                // Only for 4xx errors (client errors), we'll regenerate the image
+                if (statusResponse.status >= 400 && statusResponse.status < 500) {
+                  shouldRegenerate = true;
+                } else {
+                  throw new Error(`Failed to check status: API Error (${statusResponse.status})`);
+                }
+              }
+            } catch (error) {
+              console.error(`Error checking request status for ${job.request_id}:`, error);
+              // If we can't check status, we'll regenerate
+              shouldRegenerate = true;
+            }
+          }
+          
+          // If no request ID exists or force regenerate is set, or we got a 404, create a new generation
+          if (!job.request_id || shouldRegenerate) {
             // Prepare generation parameters from the job
             const payload = {
               prompt: job.prompt,

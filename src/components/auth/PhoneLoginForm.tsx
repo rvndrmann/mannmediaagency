@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { usePhoneAuth } from "@/hooks/usePhoneAuth";
-import { AlertCircle } from "lucide-react";
+import { AlertCircle, ArrowLeft } from "lucide-react";
+import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface PhoneLoginFormProps {
   isSignUp?: boolean;
@@ -23,6 +24,7 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
     handlePhoneSubmit,
     handleVerificationSubmit,
     resetVerification,
+    resendCode
   } = usePhoneAuth(isSignUp);
 
   const togglePhoneForm = () => {
@@ -79,12 +81,14 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
               onChange={(e) => setPhoneNumber(e.target.value)}
               className="bg-gray-900 border-gray-700 text-white"
             />
-            <p className="text-xs text-gray-400 mt-1">Include country code (e.g. +1 for US, +91 for India)</p>
+            <p className="text-xs text-gray-400 mt-1">
+              Include country code with + (e.g. +1 for US, +91 for India)
+            </p>
           </div>
           <Button
             onClick={handlePhoneSubmit}
             className="w-full bg-purple-600 hover:bg-purple-700 text-white"
-            disabled={status === "loading"}
+            disabled={status === "loading" || !phoneNumber.trim()}
           >
             {status === "loading" ? (
               <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
@@ -96,35 +100,58 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
         <div className="space-y-3">
           <div>
             <Label htmlFor="code" className="text-white">Verification Code</Label>
-            <Input
-              id="code"
-              type="text"
-              inputMode="numeric"
-              pattern="[0-9]*"
-              placeholder="Enter 6-digit code"
-              value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, ''))}
-              className="bg-gray-900 border-gray-700 text-white"
-            />
+            <div className="mt-2">
+              <InputOTP
+                maxLength={6}
+                value={verificationCode} 
+                onChange={(value) => setVerificationCode(value)}
+                containerClassName="justify-center gap-2"
+              >
+                <InputOTPGroup>
+                  <InputOTPSlot index={0} className="bg-gray-900 border-gray-700 text-white" />
+                  <InputOTPSlot index={1} className="bg-gray-900 border-gray-700 text-white" />
+                  <InputOTPSlot index={2} className="bg-gray-900 border-gray-700 text-white" />
+                  <InputOTPSlot index={3} className="bg-gray-900 border-gray-700 text-white" />
+                  <InputOTPSlot index={4} className="bg-gray-900 border-gray-700 text-white" />
+                  <InputOTPSlot index={5} className="bg-gray-900 border-gray-700 text-white" />
+                </InputOTPGroup>
+              </InputOTP>
+            </div>
+            <p className="text-xs text-gray-400 mt-2 text-center">
+              We sent a code to {phoneNumber}
+            </p>
           </div>
-          <div className="flex gap-2">
-            <Button
-              onClick={resetVerification}
-              variant="outline"
-              className="flex-1 border-gray-700 text-gray-300 hover:bg-gray-700 hover:text-white"
-            >
-              Back
-            </Button>
+          <div className="flex flex-col gap-2">
             <Button
               onClick={handleVerificationSubmit}
-              className="flex-1 bg-purple-600 hover:bg-purple-700 text-white"
-              disabled={status === "loading"}
+              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              disabled={status === "loading" || verificationCode.length < 6}
             >
               {status === "loading" ? (
                 <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
               ) : null}
               {status === "loading" ? "Verifying..." : "Verify Code"}
             </Button>
+            <div className="flex justify-between mt-2">
+              <Button
+                onClick={resetVerification}
+                variant="ghost"
+                className="text-gray-400 hover:text-gray-300"
+                type="button"
+              >
+                <ArrowLeft className="w-4 h-4 mr-2" />
+                Back
+              </Button>
+              <Button
+                onClick={resendCode}
+                variant="ghost"
+                className="text-purple-400 hover:text-purple-300"
+                disabled={status === "loading"}
+                type="button"
+              >
+                Resend Code
+              </Button>
+            </div>
           </div>
         </div>
       )}

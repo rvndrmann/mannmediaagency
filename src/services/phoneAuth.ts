@@ -11,9 +11,12 @@ export interface PhoneAuthError {
 
 export const phoneAuthService = {
   async sendVerificationCode(phoneNumber: string): Promise<void> {
-    console.log('Sending verification code to:', phoneNumber);
+    // Ensure phone number is in E.164 format
+    const formattedNumber = this.formatPhoneNumber(phoneNumber);
+    console.log('Sending verification code to formatted number:', formattedNumber);
+    
     const { error } = await supabase.auth.signInWithOtp({
-      phone: phoneNumber,
+      phone: formattedNumber,
       options: {
         shouldCreateUser: true,
       }
@@ -26,9 +29,12 @@ export const phoneAuthService = {
   },
 
   async verifyCode(phoneNumber: string, token: string): Promise<void> {
-    console.log('Verifying code for:', phoneNumber, 'token:', token);
+    // Ensure phone number is in E.164 format
+    const formattedNumber = this.formatPhoneNumber(phoneNumber);
+    console.log('Verifying code for formatted number:', formattedNumber, 'token:', token);
+    
     const { error } = await supabase.auth.verifyOtp({
-      phone: phoneNumber,
+      phone: formattedNumber,
       token,
       type: 'sms'
     });
@@ -39,13 +45,26 @@ export const phoneAuthService = {
     }
   },
 
+  formatPhoneNumber(phoneNumber: string): string {
+    // Clean the number from any non-digit or + characters
+    let cleaned = phoneNumber.replace(/[^\d+]/g, '');
+    
+    // Ensure it starts with +
+    if (!cleaned.startsWith('+')) {
+      cleaned = '+' + cleaned;
+    }
+    
+    console.log('Formatted phone number:', cleaned);
+    return cleaned;
+  },
+
   normalizeError(error: any): PhoneAuthError {
     console.error('Auth error:', error);
 
     if (typeof error.message === 'string') {
       if (error.message.includes('Invalid phone')) {
         return { 
-          message: 'Please enter a valid phone number',
+          message: 'Please enter a valid phone number with country code (e.g. +1234567890)',
           code: 'invalid_phone' 
         };
       }
@@ -61,6 +80,13 @@ export const phoneAuthService = {
         return {
           message: 'This phone number is already registered. Please sign in instead.',
           code: 'user_exists'
+        };
+      }
+
+      if (error.message.includes('rate limit')) {
+        return {
+          message: 'Too many attempts. Please try again later.',
+          code: 'rate_limit'
         };
       }
     }

@@ -12,21 +12,32 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
   const [error, setError] = useState("");
   const navigate = useNavigate();
 
-  const handlePhoneSubmit = async () => {
-    // Clean the phone number
-    const cleanNumber = phoneNumber.replace(/[^\d+]/g, '');
+  const validatePhoneNumber = (num: string): boolean => {
+    // Check if the phone number has a + and at least 8 digits
+    const cleaned = num.replace(/[^\d+]/g, '');
+    if (!cleaned.startsWith('+')) {
+      setError("Phone number must include country code starting with + (e.g. +1 for US)");
+      return false;
+    }
     
-    // Basic validation
-    if (!cleanNumber || cleanNumber.length < 10) {
-      setError("Please enter a valid phone number with country code (e.g. +1234567890)");
+    if (cleaned.length < 8) {
+      setError("Phone number is too short. Please enter a valid phone number.");
+      return false;
+    }
+    
+    return true;
+  };
+
+  const handlePhoneSubmit = async () => {
+    if (!validatePhoneNumber(phoneNumber)) {
       return;
     }
 
     try {
       setStatus("loading");
       setError("");
-      console.log("Sending verification code to:", cleanNumber);
-      await phoneAuthService.sendVerificationCode(cleanNumber);
+      console.log("Sending verification code to:", phoneNumber);
+      await phoneAuthService.sendVerificationCode(phoneNumber);
       setStep("code");
       toast.success("Verification code sent to your phone");
       setStatus("idle");
@@ -64,6 +75,24 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
     setError("");
   };
 
+  const resendCode = async () => {
+    if (!validatePhoneNumber(phoneNumber)) {
+      return;
+    }
+    
+    try {
+      setStatus("loading");
+      setError("");
+      await phoneAuthService.sendVerificationCode(phoneNumber);
+      toast.success("Verification code resent to your phone");
+      setStatus("idle");
+    } catch (err: any) {
+      console.error("Failed to resend code:", err);
+      setError(err.message || "Failed to resend verification code");
+      setStatus("error");
+    }
+  };
+
   return {
     phoneNumber,
     setPhoneNumber: (value: string) => {
@@ -80,6 +109,7 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
     error,
     handlePhoneSubmit,
     handleVerificationSubmit,
-    resetVerification
+    resetVerification,
+    resendCode
   };
 };

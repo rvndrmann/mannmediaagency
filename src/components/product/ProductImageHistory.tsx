@@ -1,48 +1,42 @@
 
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Image, ChevronLeft } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import React, { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Copy, Instagram } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useToast } from '@/hooks/use-toast';
 
-interface ProductImageHistoryProps {
-  onSelectImage: (jobId: string, imageUrl: string) => void;
-  selectedImageId: string | null;
-  onBackToGallery: () => void;
-}
-
-type ImageGenerationJob = {
+interface ImageGenerationJob {
   id: string;
   prompt: string;
-  result_url: string | null;
+  result_url: string;
   created_at: string;
   product_image_metadata: {
-    seo_title: string | null;
-    instagram_hashtags: string | null;
-  } | null;
-};
+    seo_title: string;
+    instagram_hashtags: string;
+  };
+}
 
-export function ProductImageHistory({ 
-  onSelectImage, 
+interface ProductImageHistoryProps {
+  onSelectImage?: (jobId: string, imageUrl: string) => void;
+  selectedImageId?: string | null;
+  onBackToGallery?: () => void;
+}
+
+const ProductImageHistory: React.FC<ProductImageHistoryProps> = ({ 
+  onSelectImage,
   selectedImageId,
-  onBackToGallery 
-}: ProductImageHistoryProps) {
-  // Get current session
-  const { data: session } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
-    },
-  });
+  onBackToGallery
+}) => {
+  const [images, setImages] = useState<ImageGenerationJob[]>([]);
+  const { toast } = useToast();
 
-  const { data: generationHistory, isLoading } = useQuery({
-    queryKey: ["product-image-history", session?.user.id],
-    queryFn: async () => {
-      if (!session?.user.id) throw new Error("No user session");
-
-      const { data: jobs, error } = await supabase
+  useEffect(() => {
+    const fetchImages = async () => {
+      // Fix the type conversion issue by correctly mapping the data
+      // Update where you access the product_image_metadata
+      const { data, error } = await supabase
         .from("image_generation_jobs")
         .select(`
           id,
@@ -54,83 +48,128 @@ export function ProductImageHistory({
             instagram_hashtags
           )
         `)
-        .eq('user_id', session.user.id)
-        .order("created_at", { ascending: false });
+        .order('created_at', { ascending: false })
+        .limit(10);
 
-      if (error) {
-        console.error("Error fetching image jobs:", error);
-        throw error;
-      }
+      // Instead of direct assignment, map the data to the expected type
+      const mappedData = data ? data.map(item => {
+        return {
+          id: item.id,
+          prompt: item.prompt,
+          result_url: item.result_url,
+          created_at: item.created_at,
+          product_image_metadata: item.product_image_metadata && item.product_image_metadata.length > 0 
+            ? {
+                seo_title: item.product_image_metadata[0].seo_title,
+                instagram_hashtags: item.product_image_metadata[0].instagram_hashtags
+              }
+            : {
+                seo_title: '',
+                instagram_hashtags: ''
+              }
+        };
+      }) : [];
 
-      return (jobs || []) as ImageGenerationJob[];
-    },
-    enabled: !!session?.user.id,
-  });
+      setImages(mappedData as ImageGenerationJob[]);
+    };
 
-  if (isLoading) {
-    return <div>Loading history...</div>;
-  }
+    fetchImages();
+  }, []);
 
-  const selectedImage = generationHistory?.find(job => job.id === selectedImageId);
+  const copyToClipboard = (text: string, type: string) => {
+    navigator.clipboard.writeText(text);
+    toast({
+      title: `${type} copied to clipboard`,
+    });
+  };
 
-  if (selectedImageId && selectedImage?.result_url) {
-    return (
-      <div className="p-4 space-y-4">
-        <Button 
-          variant="ghost" 
-          className="text-gray-400 hover:text-white"
-          onClick={onBackToGallery}
-        >
-          <ChevronLeft className="h-4 w-4 mr-2" />
-          Back to Gallery
-        </Button>
-        <div className="aspect-[4/3] relative bg-gray-900 rounded-lg overflow-hidden">
-          <img
-            src={selectedImage.result_url}
-            alt={selectedImage.product_image_metadata?.seo_title || "Selected image"}
-            className="object-contain w-full h-full"
-          />
-        </div>
-        <p className="text-sm font-medium text-gray-300">
-          {selectedImage.product_image_metadata?.seo_title || "Untitled"}
-        </p>
-      </div>
-    );
-  }
-
-  return (
-    <ScrollArea className="h-[400px] px-4">
-      <div className="grid grid-cols-2 gap-4 pb-4">
-        {generationHistory?.map((job) => (
-          <div
-            key={job.id}
-            className="group relative border border-gray-800 rounded-lg p-2 space-y-2 hover:border-purple-600 transition-colors cursor-pointer"
-            onClick={() => job.result_url && onSelectImage(job.id, job.result_url)}
-          >
-            <div className="aspect-square relative bg-gray-900 rounded-md overflow-hidden">
-              {job.result_url ? (
-                <>
-                  <img
-                    src={job.result_url}
-                    alt={job.product_image_metadata?.seo_title || "Generated product image"}
-                    className="object-cover w-full h-full"
-                  />
-                  <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-20 transition-opacity" />
-                </>
-              ) : (
-                <div className="flex items-center justify-center h-full">
-                  <Image className="w-8 h-8 text-gray-600" />
-                </div>
-              )}
-            </div>
-            <div className="space-y-1">
-              <p className="text-xs font-medium truncate text-gray-300">
-                {job.product_image_metadata?.seo_title || "Untitled"}
+  if (selectedImageId && onBackToGallery) {
+    const selectedImage = images.find(img => img.id === selectedImageId);
+    if (selectedImage) {
+      return (
+        <div className="p-4">
+          <Button variant="ghost" onClick={onBackToGallery} className="mb-4">
+            ← Back to Gallery
+          </Button>
+          <div className="flex flex-col items-center">
+            <img 
+              src={selectedImage.result_url} 
+              alt={selectedImage.prompt} 
+              className="w-full max-w-md rounded-md aspect-square object-cover mb-4"
+            />
+            <div className="w-full max-w-md">
+              <h3 className="text-lg font-semibold text-white">{selectedImage.prompt}</h3>
+              <p className="text-sm text-gray-400 mb-4">
+                Created at {new Date(selectedImage.created_at).toLocaleDateString()}
               </p>
             </div>
           </div>
-        ))}
-      </div>
-    </ScrollArea>
+        </div>
+      );
+    }
+  }
+
+  return (
+    <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+      {images.map((image) => (
+        <Card key={image.id} className="bg-gray-900 border-gray-700">
+          <CardHeader>
+            <CardTitle className="text-white">{image.prompt}</CardTitle>
+            <CardDescription className="text-gray-400">
+              Created at {new Date(image.created_at).toLocaleDateString()}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="relative">
+              <img
+                src={image.result_url}
+                alt={image.prompt}
+                className="w-full rounded-md aspect-square object-cover"
+              />
+              {onSelectImage && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50">
+                  <Button 
+                    onClick={() => onSelectImage(image.id, image.result_url)}
+                    variant="secondary"
+                  >
+                    Use This Image
+                  </Button>
+                </div>
+              )}
+            </div>
+            <div className="mt-4 space-y-2">
+              <div>
+                <h4 className="text-sm font-bold text-gray-300">SEO Title</h4>
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-400">{image.product_image_metadata.seo_title || 'N/A'}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyToClipboard(image.product_image_metadata.seo_title, 'SEO Title')}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+              <div>
+                <h4 className="text-sm font-bold text-gray-300">Instagram Hashtags</h4>
+                <div className="flex items-center justify-between">
+                  <p className="text-gray-400">{image.product_image_metadata.instagram_hashtags || 'N/A'}</p>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => copyToClipboard(image.product_image_metadata.instagram_hashtags, 'Hashtags')}
+                  >
+                    <Copy className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      ))}
+    </div>
   );
-}
+};
+
+export default ProductImageHistory;

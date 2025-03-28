@@ -1,7 +1,7 @@
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ImageUploader } from "./ImageUploader";
-import { ProductImageHistory } from "@/components/product/ProductImageHistory";
+import ProductImageHistory from "@/components/product/ProductImageHistory";
 import { useState } from "react";
 
 interface ImageSelectorProps {

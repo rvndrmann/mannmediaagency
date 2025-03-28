@@ -1,8 +1,6 @@
-
 import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
+import { supabase, SUPABASE_URL } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { SUPABASE_URL } from '@/integrations/supabase/client';
 import { saveToHistory } from '@/hooks/product-shoot/history-service';
 
 export function useProductShoot() {

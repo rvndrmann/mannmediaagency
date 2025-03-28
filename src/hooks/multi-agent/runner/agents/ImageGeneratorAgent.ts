@@ -1,13 +1,12 @@
 
 import { Attachment } from "@/types/message";
-import { ToolContext } from "../../types";
-import { BaseAgent, AgentResult } from "../types";
+import { AgentConfig, ToolContext } from "../../types";
+import { AgentResult, AgentOptions } from "../types";
+import { BaseAgentImpl } from "./BaseAgentImpl";
 
-export class ImageGeneratorAgent implements BaseAgent {
-  private context: ToolContext;
-
-  constructor(context: ToolContext) {
-    this.context = context;
+export class ImageGeneratorAgent extends BaseAgentImpl {
+  constructor(options: AgentOptions) {
+    super(options);
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {

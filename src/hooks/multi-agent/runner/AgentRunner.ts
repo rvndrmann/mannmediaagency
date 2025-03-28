@@ -2,13 +2,14 @@
 import { v4 as uuidv4 } from "uuid";
 import { Message, Attachment } from "@/types/message";
 import { getTool } from "../tools";
-import { ToolContext } from "../types";
+import { ToolContext, AgentConfig } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 import { AssistantAgent } from "./agents/AssistantAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { SceneGeneratorAgent } from "./agents/SceneGeneratorAgent";
+import { AgentOptions } from "./types";
 
 interface AgentRunnerParams {
   usePerformanceModel: boolean;
@@ -61,33 +62,51 @@ export class AgentRunner {
     };
     this.callbacks.onMessage(this.userMessage);
 
-    const agentContext = this.createAgentContext(userId);
+    const toolContext = this.createAgentContext(userId);
 
     try {
       let agentResponse: string | null = null;
       let nextAgent: string | null = null;
       let commandSuggestion: any = null;
 
+      // Create agent configuration based on agent type
+      const agentConfig: AgentConfig = {
+        name: this.agentType,
+        instructions: this.getAgentInstructions(this.agentType),
+        modelName: this.params.usePerformanceModel ? "gpt-4o-mini" : "gpt-4o",
+        modelSettings: {
+          temperature: 0.7,
+          top_p: 1.0,
+          max_tokens: 2048
+        }
+      };
+
+      // Create agent options with configuration and context
+      const agentOptions: AgentOptions = {
+        config: agentConfig,
+        context: toolContext
+      };
+
       switch (this.agentType) {
         case "main":
         case "assistant":
-          const assistantAgent = new AssistantAgent(agentContext);
+          const assistantAgent = new AssistantAgent(agentOptions);
           ({ response: agentResponse, nextAgent, commandSuggestion } = await assistantAgent.run(input, attachments));
           break;
         case "script":
-          const scriptWriterAgent = new ScriptWriterAgent(agentContext);
+          const scriptWriterAgent = new ScriptWriterAgent(agentOptions);
           ({ response: agentResponse, nextAgent } = await scriptWriterAgent.run(input, attachments));
           break;
         case "image":
-          const imageGeneratorAgent = new ImageGeneratorAgent(agentContext);
+          const imageGeneratorAgent = new ImageGeneratorAgent(agentOptions);
           ({ response: agentResponse, nextAgent } = await imageGeneratorAgent.run(input, attachments));
           break;
         case "scene":
-          const sceneGeneratorAgent = new SceneGeneratorAgent(agentContext);
+          const sceneGeneratorAgent = new SceneGeneratorAgent(agentOptions);
           ({ response: agentResponse, nextAgent } = await sceneGeneratorAgent.run(input, attachments));
           break;
         case "tool":
-          const toolAgent = new ToolAgent(agentContext);
+          const toolAgent = new ToolAgent(agentOptions);
           ({ response: agentResponse, nextAgent, commandSuggestion } = await toolAgent.run(input, attachments));
           break;
         default:
@@ -117,6 +136,25 @@ export class AgentRunner {
       this.callbacks.onError(error.message || "Agent run failed");
     } finally {
       this.controller = null;
+    }
+  }
+
+  // Get default instructions for each agent type
+  private getAgentInstructions(agentType: string): string {
+    switch (agentType) {
+      case "main":
+      case "assistant":
+        return "You are a helpful assistant. Provide detailed and accurate information to user queries. If a specialized agent would be better suited to handle the request, suggest a handoff.";
+      case "script":
+        return "You are a script writing assistant. Create compelling narratives, dialog, and story structure. Focus on creativity and proper formatting.";
+      case "image":
+        return "You are an image prompt generator. Create detailed and evocative descriptions that can be used to generate images.";
+      case "scene":
+        return "You are a scene creator. Develop rich, detailed environments and settings that bring stories to life.";
+      case "tool":
+        return "You are a tool specialist. Help users utilize available tools effectively and suggest the most appropriate tool for each task.";
+      default:
+        return "You are a helpful assistant.";
     }
   }
 

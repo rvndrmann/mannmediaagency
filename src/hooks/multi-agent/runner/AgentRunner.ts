@@ -34,6 +34,12 @@ export class AgentRunner {
     this.context = this.createToolContext(contextData);
     this.callbacks = callbacks;
     this.initializeAgent();
+    
+    // If contextData has conversation history, initialize it
+    if (contextData.metadata?.conversationHistory) {
+      this.conversationHistory = [...contextData.metadata.conversationHistory];
+      console.log(`AgentRunner initialized with ${this.conversationHistory.length} historical messages`);
+    }
   }
 
   private createToolContext(contextData: Partial<ToolContext>): ToolContext {
@@ -72,7 +78,10 @@ export class AgentRunner {
       usePerformanceModel: contextData.usePerformanceModel || false,
       enableDirectToolExecution: contextData.enableDirectToolExecution || false,
       tracingDisabled: contextData.tracingDisabled || false,
-      metadata: contextData.metadata || {},
+      metadata: {
+        ...(contextData.metadata || {}),
+        conversationHistory: this.conversationHistory
+      },
       runId: contextData.runId || uuidv4(),
       groupId: contextData.groupId || uuidv4(),
       addMessage,
@@ -102,6 +111,7 @@ export class AgentRunner {
       };
 
       this.agent = new AgentClass(options);
+      console.log(`Agent initialized: ${this.agentType}`);
     } catch (error) {
       console.error("Error initializing agent:", error);
       this.callbacks.onError(`Failed to initialize ${this.agentType} agent: ${error instanceof Error ? error.message : String(error)}`);
@@ -188,17 +198,20 @@ export class AgentRunner {
   }
 
   private createUserMessage(input: string, attachments: Attachment[]): Message {
-    return {
+    const message: Message = {
       id: uuidv4(),
       role: "user",
       content: input,
       createdAt: new Date().toISOString(),
       attachments: attachments.length > 0 ? attachments : undefined
     };
+    
+    this.conversationHistory.push(message);
+    return message;
   }
 
   private createAssistantMessage(agentType: AgentType): Message {
-    return {
+    const message: Message = {
       id: uuidv4(),
       role: "assistant",
       content: `I'm analyzing your request...`,
@@ -206,15 +219,26 @@ export class AgentRunner {
       agentType: agentType,
       status: "thinking"
     };
+    
+    this.conversationHistory.push(message);
+    return message;
   }
 
   /**
    * Process a handoff from one agent to another
+   * Implements the agent loop pattern from documentation
    */
   public async handleHandoff(fromAgent: AgentType, toAgent: AgentType, reason: string, additionalContext?: Record<string, any>): Promise<void> {
     console.log(`Handling handoff from ${fromAgent} to ${toAgent}: ${reason}`);
     
     try {
+      // Update turn counter
+      this.currentTurn++;
+      
+      if (this.currentTurn >= this.maxTurns) {
+        throw new Error("Maximum number of agent turns exceeded. Possible infinite handoff loop detected.");
+      }
+      
       if (this.callbacks.onHandoffStart) {
         this.callbacks.onHandoffStart(fromAgent, toAgent, reason);
       }
@@ -237,25 +261,39 @@ export class AgentRunner {
         }
       );
       
-      // Apply default input filters if needed
+      // Apply default input filters
       inputData = handoffFilters.addContinuityContext(fromAgent)(inputData);
       
-      // Set up context for the new agent
-      const mergedContext = {
+      // Update agent type and context
+      this.agentType = toAgent;
+      
+      // Update context with handoff information
+      this.context.metadata = {
         ...this.context.metadata,
         previousAgentType: fromAgent,
         handoffReason: reason,
         isHandoffContinuation: true,
         conversationId: this.context.groupId,
+        conversationHistory: this.conversationHistory, // Pass full conversation history
         ...(additionalContext || {})
       };
       
-      // Update agent type and context
-      this.agentType = toAgent;
-      this.context.metadata = mergedContext;
+      console.log(`Re-initializing with new agent type: ${toAgent}`);
       
       // Re-initialize with the new agent type
       this.initializeAgent();
+      
+      // Create a system message explaining the handoff
+      const handoffSystemMessage: Message = {
+        id: uuidv4(),
+        role: "system",
+        content: `Conversation transferred from ${fromAgent} agent to ${toAgent} agent: ${reason}`,
+        createdAt: new Date().toISOString(),
+        type: "handoff"
+      };
+      
+      this.conversationHistory.push(handoffSystemMessage);
+      this.callbacks.onMessage(handoffSystemMessage);
       
       // Extract the last user message to continue processing with the new agent
       const lastUserMessageIndex = this.conversationHistory
@@ -266,32 +304,22 @@ export class AgentRunner {
       if (lastUserMessageIndex) {
         const lastUserMessage = this.conversationHistory[lastUserMessageIndex.i];
         
-        // Create a system message explaining the handoff
-        const handoffSystemMessage: Message = {
-          id: uuidv4(),
-          role: "system",
-          content: `Conversation transferred from ${fromAgent} agent to ${toAgent} agent: ${reason}`,
-          createdAt: new Date().toISOString(),
-          type: "handoff"
-        };
-        
-        this.conversationHistory.push(handoffSystemMessage);
-        
         // Create a new assistant message for the target agent
         const assistantMessage = this.createAssistantMessage(toAgent);
-        this.conversationHistory.push(assistantMessage);
         this.callbacks.onMessage(assistantMessage);
         
-        // Continue processing with the new agent (recursive loop)
         try {
-          // Increment turn counter to prevent infinite loops
-          this.currentTurn++;
+          console.log(`Running ${toAgent} agent with input: ${lastUserMessage.content.substring(0, 100)}...`);
           
-          if (this.currentTurn >= this.maxTurns) {
-            throw new Error("Maximum number of agent turns exceeded. Possible infinite handoff loop detected.");
-          }
+          // Add handoff context to input
+          let agentInput = lastUserMessage.content;
+          const contextPrefix = `[Conversation continuation from ${fromAgent} agent: ${reason}]\n\n`;
+          agentInput = contextPrefix + agentInput;
           
-          const agentResult = await this.agent!.run(lastUserMessage.content, lastUserMessage.attachments || []);
+          // Run the new agent with the last user message
+          const agentResult = await this.agent!.run(agentInput, lastUserMessage.attachments || []);
+          
+          console.log(`${toAgent} agent result:`, agentResult);
           
           // Update the assistant message with the agent response
           const updatedAssistantMessage: Message = {
@@ -312,7 +340,7 @@ export class AgentRunner {
           
           this.callbacks.onMessage(updatedAssistantMessage);
           
-          // Handle any further handoffs if needed
+          // Handle any further handoffs if needed (implements agent loop pattern)
           if (agentResult.nextAgent) {
             console.log(`Further handoff to ${agentResult.nextAgent} agent`);
             await this.handleHandoff(
@@ -345,11 +373,15 @@ export class AgentRunner {
     } catch (error) {
       console.error("Error in handleHandoff:", error);
       this.callbacks.onError(`Handoff error: ${error instanceof Error ? error.message : String(error)}`);
+    } finally {
+      // Reset turn counter when handoff process is complete
+      this.currentTurn = 0;
     }
   }
 
   /**
    * Main entry point to run the agent
+   * Implements the agent loop pattern from documentation
    */
   public async run(input: string, attachments: Attachment[] = [], userId: string): Promise<void> {
     try {
@@ -363,11 +395,15 @@ export class AgentRunner {
       console.log(`Running ${this.agentType} agent with input:`, input);
       
       const userMessage = this.createUserMessage(input, attachments);
-      this.conversationHistory.push(userMessage);
       this.callbacks.onMessage(userMessage);
       
+      // Update context with latest conversation history
+      this.context.metadata = {
+        ...this.context.metadata,
+        conversationHistory: this.conversationHistory
+      };
+      
       const assistantMessage = this.createAssistantMessage(this.agentType);
-      this.conversationHistory.push(assistantMessage);
       this.callbacks.onMessage(assistantMessage);
       
       try {
@@ -377,12 +413,13 @@ export class AgentRunner {
         
         let agentInput = input;
         if (isHandoffContinuation && this.conversationHistory.length > 2) {
-          const contextPrefix = `[Conversation continuation from ${this.context.metadata?.previousAgentType || 'previous'} agent]\n\n`;
+          const contextPrefix = `[Conversation continuation from ${this.context.metadata?.previousAgentType || 'previous'} agent: ${this.context.metadata?.handoffReason || 'Not specified'}]\n\n`;
           agentInput = contextPrefix + input;
           
           console.log("Including handoff context in agent input");
         }
         
+        // Execute the agent
         const agentResult = await this.agent.run(agentInput, attachments);
         console.log(`Agent result:`, agentResult);
         
@@ -407,13 +444,23 @@ export class AgentRunner {
         
         this.callbacks.onMessage(updatedAssistantMessage);
         
+        // Implement agent loop pattern: if handoff is requested, continue execution flow
         if (agentResult.nextAgent) {
           console.log(`Handling handoff to ${agentResult.nextAgent} agent`);
-          await this.handleHandoff(
-            this.agentType,
-            agentResult.nextAgent as AgentType,
-            `The ${this.agentType} agent recommended transitioning to the ${agentResult.nextAgent} agent.`
-          );
+          
+          // Increase the turn counter
+          this.currentTurn++;
+          
+          if (this.currentTurn < this.maxTurns) {
+            await this.handleHandoff(
+              this.agentType,
+              agentResult.nextAgent as AgentType,
+              `The ${this.agentType} agent recommended transitioning to the ${agentResult.nextAgent} agent.`
+            );
+          } else {
+            console.warn("Maximum number of agent turns exceeded. Stopping handoff chain.");
+            this.callbacks.onError("Maximum number of agent turns exceeded. Possible infinite handoff loop detected.");
+          }
         }
       } catch (error) {
         console.error(`Error running ${this.agentType} agent:`, error);

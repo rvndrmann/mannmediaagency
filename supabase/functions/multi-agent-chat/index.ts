@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -79,6 +78,8 @@ serve(async (req) => {
     
     // If we have conversation history, include relevant context
     if (conversationHistory && conversationHistory.length > 0) {
+      logInfo(`[${requestId}] Processing conversation history with ${conversationHistory.length} messages`);
+      
       // Add continuation context for handoffs
       if (contextData?.isHandoffContinuation) {
         messages.push({
@@ -88,21 +89,34 @@ serve(async (req) => {
           } agent to you (${agentType} agent) to help with specialized assistance. 
           Reason: ${contextData.handoffReason || 'Not specified'}
           
-          Please review the conversation history and maintain continuity.`
+          Please review the conversation history and maintain continuity.
+          
+          Important: You are now in control of this conversation thread. The user should not have to repeat their request.
+          Process the latest user message in context of the full conversation history and respond accordingly.`
         });
       }
       
-      // Add the most relevant conversation history (last 10 messages or so)
-      const maxHistoryItems = 10;
-      const relevantHistory = conversationHistory.slice(-maxHistoryItems);
+      // Process conversation history with appropriate filtering
+      const processedHistory = processConversationHistory(conversationHistory, agentType);
       
-      relevantHistory.forEach(item => {
+      // Add the processed history messages
+      processedHistory.forEach(item => {
         if (item.role === 'user' || item.role === 'assistant' || item.role === 'system') {
+          // Add agent type annotation to assistant messages for better context
+          let content = item.content;
+          if (item.role === 'assistant' && item.agentType && item.agentType !== agentType) {
+            content = `[From ${item.agentType} agent]: ${content}`;
+          }
+          
           messages.push({
             role: item.role,
-            content: item.content
+            content: content
           });
         }
+      });
+      
+      logInfo(`[${requestId}] Processed ${processedHistory.length} messages from history`, {
+        lastMessage: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].role : 'none'
       });
     }
     
@@ -385,6 +399,40 @@ serve(async (req) => {
 });
 
 // Helper functions
+
+/**
+ * Process conversation history to filter and format messages for the current agent
+ */
+function processConversationHistory(history: any[], currentAgentType: string): any[] {
+  if (!history || !Array.isArray(history) || history.length === 0) {
+    return [];
+  }
+  
+  // Always include system messages, user messages, and assistant messages
+  // For assistant messages, add agent type annotation if from different agent
+  const maxHistoryItems = 20; // Limit history to prevent token overflow
+  
+  // Keep the most recent messages
+  const relevantHistory = history.slice(-maxHistoryItems);
+  
+  // Further process for better context
+  return relevantHistory.map(item => {
+    // Create a copy we can modify
+    const processedItem = { ...item };
+    
+    // For handoff messages, convert to system messages
+    if (item.type === 'handoff') {
+      processedItem.role = 'system';
+    }
+    
+    // For assistant messages from other agents, add annotation
+    if (item.role === 'assistant' && item.agentType && item.agentType !== currentAgentType) {
+      // We'll handle the annotation in the parent function
+    }
+    
+    return processedItem;
+  });
+}
 
 // Get default instructions based on agent type
 function getDefaultInstructions(agentType: string): string {

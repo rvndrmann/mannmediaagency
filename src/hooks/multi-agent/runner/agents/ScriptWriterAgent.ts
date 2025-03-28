@@ -25,6 +25,8 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       // Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
       
+      console.log(`ScriptWriterAgent processing with ${conversationHistory.length} historical messages`);
+      
       // Call the Supabase function for the script writer agent
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -46,7 +48,8 @@ export class ScriptWriterAgent extends BaseAgentImpl {
           conversationHistory: conversationHistory, // Pass conversation history
           metadata: {
             ...this.context.metadata,
-            previousAgentType: 'script'
+            previousAgentType: 'script',
+            conversationId: this.context.groupId
           },
           runId: this.context.runId,
           groupId: this.context.groupId

@@ -25,6 +25,8 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       // Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
       
+      console.log(`SceneGeneratorAgent processing with ${conversationHistory.length} historical messages`);
+      
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -46,7 +48,8 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
           conversationHistory: conversationHistory, // Pass conversation history
           metadata: {
             ...this.context.metadata,
-            previousAgentType: 'scene'
+            previousAgentType: 'scene',
+            conversationId: this.context.groupId
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -57,9 +60,12 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
         throw new Error(`Scene generator agent error: ${error.message}`);
       }
       
+      console.log("SceneGeneratorAgent response:", data);
+      
       // Handle handoff if present
       let nextAgent = null;
       if (data?.handoffRequest) {
+        console.log(`SceneGeneratorAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
         nextAgent = data.handoffRequest.targetAgent;
       }
       

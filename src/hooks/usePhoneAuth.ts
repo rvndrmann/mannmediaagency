@@ -45,6 +45,7 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
       console.error("Phone verification error:", err);
       setError(err.message || "Failed to send verification code");
       setStatus("error");
+      toast.error(err.message || "Failed to send verification code");
     }
   };
 
@@ -66,6 +67,7 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
       console.error("Code verification error:", err);
       setError(err.message || "Failed to verify code");
       setStatus("error");
+      toast.error(err.message || "Failed to verify code");
     }
   };
 
@@ -90,6 +92,7 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
       console.error("Failed to resend code:", err);
       setError(err.message || "Failed to resend verification code");
       setStatus("error");
+      toast.error(err.message || "Failed to resend verification code");
     }
   };
 

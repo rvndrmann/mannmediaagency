@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { usePhoneAuth } from "@/hooks/usePhoneAuth";
-import { AlertCircle, ArrowLeft } from "lucide-react";
+import { AlertCircle, ArrowLeft, Loader2 } from "lucide-react";
 import { InputOTP, InputOTPGroup, InputOTPSlot } from "@/components/ui/input-otp";
 
 interface PhoneLoginFormProps {
@@ -91,7 +91,7 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
             disabled={status === "loading" || !phoneNumber.trim()}
           >
             {status === "loading" ? (
-              <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
             ) : null}
             {status === "loading" ? "Sending..." : "Send Verification Code"}
           </Button>
@@ -128,7 +128,7 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
               disabled={status === "loading" || verificationCode.length < 6}
             >
               {status === "loading" ? (
-                <span className="size-5 border-2 border-white border-t-transparent rounded-full animate-spin mr-2" />
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
               ) : null}
               {status === "loading" ? "Verifying..." : "Verify Code"}
             </Button>

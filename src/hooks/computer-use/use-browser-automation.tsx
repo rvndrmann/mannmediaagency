@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from "react";
-import { supabase, SUPABASE_URL } from "@/integrations/supabase/client";
+import { supabase } from "@/integrations/supabase/client";
 import { useBrowserAutomationAdapter, BrowserAction } from "./browser-automation-adapter";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
+import { SUPABASE_URL } from "@/integrations/supabase/client";
 
 export type BrowserEnvironment = "browser";
 

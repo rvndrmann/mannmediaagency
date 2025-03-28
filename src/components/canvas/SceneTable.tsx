@@ -1,14 +1,16 @@
-import { useState } from "react";
+
+import { useState, useRef } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
 import { 
   Loader2, Save, Edit, Play, Image, Video, Wand2, Plus, 
-  Trash, X, Music, Mic 
+  Trash, X, Music, Mic, PauseCircle, Upload 
 } from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
+import { supabase } from "@/integrations/supabase/client";
 
 interface SceneTableProps {
   scenes: CanvasScene[];
@@ -27,9 +29,11 @@ export function SceneTable({
 }: SceneTableProps) {
   const [editingField, setEditingField] = useState<{sceneId: string, field: 'script' | 'imagePrompt' | 'description'} | null>(null);
   const [editedContent, setEditedContent] = useState("");
-  const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video' | 'productImage'} | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic'} | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [deletingScene, setDeletingScene] = useState<string | null>(null);
+  const [playingAudio, setPlayingAudio] = useState<{sceneId: string, type: 'voiceOver' | 'backgroundMusic'} | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   
   const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt' | 'description', content: string = "") => {
     setEditingField({ sceneId, field });
@@ -57,10 +61,18 @@ export function SceneTable({
     // This would be implemented with actual AI generation
   };
 
-  const handleAddMedia = (sceneId: string, type: 'image' | 'video' | 'productImage') => {
+  const handleAddMedia = (sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic') => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = type === 'image' || type === 'productImage' ? 'image/*' : 'video/*';
+    
+    if (type === 'image' || type === 'productImage') {
+      input.accept = 'image/*';
+    } else if (type === 'video') {
+      input.accept = 'video/*';
+    } else if (type === 'voiceOver' || type === 'backgroundMusic') {
+      input.accept = 'audio/mp3,audio/*';
+    }
+    
     setFileInput(input);
     
     input.onchange = async (e) => {
@@ -72,18 +84,42 @@ export function SceneTable({
       setUploadingMedia({ sceneId, type });
       
       try {
-        const reader = new FileReader();
-        reader.onload = async (event) => {
-          const dataUrl = event.target?.result as string;
+        if (type === 'voiceOver' || type === 'backgroundMusic') {
+          // Handle audio upload to Supabase storage
+          const bucketName = type === 'voiceOver' ? 'voice-over' : 'background-music';
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${crypto.randomUUID()}.${fileExt}`;
           
-          await updateScene(sceneId, type, dataUrl);
-          toast.success(`${type} added successfully`);
-          setUploadingMedia(null);
-        };
-        reader.readAsDataURL(file);
+          const { error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+            
+          if (uploadError) throw uploadError;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+          
+          await updateScene(sceneId, type, publicUrl);
+        } else {
+          // Handle image/video upload
+          const reader = new FileReader();
+          reader.onload = async (event) => {
+            const dataUrl = event.target?.result as string;
+            
+            await updateScene(sceneId, type, dataUrl);
+          };
+          reader.readAsDataURL(file);
+        }
+        
+        toast.success(`${type} added successfully`);
       } catch (error) {
         console.error(`Error adding ${type}:`, error);
         toast.error(`Failed to add ${type}`);
+      } finally {
         setUploadingMedia(null);
       }
     };
@@ -91,10 +127,49 @@ export function SceneTable({
     input.click();
   };
 
-  const handleRemoveMedia = (sceneId: string, type: 'image' | 'video' | 'productImage') => {
+  const handleRemoveMedia = (sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic') => {
     updateScene(sceneId, type, '')
-      .then(() => toast.success(`${type} removed`))
+      .then(() => {
+        toast.success(`${type} removed`);
+        // Stop audio if currently playing
+        if ((type === 'voiceOver' || type === 'backgroundMusic') && 
+            playingAudio?.sceneId === sceneId && 
+            playingAudio?.type === type) {
+          if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current = null;
+          }
+          setPlayingAudio(null);
+        }
+      })
       .catch(error => toast.error(`Failed to remove ${type}: ${error}`));
+  };
+  
+  const handlePlayAudio = (sceneId: string, type: 'voiceOver' | 'backgroundMusic', url: string) => {
+    // If we're already playing this audio, stop it
+    if (playingAudio?.sceneId === sceneId && playingAudio?.type === type) {
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
+      setPlayingAudio(null);
+      return;
+    }
+    
+    // If we're playing something else, stop it first
+    if (audioRef.current) {
+      audioRef.current.pause();
+    }
+    
+    // Play the new audio
+    const audio = new Audio(url);
+    audio.onended = () => {
+      setPlayingAudio(null);
+      audioRef.current = null;
+    };
+    audio.play();
+    audioRef.current = audio;
+    setPlayingAudio({ sceneId, type });
   };
   
   const handleDeleteScene = async (sceneId: string, e: React.MouseEvent) => {
@@ -274,29 +349,60 @@ export function SceneTable({
     const url = type === 'voiceOver' ? scene.voiceOverUrl : scene.backgroundMusicUrl;
     const icon = type === 'voiceOver' ? <Mic className="h-4 w-4 mr-1" /> : <Music className="h-4 w-4 mr-1" />;
     const title = type === 'voiceOver' ? 'Voice-Over' : 'Background Music';
+    const isUploading = uploadingMedia && uploadingMedia.sceneId === scene.id && uploadingMedia.type === type;
+    const isPlaying = playingAudio?.sceneId === scene.id && playingAudio?.type === type;
     
     if (!url) {
       return (
-        <div className="flex justify-center items-center h-8">
-          <span className="text-gray-400 text-xs">No {title}</span>
+        <div className="flex flex-col items-center justify-center h-[50px]">
+          {isUploading ? (
+            <Loader2 className="h-5 w-5 animate-spin text-primary" />
+          ) : (
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-xs flex items-center"
+              onClick={() => handleAddMedia(scene.id, type)}
+            >
+              <Upload className="h-4 w-4 mr-1" />
+              Add {title}
+            </Button>
+          )}
         </div>
       );
     }
     
     return (
-      <div className="flex items-center justify-center h-8">
+      <div className="flex items-center justify-center gap-2 h-[50px] group relative">
         <Button
-          variant="ghost"
+          variant={isPlaying ? "default" : "outline"}
           size="sm"
-          className="h-7"
-          onClick={() => {
-            const audio = new Audio(url);
-            audio.play();
-          }}
+          className="h-8 px-3"
+          onClick={() => handlePlayAudio(scene.id, type, url)}
         >
-          {icon}
-          Play {title}
+          {isPlaying ? (
+            <>
+              <PauseCircle className="h-4 w-4 mr-1" />
+              Stop
+            </>
+          ) : (
+            <>
+              {icon}
+              Play {title}
+            </>
+          )}
         </Button>
+        
+        <div className="hidden group-hover:block absolute right-0">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-destructive"
+            onClick={() => handleRemoveMedia(scene.id, type)}
+          >
+            <Trash className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
     );
   };

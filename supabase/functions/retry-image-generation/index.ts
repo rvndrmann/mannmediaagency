@@ -6,22 +6,17 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-// Helper function to normalize status
+// Helper function to normalize status consistently to uppercase
 const normalizeStatus = (status: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' => {
   if (!status) return 'IN_QUEUE';
   
   const upperStatus = status.toUpperCase();
   
-  switch (upperStatus) {
-    case 'COMPLETED':
-      return 'COMPLETED';
-    case 'FAILED':
-      return 'FAILED';
-    case 'IN_QUEUE':
-    case 'PROCESSING':
-    default:
-      return 'IN_QUEUE';
-  }
+  if (upperStatus === 'COMPLETED') return 'COMPLETED';
+  if (upperStatus === 'FAILED') return 'FAILED';
+  
+  // For any status that is not COMPLETED or FAILED, normalize to IN_QUEUE
+  return 'IN_QUEUE';
 };
 
 // Helper function to map database status to API status
@@ -32,6 +27,16 @@ const mapDbStatusToApiStatus = (dbStatus: string): 'IN_QUEUE' | 'COMPLETED' | 'F
   if (status === 'failed') return 'FAILED';
   
   return 'IN_QUEUE';
+};
+
+// Helper function to map API status to database status
+const mapApiStatusToDbStatus = (apiStatus: string): 'in_queue' | 'completed' | 'failed' => {
+  const status = apiStatus.toUpperCase();
+  
+  if (status === 'COMPLETED') return 'completed';
+  if (status === 'FAILED') return 'failed';
+  
+  return 'in_queue';
 };
 
 serve(async (req) => {

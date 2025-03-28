@@ -36,6 +36,16 @@ const mapDbStatusToApiStatus = (dbStatus: string): 'IN_QUEUE' | 'COMPLETED' | 'F
   return 'IN_QUEUE';
 };
 
+// Helper function to map API status to database status
+const mapApiStatusToDbStatus = (apiStatus: string): 'in_queue' | 'completed' | 'failed' => {
+  const status = apiStatus.toUpperCase();
+  
+  if (status === 'COMPLETED') return 'completed';
+  if (status === 'FAILED') return 'failed';
+  
+  return 'in_queue';
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -94,7 +104,7 @@ serve(async (req) => {
           jobId: job.id,
           status: mapDbStatusToApiStatus(job.status),
           resultUrl: job.result_url,
-          error: job.error || 'No request_id available for this job'
+          error: job.error_message || 'No request_id available for this job'
         }),
         {
           headers: { ...corsHeaders, 'Content-Type': 'application/json' }

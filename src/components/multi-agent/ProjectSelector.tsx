@@ -10,6 +10,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
 import {
@@ -180,53 +181,55 @@ export function ProjectSelector({
       <PopoverContent className="w-[300px] p-0 bg-[#21283B] border-white/10 text-white">
         <Command className="bg-transparent">
           <CommandInput placeholder="Search projects..." className="border-white/10" />
-          <CommandEmpty className="py-6 text-center text-sm">
-            {loading ? "Loading projects..." : "No projects found."}
-          </CommandEmpty>
-          {projects && projects.length > 0 && (
-            <CommandGroup className="max-h-[300px] overflow-auto">
-              {projects.map((project) => (
-                <CommandItem
-                  key={project.id}
-                  value={project.id}
-                  onSelect={() => {
-                    onProjectSelect(project.id);
-                    setOpen(false);
-                  }}
-                  className="flex items-center justify-between"
-                >
-                  <div className="flex items-center">
-                    <Video className="mr-2 h-4 w-4 text-blue-400" />
-                    <span>{project.title}</span>
-                  </div>
-                  <div className="flex items-center">
-                    <span className="text-xs text-gray-400 mr-2">
-                      {project.scenesCount} {project.scenesCount === 1 ? 'scene' : 'scenes'}
-                    </span>
-                    {project.id === selectedProjectId && (
-                      <Check className="h-4 w-4 text-green-500" />
-                    )}
-                  </div>
-                </CommandItem>
-              ))}
-            </CommandGroup>
-          )}
-          
-          {allowCreateNew && (
-            <>
-              <CommandSeparator />
+          <CommandList>
+            <CommandEmpty className="py-6 text-center text-sm">
+              {loading ? "Loading projects..." : "No projects found."}
+            </CommandEmpty>
+            {projects.length > 0 && (
               <CommandGroup>
-                <CommandItem
-                  onSelect={handleCreateNewProject}
-                  className="cursor-pointer"
-                  disabled={loading}
-                >
-                  <PlusCircle className="mr-2 h-4 w-4 text-green-500" />
-                  <span>Create new project</span>
-                </CommandItem>
+                {projects.map((project) => (
+                  <CommandItem
+                    key={project.id}
+                    value={project.id}
+                    onSelect={() => {
+                      onProjectSelect(project.id);
+                      setOpen(false);
+                    }}
+                    className="flex items-center justify-between"
+                  >
+                    <div className="flex items-center">
+                      <Video className="mr-2 h-4 w-4 text-blue-400" />
+                      <span>{project.title}</span>
+                    </div>
+                    <div className="flex items-center">
+                      <span className="text-xs text-gray-400 mr-2">
+                        {project.scenesCount} {project.scenesCount === 1 ? 'scene' : 'scenes'}
+                      </span>
+                      {project.id === selectedProjectId && (
+                        <Check className="h-4 w-4 text-green-500" />
+                      )}
+                    </div>
+                  </CommandItem>
+                ))}
               </CommandGroup>
-            </>
-          )}
+            )}
+            
+            {allowCreateNew && (
+              <>
+                <CommandSeparator />
+                <CommandGroup>
+                  <CommandItem
+                    onSelect={handleCreateNewProject}
+                    className="cursor-pointer"
+                    disabled={loading}
+                  >
+                    <PlusCircle className="mr-2 h-4 w-4 text-green-500" />
+                    <span>Create new project</span>
+                  </CommandItem>
+                </CommandGroup>
+              </>
+            )}
+          </CommandList>
         </Command>
       </PopoverContent>
     </Popover>

@@ -9,25 +9,57 @@ export type MessageType =
   | "error" 
   | undefined;
 
+export type MessageStatus = "loading" | "done" | "error";
+
+export interface Task {
+  id: string;
+  name: string;
+  status: "pending" | "in-progress" | "completed" | "error";
+  details?: string;
+}
+
+export interface Command {
+  name: string;
+  parameters?: Record<string, any>;
+  feature?: string;
+}
+
+export interface AgentInfo {
+  id: string;
+  name: string;
+  description: string;
+  icon: string;
+  color: string;
+  instructions: string;
+  type: string;
+  isBuiltIn: boolean;
+}
+
+export interface ContinuityData {
+  fromAgent: string;
+  toAgent: string;
+  reason: string;
+  timestamp: string;
+  preserveHistory: boolean;
+  additionalContext?: Record<string, any>;
+}
+
 export interface Message {
   id: string;
   role: "user" | "assistant" | "system" | "tool";
   content: string;
   createdAt: string;
-  status?: "loading" | "done" | "error";
+  status?: MessageStatus;
   attachments?: Attachment[];
   tool_name?: string;
   tool_arguments?: Record<string, any>;
   agentType?: string;
   type?: MessageType;
-  tasks?: any[];
-  command?: {
-    name: string;
-    parameters?: Record<string, any>;
-  };
+  tasks?: Task[];
+  command?: Command;
   handoffRequest?: HandoffRequest;
   timestamp?: string;
-  continuityData?: Record<string, any>;
+  continuityData?: ContinuityData;
 }
 
 export interface Attachment {

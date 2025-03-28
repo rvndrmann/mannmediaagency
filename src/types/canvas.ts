@@ -10,23 +10,12 @@ export interface CanvasScene {
   productImageUrl: string;
   voiceOverUrl: string;
   backgroundMusicUrl: string;
-  voiceOverText: string; // Added field for clean voice-over text without commentary
+  voiceOverText: string; // Existing column now properly typed
   order: number;
   projectId: string;
   createdAt: string;
   updatedAt: string;
   duration: number | null;
-}
-
-export interface CanvasProject {
-  id: string;
-  title: string;
-  userId: string;
-  fullScript: string;
-  description?: string;
-  scenes: CanvasScene[];
-  createdAt: string;
-  updatedAt: string;
 }
 
 export type SceneUpdateType = 
@@ -37,5 +26,5 @@ export type SceneUpdateType =
   'productImage' | 
   'video' | 
   'voiceOver' | 
-  'voiceOverText' | // Added as a valid update type
+  'voiceOverText' | 
   'backgroundMusic';

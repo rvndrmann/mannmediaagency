@@ -86,7 +86,7 @@ export const useCanvas = (projectId?: string) => {
     fetchProject();
   }, [projectId]);
 
-  const createProject = async (title: string, description?: string) => {
+  const createProject = async (title: string, description?: string): Promise<string | null> => {
     try {
       setLoading(true);
       setError(null);

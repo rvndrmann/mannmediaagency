@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -20,7 +19,6 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [availableProjects, setAvailableProjects] = useState<{id: string, title: string}[]>([]);
   const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
 
-  // Fetch list of available projects for the user
   const fetchAvailableProjects = useCallback(async () => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -108,7 +106,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
           voiceOverUrl: scene.voice_over_url || "", 
           backgroundMusicUrl: scene.background_music_url || "", 
           voiceOverText: scene.voice_over_text || "",
-          duration: scene.duration || 0,
+          duration: scene.duration || null,
           createdAt: scene.created_at,
           updatedAt: scene.updated_at
         }))
@@ -127,7 +125,6 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     }
   }, []);
 
-  // Fetch project details when activeProjectId changes
   useEffect(() => {
     if (activeProjectId) {
       fetchProjectDetails(activeProjectId);

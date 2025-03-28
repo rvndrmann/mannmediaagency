@@ -1,10 +1,10 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 const Payment = () => {
   const navigate = useNavigate();
@@ -12,7 +12,23 @@ const Payment = () => {
   const [searchParams] = useSearchParams();
   const { toast } = useToast();
   
-  // Get state from location or URL parameters
+  const { data: paymentLinks } = useQuery({
+    queryKey: ["payment-links"],
+    queryFn: async () => {
+      const { data, error } = await supabase
+        .from("payment_links")
+        .select("title, custom_rate")
+        .eq("is_active", true);
+
+      if (error) throw error;
+      return data || [];
+    },
+  });
+
+  const selectedPaymentLink = paymentLinks && paymentLinks.length > 0 
+    ? { title: paymentLinks[0].title, custom_rate: paymentLinks[0].custom_rate } 
+    : { title: '', custom_rate: 0 };
+
   const [paymentDetails, setPaymentDetails] = useState<{
     planName: string | null;
     amount: number | null;
@@ -42,7 +58,6 @@ const Payment = () => {
         if (error) throw error;
         
         if (orderData && orderData.custom_order_links) {
-          // Fix the type issue by explicitly checking the structure
           const linkData = orderData.custom_order_links as { title: string, custom_rate: number };
           setPaymentDetails({
             planName: linkData.title || "Custom Order",
@@ -63,12 +78,10 @@ const Payment = () => {
       }
     };
     
-    // Initialize payment details from location state or URL params
     const stateData = location.state || {};
     const paramOrderId = searchParams.get('orderId');
     
     if (stateData.planName && stateData.amount) {
-      // We have state from navigation
       setPaymentDetails({
         planName: stateData.planName,
         amount: stateData.amount,
@@ -76,10 +89,8 @@ const Payment = () => {
       });
       setIsLoading(false);
     } else if (paramOrderId) {
-      // We have an order ID in URL params, fetch details
       fetchOrderDetails(paramOrderId);
     } else {
-      // No valid payment information
       toast({
         variant: "destructive",
         title: "Error",
@@ -98,12 +109,10 @@ const Payment = () => {
       
       const { data: { user } } = await supabase.auth.getUser();
       
-      // Get guest id from order if this is a guest order
       let userId = user?.id;
       let guestId = null;
       
       if (!userId && paymentDetails.orderId) {
-        // For guest orders, get the guest_id from the order
         const { data: orderData, error: orderError } = await supabase
           .from('custom_orders')
           .select('guest_id')

@@ -14,8 +14,17 @@ interface UseMultiAgentChatOptions {
   onAgentSwitch?: (from: string, to: string) => void;
 }
 
+const initialMessages: Message[] = [
+  {
+    id: '1',
+    content: 'Hello! How can I help you today?',
+    role: 'assistant' as MessageType,
+    createdAt: new Date().toISOString(),
+  },
+];
+
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
-  const [messages, setMessages] = useState<Message[]>(options.initialMessages || []);
+  const [messages, setMessages] = useState<Message[]>(options.initialMessages || initialMessages);
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<string>("main");

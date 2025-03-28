@@ -11,6 +11,7 @@ interface GenerationQueueItem {
   retries: number;
   sourceUrl: string;
   settings: any;
+  source?: string; // Add source field to identify the API endpoint
 }
 
 const POLLING_INTERVAL = 10000; // 10 seconds
@@ -37,7 +38,10 @@ export function useGenerationQueue() {
           const response = await supabase.functions.invoke<GenerationResult>(
             'check-generation-status',
             {
-              body: { requestId: item.requestId }
+              body: { 
+                requestId: item.requestId,
+                source: item.source || (item.settings?.placement_type ? 'bria' : undefined)
+              }
             }
           );
 
@@ -212,11 +216,22 @@ export function useGenerationQueue() {
     try {
       toast.info("Checking image status...");
       
+      // Determine if this is potentially a Bria product-shot model
+      // Look for image with this ID in the queue to see if it has a source
+      const queueItem = generationQueue.find(item => 
+        item.requestId === requestId || `temp-${item.requestId}` === imageId
+      );
+      
+      const source = queueItem?.source || (queueItem?.settings?.placement_type ? 'bria' : undefined);
+      
       // Manual check with the API
       const response = await supabase.functions.invoke<GenerationResult>(
         'check-generation-status',
         {
-          body: { requestId }
+          body: { 
+            requestId,
+            source 
+          }
         }
       );
       
@@ -255,7 +270,8 @@ export function useGenerationQueue() {
               prompt: failedImage.prompt || "", 
               retries: 0,
               sourceUrl: "", // We don't have this info for retries
-              settings: {} // We don't have this info for retries
+              settings: {}, // We don't have this info for retries
+              source // Keep track of the source
             }
           ]);
           setIsGenerating(true);

@@ -60,7 +60,8 @@ export function useProductShoot() {
           settings: {
             ...formData,
             sourceUrl,
-            shotSize: [formData.shotWidth, formData.shotHeight]
+            shotSize: [formData.shotWidth, formData.shotHeight],
+            placement_type: formData.placementType // Make sure this is saved for API detection
           },
           user_id: (await supabase.auth.getUser()).data.user?.id
         });
@@ -152,7 +153,10 @@ export function useProductShoot() {
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('retry-image-generation', {
-        body: { jobId }
+        body: { 
+          jobId,
+          source: 'bria' // Explicitly set the source for product shots
+        }
       });
 
       if (error) throw error;

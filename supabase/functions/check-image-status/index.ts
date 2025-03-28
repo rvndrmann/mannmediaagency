@@ -46,6 +46,38 @@ const mapApiStatusToDbStatus = (apiStatus: string): 'in_queue' | 'completed' | '
   return 'in_queue';
 };
 
+// Get the appropriate status endpoint based on the request ID or job settings
+const getStatusEndpoint = (requestId: string, job: any): string => {
+  // Check if this is a product-shot job from the settings
+  const isProductShot = job.settings && 
+    (job.settings.scene_description || 
+     job.settings.placement_type || 
+     job.settings.shot_size);
+  
+  if (isProductShot) {
+    return `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`;
+  } else {
+    // Default to flux-subject endpoint for other types
+    return `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`;
+  }
+};
+
+// Get the appropriate result endpoint based on the request ID or job settings
+const getResultEndpoint = (requestId: string, job: any): string => {
+  // Check if this is a product-shot job from the settings
+  const isProductShot = job.settings && 
+    (job.settings.scene_description || 
+     job.settings.placement_type || 
+     job.settings.shot_size);
+  
+  if (isProductShot) {
+    return `https://queue.fal.run/fal-ai/bria/requests/${requestId}`;
+  } else {
+    // Default to flux-subject endpoint for other types
+    return `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`;
+  }
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -115,8 +147,12 @@ serve(async (req) => {
     console.log(`Checking status for request_id: ${requestId}`);
     
     try {
-      // Use flux-subject endpoint for consistency with retry-image-generation function
-      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
+      // Get the appropriate endpoint for this job type
+      const statusEndpoint = getStatusEndpoint(requestId, job);
+      console.log(`Using status endpoint: ${statusEndpoint}`);
+      
+      // Check status with the appropriate endpoint
+      const statusResponse = await fetch(statusEndpoint, {
         method: 'GET',
         headers: {
           'Authorization': `Key ${FAL_KEY}`,
@@ -196,20 +232,56 @@ serve(async (req) => {
       
       // Extract result URL if completed
       let resultUrl = null;
-      if (normalizedStatus === 'COMPLETED' && statusData.result?.url) {
-        resultUrl = statusData.result.url;
+      if (normalizedStatus === 'COMPLETED') {
+        // If status is COMPLETED, we need to fetch the full result
+        try {
+          const resultEndpoint = getResultEndpoint(requestId, job);
+          console.log(`Fetching result from endpoint: ${resultEndpoint}`);
+          
+          const resultResponse = await fetch(resultEndpoint, {
+            method: 'GET',
+            headers: {
+              'Authorization': `Key ${FAL_KEY}`,
+              'Content-Type': 'application/json'
+            }
+          });
+          
+          if (!resultResponse.ok) {
+            console.error(`Error fetching results for ${requestId}: ${resultResponse.status}`);
+          } else {
+            const resultData = await resultResponse.json();
+            console.log(`Result data for ${requestId}:`, JSON.stringify(resultData));
+            
+            // Extract URL based on the response format (could be in different places depending on endpoint)
+            if (resultData.result?.url) {
+              resultUrl = resultData.result.url;
+            } else if (resultData.image_url) {
+              resultUrl = resultData.image_url;
+            } else if (resultData.output?.images?.[0]?.url) {
+              resultUrl = resultData.output.images[0].url;
+            } else if (resultData.url) {
+              resultUrl = resultData.url;
+            }
+          }
+        } catch (resultError) {
+          console.error(`Error fetching full result for ${requestId}:`, resultError);
+        }
         
-        // Update the job in the database
-        const { error: updateError } = await supabase
-          .from('image_generation_jobs')
-          .update({
-            status: 'completed',
-            result_url: resultUrl
-          })
-          .eq('id', jobId);
-        
-        if (updateError) {
-          console.error('Error updating job:', updateError);
+        if (resultUrl) {
+          // Update the job in the database
+          const { error: updateError } = await supabase
+            .from('image_generation_jobs')
+            .update({
+              status: 'completed',
+              result_url: resultUrl
+            })
+            .eq('id', jobId);
+          
+          if (updateError) {
+            console.error('Error updating job:', updateError);
+          }
+        } else {
+          console.warn(`Could not extract result URL for completed job ${jobId}`);
         }
       } else if (normalizedStatus === 'FAILED') {
         // Update the job in the database as failed

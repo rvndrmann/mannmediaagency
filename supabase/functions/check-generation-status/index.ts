@@ -34,6 +34,32 @@ const normalizeStatus = (status: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' =>
   return 'IN_QUEUE';
 };
 
+// Get the appropriate status endpoint based on the request ID and source
+const getStatusEndpoint = (requestId: string, source?: string): string => {
+  // Default endpoint is flux-subject
+  let endpoint = `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`;
+  
+  // If source is explicitly set to bria/product-shot, use that endpoint
+  if (source === 'bria') {
+    endpoint = `https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`;
+  }
+  
+  return endpoint;
+};
+
+// Get the appropriate result endpoint based on the request ID and source
+const getResultEndpoint = (requestId: string, source?: string): string => {
+  // Default endpoint is flux-subject
+  let endpoint = `https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`;
+  
+  // If source is explicitly set to bria/product-shot, use that endpoint
+  if (source === 'bria') {
+    endpoint = `https://queue.fal.run/fal-ai/bria/requests/${requestId}`;
+  }
+  
+  return endpoint;
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -48,19 +74,22 @@ serve(async (req) => {
       throw new Error('FAL_KEY environment variable is not set')
     }
 
-    // Get the request ID from the request body
-    let { requestId } = await req.json()
+    // Get the request ID and source from the request body
+    let { requestId, source } = await req.json()
     
     if (!requestId) {
       console.error('Missing requestId in request');
       throw new Error('requestId is required')
     }
 
-    console.log(`Checking status for request_id: ${requestId}`)
+    console.log(`Checking status for request_id: ${requestId}, source: ${source || 'default'}`);
+    
+    const statusEndpoint = getStatusEndpoint(requestId, source);
+    console.log(`Using status endpoint: ${statusEndpoint}`);
 
     try {
-      // Use flux-subject endpoint for consistency with retry-image-generation function
-      const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
+      // Fetch the status using the appropriate endpoint
+      const statusResponse = await fetch(statusEndpoint, {
         method: 'GET',
         headers: {
           'Authorization': `Key ${FAL_KEY}`,
@@ -121,34 +150,64 @@ serve(async (req) => {
       if (normalizedStatus === 'COMPLETED') {
         console.log('Processing completed results');
         
+        // Fetch the full result if necessary
+        let resultData = statusData;
+        if (!resultData.result && !resultData.output && !resultData.url) {
+          try {
+            const resultEndpoint = getResultEndpoint(requestId, source);
+            console.log(`Fetching full result from: ${resultEndpoint}`);
+            
+            const resultResponse = await fetch(resultEndpoint, {
+              method: 'GET',
+              headers: {
+                'Authorization': `Key ${FAL_KEY}`,
+                'Content-Type': 'application/json'
+              }
+            });
+            
+            if (resultResponse.ok) {
+              resultData = await resultResponse.json();
+              console.log(`Full result data:`, JSON.stringify(resultData));
+            } else {
+              console.error(`Error fetching full result: ${resultResponse.status}`);
+            }
+          } catch (resultError) {
+            console.error('Error fetching full result:', resultError);
+          }
+        }
+        
         // Extract the output from the response - check different response structures
         // Sometimes it's in result, sometimes in output, and sometimes it has a nested images array
         let images = [];
         let prompt = '';
         
-        if (statusData.result) {
+        if (resultData.result) {
           // First, try to find images in the result property
-          if (Array.isArray(statusData.result?.images)) {
-            images = statusData.result.images;
-            prompt = statusData.result.prompt || '';
-          } else if (statusData.result?.url) {
+          if (Array.isArray(resultData.result?.images)) {
+            images = resultData.result.images;
+            prompt = resultData.result.prompt || '';
+          } else if (resultData.result?.url) {
             // If result has a direct URL
-            images = [{ url: statusData.result.url }];
+            images = [{ url: resultData.result.url }];
           }
-        } else if (statusData.output) {
+        } else if (resultData.output) {
           // Try to find images in the output property
-          if (Array.isArray(statusData.output?.images)) {
-            images = statusData.output.images;
-            prompt = statusData.output.prompt || '';
-          } else if (statusData.output?.url) {
+          if (Array.isArray(resultData.output?.images)) {
+            images = resultData.output.images;
+            prompt = resultData.output.prompt || '';
+          } else if (resultData.output?.url) {
             // If output has a direct URL
-            images = [{ url: statusData.output.url }];
+            images = [{ url: resultData.output.url }];
           }
         }
         
         // If no images found in standard locations, look for any URL properties at the top level
-        if (images.length === 0 && statusData.url) {
-          images = [{ url: statusData.url }];
+        if (images.length === 0) {
+          if (resultData.url) {
+            images = [{ url: resultData.url }];
+          } else if (resultData.image_url) {
+            images = [{ url: resultData.image_url }];
+          }
         }
         
         console.log('Extracted images:', JSON.stringify(images));

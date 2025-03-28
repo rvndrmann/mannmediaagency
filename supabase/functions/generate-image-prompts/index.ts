@@ -1,6 +1,7 @@
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.48.1";
+import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { createClient } from "https://esm.sh/@supabase/supabase-js@2.38.4";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -12,163 +13,181 @@ serve(async (req) => {
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
+  
   try {
+    // Get request body
     const { sceneIds, projectId } = await req.json();
     
-    if (!sceneIds || !Array.isArray(sceneIds) || !projectId) {
-      throw new Error("Missing required parameters: sceneIds array and projectId");
-    }
-
-    // Create a Supabase client with the Deno runtime
-    const supabaseAdmin = createClient(
-      Deno.env.get('SUPABASE_URL') ?? '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? '',
-      { global: { headers: { Authorization: req.headers.get('Authorization')! } } }
-    );
+    // Get Supabase client
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    const openAIKey = Deno.env.get('OPENAI_API_KEY');
     
-    // Get all scenes with their voice-over text
-    const { data: scenes, error: scenesError } = await supabaseAdmin
-      .from('canvas_scenes')
-      .select('id, voice_over_text, script, image_prompt, title')
-      .eq('project_id', projectId)
-      .in('id', sceneIds)
-      .order('scene_order', { ascending: true });
-    
-    if (scenesError) {
-      throw new Error(`Failed to fetch scenes: ${scenesError.message}`);
+    if (!openAIKey) {
+      throw new Error('OPENAI_API_KEY not set in environment');
     }
     
-    if (!scenes || scenes.length === 0) {
-      throw new Error("No scenes found for the provided IDs");
+    if (!sceneIds || !Array.isArray(sceneIds) || sceneIds.length === 0) {
+      // If no specific scenes provided, find scenes with voice-over text but no image prompt
+      const { data: scenes, error: scenesError } = await supabase
+        .from('canvas_scenes')
+        .select('id, voice_over_text, description, image_prompt')
+        .eq('project_id', projectId)
+        .not('voice_over_text', 'is', null)
+        .is('image_prompt', null);
+        
+      if (scenesError) {
+        throw new Error(`Error fetching scenes: ${scenesError.message}`);
+      }
+      
+      if (scenes.length === 0) {
+        return new Response(
+          JSON.stringify({ 
+            message: "No scenes with voice-over text and missing image prompts found", 
+            processedScenes: 0 
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+      }
+      
+      // Use these scenes
+      sceneIds = scenes.map(scene => scene.id);
     }
     
-    // Filter scenes that have voice-over text but no image prompt
-    const scenesToProcess = scenes.filter(scene => 
-      scene.voice_over_text && 
-      (!scene.image_prompt || scene.image_prompt.trim() === '')
-    );
+    const results = [];
+    let successfulScenes = 0;
     
-    if (scenesToProcess.length === 0) {
-      return new Response(
-        JSON.stringify({ 
-          message: "No scenes with voice-over text and missing image prompts found",
-          processedScenes: 0
-        }),
-        { headers: { ...corsHeaders, "Content-Type": "application/json" } }
-      );
-    }
-    
-    // Process each scene to generate an image prompt
-    const processedPrompts = await Promise.all(
-      scenesToProcess.map(async (scene) => {
-        try {
-          // Generate image prompt using OpenAI
-          const prompt = scene.voice_over_text;
-          const sceneTitle = scene.title || `Scene`;
+    // Process each scene
+    for (const sceneId of sceneIds) {
+      try {
+        // Get scene data
+        const { data: scene, error: sceneError } = await supabase
+          .from('canvas_scenes')
+          .select('title, voice_over_text, description, image_url')
+          .eq('id', sceneId)
+          .single();
           
-          const openAiResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              "Authorization": `Bearer ${Deno.env.get("OPENAI_API_KEY")}`
-            },
-            body: JSON.stringify({
-              model: "gpt-4o-mini",
-              messages: [
-                {
-                  role: "system",
-                  content: `You are a professional image prompt generator for video production. 
-                  Create detailed image prompts suitable for AI image generation that perfectly visualize a scene based on the voice-over text.
-                  Your prompts should be highly descriptive, include style preferences (photorealistic, cinematic, etc.), and emphasize the main subject.
-                  Use this format: [image type] of [subject], [setting/environment], [lighting], [atmosphere], [style], [quality indicators]`
-                },
-                {
-                  role: "user",
-                  content: `Generate a detailed image prompt for a scene in a video with the following voice-over text:
-                  "${prompt}"
-                  
-                  This is for ${sceneTitle}.
-                  The image prompt should be highly detailed but concise (around 50-80 words), focusing on creating a visually striking image that matches the content and mood of the voice-over.
-                  DO NOT include any explanation or notes - ONLY the image prompt itself.`
-                }
-              ],
-              temperature: 0.7,
-              max_tokens: 300
-            })
-          });
-
-          if (!openAiResponse.ok) {
-            const errorData = await openAiResponse.json();
-            console.error(`OpenAI error for scene ${scene.id}:`, errorData);
-            return {
-              id: scene.id,
-              success: false,
-              error: errorData.error?.message || openAiResponse.statusText
-            };
-          }
-
-          const openAiData = await openAiResponse.json();
-          const imagePrompt = openAiData.choices[0]?.message?.content.trim();
-          
-          if (!imagePrompt) {
-            return {
-              id: scene.id,
-              success: false,
-              error: "No image prompt generated"
-            };
-          }
-          
-          // Update the scene with the generated image prompt
-          const { error: updateError } = await supabaseAdmin
-            .from('canvas_scenes')
-            .update({ image_prompt: imagePrompt })
-            .eq('id', scene.id);
-          
-          if (updateError) {
-            console.error(`Error updating scene ${scene.id}:`, updateError);
-            return {
-              id: scene.id,
-              success: false,
-              error: updateError.message
-            };
-          }
-          
-          return {
-            id: scene.id,
-            success: true,
-            imagePrompt
-          };
-        } catch (error) {
-          console.error(`Error processing scene ${scene.id}:`, error);
-          return {
-            id: scene.id,
+        if (sceneError) {
+          results.push({
+            id: sceneId,
             success: false,
-            error: error.message
-          };
+            error: `Failed to fetch scene: ${sceneError.message}`
+          });
+          continue;
         }
-      })
-    );
-    
-    // Count successful generations
-    const successCount = processedPrompts.filter(result => result.success).length;
+        
+        // Prepare prompt for OpenAI
+        let promptContent = "Create a detailed image prompt for AI image generation that will help create a compelling visual for a video scene. ";
+        
+        if (scene.image_url) {
+          promptContent += "The scene already has an image that you should use as reference. ";
+        }
+        
+        promptContent += `
+Scene Title: ${scene.title || "Untitled Scene"}
+${scene.voice_over_text ? `Voice Over Text: ${scene.voice_over_text}` : ""}
+${scene.description ? `Scene Description: ${scene.description}` : ""}
+
+Please generate a detailed image prompt that includes:
+1. Visual style (photorealistic, animation style, etc.)
+2. Setting/environment details
+3. Lighting specifications
+4. Atmosphere/mood
+5. Quality indicators (resolution, detail level, etc.)
+
+Format the prompt in a way that will work well with an AI image generator. 
+Include specific details in [brackets] for key elements.`;
+        
+        // Call OpenAI
+        const response = await fetch("https://api.openai.com/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${openAIKey}`
+          },
+          body: JSON.stringify({
+            model: "gpt-4o-mini",
+            messages: [
+              {
+                role: "system",
+                content: "You are an expert at creating detailed image prompts for AI image generators."
+              },
+              {
+                role: "user",
+                content: promptContent
+              }
+            ],
+            temperature: 0.7,
+            max_tokens: 500
+          })
+        });
+        
+        const data = await response.json();
+        
+        if (!data.choices || data.choices.length === 0) {
+          results.push({
+            id: sceneId,
+            success: false,
+            error: "No response from AI model"
+          });
+          continue;
+        }
+        
+        const imagePrompt = data.choices[0].message.content.trim();
+        
+        // Update the scene with the generated image prompt
+        const { error: updateError } = await supabase
+          .from('canvas_scenes')
+          .update({ image_prompt: imagePrompt })
+          .eq('id', sceneId);
+          
+        if (updateError) {
+          results.push({
+            id: sceneId,
+            success: false,
+            error: `Failed to update scene: ${updateError.message}`
+          });
+          continue;
+        }
+        
+        // Success
+        results.push({
+          id: sceneId,
+          success: true,
+          imagePrompt
+        });
+        
+        successfulScenes++;
+      } catch (error) {
+        results.push({
+          id: sceneId,
+          success: false,
+          error: error.message
+        });
+      }
+    }
     
     return new Response(
-      JSON.stringify({ 
-        results: processedPrompts,
-        processedScenes: processedPrompts.length,
-        successfulScenes: successCount
+      JSON.stringify({
+        results,
+        processedScenes: sceneIds.length,
+        successfulScenes
       }),
-      { headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error("Error generating image prompts:", error);
+    console.error("Error in generate-image-prompts function:", error);
     
     return new Response(
-      JSON.stringify({ error: error.message }),
+      JSON.stringify({
+        error: error.message,
+        processedScenes: 0,
+        successfulScenes: 0
+      }),
       { 
-        status: 500, 
-        headers: { ...corsHeaders, "Content-Type": "application/json" } 
+        status: 500,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
     );
   }

@@ -6,7 +6,8 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save } from "lucide-react";
+import { Save, Sparkles, MessageSquare } from "lucide-react";
+import { useMultiAgentChat, AgentType } from "@/hooks/use-multi-agent-chat";
 
 interface SceneEditorProps {
   scene: CanvasScene;
@@ -18,7 +19,17 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [script, setScript] = useState(scene.script);
   const [voiceOverText, setVoiceOverText] = useState(scene.voiceOverText);
   const [description, setDescription] = useState(scene.description);
+  const [imagePrompt, setImagePrompt] = useState(scene.imagePrompt);
   const [isSaving, setIsSaving] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  const { 
+    processAgentRequest, 
+    isProcessing, 
+    activeAgent 
+  } = useMultiAgentChat({
+    projectId: scene.projectId
+  });
   
   // Update local state when scene changes
   useEffect(() => {
@@ -26,9 +37,10 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     setScript(scene.script);
     setVoiceOverText(scene.voiceOverText);
     setDescription(scene.description);
+    setImagePrompt(scene.imagePrompt);
   }, [scene]);
   
-  const handleSave = async (field: 'script' | 'voiceOverText' | 'description') => {
+  const handleSave = async (field: 'script' | 'voiceOverText' | 'description' | 'imagePrompt') => {
     setIsSaving(true);
     
     try {
@@ -43,6 +55,9 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
         case 'description':
           value = description;
           break;
+        case 'imagePrompt':
+          value = imagePrompt;
+          break;
       }
       
       await onUpdate(scene.id, field, value);
@@ -52,6 +67,86 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
       toast.error(`Failed to update scene ${field}`);
     } finally {
       setIsSaving(false);
+    }
+  };
+  
+  const generateWithMultiAgent = async (type: 'description' | 'imagePrompt') => {
+    setIsGenerating(true);
+    
+    try {
+      const agentType: AgentType = type === 'description' ? 'scene' : 'image';
+      
+      // Create context based on current scene data
+      let context = "";
+      if (type === 'description') {
+        context = `You need to create a detailed scene description for a video. 
+Scene Title: ${scene.title}
+Scene Script: ${script}
+Voice Over Text: ${voiceOverText}
+${scene.imageUrl ? "The scene already has an image that you should use as reference: " + scene.imageUrl : ""}
+
+Describe how the camera should move, how subjects are positioned, lighting, mood, and transitions. 
+Be specific about camera angles, movements, and visual composition.`;
+      } else if (type === 'imagePrompt') {
+        context = `You need to create a detailed image prompt for this scene that will be used for AI image generation.
+Scene Title: ${scene.title}
+Scene Script: ${script}
+Voice Over Text: ${voiceOverText}
+${scene.description ? "Scene Description: " + scene.description : ""}
+
+Create a detailed image prompt that includes visual elements, style, lighting, mood, composition, and quality parameters.
+Format the prompt to get the best results from an AI image generator.`;
+      }
+      
+      // Process the request through the multi-agent system
+      const response = await processAgentRequest(
+        context,
+        {
+          projectTitle: "Video Project",
+          sceneId: scene.id,
+          sceneTitle: scene.title
+        },
+        agentType
+      );
+      
+      if (response) {
+        // Extract relevant content from the response and update the state
+        if (type === 'description') {
+          // Update local state
+          const newDescription = extractContentFromResponse(response, 'description');
+          setDescription(newDescription);
+          
+          // Save to database 
+          await onUpdate(scene.id, 'description', newDescription);
+          toast.success("Scene description generated and saved");
+        } else if (type === 'imagePrompt') {
+          // Update local state
+          const newImagePrompt = extractContentFromResponse(response, 'imagePrompt');
+          setImagePrompt(newImagePrompt);
+          
+          // Save to database
+          await onUpdate(scene.id, 'imagePrompt', newImagePrompt);
+          toast.success("Image prompt generated and saved");
+        }
+      }
+    } catch (error) {
+      console.error(`Error generating ${type}:`, error);
+      toast.error(`Failed to generate ${type}`);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+  
+  // Helper function to extract content from multi-agent response
+  const extractContentFromResponse = (response: string, type: 'description' | 'imagePrompt'): string => {
+    if (type === 'description') {
+      // Try to extract between specific markers
+      const descriptionMatch = response.match(/(?:Scene Description:|Description:)\s*([\s\S]*?)(?=\n\n|$)/i);
+      return descriptionMatch ? descriptionMatch[1].trim() : response.trim();
+    } else {
+      // Try to extract image prompt
+      const promptMatch = response.match(/(?:Image Prompt:|Prompt:)\s*([\s\S]*?)(?=\n\n|$)/i);
+      return promptMatch ? promptMatch[1].trim() : response.trim();
     }
   };
   
@@ -110,23 +205,91 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
         <div>
           <div className="flex justify-between items-center mb-2">
             <Label htmlFor="scene-description">Scene Description</Label>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleSave('description')} 
-              disabled={isSaving}
-            >
-              <Save className="h-3.5 w-3.5 mr-1.5" />
-              Save Description
-            </Button>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleSave('description')} 
+                disabled={isSaving || isProcessing}
+              >
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Save
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => generateWithMultiAgent('description')}
+                disabled={isGenerating || isProcessing}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                {isGenerating && activeAgent === 'scene' ? "Generating..." : "Generate with AI"}
+              </Button>
+            </div>
           </div>
           <Textarea 
             id="scene-description" 
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder="Describe what happens in this scene..."
-            className="min-h-[100px]"
+            className="min-h-[150px]"
           />
+          {scene.imageUrl && (
+            <div className="mt-2">
+              <p className="text-xs text-muted-foreground mb-2">AI will use this image as reference when generating descriptions:</p>
+              <img src={scene.imageUrl} alt="Scene reference" className="max-h-40 rounded-md border" />
+            </div>
+          )}
+        </div>
+        
+        <div>
+          <div className="flex justify-between items-center mb-2">
+            <Label htmlFor="image-prompt">Image Prompt</Label>
+            <div className="flex space-x-2">
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={() => handleSave('imagePrompt')} 
+                disabled={isSaving || isProcessing}
+              >
+                <Save className="h-3.5 w-3.5 mr-1.5" />
+                Save
+              </Button>
+              <Button 
+                variant="default" 
+                size="sm" 
+                onClick={() => generateWithMultiAgent('imagePrompt')}
+                disabled={isGenerating || isProcessing}
+              >
+                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
+                {isGenerating && activeAgent === 'image' ? "Generating..." : "Generate with AI"}
+              </Button>
+            </div>
+          </div>
+          <Textarea 
+            id="image-prompt" 
+            value={imagePrompt}
+            onChange={(e) => setImagePrompt(e.target.value)}
+            placeholder="Write an image prompt for AI image generation..."
+            className="min-h-[150px]"
+          />
+        </div>
+        
+        <div className="pt-4 border-t">
+          <Button
+            variant="outline"
+            size="sm"
+            className="w-full"
+            onClick={() => {
+              const chatUrl = `/multi-agent-chat?projectId=${scene.projectId}&sceneId=${scene.id}`;
+              window.open(chatUrl, '_blank');
+            }}
+          >
+            <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
+            Open Full Multi-Agent Chat
+          </Button>
+          <p className="text-xs text-muted-foreground mt-2">
+            Use the multi-agent chat for more advanced scene creation, image prompts, and detailed directions.
+          </p>
         </div>
       </div>
     </div>

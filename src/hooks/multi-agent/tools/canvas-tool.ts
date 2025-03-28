@@ -3,7 +3,7 @@ import { SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
 
 interface CanvasToolParameters {
-  action: "update_script" | "update_image_prompt" | "update_description" | "update_voice_over_text" | "generate_full_script" | "divide_script" | "get_project_info" | "generate_image_prompts";
+  action: "update_script" | "update_image_prompt" | "update_description" | "update_voice_over_text" | "generate_full_script" | "divide_script" | "get_project_info" | "generate_image_prompts" | "analyze_scene_image";
   projectId: string;
   sceneId?: string;
   content?: string;
@@ -19,7 +19,7 @@ export const canvasTool: ToolDefinition = {
     properties: {
       action: {
         type: "string",
-        enum: ["update_script", "update_image_prompt", "update_description", "update_voice_over_text", "generate_full_script", "divide_script", "get_project_info", "generate_image_prompts"],
+        enum: ["update_script", "update_image_prompt", "update_description", "update_voice_over_text", "generate_full_script", "divide_script", "get_project_info", "generate_image_prompts", "analyze_scene_image"],
         description: "The action to perform on the Canvas project"
       },
       projectId: {
@@ -364,6 +364,81 @@ export const canvasTool: ToolDefinition = {
               results: data.results
             }
           };
+        }
+        
+        case "analyze_scene_image": {
+          // Validate required parameters
+          if (!params.sceneId) {
+            return {
+              success: false,
+              error: "Missing required parameter: sceneId is required for analyze_scene_image"
+            };
+          }
+          
+          // Get the scene data including the image URL
+          const { data: scene, error: sceneError } = await supabase
+            .from('canvas_scenes')
+            .select('id, title, image_url, image_prompt, description')
+            .eq('id', params.sceneId)
+            .eq('project_id', params.projectId)
+            .single();
+          
+          if (sceneError) {
+            console.error("Error fetching scene:", sceneError);
+            return {
+              success: false,
+              error: `Failed to fetch scene: ${sceneError.message}`
+            };
+          }
+          
+          if (!scene.image_url) {
+            return {
+              success: false,
+              error: "This scene doesn't have an image to analyze"
+            };
+          }
+          
+          // Call the OpenAI API to analyze the image
+          // This would typically be done through an edge function
+          try {
+            // Call edge function to analyze the image
+            const { data, error } = await supabase.functions.invoke('generate-image-prompts', {
+              body: { 
+                sceneIds: [params.sceneId],
+                projectId: params.projectId,
+                analyzeExistingImage: true
+              }
+            });
+            
+            if (error) {
+              console.error("Error analyzing image:", error);
+              return {
+                success: false,
+                error: `Failed to analyze image: ${error.message}`
+              };
+            }
+            
+            return {
+              success: true,
+              data: {
+                message: "Scene image analyzed successfully",
+                scene: {
+                  id: scene.id,
+                  title: scene.title,
+                  imageUrl: scene.image_url,
+                  currentDescription: scene.description,
+                  currentImagePrompt: scene.image_prompt,
+                  analysis: data
+                }
+              }
+            };
+          } catch (error) {
+            console.error("Error analyzing image:", error);
+            return {
+              success: false,
+              error: `Failed to analyze image: ${error.message}`
+            };
+          }
         }
         
         default:

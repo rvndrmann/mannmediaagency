@@ -1,4 +1,3 @@
 
-project_id = "avdwgvjhufslhqrrmxgo"
-app_id = "generate-image-prompts"
-endpoint = "https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/generate-image-prompts"
+project_id = "YOUR_PROJECT_ID"
+name = "generate-image-prompts"

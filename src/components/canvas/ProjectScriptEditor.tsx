@@ -73,7 +73,8 @@ export function ProjectScriptEditor({
     }
   };
   
-  const scenesCount = project.scenes?.length || 0;
+  // Safely access scenes length with proper null checking
+  const scenesCount = project?.scenes?.length || 0;
   
   return (
     <div className="max-w-4xl mx-auto w-full">

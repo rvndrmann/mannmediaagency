@@ -21,8 +21,8 @@ export interface CanvasScene {
   imageUrl?: string;
   productImageUrl?: string;
   videoUrl?: string;
-  voiceOverUrl?: string; // New field for voice-over
-  backgroundMusicUrl?: string; // New field for background music
+  voiceOverUrl?: string; // Field for voice-over audio
+  backgroundMusicUrl?: string; // Field for background music
   duration?: number;
   createdAt: string;
   updatedAt: string;

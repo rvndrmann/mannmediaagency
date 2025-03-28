@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -57,8 +58,8 @@ export const useCanvas = (projectId?: string) => {
             imageUrl: scene.image_url,
             productImageUrl: scene.product_image_url || "",
             videoUrl: scene.video_url,
-            voiceOverUrl: scene.voice_over_url || "", // Add voice over URL
-            backgroundMusicUrl: scene.background_music_url || "", // Add background music URL
+            voiceOverUrl: scene.voice_over_url || "", // Map voice_over_url to voiceOverUrl
+            backgroundMusicUrl: scene.background_music_url || "", // Map background_music_url to backgroundMusicUrl
             duration: scene.duration,
             createdAt: scene.created_at,
             updatedAt: scene.updated_at

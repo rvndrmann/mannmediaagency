@@ -1,5 +1,5 @@
 
-import { Attachment, Message } from "@/types/message";
+import { Attachment, Message, MessageType } from "@/types/message";
 import { ToolContext, AgentConfig } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -40,6 +40,7 @@ export interface BaseAgent {
   config: AgentConfig;
   run(input: string, attachments: Attachment[]): Promise<AgentResult>;
   clone(configOverrides: Partial<AgentConfig>): BaseAgent;
+  getType?(): AgentType;
 }
 
 export interface AgentHooks {

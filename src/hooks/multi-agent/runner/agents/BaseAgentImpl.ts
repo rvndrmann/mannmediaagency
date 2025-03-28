@@ -1,15 +1,23 @@
 
 import { Attachment } from "@/types/message";
 import { AgentConfig, ToolContext } from "../../types";
-import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
+import { AgentResult, AgentOptions, AgentType, RunnerContext, BaseAgent } from "../types";
 
-export class BaseAgentImpl {
+export class BaseAgentImpl implements BaseAgent {
   protected context: RunnerContext;
   private type: AgentType = 'main';
+  public name: string;
+  public config: AgentConfig;
 
   constructor(options: AgentOptions) {
     this.context = options.context;
     this.type = this.determineType();
+    this.name = this.constructor.name;
+    this.config = options.config || {
+      name: this.constructor.name,
+      instructions: "",
+      modelName: "gpt-4o"
+    };
   }
 
   private determineType(): AgentType {
@@ -32,8 +40,25 @@ export class BaseAgentImpl {
     return this.type;
   }
 
+  clone(configOverrides: Partial<AgentConfig>): BaseAgent {
+    const newConfig = {
+      ...this.config,
+      ...configOverrides
+    };
+    
+    const options: AgentOptions = {
+      context: this.context,
+      config: newConfig
+    };
+    
+    // @ts-ignore - This is a bit of a hack but works for cloning
+    return new (this.constructor as new (options: AgentOptions) => BaseAgent)(options);
+  }
+
   protected async getInstructions(context: RunnerContext): Promise<string> {
-    return "";
+    return this.config.instructions instanceof Function 
+      ? await this.config.instructions(context)
+      : this.config.instructions || "";
   }
 
   protected applyInputGuardrails(input: string): Promise<boolean> {

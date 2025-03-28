@@ -5,9 +5,9 @@ import { Message, Attachment, MessageType, ContinuityData } from "@/types/messag
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
-import { AgentType as RunnerAgentType } from "./multi-agent/runner/types";
+import { AgentType } from "./multi-agent/runner/types";
 
-export type AgentType = RunnerAgentType;
+export type AgentType = AgentType;
 
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 
@@ -237,7 +237,7 @@ export const useMultiAgentChat = () => {
           sessionId: currentConversationId,
           creditsRemaining: userCredits?.credits_remaining,
           browserUseApiKey,
-          conversationHistory: messages // Pass full conversation history
+          conversationHistory: messages
         },
         runId: uuidv4(),
         groupId: currentConversationId,
@@ -247,7 +247,7 @@ export const useMultiAgentChat = () => {
         toolAvailable
       };
 
-      const runner = new AgentRunner(activeAgent, contextData, {
+      const runner = new AgentRunner(activeAgent as AgentType, contextData, {
         onMessage: (message) => {
           console.log("Received message from agent:", message);
           setMessages(prev => [...prev, message]);
@@ -258,11 +258,11 @@ export const useMultiAgentChat = () => {
         },
         onHandoffStart: (fromAgent, toAgent, reason) => {
           console.log(`Handoff starting from ${fromAgent} to ${toAgent}: ${reason}`);
-          addHandoffMessage(fromAgent, toAgent, reason);
+          addHandoffMessage(fromAgent as AgentType, toAgent as AgentType, reason);
         },
         onHandoffEnd: (toAgent) => {
           console.log("Handling handoff to:", toAgent);
-          setActiveAgent(toAgent);
+          setActiveAgent(toAgent as AgentType);
         },
         onToolExecution: (toolName, params) => {
           if (toolName === 'browser-use' && params.taskId) {
@@ -291,7 +291,7 @@ export const useMultiAgentChat = () => {
         content: `Error: ${errorMessage}`,
         createdAt: new Date().toISOString(),
         status: "error",
-        type: "error"
+        type: "error" as MessageType
       };
       
       setMessages(prev => [...prev, systemErrorMessage]);

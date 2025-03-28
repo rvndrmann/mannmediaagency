@@ -1,4 +1,3 @@
-
 export interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "tool";
@@ -62,7 +61,7 @@ export interface HandoffRequest {
   preserveFullHistory?: boolean; // Added to control history preservation
 }
 
-export type MessageType = "user" | "agent" | "system" | "tool" | "handoff";
+export type MessageType = "user" | "agent" | "system" | "tool" | "handoff" | "error";
 
 // Agent types
 export interface AgentInfo {

@@ -6,10 +6,10 @@ import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
+import { AgentType } from "./multi-agent/runner/types";
 
 // Define built-in agent types
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
-export type AgentType = typeof BUILT_IN_AGENT_TYPES[number] | string;
 
 const STORAGE_KEY = "multi_agent_chat_history";
 
@@ -133,6 +133,25 @@ export const useMultiAgentChat = () => {
     });
   }, []);
 
+  // Helper function to add a message
+  const addMessage = useCallback((text: string, type: string, attachments?: Attachment[]) => {
+    const message: Message = {
+      id: uuidv4(),
+      role: type as any,
+      content: text,
+      createdAt: new Date().toISOString(),
+      attachments: attachments
+    };
+    setMessages(prev => [...prev, message]);
+    return message;
+  }, []);
+
+  // Helper function to check if a tool is available
+  const toolAvailable = useCallback((toolName: string) => {
+    // In a real implementation, this would check if the tool is available
+    return true;
+  }, []);
+
   // Handle message submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -166,8 +185,11 @@ export const useMultiAgentChat = () => {
       const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
       console.log("Creating agent runner for agent type:", activeAgent);
 
-      // Create AgentRunner instance
-      const runner = new AgentRunner(activeAgent, {
+      // Get browserUseApiKey from environment or use a default
+      const browserUseApiKey = import.meta.env.VITE_BROWSER_USE_API_KEY || "";
+
+      // Create context data for the agent
+      const contextData = {
         usePerformanceModel,
         enableDirectToolExecution,
         tracingDisabled: !tracingEnabled,
@@ -175,11 +197,18 @@ export const useMultiAgentChat = () => {
           userId: user.id,
           sessionId: currentConversationId,
           creditsRemaining: userCredits?.credits_remaining,
-          browserUseApiKey: process.env.BROWSER_USE_API_KEY
+          browserUseApiKey
         },
         runId: uuidv4(),
-        groupId: currentConversationId
-      }, {
+        groupId: currentConversationId,
+        supabase,
+        userId: user.id,
+        addMessage,
+        toolAvailable
+      };
+
+      // Create AgentRunner instance
+      const runner = new AgentRunner(activeAgent, contextData, {
         onMessage: (message) => {
           console.log("Received message from agent:", message);
           setMessages(prev => [...prev, message]);

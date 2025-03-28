@@ -65,8 +65,12 @@ export const ChatInput = ({
   };
 
   const handleSubmitClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent default behavior to avoid unwanted form submission
     e.preventDefault();
+    
+    // Only submit if there's input or attachments
     if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+      // Call the onSubmit handler with the event
       onSubmit(e as any);
     }
   };

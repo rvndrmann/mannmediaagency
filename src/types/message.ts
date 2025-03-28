@@ -1,4 +1,3 @@
-
 export interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "tool";
@@ -16,6 +15,7 @@ export interface Message {
   timestamp?: string;
   type?: MessageType;
   selectedTool?: string; // Added for use-ai-chat.tsx
+  structured_output?: any; // Added to support structured data from LLM responses
 }
 
 export interface Attachment {

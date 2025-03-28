@@ -1,11 +1,10 @@
 
 import { AgentRegistry } from "./AgentRegistry";
-import { BaseAgent } from "./agents/BaseAgent";
-import { AgentType } from "./types";
+import { BaseAgent, AgentType, AgentOptions } from "./types";
 import { Attachment, Message } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { ToolContext, AgentConfig } from "../types";
-import { AgentOptions } from "./types";
+import { supabase } from "@/integrations/supabase/client";
 
 // Callback interfaces
 export interface AgentRunnerCallbacks {
@@ -23,15 +22,52 @@ export class AgentRunner {
 
   constructor(
     agentType: AgentType,
-    context: ToolContext,
+    contextData: Partial<ToolContext>,
     callbacks: AgentRunnerCallbacks
   ) {
     this.agentType = agentType;
-    this.context = context;
+    // Create a complete ToolContext from partial data
+    this.context = this.createToolContext(contextData);
     this.callbacks = callbacks;
     
     // Initialize the agent
     this.initializeAgent();
+  }
+
+  private createToolContext(contextData: Partial<ToolContext>): ToolContext {
+    // Create a message adding function
+    const addMessage = (text: string, type: string, attachments?: Attachment[]) => {
+      const message: Message = {
+        id: uuidv4(),
+        role: type as any,
+        content: text,
+        createdAt: new Date().toISOString(),
+        attachments: attachments
+      };
+      this.callbacks.onMessage(message);
+      return message;
+    };
+    
+    // Create the tool availability check function
+    const toolAvailable = (toolName: string) => {
+      // In a real implementation, this would check if the tool is available
+      return true;
+    };
+    
+    // Return a complete ToolContext
+    return {
+      supabase,
+      userId: contextData.metadata?.userId || "",
+      usePerformanceModel: contextData.usePerformanceModel || false,
+      enableDirectToolExecution: contextData.enableDirectToolExecution || false,
+      tracingDisabled: contextData.tracingDisabled || false,
+      metadata: contextData.metadata || {},
+      runId: contextData.runId || uuidv4(),
+      groupId: contextData.groupId || uuidv4(),
+      addMessage,
+      toolAvailable,
+      ...contextData
+    };
   }
 
   private initializeAgent() {
@@ -46,6 +82,7 @@ export class AgentRunner {
       const config: AgentConfig = {
         name: this.agentType,
         instructions: this.getAgentInstructions(this.agentType),
+        modelName: "gpt-4o",  // Default model
       };
 
       // Create agent options
@@ -121,14 +158,18 @@ export class AgentRunner {
         // Update the assistant message with the agent's response
         const updatedAssistantMessage: Message = {
           ...assistantMessage,
-          content: agentResult.response,
+          content: agentResult.response || "",
           status: "completed",
           handoffRequest: agentResult.nextAgent ? {
             targetAgent: agentResult.nextAgent,
             reason: `The ${this.agentType} agent recommended transitioning to the ${agentResult.nextAgent} agent.`
-          } : undefined,
-          structured_output: agentResult.structured_output
+          } : undefined
         };
+        
+        // If we have structured output, add it (but make it compatible with Message type)
+        if (agentResult.structured_output) {
+          (updatedAssistantMessage as any).structured_output = agentResult.structured_output;
+        }
         
         this.callbacks.onMessage(updatedAssistantMessage);
         
@@ -136,7 +177,7 @@ export class AgentRunner {
         if (agentResult.nextAgent) {
           console.log(`Handling handoff to ${agentResult.nextAgent} agent`);
           if (this.callbacks.onHandoffEnd) {
-            this.callbacks.onHandoffEnd(agentResult.nextAgent);
+            this.callbacks.onHandoffEnd(agentResult.nextAgent as AgentType);
           }
         }
       } catch (error) {

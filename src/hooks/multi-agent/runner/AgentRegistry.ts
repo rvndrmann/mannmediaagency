@@ -1,27 +1,45 @@
 
 import { BaseAgent } from "./types";
+import { AgentType } from "./types";
+import { AssistantAgent } from "./agents/AssistantAgent";
+import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
+import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
+import { SceneGeneratorAgent } from "./agents/SceneGeneratorAgent";
+import { ToolAgent } from "./agents/ToolAgent";
+import { AgentOptions } from "./types";
 
-export class AgentRegistry {
-  private agents: Map<string, BaseAgent> = new Map();
+class AgentRegistryImpl {
+  private static instance: AgentRegistryImpl;
+  private agents: Map<string, new (options: AgentOptions) => BaseAgent> = new Map();
   
-  constructor() {}
-  
-  registerAgent(agent: BaseAgent): void {
-    this.agents.set(agent.name, agent);
+  private constructor() {
+    // Register default agents
+    this.agents.set('main', AssistantAgent);
+    this.agents.set('script', ScriptWriterAgent);
+    this.agents.set('image', ImageGeneratorAgent);
+    this.agents.set('scene', SceneGeneratorAgent);
+    this.agents.set('tool', ToolAgent);
   }
   
-  getAgent(name: string): BaseAgent | undefined {
-    return this.agents.get(name);
+  public static getInstance(): AgentRegistryImpl {
+    if (!AgentRegistryImpl.instance) {
+      AgentRegistryImpl.instance = new AgentRegistryImpl();
+    }
+    return AgentRegistryImpl.instance;
   }
   
-  getAllAgents(): BaseAgent[] {
-    return Array.from(this.agents.values());
+  public registerAgent(agentType: string, AgentClass: new (options: AgentOptions) => BaseAgent): void {
+    this.agents.set(agentType, AgentClass);
   }
   
-  hasAgent(name: string): boolean {
-    return this.agents.has(name);
+  public getAgent(agentType: string): new (options: AgentOptions) => BaseAgent | undefined {
+    return this.agents.get(agentType);
+  }
+  
+  public getAllAgentTypes(): string[] {
+    return Array.from(this.agents.keys());
   }
 }
 
-// Create a singleton instance
-export const agentRegistry = new AgentRegistry();
+// Expose a singleton instance
+export const AgentRegistry = AgentRegistryImpl.getInstance();

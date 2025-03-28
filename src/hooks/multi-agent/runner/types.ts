@@ -2,6 +2,8 @@
 import { Attachment } from "@/types/message";
 import { ToolContext, AgentConfig } from "../types";
 
+export type AgentType = 'main' | 'script' | 'image' | 'tool' | 'scene';
+
 export interface AgentResult {
   response: string | null;
   nextAgent: string | null;

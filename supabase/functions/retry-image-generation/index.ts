@@ -89,10 +89,13 @@ serve(async (req) => {
             // Prepare generation parameters from the job
             const payload = {
               prompt: job.prompt,
+              image_url: job.source_image_url || job.original_url,
               // Add other parameters as needed
             };
             
-            const regenerateResponse = await fetch("https://fal.run/fal-ai/flux-subject", {
+            console.log(`Sending request to fal.ai API with payload:`, JSON.stringify(payload));
+            
+            const regenerateResponse = await fetch("https://queue.fal.run/fal-ai/flux-subject", {
               method: "POST",
               headers: {
                 "Authorization": `Key ${FAL_KEY}`,
@@ -101,8 +104,11 @@ serve(async (req) => {
               body: JSON.stringify(payload)
             });
             
+            const responseText = await regenerateResponse.text();
+            console.log(`Response from fal.ai:`, responseText);
+            
             if (regenerateResponse.ok) {
-              const data = await regenerateResponse.json();
+              const data = JSON.parse(responseText);
               requestId = data.request_id;
               
               console.log(`Created new generation with request_id: ${requestId}`);
@@ -119,7 +125,8 @@ serve(async (req) => {
                 })
                 .eq('id', job.id);
             } else {
-              console.error(`Fal.ai API error for job ${job.id}:`, await regenerateResponse.text())
+              console.error(`Fal.ai API error for job ${job.id}:`, responseText);
+              throw new Error(`Fal.ai API error: ${responseText}`);
             }
           } else {
             // Use existing request ID
@@ -135,7 +142,9 @@ serve(async (req) => {
             });
             
             if (!statusResponse.ok) {
-              console.error(`Fal.ai API error for job ${job.id}:`, await statusResponse.text())
+              const errorText = await statusResponse.text();
+              console.error(`Fal.ai API error for job ${job.id}:`, errorText);
+              throw new Error(`Failed to check status: ${errorText}`);
             }
             
             const statusData = await statusResponse.json();
@@ -185,13 +194,13 @@ serve(async (req) => {
             success: true
           });
         } catch (error) {
-          console.error(`Error processing job ${job.id}:`, error)
+          console.error(`Error processing job ${job.id}:`, error);
           results.push({
             id: job.id,
             request_id: job.request_id || '',
             success: false,
             error: error.message || 'Unknown error'
-          })
+          });
         }
       }
       

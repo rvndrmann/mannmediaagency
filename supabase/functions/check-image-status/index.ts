@@ -105,8 +105,9 @@ serve(async (req) => {
     )
 
     if (!statusResponse.ok) {
-      console.error("Failed to check job status:", await statusResponse.text());
-      throw new Error('Failed to check job status')
+      const errorText = await statusResponse.text();
+      console.error("Failed to check job status:", errorText);
+      throw new Error(`Failed to check job status: ${errorText}`)
     }
 
     const statusData = await statusResponse.json()
@@ -138,8 +139,9 @@ serve(async (req) => {
       )
 
       if (!resultResponse.ok) {
-        console.error("Failed to fetch result:", await resultResponse.text());
-        throw new Error('Failed to fetch result')
+        const errorText = await resultResponse.text();
+        console.error("Failed to fetch result:", errorText);
+        throw new Error(`Failed to fetch result: ${errorText}`)
       }
 
       const resultData = await resultResponse.json()
@@ -160,7 +162,7 @@ serve(async (req) => {
 
         if (updateError) {
           console.error("Failed to update job record:", updateError);
-          throw new Error('Failed to update job record');
+          throw new Error(`Failed to update job record: ${updateError.message}`);
         }
       }
     } else if (statusData.status === 'FAILED') {

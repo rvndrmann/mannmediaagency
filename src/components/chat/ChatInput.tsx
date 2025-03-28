@@ -76,7 +76,12 @@ export const ChatInput = ({
   };
 
   return (
-    <form onSubmit={onSubmit} className="space-y-1 w-full">
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+        onSubmit(e);
+      }
+    }} className="space-y-1 w-full">
       {attachments.length > 0 && (
         <AttachmentPreview
           attachments={attachments}

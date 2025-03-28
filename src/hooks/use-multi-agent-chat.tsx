@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -285,6 +284,17 @@ export const useMultiAgentChat = () => {
       console.error("Error in handleSubmit:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       toast.error(errorMessage);
+      
+      const systemErrorMessage: Message = {
+        id: uuidv4(),
+        role: "system",
+        content: `Error: ${errorMessage}`,
+        createdAt: new Date().toISOString(),
+        status: "error",
+        type: "error"
+      };
+      
+      setMessages(prev => [...prev, systemErrorMessage]);
     } finally {
       console.log("Setting isLoading to false");
       setIsLoading(false);

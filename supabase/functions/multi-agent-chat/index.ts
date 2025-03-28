@@ -101,10 +101,12 @@ serve(async (req) => {
       }
       
       // Process conversation history with appropriate filtering
-      const processedHistory = processConversationHistory(conversationHistory, agentType);
+      // Ensure we keep up to a reasonable number of messages to avoid token limits
+      const maxHistoryMessages = 15;
+      const relevantHistory = conversationHistory.slice(-maxHistoryMessages);
       
       // Add the processed history messages
-      processedHistory.forEach(item => {
+      relevantHistory.forEach(item => {
         if (item.role === 'user' || item.role === 'assistant' || item.role === 'system') {
           // Add agent type annotation to assistant messages for better context
           let content = item.content;
@@ -119,8 +121,8 @@ serve(async (req) => {
         }
       });
       
-      logInfo(`[${requestId}] Processed ${processedHistory.length} messages from history`, {
-        lastMessage: processedHistory.length > 0 ? processedHistory[processedHistory.length - 1].role : 'none'
+      logInfo(`[${requestId}] Processed ${relevantHistory.length} messages from history`, {
+        lastMessage: relevantHistory.length > 0 ? relevantHistory[relevantHistory.length - 1].role : 'none'
       });
     }
     

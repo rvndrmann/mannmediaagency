@@ -52,7 +52,7 @@ export class ScriptWriterAgent extends BaseAgentImpl {
             handoffReason: handoffReason,
             instructions: instructions
           },
-          conversationHistory: conversationHistory, // Pass conversation history
+          conversationHistory: conversationHistory,
           metadata: {
             ...this.context.metadata,
             previousAgentType: 'script',

@@ -18,6 +18,17 @@ export interface CanvasScene {
   duration: number | null;
 }
 
+export interface CanvasProject {
+  id: string;
+  title: string;
+  userId: string;
+  fullScript: string;
+  description?: string;
+  scenes: CanvasScene[];
+  createdAt: string;
+  updatedAt: string;
+}
+
 export type SceneUpdateType = 
   'script' | 
   'imagePrompt' | 

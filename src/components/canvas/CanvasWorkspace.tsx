@@ -1,5 +1,5 @@
 
-import { CanvasProject, CanvasScene } from "@/types/canvas";
+import { CanvasProject, CanvasScene, SceneUpdateType } from "@/types/canvas";
 import { ScenesList } from "./ScenesList";
 import { SceneEditor } from "./SceneEditor";
 import { ProjectScriptEditor } from "./ProjectScriptEditor";
@@ -12,10 +12,10 @@ interface CanvasWorkspaceProps {
   setSelectedSceneId: (id: string | null) => void;
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (id: string, type: "script" | "imagePrompt" | "description" | "image" | "productImage" | "video" | "voiceOver" | "backgroundMusic", value: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
+  updateScene: (id: string, type: SceneUpdateType, value: string) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
-  createNewProject: () => Promise<void>;
+  createNewProject: (title: string, description?: string) => Promise<string | null>;
   updateProjectTitle: (title: string) => Promise<void>;
 }
 
@@ -52,7 +52,7 @@ export function CanvasWorkspace({
         onDeleteScene={deleteScene}
         onSwitchView={() => setView(view === "scenes" ? "script" : "scenes")}
         currentView={view}
-        onCreateNewProject={createNewProject}
+        onCreateNewProject={() => createNewProject("New Project")}
       />
       
       <div className="flex-1 overflow-auto">

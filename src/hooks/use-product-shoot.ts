@@ -1,6 +1,8 @@
+
 import { useState, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { SUPABASE_URL } from '@/integrations/supabase/client';
 
 export function useProductShoot() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -53,7 +55,7 @@ export function useProductShoot() {
         .insert({
           prompt: formData.sceneDescription,
           request_id: data.requestId,
-          status: 'in_queue',  // Updated to match the new enum value
+          status: 'in_queue',
           source_image_url: sourceUrl,
           settings: {
             ...formData,
@@ -109,7 +111,12 @@ export function useProductShoot() {
       throw new Error('Failed to upload image: ' + uploadError.message);
     }
 
-    const sourceUrl = `${supabase.supabaseUrl}/storage/v1/object/public/${uploadData.Key}`;
+    // Fix the URL construction to use the public URL method instead
+    const { data: publicUrlData } = supabase.storage
+      .from('images')
+      .getPublicUrl(imagePath);
+    
+    const sourceUrl = publicUrlData.publicUrl;
     console.log('Uploaded image URL:', sourceUrl);
     
     return { sourceUrl };

@@ -1,12 +1,4 @@
 
-import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import { ImageSize } from "@/hooks/use-product-shot-v1";
 
 interface ImageSizeSelectorProps {
@@ -14,49 +6,35 @@ interface ImageSizeSelectorProps {
   onImageSizeChange: (value: ImageSize) => void;
 }
 
-export const ImageSizeSelector = ({ 
+export function ImageSizeSelector({ 
   imageSize, 
   onImageSizeChange 
-}: ImageSizeSelectorProps) => {
-  // Define the image size options
-  const imageSizeOptions = [
-    { value: "square_hd", label: "Square HD" },
-    { value: "square", label: "Square" },
-    { value: "portrait_4_3", label: "Portrait 4:3" },
-    { value: "portrait_16_9", label: "Portrait 16:9" },
-    { value: "landscape_4_3", label: "Landscape 4:3" },
-    { value: "landscape_16_9", label: "Landscape 16:9" },
+}: ImageSizeSelectorProps) {
+  const sizes = [
+    { label: "Small", value: "512x512" },
+    { label: "Medium", value: "768x768" },
+    { label: "Large", value: "1024x1024" }
   ];
 
   return (
-    <div>
-      <Label htmlFor="imageSize" className="text-white">Image Size</Label>
-      <div className="relative">
-        <Select 
-          value={imageSize} 
-          onValueChange={(value) => onImageSizeChange(value as ImageSize)}
-        >
-          <SelectTrigger id="imageSize" className="w-full bg-gray-900 border-gray-700 text-white">
-            <SelectValue placeholder="Select size" />
-          </SelectTrigger>
-          <SelectContent 
-            position="popper" 
-            className="bg-[#1A1F2C] border-gray-700 text-white max-h-[300px] overflow-y-auto z-[9999]"
-            sideOffset={4}
-            align="center"
+    <div className="space-y-2">
+      <label className="block text-sm font-medium text-white">Image Size</label>
+      <div className="grid grid-cols-3 gap-2">
+        {sizes.map((size) => (
+          <button
+            key={size.value}
+            type="button"
+            onClick={() => onImageSizeChange(size.value)}
+            className={`px-3 py-1.5 rounded-md text-sm font-medium ${
+              imageSize === size.value
+                ? "bg-purple-500 text-white"
+                : "bg-gray-700 text-gray-300 hover:bg-gray-600"
+            }`}
           >
-            {imageSizeOptions.map((option) => (
-              <SelectItem 
-                key={option.value} 
-                value={option.value} 
-                className="text-white hover:bg-gray-800 cursor-pointer"
-              >
-                {option.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
+            {size.label}
+          </button>
+        ))}
       </div>
     </div>
   );
-};
+}

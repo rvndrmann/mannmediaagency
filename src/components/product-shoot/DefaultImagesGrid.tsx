@@ -8,10 +8,10 @@ import { toast } from "sonner";
 import { useDefaultImages } from "@/hooks/use-default-images";
 
 interface DefaultImagesGridProps {
-  onSelect: (imageUrl: string) => void;
+  onSelect?: (imageUrl: string) => void;
 }
 
-export function DefaultImagesGrid({ onSelect }: DefaultImagesGridProps) {
+export function DefaultImagesGrid({ onSelect = () => {} }: DefaultImagesGridProps) {
   const { defaultImages, isLoading, updateLastUsed } = useDefaultImages();
 
   const handleSelect = async (imageUrl: string, imageId: string) => {

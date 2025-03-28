@@ -6,7 +6,6 @@ import { InputPanel } from '@/components/product-shoot/InputPanel';
 import { GalleryPanel } from '@/components/product-shoot/GalleryPanel';
 import { MobilePanelToggle } from '@/components/product-shoot/MobilePanelToggle';
 import { useMediaQuery } from '@/hooks/use-media-query';
-import { SavedImagesGrid } from '@/components/product-shoot/SavedImagesGrid';
 import { DefaultImagesGrid } from '@/components/product-shoot/DefaultImagesGrid';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
@@ -76,6 +75,12 @@ export default function ProductShoot() {
     window.open(url, '_blank');
   };
 
+  // Handle selecting an image from the DefaultImagesGrid
+  const handleSelectDefaultImage = (imageUrl: string) => {
+    toast.info("Selected image from defaults");
+    // Implement handling of selected image if needed
+  };
+
   return (
     <Layout>
       <div className="flex-1 flex flex-col md:flex-row h-full">
@@ -89,7 +94,27 @@ export default function ProductShoot() {
         
         {/* Input Panel (left side) */}
         <div className={`${isMobile && activePanel !== 'input' ? 'hidden' : 'flex flex-col'} md:w-1/3 border-r border-[#2A2A2A] h-full`}>
-          <InputPanel onGenerate={handleImageGenerated} />
+          <InputPanel 
+            onGenerate={handleImageGenerated} 
+            isMobile={isMobile}
+            // Add default values for required props
+            prompt=""
+            previewUrl={null}
+            imageSize="768x768"
+            inferenceSteps={30}
+            guidanceScale={7.5}
+            outputFormat="PNG"
+            creditsRemaining={0}
+            isGenerating={false}
+            onPromptChange={() => {}}
+            onFileSelect={() => {}}
+            onClearFile={() => {}}
+            onImageSizeChange={() => {}}
+            onInferenceStepsChange={() => {}}
+            onGuidanceScaleChange={() => {}}
+            onOutputFormatChange={() => {}}
+            messages={[]}
+          />
         </div>
         
         {/* Gallery/Output Panel (right side) */}
@@ -135,7 +160,7 @@ export default function ProductShoot() {
                   
                   {/* Default Images Content */}
                   <div className="flex-1 overflow-auto">
-                    <DefaultImagesGrid />
+                    <DefaultImagesGrid onSelect={handleSelectDefaultImage} />
                   </div>
                   
                   {/* More Default Images Link */}

@@ -38,17 +38,28 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
       
-      // Specialized instructions for script writing tasks derived from handoff
+      // Enhanced input for script writing task
       let enhancedInput = input;
       if (isHandoffContinuation && previousAgentType) {
-        enhancedInput = `[Continuing from ${previousAgentType} agent] ${input}\n\nContext from previous agent: ${handoffReason}`;
+        // More explicit instruction to actually write a script
+        enhancedInput = `[SCRIPT WRITING TASK FROM ${previousAgentType.toUpperCase()} AGENT]
+
+${input}
+
+Previous context: ${handoffReason}
+
+IMPORTANT: YOU ARE THE SCRIPT WRITER AGENT. YOUR PRIMARY TASK IS TO WRITE A COMPLETE SCRIPT NOW.
+
+DO NOT just talk about writing a script or offer to help - ACTUALLY WRITE THE FULL SCRIPT in your response.
+Format it properly with scene headings, character dialogue, and actions where appropriate.
+`;
         
         // Add additional context if available
-        if (continuityData && Object.keys(continuityData).length > 0) {
-          enhancedInput += `\n\nAdditional context: ${JSON.stringify(continuityData.additionalContext || {})}`;
+        if (continuityData && continuityData.additionalContext) {
+          enhancedInput += `\n\nAdditional context: ${JSON.stringify(continuityData.additionalContext)}`;
         }
         
-        console.log("Enhanced input with handoff context:", enhancedInput);
+        console.log("Enhanced input with explicit script writing instructions");
       }
       
       // Call the Supabase function with enhanced context for the script writer agent
@@ -89,6 +100,24 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       }
       
       console.log("Script agent response:", data);
+      
+      // Add custom processing for script content
+      if (data?.completion) {
+        // Check if there are script markers in the content
+        const hasScriptMarkers = data.completion.includes('SCENE') || 
+                                data.completion.includes('INT.') || 
+                                data.completion.includes('EXT.') ||
+                                data.completion.includes('FADE IN:') ||
+                                data.completion.includes('CUT TO:');
+                                
+        if (!hasScriptMarkers && data.structured_output?.isScript !== true) {
+          // Add a warning about inappropriate response
+          console.warn("Script agent didn't return actual script content!");
+          
+          // We could enhance the output with a clear message that this is inappropriate
+          data.completion = `${data.completion}\n\n[Note: This response doesn't contain an actual script as requested. Please ask the Script Writer agent specifically to write the script.]`;
+        }
+      }
       
       // Handle handoff if present
       let nextAgent = null;

@@ -4,6 +4,8 @@ import { Message, Attachment } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
+import { supabase } from "@/integrations/supabase/client";
+import { AgentRunner } from "@/hooks/multi-agent/runner/AgentRunner";
 
 // Correctly re-export the type using export type
 export type { AgentType } from "@/hooks/multi-agent/runner/types";
@@ -26,7 +28,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
     main: "You are a helpful AI assistant focused on general tasks.",
-    script: "You specialize in writing scripts and creative content.",
+    script: "You specialize in writing scripts and creative content. When asked for a script, you MUST provide one, not just talk about it.",
     image: "You specialize in creating detailed image prompts.",
     tool: "You specialize in executing tools and technical tasks.",
     scene: "You specialize in creating detailed visual scene descriptions."
@@ -116,22 +118,26 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     toast.success(`${!tracingEnabled ? "Enabled" : "Disabled"} interaction tracing`);
   };
   
-  // Enhanced handoff implementation that preserves context
-  const simulateHandoff = (fromAgent: AgentType, toAgent: AgentType, reason: string, preserveFullHistory: boolean = true) => {
+  // Process handoff between agents
+  const processHandoff = async (
+    fromAgent: AgentType, 
+    toAgent: AgentType, 
+    reason: string, 
+    preserveFullHistory: boolean = true,
+    additionalContext: Record<string, any> = {}
+  ) => {
     setHandoffInProgress(true);
     
-    // Create continuity data to maintain context between agents
-    const continuityData = {
-      fromAgent,
-      toAgent,
-      reason,
-      timestamp: new Date().toISOString(),
-      preserveHistory: preserveFullHistory
-    };
-    
-    setTimeout(() => {
-      switchAgent(toAgent);
-      setHandoffInProgress(false);
+    try {
+      // Create continuity data to maintain context between agents
+      const continuityData = {
+        fromAgent,
+        toAgent,
+        reason,
+        timestamp: new Date().toISOString(),
+        preserveHistory: preserveFullHistory,
+        additionalContext
+      };
       
       // Add system message about handoff with enhanced context
       const handoffMessage: Message = {
@@ -140,18 +146,38 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         content: `Conversation transferred from ${getAgentName(fromAgent)} to ${getAgentName(toAgent)}. Reason: ${reason}`,
         createdAt: new Date().toISOString(),
         type: "handoff",
-        continuityData // Add continuity data for context preservation
+        continuityData
       };
       
       setMessages(prev => [...prev, handoffMessage]);
-    }, 1500);
+      
+      // Change the active agent
+      switchAgent(toAgent);
+      
+      // Short delay to allow UI to update
+      await new Promise(resolve => setTimeout(resolve, 500));
+      
+      setHandoffInProgress(false);
+      
+      return true;
+    } catch (error) {
+      console.error("Error processing handoff:", error);
+      setHandoffInProgress(false);
+      return false;
+    }
   };
   
-  // Enhanced message sending function with improved context handling
+  // Enhanced message sending function with real API calls
   const sendMessage = async (message: string, agentId?: AgentType) => {
     setIsLoading(true);
     
     try {
+      // Get current user session
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("User not authenticated");
+      }
+      
       // Add user message
       const userMessage: Message = {
         id: uuidv4(),
@@ -163,126 +189,69 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       
       setMessages(prev => [...prev, userMessage]);
       
-      // Prepare context data for better agent coordination
-      const contextData = {
-        instructions: agentInstructions[agentId || activeAgent],
-        isHandoffContinuation: false,
-        previousAgentType: null,
-        handoffReason: "",
-        conversationContext: {
-          performanceMode: usePerformanceModel,
-          directToolExecution: enableDirectToolExecution
-        }
-      };
+      // Generate unique IDs for the conversation group and this run
+      const groupId = uuidv4();
+      const runId = uuidv4();
       
-      // Get recent message history for context
-      const recentMessages = messages.slice(-10);
-      
-      // Call the multi-agent chat edge function (simulated for now)
-      setTimeout(() => {
-        const responseContent = simulateAgentResponse(message, agentId || activeAgent, contextData, recentMessages);
-        const response: Message = {
-          id: uuidv4(),
-          content: responseContent.text,
-          role: "assistant",
-          agentType: agentId || activeAgent,
-          createdAt: new Date().toISOString(),
-          handoffRequest: responseContent.handoff,
-          structured_output: responseContent.structured_output
-        };
-        
-        setMessages(prev => [...prev, response]);
-        
-        // Handle handoff if needed with improved context preservation
-        if (responseContent.handoff) {
-          simulateHandoff(
-            agentId || activeAgent,
-            responseContent.handoff.targetAgent as AgentType,
-            responseContent.handoff.reason,
-            responseContent.handoff.preserveFullHistory
-          );
+      // Create the agent runner
+      const currentAgent = agentId || activeAgent;
+      const runner = new AgentRunner(
+        currentAgent, 
+        {
+          supabase,
+          groupId,
+          runId,
+          usePerformanceModel,
+          enableDirectToolExecution,
+          tracingDisabled: !tracingEnabled,
+          metadata: {
+            conversationHistory: messages,
+            instructions: agentInstructions[currentAgent]
+          }
+        },
+        {
+          onMessage: (newMessage: Message) => {
+            // Only add the message to our state if it's not already there
+            setMessages(prev => {
+              if (prev.some(m => m.id === newMessage.id)) {
+                return prev;
+              }
+              return [...prev, newMessage];
+            });
+          },
+          onHandoffStart: (fromAgent: string, toAgent: string, reason: string) => {
+            console.log(`Starting handoff from ${fromAgent} to ${toAgent}: ${reason}`);
+            setHandoffInProgress(true);
+          },
+          onHandoffEnd: (toAgent: string) => {
+            console.log(`Handoff completed to ${toAgent}`);
+            setActiveAgent(toAgent as AgentType);
+            setHandoffInProgress(false);
+          },
+          onToolExecution: (toolName: string, params: any) => {
+            console.log(`Executing tool: ${toolName}`, params);
+          },
+          onError: (error: string) => {
+            toast.error(error);
+            setIsLoading(false);
+          }
         }
-        
-        setIsLoading(false);
-      }, 1000);
+      );
+      
+      try {
+        // Run the agent with the user's message
+        await runner.run(message, pendingAttachments, user.id);
+      } catch (error) {
+        console.error("Error in agent execution:", error);
+        toast.error("Error processing your message. Please try again.");
+      }
+      
+      setIsLoading(false);
       
     } catch (error) {
       console.error("Error in sendMessage:", error);
       toast.error("Failed to send message");
       setIsLoading(false);
-    }
-  };
-  
-  // Enhanced agent response simulation with improved context handling
-  const simulateAgentResponse = (
-    message: string, 
-    agentType: string, 
-    contextData: any = {}, 
-    messageHistory: Message[] = []
-  ): { 
-    text: string; 
-    handoff?: { 
-      targetAgent: string; 
-      reason: string;
-      preserveFullHistory?: boolean; 
-    };
-    structured_output?: any;
-  } => {
-    const lowercaseMessage = message.toLowerCase();
-    
-    // Use message history to make more informed responses
-    const hasRecentMessages = messageHistory.length > 0;
-    const contextPrefix = hasRecentMessages ? "Based on our conversation, " : "";
-    
-    // Check for handoff triggers with improved context awareness
-    if (agentType === "main" && (lowercaseMessage.includes("write") || lowercaseMessage.includes("script"))) {
-      return {
-        text: `${contextPrefix}I see you're asking about writing or scripts. Let me transfer you to our Script Writer agent who specializes in this.`,
-        handoff: {
-          targetAgent: "script",
-          reason: "User asked about writing scripts",
-          preserveFullHistory: true
-        }
-      };
-    }
-    
-    if (agentType === "main" && (lowercaseMessage.includes("image") || lowercaseMessage.includes("picture"))) {
-      return {
-        text: `${contextPrefix}I see you're asking about images. Let me transfer you to our Image Generator agent who specializes in this.`,
-        handoff: {
-          targetAgent: "image",
-          reason: "User asked about image generation",
-          preserveFullHistory: true
-        }
-      };
-    }
-    
-    // Agent-specific responses with improved context awareness
-    switch (agentType) {
-      case "script":
-        return {
-          text: `${contextPrefix}As your Script Writer assistant, I can help craft compelling narratives and scripts. What type of content would you like me to create?`,
-          structured_output: hasRecentMessages ? { contentType: "script", confidence: 0.9 } : undefined
-        };
-      case "image":
-        return {
-          text: `${contextPrefix}As your Image Generator assistant, I can help craft detailed prompts for generating images. What kind of visual would you like to create?`,
-          structured_output: hasRecentMessages ? { contentType: "image", confidence: 0.85 } : undefined
-        };
-      case "tool":
-        return {
-          text: `${contextPrefix}As your Tool Specialist, I can help you use various tools and APIs. What technical task would you like assistance with?`,
-          structured_output: hasRecentMessages ? { contentType: "tool", confidence: 0.95 } : undefined
-        };
-      case "scene":
-        return {
-          text: `${contextPrefix}As your Scene Creator, I can help craft detailed visual environments. What kind of scene would you like me to describe?`,
-          structured_output: hasRecentMessages ? { contentType: "scene", confidence: 0.88 } : undefined
-        };
-      default:
-        return {
-          text: `${contextPrefix}I'm here to help with any questions or tasks you have. How can I assist you today?`
-        };
     }
   };
   
@@ -309,6 +278,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     togglePerformanceMode,
     toggleDirectToolExecution,
     toggleTracing,
-    sendMessage
+    sendMessage,
+    processHandoff
   };
 }

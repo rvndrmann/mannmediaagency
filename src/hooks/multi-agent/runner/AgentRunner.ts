@@ -98,7 +98,7 @@ export class AgentRunner {
   private async runAgentLoop(input: string, attachments: Attachment[]): Promise<void> {
     while (this.agentTurnCount < this.maxTurns) {
       this.agentTurnCount++;
-      console.log(`Agent turn ${this.agentTurnCount} of ${this.maxTurns}`);
+      console.log(`Agent turn ${this.agentTurnCount} of ${this.maxTurns} with agent type: ${this.currentAgent.getType()}`);
       
       try {
         // Execute the current agent
@@ -175,8 +175,16 @@ export class AgentRunner {
           // Notify that handoff is complete
           this.callbacks.onHandoffEnd(toAgent);
           
-          // Use the previous assistant's response as part of the context, but keep the same user input
-          // This ensures the new agent has full context without requiring the user to repeat themselves
+          // Use enhanced input for the new agent
+          if (toAgent === 'script') {
+            // Add explicit instruction for script agent
+            input = `${input}\n\n[IMPORTANT: You are the script writer. The user is expecting you to write a complete script. Don't just talk about it - WRITE THE SCRIPT NOW.]`;
+          } else if (toAgent === 'image') {
+            // Add explicit instruction for image agent
+            input = `${input}\n\n[IMPORTANT: You are the image generator. The user is expecting detailed image prompts. Don't just talk about it - WRITE THE IMAGE PROMPTS NOW.]`;
+          }
+          
+          // Continue with the loop, using the same input but with the new agent
           continue;
         }
         
@@ -255,8 +263,10 @@ export class AgentRunner {
               format: { type: "string" },
               topic: { type: "string" },
               length: { type: "string" },
-              tone: { type: "string" }
-            }
+              tone: { type: "string" },
+              content: { type: "string" }
+            },
+            required: ["content"]
           }
         }];
       case "scene":

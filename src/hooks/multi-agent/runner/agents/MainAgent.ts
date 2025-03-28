@@ -50,6 +50,15 @@ export class MainAgent extends BaseAgentImpl {
         console.log("Enhanced input with handoff context:", enhancedInput);
       }
       
+      // Check for script writing requests
+      const scriptKeywords = ['write a script', 'create a script', 'script for', 'screenplay', 'script about'];
+      const lowercaseInput = input.toLowerCase();
+      const isScriptRequest = scriptKeywords.some(keyword => lowercaseInput.includes(keyword));
+      
+      if (isScriptRequest) {
+        console.log("Detected script writing request - recommend handoff to script agent");
+      }
+      
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -68,7 +77,8 @@ export class MainAgent extends BaseAgentImpl {
             handoffReason: handoffReason,
             instructions: instructions,
             handoffHistory: handoffHistory,
-            continuityData: continuityData
+            continuityData: continuityData,
+            isScriptRequest: isScriptRequest
           },
           conversationHistory: conversationHistory,
           metadata: {
@@ -97,6 +107,27 @@ export class MainAgent extends BaseAgentImpl {
         nextAgent = data.handoffRequest.targetAgent;
         handoffReasonResponse = data.handoffRequest.reason;
         additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
+        
+        // For script handoffs, provide more specific context
+        if (nextAgent === "script") {
+          additionalContextForNext = {
+            ...(additionalContextForNext || {}),
+            originalRequest: input,
+            requiresFullScript: true,
+            scriptType: isScriptRequest ? detectScriptType(input) : "general"
+          };
+        }
+      } else if (isScriptRequest && data?.completion) {
+        // If the system detected a script request but didn't handle it, force a handoff
+        console.log("Forcing handoff to script agent for script request");
+        nextAgent = "script";
+        handoffReasonResponse = "The user requested a script to be written.";
+        additionalContextForNext = {
+          originalRequest: input,
+          requiresFullScript: true,
+          scriptType: detectScriptType(input),
+          forceScriptGeneration: true
+        };
       }
       
       return {
@@ -114,5 +145,24 @@ export class MainAgent extends BaseAgentImpl {
   
   getType() {
     return "main";
+  }
+}
+
+// Helper to detect script type from input
+function detectScriptType(input: string): string {
+  const lowerInput = input.toLowerCase();
+  
+  if (lowerInput.includes('movie') || lowerInput.includes('film') || lowerInput.includes('screenplay')) {
+    return 'screenplay';
+  } else if (lowerInput.includes('tv') || lowerInput.includes('television') || lowerInput.includes('episode')) {
+    return 'teleplay';
+  } else if (lowerInput.includes('commercial') || lowerInput.includes('ad ') || lowerInput.includes('advertisement')) {
+    return 'commercial';
+  } else if (lowerInput.includes('video')) {
+    return 'video';
+  } else if (lowerInput.includes('play') || lowerInput.includes('theater') || lowerInput.includes('stage')) {
+    return 'stage play';
+  } else {
+    return 'general';
   }
 }

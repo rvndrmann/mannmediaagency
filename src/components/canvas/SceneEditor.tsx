@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Save, Sparkles, MessageSquare } from "lucide-react";
-import { useMultiAgentChat, AgentType } from "@/hooks/use-multi-agent-chat";
+import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 
 interface SceneEditorProps {
   scene: CanvasScene;
@@ -24,11 +24,16 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   
   const { 
-    processAgentRequest, 
-    isProcessing, 
-    activeAgent 
-  } = useMultiAgentChat({
-    projectId: scene.projectId
+    isProcessing,
+    agentMessages,
+    activeAgent,
+    generateSceneScript,
+    generateImagePrompt,
+    generateSceneDescription
+  } = useCanvasAgent({
+    projectId: scene.projectId,
+    sceneId: scene.id,
+    updateScene: onUpdate
   });
   
   // Update local state when scene changes
@@ -70,12 +75,10 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     }
   };
   
-  const generateWithMultiAgent = async (type: 'description' | 'imagePrompt') => {
+  const generateWithAI = async (type: 'description' | 'imagePrompt') => {
     setIsGenerating(true);
     
     try {
-      const agentType: AgentType = type === 'description' ? 'scene' : 'image';
-      
       // Create context based on current scene data
       let context = "";
       if (type === 'description') {
@@ -87,6 +90,13 @@ ${scene.imageUrl ? "The scene already has an image that you should use as refere
 
 Describe how the camera should move, how subjects are positioned, lighting, mood, and transitions. 
 Be specific about camera angles, movements, and visual composition.`;
+
+        await generateSceneDescription(scene.id, context);
+        
+        // Update local state with the generated description
+        setDescription(scene.description);
+        toast.success("Scene description generated and saved");
+        
       } else if (type === 'imagePrompt') {
         context = `You need to create a detailed image prompt for this scene that will be used for AI image generation.
 Scene Title: ${scene.title}
@@ -96,57 +106,19 @@ ${scene.description ? "Scene Description: " + scene.description : ""}
 
 Create a detailed image prompt that includes visual elements, style, lighting, mood, composition, and quality parameters.
 Format the prompt to get the best results from an AI image generator.`;
+
+        await generateImagePrompt(scene.id, context);
+        
+        // Update local state with the generated image prompt
+        setImagePrompt(scene.imagePrompt);
+        toast.success("Image prompt generated and saved");
       }
       
-      // Process the request through the multi-agent system
-      const response = await processAgentRequest(
-        context,
-        {
-          projectTitle: "Video Project",
-          sceneId: scene.id,
-          sceneTitle: scene.title
-        },
-        agentType
-      );
-      
-      if (response) {
-        // Extract relevant content from the response and update the state
-        if (type === 'description') {
-          // Update local state
-          const newDescription = extractContentFromResponse(response, 'description');
-          setDescription(newDescription);
-          
-          // Save to database 
-          await onUpdate(scene.id, 'description', newDescription);
-          toast.success("Scene description generated and saved");
-        } else if (type === 'imagePrompt') {
-          // Update local state
-          const newImagePrompt = extractContentFromResponse(response, 'imagePrompt');
-          setImagePrompt(newImagePrompt);
-          
-          // Save to database
-          await onUpdate(scene.id, 'imagePrompt', newImagePrompt);
-          toast.success("Image prompt generated and saved");
-        }
-      }
     } catch (error) {
       console.error(`Error generating ${type}:`, error);
       toast.error(`Failed to generate ${type}`);
     } finally {
       setIsGenerating(false);
-    }
-  };
-  
-  // Helper function to extract content from multi-agent response
-  const extractContentFromResponse = (response: string, type: 'description' | 'imagePrompt'): string => {
-    if (type === 'description') {
-      // Try to extract between specific markers
-      const descriptionMatch = response.match(/(?:Scene Description:|Description:)\s*([\s\S]*?)(?=\n\n|$)/i);
-      return descriptionMatch ? descriptionMatch[1].trim() : response.trim();
-    } else {
-      // Try to extract image prompt
-      const promptMatch = response.match(/(?:Image Prompt:|Prompt:)\s*([\s\S]*?)(?=\n\n|$)/i);
-      return promptMatch ? promptMatch[1].trim() : response.trim();
     }
   };
   
@@ -218,11 +190,11 @@ Format the prompt to get the best results from an AI image generator.`;
               <Button 
                 variant="default" 
                 size="sm" 
-                onClick={() => generateWithMultiAgent('description')}
+                onClick={() => generateWithAI('description')}
                 disabled={isGenerating || isProcessing}
               >
                 <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                {isGenerating && activeAgent === 'scene' ? "Generating..." : "Generate with AI"}
+                {isProcessing && activeAgent === 'scene' ? "Generating..." : "Generate with AI"}
               </Button>
             </div>
           </div>
@@ -257,11 +229,11 @@ Format the prompt to get the best results from an AI image generator.`;
               <Button 
                 variant="default" 
                 size="sm" 
-                onClick={() => generateWithMultiAgent('imagePrompt')}
+                onClick={() => generateWithAI('imagePrompt')}
                 disabled={isGenerating || isProcessing}
               >
                 <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                {isGenerating && activeAgent === 'image' ? "Generating..." : "Generate with AI"}
+                {isProcessing && activeAgent === 'image' ? "Generating..." : "Generate with AI"}
               </Button>
             </div>
           </div>

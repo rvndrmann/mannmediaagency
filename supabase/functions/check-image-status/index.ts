@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -59,16 +60,12 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log('Status response:', statusData)
 
-    let newStatus = job.status
+    // No need to map - use the Fal.ai status directly
+    const newStatus = statusData.status || 'IN_QUEUE'
     let resultUrl = job.result_url
     let errorMessage = job.error_message
 
-    // Explicitly map Fal.ai status to our internal enum values:
-    // - 'IN_QUEUE' or 'PROCESSING' from Fal.ai maps to 'pending' in our system
-    // - 'COMPLETED' from Fal.ai maps to 'completed' in our system
-    // - 'FAILED' from Fal.ai maps to 'failed' in our system
-    
-    if (statusData.status === 'COMPLETED') {
+    if (newStatus === 'COMPLETED') {
       // Fetch the result
       const resultResponse = await fetch(
         `https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}`,
@@ -87,7 +84,6 @@ serve(async (req) => {
       console.log('Result data:', resultData)
 
       if (resultData.images?.[0]?.url) {
-        newStatus = 'completed'
         resultUrl = resultData.images[0].url
 
         // Update job record
@@ -103,8 +99,7 @@ serve(async (req) => {
           throw new Error('Failed to update job record')
         }
       }
-    } else if (statusData.status === 'FAILED') {
-      newStatus = 'failed'
+    } else if (newStatus === 'FAILED') {
       errorMessage = statusData.error || 'Unknown error occurred during generation'
       // Update job status
       await supabase
@@ -114,9 +109,14 @@ serve(async (req) => {
           error_message: errorMessage
         })
         .eq('id', jobId)
-    } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-      // Keep as pending in our system, but we know it's being processed
-      newStatus = 'pending'
+    } else {
+      // Update for IN_QUEUE or PROCESSING status
+      await supabase
+        .from('image_generation_jobs')
+        .update({ 
+          status: newStatus
+        })
+        .eq('id', jobId)
     }
 
     return new Response(

@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -40,165 +39,171 @@ serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Get the job IDs from the request body
-    const { jobIds } = await req.json();
-    
-    if (!jobIds || !Array.isArray(jobIds) || jobIds.length === 0) {
-      throw new Error('No job IDs provided for retry')
-    }
-
-    console.log(`Attempting to retry ${jobIds.length} image generation jobs`)
-    
-    // Get all the jobs with the provided IDs
-    const { data: jobs, error: jobsError } = await supabase
-      .from('image_generation_jobs')
-      .select('*')
-      .in('id', jobIds)
+    // Function to process a batch of jobs
+    const processJobs = async (jobs: any[]) => {
+      const results = [];
       
-    if (jobsError) {
-      console.error('Error fetching jobs:', jobsError)
-      throw new Error(`Failed to fetch jobs: ${jobsError.message}`)
-    }
-    
-    if (!jobs || jobs.length === 0) {
-      throw new Error('No jobs found with the provided IDs')
-    }
-    
-    console.log(`Found ${jobs.length} jobs to retry`)
-    
-    // Process each job
-    const results: JobResult[] = []
-    
-    for (const job of jobs) {
-      try {
-        if (!job.request_id) {
-          results.push({
-            id: job.id,
-            request_id: '',
-            success: false,
-            error: 'No request ID found for this job'
-          })
-          continue
-        }
-        
-        // Check status from fal.ai using the correct endpoint
-        const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${job.request_id}/status`, {
-          method: 'GET',
-          headers: {
-            'Authorization': `Key ${FAL_KEY}`,
-            'Content-Type': 'application/json'
+      for (const job of jobs) {
+        try {
+          console.log(`Processing job ${job.id}, request_id: ${job.request_id || 'none'}`);
+          
+          // Skip jobs that are already completed or don't have required data
+          if (job.status === 'COMPLETED' || !job.prompt) {
+            results.push({
+              id: job.id,
+              request_id: job.request_id || '',
+              success: false,
+              error: job.status === 'COMPLETED' ? 'Job already completed' : 'Missing required data'
+            });
+            continue;
           }
-        })
-
-        if (!statusResponse.ok) {
-          const errorText = await statusResponse.text()
-          console.error(`Fal.ai API error for job ${job.id}:`, errorText)
           
-          results.push({
-            id: job.id,
-            request_id: job.request_id,
-            success: false,
-            error: `API error: ${errorText}`
-          })
-          continue
-        }
-
-        const statusData = await statusResponse.json()
-        console.log(`Status for job ${job.id} (${job.request_id}):`, JSON.stringify(statusData))
-        
-        // Extract the status and update the job in the database
-        let dbStatus = job.status
-        let resultUrl = job.result_url
-        
-        if (statusData.status === 'COMPLETED' || statusData.status === 'completed') {
-          console.log(`Job ${job.id} is completed, fetching result`)
+          let requestId = '';
           
-          // Fetch the full result to get image URLs
-          const resultResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${job.request_id}`, {
-            method: 'GET',
-            headers: {
-              'Authorization': `Key ${FAL_KEY}`,
-              'Content-Type': 'application/json'
-            }
-          })
-          
-          if (resultResponse.ok) {
-            const resultData = await resultResponse.json()
-            console.log(`Result for job ${job.id}:`, JSON.stringify(resultData))
+          // If no request ID exists or force regenerate, create a new generation
+          if (!job.request_id || forceRegenerate) {
+            // Prepare generation parameters from the job
+            const payload = {
+              prompt: job.prompt,
+              // Add other parameters as needed
+            };
             
-            // Extract image URL (various response structures possible)
-            let imageUrl = null
+            const regenerateResponse = await fetch("https://fal.run/fal-ai/flux-subject", {
+              method: "POST",
+              headers: {
+                "Authorization": `Key ${FAL_KEY}`,
+                "Content-Type": "application/json"
+              },
+              body: JSON.stringify(payload)
+            });
             
-            if (resultData.result && resultData.result.images && resultData.result.images.length > 0) {
-              imageUrl = resultData.result.images[0].url
-            } else if (resultData.images && resultData.images.length > 0) {
-              imageUrl = resultData.images[0].url
-            } else if (resultData.output && resultData.output.images && resultData.output.images.length > 0) {
-              imageUrl = resultData.output.images[0].url
-            } else if (resultData.url) {
-              imageUrl = resultData.url
-            } else if (resultData.output && resultData.output.url) {
-              imageUrl = resultData.output.url
-            } else if (resultData.result && resultData.result.url) {
-              imageUrl = resultData.result.url
-            }
-            
-            if (imageUrl) {
-              resultUrl = imageUrl
-              dbStatus = 'completed'
-              console.log(`Found image URL for job ${job.id}: ${imageUrl}`)
+            if (regenerateResponse.ok) {
+              const data = await regenerateResponse.json();
+              requestId = data.request_id;
+              
+              console.log(`Created new generation with request_id: ${requestId}`);
+              
+              // Update the job with the new request ID and reset status to IN_QUEUE
+              await supabase
+                .from('image_generation_jobs')
+                .update({ 
+                  request_id: requestId, 
+                  status: 'IN_QUEUE',
+                  result_url: null,
+                  error_message: null,
+                  retried_at: new Date().toISOString()
+                })
+                .eq('id', job.id);
             } else {
-              console.error(`No image URL found in response for job ${job.id}`)
+              console.error(`Fal.ai API error for job ${job.id}:`, await regenerateResponse.text())
             }
           } else {
-            const errorText = await resultResponse.text()
-            console.error(`Error fetching result for job ${job.id}:`, errorText)
+            // Use existing request ID
+            requestId = job.request_id;
           }
-        } else if (statusData.status === 'FAILED' || statusData.status === 'failed') {
-          dbStatus = 'failed'
-        } else {
-          // For IN_QUEUE or PROCESSING, map to our pending status
-          dbStatus = 'pending'
-        }
-        
-        console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`)
-        
-        // Update the job in the database
-        const { error: updateError } = await supabase
-          .from('image_generation_jobs')
-          .update({
-            status: dbStatus,
-            result_url: resultUrl
-          })
-          .eq('id', job.id)
-        
-        if (updateError) {
-          console.error(`Error updating job ${job.id}:`, updateError)
+          
+          // If we have a request ID, check current status
+          if (requestId) {
+            const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
+              headers: {
+                "Authorization": `Key ${FAL_KEY}`
+              }
+            });
+            
+            if (!statusResponse.ok) {
+              console.error(`Fal.ai API error for job ${job.id}:`, await statusResponse.text())
+            }
+            
+            const statusData = await statusResponse.json();
+            console.log(`Status for request ${requestId}:`, JSON.stringify(statusData));
+            
+            let dbStatus = job.status;
+            let resultUrl = job.result_url;
+            
+            // Use fal.ai status directly
+            dbStatus = statusData.status;
+            
+            if (statusData.status === 'COMPLETED') {
+              const resultResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`, {
+                headers: {
+                  "Authorization": `Key ${FAL_KEY}`
+                }
+              });
+              
+              if (resultResponse.ok) {
+                const resultData = await resultResponse.json();
+                if (resultData.images?.[0]?.url) {
+                  resultUrl = resultData.images[0].url;
+                }
+              }
+            }
+            
+            console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`);
+            
+            // Update database with latest status
+            await supabase
+              .from('image_generation_jobs')
+              .update({ 
+                status: dbStatus,
+                result_url: resultUrl,
+                checked_at: new Date().toISOString()
+              })
+              .eq('id', job.id);
+          }
+          
           results.push({
             id: job.id,
-            request_id: job.request_id,
+            request_id: requestId,
+            success: true
+          });
+        } catch (error) {
+          console.error(`Error processing job ${job.id}:`, error)
+          results.push({
+            id: job.id,
+            request_id: job.request_id || '',
             success: false,
-            error: `Database update error: ${updateError.message}`
-          })
-        } else {
-          results.push({
-            id: job.id,
-            request_id: job.request_id,
-            success: true,
-            status: dbStatus,
-            result_url: resultUrl
+            error: error.message || 'Unknown error'
           })
         }
-      } catch (error) {
-        console.error(`Error processing job ${job.id}:`, error)
-        results.push({
-          id: job.id,
-          request_id: job.request_id || '',
-          success: false,
-          error: error.message || 'Unknown error'
-        })
       }
+      
+      return results;
+    };
+    
+    let jobs = [];
+    
+    if (jobId) {
+      // Get the job with the provided ID
+      const { data: job, error: jobError } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .eq('id', jobId)
+      
+      if (jobError) {
+        console.error('Error fetching job:', jobError)
+        throw new Error(`Failed to fetch job: ${jobError.message}`)
+      }
+      
+      if (!job || job.length === 0) {
+        throw new Error('No job found with the provided ID')
+      }
+      
+      jobs = [job[0]];
+    } else {
+      // Get all jobs that are pending or stuck
+      const { data, error } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .in('status', ['IN_QUEUE', 'PROCESSING', 'FAILED'])
+        .order('created_at', { ascending: false })
+        .limit(batchSize);
+      
+      if (error) throw error;
+      jobs = data || [];
     }
+    
+    // Process the jobs
+    const results = await processJobs(jobs);
     
     // Return the results
     return new Response(

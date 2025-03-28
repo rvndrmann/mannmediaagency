@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 interface StatusResponse {
-  status: 'processing' | 'completed' | 'failed';
+  status: 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
   output?: any;
   error?: string;
 }
@@ -16,7 +16,7 @@ interface GeneratedImage {
   id: string;
   url: string;
   content_type: string;
-  status: 'completed';
+  status: 'COMPLETED';
   prompt?: string;
 }
 
@@ -61,9 +61,16 @@ serve(async (req) => {
 
     const statusData = await statusResponse.json()
     console.log(`Status for request ${requestId}:`, JSON.stringify(statusData))
+    
+    // Normalize the status to uppercase FAL.AI format
+    let normalizedStatus = statusData.status;
+    if (statusData.status === 'completed') normalizedStatus = 'COMPLETED';
+    if (statusData.status === 'failed') normalizedStatus = 'FAILED';
+    if (statusData.status === 'processing') normalizedStatus = 'PROCESSING';
+    if (statusData.status === 'in_queue') normalizedStatus = 'IN_QUEUE';
 
     // Process completed results to match our expected format
-    if (statusData.status === 'COMPLETED' || statusData.status === 'completed') {
+    if (normalizedStatus === 'COMPLETED') {
       console.log('Processing completed results');
       
       // Extract the output from the response - check different response structures
@@ -103,7 +110,7 @@ serve(async (req) => {
         id: `${requestId}-${index}`,
         url: img.url,
         content_type: 'image/jpeg', // fal.ai default
-        status: 'completed',
+        status: 'COMPLETED',
         prompt: prompt
       }));
       
@@ -111,7 +118,7 @@ serve(async (req) => {
       
       return new Response(
         JSON.stringify({
-          status: 'completed',
+          status: normalizedStatus,
           images: formattedImages
         }),
         {
@@ -121,11 +128,11 @@ serve(async (req) => {
           }
         }
       )
-    } else if (statusData.status === 'FAILED' || statusData.status === 'failed' || statusData.error) {
+    } else if (normalizedStatus === 'FAILED') {
       // Handle failed status
       return new Response(
         JSON.stringify({
-          status: 'failed',
+          status: normalizedStatus,
           error: statusData.error || 'Unknown error occurred'
         }),
         {
@@ -136,10 +143,10 @@ serve(async (req) => {
         }
       )
     } else {
-      // For in-progress status (IN_QUEUE or PROCESSING), normalize and map to 'processing'
+      // For in-progress status (IN_QUEUE or PROCESSING)
       return new Response(
         JSON.stringify({
-          status: 'processing',
+          status: normalizedStatus,
           error: statusData.error
         }),
         {
@@ -155,7 +162,7 @@ serve(async (req) => {
     console.error('Error in check-generation-status:', error)
     return new Response(
       JSON.stringify({
-        status: 'failed',
+        status: 'FAILED',
         error: error.message || 'An unexpected error occurred'
       }),
       {

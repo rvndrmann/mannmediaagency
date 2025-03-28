@@ -1,6 +1,6 @@
 
-import { ToolDefinition, ToolResult, ToolContext } from "../types";
 import { Command } from "@/types/message";
+import { ToolDefinition, ToolResult, ToolContext } from "../types";
 import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
 
 // Default configuration
@@ -54,7 +54,7 @@ const generateProxyNotes = (config: BrowserConfig): string => {
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
   description: "Automates browser tasks like navigating websites, filling forms, taking screenshots, and more",
-  version: "1.0.0", // Added version property to fix the error
+  version: "1.0.0",
   requiredCredits: 1,
   parameters: [
     {

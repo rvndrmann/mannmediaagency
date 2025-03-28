@@ -1,12 +1,13 @@
 
 // Basic tools utility to support the agent architecture
-// In a more complete implementation, this would contain 
-// actual tool definitions and configurations
 
-export interface Tool {
+import { ToolDefinition } from "../types";
+
+export interface Tool extends ToolDefinition {
   name: string;
   description: string;
   parameters: Record<string, any>;
+  requiredCredits: number;
   execute: (params: any) => Promise<any>;
 }
 

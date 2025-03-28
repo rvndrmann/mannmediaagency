@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -6,14 +5,23 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
-interface JobResult {
-  id: string;
-  request_id: string;
-  success: boolean;
-  error?: string;
-  status?: string;
-  result_url?: string;
-}
+// Helper function to normalize status
+const normalizeStatus = (status: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' => {
+  if (!status) return 'IN_QUEUE';
+  
+  const upperStatus = status.toUpperCase();
+  
+  switch (upperStatus) {
+    case 'COMPLETED':
+      return 'COMPLETED';
+    case 'FAILED':
+      return 'FAILED';
+    case 'IN_QUEUE':
+    case 'PROCESSING':
+    default:
+      return 'IN_QUEUE';
+  }
+};
 
 serve(async (req) => {
   // Handle CORS preflight requests
@@ -133,65 +141,34 @@ serve(async (req) => {
             requestId = job.request_id;
           }
           
-          // If we have a request ID, check current status
-          if (requestId) {
-            const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
-              headers: {
-                "Authorization": `Key ${FAL_KEY}`
-              }
+          // Check status at Fal.ai
+          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}/status`, {
+            headers: {
+              "Authorization": `Key ${FAL_KEY}`
+            }
+          });
+          
+          if (!statusResponse.ok) {
+            console.error(`Fal.ai status check failed for job ${job.id}`);
+            results.push({
+              id: job.id,
+              request_id: job.request_id,
+              success: false,
+              error: 'Failed to check status'
             });
-            
-            if (!statusResponse.ok) {
-              const errorText = await statusResponse.text();
-              console.error(`Fal.ai API error for job ${job.id}:`, errorText);
-              throw new Error(`Failed to check status: ${errorText}`);
-            }
-            
-            const statusData = await statusResponse.json();
-            console.log(`Status for request ${requestId}:`, JSON.stringify(statusData));
-            
-            // Map Fal.ai status to our database status
-            let dbStatus = job.status;
-            let resultUrl = job.result_url;
-            
-            if (statusData.status === 'COMPLETED') {
-              dbStatus = 'completed';
-              
-              const resultResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`, {
-                headers: {
-                  "Authorization": `Key ${FAL_KEY}`
-                }
-              });
-              
-              if (resultResponse.ok) {
-                const resultData = await resultResponse.json();
-                if (resultData.images?.[0]?.url) {
-                  resultUrl = resultData.images[0].url;
-                }
-              }
-            } else if (statusData.status === 'FAILED') {
-              dbStatus = 'failed';
-            } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-              dbStatus = 'in_queue';  // Store all non-completed, non-failed statuses as in_queue in the database
-            }
-            
-            console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`);
-            
-            // Update database with latest status
-            await supabase
-              .from('image_generation_jobs')
-              .update({ 
-                status: dbStatus,
-                result_url: resultUrl,
-                checked_at: new Date().toISOString()
-              })
-              .eq('id', job.id);
+            continue;
           }
+          
+          const statusData = await statusResponse.json();
+          const normalizedStatus = normalizeStatus(statusData.status);
+          
+          console.log(`Job ${job.id} status: ${normalizedStatus}`);
           
           results.push({
             id: job.id,
-            request_id: requestId,
-            success: true
+            request_id: job.request_id,
+            success: true,
+            status: normalizedStatus
           });
         } catch (error) {
           console.error(`Error processing job ${job.id}:`, error);

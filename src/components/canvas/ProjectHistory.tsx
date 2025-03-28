@@ -44,7 +44,6 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
         
       if (error) throw error;
       
-      // Format the data to match CanvasProject type
       const formattedProjects = data.map(project => ({
         id: project.id,
         title: project.title,
@@ -89,7 +88,6 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
     if (!projectToDelete) return;
     
     try {
-      // First delete all scenes associated with the project
       const { error: scenesError } = await supabase
         .from('canvas_scenes')
         .delete()
@@ -97,7 +95,6 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
       
       if (scenesError) throw scenesError;
       
-      // Then delete the project
       const { error: projectError } = await supabase
         .from('canvas_projects')
         .delete()
@@ -107,14 +104,11 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
       
       toast.success("Project deleted successfully");
       
-      // If deleted the current project, navigate to /canvas to create a new one
       if (projectToDelete === projectId) {
         navigate('/canvas');
       } else {
-        // Otherwise just refresh the list
         fetchProjects();
       }
-      
     } catch (error) {
       console.error("Error deleting project:", error);
       toast.error("Failed to delete project");
@@ -186,7 +180,7 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
                     </div>
                     <div className="flex items-center text-muted-foreground">
                       <Clock className="h-3.5 w-3.5 mr-1" />
-                      Last updated: {formatDate(project.updatedAt)}
+                      Last updated: {formatDate(project.updatedAt || project.createdAt)}
                     </div>
                     {project.id === projectId && (
                       <p className="text-xs mt-2 text-primary font-medium">Current project</p>

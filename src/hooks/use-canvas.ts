@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -11,7 +10,6 @@ export const useCanvas = (projectId?: string) => {
   const [error, setError] = useState<string | null>(null);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
 
-  // Load project data
   useEffect(() => {
     if (!projectId) {
       setLoading(false);
@@ -55,7 +53,7 @@ export const useCanvas = (projectId?: string) => {
             id: scene.id,
             projectId: scene.project_id,
             title: scene.title,
-            order: scene.scene_order, // Map scene_order to order
+            order: scene.scene_order,
             script: scene.script,
             description: scene.description || "", 
             imagePrompt: scene.image_prompt,
@@ -86,7 +84,6 @@ export const useCanvas = (projectId?: string) => {
     fetchProject();
   }, [projectId]);
 
-  // Create new project
   const createProject = async (title: string, description?: string) => {
     try {
       setLoading(true);
@@ -110,18 +107,16 @@ export const useCanvas = (projectId?: string) => {
 
       if (error) throw error;
       
-      // Create initial scene
       const sceneId = uuidv4();
       const { error: sceneError } = await supabase.from('canvas_scenes').insert({
         id: sceneId,
         project_id: newProjectId,
         title: 'Scene 1',
-        scene_order: 0 // Use scene_order instead of order
+        scene_order: 0
       });
 
       if (sceneError) throw sceneError;
 
-      // Return the new project ID so we can navigate to it
       return newProjectId;
     } catch (error) {
       console.error("Error creating project:", error);
@@ -133,7 +128,6 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  // Add a new scene
   const addScene = async () => {
     if (!project) return;
     
@@ -146,17 +140,25 @@ export const useCanvas = (projectId?: string) => {
         id: sceneId,
         project_id: project.id,
         title: `Scene ${newSceneOrder + 1}`,
-        scene_order: newSceneOrder // Use scene_order instead of order
+        scene_order: newSceneOrder
       });
 
       if (error) throw error;
       
-      // Update local state
       const newScene: CanvasScene = {
         id: sceneId,
         projectId: project.id,
         title: `Scene ${newSceneOrder + 1}`,
         order: newSceneOrder,
+        script: "",
+        description: "",
+        imagePrompt: "",
+        imageUrl: "",
+        videoUrl: "",
+        productImageUrl: "",
+        voiceOverUrl: "",
+        backgroundMusicUrl: "",
+        duration: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
       };
@@ -180,13 +182,11 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  // Delete a scene
   const deleteScene = async (sceneId: string) => {
     if (!project) return;
     
     try {
       setError(null);
-      // Don't allow deleting if it's the only scene
       if (project.scenes.length <= 1) {
         toast.error("Cannot delete the only scene");
         return;
@@ -199,13 +199,11 @@ export const useCanvas = (projectId?: string) => {
 
       if (error) throw error;
       
-      // Update local state
       setProject(prev => {
         if (!prev) return null;
         
         const remainingScenes = prev.scenes.filter(scene => scene.id !== sceneId);
         
-        // Reorder scenes if needed
         const reorderedScenes = remainingScenes.map((scene, index) => ({
           ...scene,
           order: index
@@ -217,7 +215,6 @@ export const useCanvas = (projectId?: string) => {
         };
       });
       
-      // If we deleted the selected scene, select the first available scene
       if (selectedSceneId === sceneId) {
         const remainingScenes = project.scenes.filter(scene => scene.id !== sceneId);
         if (remainingScenes.length > 0) {
@@ -227,7 +224,6 @@ export const useCanvas = (projectId?: string) => {
         }
       }
       
-      // Update scene_order for all remaining scenes in the database
       const { data: remainingScenes } = await supabase
         .from('canvas_scenes')
         .select('*')
@@ -235,7 +231,6 @@ export const useCanvas = (projectId?: string) => {
         .order('scene_order', { ascending: true });
       
       if (remainingScenes && remainingScenes.length > 0) {
-        // Update each scene's order
         for (let i = 0; i < remainingScenes.length; i++) {
           await supabase
             .from('canvas_scenes')
@@ -250,13 +245,11 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  // Update a scene field
   const updateScene = async (sceneId: string, type: SceneUpdateType, value: string) => {
     if (!project) return;
     
     try {
       setError(null);
-      // Map the type to the database field
       const fieldMap: Record<SceneUpdateType, string> = {
         script: 'script',
         description: 'description',
@@ -277,7 +270,6 @@ export const useCanvas = (projectId?: string) => {
 
       if (error) throw error;
       
-      // Update local state
       setProject(prev => {
         if (!prev) return null;
         
@@ -287,7 +279,6 @@ export const useCanvas = (projectId?: string) => {
             if (scene.id === sceneId) {
               const updatedScene = { ...scene, updatedAt: new Date().toISOString() };
               
-              // Map the field correctly
               if (type === 'script') updatedScene.script = value;
               else if (type === 'description') updatedScene.description = value;
               else if (type === 'imagePrompt') updatedScene.imagePrompt = value;
@@ -312,7 +303,6 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  // Save the full script to the project
   const saveFullScript = async (script: string) => {
     if (!project) return;
     
@@ -326,7 +316,6 @@ export const useCanvas = (projectId?: string) => {
         
       if (error) throw error;
       
-      // Update local state
       setProject(prev => {
         if (!prev) return null;
         
@@ -345,14 +334,12 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  // Update multiple scenes' scripts from dividing a full script
   const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string }>) => {
     if (!project) return;
     
     try {
       setError(null);
       
-      // Update each scene in the database
       for (const sceneScript of sceneScripts) {
         const { error } = await supabase
           .from('canvas_scenes')
@@ -362,7 +349,6 @@ export const useCanvas = (projectId?: string) => {
         if (error) throw error;
       }
       
-      // Update local state
       setProject(prev => {
         if (!prev) return null;
         
@@ -390,7 +376,6 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  // Get the currently selected scene
   const selectedScene = selectedSceneId && project
     ? project.scenes.find(scene => scene.id === selectedSceneId) || null
     : null;

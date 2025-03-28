@@ -1,3 +1,4 @@
+
 export interface CanvasScene {
   id: string;
   title: string;
@@ -12,6 +13,8 @@ export interface CanvasScene {
   order: number;
   projectId: string;
   createdAt: string;
+  updatedAt: string;
+  duration: number | null;
 }
 
 export interface CanvasProject {
@@ -19,6 +22,18 @@ export interface CanvasProject {
   title: string;
   userId: string;
   fullScript: string;
+  description?: string;
   scenes: CanvasScene[];
   createdAt: string;
+  updatedAt: string;
 }
+
+export type SceneUpdateType = 
+  'script' | 
+  'imagePrompt' | 
+  'description' | 
+  'image' | 
+  'productImage' | 
+  'video' | 
+  'voiceOver' | 
+  'backgroundMusic';

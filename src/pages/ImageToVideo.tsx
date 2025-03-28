@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -42,6 +41,7 @@ const ImageToVideo = () => {
   const [selectedImageUrl, setSelectedImageUrl] = useState<string | null>(null);
   const [aspectRatio, setAspectRatio] = useState<string>("9:16");
   const [messages, setMessages] = useState<Message[]>([]);
+  const [activePanel, setActivePanel] = useState<'input' | 'gallery'>('input');
 
   const { data: session } = useQuery({
     queryKey: ["session"],
@@ -161,7 +161,6 @@ const ImageToVideo = () => {
 
       let publicUrl = selectedImageUrl;
 
-      // Only upload to Supabase if it's a new file upload
       if (selectedFile) {
         console.log("New file upload detected, uploading to Supabase storage...");
         const fileExt = selectedFile.name.split('.').pop();
@@ -192,7 +191,6 @@ const ImageToVideo = () => {
 
       console.log("Starting video generation with URL:", publicUrl);
       
-      // First, create the job record in the database
       const { data: jobData, error: jobError } = await supabase
         .from('video_generation_jobs')
         .insert({
@@ -214,7 +212,6 @@ const ImageToVideo = () => {
 
       console.log("Created job record:", jobData);
 
-      // Then call the edge function
       const response = await supabase.functions.invoke('generate-video-from-image', {
         body: {
           job_id: jobData.id,
@@ -262,7 +259,11 @@ const ImageToVideo = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <MobilePanelToggle title="Image to Video" />
+      <MobilePanelToggle 
+        title="Image to Video" 
+        activePanel={activePanel} 
+        setActivePanel={setActivePanel}
+      />
       <div className={cn(
         "flex-1 flex min-h-0",
         isMobile ? "flex-col" : "flex"

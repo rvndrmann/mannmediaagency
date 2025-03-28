@@ -3,7 +3,7 @@ import { useState, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
-import { Upload, Play, PauseCircle, Trash2 } from "lucide-react";
+import { Upload, X, Play, PauseCircle, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 import { uploadFileToBucket } from "@/utils/supabase-helpers";
 

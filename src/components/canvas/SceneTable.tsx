@@ -85,21 +85,27 @@ export function SceneTable({
       setUploadingMedia({ sceneId, type });
       
       try {
-        if (type === 'voiceOver' || type === 'backgroundMusic') {
-          const { data: bucketList } = await supabase.storage.listBuckets();
-          const bucketName = type === 'voiceOver' ? 'voice-over' : 'background-music';
+        if (type === 'voiceOver') {
+          const bucketName = 'voice-over';
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${crypto.randomUUID()}.${fileExt}`;
           
-          if (!bucketList?.find(bucket => bucket.name === bucketName)) {
-            const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
-              public: true
+          const { error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
             });
             
-            if (createBucketError) {
-              console.error(`Error creating bucket ${bucketName}:`, createBucketError);
-              throw createBucketError;
-            }
-          }
+          if (uploadError) throw uploadError;
           
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+          
+          await updateScene(sceneId, type, publicUrl);
+        } else if (type === 'backgroundMusic') {
+          const bucketName = 'background-music';
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           
@@ -118,20 +124,7 @@ export function SceneTable({
           
           await updateScene(sceneId, type, publicUrl);
         } else if (type === 'video') {
-          const { data: bucketList } = await supabase.storage.listBuckets();
           const bucketName = 'scene-videos';
-          
-          if (!bucketList?.find(bucket => bucket.name === bucketName)) {
-            const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
-              public: true
-            });
-            
-            if (createBucketError) {
-              console.error(`Error creating bucket ${bucketName}:`, createBucketError);
-              throw createBucketError;
-            }
-          }
-          
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           

@@ -1,4 +1,3 @@
-
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -9,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentSelector } from "./AgentSelector";
 import { AudioUploader } from "./AudioUploader";
+import { VideoUploader } from "./VideoUploader";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -125,7 +125,27 @@ export function CanvasDetailPanel({
       throw error;
     }
   };
-  
+
+  const handleVideoUploaded = async (url: string) => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'video', url);
+    } catch (error) {
+      console.error("Error saving video URL:", error);
+      throw error;
+    }
+  };
+
+  const handleRemoveVideo = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'video', '');
+    } catch (error) {
+      console.error("Error removing video:", error);
+      throw error;
+    }
+  };
+
   if (collapsed) {
     return (
       <div className="w-10 border-l flex flex-col items-center py-4 bg-slate-50 dark:bg-slate-900">
@@ -283,6 +303,14 @@ export function CanvasDetailPanel({
                   )}
                 </div>
 
+                <VideoUploader 
+                  label="Scene Video"
+                  videoUrl={scene?.videoUrl}
+                  onVideoUploaded={handleVideoUploaded}
+                  onRemoveVideo={handleRemoveVideo}
+                  bucketName="scene-videos"
+                />
+                
                 <AudioUploader 
                   label="Voice-Over"
                   audioUrl={scene?.voiceOverUrl}

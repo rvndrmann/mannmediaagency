@@ -1,8 +1,9 @@
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 import { SUPABASE_URL } from '@/integrations/supabase/client';
+import { saveToHistory } from '@/hooks/product-shoot/history-service';
 
 export function useProductShoot() {
   const [isGenerating, setIsGenerating] = useState(false);
@@ -61,9 +62,11 @@ export function useProductShoot() {
             ...formData,
             sourceUrl,
             shotSize: [formData.shotWidth, formData.shotHeight],
-            placement_type: formData.placementType // Make sure this is saved for API detection
+            placement_type: formData.placementType,
+            aspectRatio: formData.aspectRatio // Save aspect ratio setting
           },
-          user_id: (await supabase.auth.getUser()).data.user?.id
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          visibility: formData.visibility || 'private' // Add visibility setting
         });
 
       if (dbError) {
@@ -149,6 +152,38 @@ export function useProductShoot() {
     }
   };
 
+  // Function to save a completed image generation to product_shot_history
+  const saveToProductHistory = async (image: any) => {
+    if (image.status !== 'completed' || !image.result_url) {
+      return false;
+    }
+
+    try {
+      // Save to history table
+      const { data, error } = await supabase
+        .from('product_shot_history')
+        .insert({
+          user_id: (await supabase.auth.getUser()).data.user?.id,
+          source_image_url: image.source_image_url,
+          result_url: image.result_url,
+          scene_description: image.prompt,
+          settings: image.settings,
+          visibility: 'private'
+        });
+
+      if (error) {
+        console.error('Error saving to history:', error);
+        return false;
+      }
+
+      toast.success('Image saved to your history');
+      return true;
+    } catch (err) {
+      console.error('Error saving image to history:', err);
+      return false;
+    }
+  };
+
   const handleRetryImageCheck = async (jobId: string) => {
     setIsGenerating(true);
     try {
@@ -172,11 +207,39 @@ export function useProductShoot() {
     }
   };
 
+  // Auto-save completed generations to product shot history
+  useEffect(() => {
+    if (generatedImages && generatedImages.length > 0) {
+      generatedImages.forEach(async (image) => {
+        if (image.status === 'completed' && image.result_url) {
+          try {
+            await saveToHistory({
+              id: image.id,
+              url: image.result_url,
+              content_type: 'image/jpeg',
+              status: 'completed',
+              prompt: image.prompt
+            }, image.source_image_url, image.settings);
+          } catch (err) {
+            console.error('Error auto-saving to history:', err);
+          }
+        }
+      });
+    }
+  }, [generatedImages]);
+
+  // Load generations on mount
+  useEffect(() => {
+    loadRecentGenerations();
+  }, []);
+
   return {
     isGenerating,
     isSubmitting,
     generatedImages,
     handleGenerate,
-    handleRetryImageCheck
+    handleRetryImageCheck,
+    loadRecentGenerations,
+    saveToProductHistory
   };
 }

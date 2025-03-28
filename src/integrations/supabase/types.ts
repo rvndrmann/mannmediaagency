@@ -1815,6 +1815,7 @@ export type Database = {
           settings: Json
           source_image_url: string
           user_id: string
+          visibility: string
         }
         Insert: {
           created_at?: string
@@ -1825,6 +1826,7 @@ export type Database = {
           settings?: Json
           source_image_url: string
           user_id: string
+          visibility?: string
         }
         Update: {
           created_at?: string
@@ -1835,6 +1837,7 @@ export type Database = {
           settings?: Json
           source_image_url?: string
           user_id?: string
+          visibility?: string
         }
         Relationships: []
       }

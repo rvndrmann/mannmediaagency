@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -14,7 +13,8 @@ import {
   Edit,
   Check,
   X,
-  Loader2
+  Loader2,
+  ImageIcon
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -37,6 +37,7 @@ export function ProjectScriptEditor({
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
   const [isProcessingWithAI, setIsProcessingWithAI] = useState(false);
+  const [isGeneratingImagePrompts, setIsGeneratingImagePrompts] = useState(false);
   const [projectTitle, setProjectTitle] = useState(project.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [suggestedTitle, setSuggestedTitle] = useState("");
@@ -126,6 +127,59 @@ export function ProjectScriptEditor({
     return [firstPart, ...splitAtSentenceBoundary(restPart, maxLength)];
   };
   
+  const handleGenerateImagePrompts = async () => {
+    if (!project.id || scenes.length === 0) {
+      toast.error("No valid project or scenes to generate image prompts for");
+      return;
+    }
+    
+    // Check if we have scenes with voice-over text
+    const scenesWithVoiceOver = scenes.filter(scene => 
+      scene.voiceOverText && scene.voiceOverText.trim() !== ""
+    );
+    
+    if (scenesWithVoiceOver.length === 0) {
+      toast.error("No scenes with voice-over text found. Process the script first.");
+      return;
+    }
+    
+    setIsGeneratingImagePrompts(true);
+    try {
+      // Get IDs of scenes that have voice-over text but no image prompt
+      const sceneIds = scenesWithVoiceOver
+        .filter(scene => !scene.imagePrompt || scene.imagePrompt.trim() === "")
+        .map(scene => scene.id);
+      
+      if (sceneIds.length === 0) {
+        toast.info("All scenes already have image prompts. You can edit them directly in each scene.");
+        setIsGeneratingImagePrompts(false);
+        return;
+      }
+      
+      // Call the generate-image-prompts function
+      const { data, error } = await supabase.functions.invoke('generate-image-prompts', {
+        body: { projectId: project.id, sceneIds }
+      });
+      
+      if (error) {
+        throw new Error(`Error generating image prompts: ${error.message}`);
+      }
+      
+      if (data.successfulScenes > 0) {
+        toast.success(`Generated image prompts for ${data.successfulScenes} out of ${data.processedScenes} scenes`);
+      } else if (data.processedScenes === 0) {
+        toast.info("No scenes needed image prompts");
+      } else {
+        toast.warning("Failed to generate any image prompts");
+      }
+    } catch (error) {
+      console.error("Error generating image prompts:", error);
+      toast.error("Failed to generate image prompts");
+    } finally {
+      setIsGeneratingImagePrompts(false);
+    }
+  };
+  
   const handleProcessWithAI = async () => {
     if (!script.trim()) {
       toast.error("Script cannot be empty");
@@ -143,7 +197,12 @@ export function ProjectScriptEditor({
       
       // Call our edge function to process the script with AI
       const { data: processingResult, error } = await supabase.functions.invoke('process-script', {
-        body: { script, sceneIds }
+        body: { 
+          script, 
+          sceneIds,
+          projectId: project.id,
+          generateImagePrompts: true
+        }
       });
       
       if (error) {
@@ -164,6 +223,11 @@ export function ProjectScriptEditor({
       // Send the processed scripts back to the canvas
       await divideScriptToScenes(sceneScripts);
       toast.success("Script processed and divided with AI assistance");
+      
+      // Show image prompt generation results if any
+      if (processingResult.imagePrompts && processingResult.imagePrompts.successfulScenes > 0) {
+        toast.success(`Also generated ${processingResult.imagePrompts.successfulScenes} image prompts for scenes`);
+      }
     } catch (error) {
       console.error("Error processing script with AI:", error);
       toast.error("Failed to process script with AI, falling back to manual division");
@@ -366,6 +430,21 @@ export function ProjectScriptEditor({
                 "Processing with AI..."
               </> : 
               "Process with AI"
+            }
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={handleGenerateImagePrompts}
+            disabled={isGeneratingImagePrompts}
+            title="Generate image prompts for scenes with voice-over text"
+          >
+            <ImageIcon className="h-4 w-4 mr-2" />
+            {isGeneratingImagePrompts ? 
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                "Generating..."
+              </> : 
+              "Generate Image Prompts"
             }
           </Button>
           <Button 

@@ -14,7 +14,7 @@ serve(async (req) => {
   }
 
   try {
-    const { script, sceneIds } = await req.json();
+    const { script, sceneIds, projectId, generateImagePrompts = true } = await req.json();
     
     if (!script || !sceneIds || !Array.isArray(sceneIds)) {
       throw new Error("Missing required parameters: script and sceneIds array");
@@ -73,8 +73,43 @@ serve(async (req) => {
       throw new Error("Failed to parse scenes from OpenAI response");
     }
 
+    let imagePromptResults = { processedScenes: 0, successfulScenes: 0 };
+    
+    // Trigger image prompt generation if requested and if projectId is provided
+    if (generateImagePrompts && projectId) {
+      try {
+        // Wait a short delay to ensure scenes are saved first
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        
+        const imagePromptResponse = await fetch(`https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/generate-image-prompts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.get('Authorization') || ''
+          },
+          body: JSON.stringify({
+            sceneIds,
+            projectId
+          })
+        });
+        
+        if (imagePromptResponse.ok) {
+          imagePromptResults = await imagePromptResponse.json();
+          console.log("Image prompt generation results:", imagePromptResults);
+        } else {
+          console.error("Error generating image prompts:", await imagePromptResponse.text());
+        }
+      } catch (error) {
+        console.error("Error calling image prompt generation:", error);
+        // Continue with script processing even if image prompt generation fails
+      }
+    }
+
     return new Response(
-      JSON.stringify({ scenes }),
+      JSON.stringify({ 
+        scenes,
+        imagePrompts: imagePromptResults
+      }),
       { headers: { ...corsHeaders, "Content-Type": "application/json" } }
     );
   } catch (error) {

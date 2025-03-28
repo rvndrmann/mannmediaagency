@@ -1,10 +1,10 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Save, Wand2 } from "lucide-react";
+import { X, Save, Wand2, ImageIcon } from "lucide-react";
 import { CanvasProject } from "@/types/canvas";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CanvasScriptPanelProps {
   project: CanvasProject;
@@ -22,6 +22,7 @@ export function CanvasScriptPanel({
   const [fullScript, setFullScript] = useState(project.fullScript || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
+  const [isGeneratingImagePrompts, setIsGeneratingImagePrompts] = useState(false);
   
   const handleSaveScript = async () => {
     setIsSaving(true);
@@ -83,6 +84,59 @@ export function CanvasScriptPanel({
     return [firstPart, ...splitAtSentenceBoundary(restPart, maxLength)];
   };
   
+  const handleGenerateImagePrompts = async () => {
+    if (!project.id || project.scenes.length === 0) {
+      toast.error("No valid project or scenes to generate image prompts for");
+      return;
+    }
+    
+    // Check if we have scenes with voice-over text
+    const scenesWithVoiceOver = project.scenes.filter(scene => 
+      scene.voiceOverText && scene.voiceOverText.trim() !== ""
+    );
+    
+    if (scenesWithVoiceOver.length === 0) {
+      toast.error("No scenes with voice-over text found. Process the script first.");
+      return;
+    }
+    
+    setIsGeneratingImagePrompts(true);
+    try {
+      // Get IDs of scenes that have voice-over text but no image prompt
+      const sceneIds = scenesWithVoiceOver
+        .filter(scene => !scene.imagePrompt || scene.imagePrompt.trim() === "")
+        .map(scene => scene.id);
+      
+      if (sceneIds.length === 0) {
+        toast.info("All scenes already have image prompts. You can edit them directly in each scene.");
+        setIsGeneratingImagePrompts(false);
+        return;
+      }
+      
+      // Call the generate-image-prompts function
+      const { data, error } = await supabase.functions.invoke('generate-image-prompts', {
+        body: { projectId: project.id, sceneIds }
+      });
+      
+      if (error) {
+        throw new Error(`Error generating image prompts: ${error.message}`);
+      }
+      
+      if (data.successfulScenes > 0) {
+        toast.success(`Generated image prompts for ${data.successfulScenes} out of ${data.processedScenes} scenes`);
+      } else if (data.processedScenes === 0) {
+        toast.info("No scenes needed image prompts");
+      } else {
+        toast.warning("Failed to generate any image prompts");
+      }
+    } catch (error) {
+      console.error("Error generating image prompts:", error);
+      toast.error("Failed to generate image prompts");
+    } finally {
+      setIsGeneratingImagePrompts(false);
+    }
+  };
+  
   const handleDivideScript = async () => {
     if (!fullScript.trim()) {
       toast.error("Please enter a script first");
@@ -123,8 +177,7 @@ export function CanvasScriptPanel({
           segments.push(text.substring(start, end).trim());
         }
       } else {
-        // No clear scene markers - distribute content evenly with sentence boundaries
-        // and character limits (about 70 characters per segment)
+        // No clear scene markers - distribute content evenly
         const CHAR_LIMIT = 1500; // Higher limit for initial division
         
         // If we have few paragraphs, check if they need to be further split
@@ -181,6 +234,18 @@ export function CanvasScriptPanel({
       
       await divideScriptToScenes(sceneScripts);
       toast.success("Script divided into scenes");
+      
+      // After division, offer to generate image prompts
+      const hasVoiceOverText = sceneScripts.some(scene => scene.voiceOverText && scene.voiceOverText.trim() !== "");
+      if (hasVoiceOverText) {
+        toast("Voice-over text extracted", {
+          description: "Do you want to generate image prompts based on the voice-over text?",
+          action: {
+            label: "Generate",
+            onClick: () => handleGenerateImagePrompts()
+          }
+        });
+      }
     } catch (error) {
       console.error("Error dividing script:", error);
       toast.error("Failed to divide script");
@@ -202,6 +267,16 @@ export function CanvasScriptPanel({
           >
             <Wand2 className="h-4 w-4 mr-1" />
             {isDividing ? "Dividing..." : "Divide to Scenes"}
+          </Button>
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={handleGenerateImagePrompts}
+            disabled={isGeneratingImagePrompts}
+            title="Generate image prompts for scenes with voice-over text"
+          >
+            <ImageIcon className="h-4 w-4 mr-1" />
+            {isGeneratingImagePrompts ? "Generating..." : "Image Prompts"}
           </Button>
           <Button 
             variant="outline" 

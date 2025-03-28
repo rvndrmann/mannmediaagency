@@ -1,14 +1,14 @@
-
 import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
 
 interface CanvasToolParameters {
-  action: "update_script" | "update_image_prompt" | "update_description" | "update_voice_over_text" | "generate_full_script" | "divide_script" | "get_project_info";
+  action: "update_script" | "update_image_prompt" | "update_description" | "update_voice_over_text" | "generate_full_script" | "divide_script" | "get_project_info" | "generate_image_prompts";
   projectId: string;
   sceneId?: string;
   content?: string;
   scenesContent?: Array<{id: string, content: string, voiceOverText?: string}>;
+  sceneIds?: string[];
 }
 
 export const canvasTool: ToolDefinition = {
@@ -19,7 +19,7 @@ export const canvasTool: ToolDefinition = {
     properties: {
       action: {
         type: "string",
-        enum: ["update_script", "update_image_prompt", "update_description", "update_voice_over_text", "generate_full_script", "divide_script", "get_project_info"],
+        enum: ["update_script", "update_image_prompt", "update_description", "update_voice_over_text", "generate_full_script", "divide_script", "get_project_info", "generate_image_prompts"],
         description: "The action to perform on the Canvas project"
       },
       projectId: {
@@ -53,6 +53,13 @@ export const canvasTool: ToolDefinition = {
               description: "Voice-over text for the scene (clean text with no directions)"
             }
           }
+        }
+      },
+      sceneIds: {
+        type: "array",
+        description: "Array of scene IDs (for generate_image_prompts action)",
+        items: {
+          type: "string"
         }
       }
     },
@@ -291,6 +298,70 @@ export const canvasTool: ToolDefinition = {
                 sceneCount: formattedScenes.length
               },
               scenes: formattedScenes
+            }
+          };
+        }
+        
+        case "generate_image_prompts": {
+          // Validate required parameters
+          if (!params.projectId) {
+            return {
+              success: false,
+              error: "Missing required parameters: projectId is required"
+            };
+          }
+          
+          // Get scene IDs if not provided
+          let sceneIds = params.sceneIds;
+          
+          if (!sceneIds || sceneIds.length === 0) {
+            // Get all scenes with voice-over text but no image prompt
+            const { data: scenes, error: scenesError } = await supabase
+              .from('canvas_scenes')
+              .select('id')
+              .eq('project_id', params.projectId)
+              .is('image_prompt', null)
+              .not('voice_over_text', 'is', null);
+            
+            if (scenesError) {
+              console.error("Error fetching scenes:", scenesError);
+              return {
+                success: false,
+                error: `Failed to fetch scenes: ${scenesError.message}`
+              };
+            }
+            
+            sceneIds = scenes.map(scene => scene.id);
+            
+            if (sceneIds.length === 0) {
+              return {
+                success: false,
+                error: "No scenes found with voice-over text but without image prompts"
+              };
+            }
+          }
+          
+          // Call the Supabase Edge Function to generate image prompts
+          const { data, error } = await supabase.functions.invoke('generate-image-prompts', {
+            body: { 
+              sceneIds: sceneIds,
+              projectId: params.projectId
+            }
+          });
+          
+          if (error) {
+            console.error("Error generating image prompts:", error);
+            return {
+              success: false,
+              error: `Failed to generate image prompts: ${error.message}`
+            };
+          }
+          
+          return {
+            success: true,
+            data: {
+              message: `Generated image prompts for ${data.successfulScenes} out of ${data.processedScenes} scenes`,
+              results: data.results
             }
           };
         }

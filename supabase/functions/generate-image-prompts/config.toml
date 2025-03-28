@@ -1,0 +1,4 @@
+
+project_id = "avdwgvjhufslhqrrmxgo"
+app_id = "generate-image-prompts"
+endpoint = "https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/generate-image-prompts"

@@ -685,10 +685,12 @@ export type Database = {
       canvas_scenes: {
         Row: {
           created_at: string
+          description: string | null
           duration: number | null
           id: string
           image_prompt: string | null
           image_url: string | null
+          product_image_url: string | null
           project_id: string
           scene_order: number
           script: string | null
@@ -698,10 +700,12 @@ export type Database = {
         }
         Insert: {
           created_at?: string
+          description?: string | null
           duration?: number | null
           id?: string
           image_prompt?: string | null
           image_url?: string | null
+          product_image_url?: string | null
           project_id: string
           scene_order: number
           script?: string | null
@@ -711,10 +715,12 @@ export type Database = {
         }
         Update: {
           created_at?: string
+          description?: string | null
           duration?: number | null
           id?: string
           image_prompt?: string | null
           image_url?: string | null
+          product_image_url?: string | null
           project_id?: string
           scene_order?: number
           script?: string | null

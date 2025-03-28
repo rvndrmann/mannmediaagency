@@ -1,14 +1,13 @@
 
 import { Attachment } from "@/types/message";
 import { ToolContext } from "../../types";
-import { BaseAgent, AgentResult } from "../types";
+import { AgentResult, AgentOptions } from "../types";
 import { getTool, getAvailableTools } from "../../tools";
+import { BaseAgentImpl } from "./BaseAgentImpl";
 
-export class ToolAgent implements BaseAgent {
-  private context: ToolContext;
-
-  constructor(context: ToolContext) {
-    this.context = context;
+export class ToolAgent extends BaseAgentImpl {
+  constructor(options: AgentOptions) {
+    super(options);
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
@@ -18,6 +17,12 @@ export class ToolAgent implements BaseAgent {
       if (!user) {
         throw new Error("User not authenticated");
       }
+      
+      // Apply input guardrails if configured
+      await this.applyInputGuardrails(input);
+      
+      // Get dynamic instructions if needed
+      const instructions = await this.getInstructions(this.context);
       
       // Get available tools for context
       const availableTools = getAvailableTools().map(tool => ({
@@ -40,7 +45,8 @@ export class ToolAgent implements BaseAgent {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
             availableTools: availableTools,
-            isHandoffContinuation: false
+            isHandoffContinuation: false,
+            instructions: instructions
           },
           metadata: this.context.metadata,
           runId: this.context.runId,
@@ -51,6 +57,10 @@ export class ToolAgent implements BaseAgent {
       if (error) {
         throw new Error(`Tool agent error: ${error.message}`);
       }
+      
+      // Apply output guardrails if configured
+      const output = data?.completion || "I processed your request but couldn't help with the tool.";
+      await this.applyOutputGuardrails(output);
       
       // Handle handoff if present
       let nextAgent = null;
@@ -72,9 +82,10 @@ export class ToolAgent implements BaseAgent {
       }
       
       return {
-        response: data?.completion || "I processed your request but couldn't help with the tool.",
+        response: output,
         nextAgent: nextAgent,
-        commandSuggestion: commandSuggestion
+        commandSuggestion: commandSuggestion,
+        structured_output: data?.structured_output || null
       };
     } catch (error: any) {
       console.error("ToolAgent run error:", error);

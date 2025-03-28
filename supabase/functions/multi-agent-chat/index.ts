@@ -29,7 +29,19 @@ serve(async (req) => {
   const requestId = crypto.randomUUID();
   
   try {
-    const { input, attachments, agentType, userId, usePerformanceModel, enableDirectToolExecution, tracingDisabled, contextData, metadata, runId, groupId } = await req.json();
+    const { 
+      input, 
+      attachments, 
+      agentType, 
+      userId, 
+      usePerformanceModel, 
+      enableDirectToolExecution, 
+      tracingDisabled, 
+      contextData, 
+      metadata, 
+      runId, 
+      groupId 
+    } = await req.json();
 
     logInfo(`[${requestId}] Received request from user ${userId}`, { 
       agentType, 
@@ -39,6 +51,9 @@ serve(async (req) => {
       runId,
       groupId
     });
+    
+    // Extract instructions from contextData if available
+    const instructions = contextData?.instructions || getDefaultInstructions(agentType);
 
     // Check if this is a query that should be handled by a specialized agent
     const shouldHandoff = checkForHandoff(input, agentType);
@@ -47,15 +62,16 @@ serve(async (req) => {
     let responseText = '';
     let handoffRequest = null;
     let commandSuggestion = null;
+    let structured_output = null;
     
     // Add a short delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 500));
     
-    // Process response based on agent type
+    // Process response based on agent type and instructions
     switch(agentType) {
       case 'main':
       case 'assistant':
-        responseText = generateMainAssistantResponse(input);
+        responseText = generateMainAssistantResponse(input, instructions);
         
         // Check if we should automatically handoff to a specialized agent
         if (shouldHandoff && shouldHandoff !== agentType) {
@@ -72,15 +88,15 @@ serve(async (req) => {
         break;
         
       case 'script':
-        responseText = generateScriptWriterResponse(input);
+        responseText = generateScriptWriterResponse(input, instructions);
         break;
         
       case 'image':
-        responseText = generateImagePromptResponse(input);
+        responseText = generateImagePromptResponse(input, instructions);
         break;
         
       case 'tool':
-        responseText = generateToolHelperResponse(input);
+        responseText = generateToolHelperResponse(input, instructions);
         
         // Simulate detecting a browser automation need
         if (input.toLowerCase().includes('website') || input.toLowerCase().includes('browser')) {
@@ -103,23 +119,30 @@ serve(async (req) => {
         break;
         
       case 'scene':
-        responseText = generateSceneCreatorResponse(input);
+        responseText = generateSceneCreatorResponse(input, instructions);
         break;
         
       default:
         responseText = `I'm responding to your message: "${input}".\n\nI'll do my best to assist you with your request. If you need specialized help, please select a specific agent type.`;
     }
     
+    // Try to generate structured output if appropriate
+    if (input.toLowerCase().includes('json') || input.toLowerCase().includes('data')) {
+      structured_output = generateMockStructuredOutput(input, agentType);
+    }
+    
     logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
       responseLength: responseText.length,
-      hasHandoff: !!handoffRequest
+      hasHandoff: !!handoffRequest,
+      hasStructuredOutput: !!structured_output
     });
 
     return new Response(
       JSON.stringify({
         completion: responseText,
         handoffRequest: handoffRequest,
-        commandSuggestion: commandSuggestion
+        commandSuggestion: commandSuggestion,
+        structured_output: structured_output
       }),
       { 
         headers: { 
@@ -148,6 +171,56 @@ serve(async (req) => {
 });
 
 // Helper functions
+
+// Get default instructions based on agent type
+function getDefaultInstructions(agentType: string): string {
+  switch(agentType) {
+    case 'main':
+    case 'assistant':
+      return "You are a helpful AI assistant. Provide clear, accurate responses to user questions. If you can't answer something, be honest about it. If a specialized agent would be better suited, suggest a handoff.";
+    case 'script':
+      return "You are a creative script writing assistant. Help users create compelling narratives, ad scripts, and other written content. Focus on engaging dialogue and effective storytelling.";
+    case 'image':
+      return "You are an image generation specialist. Help users craft detailed image prompts that will produce high-quality results. Focus on visual details, style, composition, and mood.";
+    case 'tool':
+      return "You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues. Suggest appropriate tools based on user needs.";
+    case 'scene':
+      return "You are a scene creation expert. Help users visualize and describe detailed environments and settings for creative projects. Focus on sensory details, atmosphere, and spatial relationships.";
+    default:
+      return "You are a helpful AI assistant. Answer questions clearly and concisely.";
+  }
+}
+
+// Generate a mock structured output based on input and agent type
+function generateMockStructuredOutput(input: string, agentType: string): any {
+  if (input.toLowerCase().includes('product') && input.toLowerCase().includes('json')) {
+    return {
+      productDetails: {
+        name: "Example Product",
+        price: 99.99,
+        categories: ["Electronics", "Gadgets"],
+        inStock: true
+      }
+    };
+  }
+  
+  if (input.toLowerCase().includes('user') && input.toLowerCase().includes('data')) {
+    return {
+      userData: {
+        preferences: {
+          theme: "dark",
+          notifications: true
+        },
+        recentActivities: [
+          { type: "search", query: "example", timestamp: new Date().toISOString() }
+        ]
+      }
+    };
+  }
+  
+  // Default is null - no structured output
+  return null;
+}
 
 // Check if the input should be handed off to a specialized agent
 function checkForHandoff(input: string, currentAgentType: string): string | null {
@@ -259,7 +332,9 @@ function getShortSummary(input: string): string {
 }
 
 // Generate response for the main assistant
-function generateMainAssistantResponse(input: string): string {
+function generateMainAssistantResponse(input: string, instructions: string): string {
+  // If we have custom instructions, we'd use those to influence the response
+  // For now, we'll use default responses
   return `I'm here to help with your request: "${input}".
 
 I can assist with general questions or connect you with specialized agents:
@@ -272,7 +347,7 @@ How would you like me to help you with this request?`;
 }
 
 // Generate response for the script writer agent
-function generateScriptWriterResponse(input: string): string {
+function generateScriptWriterResponse(input: string, instructions: string): string {
   // Check if the request is about writing a script or content
   if (input.toLowerCase().includes('script') || 
       input.toLowerCase().includes('ad') || 
@@ -348,21 +423,21 @@ I specialize in crafting compelling narratives, dialogue, and creative content. 
 }
 
 // Generate response for the image prompt agent
-function generateImagePromptResponse(input: string): string {
+function generateImagePromptResponse(input: string, instructions: string): string {
   return `I'm the Image Prompt agent analyzing: "${input}".
 
 I'll help you create detailed image generation prompts that will produce high-quality results. What kind of image are you looking to create?`;
 }
 
 // Generate response for the tool helper agent
-function generateToolHelperResponse(input: string): string {
+function generateToolHelperResponse(input: string, instructions: string): string {
   return `As the Tool Helper agent, I'm reviewing your request: "${input}".
 
 I can guide you through using various tools available in our system. Would you like me to help you with a specific tool or explain what options are available?`;
 }
 
 // Generate response for the scene creator agent
-function generateSceneCreatorResponse(input: string): string {
+function generateSceneCreatorResponse(input: string, instructions: string): string {
   return `As your Scene Creator agent, I'm analyzing: "${input}".
 
 I specialize in crafting detailed visual scenes for creative projects. What kind of scene would you like me to help you develop? I can provide rich descriptions for settings, atmospheres, and visual elements.`;

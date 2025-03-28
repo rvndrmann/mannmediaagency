@@ -82,3 +82,43 @@ export enum CommandExecutionState {
   COMPLETED = 'completed',
   FAILED = 'failed'
 }
+
+// New interfaces to align with OpenAI Agents SDK
+export interface ModelSettings {
+  temperature?: number;
+  top_p?: number;
+  max_tokens?: number;
+  tool_choice?: 'auto' | 'required' | 'none' | string;
+}
+
+export interface AgentConfig {
+  name: string;
+  instructions: string | ((context: ToolContext) => string | Promise<string>);
+  handoffDescription?: string;
+  modelName: string;
+  modelSettings?: ModelSettings;
+  tools?: ToolDefinition[];
+  inputGuardrails?: InputGuardrail[];
+  outputGuardrails?: OutputGuardrail[];
+  outputType?: any;
+  toolUseBehavior?: 'run_llm_again' | 'stop_on_first_tool' | string[];
+  resetToolChoice?: boolean;
+}
+
+export interface InputGuardrail {
+  name: string;
+  description: string;
+  checkInput: (input: string, context: ToolContext) => Promise<GuardrailResult>;
+}
+
+export interface OutputGuardrail {
+  name: string;
+  description: string;
+  checkOutput: (output: any, context: ToolContext) => Promise<GuardrailResult>;
+}
+
+export interface GuardrailResult {
+  passed: boolean;
+  message?: string;
+  action?: 'block' | 'warn' | 'log';
+}

@@ -1,13 +1,12 @@
 
 import { Attachment } from "@/types/message";
 import { ToolContext } from "../../types";
-import { BaseAgent, AgentResult } from "../types";
+import { AgentResult, AgentOptions } from "../types";
+import { BaseAgentImpl } from "./BaseAgentImpl";
 
-export class AssistantAgent implements BaseAgent {
-  private context: ToolContext;
-
-  constructor(context: ToolContext) {
-    this.context = context;
+export class AssistantAgent extends BaseAgentImpl {
+  constructor(options: AgentOptions) {
+    super(options);
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
@@ -19,6 +18,12 @@ export class AssistantAgent implements BaseAgent {
       if (!user) {
         throw new Error("User not authenticated");
       }
+      
+      // Apply input guardrails if configured
+      await this.applyInputGuardrails(input);
+      
+      // Get dynamic instructions if needed
+      const instructions = await this.getInstructions(this.context);
       
       // Call the Supabase function for the assistant agent
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -33,7 +38,8 @@ export class AssistantAgent implements BaseAgent {
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: false
+            isHandoffContinuation: false,
+            instructions: instructions
           },
           metadata: this.context.metadata,
           runId: this.context.runId,
@@ -58,10 +64,15 @@ export class AssistantAgent implements BaseAgent {
       // Extract command suggestion if present
       const commandSuggestion = data?.commandSuggestion || null;
       
+      // Apply output guardrails if configured
+      const output = data?.completion || "I processed your request but couldn't generate a response.";
+      await this.applyOutputGuardrails(output);
+      
       return {
-        response: data?.completion || "I processed your request but couldn't generate a response.",
+        response: output,
         nextAgent: nextAgent,
-        commandSuggestion: commandSuggestion
+        commandSuggestion: commandSuggestion,
+        structured_output: data?.structured_output || null
       };
     } catch (error) {
       console.error("AssistantAgent run error:", error);

@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CanvasHeaderProps {
   project: CanvasProject;
@@ -26,11 +27,50 @@ export function CanvasHeader({
   project,
 }: CanvasHeaderProps) {
   const [title, setTitle] = useState(project.title);
+  const [isSaving, setIsSaving] = useState(false);
   const navigate = useNavigate();
 
-  const handleTitleChange = (e: React.FocusEvent<HTMLInputElement>) => {
-    // Here you would implement logic to update the project title in the database
-    toast.success("Project title updated");
+  const handleTitleChange = async (e: React.FocusEvent<HTMLInputElement>) => {
+    if (title === project.title) return; // Skip if no change
+    
+    setIsSaving(true);
+    try {
+      const { error } = await supabase
+        .from('canvas_projects')
+        .update({ title })
+        .eq('id', project.id);
+        
+      if (error) throw error;
+      toast.success("Project title updated");
+    } catch (error) {
+      console.error("Error updating project title:", error);
+      toast.error("Failed to update project title");
+      setTitle(project.title); // Reset to original title on error
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    setIsSaving(true);
+    try {
+      // Save project title if it's changed
+      if (title !== project.title) {
+        const { error } = await supabase
+          .from('canvas_projects')
+          .update({ title })
+          .eq('id', project.id);
+          
+        if (error) throw error;
+      }
+      
+      toast.success("Project saved");
+    } catch (error) {
+      console.error("Error saving project:", error);
+      toast.error("Failed to save project");
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleExport = () => {
@@ -39,10 +79,6 @@ export function CanvasHeader({
 
   const handleShare = () => {
     toast.info("Share functionality coming soon");
-  };
-
-  const handleSave = () => {
-    toast.success("Project saved");
   };
 
   const handleBack = () => {
@@ -73,9 +109,20 @@ export function CanvasHeader({
       </div>
 
       <div className="flex items-center gap-2">
-        <Button variant="outline" size="sm" onClick={handleSave}>
-          <Save className="h-4 w-4 mr-1" />
-          Save
+        <Button 
+          variant="outline" 
+          size="sm" 
+          onClick={handleSave}
+          disabled={isSaving}
+        >
+          {isSaving ? (
+            <>Saving...</>
+          ) : (
+            <>
+              <Save className="h-4 w-4 mr-1" />
+              Save
+            </>
+          )}
         </Button>
         
         <Button variant="outline" size="sm" onClick={handleShare}>

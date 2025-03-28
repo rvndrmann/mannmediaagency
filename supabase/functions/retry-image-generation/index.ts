@@ -29,7 +29,7 @@ serve(async (req) => {
     // Validate that we have at least some job ID information
     if (!jobId) {
       console.log("Request data received:", JSON.stringify(requestData));
-      throw new Error('No job IDs provided for retry')
+      throw new Error('Job ID is required for retry')
     }
 
     // Get the FAL_KEY from environment

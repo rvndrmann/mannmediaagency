@@ -12,6 +12,23 @@ interface JobStatus {
   requestId?: string;
 }
 
+// Helper function to normalize status between Fal.ai (uppercase) and our DB (lowercase)
+const normalizeStatus = (status: string): string => {
+  if (!status) return 'IN_QUEUE';
+  
+  const upperStatus = status.toUpperCase();
+  
+  // Map between our DB statuses and Fal.ai statuses
+  switch (upperStatus) {
+    case 'COMPLETED': return 'COMPLETED';
+    case 'FAILED': return 'FAILED';
+    case 'IN_QUEUE': return 'IN_QUEUE';
+    case 'PROCESSING': return 'PROCESSING';
+    case 'PENDING': return 'IN_QUEUE';
+    default: return 'IN_QUEUE';
+  }
+};
+
 export function useGenerationQueue(initialJobId?: string) {
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
   const [requestId, setRequestId] = useState<string | null>(null);
@@ -41,6 +58,7 @@ export function useGenerationQueue(initialJobId?: string) {
       }
       
       const response = data as JobStatus;
+      console.log('Status check response:', response);
       
       // Update states based on the response
       setStatus(response.status);
@@ -49,9 +67,11 @@ export function useGenerationQueue(initialJobId?: string) {
       if (response.status === 'COMPLETED' && response.resultUrl) {
         setResult(response.resultUrl);
         setShouldPoll(false);
+        toast.success('Image generation completed!');
       } else if (response.status === 'FAILED') {
         setError(response.errorMessage || 'Generation failed');
         setShouldPoll(false);
+        toast.error(response.errorMessage || 'Image generation failed');
       } else {
         // Still in progress (IN_QUEUE or PROCESSING)
         setShouldPoll(true);
@@ -110,8 +130,11 @@ export function useGenerationQueue(initialJobId?: string) {
       if (error) {
         console.error('Error retrying job:', error);
         setError(error.message || 'Failed to retry generation');
+        toast.error(error.message || 'Failed to retry generation');
         return false;
       }
+      
+      console.log('Retry response:', data);
       
       // Reset states and start polling again
       setStatus('IN_QUEUE');
@@ -123,6 +146,7 @@ export function useGenerationQueue(initialJobId?: string) {
     } catch (err) {
       console.error('Error in retryJob:', err);
       setError('Failed to retry generation');
+      toast.error('Failed to retry generation');
       return false;
     } finally {
       setIsChecking(false);

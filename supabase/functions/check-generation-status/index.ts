@@ -20,6 +20,27 @@ interface GeneratedImage {
   prompt?: string;
 }
 
+// Helper function to normalize status
+const normalizeStatus = (status: string): 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED' => {
+  if (!status) return 'IN_QUEUE';
+  
+  const upperStatus = status.toUpperCase();
+  
+  if (upperStatus === 'COMPLETED' || upperStatus === 'FAILED') {
+    return upperStatus as 'COMPLETED' | 'FAILED';
+  }
+  
+  if (upperStatus === 'PROCESSING' || upperStatus === 'IN_PROGRESS') {
+    return 'PROCESSING';
+  }
+  
+  if (upperStatus === 'PENDING' || upperStatus === 'IN_QUEUE' || upperStatus === 'CREATED') {
+    return 'IN_QUEUE';
+  }
+  
+  return 'IN_QUEUE';
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -28,7 +49,7 @@ serve(async (req) => {
   
   try {
     // Get the FAL_KEY from environment
-    const FAL_KEY = Deno.env.get('FAL_KEY')
+    const FAL_KEY = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY')
     if (!FAL_KEY) {
       console.error('FAL_KEY environment variable is not set');
       throw new Error('FAL_KEY environment variable is not set')
@@ -63,11 +84,8 @@ serve(async (req) => {
     console.log(`Status for request ${requestId}:`, JSON.stringify(statusData))
     
     // Normalize the status to uppercase FAL.AI format
-    let normalizedStatus = statusData.status;
-    if (statusData.status === 'completed') normalizedStatus = 'COMPLETED';
-    if (statusData.status === 'failed') normalizedStatus = 'FAILED';
-    if (statusData.status === 'processing') normalizedStatus = 'PROCESSING';
-    if (statusData.status === 'in_queue') normalizedStatus = 'IN_QUEUE';
+    const normalizedStatus = normalizeStatus(statusData.status);
+    console.log(`Normalized status: ${normalizedStatus}`);
 
     // Process completed results to match our expected format
     if (normalizedStatus === 'COMPLETED') {

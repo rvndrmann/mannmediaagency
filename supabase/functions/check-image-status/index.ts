@@ -6,6 +6,15 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
+interface JobStatus {
+  status: 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  resultUrl?: string;
+  errorMessage?: string;
+  falStatus?: string;
+  jobId?: string;
+  requestId?: string;
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -44,11 +53,13 @@ serve(async (req) => {
         .eq('request_id', requestId)
         .single()
 
-      if (requestIdError) {
+      if (requestIdError && requestIdError.code !== 'PGRST116') {
         throw new Error(`Failed to find job with request ID: ${requestId}`)
       }
       job = jobByRequestId;
-    } else {
+    }
+    
+    if (!job && jobId) {
       // Fallback to jobId
       const { data: jobById, error: jobIdError } = await supabase
         .from('image_generation_jobs')
@@ -62,10 +73,17 @@ serve(async (req) => {
       job = jobById;
     }
 
-    // If no request_id found, throw an error
+    // If no job found, throw an error
+    if (!job) {
+      throw new Error('Job not found')
+    }
+
+    // If no request_id found but job exists, throw an error
     if (!job.request_id) {
       throw new Error('No request ID associated with this job')
     }
+
+    console.log('Checking status for job ID:', job.id, 'request_id:', job.request_id);
 
     // Check status in Fal.ai
     const statusResponse = await fetch(
@@ -85,6 +103,7 @@ serve(async (req) => {
     console.log('Status response:', statusData)
 
     // Map Fal.ai status to our database status
+    // Ensure we're using uppercase status values for Fal.ai API
     let dbStatus = 'pending'; // Default fallback
     if (statusData.status === 'COMPLETED') {
       dbStatus = 'completed'
@@ -151,9 +170,15 @@ serve(async (req) => {
         .eq('id', job.id)
     }
 
+    // Return response with normalized uppercase status for client
+    const normalizedStatus = statusData.status || 
+                             (dbStatus === 'pending' ? 'IN_QUEUE' : 
+                             dbStatus === 'completed' ? 'COMPLETED' : 
+                             dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE');
+
     return new Response(
       JSON.stringify({
-        status: dbStatus,
+        status: normalizedStatus,
         resultUrl,
         errorMessage,
         falStatus: statusData.status,

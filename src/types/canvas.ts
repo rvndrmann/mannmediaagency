@@ -10,6 +10,7 @@ export interface CanvasScene {
   productImageUrl: string;
   voiceOverUrl: string;
   backgroundMusicUrl: string;
+  voiceOverText: string; // Added field for clean voice-over text without commentary
   order: number;
   projectId: string;
   createdAt: string;
@@ -36,4 +37,5 @@ export type SceneUpdateType =
   'productImage' | 
   'video' | 
   'voiceOver' | 
+  'voiceOverText' | // Added as a valid update type
   'backgroundMusic';

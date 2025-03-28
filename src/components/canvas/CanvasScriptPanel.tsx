@@ -10,7 +10,7 @@ interface CanvasScriptPanelProps {
   project: CanvasProject;
   onClose: () => void;
   saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
 }
 
 export function CanvasScriptPanel({
@@ -36,6 +36,53 @@ export function CanvasScriptPanel({
     }
   };
   
+  // Helper function to extract clean voice-over text from script content
+  const extractVoiceOverText = (content: string): string => {
+    // Strip any bracketed direction text [like this]
+    let voiceOverText = content.replace(/\[.*?\]/g, '');
+    
+    // Remove any narrator directions in parentheses (like this)
+    voiceOverText = voiceOverText.replace(/\(.*?\)/g, '');
+    
+    // Remove any lines that start with common direction markers
+    const lines = voiceOverText.split('\n').filter(line => {
+      const trimmedLine = line.trim();
+      return !trimmedLine.startsWith('SCENE') &&
+             !trimmedLine.startsWith('CUT TO:') &&
+             !trimmedLine.startsWith('FADE') &&
+             !trimmedLine.startsWith('INT.') &&
+             !trimmedLine.startsWith('EXT.') &&
+             !trimmedLine.startsWith('TRANSITION');
+    });
+    
+    // Clean up any double spaces or excess whitespace
+    return lines.join('\n').replace(/\s+/g, ' ').trim();
+  };
+  
+  // Helper function to split text at sentence boundaries
+  const splitAtSentenceBoundary = (text: string, maxLength: number): string[] => {
+    if (text.length <= maxLength) return [text];
+    
+    // Look for sentence endings (.!?) within the desired length
+    let splitPoint = text.substring(0, maxLength).lastIndexOf('.');
+    if (splitPoint === -1) splitPoint = text.substring(0, maxLength).lastIndexOf('!');
+    if (splitPoint === -1) splitPoint = text.substring(0, maxLength).lastIndexOf('?');
+    
+    // If no sentence ending found, look for the last complete word
+    if (splitPoint === -1 || splitPoint < maxLength * 0.5) {
+      splitPoint = text.substring(0, maxLength).lastIndexOf(' ');
+    }
+    
+    // If still no good split point, just split at max length
+    if (splitPoint === -1) splitPoint = maxLength;
+    
+    // Split and continue with the remainder
+    const firstPart = text.substring(0, splitPoint + 1).trim();
+    const restPart = text.substring(splitPoint + 1).trim();
+    
+    return [firstPart, ...splitAtSentenceBoundary(restPart, maxLength)];
+  };
+  
   const handleDivideScript = async () => {
     if (!fullScript.trim()) {
       toast.error("Please enter a script first");
@@ -49,46 +96,88 @@ export function CanvasScriptPanel({
     
     setIsDividing(true);
     try {
-      // Simple division logic - divide script evenly among scenes
-      const scenes = project.scenes;
-      const paragraphs = fullScript.split("\n\n").filter(p => p.trim());
+      // Process script for division - split by paragraphs or clear scene indicators
+      const paragraphs = fullScript.split(/\n\s*\n/).filter(p => p.trim());
       
-      // If fewer paragraphs than scenes, duplicate the last one
-      const adjustedParagraphs = [...paragraphs];
-      while (adjustedParagraphs.length < scenes.length) {
-        adjustedParagraphs.push(paragraphs[paragraphs.length - 1] || "");
-      }
+      // Split by scene markers if they exist
+      const sceneMarkers = paragraphs.join('\n\n').match(/SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g);
       
-      // If more paragraphs than scenes, combine extras into the last scene
-      const sceneScripts: Array<{ id: string; content: string }> = [];
-      if (paragraphs.length <= scenes.length) {
-        // One paragraph per scene
-        for (let i = 0; i < scenes.length; i++) {
-          sceneScripts.push({
-            id: scenes[i].id,
-            content: adjustedParagraphs[i] || ""
-          });
-        }
-      } else {
-        // Distribute paragraphs evenly, with extras going to the last scene
-        const paragraphsPerScene = Math.floor(paragraphs.length / scenes.length);
-        for (let i = 0; i < scenes.length - 1; i++) {
-          const startIdx = i * paragraphsPerScene;
-          const content = paragraphs.slice(startIdx, startIdx + paragraphsPerScene).join("\n\n");
-          sceneScripts.push({
-            id: scenes[i].id,
-            content
-          });
+      let segments: string[] = [];
+      
+      if (sceneMarkers && sceneMarkers.length >= 2) {
+        // Script has proper scene markers - split by those
+        let text = paragraphs.join('\n\n');
+        let positions: number[] = [];
+        
+        // Find positions of all scene markers
+        let match;
+        const regex = /SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g;
+        while ((match = regex.exec(text)) !== null) {
+          positions.push(match.index);
         }
         
-        // Last scene gets all remaining paragraphs
-        const startIdx = (scenes.length - 1) * paragraphsPerScene;
-        const content = paragraphs.slice(startIdx).join("\n\n");
-        sceneScripts.push({
-          id: scenes[scenes.length - 1].id,
-          content
-        });
+        // Split text at scene marker positions
+        for (let i = 0; i < positions.length; i++) {
+          const start = positions[i];
+          const end = i < positions.length - 1 ? positions[i + 1] : text.length;
+          segments.push(text.substring(start, end).trim());
+        }
+      } else {
+        // No clear scene markers - distribute content evenly with sentence boundaries
+        // and character limits (about 70 characters per segment)
+        const CHAR_LIMIT = 1500; // Higher limit for initial division
+        
+        // If we have few paragraphs, check if they need to be further split
+        if (paragraphs.length <= project.scenes.length) {
+          paragraphs.forEach(paragraph => {
+            if (paragraph.length > CHAR_LIMIT) {
+              // Split long paragraphs at sentence boundaries
+              segments.push(...splitAtSentenceBoundary(paragraph, CHAR_LIMIT));
+            } else {
+              segments.push(paragraph);
+            }
+          });
+        } else {
+          segments = paragraphs;
+        }
+        
+        // Group segments if we have too many compared to scenes
+        if (segments.length > project.scenes.length * 2) {
+          const groupedSegments: string[] = [];
+          const segmentsPerScene = Math.ceil(segments.length / project.scenes.length);
+          
+          for (let i = 0; i < segments.length; i += segmentsPerScene) {
+            const group = segments.slice(i, i + segmentsPerScene);
+            groupedSegments.push(group.join('\n\n'));
+          }
+          
+          segments = groupedSegments;
+        }
       }
+      
+      // If we still have too few segments, duplicate the last one
+      while (segments.length < project.scenes.length) {
+        segments.push(segments[segments.length - 1] || "");
+      }
+      
+      // If we have too many segments, combine extras into the last scene
+      if (segments.length > project.scenes.length) {
+        const extraSegments = segments.slice(project.scenes.length - 1);
+        segments = segments.slice(0, project.scenes.length - 1);
+        segments.push(extraSegments.join('\n\n'));
+      }
+      
+      // Create the scene scripts with voice-over text extraction
+      const sceneScripts = project.scenes.map((scene, index) => {
+        const content = index < segments.length ? segments[index] : "";
+        const voiceOverText = extractVoiceOverText(content);
+        
+        return {
+          id: scene.id,
+          content,
+          voiceOverText
+        };
+      });
       
       await divideScriptToScenes(sceneScripts);
       toast.success("Script divided into scenes");

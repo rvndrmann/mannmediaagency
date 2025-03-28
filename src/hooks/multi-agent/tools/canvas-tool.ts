@@ -1,25 +1,24 @@
-
 import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
 
 interface CanvasToolParameters {
-  action: "update_script" | "update_image_prompt" | "update_description" | "generate_full_script" | "divide_script" | "get_project_info";
+  action: "update_script" | "update_image_prompt" | "update_description" | "update_voice_over_text" | "generate_full_script" | "divide_script" | "get_project_info";
   projectId: string;
   sceneId?: string;
   content?: string;
-  scenesContent?: Array<{id: string, content: string}>;
+  scenesContent?: Array<{id: string, content: string, voiceOverText?: string}>;
 }
 
 export const canvasTool: ToolDefinition = {
   name: "canvas",
-  description: "Update or retrieve information from Canvas video projects. Use this to work with scripts, image prompts, and scene descriptions.",
+  description: "Update or retrieve information from Canvas video projects. Use this to work with scripts, image prompts, voice-over text, and scene descriptions.",
   parameters: {
     type: "object",
     properties: {
       action: {
         type: "string",
-        enum: ["update_script", "update_image_prompt", "update_description", "generate_full_script", "divide_script", "get_project_info"],
+        enum: ["update_script", "update_image_prompt", "update_description", "update_voice_over_text", "generate_full_script", "divide_script", "get_project_info"],
         description: "The action to perform on the Canvas project"
       },
       projectId: {
@@ -47,6 +46,10 @@ export const canvasTool: ToolDefinition = {
             content: {
               type: "string",
               description: "Content for the scene"
+            },
+            voiceOverText: {
+              type: "string",
+              description: "Voice-over text for the scene (clean text with no directions)"
             }
           }
         }
@@ -66,7 +69,8 @@ export const canvasTool: ToolDefinition = {
       switch (params.action) {
         case "update_script":
         case "update_image_prompt":
-        case "update_description": {
+        case "update_description":
+        case "update_voice_over_text": {
           // Validate required parameters
           if (!params.sceneId || !params.content) {
             return {
@@ -76,32 +80,19 @@ export const canvasTool: ToolDefinition = {
           }
           
           // Map action to scene update type
-          const updateTypeMap: Record<string, SceneUpdateType> = {
+          const updateTypeMap: Record<string, string> = {
             "update_script": "script",
-            "update_image_prompt": "imagePrompt",
-            "update_description": "description"
+            "update_image_prompt": "image_prompt",
+            "update_description": "description",
+            "update_voice_over_text": "voice_over_text"
           };
           
           const updateType = updateTypeMap[params.action];
           
-          // Convert field names to database column names
-          const fieldMap: Record<SceneUpdateType, string> = {
-            script: 'script',
-            description: 'description',
-            imagePrompt: 'image_prompt',
-            image: 'image_url',
-            productImage: 'product_image_url',
-            video: 'video_url',
-            voiceOver: 'voice_over_url',
-            backgroundMusic: 'background_music_url'
-          };
-          
-          const dbField = fieldMap[updateType];
-          
           // Update the scene in the database
           const { error } = await supabase
             .from('canvas_scenes')
-            .update({ [dbField]: params.content })
+            .update({ [updateType]: params.content })
             .eq('id', params.sceneId)
             .eq('project_id', params.projectId);
           
@@ -111,6 +102,19 @@ export const canvasTool: ToolDefinition = {
               success: false,
               error: `Failed to update scene ${updateType}: ${error.message}`
             };
+          }
+          
+          // If updating script, also extract and update voice-over text if not provided
+          if (params.action === "update_script" && !params.sceneId.includes("voice_over_text")) {
+            // Extract voice-over text from script content
+            const voiceOverText = extractVoiceOverText(params.content);
+            
+            // Update voice-over text
+            await supabase
+              .from('canvas_scenes')
+              .update({ voice_over_text: voiceOverText })
+              .eq('id', params.sceneId)
+              .eq('project_id', params.projectId);
           }
           
           return {
@@ -179,9 +183,22 @@ export const canvasTool: ToolDefinition = {
               continue;
             }
             
+            // Prepare update data
+            const updateData: { script: string; voice_over_text?: string } = {
+              script: scene.content
+            };
+            
+            // Add voice-over text if provided, otherwise extract it
+            if (scene.voiceOverText) {
+              updateData.voice_over_text = scene.voiceOverText;
+            } else {
+              // Extract voice-over text from content
+              updateData.voice_over_text = extractVoiceOverText(scene.content);
+            }
+            
             const { error } = await supabase
               .from('canvas_scenes')
-              .update({ script: scene.content })
+              .update(updateData)
               .eq('id', scene.id)
               .eq('project_id', params.projectId);
             
@@ -231,7 +248,7 @@ export const canvasTool: ToolDefinition = {
             .select(`
               id, project_id, title, scene_order, script, description, 
               image_prompt, image_url, product_image_url, video_url, 
-              voice_over_url, background_music_url, duration, created_at, updated_at
+              voice_over_url, voice_over_text, background_music_url, duration, created_at, updated_at
             `)
             .eq('project_id', params.projectId)
             .order('scene_order', { ascending: true });
@@ -252,8 +269,10 @@ export const canvasTool: ToolDefinition = {
             script: scene.script || "",
             description: scene.description || "",
             imagePrompt: scene.image_prompt || "",
+            voiceOverText: scene.voice_over_text || "",
             hasImage: !!scene.image_url,
             hasVideo: !!scene.video_url,
+            hasVoiceOver: !!scene.voice_over_url,
             duration: scene.duration
           }));
           
@@ -287,3 +306,26 @@ export const canvasTool: ToolDefinition = {
     }
   }
 };
+
+// Helper function to extract clean voice-over text from script content
+function extractVoiceOverText(content: string): string {
+  // Strip any bracketed direction text [like this]
+  let voiceOverText = content.replace(/\[.*?\]/g, '');
+  
+  // Remove any narrator directions in parentheses (like this)
+  voiceOverText = voiceOverText.replace(/\(.*?\)/g, '');
+  
+  // Remove any lines that start with common direction markers
+  const lines = voiceOverText.split('\n').filter(line => {
+    const trimmedLine = line.trim();
+    return !trimmedLine.startsWith('SCENE') &&
+           !trimmedLine.startsWith('CUT TO:') &&
+           !trimmedLine.startsWith('FADE') &&
+           !trimmedLine.startsWith('INT.') &&
+           !trimmedLine.startsWith('EXT.') &&
+           !trimmedLine.startsWith('TRANSITION');
+  });
+  
+  // Clean up any double spaces or excess whitespace
+  return lines.join('\n').replace(/\s+/g, ' ').trim();
+}

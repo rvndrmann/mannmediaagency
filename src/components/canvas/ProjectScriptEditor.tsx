@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -39,7 +38,6 @@ export function ProjectScriptEditor({
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [suggestedTitle, setSuggestedTitle] = useState("");
   
-  // Sync script when project changes
   useEffect(() => {
     setScript(project.fullScript || "");
     setProjectTitle(project.title);
@@ -56,7 +54,6 @@ export function ProjectScriptEditor({
       await saveFullScript(script);
       toast.success("Script saved successfully");
       
-      // Extract title suggestion if it's a new script or significantly different
       if (!project.fullScript || project.fullScript.length < script.length * 0.5) {
         suggestTitleFromScript(script);
       }
@@ -72,10 +69,8 @@ export function ProjectScriptEditor({
     if (!scriptContent || scriptContent.length < 20) return;
     
     try {
-      // Get first few lines to extract potential title
       const firstLines = scriptContent.split('\n').slice(0, 5).join(' ');
       
-      // Check if there's a title pattern like "Title: XYZ" or "# XYZ"
       const titleMatch = firstLines.match(/(?:title:|#)\s*([^\n]+)/i);
       
       if (titleMatch && titleMatch[1]) {
@@ -87,6 +82,42 @@ export function ProjectScriptEditor({
     } catch (err) {
       console.error("Error suggesting title:", err);
     }
+  };
+  
+  const extractVoiceOverText = (content: string): string => {
+    let voiceOverText = content.replace(/\[.*?\]/g, '');
+    voiceOverText = voiceOverText.replace(/\(.*?\)/g, '');
+    
+    const lines = voiceOverText.split('\n').filter(line => {
+      const trimmedLine = line.trim();
+      return !trimmedLine.startsWith('SCENE') &&
+             !trimmedLine.startsWith('CUT TO:') &&
+             !trimmedLine.startsWith('FADE') &&
+             !trimmedLine.startsWith('INT.') &&
+             !trimmedLine.startsWith('EXT.') &&
+             !trimmedLine.startsWith('TRANSITION');
+    });
+    
+    return lines.join('\n').replace(/\s+/g, ' ').trim();
+  };
+  
+  const splitAtSentenceBoundary = (text: string, maxLength: number): string[] => {
+    if (text.length <= maxLength) return [text];
+    
+    let splitPoint = text.substring(0, maxLength).lastIndexOf('.');
+    if (splitPoint === -1) splitPoint = text.substring(0, maxLength).lastIndexOf('!');
+    if (splitPoint === -1) splitPoint = text.substring(0, maxLength).lastIndexOf('?');
+    
+    if (splitPoint === -1 || splitPoint < maxLength * 0.5) {
+      splitPoint = text.substring(0, maxLength).lastIndexOf(' ');
+    }
+    
+    if (splitPoint === -1) splitPoint = maxLength;
+    
+    const firstPart = text.substring(0, splitPoint + 1).trim();
+    const restPart = text.substring(splitPoint + 1).trim();
+    
+    return [firstPart, ...splitAtSentenceBoundary(restPart, maxLength)];
   };
   
   const handleDivideScript = async () => {
@@ -102,55 +133,75 @@ export function ProjectScriptEditor({
     
     setIsDividing(true);
     try {
-      // Simple division by paragraphs
-      const paragraphs = script.split(/\n\s*\n/)
-        .filter(p => p.trim().length > 0);
+      const sceneMarkers = script.match(/SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g);
       
-      // If there are fewer paragraphs than scenes, duplicate the last one
-      const finalParagraphs = [...paragraphs];
-      while (finalParagraphs.length < scenes.length) {
-        finalParagraphs.push(paragraphs[paragraphs.length - 1] || "");
-      }
+      let segments: string[] = [];
       
-      // If there are more paragraphs than scenes, combine extras into the last scene
-      const sceneScripts: Array<{ id: string; content: string }> = [];
-      
-      if (finalParagraphs.length <= scenes.length) {
-        // One paragraph per scene
-        scenes.forEach((scene, index) => {
-          sceneScripts.push({
-            id: scene.id,
-            content: index < finalParagraphs.length ? finalParagraphs[index] : ""
-          });
-        });
+      if (sceneMarkers && sceneMarkers.length >= 2) {
+        let text = script;
+        let positions: number[] = [];
+        
+        const regex = /SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g;
+        while ((match = regex.exec(text)) !== null) {
+          positions.push(match.index);
+        }
+        
+        for (let i = 0; i < positions.length; i++) {
+          const start = positions[i];
+          const end = i < positions.length - 1 ? positions[i + 1] : text.length;
+          segments.push(text.substring(start, end).trim());
+        }
       } else {
-        // Distribute paragraphs evenly
-        const paragraphsPerScene = Math.floor(finalParagraphs.length / scenes.length);
-        let remainingParagraphs = finalParagraphs.length % scenes.length;
+        const paragraphs = script.split(/\n\s*\n/)
+          .filter(p => p.trim().length > 0);
         
-        let currentParagraphIndex = 0;
+        const CHAR_LIMIT = 1500;
         
-        scenes.forEach((scene, sceneIndex) => {
-          let paragraphsForThisScene = paragraphsPerScene;
+        if (paragraphs.length <= scenes.length) {
+          paragraphs.forEach(paragraph => {
+            if (paragraph.length > CHAR_LIMIT) {
+              segments.push(...splitAtSentenceBoundary(paragraph, CHAR_LIMIT));
+            } else {
+              segments.push(paragraph);
+            }
+          });
+        } else {
+          segments = paragraphs;
+        }
+        
+        if (segments.length > scenes.length * 2) {
+          const groupedSegments: string[] = [];
+          const segmentsPerScene = Math.ceil(segments.length / scenes.length);
           
-          // Distribute remaining paragraphs
-          if (remainingParagraphs > 0) {
-            paragraphsForThisScene++;
-            remainingParagraphs--;
+          for (let i = 0; i < segments.length; i += segmentsPerScene) {
+            const group = segments.slice(i, i + segmentsPerScene);
+            groupedSegments.push(group.join('\n\n'));
           }
           
-          const sceneContent = finalParagraphs
-            .slice(currentParagraphIndex, currentParagraphIndex + paragraphsForThisScene)
-            .join("\n\n");
-          
-          sceneScripts.push({
-            id: scene.id,
-            content: sceneContent
-          });
-          
-          currentParagraphIndex += paragraphsForThisScene;
-        });
+          segments = groupedSegments;
+        }
       }
+      
+      while (segments.length < scenes.length) {
+        segments.push(segments[segments.length - 1] || "");
+      }
+      
+      if (segments.length > scenes.length) {
+        const extraSegments = segments.slice(project.scenes.length - 1);
+        segments = segments.slice(0, project.scenes.length - 1);
+        segments.push(extraSegments.join('\n\n'));
+      }
+      
+      const sceneScripts = scenes.map((scene, index) => {
+        const content = index < segments.length ? segments[index] : "";
+        const voiceOverText = extractVoiceOverText(content);
+        
+        return {
+          id: scene.id,
+          content,
+          voiceOverText
+        };
+      });
       
       await divideScriptToScenes(sceneScripts);
       toast.success("Script divided into scenes");

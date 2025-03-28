@@ -258,6 +258,7 @@ export const useCanvas = (projectId?: string) => {
         productImage: 'product_image_url',
         video: 'video_url',
         voiceOver: 'voice_over_url',
+        voiceOverText: 'voice_over_text',
         backgroundMusic: 'background_music_url'
       };
       
@@ -286,6 +287,7 @@ export const useCanvas = (projectId?: string) => {
               else if (type === 'productImage') updatedScene.productImageUrl = value;
               else if (type === 'video') updatedScene.videoUrl = value;
               else if (type === 'voiceOver') updatedScene.voiceOverUrl = value;
+              else if (type === 'voiceOverText') updatedScene.voiceOverText = value;
               else if (type === 'backgroundMusic') updatedScene.backgroundMusicUrl = value;
               
               return updatedScene;
@@ -334,16 +336,24 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
-  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string }>) => {
+  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
     if (!project) return;
     
     try {
       setError(null);
       
       for (const sceneScript of sceneScripts) {
+        const updateData: { script: string; voice_over_text?: string } = {
+          script: sceneScript.content
+        };
+        
+        if (sceneScript.voiceOverText) {
+          updateData.voice_over_text = sceneScript.voiceOverText;
+        }
+        
         const { error } = await supabase
           .from('canvas_scenes')
-          .update({ script: sceneScript.content })
+          .update(updateData)
           .eq('id', sceneScript.id);
           
         if (error) throw error;
@@ -360,6 +370,7 @@ export const useCanvas = (projectId?: string) => {
               return {
                 ...scene,
                 script: updatedScript.content,
+                voiceOverText: updatedScript.voiceOverText || scene.voiceOverText || "",
                 updatedAt: new Date().toISOString()
               };
             }

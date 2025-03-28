@@ -18,9 +18,11 @@ const SignupForm = () => {
 
   const handleGoogleSignup = async () => {
     try {
-      toast.info("For Google login, please use Chrome or Google browser. Login doesn't work in Instagram in-app browser.", {
-        duration: 5000,
-      });
+      if (isMobile) {
+        toast.info("For Google login, please use Chrome or Google browser. Login doesn't work in Instagram in-app browser.", {
+          duration: 5000,
+        });
+      }
       
       setIsLoading(true);
       const { error } = await supabase.auth.signInWithOAuth({
@@ -31,9 +33,11 @@ const SignupForm = () => {
       });
 
       if (error) {
-        toast.error(error.message);
+        console.error("Google signup error:", error);
+        toast.error(error.message || "Failed to connect to Google");
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error("Unexpected Google signup error:", error);
       toast.error("Failed to connect to Google. Please try again.");
     } finally {
       setIsLoading(false);
@@ -100,10 +104,12 @@ const SignupForm = () => {
             {isLoading ? "Connecting..." : "Sign up with Google"}
           </Button>
 
-          <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <p>For Google login, please use Chrome or Google browser.</p>
-          </div>
+          {isMobile && (
+            <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <p>For Google login, please use Chrome or Google browser.</p>
+            </div>
+          )}
         </div>
 
         <div className="text-center">

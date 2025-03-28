@@ -10,6 +10,15 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
+        // Set up auth state listener FIRST
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, newSession) => {
+            if (event === 'SIGNED_IN' && newSession) {
+              console.log("Auth state changed: User is signed in");
+            }
+          }
+        );
+
         // Get the current session
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 

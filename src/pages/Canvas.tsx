@@ -95,10 +95,13 @@ export default function Canvas() {
       const newProjectId = await createProject(title, description);
       if (newProjectId) {
         navigate(`/canvas?projectId=${newProjectId}`);
+        return newProjectId; // Return the ID to match expected return type
       }
+      return ""; // Return empty string if creation failed
     } catch (err) {
       console.error("Failed to create new project:", err);
       toast.error("Failed to create new project");
+      return ""; // Return empty string on error
     }
   };
 

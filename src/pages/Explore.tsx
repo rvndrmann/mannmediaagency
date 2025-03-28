@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
@@ -119,6 +120,7 @@ const Explore = () => {
       const { data: shots, error: shotsError } = await supabase
         .from("product_shot_history")
         .select("*")
+        .eq('visibility', 'public')
         .order('created_at', { ascending: false });
 
       if (shotsError) {

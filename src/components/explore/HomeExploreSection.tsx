@@ -88,6 +88,43 @@ export const HomeExploreSection = () => {
     },
   });
 
+  const { data: productShots, isLoading: productShotsLoading } = useQuery({
+    queryKey: ["homePublicProductShots"],
+    queryFn: async () => {
+      const { data: shots, error: shotsError } = await supabase
+        .from("product_shot_history")
+        .select("*")
+        .eq('visibility', 'public')
+        .order('created_at', { ascending: false })
+        .limit(8);
+
+      if (shotsError) {
+        console.error('Error fetching product shots:', shotsError);
+        throw shotsError;
+      }
+
+      if (shots && shots.length > 0) {
+        const userIds = [...new Set(shots.map(shot => shot.user_id))];
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, username, avatar_url')
+          .in('id', userIds);
+
+        if (profilesError) {
+          console.error('Error fetching profiles:', profilesError);
+          throw profilesError;
+        }
+
+        return shots.map(shot => ({
+          ...shot,
+          profiles: profiles?.find(p => p.id === shot.user_id)
+        }));
+      }
+
+      return shots || [];
+    },
+  });
+
   return (
     <div className="w-full bg-background py-16">
       <div className="container mx-auto px-4 max-w-[1400px]">
@@ -101,7 +138,8 @@ export const HomeExploreSection = () => {
         <ExploreGrid
           images={publicImages}
           videos={publicVideos}
-          isLoading={imagesLoading || videosLoading}
+          productShots={productShots}
+          isLoading={imagesLoading || videosLoading || productShotsLoading}
           contentType="all"
           searchQuery=""
         />

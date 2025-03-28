@@ -22,6 +22,194 @@ function logError(message: string, error: any) {
   }
 }
 
+// Get default instructions based on agent type
+function getDefaultInstructions(agentType: string): string {
+  const handoffInstructions = `
+  You can transfer the conversation to a specialized agent when appropriate:
+  - Script Writer agent: For writing scripts, creative content, or narratives
+  - Image Generator agent: For generating detailed image descriptions
+  - Tool agent: For executing tools and performing technical tasks
+  - Scene Creator agent: For creating detailed visual scene descriptions
+  
+  ONLY transfer to another agent when the user's request clearly matches their specialty.
+  `;
+  
+  switch(agentType) {
+    case 'main':
+    case 'assistant':
+      return `You are a helpful AI assistant. Provide clear, accurate information and assist with various tasks. 
+      ${handoffInstructions}`;
+    case 'script':
+      return `You are a script writing assistant specialized in creating compelling content, narratives, and scripts.
+      Focus on creating engaging stories, dialogue, and narrative structures.
+      ${handoffInstructions}`;
+    case 'image':
+      return `You are an image prompt specialist. Help users craft detailed, vivid prompts for image generation.
+      Focus on describing visual elements, composition, lighting, style, and mood.
+      ${handoffInstructions}`;
+    case 'tool':
+      return `You are a tool specialist assistant. You help users with technical tasks and operations.
+      You're knowledgeable about various tools, APIs, and technical operations.
+      ${handoffInstructions}`;
+    case 'scene':
+      return `You are a scene creation specialist. Help users craft detailed visual environments and scenes.
+      Focus on spatial relationships, visual details, atmosphere, and sensory elements.
+      ${handoffInstructions}`;
+    default:
+      return `You are a helpful AI assistant.
+      ${handoffInstructions}`;
+  }
+}
+
+// Function to check if a message contains a keyword that suggests handoff
+function checkForHandoff(userInput: string, currentAgentType: string): string | null {
+  const lowercaseInput = userInput.toLowerCase();
+  
+  if (currentAgentType === 'main') {
+    if (lowercaseInput.includes('script') || 
+        lowercaseInput.includes('write a story') || 
+        lowercaseInput.includes('narrative')) {
+      return 'script';
+    }
+    
+    if (lowercaseInput.includes('image prompt') || 
+        lowercaseInput.includes('picture') || 
+        lowercaseInput.includes('visual')) {
+      return 'image';
+    }
+    
+    if (lowercaseInput.includes('tool') || 
+        lowercaseInput.includes('execute') || 
+        lowercaseInput.includes('run command')) {
+      return 'tool';
+    }
+    
+    if (lowercaseInput.includes('scene') || 
+        lowercaseInput.includes('environment') || 
+        lowercaseInput.includes('setting')) {
+      return 'scene';
+    }
+  }
+  
+  return null;
+}
+
+// Get a short summary of the user input
+function getShortSummary(input: string): string {
+  if (input.length <= 30) {
+    return input;
+  }
+  return input.substring(0, 27) + '...';
+}
+
+// Get tools for an agent based on agent type
+function getToolsForAgent(agentType: string, enableDirectToolExecution: boolean): any[] {
+  // For demonstration, we'll define some basic tools
+  const imageToVideoTool = {
+    name: "image-to-video",
+    description: "Convert an image to a short video with animation effects",
+    parameters: {
+      type: "object",
+      properties: {
+        prompt: {
+          type: "string",
+          description: "Description of the desired animation or effect"
+        },
+        aspectRatio: {
+          type: "string",
+          description: "Aspect ratio of the output video (e.g., '16:9', '1:1', '9:16')"
+        },
+        duration: {
+          type: "number",
+          description: "Duration of the video in seconds"
+        }
+      },
+      required: ["prompt"]
+    }
+  };
+  
+  if (agentType === 'tool' || enableDirectToolExecution) {
+    return [imageToVideoTool];
+  }
+  
+  return [];
+}
+
+// Get handoffs for an agent
+function getHandoffsForAgent(agentType: string): any[] {
+  const handoffs = [];
+  
+  // Don't suggest handoff to self
+  if (agentType !== 'main') {
+    handoffs.push({
+      toolName: "transfer_to_main_agent",
+      toolDescription: "Transfer the conversation to the Main Assistant for general help"
+    });
+  }
+  
+  if (agentType !== 'script') {
+    handoffs.push({
+      toolName: "transfer_to_script_agent",
+      toolDescription: "Transfer the conversation to the Script Writing Agent for creative content"
+    });
+  }
+  
+  if (agentType !== 'image') {
+    handoffs.push({
+      toolName: "transfer_to_image_agent",
+      toolDescription: "Transfer the conversation to the Image Generator Agent for visual prompts"
+    });
+  }
+  
+  if (agentType !== 'tool') {
+    handoffs.push({
+      toolName: "transfer_to_tool_agent",
+      toolDescription: "Transfer the conversation to the Tool Agent for technical operations"
+    });
+  }
+  
+  if (agentType !== 'scene') {
+    handoffs.push({
+      toolName: "transfer_to_scene_agent",
+      toolDescription: "Transfer the conversation to the Scene Creator Agent for detailed environments"
+    });
+  }
+  
+  return handoffs;
+}
+
+// Helper to suggest tool commands
+function shouldSuggestTool(input: string): boolean {
+  const lowerInput = input.toLowerCase();
+  return lowerInput.includes('convert image') || 
+         lowerInput.includes('image to video') || 
+         lowerInput.includes('animate image');
+}
+
+// Generate tool command suggestion
+function suggestToolCommand(input: string): any {
+  return {
+    name: "image-to-video",
+    parameters: {
+      prompt: "Create a subtle animation effect",
+      aspectRatio: "16:9",
+      duration: 5
+    }
+  };
+}
+
+// Get agent name for display
+function getAgentName(agentType: string): string {
+  switch (agentType) {
+    case 'main': return 'Main Assistant';
+    case 'script': return 'Script Writer';
+    case 'image': return 'Image Generator';
+    case 'tool': return 'Tool Specialist';
+    case 'scene': return 'Scene Creator';
+    default: return 'Assistant';
+  }
+}
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -407,323 +595,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Helper functions
-
-/**
- * Process conversation history to filter and format messages for the current agent
- */
-function processConversationHistory(history: any[], currentAgentType: string): any[] {
-  if (!history || !Array.isArray(history) || history.length === 0) {
-    return [];
-  }
-  
-  // Always include system messages, user messages, and assistant messages
-  // For assistant messages, add agent type annotation if from different agent
-  const maxHistoryItems = 20; // Limit history to prevent token overflow
-  
-  // Keep the most recent messages
-  const relevantHistory = history.slice(-maxHistoryItems);
-  
-  // Further process for better context
-  return relevantHistory.map(item => {
-    // Create a copy we can modify
-    const processedItem = { ...item };
-    
-    // For handoff messages, convert to system messages
-    if (item.type === 'handoff') {
-      processedItem.role = 'system';
-    }
-    
-    // We'll handle the assistant message annotation in the parent function
-    
-    return processedItem;
-  });
-}
-
-// Get default instructions based on agent type
-function getDefaultInstructions(agentType: string): string {
-  const handoffInstructions = `
-  You can transfer the conversation to a specialized agent when appropriate:
-  - Script Writer agent: For writing scripts, creative content, or narratives
-  - Image Prompt agent: For generating detailed image descriptions
-  - Tool agent: For executing tools and performing technical tasks
-  - Scene Creator agent: For creating detailed visual scene descriptions
-  
-  ONLY transfer to another agent when the user's request clearly matches their specialty.
-  `;
-  
-  switch(agentType) {
-    case 'main':
-    case 'assistant':
-      return `You are a helpful AI assistant. Provide clear, accurate responses to user questions. 
-      If you can't answer something, be honest about it. 
-      
-      ${handoffInstructions}
-      
-      Be professional, friendly, and helpful. Always consider the user's needs and provide the most helpful response possible.`;
-      
-    case 'script':
-      return `You are a creative script writing assistant. Help users create compelling narratives, ad scripts, and other written content.
-      
-      Focus on engaging dialogue, effective storytelling, and proper formatting for scripts. Consider the target audience, medium, and purpose of the script.
-      
-      ${handoffInstructions}
-      
-      Be creative, but also practical. Consider the feasibility of production for any scripts you create.`;
-      
-    case 'image':
-      return `You are an expert at creating detailed image prompts for generating visual content.
-      
-      Focus on these key aspects when creating image prompts:
-      - Visual details: describe colors, lighting, composition, perspective
-      - Style: specify art style, medium, technique, or artistic influence
-      - Mood and atmosphere: convey the feeling or emotion of the image
-      - Subject focus: clearly describe the main subject and any background elements
-      
-      ${handoffInstructions}
-      
-      Help users refine their ideas into clear, specific prompts that will generate impressive images.`;
-      
-    case 'tool':
-      return `You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues.
-      
-      When helping with tools:
-      - Explain what the tool does and when to use it
-      - Provide step-by-step instructions for using the tool
-      - Suggest appropriate parameters or settings
-      - Help interpret the tool's output or results
-      
-      ${handoffInstructions}
-      
-      Be technical but accessible. Use clear language and explain complex concepts in understandable terms.`;
-      
-    case 'scene':
-      return `You are a scene creation expert. Help users visualize and describe detailed environments and settings for creative projects.
-      
-      When crafting scene descriptions, focus on:
-      - Sensory details: what can be seen, heard, smelled, felt in the scene
-      - Spatial relationships: layout, distances, positioning of elements
-      - Atmosphere and mood: lighting, weather, time of day, emotional tone
-      - Key elements: important objects, features, or characters in the scene
-      
-      ${handoffInstructions}
-      
-      Create vivid, immersive scenes that help bring the user's vision to life.`;
-      
-    default:
-      return "You are a helpful AI assistant. Answer questions clearly and concisely.";
-  }
-}
-
-// Get tools for the agent based on agent type and direct execution setting
-function getToolsForAgent(agentType: string, enableDirectToolExecution: boolean): any[] {
-  if (!enableDirectToolExecution && agentType !== 'tool') {
-    return [];
-  }
-  
-  const baseTools = [
-    {
-      name: "browser-use",
-      description: "Use a browser to navigate websites, take screenshots, or perform web automation tasks",
-      parameters: {
-        type: "object",
-        properties: {
-          task: {
-            type: "string",
-            description: "The task to perform in the browser, described in detail"
-          },
-          url: {
-            type: "string",
-            description: "The starting URL for the browser task"
-          },
-          browserConfig: {
-            type: "object",
-            description: "Optional browser configuration settings",
-            properties: {
-              headless: {
-                type: "boolean",
-                description: "Whether to run the browser in headless mode"
-              },
-              timeout: {
-                type: "number",
-                description: "Timeout in milliseconds"
-              }
-            }
-          }
-        },
-        required: ["task"]
-      }
-    },
-    {
-      name: "image-to-video",
-      description: "Convert an image to a short video with animation effects",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt: {
-            type: "string",
-            description: "Description of the desired animation or effect"
-          },
-          aspectRatio: {
-            type: "string",
-            description: "Aspect ratio of the output video (e.g., '16:9', '1:1', '9:16')"
-          },
-          duration: {
-            type: "string",
-            description: "Duration of the video in seconds"
-          }
-        },
-        required: ["prompt"]
-      }
-    },
-    {
-      name: "product-shot-v1",
-      description: "Generate a professional product shot from an uploaded image",
-      parameters: {
-        type: "object",
-        properties: {
-          style: {
-            type: "string",
-            description: "The style of the product shot (e.g., 'studio', 'lifestyle', 'minimalist')"
-          },
-          background: {
-            type: "string",
-            description: "Description of the desired background"
-          },
-          lighting: {
-            type: "string",
-            description: "The lighting style (e.g., 'soft', 'dramatic', 'natural')"
-          }
-        },
-        required: ["style"]
-      }
-    }
-  ];
-  
-  switch(agentType) {
-    case 'image':
-      return [...baseTools];
-      
-    case 'tool':
-      return [...baseTools];
-      
-    default:
-      return baseTools;
-  }
-}
-
-// Get handoffs for agent based on agent type
-function getHandoffsForAgent(agentType: string): any[] {
-  const allAgentTypes = ['main', 'script', 'image', 'tool', 'scene'];
-  const availableHandoffs = allAgentTypes.filter(type => type !== agentType);
-  
-  return availableHandoffs.map(targetAgent => ({
-    targetAgent,
-    toolName: `transfer_to_${targetAgent}_agent`,
-    toolDescription: `Transfer the conversation to the ${targetAgent} agent when the user's request requires specialized handling in that domain.`
-  }));
-}
-
-// Check if the input should be handed off to a specialized agent
-function checkForHandoff(input: string, currentAgentType: string): string | null {
-  if (!input) return null;
-  
-  const inputLower = input.toLowerCase();
-  
-  if (
-    (currentAgentType === 'script' && (inputLower.includes('script') || inputLower.includes('write') || inputLower.includes('content'))) ||
-    (currentAgentType === 'image' && (inputLower.includes('image') || inputLower.includes('picture') || inputLower.includes('photo'))) ||
-    (currentAgentType === 'tool' && (inputLower.includes('tool') || inputLower.includes('browser'))) ||
-    (currentAgentType === 'scene' && (inputLower.includes('scene') || inputLower.includes('visual')))
-  ) {
-    return null;
-  }
-  
-  if (inputLower.includes('script') || inputLower.includes('write') || 
-      inputLower.includes('story') || inputLower.includes('narrative') || 
-      inputLower.includes('ad') || inputLower.includes('content')) {
-    return 'script';
-  }
-  
-  if (inputLower.includes('image') || inputLower.includes('picture') || 
-      inputLower.includes('photo') || inputLower.includes('visual') ||
-      inputLower.includes('illustration')) {
-    return 'image';
-  }
-  
-  if (inputLower.includes('tool') || inputLower.includes('browser') || 
-      inputLower.includes('automate') || inputLower.includes('website')) {
-    return 'tool';
-  }
-  
-  if (inputLower.includes('scene') || inputLower.includes('setting') || 
-      inputLower.includes('environment') || inputLower.includes('location')) {
-    return 'scene';
-  }
-  
-  return null;
-}
-
-// Check if we should suggest a tool based on the input
-function shouldSuggestTool(input: string): boolean {
-  if (!input) return false;
-  
-  const inputLower = input.toLowerCase();
-  return inputLower.includes('browser') || 
-         inputLower.includes('website') || 
-         inputLower.includes('automate') ||
-         inputLower.includes('video') ||
-         inputLower.includes('youtube');
-}
-
-// Suggest a tool command based on input
-function suggestToolCommand(input: string): any {
-  const inputLower = input.toLowerCase();
-  
-  if (inputLower.includes('browser') || inputLower.includes('website')) {
-    return {
-      name: "browser-use",
-      parameters: {
-        task: `Go to ${inputLower.includes('website') ? extractWebsite(input) : 'google.com'} and take a screenshot`,
-        browserConfig: { headless: false }
-      }
-    };
-  }
-  
-  if (inputLower.includes('video') || inputLower.includes('animate')) {
-    return {
-      name: "image-to-video",
-      parameters: {
-        prompt: "Convert the uploaded image to a smooth animation",
-        aspectRatio: "16:9",
-        duration: "5"
-      }
-    };
-  }
-  
-  return null;
-}
-
-// Extract a website from the input text
-function extractWebsite(input: string): string {
-  const matches = input.match(/\b(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/);
-  return matches ? matches[0] : 'google.com';
-}
-
-// Get a readable name for the agent type
-function getAgentName(agentType: string): string {
-  switch(agentType) {
-    case 'script': return 'Script Writer';
-    case 'image': return 'Image Prompt Generator';
-    case 'tool': return 'Tool Helper';
-    case 'scene': return 'Scene Creator';
-    default: return 'Assistant';
-  }
-}
-
-// Get a short summary of the input (first 30 chars)
-function getShortSummary(input: string): string {
-  if (!input) return "";
-  return input.length > 30 ? input.substring(0, 30) + '...' : input;
-}

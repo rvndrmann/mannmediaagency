@@ -18,7 +18,7 @@ import {
 import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
-import { AgentType } from "@/hooks/multi-agent/runner/types";
+import { AgentType } from "@/hooks/use-multi-agent-chat";
 
 export const MultiAgentChat = () => {
   const { 

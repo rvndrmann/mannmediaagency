@@ -3,10 +3,10 @@ import { useState, useCallback, useEffect } from "react";
 import { Message, Attachment } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
-import { AgentType } from "./multi-agent/runner/types";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 
 // Export AgentType to make it available to other modules
-export { AgentType } from "./multi-agent/runner/types";
+export { AgentType } from "@/hooks/multi-agent/runner/types";
 
 interface UseMultiAgentChatOptions {
   initialMessages?: Message[];

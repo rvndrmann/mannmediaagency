@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { Message, Attachment } from "@/types/message";
 import { getTool } from "../tools";
@@ -45,6 +46,9 @@ export class AgentRunner {
 
     this.status = "running";
     this.controller = new AbortController();
+    
+    // Add the user message first
+    this.addMessage(input, "user", attachments);
 
     const agentContext = this.createAgentContext(userId);
 
@@ -80,7 +84,7 @@ export class AgentRunner {
       }
 
       if (agentResponse) {
-        this.addMessage(agentResponse, "agent", attachments);
+        this.addMessage(agentResponse, "agent", []);
       }
 
       if (this.status === "running" || this.status === "error") {
@@ -124,6 +128,8 @@ export class AgentRunner {
       agentType: this.agentType,
       attachments: attachments
     };
+    
+    console.log("Adding message:", message);
     this.callbacks.onMessage(message);
   }
 

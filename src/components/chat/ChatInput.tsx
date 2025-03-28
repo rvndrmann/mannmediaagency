@@ -55,6 +55,15 @@ export const ChatInput = ({
     }
   };
 
+  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+        onSubmit(e as any);
+      }
+    }
+  };
+
   return (
     <form onSubmit={onSubmit} className="space-y-1 w-full">
       {attachments.length > 0 && (
@@ -70,6 +79,7 @@ export const ChatInput = ({
           <Textarea
             value={input}
             onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleInputKeyPress}
             placeholder="Type your message..."
             disabled={isLoading}
             className="min-h-[40px] max-h-[100px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-2xl px-3 py-2 shadow-inner"

@@ -1,4 +1,3 @@
-
 import { Card } from "@/components/ui/card";
 import ReactMarkdown from "react-markdown";
 import { Message, Task } from "@/types/message";
@@ -35,7 +34,7 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
   const isUser = message.role === "user";
   const isAgent = message.role === "assistant" && message.agentType;
   const isSystem = message.role === "system";
-  const isHandoff = message.type === "handoff";
+  const isHandoff = message.type === "handoff" as MessageType;
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const hasHandoffRequest = message.handoffRequest != null;
 

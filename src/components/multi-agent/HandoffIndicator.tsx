@@ -1,7 +1,7 @@
 
 import { useEffect, useState } from "react";
 import { ArrowRightLeft } from "lucide-react";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { cn } from "@/lib/utils";
 
 interface HandoffIndicatorProps {

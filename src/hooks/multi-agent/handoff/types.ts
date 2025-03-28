@@ -7,11 +7,7 @@ export interface HandoffInputData {
   inputHistory: string[] | Attachment[];
   preHandoffItems: any[];
   newItems: any[];
-  
-  // Computed property for convenience
-  get allItems() {
-    return [...this.preHandoffItems, ...this.newItems];
-  }
+  allItems: any[]; // Changed from getter to property
 }
 
 export type HandoffInputFilter = (data: HandoffInputData) => HandoffInputData;

@@ -1,4 +1,3 @@
-
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -19,6 +18,7 @@ import {
 import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 
 export const MultiAgentChat = () => {
   const { 
@@ -69,7 +69,6 @@ export const MultiAgentChat = () => {
     scrollToBottom();
   }, [messages]);
   
-  // Monitor for handoff requests in messages
   useEffect(() => {
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
@@ -300,14 +299,12 @@ export const MultiAgentChat = () => {
         </div>
       </div>
       
-      {/* Handoff indicator */}
       <HandoffIndicator 
         fromAgent={fromAgent} 
         toAgent={toAgent} 
         visible={handoffInProgress}
       />
       
-      {/* Edit instructions dialog */}
       <EditAgentInstructionsDialog
         open={editInstructionsOpen}
         onOpenChange={setEditInstructionsOpen}

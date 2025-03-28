@@ -1,5 +1,6 @@
-import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { HandoffInputFilter, HandoffOptions } from "./types";
+
+import { AgentType } from "@/hooks/multi-agent/runner/types";
+import { HandoffInputData, HandoffInputFilter, HandoffOptions } from "./types";
 
 /**
  * Create a handoff to another agent
@@ -31,30 +32,73 @@ export function createHandoff(
 }
 
 /**
+ * Create input data for a handoff
+ * @param history Conversation history
+ * @param preHandoffItems Items before handoff
+ * @param newItems New items during handoff
+ * @returns HandoffInputData object with all items combined
+ */
+export function createHandoffInputData(
+  history: string[] | Attachment[],
+  preHandoffItems: any[],
+  newItems: any[]
+): HandoffInputData {
+  return {
+    inputHistory: history,
+    preHandoffItems,
+    newItems,
+    allItems: [...preHandoffItems, ...newItems]
+  };
+}
+
+/**
  * Common handoff input filters
  */
 export const handoffFilters = {
   /**
    * Remove all tool calls from the handoff input history
    */
-  removeAllTools: (data: any): any => {
-    // Implementation would filter out tool calls
-    return data;
+  removeAllTools: (data: HandoffInputData): HandoffInputData => {
+    // Filter out tool calls from allItems
+    const filteredItems = data.allItems.filter(item => 
+      item.role !== 'tool' && 
+      !(item.role === 'assistant' && item.tool_name)
+    );
+    
+    return {
+      ...data,
+      allItems: filteredItems
+    };
   },
   
   /**
    * Keep only the last N messages
    */
-  keepLastN: (n: number) => (data: any): any => {
-    // Implementation would keep only the last N messages
-    return data;
+  keepLastN: (n: number) => (data: HandoffInputData): HandoffInputData => {
+    const lastNItems = data.allItems.slice(-n);
+    
+    return {
+      ...data,
+      allItems: lastNItems
+    };
   },
   
   /**
    * Add system context for the receiving agent
    */
-  addSystemContext: (context: string) => (data: any): any => {
-    // Implementation would add system context
-    return data;
+  addSystemContext: (context: string) => (data: HandoffInputData): HandoffInputData => {
+    // Create a system message with the context
+    const systemMessage = {
+      role: 'system',
+      content: context,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString()
+    };
+    
+    // Add it to the beginning of allItems
+    return {
+      ...data,
+      allItems: [systemMessage, ...data.allItems]
+    };
   }
 };

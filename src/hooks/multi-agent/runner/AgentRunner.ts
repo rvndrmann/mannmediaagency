@@ -1,4 +1,3 @@
-
 import { AgentRegistry } from "./AgentRegistry";
 import { BaseAgent, AgentType, AgentOptions } from "./types";
 import { Attachment, Message } from "@/types/message";
@@ -7,7 +6,6 @@ import { ToolContext, AgentConfig } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 import { HandoffInputData } from "../handoff/types";
 
-// Callback interfaces
 export interface AgentRunnerCallbacks {
   onMessage: (message: Message) => void;
   onError: (error: string) => void;
@@ -29,16 +27,12 @@ export class AgentRunner {
     callbacks: AgentRunnerCallbacks
   ) {
     this.agentType = agentType;
-    // Create a complete ToolContext from partial data
     this.context = this.createToolContext(contextData);
     this.callbacks = callbacks;
-    
-    // Initialize the agent
     this.initializeAgent();
   }
 
   private createToolContext(contextData: Partial<ToolContext>): ToolContext {
-    // Create a message adding function
     const addMessage = (text: string, type: string, attachments?: Attachment[]) => {
       const message: Message = {
         id: uuidv4(),
@@ -51,30 +45,23 @@ export class AgentRunner {
       this.callbacks.onMessage(message);
       return message;
     };
-    
-    // Create the tool availability check function
+
     const toolAvailable = (toolName: string) => {
-      // In a real implementation, this would check if the tool is available
       return true;
     };
-    
-    // Create a tool execution function
+
     const executeTool = async (toolName: string, params: any) => {
       console.log(`Executing tool: ${toolName} with params:`, params);
       if (this.callbacks.onToolExecution) {
         this.callbacks.onToolExecution(toolName, params);
       }
-      
-      // Here we'd implement actual tool execution
-      // For now, just return a success message
       return {
         success: true,
         message: `Tool ${toolName} executed successfully`,
         data: { result: "Tool execution result would go here" }
       };
     };
-    
-    // Return a complete ToolContext
+
     return {
       supabase,
       userId: contextData.metadata?.userId || "",
@@ -93,13 +80,11 @@ export class AgentRunner {
 
   private initializeAgent() {
     try {
-      // Get the agent implementation from the registry
       const AgentClass = AgentRegistry.getAgent(this.agentType);
       if (!AgentClass) {
         throw new Error(`Agent type "${this.agentType}" not found in registry`);
       }
 
-      // Create agent config
       const config: AgentConfig = {
         name: this.agentType,
         instructions: this.getAgentInstructions(this.agentType),
@@ -107,13 +92,11 @@ export class AgentRunner {
         handoffs: this.getAgentHandoffs(this.agentType)
       };
 
-      // Create agent options
       const options: AgentOptions = {
         config,
         context: this.context
       };
 
-      // Create the agent instance
       this.agent = new AgentClass(options);
     } catch (error) {
       console.error("Error initializing agent:", error);
@@ -122,7 +105,6 @@ export class AgentRunner {
   }
 
   private getAgentInstructions(agentType: AgentType): string {
-    // Default instructions based on agent type
     const handoffInstructions = `
     You can transfer the conversation to a specialized agent when appropriate:
     - Script Writer agent: For writing scripts, creative content, or narratives
@@ -132,7 +114,7 @@ export class AgentRunner {
     
     ONLY transfer to another agent when the user's request clearly matches their specialty.
     `;
-    
+
     const baseInstructions: Record<AgentType, string> = {
       main: `You are a helpful AI assistant that can analyze user requests and provide assistance or delegate to specialized agents.
       
@@ -184,16 +166,14 @@ export class AgentRunner {
       
       Create vivid, immersive scenes that help bring the user's vision to life.`
     };
-    
+
     return baseInstructions[agentType] || baseInstructions.main;
   }
-  
+
   private getAgentHandoffs(agentType: AgentType): Array<any> {
-    // Don't add handoffs to an agent type to itself
     const allAgentTypes: AgentType[] = ['main', 'script', 'image', 'tool', 'scene'];
     const availableHandoffs = allAgentTypes.filter(type => type !== agentType);
-    
-    // Create handoff configurations for each available agent type
+
     return availableHandoffs.map(targetAgent => ({
       targetAgent,
       reason: `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`,
@@ -223,43 +203,38 @@ export class AgentRunner {
       status: "thinking"
     };
   }
-  
-  // Handle handoff between agents
-  public async handleHandoff(fromAgent: AgentType, toAgent: AgentType, reason: string, context?: Record<string, any>): Promise<void> {
+
+  public async handleHandoff(fromAgent: AgentType, toAgent: AgentType, reason: string, additionalContext?: Record<string, any>): Promise<void> {
     console.log(`Handling handoff from ${fromAgent} to ${toAgent}: ${reason}`);
     
     if (this.callbacks.onHandoffStart) {
       this.callbacks.onHandoffStart(fromAgent, toAgent, reason);
     }
     
-    // Preserve conversation history for the new agent
-    const inputData: HandoffInputData = {
-      inputHistory: this.conversationHistory.map(msg => msg.content),
-      preHandoffItems: this.conversationHistory.slice(0, -2), // All but the last two messages
-      newItems: this.conversationHistory.slice(-2), // Last two messages - user request and agent response
-      get allItems() {
-        return [...this.preHandoffItems, ...this.newItems];
-      }
+    const historyContent = this.conversationHistory.map(msg => msg.content);
+    const preHandoffItems = this.conversationHistory.slice(0, -2);
+    const newItems = this.conversationHistory.slice(-2);
+    
+    const inputData = {
+      inputHistory: historyContent,
+      preHandoffItems,
+      newItems,
+      allItems: [...preHandoffItems, ...newItems]
     };
     
-    // Filter input data if needed (not implemented yet)
-    // const filteredData = inputFilter ? inputFilter(inputData) : inputData;
-    
-    // Update agent type
-    this.agentType = toAgent;
-    
-    // Update metadata to track handoff
-    this.context.metadata = {
+    const mergedContext = {
       ...this.context.metadata,
       previousAgentType: fromAgent,
       handoffReason: reason,
-      isHandoffContinuation: true
+      isHandoffContinuation: true,
+      ...(additionalContext || {})
     };
     
-    // Reinitialize with the new agent type
+    this.agentType = toAgent;
+    this.context.metadata = mergedContext;
+    
     this.initializeAgent();
     
-    // Notify about handoff completion
     if (this.callbacks.onHandoffEnd) {
       this.callbacks.onHandoffEnd(toAgent);
     }
@@ -273,23 +248,19 @@ export class AgentRunner {
       
       console.log(`Running ${this.agentType} agent with input:`, input);
       
-      // Create and emit the user message
       const userMessage = this.createUserMessage(input, attachments);
       this.conversationHistory.push(userMessage);
       this.callbacks.onMessage(userMessage);
       
-      // Create and emit the assistant message
       const assistantMessage = this.createAssistantMessage(this.agentType);
       this.conversationHistory.push(assistantMessage);
       this.callbacks.onMessage(assistantMessage);
       
-      // Run the agent
       try {
         console.log(`Calling agent.run with input and ${attachments.length} attachments`);
         const agentResult = await this.agent.run(input, attachments);
         console.log(`Agent result:`, agentResult);
         
-        // Update the assistant message with the agent's response
         const updatedAssistantMessage: Message = {
           ...assistantMessage,
           content: agentResult.response || "",
@@ -300,19 +271,16 @@ export class AgentRunner {
           } : undefined
         };
         
-        // If we have structured output, add it (but make it compatible with Message type)
         if (agentResult.structured_output) {
           (updatedAssistantMessage as any).structured_output = agentResult.structured_output;
         }
         
-        // Update conversation history with updated message
         this.conversationHistory = this.conversationHistory.map(msg => 
           msg.id === assistantMessage.id ? updatedAssistantMessage : msg
         );
         
         this.callbacks.onMessage(updatedAssistantMessage);
         
-        // Handle handoff if present
         if (agentResult.nextAgent) {
           console.log(`Handling handoff to ${agentResult.nextAgent} agent`);
           await this.handleHandoff(
@@ -324,14 +292,12 @@ export class AgentRunner {
       } catch (error) {
         console.error(`Error running ${this.agentType} agent:`, error);
         
-        // Update the assistant message with the error
         const errorMessage: Message = {
           ...assistantMessage,
           content: `Sorry, I encountered an error: ${error instanceof Error ? error.message : String(error)}`,
           status: "error"
         };
         
-        // Update conversation history with error message
         this.conversationHistory = this.conversationHistory.map(msg => 
           msg.id === assistantMessage.id ? errorMessage : msg
         );

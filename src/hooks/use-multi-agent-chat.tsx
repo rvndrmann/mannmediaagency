@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -196,7 +195,7 @@ export const useMultiAgentChat = () => {
       content: `Transferring from ${fromAgent} agent to ${toAgent} agent: ${reason}`,
       createdAt: new Date().toISOString(),
       status: "completed",
-      type: "handoff"
+      type: "handoff" as MessageType
     };
     setMessages(prev => [...prev, handoffMessage]);
     

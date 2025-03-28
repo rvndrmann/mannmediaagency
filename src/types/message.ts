@@ -46,9 +46,10 @@ export interface Task {
 export interface HandoffRequest {
   targetAgent: string;
   reason: string;
+  context?: Record<string, any>;
 }
 
-export type MessageType = "user" | "agent" | "system" | "tool";
+export type MessageType = "user" | "agent" | "system" | "tool" | "handoff";
 
 // Agent types
 export interface AgentInfo {

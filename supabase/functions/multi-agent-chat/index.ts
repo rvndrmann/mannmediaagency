@@ -92,8 +92,12 @@ serve(async (req) => {
           Please review the conversation history and maintain continuity.
           
           Important: You are now in control of this conversation thread. The user should not have to repeat their request.
-          Process the latest user message in context of the full conversation history and respond accordingly.`
+          Process the latest user message in context of the full conversation history and respond accordingly.
+          
+          This is a continuation of the conversation, not a new conversation.`
         });
+        
+        logInfo(`[${requestId}] Added handoff continuation context from ${contextData.previousAgentType} to ${agentType}`);
       }
       
       // Process conversation history with appropriate filtering
@@ -135,7 +139,9 @@ serve(async (req) => {
         userMessage += `\n\nNote: This conversation was handed off from the ${
           contextData.previousAgentType || 'previous'
         } agent to you (${agentType} agent) to help with specialized assistance. 
-        Reason: ${contextData.handoffReason || 'Not specified'}`;
+        Reason: ${contextData.handoffReason || 'Not specified'}
+        
+        Please continue the conversation based on this context.`;
         
         // Log that this is a handoff continuation
         logInfo(`[${requestId}] This is a handoff continuation from ${contextData.previousAgentType} to ${agentType}`, {
@@ -303,7 +309,8 @@ serve(async (req) => {
               completion: `I think this request would be better handled by our ${getAgentName(targetAgent)} agent. ${handoffArgs.reason || ''}`,
               handoffRequest: {
                 targetAgent,
-                reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`
+                reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`,
+                preserveFullHistory: true // Always preserve full history for handoffs
               }
             };
           } else if (isToolFunction) {
@@ -349,7 +356,8 @@ serve(async (req) => {
       if (detectedHandoff && detectedHandoff !== agentType) {
         responseData.handoffRequest = {
           targetAgent: detectedHandoff,
-          reason: `Your request about "${getShortSummary(input)}" would be better handled by our ${getAgentName(detectedHandoff)}.`
+          reason: `Your request about "${getShortSummary(input)}" would be better handled by our ${getAgentName(detectedHandoff)}.`,
+          preserveFullHistory: true
         };
       }
     }
@@ -425,10 +433,7 @@ function processConversationHistory(history: any[], currentAgentType: string): a
       processedItem.role = 'system';
     }
     
-    // For assistant messages from other agents, add annotation
-    if (item.role === 'assistant' && item.agentType && item.agentType !== currentAgentType) {
-      // We'll handle the annotation in the parent function
-    }
+    // We'll handle the assistant message annotation in the parent function
     
     return processedItem;
   });

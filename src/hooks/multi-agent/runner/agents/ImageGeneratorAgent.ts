@@ -27,6 +27,13 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       
       console.log(`ImageGeneratorAgent processing with ${conversationHistory.length} historical messages`);
       
+      // Check if this is a handoff continuation
+      const isHandoffContinuation = this.context.metadata?.isHandoffContinuation || false;
+      const previousAgentType = this.context.metadata?.previousAgentType || 'main';
+      const handoffReason = this.context.metadata?.handoffReason || '';
+      
+      console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
+      
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -40,9 +47,9 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: this.context.metadata?.isHandoffContinuation || false,
-            previousAgentType: this.context.metadata?.previousAgentType || 'main',
-            handoffReason: this.context.metadata?.handoffReason || '',
+            isHandoffContinuation: isHandoffContinuation,
+            previousAgentType: previousAgentType,
+            handoffReason: handoffReason,
             instructions: instructions
           },
           conversationHistory: conversationHistory, // Pass conversation history

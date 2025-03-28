@@ -226,7 +226,7 @@ export class AgentRunner {
 
   /**
    * Process a handoff from one agent to another
-   * Implements the agent loop pattern from documentation
+   * Implements the agent loop pattern
    */
   public async handleHandoff(fromAgent: AgentType, toAgent: AgentType, reason: string, additionalContext?: Record<string, any>): Promise<void> {
     console.log(`Handling handoff from ${fromAgent} to ${toAgent}: ${reason}`);
@@ -317,7 +317,11 @@ export class AgentRunner {
           agentInput = contextPrefix + agentInput;
           
           // Run the new agent with the last user message
-          const agentResult = await this.agent!.run(agentInput, lastUserMessage.attachments || []);
+          if (!this.agent) {
+            throw new Error("Agent not initialized after handoff");
+          }
+          
+          const agentResult = await this.agent.run(agentInput, lastUserMessage.attachments || []);
           
           console.log(`${toAgent} agent result:`, agentResult);
           
@@ -381,7 +385,7 @@ export class AgentRunner {
 
   /**
    * Main entry point to run the agent
-   * Implements the agent loop pattern from documentation
+   * Implements the agent loop pattern
    */
   public async run(input: string, attachments: Attachment[] = [], userId: string): Promise<void> {
     try {

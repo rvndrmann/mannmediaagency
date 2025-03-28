@@ -4,7 +4,7 @@ import { CanvasProject } from "@/types/canvas";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Save, ArrowLeft, Check, Edit, MessageSquare, ExternalLink } from "lucide-react";
+import { Save, ArrowLeft, Check, Edit, MessageSquare, ExternalLink, History } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -13,13 +13,15 @@ interface CanvasHeaderProps {
   onChatToggle?: () => void;
   showChatButton?: boolean;
   onFullChatOpen?: () => void;
+  onShowHistory?: () => void;
 }
 
 export function CanvasHeader({ 
   project,
   onChatToggle,
   showChatButton = false,
-  onFullChatOpen
+  onFullChatOpen,
+  onShowHistory
 }: CanvasHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [projectTitle, setProjectTitle] = useState(project?.title || "");
@@ -97,6 +99,17 @@ export function CanvasHeader({
       </div>
       
       <div className="flex items-center space-x-2">
+        {onShowHistory && (
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={onShowHistory}
+          >
+            <History className="h-4 w-4 mr-1" />
+            Project History
+          </Button>
+        )}
+        
         {showChatButton && (
           <>
             <Button 

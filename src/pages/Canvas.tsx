@@ -5,6 +5,7 @@ import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
 import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
 import { CanvasChat } from "@/components/canvas/CanvasChat";
+import { ProjectHistory } from "@/components/canvas/ProjectHistory";
 import { useCanvas } from "@/hooks/use-canvas";
 import { Loader2, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
@@ -19,6 +20,7 @@ export default function Canvas() {
   
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [showChat, setShowChat] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   
   // Check if user is authenticated
   useEffect(() => {
@@ -85,6 +87,10 @@ export default function Canvas() {
     setShowChat(!showChat);
   };
   
+  const toggleHistory = () => {
+    setShowHistory(!showHistory);
+  };
+  
   const handleNavigateToChat = () => {
     // Navigate to the multi-agent chat page with project context
     navigate(`/multi-agent-chat?projectId=${projectId}`);
@@ -119,6 +125,16 @@ export default function Canvas() {
     return <CanvasEmptyState onCreateProject={createProject} />;
   }
 
+  // Show project history view if toggled
+  if (showHistory && project) {
+    return (
+      <ProjectHistory 
+        projectId={project.id} 
+        onBack={toggleHistory} 
+      />
+    );
+  }
+
   // Main canvas UI
   return (
     <TooltipProvider>
@@ -128,6 +144,7 @@ export default function Canvas() {
           onChatToggle={toggleChat}
           showChatButton={true}
           onFullChatOpen={handleNavigateToChat}
+          onShowHistory={toggleHistory}
         />
         
         <div className="flex flex-1 overflow-hidden">

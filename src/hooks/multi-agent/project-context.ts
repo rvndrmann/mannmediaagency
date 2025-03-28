@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { CanvasProject } from "@/types/canvas";
+import { toast } from "sonner";
 
 interface UseProjectContextOptions {
   initialProjectId?: string;
@@ -15,12 +16,14 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   );
   const [projectDetails, setProjectDetails] = useState<CanvasProject | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
+  const [error, setError] = useState<string | null>(null);
 
   const fetchProjectDetails = useCallback(async (projectId: string) => {
     if (!projectId) return null;
     
     try {
       setIsLoading(true);
+      setError(null);
       
       // Fetch project details
       const { data: projectData, error: projectError } = await supabase
@@ -29,7 +32,12 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         .eq('id', projectId)
         .single();
         
-      if (projectError) throw projectError;
+      if (projectError) {
+        if (projectError.code === 'PGRST116') {
+          throw new Error(`Project with ID ${projectId} not found. It may have been deleted.`);
+        }
+        throw projectError;
+      }
       
       // Fetch scenes for the project
       const { data: scenesData, error: scenesError } = await supabase
@@ -76,6 +84,9 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       return formattedProject;
     } catch (error) {
       console.error("Error fetching project details:", error);
+      setError(error instanceof Error ? error.message : "Unknown error fetching project");
+      // Show a toast message for better user feedback
+      toast.error(error instanceof Error ? error.message : "Failed to load project details");
       return null;
     } finally {
       setIsLoading(false);
@@ -104,7 +115,9 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     activeProjectId,
     projectDetails,
     isLoading,
+    error,
     setActiveProject,
-    fetchProjectDetails
+    fetchProjectDetails,
+    refreshProject: () => activeProjectId ? fetchProjectDetails(activeProjectId) : null
   };
 }

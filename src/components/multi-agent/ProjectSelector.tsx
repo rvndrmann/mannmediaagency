@@ -2,7 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
-import { Check, ChevronsUpDown, Video } from "lucide-react";
+import { Check, ChevronsUpDown, Video, PlusCircle } from "lucide-react";
 import { cn } from "@/lib/utils";
 import {
   Command,
@@ -10,6 +10,7 @@ import {
   CommandGroup,
   CommandInput,
   CommandItem,
+  CommandSeparator,
 } from "@/components/ui/command";
 import {
   Popover,
@@ -17,10 +18,12 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 
 interface ProjectSelectorProps {
   selectedProjectId?: string;
   onProjectSelect: (projectId: string) => void;
+  allowCreateNew?: boolean;
 }
 
 interface Project {
@@ -32,12 +35,14 @@ interface Project {
 
 export function ProjectSelector({ 
   selectedProjectId, 
-  onProjectSelect 
+  onProjectSelect,
+  allowCreateNew = true
 }: ProjectSelectorProps) {
   const [open, setOpen] = useState(false);
   const [projects, setProjects] = useState<Project[]>([]);
   const [loading, setLoading] = useState(false);
-
+  const navigate = useNavigate();
+  
   useEffect(() => {
     const fetchProjects = async () => {
       try {
@@ -91,6 +96,55 @@ export function ProjectSelector({
   }, []);
   
   const selectedProject = projects.find(p => p.id === selectedProjectId);
+  
+  const handleCreateNewProject = async () => {
+    try {
+      setLoading(true);
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData.user) {
+        toast.error("You must be logged in to create a project");
+        return;
+      }
+      
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .insert({
+          title: "New Video Project",
+          user_id: userData.user.id
+        })
+        .select('id')
+        .single();
+      
+      if (error) throw error;
+      
+      if (data) {
+        toast.success("New project created");
+        onProjectSelect(data.id);
+        setOpen(false);
+        
+        // Refresh projects list
+        const { data: updatedData, error: fetchError } = await supabase
+          .from('canvas_projects')
+          .select('id, title, created_at')
+          .order('created_at', { ascending: false });
+        
+        if (!fetchError && updatedData) {
+          setProjects(updatedData.map(project => ({
+            id: project.id,
+            title: project.title,
+            createdAt: project.created_at,
+            scenesCount: 0
+          })));
+        }
+      }
+    } catch (error) {
+      console.error("Error creating new project:", error);
+      toast.error("Failed to create new project");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
@@ -142,6 +196,22 @@ export function ProjectSelector({
               </CommandItem>
             ))}
           </CommandGroup>
+          
+          {allowCreateNew && (
+            <>
+              <CommandSeparator />
+              <CommandGroup>
+                <CommandItem
+                  onSelect={handleCreateNewProject}
+                  className="cursor-pointer"
+                  disabled={loading}
+                >
+                  <PlusCircle className="mr-2 h-4 w-4 text-green-500" />
+                  <span>Create new project</span>
+                </CommandItem>
+              </CommandGroup>
+            </>
+          )}
         </Command>
       </PopoverContent>
     </Popover>

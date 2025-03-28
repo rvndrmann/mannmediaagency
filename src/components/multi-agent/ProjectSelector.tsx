@@ -54,6 +54,12 @@ export function ProjectSelector({
           
         if (error) throw error;
         
+        // Make sure data exists and is an array before processing
+        if (!data || !Array.isArray(data)) {
+          setProjects([]);
+          return;
+        }
+        
         // Get scene counts for each project
         const projectsWithSceneCounts = await Promise.all(
           data.map(async (project) => {
@@ -75,6 +81,7 @@ export function ProjectSelector({
       } catch (error) {
         console.error("Error fetching projects:", error);
         toast.error("Failed to load projects");
+        setProjects([]); // Set empty array on error
       } finally {
         setLoading(false);
       }
@@ -110,7 +117,7 @@ export function ProjectSelector({
             {loading ? "Loading projects..." : "No projects found."}
           </CommandEmpty>
           <CommandGroup className="max-h-[300px] overflow-auto">
-            {projects.map((project) => (
+            {projects && projects.map((project) => (
               <CommandItem
                 key={project.id}
                 value={project.id}

@@ -20,6 +20,13 @@ export interface AgentOptions {
 }
 
 export interface RunnerContext extends ToolContext {
+  supabase: typeof supabase;
+  groupId: string;
+  runId: string;
+  userId: string;
+  usePerformanceModel: boolean;
+  enableDirectToolExecution: boolean;
+  tracingDisabled: boolean;
   metadata: {
     conversationHistory?: Message[];
     isHandoffContinuation?: boolean;
@@ -29,6 +36,8 @@ export interface RunnerContext extends ToolContext {
     continuityData?: any;
     [key: string]: any;
   };
+  addMessage: (text: string, type: string, attachments?: Attachment[]) => void;
+  toolAvailable: (toolName: string) => boolean;
 }
 
 export interface RunnerCallbacks {

@@ -336,6 +336,28 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       const groupId = uuidv4();
       const runId = uuidv4();
       
+      // Helper function for sending messages from the agent
+      const addMessage = (text: string, type: string, attachments?: Attachment[]) => {
+        const newMessage: Message = {
+          id: uuidv4(),
+          content: text,
+          role: "assistant",
+          createdAt: new Date().toISOString(),
+          agentType: activeAgent,
+          type: type as MessageType,
+          attachments
+        };
+        
+        setMessages(prev => [...prev, newMessage]);
+        return newMessage;
+      };
+      
+      // Helper function to check if a tool is available
+      const toolAvailable = (toolName: string) => {
+        // Simple implementation - in a real app, you'd check against available tools
+        return true;
+      };
+      
       // Create the agent runner
       const currentAgent = agentId || activeAgent;
       const runner = new AgentRunner(
@@ -344,9 +366,12 @@ You can use the canvas tool to save scene descriptions and image prompts directl
           supabase,
           groupId,
           runId,
+          userId: user.id,
           usePerformanceModel,
           enableDirectToolExecution,
           tracingDisabled: !tracingEnabled,
+          addMessage,
+          toolAvailable,
           metadata: {
             conversationHistory: messages,
             instructions: agentInstructions[currentAgent],

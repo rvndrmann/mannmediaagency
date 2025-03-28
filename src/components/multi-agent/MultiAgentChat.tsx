@@ -147,19 +147,10 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
   };
   
   const handleProjectSelect = (projectId: string) => {
-    setActiveProject(projectId);
-    toast.success("Switched to project");
-    
-    // Add a system message about project switch
-    const systemMessage = {
-      id: crypto.randomUUID(),
-      role: "system" as const,
-      content: `Switched to Canvas project: ${projectDetails?.title || projectId}`,
-      createdAt: new Date().toISOString(),
-      type: "system" as const
-    };
-    
-    // This will be handled in the use-multi-agent-chat.tsx hook
+    if (projectId) {
+      setActiveProject(projectId);
+      toast.success("Switched to project");
+    }
   };
 
   return (
@@ -302,7 +293,7 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
         }
         
         <div className="flex-1 flex flex-col overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 shadow-lg">
-          {messages.length > 0 ? (
+          {messages && messages.length > 0 ? (
             <ScrollArea ref={scrollAreaRef} className="flex-1">
               <div className="p-4 space-y-6">
                 {messages.map((message, index) => (
@@ -344,7 +335,7 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
         </div>
         
         <div className="mt-2 bg-[#21283B]/40 backdrop-blur-sm rounded-xl border border-white/10 p-2">
-          {pendingAttachments.length > 0 && (
+          {pendingAttachments && pendingAttachments.length > 0 && (
             <div className="mb-1.5">
               <AttachmentPreview
                 attachments={pendingAttachments}

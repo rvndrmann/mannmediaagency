@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -12,7 +13,8 @@ import {
   SplitSquareVertical, 
   Edit,
   Check,
-  X
+  X,
+  Loader2
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -34,6 +36,7 @@ export function ProjectScriptEditor({
   const [script, setScript] = useState(project.fullScript || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
+  const [isProcessingWithAI, setIsProcessingWithAI] = useState(false);
   const [projectTitle, setProjectTitle] = useState(project.title);
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [suggestedTitle, setSuggestedTitle] = useState("");
@@ -57,6 +60,9 @@ export function ProjectScriptEditor({
       if (!project.fullScript || project.fullScript.length < script.length * 0.5) {
         suggestTitleFromScript(script);
       }
+      
+      // Automatically process the script with AI after saving
+      handleProcessWithAI();
     } catch (error) {
       console.error("Error saving script:", error);
       toast.error("Failed to save script");
@@ -120,6 +126,54 @@ export function ProjectScriptEditor({
     return [firstPart, ...splitAtSentenceBoundary(restPart, maxLength)];
   };
   
+  const handleProcessWithAI = async () => {
+    if (!script.trim()) {
+      toast.error("Script cannot be empty");
+      return;
+    }
+    
+    if (scenes.length === 0) {
+      toast.error("No scenes to divide script into");
+      return;
+    }
+    
+    setIsProcessingWithAI(true);
+    try {
+      const sceneIds = scenes.map(scene => scene.id);
+      
+      // Call our edge function to process the script with AI
+      const { data: processingResult, error } = await supabase.functions.invoke('process-script', {
+        body: { script, sceneIds }
+      });
+      
+      if (error) {
+        throw new Error(`Error from edge function: ${error.message}`);
+      }
+      
+      if (!processingResult.scenes || !Array.isArray(processingResult.scenes)) {
+        throw new Error("Invalid response from AI processing");
+      }
+      
+      // Prepare scene scripts with the AI response
+      const sceneScripts = processingResult.scenes.map(scene => ({
+        id: scene.id,
+        content: scene.content,
+        voiceOverText: scene.voiceOverText
+      }));
+      
+      // Send the processed scripts back to the canvas
+      await divideScriptToScenes(sceneScripts);
+      toast.success("Script processed and divided with AI assistance");
+    } catch (error) {
+      console.error("Error processing script with AI:", error);
+      toast.error("Failed to process script with AI, falling back to manual division");
+      // Fall back to the manual division method
+      handleDivideScript();
+    } finally {
+      setIsProcessingWithAI(false);
+    }
+  };
+  
   const handleDivideScript = async () => {
     if (!script.trim()) {
       toast.error("Script cannot be empty");
@@ -156,7 +210,7 @@ export function ProjectScriptEditor({
         const paragraphs = script.split(/\n\s*\n/)
           .filter(p => p.trim().length > 0);
         
-        const CHAR_LIMIT = 1500;
+        const CHAR_LIMIT = 2000; // Increased character limit for larger scenes
         
         if (paragraphs.length <= scenes.length) {
           paragraphs.forEach(paragraph => {
@@ -295,18 +349,32 @@ export function ProjectScriptEditor({
           <Button 
             variant="outline" 
             onClick={handleSaveScript}
-            disabled={isSaving}
+            disabled={isSaving || isProcessingWithAI}
           >
             <Save className="h-4 w-4 mr-2" />
             {isSaving ? "Saving..." : "Save Script"}
           </Button>
           <Button 
+            variant="outline" 
+            onClick={handleProcessWithAI}
+            disabled={isDividing || isProcessingWithAI || !script.trim()}
+          >
+            <Wand2 className="h-4 w-4 mr-2" />
+            {isProcessingWithAI ? 
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                "Processing with AI..."
+              </> : 
+              "Process with AI"
+            }
+          </Button>
+          <Button 
             variant="default" 
             onClick={handleDivideScript}
-            disabled={isDividing || !script.trim()}
+            disabled={isDividing || isProcessingWithAI || !script.trim()}
           >
             <SplitSquareVertical className="h-4 w-4 mr-2" />
-            {isDividing ? "Dividing..." : "Divide into Scenes"}
+            {isDividing ? "Dividing..." : "Divide Manually"}
           </Button>
         </div>
       </div>

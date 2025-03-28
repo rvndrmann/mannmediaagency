@@ -1,10 +1,12 @@
-
 import { useState } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Table, TableHeader, TableRow, TableHead, TableBody, TableCell } from "@/components/ui/table";
-import { Loader2, Save, Edit, Play, Image, Video, Wand2, Plus, Trash, X } from "lucide-react";
+import { 
+  Loader2, Save, Edit, Play, Image, Video, Wand2, Plus, 
+  Trash, X, Music, Mic 
+} from "lucide-react";
 import { toast } from "sonner";
 import { Input } from "@/components/ui/input";
 
@@ -12,7 +14,7 @@ interface SceneTableProps {
   scenes: CanvasScene[];
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string) => void;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
 }
 
@@ -267,6 +269,37 @@ export function SceneTable({
       </div>
     );
   };
+
+  const renderAudio = (scene: CanvasScene, type: 'voiceOver' | 'backgroundMusic') => {
+    const url = type === 'voiceOver' ? scene.voiceOverUrl : scene.backgroundMusicUrl;
+    const icon = type === 'voiceOver' ? <Mic className="h-4 w-4 mr-1" /> : <Music className="h-4 w-4 mr-1" />;
+    const title = type === 'voiceOver' ? 'Voice-Over' : 'Background Music';
+    
+    if (!url) {
+      return (
+        <div className="flex justify-center items-center h-8">
+          <span className="text-gray-400 text-xs">No {title}</span>
+        </div>
+      );
+    }
+    
+    return (
+      <div className="flex items-center justify-center h-8">
+        <Button
+          variant="ghost"
+          size="sm"
+          className="h-7"
+          onClick={() => {
+            const audio = new Audio(url);
+            audio.play();
+          }}
+        >
+          {icon}
+          Play {title}
+        </Button>
+      </div>
+    );
+  };
   
   return (
     <div className="w-full overflow-auto">
@@ -274,12 +307,12 @@ export function SceneTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[120px]">Scene</TableHead>
-            <TableHead className="w-[22%]">Script</TableHead>
-            <TableHead className="w-[22%]">Description</TableHead>
-            <TableHead className="w-[22%]">Image Prompt</TableHead>
+            <TableHead className="w-[20%]">Script</TableHead>
+            <TableHead className="w-[20%]">Image Prompt</TableHead>
             <TableHead>Scene Image</TableHead>
             <TableHead>Product Image</TableHead>
-            <TableHead>Video</TableHead>
+            <TableHead>Voice-Over</TableHead>
+            <TableHead>Music</TableHead>
             <TableHead className="w-[60px]">Actions</TableHead>
           </TableRow>
         </TableHeader>
@@ -292,11 +325,11 @@ export function SceneTable({
             >
               <TableCell className="font-medium">{scene.title}</TableCell>
               <TableCell>{renderField(scene, 'script')}</TableCell>
-              <TableCell>{renderField(scene, 'description')}</TableCell>
               <TableCell>{renderField(scene, 'imagePrompt')}</TableCell>
               <TableCell>{renderMedia(scene, 'image')}</TableCell>
               <TableCell>{renderMedia(scene, 'productImage')}</TableCell>
-              <TableCell>{renderMedia(scene, 'video')}</TableCell>
+              <TableCell>{renderAudio(scene, 'voiceOver')}</TableCell>
+              <TableCell>{renderAudio(scene, 'backgroundMusic')}</TableCell>
               <TableCell>
                 <Button
                   variant="ghost"

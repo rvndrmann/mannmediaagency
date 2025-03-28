@@ -16,11 +16,13 @@ export interface CanvasScene {
   title: string;
   order: number; // We'll map this to scene_order in the database
   script?: string;
-  description?: string; // Added scene description field
+  description?: string;
   imagePrompt?: string;
   imageUrl?: string;
-  productImageUrl?: string; // Added product image URL field
+  productImageUrl?: string;
   videoUrl?: string;
+  voiceOverUrl?: string; // New field for voice-over
+  backgroundMusicUrl?: string; // New field for background music
   duration?: number;
   createdAt: string;
   updatedAt: string;
@@ -29,14 +31,14 @@ export interface CanvasScene {
 export interface MediaAsset {
   id: string;
   url: string;
-  type: 'image' | 'video';
+  type: 'image' | 'video' | 'audio';
   name: string;
   sceneId?: string;
   projectId: string;
   createdAt: string;
 }
 
-export type SceneUpdateType = 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video';
+export type SceneUpdateType = 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic';
 
 export interface AgentAction {
   agentType: string;

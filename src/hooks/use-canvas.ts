@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -53,11 +52,13 @@ export const useCanvas = (projectId?: string) => {
             title: scene.title,
             order: scene.scene_order, // Map scene_order to order
             script: scene.script,
-            description: scene.description || "", // Ensure description is handled correctly
+            description: scene.description || "", 
             imagePrompt: scene.image_prompt,
             imageUrl: scene.image_url,
-            productImageUrl: scene.product_image_url || "", // Ensure product_image_url is handled correctly
+            productImageUrl: scene.product_image_url || "",
             videoUrl: scene.video_url,
+            voiceOverUrl: scene.voice_over_url || "", // Add voice over URL
+            backgroundMusicUrl: scene.background_music_url || "", // Add background music URL
             duration: scene.duration,
             createdAt: scene.created_at,
             updatedAt: scene.updated_at
@@ -257,7 +258,9 @@ export const useCanvas = (projectId?: string) => {
         imagePrompt: 'image_prompt',
         image: 'image_url',
         productImage: 'product_image_url',
-        video: 'video_url'
+        video: 'video_url',
+        voiceOver: 'voice_over_url',
+        backgroundMusic: 'background_music_url'
       };
       
       const field = fieldMap[type];
@@ -286,6 +289,8 @@ export const useCanvas = (projectId?: string) => {
               else if (type === 'image') updatedScene.imageUrl = value;
               else if (type === 'productImage') updatedScene.productImageUrl = value;
               else if (type === 'video') updatedScene.videoUrl = value;
+              else if (type === 'voiceOver') updatedScene.voiceOverUrl = value;
+              else if (type === 'backgroundMusic') updatedScene.backgroundMusicUrl = value;
               
               return updatedScene;
             }

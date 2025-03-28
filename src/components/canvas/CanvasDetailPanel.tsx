@@ -8,13 +8,14 @@ import { PanelRight, ChevronRight, Wand2, Upload, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentSelector } from "./AgentSelector";
+import { AudioUploader } from "./AudioUploader";
 import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }
@@ -84,6 +85,46 @@ export function CanvasDetailPanel({
       toast.error("Failed to remove product image");
     }
   };
+
+  const handleVoiceOverUploaded = async (url: string) => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'voiceOver', url);
+    } catch (error) {
+      console.error("Error saving voice-over URL:", error);
+      throw error;
+    }
+  };
+
+  const handleRemoveVoiceOver = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'voiceOver', '');
+    } catch (error) {
+      console.error("Error removing voice-over:", error);
+      throw error;
+    }
+  };
+
+  const handleBackgroundMusicUploaded = async (url: string) => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'backgroundMusic', url);
+    } catch (error) {
+      console.error("Error saving background music URL:", error);
+      throw error;
+    }
+  };
+
+  const handleRemoveBackgroundMusic = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'backgroundMusic', '');
+    } catch (error) {
+      console.error("Error removing background music:", error);
+      throw error;
+    }
+  };
   
   if (collapsed) {
     return (
@@ -133,6 +174,7 @@ export function CanvasDetailPanel({
         <Tabs defaultValue="edit" className="flex-1 flex flex-col">
           <TabsList className="w-full">
             <TabsTrigger value="edit" className="flex-1">Edit</TabsTrigger>
+            <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
             <TabsTrigger value="ai" className="flex-1">AI</TabsTrigger>
           </TabsList>
           
@@ -181,7 +223,26 @@ export function CanvasDetailPanel({
                     placeholder="Enter image prompt for this scene..."
                   />
                 </div>
-
+                
+                <div className="space-y-2">
+                  <Label>Scene Duration</Label>
+                  <div className="flex items-center gap-2">
+                    <Input
+                      type="number"
+                      min="1"
+                      value={scene.duration || 5}
+                      onChange={() => {}}
+                    />
+                    <span className="text-muted-foreground">seconds</span>
+                  </div>
+                </div>
+              </div>
+            </ScrollArea>
+          </TabsContent>
+          
+          <TabsContent value="media" className="flex-1 p-0">
+            <ScrollArea className="flex-1 p-4 h-full">
+              <div className="space-y-6">
                 <div className="space-y-2">
                   <Label>Product Image</Label>
                   <input
@@ -221,19 +282,22 @@ export function CanvasDetailPanel({
                     </Button>
                   )}
                 </div>
+
+                <AudioUploader 
+                  label="Voice-Over"
+                  audioUrl={scene?.voiceOverUrl}
+                  onAudioUploaded={handleVoiceOverUploaded}
+                  onRemoveAudio={handleRemoveVoiceOver}
+                  bucketName="voice-over"
+                />
                 
-                <div className="space-y-2">
-                  <Label>Scene Duration</Label>
-                  <div className="flex items-center gap-2">
-                    <Input
-                      type="number"
-                      min="1"
-                      value={scene.duration || 5}
-                      onChange={() => {}}
-                    />
-                    <span className="text-muted-foreground">seconds</span>
-                  </div>
-                </div>
+                <AudioUploader 
+                  label="Background Music"
+                  audioUrl={scene?.backgroundMusicUrl}
+                  onAudioUploaded={handleBackgroundMusicUploaded}
+                  onRemoveAudio={handleRemoveBackgroundMusic}
+                  bucketName="background-music"
+                />
               </div>
             </ScrollArea>
           </TabsContent>

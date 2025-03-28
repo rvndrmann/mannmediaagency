@@ -1,17 +1,17 @@
-
 import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { CanvasScene } from "@/types/canvas";
-import { Edit, Copy, Save, Wand2, Loader2 } from "lucide-react";
+import { Edit, Copy, Save, Wand2, Loader2, Music, Mic, Play } from "lucide-react";
 
 interface SceneCardProps {
   title: string;
   content?: string;
   imageUrl?: string;
   videoUrl?: string;
-  type: "text" | "image" | "video";
+  type: "text" | "image" | "video" | "audio";
+  audioType?: "voiceOver" | "backgroundMusic";
   scene: CanvasScene;
   onUpdate: (value: string) => Promise<void>;
 }
@@ -22,12 +22,15 @@ export function SceneCard({
   imageUrl,
   videoUrl,
   type,
+  audioType,
   scene,
   onUpdate,
 }: SceneCardProps) {
   const [isEditing, setIsEditing] = useState(false);
   const [editedContent, setEditedContent] = useState(content || "");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [audio, setAudio] = useState<HTMLAudioElement | null>(null);
 
   const handleEdit = () => {
     setEditedContent(content || "");
@@ -51,6 +54,35 @@ export function SceneCard({
   const handleCopy = () => {
     if (type === "text" && content) {
       navigator.clipboard.writeText(content);
+    }
+  };
+
+  const toggleAudio = () => {
+    if (type === "audio") {
+      const audioUrl = audioType === "voiceOver" 
+        ? scene.voiceOverUrl 
+        : scene.backgroundMusicUrl;
+      
+      if (!audioUrl) return;
+
+      if (!audio) {
+        const newAudio = new Audio(audioUrl);
+        newAudio.addEventListener('ended', () => {
+          setIsPlaying(false);
+        });
+        setAudio(newAudio);
+        newAudio.play();
+        setIsPlaying(true);
+      } else {
+        if (isPlaying) {
+          audio.pause();
+          audio.currentTime = 0;
+          setIsPlaying(false);
+        } else {
+          audio.play();
+          setIsPlaying(true);
+        }
+      }
     }
   };
 
@@ -102,13 +134,54 @@ export function SceneCard({
       );
     }
 
+    if (type === "audio") {
+      const audioUrl = audioType === "voiceOver" 
+        ? scene.voiceOverUrl 
+        : scene.backgroundMusicUrl;
+      
+      if (!audioUrl) {
+        return <p className="text-muted-foreground italic">No audio uploaded</p>;
+      }
+      
+      return (
+        <div className="flex flex-col items-center justify-center p-4">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={toggleAudio}
+            className="mb-2"
+          >
+            {isPlaying ? (
+              <>Stop Playing</>
+            ) : (
+              <>
+                <Play className="h-4 w-4 mr-2" />
+                Play {audioType === "voiceOver" ? "Voice-Over" : "Music"}
+              </>
+            )}
+          </Button>
+          <p className="text-xs text-muted-foreground truncate max-w-full">
+            {new URL(audioUrl).pathname.split('/').pop()}
+          </p>
+        </div>
+      );
+    }
+
     return <p className="text-muted-foreground italic">No content yet</p>;
   };
 
   return (
     <Card className="overflow-hidden">
       <CardHeader className="pb-2 flex flex-row items-center justify-between">
-        <CardTitle className="text-base">{title}</CardTitle>
+        <CardTitle className="text-base">
+          {title}
+          {type === "audio" && audioType === "voiceOver" && (
+            <Mic className="h-4 w-4 inline ml-2" />
+          )}
+          {type === "audio" && audioType === "backgroundMusic" && (
+            <Music className="h-4 w-4 inline ml-2" />
+          )}
+        </CardTitle>
         <div className="flex gap-1">
           {type === "text" && (
             <>

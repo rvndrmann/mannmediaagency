@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -21,7 +22,7 @@ export function AIToolsOverview() {
       const { data: imageJobs, error: imageError } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['IN_QUEUE', 'PROCESSING']) // Now using the FAL.AI status names directly
+        .in('status', ['pending', 'processing']) // Use the database's actual enum values
         .order('created_at', { ascending: false });
 
       if (imageError) throw imageError;
@@ -197,7 +198,7 @@ export function AIToolsOverview() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           job.error_message?.includes('400')
                             ? 'bg-red-100 text-red-800'
-                            : job.status === 'IN_QUEUE'
+                            : job.status === 'pending'
                               ? 'bg-yellow-100 text-yellow-800'
                               : 'bg-blue-100 text-blue-800'
                         }`}>

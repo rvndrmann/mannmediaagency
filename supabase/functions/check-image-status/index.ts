@@ -60,12 +60,20 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log('Status response:', statusData)
 
-    // No need to map - use the Fal.ai status directly
-    const newStatus = statusData.status || 'IN_QUEUE'
+    // Map Fal.ai status to our database status
+    let dbStatus = 'pending' // Default fallback
+    if (statusData.status === 'COMPLETED') {
+      dbStatus = 'completed'
+    } else if (statusData.status === 'FAILED') {
+      dbStatus = 'failed'
+    } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
+      dbStatus = 'pending'
+    }
+    
     let resultUrl = job.result_url
     let errorMessage = job.error_message
 
-    if (newStatus === 'COMPLETED') {
+    if (statusData.status === 'COMPLETED') {
       // Fetch the result
       const resultResponse = await fetch(
         `https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}`,
@@ -90,7 +98,7 @@ serve(async (req) => {
         const { error: updateError } = await supabase
           .from('image_generation_jobs')
           .update({
-            status: newStatus,
+            status: dbStatus,
             result_url: resultUrl
           })
           .eq('id', jobId)
@@ -99,13 +107,13 @@ serve(async (req) => {
           throw new Error('Failed to update job record')
         }
       }
-    } else if (newStatus === 'FAILED') {
+    } else if (statusData.status === 'FAILED') {
       errorMessage = statusData.error || 'Unknown error occurred during generation'
       // Update job status
       await supabase
         .from('image_generation_jobs')
         .update({ 
-          status: newStatus,
+          status: dbStatus,
           error_message: errorMessage
         })
         .eq('id', jobId)
@@ -114,14 +122,14 @@ serve(async (req) => {
       await supabase
         .from('image_generation_jobs')
         .update({ 
-          status: newStatus
+          status: dbStatus
         })
         .eq('id', jobId)
     }
 
     return new Response(
       JSON.stringify({
-        status: newStatus,
+        status: dbStatus,
         resultUrl,
         errorMessage,
         falStatus: statusData.status

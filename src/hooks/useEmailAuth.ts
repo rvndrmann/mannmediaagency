@@ -21,6 +21,7 @@ export const useEmailAuth = () => {
       setStatus("loading");
       setError("");
       
+      console.log(`Attempting email login for: ${email}`);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
@@ -34,9 +35,14 @@ export const useEmailAuth = () => {
         return;
       }
 
+      console.log("Login successful:", data.user?.email);
       toast.success("Logged in successfully!");
       setStatus("success");
-      navigate("/");
+      
+      // Use a small delay to ensure state updates complete before navigation
+      setTimeout(() => {
+        navigate("/");
+      }, 100);
     } catch (err: any) {
       console.error("Unexpected login error:", err);
       setError(err.message || "An unexpected error occurred");
@@ -60,9 +66,13 @@ export const useEmailAuth = () => {
       setStatus("loading");
       setError("");
       
+      console.log(`Attempting email signup for: ${email}`);
       const { data, error } = await supabase.auth.signUp({
         email,
-        password
+        password,
+        options: {
+          emailRedirectTo: `${window.location.origin}/auth/callback`
+        }
       });
 
       if (error) {
@@ -89,7 +99,11 @@ export const useEmailAuth = () => {
       setStatus("success");
       
       if (data.session) {
-        navigate("/");
+        console.log("Signup successful with session:", data.user?.email);
+        // Use a small delay to ensure state updates complete before navigation
+        setTimeout(() => {
+          navigate("/");
+        }, 100);
       }
     } catch (err: any) {
       console.error("Unexpected signup error:", err);

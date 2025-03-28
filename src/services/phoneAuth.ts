@@ -21,6 +21,8 @@ export const phoneAuthService = {
         phone: formattedNumber,
         options: {
           shouldCreateUser: true,
+          // Explicitly set redirect URL to ensure proper callback handling
+          emailRedirectTo: `${window.location.origin}/auth/callback`
         }
       });
       
@@ -28,6 +30,8 @@ export const phoneAuthService = {
         console.error('Error sending verification code:', error);
         throw this.normalizeError(error);
       }
+      
+      console.log('Verification code sent successfully');
     } catch (error) {
       console.error('Exception in phone auth service:', error);
       throw this.normalizeError(error);

@@ -10,16 +10,39 @@ const AuthCallback = () => {
   useEffect(() => {
     const handleCallback = async () => {
       try {
-        // Set up auth state listener FIRST
-        const { data: { subscription } } = supabase.auth.onAuthStateChange(
-          (event, newSession) => {
-            if (event === 'SIGNED_IN' && newSession) {
-              console.log("Auth state changed: User is signed in");
+        console.log("Auth callback started");
+        
+        // Handle the URL hash fragment for OAuth providers
+        if (window.location.hash) {
+          console.log("Processing hash fragment");
+          const params = new URLSearchParams(window.location.hash.substring(1));
+          const accessToken = params.get('access_token');
+          const refreshToken = params.get('refresh_token');
+          
+          if (accessToken) {
+            console.log("Found access token in URL");
+            // Use the token to set the session
+            const { data, error } = await supabase.auth.setSession({
+              access_token: accessToken,
+              refresh_token: refreshToken || "",
+            });
+            
+            if (error) {
+              console.error("Error setting session:", error);
+              throw error;
+            }
+            
+            if (data.session) {
+              console.log("Session set successfully");
+              toast.success("Successfully logged in!");
+              navigate("/", { replace: true });
+              return;
             }
           }
-        );
-
-        // Get the current session
+        }
+        
+        // If no hash parameters or session setting failed, try to get the current session
+        console.log("Checking for existing session");
         const { data: { session }, error: sessionError } = await supabase.auth.getSession();
 
         if (sessionError) {
@@ -29,23 +52,26 @@ const AuthCallback = () => {
 
         // If we have a session, we're good to go
         if (session?.user) {
-          console.log("Authentication successful for:", session.user.email);
+          console.log("Found existing session for:", session.user.email);
           toast.success("Successfully logged in!");
           navigate("/", { replace: true });
           return;
         }
 
-        // If no session, check for access token in URL
-        const params = new URLSearchParams(window.location.hash.substring(1));
-        const accessToken = params.get('access_token');
-        
-        if (!accessToken) {
-          console.error("No access token found");
-          throw new Error("Authentication failed. Please try again.");
-        }
+        // Set up auth state listener for future changes
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(
+          (event, newSession) => {
+            console.log("Auth state changed:", event);
+            if (event === 'SIGNED_IN' && newSession) {
+              console.log("User signed in:", newSession.user?.email);
+              toast.success("Successfully logged in!");
+              navigate("/", { replace: true });
+            }
+          }
+        );
 
-        // At this point, we should have either gotten a session or found an access token
-        // If we get here without either, something went wrong
+        // If we got here without a session, something went wrong
+        console.error("No session found and no tokens in URL");
         throw new Error("Authentication failed. Please try again.");
       } catch (error: any) {
         console.error("Auth callback error:", error);

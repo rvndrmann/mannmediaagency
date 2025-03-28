@@ -1,6 +1,7 @@
 
 import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { HandoffInputData, HandoffInputFilter, HandoffOptions } from "./types";
+import { Attachment } from "@/types/message";
 
 /**
  * Create a handoff to another agent

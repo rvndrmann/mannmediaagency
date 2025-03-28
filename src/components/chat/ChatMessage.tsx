@@ -1,6 +1,7 @@
+
 import { Card } from "@/components/ui/card";
 import ReactMarkdown from "react-markdown";
-import { Message, Task } from "@/types/message";
+import { Message, Task, MessageType } from "@/types/message";
 import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";

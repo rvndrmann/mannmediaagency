@@ -1,4 +1,3 @@
-
 import { useState, useRef } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -33,7 +32,9 @@ export function SceneTable({
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [deletingScene, setDeletingScene] = useState<string | null>(null);
   const [playingAudio, setPlayingAudio] = useState<{sceneId: string, type: 'voiceOver' | 'backgroundMusic'} | null>(null);
+  const [playingVideo, setPlayingVideo] = useState<string | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
   
   const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt' | 'description', content: string = "") => {
     setEditingField({ sceneId, field });
@@ -85,7 +86,6 @@ export function SceneTable({
       
       try {
         if (type === 'voiceOver' || type === 'backgroundMusic') {
-          // Handle audio upload to Supabase storage
           const bucketName = type === 'voiceOver' ? 'voice-over' : 'background-music';
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
@@ -104,8 +104,26 @@ export function SceneTable({
             .getPublicUrl(fileName);
           
           await updateScene(sceneId, type, publicUrl);
+        } else if (type === 'video') {
+          const bucketName = 'scene-videos';
+          const fileExt = file.name.split('.').pop();
+          const fileName = `${crypto.randomUUID()}.${fileExt}`;
+          
+          const { error: uploadError } = await supabase.storage
+            .from(bucketName)
+            .upload(fileName, file, {
+              cacheControl: '3600',
+              upsert: false
+            });
+            
+          if (uploadError) throw uploadError;
+          
+          const { data: { publicUrl } } = supabase.storage
+            .from(bucketName)
+            .getPublicUrl(fileName);
+          
+          await updateScene(sceneId, type, publicUrl);
         } else {
-          // Handle image/video upload
           const reader = new FileReader();
           reader.onload = async (event) => {
             const dataUrl = event.target?.result as string;
@@ -131,7 +149,6 @@ export function SceneTable({
     updateScene(sceneId, type, '')
       .then(() => {
         toast.success(`${type} removed`);
-        // Stop audio if currently playing
         if ((type === 'voiceOver' || type === 'backgroundMusic') && 
             playingAudio?.sceneId === sceneId && 
             playingAudio?.type === type) {
@@ -141,12 +158,18 @@ export function SceneTable({
           }
           setPlayingAudio(null);
         }
+        if (type === 'video' && playingVideo === sceneId) {
+          if (videoRef.current) {
+            videoRef.current.pause();
+            videoRef.current = null;
+          }
+          setPlayingVideo(null);
+        }
       })
       .catch(error => toast.error(`Failed to remove ${type}: ${error}`));
   };
   
   const handlePlayAudio = (sceneId: string, type: 'voiceOver' | 'backgroundMusic', url: string) => {
-    // If we're already playing this audio, stop it
     if (playingAudio?.sceneId === sceneId && playingAudio?.type === type) {
       if (audioRef.current) {
         audioRef.current.pause();
@@ -156,12 +179,10 @@ export function SceneTable({
       return;
     }
     
-    // If we're playing something else, stop it first
     if (audioRef.current) {
       audioRef.current.pause();
     }
     
-    // Play the new audio
     const audio = new Audio(url);
     audio.onended = () => {
       setPlayingAudio(null);
@@ -170,6 +191,31 @@ export function SceneTable({
     audio.play();
     audioRef.current = audio;
     setPlayingAudio({ sceneId, type });
+  };
+  
+  const handlePlayVideo = (sceneId: string, url: string) => {
+    if (playingVideo === sceneId) {
+      if (videoRef.current) {
+        videoRef.current.pause();
+        videoRef.current = null;
+      }
+      setPlayingVideo(null);
+      return;
+    }
+    
+    if (videoRef.current) {
+      videoRef.current.pause();
+    }
+    
+    const video = document.createElement('video');
+    video.src = url;
+    video.onended = () => {
+      setPlayingVideo(null);
+      videoRef.current = null;
+    };
+    video.play();
+    videoRef.current = video;
+    setPlayingVideo(sceneId);
   };
   
   const handleDeleteScene = async (sceneId: string, e: React.MouseEvent) => {
@@ -316,7 +362,7 @@ export function SceneTable({
     return (
       <div className="relative group">
         <div className="h-[100px] bg-slate-800 flex items-center justify-center rounded">
-          {url.startsWith('data:video') || url.includes('.mp4') ? (
+          {url.startsWith('data:video') || url.includes('.mp4') || url.includes('mp4') ? (
             <video 
               src={url} 
               className="h-full w-full object-cover" 
@@ -328,8 +374,18 @@ export function SceneTable({
         </div>
         <div className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/30 rounded">
           <div className="flex space-x-2">
-            <Button variant="ghost" size="sm" className="text-white bg-black/30 hover:bg-black/50">
-              <Play className="h-4 w-4 mr-1" /> Play
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="text-white bg-black/30 hover:bg-black/50"
+              onClick={() => handlePlayVideo(scene.id, url)}
+            >
+              {playingVideo === scene.id ? (
+                <PauseCircle className="h-4 w-4 mr-1" />
+              ) : (
+                <Play className="h-4 w-4 mr-1" />
+              )}
+              {playingVideo === scene.id ? 'Stop' : 'Play'}
             </Button>
             <Button 
               variant="ghost" 
@@ -416,6 +472,7 @@ export function SceneTable({
             <TableHead className="w-[20%]">Script</TableHead>
             <TableHead className="w-[20%]">Image Prompt</TableHead>
             <TableHead>Scene Image</TableHead>
+            <TableHead>Video</TableHead>
             <TableHead>Product Image</TableHead>
             <TableHead>Voice-Over</TableHead>
             <TableHead>Music</TableHead>
@@ -433,6 +490,7 @@ export function SceneTable({
               <TableCell>{renderField(scene, 'script')}</TableCell>
               <TableCell>{renderField(scene, 'imagePrompt')}</TableCell>
               <TableCell>{renderMedia(scene, 'image')}</TableCell>
+              <TableCell>{renderMedia(scene, 'video')}</TableCell>
               <TableCell>{renderMedia(scene, 'productImage')}</TableCell>
               <TableCell>{renderAudio(scene, 'voiceOver')}</TableCell>
               <TableCell>{renderAudio(scene, 'backgroundMusic')}</TableCell>

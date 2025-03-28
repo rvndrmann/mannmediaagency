@@ -4,7 +4,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlusCircle } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ProjectScriptEditor } from "./ProjectScriptEditor";
 import { SceneEditor } from "./SceneEditor";
 import { SceneDetailPanel } from "./SceneDetailPanel";
@@ -37,6 +37,14 @@ export function CanvasWorkspace({
   updateProjectTitle
 }: CanvasWorkspaceProps) {
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
+  const [activeTab, setActiveTab] = useState("script");
+  
+  // Update active tab to "scenes" when a scene is selected
+  useEffect(() => {
+    if (selectedSceneId) {
+      setActiveTab("scenes");
+    }
+  }, [selectedSceneId]);
 
   if (!project) {
     return (
@@ -59,7 +67,11 @@ export function CanvasWorkspace({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
-      <Tabs defaultValue="script" className="flex-1 flex flex-col overflow-hidden">
+      <Tabs 
+        value={activeTab} 
+        onValueChange={setActiveTab} 
+        className="flex-1 flex flex-col overflow-hidden"
+      >
         <TabsList className="mx-4 mt-4 w-auto justify-start">
           <TabsTrigger value="script">Script</TabsTrigger>
           <TabsTrigger value="scenes">Scenes</TabsTrigger>

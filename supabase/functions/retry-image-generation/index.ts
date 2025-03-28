@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -141,18 +142,19 @@ serve(async (req) => {
             requestId = job.request_id;
           }
           
-          // Check status at Fal.ai
-          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}/status`, {
+          // Check status at Fal.ai using the request_id (not job.id)
+          console.log(`Checking status for request_id: ${requestId}`);
+          const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
             headers: {
               "Authorization": `Key ${FAL_KEY}`
             }
           });
           
           if (!statusResponse.ok) {
-            console.error(`Fal.ai status check failed for job ${job.id}`);
+            console.error(`Fal.ai status check failed for job ${job.id}, request_id: ${requestId}`);
             results.push({
               id: job.id,
-              request_id: job.request_id,
+              request_id: requestId,
               success: false,
               error: 'Failed to check status'
             });
@@ -162,11 +164,11 @@ serve(async (req) => {
           const statusData = await statusResponse.json();
           const normalizedStatus = normalizeStatus(statusData.status);
           
-          console.log(`Job ${job.id} status: ${normalizedStatus}`);
+          console.log(`Job ${job.id} status from request_id ${requestId}: ${normalizedStatus}`);
           
           results.push({
             id: job.id,
-            request_id: job.request_id,
+            request_id: requestId,
             success: true,
             status: normalizedStatus
           });

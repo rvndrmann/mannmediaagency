@@ -32,6 +32,7 @@ export class AgentRunner {
   private status: "idle" | "running" | "completed" | "error" = "idle";
   private controller: AbortController | null = null;
   private currentAttachments: Attachment[] = [];
+  private userMessage: Message | null = null;
 
   constructor(agentType: string, params: AgentRunnerParams, callbacks: AgentRunnerCallbacks) {
     this.agentType = agentType;
@@ -49,8 +50,15 @@ export class AgentRunner {
     this.controller = new AbortController();
     this.currentAttachments = attachments;
     
-    // Add the user message first
-    this.addMessage(input, "user", attachments);
+    // Create and add the user message
+    this.userMessage = {
+      id: uuidv4(),
+      role: "user",
+      content: input,
+      createdAt: new Date().toISOString(),
+      attachments: attachments
+    };
+    this.callbacks.onMessage(this.userMessage);
 
     const agentContext = this.createAgentContext(userId);
 

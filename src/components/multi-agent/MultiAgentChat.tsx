@@ -183,7 +183,7 @@ export const MultiAgentChat = () => {
               <div className="p-4 space-y-6">
                 {messages.map((message, index) => (
                   <ChatMessage 
-                    key={index} 
+                    key={message.id} 
                     message={message} 
                     showAgentName={message.role === "assistant" && message.agentType !== undefined}
                   />

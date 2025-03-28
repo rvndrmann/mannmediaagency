@@ -46,6 +46,7 @@ serve(async (req) => {
     // Generate a response based on agent type
     let responseText = '';
     let handoffRequest = null;
+    let commandSuggestion = null;
     
     // Add a short delay to simulate processing
     await new Promise(resolve => setTimeout(resolve, 500));
@@ -63,6 +64,11 @@ serve(async (req) => {
             reason: `Your request about "${getShortSummary(input)}" would be better handled by our ${getAgentName(shouldHandoff)}.`
           };
         }
+        
+        // Check if the input might require a tool
+        if (enableDirectToolExecution && shouldSuggestTool(input)) {
+          commandSuggestion = suggestToolCommand(input);
+        }
         break;
         
       case 'script':
@@ -78,9 +84,20 @@ serve(async (req) => {
         
         // Simulate detecting a browser automation need
         if (input.toLowerCase().includes('website') || input.toLowerCase().includes('browser')) {
+          commandSuggestion = {
+            name: "browser-use",
+            parameters: {
+              task: `Go to ${input.includes('website') ? extractWebsite(input) : 'google.com'} and take a screenshot`,
+              browserConfig: { headless: false }
+            }
+          };
+        }
+        
+        // Possibly handoff back to main agent after providing tool help
+        if (input.toLowerCase().includes('done') || input.toLowerCase().includes('thanks')) {
           handoffRequest = {
             targetAgent: 'main',
-            reason: "I have provided some initial guidance, but you might want to use the browser automation tool."
+            reason: "I have provided the tool assistance you needed. You can now return to the main assistant."
           };
         }
         break;
@@ -101,7 +118,8 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({
         completion: responseText,
-        handoffRequest: handoffRequest
+        handoffRequest: handoffRequest,
+        commandSuggestion: commandSuggestion
       }),
       { 
         headers: { 
@@ -133,6 +151,8 @@ serve(async (req) => {
 
 // Check if the input should be handed off to a specialized agent
 function checkForHandoff(input: string, currentAgentType: string): string | null {
+  if (!input) return null;
+  
   const inputLower = input.toLowerCase();
   
   // Don't handoff if we're already using the specialized agent
@@ -172,6 +192,53 @@ function checkForHandoff(input: string, currentAgentType: string): string | null
   }
   
   return null;
+}
+
+// Check if we should suggest a tool based on the input
+function shouldSuggestTool(input: string): boolean {
+  if (!input) return false;
+  
+  const inputLower = input.toLowerCase();
+  return inputLower.includes('browser') || 
+         inputLower.includes('website') || 
+         inputLower.includes('automate') ||
+         inputLower.includes('video') ||
+         inputLower.includes('youtube');
+}
+
+// Suggest a tool command based on input
+function suggestToolCommand(input: string): any {
+  const inputLower = input.toLowerCase();
+  
+  if (inputLower.includes('browser') || inputLower.includes('website')) {
+    return {
+      name: "browser-use",
+      parameters: {
+        task: `Go to ${inputLower.includes('website') ? extractWebsite(input) : 'google.com'} and take a screenshot`,
+        browserConfig: { headless: false }
+      }
+    };
+  }
+  
+  if (inputLower.includes('video') || inputLower.includes('animate')) {
+    return {
+      name: "image-to-video",
+      parameters: {
+        prompt: "Convert the uploaded image to a smooth animation",
+        aspectRatio: "16:9",
+        duration: "5"
+      }
+    };
+  }
+  
+  return null;
+}
+
+// Extract a website from the input text
+function extractWebsite(input: string): string {
+  // Simple regex to extract something that looks like a website
+  const matches = input.match(/\b(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/);
+  return matches ? matches[0] : 'google.com';
 }
 
 // Get a readable name for the agent type

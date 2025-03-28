@@ -248,7 +248,7 @@ export function CanvasDetailPanel({
 
   return (
     <TooltipProvider>
-      <div className="w-80 border-l bg-slate-50 dark:bg-slate-900 flex flex-col relative">
+      <div className="w-80 border-l bg-slate-50 dark:bg-slate-900 flex flex-col relative h-full">
         <div className="p-4 border-b bg-background flex justify-between items-center">
           <h3 className="font-medium">Scene Details</h3>
           <Button
@@ -260,16 +260,16 @@ export function CanvasDetailPanel({
           </Button>
         </div>
         
-        <Tabs defaultValue="edit" className="flex-1 flex flex-col">
+        <Tabs defaultValue="edit" className="flex-1 flex flex-col overflow-hidden">
           <TabsList className="w-full">
             <TabsTrigger value="edit" className="flex-1">Edit</TabsTrigger>
             <TabsTrigger value="media" className="flex-1">Media</TabsTrigger>
             <TabsTrigger value="ai" className="flex-1">AI</TabsTrigger>
           </TabsList>
           
-          <TabsContent value="edit" className="flex-1 p-0">
-            <ScrollArea className="flex-1 p-4 h-full">
-              <div className="space-y-6">
+          <TabsContent value="edit" className="flex-1 overflow-hidden">
+            <ScrollArea className="h-[calc(100vh-140px)]">
+              <div className="space-y-6 p-4">
                 <div className="space-y-2">
                   <Label htmlFor="scene-title">Scene Title</Label>
                   <Input
@@ -329,9 +329,9 @@ export function CanvasDetailPanel({
             </ScrollArea>
           </TabsContent>
           
-          <TabsContent value="media" className="flex-1 p-0">
-            <ScrollArea className="flex-1 p-4 h-full">
-              <div className="space-y-6">
+          <TabsContent value="media" className="flex-1 overflow-hidden">
+            <ScrollArea className="h-[calc(100vh-140px)]">
+              <div className="space-y-6 p-4">
                 <div className="space-y-2">
                   <Label>Product Image</Label>
                   <input
@@ -399,9 +399,9 @@ export function CanvasDetailPanel({
             </ScrollArea>
           </TabsContent>
           
-          <TabsContent value="ai" className="flex-1 p-0">
-            <ScrollArea className="flex-1 p-4 h-full">
-              <div className="space-y-6">
+          <TabsContent value="ai" className="flex-1 overflow-hidden">
+            <ScrollArea className="h-[calc(100vh-140px)]">
+              <div className="space-y-6 p-4">
                 <div className="space-y-2">
                   <Label>AI Agent</Label>
                   <AgentSelector 

@@ -29,5 +29,5 @@ export interface HandoffRequest {
   reason: string;
   context?: Record<string, any>;
   preserveFullHistory?: boolean; // Flag to indicate full history should be preserved
-  additionalContext?: Record<string, any>; // More context data for the target agent
+  additionalContext?: Record<string, any>; // Additional context data for the target agent
 }

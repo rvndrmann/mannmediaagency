@@ -1,3 +1,4 @@
+
 export interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "tool";
@@ -60,6 +61,7 @@ export interface HandoffRequest {
   reason: string;
   context?: Record<string, any>;
   preserveFullHistory?: boolean; // Added to control history preservation
+  additionalContext?: Record<string, any>; // Added to match usage in AgentRunner.ts
 }
 
 export type MessageType = "user" | "agent" | "system" | "tool" | "handoff" | "error";

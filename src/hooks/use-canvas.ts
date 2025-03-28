@@ -33,7 +33,11 @@ export const useCanvas = (projectId?: string) => {
 
         const { data: scenesData, error: scenesError } = await supabase
           .from('canvas_scenes')
-          .select('*')
+          .select(`
+            id, project_id, title, scene_order, script, description, 
+            image_prompt, image_url, product_image_url, video_url, 
+            voice_over_url, background_music_url, duration, created_at, updated_at
+          `)
           .eq('project_id', projectId)
           .order('scene_order', { ascending: true });
 
@@ -58,8 +62,8 @@ export const useCanvas = (projectId?: string) => {
             imageUrl: scene.image_url,
             productImageUrl: scene.product_image_url || "",
             videoUrl: scene.video_url,
-            voiceOverUrl: scene.voice_over_url || "", // Map voice_over_url to voiceOverUrl
-            backgroundMusicUrl: scene.background_music_url || "", // Map background_music_url to backgroundMusicUrl
+            voiceOverUrl: scene.voice_over_url || "", 
+            backgroundMusicUrl: scene.background_music_url || "", 
             duration: scene.duration,
             createdAt: scene.created_at,
             updatedAt: scene.updated_at

@@ -370,7 +370,6 @@ export const useMultiAgentChat = () => {
     togglePerformanceMode,
     toggleDirectToolExecution,
     toggleTracing,
-    addHandoffMessage,
-    handoffInProgress
+    addHandoffMessage
   };
 };

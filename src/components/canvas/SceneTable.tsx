@@ -1,3 +1,4 @@
+
 import { useState, useRef } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -488,8 +489,9 @@ export function SceneTable({
         <TableHeader>
           <TableRow>
             <TableHead className="w-[120px]">Scene</TableHead>
-            <TableHead className="w-[20%]">Script</TableHead>
-            <TableHead className="w-[20%]">Image Prompt</TableHead>
+            <TableHead className="w-[15%]">Script</TableHead>
+            <TableHead className="w-[15%]">Description</TableHead>
+            <TableHead className="w-[15%]">Image Prompt</TableHead>
             <TableHead>Scene Image</TableHead>
             <TableHead>Video</TableHead>
             <TableHead>Product Image</TableHead>
@@ -507,6 +509,7 @@ export function SceneTable({
             >
               <TableCell className="font-medium">{scene.title}</TableCell>
               <TableCell>{renderField(scene, 'script')}</TableCell>
+              <TableCell>{renderField(scene, 'description')}</TableCell>
               <TableCell>{renderField(scene, 'imagePrompt')}</TableCell>
               <TableCell>{renderMedia(scene, 'image')}</TableCell>
               <TableCell>{renderMedia(scene, 'video')}</TableCell>

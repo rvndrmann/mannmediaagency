@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
@@ -7,7 +6,7 @@ import { useForm } from "react-hook-form";
 import { Textarea } from "@/components/ui/textarea";
 import { z } from "zod";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { type AgentType } from "@/hooks/use-multi-agent-chat";
 
 const formSchema = z.object({
   instructions: z.string().min(1, "Instructions are required"),
@@ -51,7 +50,6 @@ export function EditAgentInstructionsDialog({
     }
   };
 
-  // Reset form when dialog opens with current values
   const resetForm = () => {
     form.reset({
       instructions: initialInstructions || "",

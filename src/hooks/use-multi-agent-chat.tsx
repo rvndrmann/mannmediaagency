@@ -6,7 +6,10 @@ import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
-import { AgentType } from "./multi-agent/runner/types";
+import { AgentType as RunnerAgentType } from "./multi-agent/runner/types";
+
+// Re-export the AgentType for use in other components
+export type AgentType = RunnerAgentType;
 
 // Define built-in agent types
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];

@@ -1,10 +1,10 @@
+
 import { useState, useEffect } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { 
   Wand2, 
@@ -20,15 +20,13 @@ import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectScriptEditorProps {
   project: CanvasProject;
-  scenes: CanvasScene[];
   saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  divideScriptToScenes: (script: string) => Promise<void>;
   updateProjectTitle: (title: string) => Promise<void>;
 }
 
 export function ProjectScriptEditor({ 
   project, 
-  scenes, 
   saveFullScript,
   divideScriptToScenes,
   updateProjectTitle
@@ -128,13 +126,13 @@ export function ProjectScriptEditor({
   };
   
   const handleGenerateImagePrompts = async () => {
-    if (!project.id || scenes.length === 0) {
+    if (!project.id || project.scenes.length === 0) {
       toast.error("No valid project or scenes to generate image prompts for");
       return;
     }
     
     // Check if we have scenes with voice-over text
-    const scenesWithVoiceOver = scenes.filter(scene => 
+    const scenesWithVoiceOver = project.scenes.filter(scene => 
       scene.voiceOverText && scene.voiceOverText.trim() !== ""
     );
     
@@ -186,52 +184,19 @@ export function ProjectScriptEditor({
       return;
     }
     
-    if (scenes.length === 0) {
+    if (!project.scenes || project.scenes.length === 0) {
       toast.error("No scenes to divide script into");
       return;
     }
     
     setIsProcessingWithAI(true);
     try {
-      const sceneIds = scenes.map(scene => scene.id);
-      
-      // Call our edge function to process the script with AI
-      const { data: processingResult, error } = await supabase.functions.invoke('process-script', {
-        body: { 
-          script, 
-          sceneIds,
-          projectId: project.id,
-          generateImagePrompts: true
-        }
-      });
-      
-      if (error) {
-        throw new Error(`Error from edge function: ${error.message}`);
-      }
-      
-      if (!processingResult.scenes || !Array.isArray(processingResult.scenes)) {
-        throw new Error("Invalid response from AI processing");
-      }
-      
-      // Prepare scene scripts with the AI response
-      const sceneScripts = processingResult.scenes.map(scene => ({
-        id: scene.id,
-        content: scene.content,
-        voiceOverText: scene.voiceOverText
-      }));
-      
-      // Send the processed scripts back to the canvas
-      await divideScriptToScenes(sceneScripts);
+      // Call the edge function
+      await divideScriptToScenes(script);
       toast.success("Script processed and divided with AI assistance");
-      
-      // Show image prompt generation results if any
-      if (processingResult.imagePrompts && processingResult.imagePrompts.successfulScenes > 0) {
-        toast.success(`Also generated ${processingResult.imagePrompts.successfulScenes} image prompts for scenes`);
-      }
     } catch (error) {
       console.error("Error processing script with AI:", error);
       toast.error("Failed to process script with AI, falling back to manual division");
-      // Fall back to the manual division method
       handleDivideScript();
     } finally {
       setIsProcessingWithAI(false);
@@ -244,85 +209,14 @@ export function ProjectScriptEditor({
       return;
     }
     
-    if (scenes.length === 0) {
+    if (!project.scenes || project.scenes.length === 0) {
       toast.error("No scenes to divide script into");
       return;
     }
     
     setIsDividing(true);
     try {
-      const sceneMarkers = script.match(/SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g);
-      
-      let segments: string[] = [];
-      
-      if (sceneMarkers && sceneMarkers.length >= 2) {
-        let text = script;
-        let positions: number[] = [];
-        
-        const regex = /SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g;
-        let match;
-        while ((match = regex.exec(text)) !== null) {
-          positions.push(match.index);
-        }
-        
-        for (let i = 0; i < positions.length; i++) {
-          const start = positions[i];
-          const end = i < positions.length - 1 ? positions[i + 1] : text.length;
-          segments.push(text.substring(start, end).trim());
-        }
-      } else {
-        const paragraphs = script.split(/\n\s*\n/)
-          .filter(p => p.trim().length > 0);
-        
-        const CHAR_LIMIT = 2000; // Increased character limit for larger scenes
-        
-        if (paragraphs.length <= scenes.length) {
-          paragraphs.forEach(paragraph => {
-            if (paragraph.length > CHAR_LIMIT) {
-              segments.push(...splitAtSentenceBoundary(paragraph, CHAR_LIMIT));
-            } else {
-              segments.push(paragraph);
-            }
-          });
-        } else {
-          segments = paragraphs;
-        }
-        
-        if (segments.length > scenes.length * 2) {
-          const groupedSegments: string[] = [];
-          const segmentsPerScene = Math.ceil(segments.length / scenes.length);
-          
-          for (let i = 0; i < segments.length; i += segmentsPerScene) {
-            const group = segments.slice(i, i + segmentsPerScene);
-            groupedSegments.push(group.join('\n\n'));
-          }
-          
-          segments = groupedSegments;
-        }
-      }
-      
-      while (segments.length < scenes.length) {
-        segments.push(segments[segments.length - 1] || "");
-      }
-      
-      if (segments.length > scenes.length) {
-        const extraSegments = segments.slice(project.scenes.length - 1);
-        segments = segments.slice(0, project.scenes.length - 1);
-        segments.push(extraSegments.join('\n\n'));
-      }
-      
-      const sceneScripts = scenes.map((scene, index) => {
-        const content = index < segments.length ? segments[index] : "";
-        const voiceOverText = extractVoiceOverText(content);
-        
-        return {
-          id: scene.id,
-          content,
-          voiceOverText
-        };
-      });
-      
-      await divideScriptToScenes(sceneScripts);
+      await divideScriptToScenes(script);
       toast.success("Script divided into scenes");
     } catch (error) {
       console.error("Error dividing script:", error);
@@ -361,7 +255,7 @@ export function ProjectScriptEditor({
       }
     }
   };
-  
+
   return (
     <div className="p-6 max-w-4xl mx-auto">
       <div className="flex items-center justify-between mb-6">
@@ -427,7 +321,7 @@ export function ProjectScriptEditor({
             {isProcessingWithAI ? 
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                "Processing with AI..."
+                Processing with AI...
               </> : 
               "Process with AI"
             }
@@ -442,7 +336,7 @@ export function ProjectScriptEditor({
             {isGeneratingImagePrompts ? 
               <>
                 <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                "Generating..."
+                Generating...
               </> : 
               "Generate Image Prompts"
             }
@@ -490,7 +384,7 @@ export function ProjectScriptEditor({
             Character count: {script.length}
           </div>
           <div>
-            Scene count: {scenes.length}
+            Scene count: {project.scenes.length}
           </div>
         </div>
       </div>

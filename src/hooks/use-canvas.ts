@@ -44,12 +44,43 @@ export const useCanvas = (projectId?: string) => {
         throw scenesError;
       }
 
-      setProject(projectData);
-      setScenes(scenesData);
+      // Transform data to match our interfaces
+      const transformedProject: CanvasProject = {
+        id: projectData.id,
+        title: projectData.title,
+        userId: projectData.user_id,
+        fullScript: projectData.full_script || "",
+        description: projectData.description,
+        scenes: [],
+        createdAt: projectData.created_at,
+        updatedAt: projectData.updated_at
+      };
+
+      const transformedScenes: CanvasScene[] = scenesData.map(scene => ({
+        id: scene.id,
+        title: scene.title,
+        script: scene.script || "",
+        imagePrompt: scene.image_prompt || "",
+        description: scene.description || "",
+        imageUrl: scene.image_url || "",
+        videoUrl: scene.video_url || "",
+        productImageUrl: scene.product_image_url || "",
+        voiceOverUrl: scene.voice_over_url || "",
+        backgroundMusicUrl: scene.background_music_url || "",
+        voiceOverText: scene.voice_over_text || "",
+        order: scene.scene_order,
+        projectId: scene.project_id,
+        createdAt: scene.created_at,
+        updatedAt: scene.updated_at,
+        duration: scene.duration
+      }));
+
+      setProject(transformedProject);
+      setScenes(transformedScenes);
       
       // Select the first scene if there are any and none is currently selected
-      if (scenesData.length > 0 && !selectedSceneId) {
-        setSelectedSceneId(scenesData[0].id);
+      if (transformedScenes.length > 0 && !selectedSceneId) {
+        setSelectedSceneId(transformedScenes[0].id);
       }
     } catch (err: any) {
       console.error("Error fetching project data:", err);
@@ -172,7 +203,21 @@ export const useCanvas = (projectId?: string) => {
 
     try {
       const updateData: Record<string, any> = {};
-      updateData[type] = value;
+      
+      // Convert camelCase to snake_case for database fields
+      const dbFieldMap: Record<string, string> = {
+        script: 'script',
+        imagePrompt: 'image_prompt',
+        description: 'description',
+        image: 'image_url',
+        productImage: 'product_image_url',
+        video: 'video_url',
+        voiceOver: 'voice_over_url',
+        voiceOverText: 'voice_over_text',
+        backgroundMusic: 'background_music_url',
+      };
+      
+      updateData[dbFieldMap[type]] = value;
       
       const { error } = await supabase
         .from("canvas_scenes")
@@ -214,7 +259,7 @@ export const useCanvas = (projectId?: string) => {
       }
 
       // Update local state
-      setProject(prev => prev ? { ...prev, full_script: script } : null);
+      setProject(prev => prev ? { ...prev, fullScript: script } : null);
       toast.success("Script saved");
     } catch (err: any) {
       console.error("Error saving script:", err);
@@ -296,6 +341,11 @@ export const useCanvas = (projectId?: string) => {
 
   // Find selected scene
   const selectedScene = scenes.find(scene => scene.id === selectedSceneId) || null;
+
+  // Add project to scenes
+  if (project) {
+    project.scenes = scenes;
+  }
 
   return {
     project,

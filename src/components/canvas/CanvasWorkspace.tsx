@@ -1,14 +1,13 @@
 
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { ProjectScriptEditor } from "./ProjectScriptEditor";
-import { ScenesList } from "./ScenesList";
-import { SceneEditor } from "./SceneEditor";
-import { SceneDetailPanel } from "./SceneDetailPanel";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { PlusCircle } from "lucide-react";
 import { useState } from "react";
+import { ProjectScriptEditor } from "./ProjectScriptEditor";
+import { SceneEditor } from "./SceneEditor";
+import { SceneDetailPanel } from "./SceneDetailPanel";
 
 interface CanvasWorkspaceProps {
   project: CanvasProject | null;
@@ -17,7 +16,7 @@ interface CanvasWorkspaceProps {
   setSelectedSceneId: (id: string | null) => void;
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (id: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
+  updateScene: (id: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText', value: string) => Promise<void>;
   divideScriptToScenes: (script: string) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
@@ -71,6 +70,7 @@ export function CanvasWorkspace({
             project={project}
             saveFullScript={saveFullScript}
             divideScriptToScenes={divideScriptToScenes}
+            updateProjectTitle={updateProjectTitle}
           />
         </TabsContent>
         
@@ -88,12 +88,57 @@ export function CanvasWorkspace({
             </div>
             
             <ScrollArea className="flex-1">
-              <ScenesList 
-                scenes={project.scenes || []}
-                selectedSceneId={selectedSceneId}
-                onSelectScene={setSelectedSceneId}
-                onDeleteScene={deleteScene}
-              />
+              <div className="p-4 space-y-2">
+                {project.scenes.map((scene) => (
+                  <div 
+                    key={scene.id}
+                    className={`p-3 border rounded-md cursor-pointer transition-colors ${
+                      scene.id === selectedSceneId 
+                        ? 'bg-primary text-primary-foreground' 
+                        : 'hover:bg-muted'
+                    }`}
+                    onClick={() => setSelectedSceneId(scene.id)}
+                  >
+                    <div className="font-medium">{scene.title}</div>
+                    <div className="text-xs truncate">
+                      {scene.voiceOverText 
+                        ? scene.voiceOverText.substring(0, 60) + (scene.voiceOverText.length > 60 ? '...' : '')
+                        : 'No content'}
+                    </div>
+                    <div className="flex justify-between items-center mt-2 text-xs">
+                      <span>{scene.imagePrompt ? '✓ Image prompt' : '✗ No image prompt'}</span>
+                      <Button 
+                        variant="ghost" 
+                        size="icon" 
+                        className={`h-6 w-6 ${scene.id === selectedSceneId ? 'text-primary-foreground' : 'text-muted-foreground'}`}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          if (confirm('Are you sure you want to delete this scene?')) {
+                            deleteScene(scene.id);
+                          }
+                        }}
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M3 6h18"></path>
+                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
+                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
+                        </svg>
+                      </Button>
+                    </div>
+                  </div>
+                ))}
+                
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  onClick={addScene}
+                >
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
+                    <path d="M12 5v14M5 12h14"></path>
+                  </svg>
+                  Add Scene
+                </Button>
+              </div>
             </ScrollArea>
           </div>
           

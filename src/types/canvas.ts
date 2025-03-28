@@ -10,7 +10,7 @@ export interface CanvasScene {
   productImageUrl: string;
   voiceOverUrl: string;
   backgroundMusicUrl: string;
-  voiceOverText: string; // Existing column now properly typed
+  voiceOverText: string;
   order: number;
   projectId: string;
   createdAt: string;

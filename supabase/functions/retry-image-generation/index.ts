@@ -24,6 +24,16 @@ const normalizeStatus = (status: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' =>
   }
 };
 
+// Helper function to map database status to API status
+const mapDbStatusToApiStatus = (dbStatus: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' => {
+  const status = dbStatus.toLowerCase();
+  
+  if (status === 'completed') return 'COMPLETED';
+  if (status === 'failed') return 'FAILED';
+  
+  return 'IN_QUEUE';
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -127,7 +137,7 @@ serve(async (req) => {
                 .from('image_generation_jobs')
                 .update({ 
                   request_id: requestId, 
-                  status: 'in_queue',  // Using new enum value
+                  status: 'in_queue',  // Using database enum value
                   result_url: null,
                   error_message: null,
                   retried_at: new Date().toISOString()
@@ -135,6 +145,16 @@ serve(async (req) => {
                 .eq('id', job.id);
             } else {
               console.error(`Fal.ai API error for job ${job.id}:`, responseText);
+              
+              // Update the job with the error message
+              await supabase
+                .from('image_generation_jobs')
+                .update({ 
+                  status: 'failed',
+                  error_message: `API Error: ${responseText}`
+                })
+                .eq('id', job.id);
+                
               throw new Error(`Fal.ai API error: ${responseText}`);
             }
           } else {
@@ -153,12 +173,26 @@ serve(async (req) => {
           });
           
           if (!statusResponse.ok) {
-            console.error(`Fal.ai status check failed for request_id: ${requestId} (job ${job.id})`);
+            const statusCode = statusResponse.status;
+            const errorText = await statusResponse.text();
+            console.error(`Fal.ai status check failed for request_id: ${requestId} (job ${job.id}) - Status ${statusCode}`);
+            
+            // Update the database with the error for permanent errors (4xx)
+            if (statusCode >= 400 && statusCode < 500) {
+              await supabase
+                .from('image_generation_jobs')
+                .update({ 
+                  status: 'failed',
+                  error_message: `API Error (${statusCode}): ${errorText}`
+                })
+                .eq('id', job.id);
+            }
+            
             results.push({
               id: job.id,
               request_id: requestId,
               success: false,
-              error: 'Failed to check status'
+              error: `Failed to check status: API Error (${statusCode})`
             });
             continue;
           }
@@ -168,9 +202,29 @@ serve(async (req) => {
           
           console.log(`Request_id ${requestId} (job ${job.id}) status: ${normalizedStatus}`);
           
+          // Update the database with the current status
+          if (normalizedStatus === 'COMPLETED' && statusData.result?.url) {
+            await supabase
+              .from('image_generation_jobs')
+              .update({ 
+                status: 'completed',
+                result_url: statusData.result.url,
+                error_message: null
+              })
+              .eq('id', job.id);
+          } else if (normalizedStatus === 'FAILED') {
+            await supabase
+              .from('image_generation_jobs')
+              .update({ 
+                status: 'failed',
+                error_message: statusData.error || 'Unknown error'
+              })
+              .eq('id', job.id);
+          }
+          
           results.push({
             id: job.id,
-            request_id: requestId,  // Always return the request_id, not job.id
+            request_id: requestId,
             success: true,
             status: normalizedStatus
           });

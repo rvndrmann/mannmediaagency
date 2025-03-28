@@ -68,9 +68,28 @@ serve(async (req) => {
     })
 
     if (!statusResponse.ok) {
-      const errorText = await statusResponse.text()
-      console.error('Fal.ai API error:', errorText)
-      throw new Error(`Failed to check status: ${errorText}`)
+      const statusCode = statusResponse.status;
+      const errorText = await statusResponse.text();
+      console.error(`Fal.ai API error (Status ${statusCode}):`, errorText);
+      
+      if (statusCode >= 400 && statusCode < 500) {
+        // For permanent errors, return a failed status
+        return new Response(
+          JSON.stringify({
+            status: 'FAILED',
+            error: `API Error (${statusCode}): ${errorText}`
+          }),
+          {
+            headers: {
+              ...corsHeaders,
+              'Content-Type': 'application/json'
+            },
+            status: 200 // Still return 200 to client so they can handle the FAILED status
+          }
+        );
+      }
+      
+      throw new Error(`Failed to check status: ${errorText} (Status: ${statusCode})`);
     }
 
     const statusData = await statusResponse.json()
@@ -170,7 +189,7 @@ serve(async (req) => {
     }
 
   } catch (error) {
-    console.error('Error in check-generation-status:', error)
+    console.error('Error in check-generation-status:', error);
     return new Response(
       JSON.stringify({
         status: 'FAILED',
@@ -183,6 +202,6 @@ serve(async (req) => {
         },
         status: 500
       }
-    )
+    );
   }
 })

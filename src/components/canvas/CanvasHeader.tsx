@@ -1,159 +1,116 @@
 
 import { useState } from "react";
 import { CanvasProject } from "@/types/canvas";
+import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import {
-  Download,
-  Save,
-  MoreHorizontal,
-  FileVideo,
-  Share2
-} from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
+import { Link } from "react-router-dom";
+import { Save, ArrowLeft, Check, Edit, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
-import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 
 interface CanvasHeaderProps {
   project: CanvasProject;
+  onChatToggle?: () => void;
+  showChatButton?: boolean;
 }
 
-export function CanvasHeader({
+export function CanvasHeader({ 
   project,
+  onChatToggle,
+  showChatButton = false
 }: CanvasHeaderProps) {
-  const [title, setTitle] = useState(project.title);
-  const [isSaving, setIsSaving] = useState(false);
-  const navigate = useNavigate();
-
-  const handleTitleChange = async (e: React.FocusEvent<HTMLInputElement>) => {
-    if (title === project.title) return; // Skip if no change
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [projectTitle, setProjectTitle] = useState(project?.title || "");
+  
+  const handleTitleClick = () => {
+    setIsEditingTitle(true);
+  };
+  
+  const handleTitleSave = async () => {
+    if (!project || !projectTitle.trim()) return;
     
-    setIsSaving(true);
     try {
       const { error } = await supabase
         .from('canvas_projects')
-        .update({ title })
+        .update({ title: projectTitle })
         .eq('id', project.id);
-        
+      
       if (error) throw error;
+      
+      setIsEditingTitle(false);
       toast.success("Project title updated");
     } catch (error) {
       console.error("Error updating project title:", error);
       toast.error("Failed to update project title");
-      setTitle(project.title); // Reset to original title on error
-    } finally {
-      setIsSaving(false);
     }
   };
-
-  const handleSave = async () => {
-    setIsSaving(true);
-    try {
-      // Save project title if it's changed
-      if (title !== project.title) {
-        const { error } = await supabase
-          .from('canvas_projects')
-          .update({ title })
-          .eq('id', project.id);
-          
-        if (error) throw error;
-      }
-      
-      toast.success("Project saved");
-    } catch (error) {
-      console.error("Error saving project:", error);
-      toast.error("Failed to save project");
-    } finally {
-      setIsSaving(false);
+  
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleTitleSave();
+    } else if (e.key === 'Escape') {
+      setIsEditingTitle(false);
+      setProjectTitle(project?.title || "");
     }
   };
-
-  const handleExport = () => {
-    toast.info("Export functionality coming soon");
-  };
-
-  const handleShare = () => {
-    toast.info("Share functionality coming soon");
-  };
-
-  const handleBack = () => {
-    navigate("/");
-  };
-
+  
+  if (!project) return null;
+  
   return (
-    <div className="h-14 border-b flex items-center justify-between px-4 bg-background">
+    <header className="bg-background p-2 border-b flex items-center justify-between">
       <div className="flex items-center">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleBack}
-          className="mr-2"
-        >
-          Back
+        <Button variant="outline" size="sm" asChild className="mr-2">
+          <Link to="/">
+            <ArrowLeft className="h-4 w-4 mr-1" />
+            Back
+          </Link>
         </Button>
         
-        <div className="flex items-center">
-          <FileVideo className="h-5 w-5 mr-2 text-primary" />
-          <input
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            onBlur={handleTitleChange}
-            className="bg-transparent border-none focus:outline-none focus:ring-0 text-lg font-medium"
-          />
-        </div>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <Button 
-          variant="outline" 
-          size="sm" 
-          onClick={handleSave}
-          disabled={isSaving}
-        >
-          {isSaving ? (
-            <>Saving...</>
-          ) : (
-            <>
-              <Save className="h-4 w-4 mr-1" />
-              Save
-            </>
-          )}
-        </Button>
-        
-        <Button variant="outline" size="sm" onClick={handleShare}>
-          <Share2 className="h-4 w-4 mr-1" />
-          Share
-        </Button>
-        
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="sm">
-              <Download className="h-4 w-4 mr-1" />
-              Export
+        {isEditingTitle ? (
+          <div className="flex items-center">
+            <Input 
+              value={projectTitle}
+              onChange={(e) => setProjectTitle(e.target.value)}
+              onKeyDown={handleKeyDown}
+              className="h-8 text-base w-[300px]"
+              autoFocus
+            />
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={handleTitleSave}
+              className="ml-1"
+            >
+              <Check className="h-4 w-4" />
             </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="end">
-            <DropdownMenuItem onClick={handleExport}>
-              Export as MP4
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExport}>
-              Export as GIF
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={handleExport}>
-              Export Script
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
+          </div>
+        ) : (
+          <div className="flex items-center group cursor-pointer" onClick={handleTitleClick}>
+            <h1 className="text-xl font-semibold mr-2">
+              {project.title}
+            </h1>
+            <Edit className="h-4 w-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+          </div>
+        )}
+      </div>
+      
+      <div className="flex items-center space-x-2">
+        {showChatButton && (
+          <Button 
+            variant="outline" 
+            size="sm"
+            onClick={onChatToggle}
+          >
+            <MessageSquare className="h-4 w-4 mr-1" />
+            AI Assistant
+          </Button>
+        )}
         
-        <Button variant="ghost" size="icon">
-          <MoreHorizontal className="h-5 w-5" />
+        <Button size="sm">
+          <Save className="h-4 w-4 mr-1" />
+          Save Project
         </Button>
       </div>
-    </div>
+    </header>
   );
 }

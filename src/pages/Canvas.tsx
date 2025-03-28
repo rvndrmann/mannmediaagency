@@ -4,8 +4,9 @@ import { useNavigate, useSearchParams } from "react-router-dom";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
 import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
+import { CanvasChat } from "@/components/canvas/CanvasChat";
 import { useCanvas } from "@/hooks/use-canvas";
-import { Loader2 } from "lucide-react";
+import { Loader2, MessageSquare } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -17,6 +18,7 @@ export default function Canvas() {
   const navigate = useNavigate();
   
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
+  const [showChat, setShowChat] = useState(false);
   
   // Check if user is authenticated
   useEffect(() => {
@@ -79,6 +81,10 @@ export default function Canvas() {
     }
   };
 
+  const toggleChat = () => {
+    setShowChat(!showChat);
+  };
+
   // Show loading state
   if (loading || isAuthenticated === null) {
     return (
@@ -114,9 +120,17 @@ export default function Canvas() {
       <div className="flex flex-col h-screen overflow-hidden">
         <CanvasHeader 
           project={project}
+          onChatToggle={toggleChat}
+          showChatButton={true}
         />
         
         <div className="flex flex-1 overflow-hidden">
+          {showChat && (
+            <div className="w-[350px] flex-shrink-0">
+              <CanvasChat onClose={toggleChat} />
+            </div>
+          )}
+          
           <CanvasWorkspace 
             project={project}
             selectedScene={selectedScene}

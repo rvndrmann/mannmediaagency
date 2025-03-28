@@ -13,6 +13,7 @@ export type { AgentType } from "@/hooks/multi-agent/runner/types";
 interface UseMultiAgentChatOptions {
   initialMessages?: Message[];
   onAgentSwitch?: (from: string, to: string) => void;
+  projectId?: string;
 }
 
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
@@ -28,10 +29,14 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
     main: "You are a helpful AI assistant focused on general tasks.",
-    script: "You specialize in writing scripts and creative content. When asked for a script, you MUST provide one, not just talk about it.",
+    script: options.projectId 
+      ? "You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You can save scripts directly to Canvas projects."
+      : "You specialize in writing scripts and creative content. When asked for a script, you MUST provide one, not just talk about it.",
     image: "You specialize in creating detailed image prompts.",
     tool: "You specialize in executing tools and technical tasks.",
-    scene: "You specialize in creating detailed visual scene descriptions."
+    scene: options.projectId
+      ? "You specialize in creating detailed visual scene descriptions for video projects. You can save scene descriptions and image prompts directly to Canvas projects."
+      : "You specialize in creating detailed visual scene descriptions."
   });
   
   // Handle form submission
@@ -129,6 +134,11 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     setHandoffInProgress(true);
     
     try {
+      // Include project ID in continuity data if available
+      if (options.projectId) {
+        additionalContext.projectId = options.projectId;
+      }
+      
       // Create continuity data to maintain context between agents
       const continuityData = {
         fromAgent,
@@ -206,7 +216,8 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           tracingDisabled: !tracingEnabled,
           metadata: {
             conversationHistory: messages,
-            instructions: agentInstructions[currentAgent]
+            instructions: agentInstructions[currentAgent],
+            projectId: options.projectId, // Pass the project ID to the agent
           }
         },
         {

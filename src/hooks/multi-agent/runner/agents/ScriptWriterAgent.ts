@@ -33,10 +33,12 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       const handoffReason = this.context.metadata?.handoffReason || '';
       const handoffHistory = this.context.metadata?.handoffHistory || [];
       const continuityData = this.context.metadata?.continuityData || {};
+      const projectId = this.context.metadata?.projectId || continuityData?.projectId || null;
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
+      console.log(`Canvas project context: projectId=${projectId}`);
       
       // Enhanced input for script writing task
       let enhancedInput = input;
@@ -53,6 +55,11 @@ IMPORTANT: YOU ARE THE SCRIPT WRITER AGENT. YOUR PRIMARY TASK IS TO WRITE A COMP
 DO NOT just talk about writing a script or offer to help - ACTUALLY WRITE THE FULL SCRIPT in your response.
 Format it properly with scene headings, character dialogue, and actions where appropriate.
 `;
+        
+        // Add Canvas project context if available
+        if (projectId) {
+          enhancedInput += `\n\nThis is for Canvas project ID: ${projectId}. After writing the script, you should save it to the project using the canvas tool.`;
+        }
         
         // Add additional context if available
         if (continuityData && continuityData.additionalContext) {
@@ -81,13 +88,18 @@ Format it properly with scene headings, character dialogue, and actions where ap
             instructions: instructions,
             agentSpecialty: "script_writing", // Explicitly identify this agent's specialty
             handoffHistory: handoffHistory,
-            continuityData: continuityData
+            continuityData: continuityData,
+            projectId: projectId, // Pass the project ID if available
+            toolContext: {
+              canSaveToCanvas: !!projectId // Tell the agent if it can save to Canvas
+            }
           },
           conversationHistory: conversationHistory,
           metadata: {
             ...this.context.metadata,
             previousAgentType: 'script',
-            conversationId: this.context.groupId
+            conversationId: this.context.groupId,
+            projectId: projectId // Include project ID in metadata
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -117,6 +129,35 @@ Format it properly with scene headings, character dialogue, and actions where ap
           // We could enhance the output with a clear message that this is inappropriate
           data.completion = `${data.completion}\n\n[Note: This response doesn't contain an actual script as requested. Please ask the Script Writer agent specifically to write the script.]`;
         }
+        
+        // If we have project ID and script content but no explicit tool use happened, attempt to save it
+        if (projectId && hasScriptMarkers && !data.toolExecutions?.includes('canvas')) {
+          try {
+            console.log("Auto-saving script to Canvas project", projectId);
+            
+            // Extract the script portion from the response
+            let scriptContent = data.completion;
+            if (scriptContent.includes("Here's your script:")) {
+              scriptContent = scriptContent.split("Here's your script:")[1].trim();
+            } else if (scriptContent.includes("Here is the script:")) {
+              scriptContent = scriptContent.split("Here is the script:")[1].trim();
+            }
+            
+            // Use the canvas tool to save the script to the project
+            const { supabase } = this.context;
+            
+            // Try to save as full script first
+            await supabase
+              .from('canvas_projects')
+              .update({ full_script: scriptContent })
+              .eq('id', projectId);
+            
+            // Append a success message to the response
+            data.completion += "\n\n[Script has been automatically saved to your Canvas project]";
+          } catch (saveError) {
+            console.error("Failed to auto-save script to Canvas:", saveError);
+          }
+        }
       }
       
       // Handle handoff if present
@@ -129,6 +170,11 @@ Format it properly with scene headings, character dialogue, and actions where ap
         nextAgent = data.handoffRequest.targetAgent;
         handoffReasonResponse = data.handoffRequest.reason;
         additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
+        
+        // Make sure to pass along the project ID
+        if (projectId && additionalContextForNext) {
+          additionalContextForNext.projectId = projectId;
+        }
       }
       
       return {
@@ -136,7 +182,9 @@ Format it properly with scene headings, character dialogue, and actions where ap
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
         structured_output: data?.structured_output || null,
-        additionalContext: additionalContextForNext || continuityData?.additionalContext || {}
+        additionalContext: additionalContextForNext || continuityData?.additionalContext || {
+          projectId: projectId
+        }
       };
     } catch (error) {
       console.error("ScriptWriterAgent run error:", error);

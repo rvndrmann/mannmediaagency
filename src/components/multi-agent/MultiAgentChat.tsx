@@ -1,3 +1,4 @@
+
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -7,8 +8,9 @@ import { AgentSelector } from "./AgentSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { Zap, Trash2, Hammer, BarChartBig } from "lucide-react";
+import { Zap, Trash2, Hammer, BarChartBig, ArrowLeft } from "lucide-react";
 import { toast } from "sonner";
+import { useNavigate } from "react-router-dom";
 import { 
   Tooltip, 
   TooltipContent, 
@@ -20,7 +22,14 @@ import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 
-export const MultiAgentChat = () => {
+interface MultiAgentChatProps {
+  projectId?: string;
+  onBack?: () => void;
+  isEmbedded?: boolean;
+}
+
+export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiAgentChatProps) => {
+  const navigate = useNavigate();
   const { 
     messages, 
     input, 
@@ -44,7 +53,19 @@ export const MultiAgentChat = () => {
     togglePerformanceMode,
     toggleDirectToolExecution,
     toggleTracing
-  } = useMultiAgentChat();
+  } = useMultiAgentChat({
+    initialMessages: projectId ? [
+      {
+        id: "welcome",
+        role: "system",
+        content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
+        createdAt: new Date().toISOString(),
+      }
+    ] : undefined,
+    onAgentSwitch: (from, to) => {
+      toast.info(`Switched from ${from} agent to ${to} agent`);
+    }
+  });
   
   const [showInstructions, setShowInstructions] = useState(false);
   const [editInstructionsOpen, setEditInstructionsOpen] = useState(false);
@@ -91,13 +112,33 @@ export const MultiAgentChat = () => {
   const handleSaveInstructions = (agentType: AgentType, instructions: string) => {
     updateAgentInstructions(agentType, instructions);
   };
+  
+  const handleBackClick = () => {
+    if (onBack) {
+      onBack();
+    } else {
+      navigate("/");
+    }
+  };
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-b from-[#1A1F29] to-[#121827]">
+    <div className={`flex flex-col ${isEmbedded ? 'h-full' : 'h-screen'} bg-gradient-to-b from-[#1A1F29] to-[#121827]`}>
       <header className="p-2 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
-        <div>
-          <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
-          <p className="text-xs text-gray-400">Interact with specialized AI agents</p>
+        <div className="flex items-center gap-2">
+          <Button 
+            variant="ghost" 
+            size="icon" 
+            onClick={handleBackClick}
+            className="text-white hover:bg-white/10"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <div>
+            <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
+            <p className="text-xs text-gray-400">
+              {projectId ? `Connected to Canvas Project #${projectId}` : "Interact with specialized AI agents"}
+            </p>
+          </div>
         </div>
         
         <div className="flex items-center gap-1.5">
@@ -247,7 +288,9 @@ export const MultiAgentChat = () => {
               </div>
               <h2 className="text-base font-semibold text-white mb-1">Multi-Agent AI Chat</h2>
               <p className="text-xs text-gray-400 max-w-md">
-                Choose an agent type above and start chatting. Each agent specializes in different tasks - use the main assistant for general help, or select a specialized agent for specific needs.
+                {projectId 
+                  ? "Connected to your Canvas project. Ask me to write scripts, create scene descriptions, or generate image prompts." 
+                  : "Choose an agent type above and start chatting. Each agent specializes in different tasks - use the main assistant for general help, or select a specialized agent for specific needs."}
               </p>
             </div>
           )}

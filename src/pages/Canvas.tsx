@@ -84,6 +84,11 @@ export default function Canvas() {
   const toggleChat = () => {
     setShowChat(!showChat);
   };
+  
+  const handleNavigateToChat = () => {
+    // Navigate to the multi-agent chat page with project context
+    navigate(`/multi-agent-chat?projectId=${projectId}`);
+  };
 
   // Show loading state
   if (loading || isAuthenticated === null) {
@@ -122,12 +127,13 @@ export default function Canvas() {
           project={project}
           onChatToggle={toggleChat}
           showChatButton={true}
+          onFullChatOpen={handleNavigateToChat}
         />
         
         <div className="flex flex-1 overflow-hidden">
-          {showChat && (
-            <div className="w-[350px] flex-shrink-0">
-              <CanvasChat onClose={toggleChat} projectId={project?.id} />
+          {showChat && project && (
+            <div className="w-[380px] flex-shrink-0">
+              <CanvasChat onClose={toggleChat} projectId={project.id} />
             </div>
           )}
           

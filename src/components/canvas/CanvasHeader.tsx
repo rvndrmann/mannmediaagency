@@ -4,7 +4,7 @@ import { CanvasProject } from "@/types/canvas";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Save, ArrowLeft, Check, Edit, MessageSquare } from "lucide-react";
+import { Save, ArrowLeft, Check, Edit, MessageSquare, ExternalLink } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -12,12 +12,14 @@ interface CanvasHeaderProps {
   project: CanvasProject;
   onChatToggle?: () => void;
   showChatButton?: boolean;
+  onFullChatOpen?: () => void;
 }
 
 export function CanvasHeader({ 
   project,
   onChatToggle,
-  showChatButton = false
+  showChatButton = false,
+  onFullChatOpen
 }: CanvasHeaderProps) {
   const [isEditingTitle, setIsEditingTitle] = useState(false);
   const [projectTitle, setProjectTitle] = useState(project?.title || "");
@@ -96,14 +98,27 @@ export function CanvasHeader({
       
       <div className="flex items-center space-x-2">
         {showChatButton && (
-          <Button 
-            variant="outline" 
-            size="sm"
-            onClick={onChatToggle}
-          >
-            <MessageSquare className="h-4 w-4 mr-1" />
-            AI Assistant
-          </Button>
+          <>
+            <Button 
+              variant="outline" 
+              size="sm"
+              onClick={onChatToggle}
+            >
+              <MessageSquare className="h-4 w-4 mr-1" />
+              Quick AI Assistant
+            </Button>
+            
+            {onFullChatOpen && (
+              <Button 
+                variant="default" 
+                size="sm"
+                onClick={onFullChatOpen}
+              >
+                <ExternalLink className="h-4 w-4 mr-1" />
+                Full AI Chat
+              </Button>
+            )}
+          </>
         )}
         
         <Button size="sm">

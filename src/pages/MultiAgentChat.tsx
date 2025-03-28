@@ -1,11 +1,17 @@
 
-import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useEffect } from "react";
+import { useSearchParams } from "react-router-dom";
+import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 
 export default function MultiAgentChatPage() {
-  useEffect(() => {
-    document.title = "Multi-Agent Chat | AI Collaboration";
-  }, []);
+  const [searchParams] = useSearchParams();
+  const projectId = searchParams.get('projectId');
 
-  return <MultiAgentChat />;
+  useEffect(() => {
+    document.title = projectId 
+      ? `Canvas Project #${projectId} - AI Collaboration` 
+      : "Multi-Agent Chat | AI Collaboration";
+  }, [projectId]);
+
+  return <MultiAgentChat projectId={projectId || undefined} />;
 }

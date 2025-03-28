@@ -5,6 +5,7 @@ import { ToolDefinition } from "../types";
 import { browserUseTool } from "./browser-use-tool";
 import { imageToVideoTool } from "./image-to-video-tool";
 import { productShotV1Tool } from "./product-shot-v1-tool";
+import { canvasTool } from "./canvas-tool";
 
 export interface Tool {
   name: string;
@@ -21,7 +22,9 @@ const tools: Record<string, Tool> = {
   // Register the image-to-video tool
   "image-to-video": imageToVideoTool as unknown as Tool,
   // Register the product-shot-v1 tool
-  "product-shot-v1": productShotV1Tool as unknown as Tool
+  "product-shot-v1": productShotV1Tool as unknown as Tool,
+  // Register the canvas tool
+  "canvas": canvasTool as unknown as Tool
 };
 
 export function getTool(name: string): Tool | null {

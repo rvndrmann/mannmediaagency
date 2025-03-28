@@ -24,11 +24,13 @@ serve(async (req) => {
   try {
     // Parse request body
     const requestData = await req.json();
+    console.log("Request data received:", JSON.stringify(requestData));
+    
+    // Validate that we have job ID information
     const { jobId, forceRegenerate = false, batchSize = 10 } = requestData;
     
-    // Validate that we have at least some job ID information
     if (!jobId) {
-      console.log("Request data received:", JSON.stringify(requestData));
+      console.error("Missing jobId in request data:", JSON.stringify(requestData));
       return new Response(
         JSON.stringify({ 
           success: false, 
@@ -40,6 +42,8 @@ serve(async (req) => {
         }
       );
     }
+
+    console.log(`Processing retry request for job ID: ${jobId}, forceRegenerate: ${forceRegenerate}`);
 
     // Get the FAL_KEY from environment
     const FAL_KEY = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY')
@@ -198,21 +202,22 @@ serve(async (req) => {
     
     if (jobId) {
       // Get the job with the provided ID
-      const { data: job, error: jobError } = await supabase
-        .from('image_generation_jobs')
-        .select('*')
-        .eq('id', jobId)
+      const { data: jobData, error: jobError } = await supabase
+        .from("image_generation_jobs")
+        .select("*")
+        .eq("id", jobId);
       
       if (jobError) {
-        console.error('Error fetching job:', jobError)
-        throw new Error(`Failed to fetch job: ${jobError.message}`)
+        console.error('Error fetching job:', jobError);
+        throw new Error(`Failed to fetch job: ${jobError.message}`);
       }
       
-      if (!job || job.length === 0) {
-        throw new Error('No job found with the provided ID')
+      if (!jobData || jobData.length === 0) {
+        throw new Error('No job found with the provided ID');
       }
       
-      jobs = [job[0]];
+      jobs = [jobData[0]];
+      console.log(`Found job with ID ${jobId}:`, JSON.stringify(jobData[0]));
     } else {
       // Get all jobs that are in_queue or failed
       const { data, error } = await supabase
@@ -224,6 +229,20 @@ serve(async (req) => {
       
       if (error) throw error;
       jobs = data || [];
+      console.log(`Found ${jobs.length} jobs in queue or failed status`);
+    }
+    
+    if (jobs.length === 0) {
+      return new Response(
+        JSON.stringify({
+          success: false,
+          error: 'No matching jobs found to retry'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 404
+        }
+      );
     }
     
     // Process the jobs
@@ -238,10 +257,10 @@ serve(async (req) => {
       {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in retry-image-generation:', error)
+    console.error('Error in retry-image-generation:', error);
     return new Response(
       JSON.stringify({
         success: false,
@@ -251,6 +270,6 @@ serve(async (req) => {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         status: 500
       }
-    )
+    );
   }
 })

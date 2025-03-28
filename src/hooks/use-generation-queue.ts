@@ -119,6 +119,10 @@ export function useGenerationQueue(initialJobId?: string) {
       
       console.log('Retry response:', data);
       
+      if (!data.success) {
+        throw new Error(data.error || 'Unknown error during retry');
+      }
+      
       // Reset states and start polling again
       setStatus('IN_QUEUE');
       setResult(null);

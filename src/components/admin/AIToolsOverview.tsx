@@ -32,7 +32,7 @@ export function AIToolsOverview() {
       const formattedJobs = imageJobs?.map(job => ({
         ...job,
         created_at_formatted: new Date(job.created_at).toLocaleString(),
-        // Map DB status to UI status
+        // Map DB status to UI status (standardized to IN_QUEUE, COMPLETED, FAILED)
         status_ui: job.status === 'in_queue' ? 'IN_QUEUE' : 
                   job.status === 'completed' ? 'COMPLETED' : 
                   job.status === 'failed' ? 'FAILED' : 'IN_QUEUE'
@@ -64,8 +64,16 @@ export function AIToolsOverview() {
   };
 
   const retryFailedJob = async (jobId: string) => {
+    if (!jobId) {
+      console.error("Cannot retry job: No job ID provided");
+      toast.error("Cannot retry job: Missing job ID");
+      return false;
+    }
+    
     setIsRetrying(prevState => ({ ...prevState, [jobId]: true }));
     try {
+      console.log(`Retrying job with ID: ${jobId}`);
+      
       const { data, error } = await supabase.functions.invoke('retry-image-generation', {
         body: { jobId }
       });
@@ -75,7 +83,12 @@ export function AIToolsOverview() {
         toast.error(`Failed to retry job: ${error.message}`);
         return false;
       } else {
-        console.log(`Job ${jobId} retried successfully:`, data);
+        console.log(`Job ${jobId} retry response:`, data);
+        
+        if (!data.success) {
+          throw new Error(data.error || "Unknown error occurred during retry");
+        }
+        
         toast.success(`Job resubmitted for processing`);
         return true;
       }
@@ -90,8 +103,16 @@ export function AIToolsOverview() {
   };
 
   const checkJobStatus = async (jobId: string) => {
+    if (!jobId) {
+      console.error("Cannot check status: No job ID provided");
+      toast.error("Cannot check status: Missing job ID");
+      return;
+    }
+    
     setIsCheckingStatus(prevState => ({ ...prevState, [jobId]: true }));
     try {
+      console.log(`Checking status for job ID: ${jobId}`);
+      
       const { data, error } = await supabase.functions.invoke('check-image-status', {
         body: { jobId }
       });

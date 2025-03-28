@@ -23,10 +23,14 @@ serve(async (req) => {
 
   try {
     // Parse request body
-    const { jobId, requestId } = await req.json()
+    const requestData = await req.json();
+    const { jobId, requestId } = requestData;
+    
+    console.log("Request data received:", JSON.stringify(requestData));
     
     // Validate that we have either jobId or requestId
     if (!jobId && !requestId) {
+      console.error("Missing jobId and requestId in request");
       throw new Error('Either Job ID or Request ID is required')
     }
 
@@ -36,6 +40,7 @@ serve(async (req) => {
     const falApiKey = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY')
 
     if (!supabaseUrl || !supabaseKey || !falApiKey) {
+      console.error("Missing required environment variables");
       throw new Error('Missing required configuration')
     }
 
@@ -54,6 +59,7 @@ serve(async (req) => {
         .single()
 
       if (requestIdError && requestIdError.code !== 'PGRST116') {
+        console.error(`Failed to find job with request ID: ${requestId}`, requestIdError);
         throw new Error(`Failed to find job with request ID: ${requestId}`)
       }
       job = jobByRequestId;
@@ -68,6 +74,7 @@ serve(async (req) => {
         .single()
 
       if (jobIdError) {
+        console.error(`Failed to find job with ID: ${jobId}`, jobIdError);
         throw new Error(`Failed to find job with ID: ${jobId}`)
       }
       job = jobById;
@@ -75,11 +82,13 @@ serve(async (req) => {
 
     // If no job found, throw an error
     if (!job) {
+      console.error("No job found for the provided identifiers");
       throw new Error('Job not found')
     }
 
     // If no request_id found but job exists, throw an error
     if (!job.request_id) {
+      console.error(`Job found (${job.id}) but has no request_id`);
       throw new Error('No request ID associated with this job')
     }
 
@@ -96,25 +105,26 @@ serve(async (req) => {
     )
 
     if (!statusResponse.ok) {
+      console.error("Failed to check job status:", await statusResponse.text());
       throw new Error('Failed to check job status')
     }
 
     const statusData = await statusResponse.json()
-    console.log('Status response:', statusData)
+    console.log('Status response:', statusData);
 
-    // Map Fal.ai status to our database status
+    // Map Fal.ai status to our standardized status
     // For the database we use lowercase, for the client response we use uppercase
     let dbStatus = 'in_queue'; // Default fallback
     if (statusData.status === 'COMPLETED') {
-      dbStatus = 'completed'
+      dbStatus = 'completed';
     } else if (statusData.status === 'FAILED') {
-      dbStatus = 'failed'
+      dbStatus = 'failed';
     } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-      dbStatus = 'in_queue'
+      dbStatus = 'in_queue';
     }
     
-    let resultUrl = job.result_url
-    let errorMessage = job.error_message
+    let resultUrl = job.result_url;
+    let errorMessage = job.error_message;
 
     if (statusData.status === 'COMPLETED') {
       // Fetch the result
@@ -128,58 +138,61 @@ serve(async (req) => {
       )
 
       if (!resultResponse.ok) {
+        console.error("Failed to fetch result:", await resultResponse.text());
         throw new Error('Failed to fetch result')
       }
 
       const resultData = await resultResponse.json()
-      console.log('Result data:', resultData)
+      console.log('Result data:', resultData);
 
       if (resultData.images?.[0]?.url) {
-        resultUrl = resultData.images[0].url
+        resultUrl = resultData.images[0].url;
 
         // Update job record
         const { error: updateError } = await supabase
           .from('image_generation_jobs')
           .update({
             status: dbStatus,
-            result_url: resultUrl
+            result_url: resultUrl,
+            checked_at: new Date().toISOString()
           })
           .eq('id', job.id)
 
         if (updateError) {
-          throw new Error('Failed to update job record')
+          console.error("Failed to update job record:", updateError);
+          throw new Error('Failed to update job record');
         }
       }
     } else if (statusData.status === 'FAILED') {
-      errorMessage = statusData.error || 'Unknown error occurred during generation'
+      errorMessage = statusData.error || 'Unknown error occurred during generation';
       // Update job status
       await supabase
         .from('image_generation_jobs')
         .update({ 
           status: dbStatus,
-          error_message: errorMessage
+          error_message: errorMessage,
+          checked_at: new Date().toISOString()
         })
-        .eq('id', job.id)
+        .eq('id', job.id);
     } else {
       // Update for IN_QUEUE or PROCESSING status
       await supabase
         .from('image_generation_jobs')
         .update({ 
-          status: dbStatus
+          status: dbStatus,
+          checked_at: new Date().toISOString()
         })
-        .eq('id', job.id)
+        .eq('id', job.id);
     }
 
     // Return response with normalized uppercase status for client
-    // We map from database status (lowercase) to client response (uppercase)
-    const normalizedStatus = statusData.status || 
-                           (dbStatus === 'in_queue' ? 'IN_QUEUE' : 
-                            dbStatus === 'completed' ? 'COMPLETED' : 
-                            dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE');
+    const clientStatus = dbStatus === 'in_queue' ? 'IN_QUEUE' : 
+                         dbStatus === 'completed' ? 'COMPLETED' : 
+                         dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE';
 
     return new Response(
       JSON.stringify({
-        status: normalizedStatus,
+        status: clientStatus,
         resultUrl,
         errorMessage,
         falStatus: statusData.status,
@@ -187,13 +200,19 @@ serve(async (req) => {
         requestId: job.request_id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+    );
 
   } catch (error) {
-    console.error('Error in check-image-status:', error)
+    console.error('Error in check-image-status:', error);
     return new Response(
-      JSON.stringify({ error: error.message }),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-    )
+      JSON.stringify({ 
+        status: 'FAILED',
+        error: error.message || 'Unknown error occurred' 
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
   }
-})
+});

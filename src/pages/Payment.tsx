@@ -1,3 +1,4 @@
+
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -5,6 +6,11 @@ import { useNavigate, useLocation, useSearchParams } from "react-router-dom";
 import { useToast } from "@/hooks/use-toast";
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+
+interface PaymentLink {
+  title: string;
+  custom_rate: number;
+}
 
 const Payment = () => {
   const navigate = useNavigate();
@@ -25,8 +31,12 @@ const Payment = () => {
     },
   });
 
-  const selectedPaymentLink = paymentLinks && paymentLinks.length > 0 
-    ? { title: paymentLinks[0].title, custom_rate: paymentLinks[0].custom_rate } 
+  // Handle the payment links data correctly
+  const selectedPaymentLink: PaymentLink = paymentLinks && paymentLinks.length > 0 
+    ? { 
+        title: paymentLinks[0].title, 
+        custom_rate: paymentLinks[0].custom_rate 
+      } 
     : { title: '', custom_rate: 0 };
 
   const [paymentDetails, setPaymentDetails] = useState<{

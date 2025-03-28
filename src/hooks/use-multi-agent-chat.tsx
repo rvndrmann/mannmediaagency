@@ -1,11 +1,11 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Message, Attachment, ContinuityData } from "@/types/message";
+import { Message, Attachment, ContinuityData, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
 import { supabase } from "@/integrations/supabase/client";
 import { RunnerContext, RunnerCallbacks } from "./multi-agent/runner/types";
-import { MessageType } from "@/types/message";
 
 export type { AgentType } from "./multi-agent/runner/types";
 
@@ -18,7 +18,7 @@ const initialMessages: Message[] = [
   {
     id: '1',
     content: 'Hello! How can I help you today?',
-    role: 'assistant' as MessageType,
+    role: "assistant" as "system" | "user" | "assistant" | "tool",
     createdAt: new Date().toISOString(),
   },
 ];
@@ -160,7 +160,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         role: "system",
         content: `Conversation transferred from ${getAgentName(fromAgentType)} to ${getAgentName(toAgentType)}. Reason: ${reason}`,
         createdAt: new Date().toISOString(),
-        type: "handoff",
+        type: "handoff" as MessageType,
         continuityData: {
           fromAgent: fromAgentType,
           toAgent: toAgentType,
@@ -217,7 +217,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             content: text,
             role: type === "assistant" ? "assistant" : "system",
             createdAt: new Date().toISOString(),
-            type: type,
+            type: type as MessageType,
             attachments: attachments
           };
           setMessages(prev => [...prev, newMessage]);
@@ -242,7 +242,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             content: `Error: ${error}`,
             role: "system",
             createdAt: new Date().toISOString(),
-            type: "error",
+            type: "error" as MessageType,
             status: "error"
           };
           setMessages(prev => [...prev, errorMessage]);
@@ -283,7 +283,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         content: error instanceof Error ? error.message : "Failed to send message",
         role: "system",
         createdAt: new Date().toISOString(),
-        type: "error",
+        type: "error" as MessageType,
         status: "error"
       };
       

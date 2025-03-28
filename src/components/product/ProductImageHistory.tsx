@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,7 +18,17 @@ interface ImageGenerationJob {
   };
 }
 
-const ProductImageHistory = () => {
+interface ProductImageHistoryProps {
+  onSelectImage?: (jobId: string, imageUrl: string) => void;
+  selectedImageId?: string | null;
+  onBackToGallery?: () => void;
+}
+
+const ProductImageHistory: React.FC<ProductImageHistoryProps> = ({ 
+  onSelectImage,
+  selectedImageId,
+  onBackToGallery
+}) => {
   const [images, setImages] = useState<ImageGenerationJob[]>([]);
   const { toast } = useToast();
 
@@ -72,6 +83,32 @@ const ProductImageHistory = () => {
     });
   };
 
+  if (selectedImageId && onBackToGallery) {
+    const selectedImage = images.find(img => img.id === selectedImageId);
+    if (selectedImage) {
+      return (
+        <div className="p-4">
+          <Button variant="ghost" onClick={onBackToGallery} className="mb-4">
+            ← Back to Gallery
+          </Button>
+          <div className="flex flex-col items-center">
+            <img 
+              src={selectedImage.result_url} 
+              alt={selectedImage.prompt} 
+              className="w-full max-w-md rounded-md aspect-square object-cover mb-4"
+            />
+            <div className="w-full max-w-md">
+              <h3 className="text-lg font-semibold text-white">{selectedImage.prompt}</h3>
+              <p className="text-sm text-gray-400 mb-4">
+                Created at {new Date(selectedImage.created_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      );
+    }
+  }
+
   return (
     <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
       {images.map((image) => (
@@ -89,6 +126,16 @@ const ProductImageHistory = () => {
                 alt={image.prompt}
                 className="w-full rounded-md aspect-square object-cover"
               />
+              {onSelectImage && (
+                <div className="absolute inset-0 flex items-center justify-center opacity-0 hover:opacity-100 transition-opacity bg-black/50">
+                  <Button 
+                    onClick={() => onSelectImage(image.id, image.result_url)}
+                    variant="secondary"
+                  >
+                    Use This Image
+                  </Button>
+                </div>
+              )}
             </div>
             <div className="mt-4 space-y-2">
               <div>

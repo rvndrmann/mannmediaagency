@@ -8,11 +8,13 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AlertCircle } from "lucide-react";
 import PhoneLoginForm from "./PhoneLoginForm";
+import EmailLoginForm from "./EmailLoginForm";
 
 const SignupForm = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
+  const [signupMethod, setSignupMethod] = useState<"email" | "phone" | null>("email");
 
   const handleGoogleSignup = async () => {
     try {
@@ -47,6 +49,40 @@ const SignupForm = () => {
         </div>
 
         <div className="space-y-4">
+          {signupMethod === "email" && <EmailLoginForm isSignUp={true} />}
+
+          <div className="grid grid-cols-2 gap-2">
+            <Button
+              onClick={() => setSignupMethod("email")}
+              variant={signupMethod === "email" ? "default" : "outline"}
+              className={signupMethod === "email" 
+                ? "bg-purple-600 hover:bg-purple-700 text-white" 
+                : "bg-gray-800 text-gray-300 hover:bg-gray-700"}
+            >
+              Email Signup
+            </Button>
+            <Button
+              onClick={() => setSignupMethod("phone")}
+              variant={signupMethod === "phone" ? "default" : "outline"}
+              className={signupMethod === "phone" 
+                ? "bg-purple-600 hover:bg-purple-700 text-white" 
+                : "bg-gray-800 text-gray-300 hover:bg-gray-700"}
+            >
+              Phone Signup
+            </Button>
+          </div>
+
+          {signupMethod === "phone" && <PhoneLoginForm isSignUp={true} />}
+
+          <div className="relative">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-700"></div>
+            </div>
+            <div className="relative flex justify-center text-xs uppercase">
+              <span className="bg-gray-800 px-2 text-gray-400">Or continue with</span>
+            </div>
+          </div>
+
           <Button
             onClick={handleGoogleSignup}
             className="w-full bg-white hover:bg-gray-100 text-gray-900"
@@ -63,8 +99,6 @@ const SignupForm = () => {
             )}
             {isLoading ? "Connecting..." : "Sign up with Google"}
           </Button>
-
-          <PhoneLoginForm isSignUp={true} />
 
           <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
             <AlertCircle className="w-4 h-4 flex-shrink-0" />

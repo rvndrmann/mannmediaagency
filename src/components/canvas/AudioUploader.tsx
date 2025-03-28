@@ -38,8 +38,9 @@ export function AudioUploader({
     const file = e.target.files?.[0];
     if (!file) return;
     
+    // Check if the file is an MP3 or other audio format
     if (!file.type.startsWith('audio/')) {
-      toast.error("Please select an audio file");
+      toast.error("Please select an audio file (MP3 recommended)");
       return;
     }
     
@@ -121,7 +122,7 @@ export function AudioUploader({
       <input
         type="file"
         ref={audioInputRef}
-        accept="audio/*"
+        accept="audio/mp3,audio/*"
         className="hidden"
         onChange={handleFileSelected}
       />
@@ -168,7 +169,7 @@ export function AudioUploader({
           disabled={isUploading}
         >
           <Upload className="h-4 w-4 mr-2" />
-          Upload {label}
+          Upload {label} (MP3)
         </Button>
       )}
       

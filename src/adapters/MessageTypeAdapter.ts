@@ -1,13 +1,13 @@
 
-import { Message as GlobalMessage } from "@/types/message";
+import { Message as GlobalMessage, MessageStatus } from "@/types/message";
 
 // Simple Message type for components that only need basic message functionality
 export interface SimpleMessage {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
-  status?: "thinking" | "working" | "completed" | "error";
-  id: string;        // Changed to required to match GlobalMessage
-  createdAt: string; // Changed to required to match GlobalMessage
+  status?: MessageStatus; // Use the consistent MessageStatus type
+  id: string;
+  createdAt: string;
 }
 
 // Convert the global Message type to SimpleMessage for components that expect it
@@ -25,7 +25,7 @@ export function adaptMessageToSimple(message: GlobalMessage): SimpleMessage {
 export function createGlobalMessage(input: {
   role: "user" | "assistant" | "system" | "tool";
   content: string;
-  status?: "thinking" | "working" | "completed" | "error";
+  status?: MessageStatus;
   tasks?: any[];
   tool_name?: string;
   tool_arguments?: string;

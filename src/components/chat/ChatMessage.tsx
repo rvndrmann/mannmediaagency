@@ -1,7 +1,7 @@
 
 import { Card } from "@/components/ui/card";
 import ReactMarkdown from "react-markdown";
-import { Message, Task, MessageType } from "@/types/message";
+import { Message, Task, MessageType, MessageStatus } from "@/types/message";
 import { Check, Clock, Loader2, XCircle, AlertTriangle, RefreshCw, ArrowRightLeft } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
@@ -52,6 +52,18 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
       </div>
     );
   }
+
+  // Map status values for UI display
+  const getStatusText = (status: MessageStatus | undefined): string => {
+    if (!status) return "";
+    
+    if (status === "thinking" || status === "loading") return "Analyzing your request...";
+    if (status === "working") return "Working on tasks...";
+    if (status === "completed" || status === "done") return "All tasks completed";
+    if (status === "error") return "Error occurred";
+    
+    return "";
+  };
 
   return (
     <Card
@@ -143,10 +155,7 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
         <div className="mt-3 pt-3 border-t border-white/10">
           <div className="text-xs font-medium text-white/60 mb-2 flex items-center justify-between">
             <span>
-              {message.status === "thinking" && "Analyzing your request..."}
-              {message.status === "working" && "Working on tasks..."}
-              {message.status === "completed" && "All tasks completed"}
-              {message.status === "error" && "Error occurred"}
+              {getStatusText(message.status)}
             </span>
             
             {isError && onRetry && (

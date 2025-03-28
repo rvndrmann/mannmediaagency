@@ -1,5 +1,5 @@
 
-// Adding the MessageType type definition if it doesn't exist already
+// MessageType type definition
 export type MessageType = 
   | "text" 
   | "system" 
@@ -9,7 +9,8 @@ export type MessageType =
   | "error" 
   | undefined;
 
-export type MessageStatus = "loading" | "done" | "error";
+// We need to align these statuses to make them consistent across the app
+export type MessageStatus = "loading" | "done" | "error" | "thinking" | "working" | "completed";
 
 export interface Task {
   id: string;
@@ -21,6 +22,7 @@ export interface Task {
 export interface Command {
   name: string;
   parameters?: Record<string, any>;
+  args?: Record<string, any>; // Add this to fix tool-executor.ts
   feature?: string;
 }
 
@@ -60,6 +62,8 @@ export interface Message {
   handoffRequest?: HandoffRequest;
   timestamp?: string;
   continuityData?: ContinuityData;
+  structured_output?: any; // Add this to fix AgentRunner.ts
+  selectedTool?: string; // Add this to fix use-ai-chat.tsx
 }
 
 export interface Attachment {
@@ -69,6 +73,7 @@ export interface Attachment {
   url?: string;
   content?: string;
   size?: number;
+  contentType?: string; // Add this to fix FileAttachmentButton.tsx and other errors
 }
 
 export interface HandoffRequest {

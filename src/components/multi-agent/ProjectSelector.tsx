@@ -185,7 +185,9 @@ export function ProjectSelector({
             <CommandEmpty className="py-6 text-center text-sm">
               {loading ? "Loading projects..." : "No projects found."}
             </CommandEmpty>
-            {projects.length > 0 && (
+            
+            {/* Only render CommandGroup if there are projects */}
+            {projects && projects.length > 0 && (
               <CommandGroup>
                 {projects.map((project) => (
                   <CommandItem

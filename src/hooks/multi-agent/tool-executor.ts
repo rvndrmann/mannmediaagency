@@ -39,7 +39,9 @@ export const executeCommand = async (
     }
     
     // Execute the tool
-    const result = await tool.execute(commandData.parameters || commandData.args || {}, context);
+    // Use parameters or fall back to args if parameters is undefined
+    const toolParams = commandData.parameters || commandData.args || {};
+    const result = await tool.execute(toolParams, context);
     
     if (!result.success) {
       return {

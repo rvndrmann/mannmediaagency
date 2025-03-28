@@ -25,6 +25,9 @@ export class AssistantAgent extends BaseAgentImpl {
       // Get dynamic instructions if needed
       const instructions = await this.getInstructions(this.context);
       
+      // Get conversation history from context if available
+      const conversationHistory = this.context.metadata?.conversationHistory || [];
+      
       // Call the Supabase function for the assistant agent
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -38,10 +41,16 @@ export class AssistantAgent extends BaseAgentImpl {
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: false,
+            isHandoffContinuation: this.context.metadata?.isHandoffContinuation || false,
+            previousAgentType: this.context.metadata?.previousAgentType || '',
+            handoffReason: this.context.metadata?.handoffReason || '',
             instructions: instructions
           },
-          metadata: this.context.metadata,
+          conversationHistory: conversationHistory, // Pass conversation history
+          metadata: {
+            ...this.context.metadata,
+            previousAgentType: 'main'
+          },
           runId: this.context.runId,
           groupId: this.context.groupId
         }

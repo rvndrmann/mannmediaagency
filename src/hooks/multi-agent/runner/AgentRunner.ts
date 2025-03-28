@@ -1,3 +1,4 @@
+
 import { AgentRegistry } from "./AgentRegistry";
 import { BaseAgent, AgentType, AgentOptions } from "./types";
 import { Attachment, Message } from "@/types/message";
@@ -5,6 +6,7 @@ import { v4 as uuidv4 } from "uuid";
 import { ToolContext, AgentConfig } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 import { HandoffInputData } from "../handoff/types";
+import { createHandoffInputData, handoffFilters } from "../handoff/handoff";
 
 export interface AgentRunnerCallbacks {
   onMessage: (message: Message) => void;
@@ -20,6 +22,8 @@ export class AgentRunner {
   private callbacks: AgentRunnerCallbacks;
   private agent: BaseAgent | null = null;
   private conversationHistory: Message[] = [];
+  private maxTurns: number = 5; // Prevent infinite loops
+  private currentTurn: number = 0;
 
   constructor(
     agentType: AgentType,
@@ -204,53 +208,157 @@ export class AgentRunner {
     };
   }
 
+  /**
+   * Process a handoff from one agent to another
+   */
   public async handleHandoff(fromAgent: AgentType, toAgent: AgentType, reason: string, additionalContext?: Record<string, any>): Promise<void> {
     console.log(`Handling handoff from ${fromAgent} to ${toAgent}: ${reason}`);
     
-    if (this.callbacks.onHandoffStart) {
-      this.callbacks.onHandoffStart(fromAgent, toAgent, reason);
-    }
-    
-    const historyContent = this.conversationHistory.map(msg => msg.content);
-    const preHandoffItems = this.conversationHistory.slice(0, -2);
-    const newItems = this.conversationHistory.slice(-2);
-    
-    const inputData: HandoffInputData = {
-      inputHistory: historyContent,
-      preHandoffItems,
-      newItems,
-      allItems: this.conversationHistory,
-      conversationContext: {
+    try {
+      if (this.callbacks.onHandoffStart) {
+        this.callbacks.onHandoffStart(fromAgent, toAgent, reason);
+      }
+      
+      // Create handoff input data with the full conversation history
+      const historyContent = this.conversationHistory.map(msg => msg.content);
+      const preHandoffItems = this.conversationHistory.slice(0, -2);
+      const newItems = this.conversationHistory.slice(-2);
+      
+      // Create comprehensive input data for the handoff
+      let inputData = createHandoffInputData(
+        historyContent,
+        preHandoffItems,
+        newItems,
+        {
+          previousAgentType: fromAgent,
+          handoffReason: reason,
+          isHandoffContinuation: true,
+          ...additionalContext
+        }
+      );
+      
+      // Apply default input filters if needed
+      inputData = handoffFilters.addContinuityContext(fromAgent)(inputData);
+      
+      // Set up context for the new agent
+      const mergedContext = {
+        ...this.context.metadata,
         previousAgentType: fromAgent,
         handoffReason: reason,
-        isHandoffContinuation: true
+        isHandoffContinuation: true,
+        conversationId: this.context.groupId,
+        ...(additionalContext || {})
+      };
+      
+      // Update agent type and context
+      this.agentType = toAgent;
+      this.context.metadata = mergedContext;
+      
+      // Re-initialize with the new agent type
+      this.initializeAgent();
+      
+      // Extract the last user message to continue processing with the new agent
+      const lastUserMessageIndex = this.conversationHistory
+        .map((msg, i) => ({ msg, i }))
+        .filter(item => item.msg.role === "user")
+        .pop();
+      
+      if (lastUserMessageIndex) {
+        const lastUserMessage = this.conversationHistory[lastUserMessageIndex.i];
+        
+        // Create a system message explaining the handoff
+        const handoffSystemMessage: Message = {
+          id: uuidv4(),
+          role: "system",
+          content: `Conversation transferred from ${fromAgent} agent to ${toAgent} agent: ${reason}`,
+          createdAt: new Date().toISOString(),
+          type: "handoff"
+        };
+        
+        this.conversationHistory.push(handoffSystemMessage);
+        
+        // Create a new assistant message for the target agent
+        const assistantMessage = this.createAssistantMessage(toAgent);
+        this.conversationHistory.push(assistantMessage);
+        this.callbacks.onMessage(assistantMessage);
+        
+        // Continue processing with the new agent (recursive loop)
+        try {
+          // Increment turn counter to prevent infinite loops
+          this.currentTurn++;
+          
+          if (this.currentTurn >= this.maxTurns) {
+            throw new Error("Maximum number of agent turns exceeded. Possible infinite handoff loop detected.");
+          }
+          
+          const agentResult = await this.agent!.run(lastUserMessage.content, lastUserMessage.attachments || []);
+          
+          // Update the assistant message with the agent response
+          const updatedAssistantMessage: Message = {
+            ...assistantMessage,
+            content: agentResult.response || "",
+            status: "completed",
+            handoffRequest: agentResult.nextAgent ? {
+              targetAgent: agentResult.nextAgent,
+              reason: `The ${toAgent} agent recommended transitioning to the ${agentResult.nextAgent} agent.`,
+              preserveFullHistory: true
+            } : undefined
+          };
+          
+          // Update conversation history
+          this.conversationHistory = this.conversationHistory.map(msg => 
+            msg.id === assistantMessage.id ? updatedAssistantMessage : msg
+          );
+          
+          this.callbacks.onMessage(updatedAssistantMessage);
+          
+          // Handle any further handoffs if needed
+          if (agentResult.nextAgent) {
+            console.log(`Further handoff to ${agentResult.nextAgent} agent`);
+            await this.handleHandoff(
+              toAgent,
+              agentResult.nextAgent as AgentType,
+              `The ${toAgent} agent recommended transitioning to the ${agentResult.nextAgent} agent.`
+            );
+          }
+        } catch (error) {
+          console.error(`Error running ${toAgent} agent after handoff:`, error);
+          
+          const errorMessage: Message = {
+            ...assistantMessage,
+            content: `Sorry, I encountered an error after the handoff: ${error instanceof Error ? error.message : String(error)}`,
+            status: "error"
+          };
+          
+          this.conversationHistory = this.conversationHistory.map(msg => 
+            msg.id === assistantMessage.id ? errorMessage : msg
+          );
+          
+          this.callbacks.onMessage(errorMessage);
+          this.callbacks.onError(`Agent execution error after handoff: ${error instanceof Error ? error.message : String(error)}`);
+        }
       }
-    };
-    
-    const mergedContext = {
-      ...this.context.metadata,
-      previousAgentType: fromAgent,
-      handoffReason: reason,
-      isHandoffContinuation: true,
-      conversationId: this.context.groupId,
-      ...(additionalContext || {})
-    };
-    
-    this.agentType = toAgent;
-    this.context.metadata = mergedContext;
-    
-    this.initializeAgent();
-    
-    if (this.callbacks.onHandoffEnd) {
-      this.callbacks.onHandoffEnd(toAgent);
+      
+      if (this.callbacks.onHandoffEnd) {
+        this.callbacks.onHandoffEnd(toAgent);
+      }
+    } catch (error) {
+      console.error("Error in handleHandoff:", error);
+      this.callbacks.onError(`Handoff error: ${error instanceof Error ? error.message : String(error)}`);
     }
   }
 
+  /**
+   * Main entry point to run the agent
+   */
   public async run(input: string, attachments: Attachment[] = [], userId: string): Promise<void> {
     try {
       if (!this.agent) {
         throw new Error("Agent not initialized");
       }
+      
+      // Reset turn counter at the start of a new run
+      this.currentTurn = 0;
       
       console.log(`Running ${this.agentType} agent with input:`, input);
       

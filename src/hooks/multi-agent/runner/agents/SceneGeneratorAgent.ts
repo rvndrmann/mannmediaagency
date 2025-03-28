@@ -11,6 +11,8 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
+      console.log("Running SceneGeneratorAgent with input:", input, "attachments:", attachments);
+      
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
       if (!user) {
@@ -19,6 +21,9 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       
       // Get dynamic instructions if needed
       const instructions = await this.getInstructions(this.context);
+      
+      // Get conversation history from context if available
+      const conversationHistory = this.context.metadata?.conversationHistory || [];
       
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -33,9 +38,12 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: false,
+            isHandoffContinuation: this.context.metadata?.isHandoffContinuation || false,
+            previousAgentType: this.context.metadata?.previousAgentType || 'main',
+            handoffReason: this.context.metadata?.handoffReason || '',
             instructions: instructions
           },
+          conversationHistory: conversationHistory, // Pass conversation history
           metadata: {
             ...this.context.metadata,
             previousAgentType: 'scene'

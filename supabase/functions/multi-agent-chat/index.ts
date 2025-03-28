@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -47,7 +48,8 @@ serve(async (req) => {
       contextData, 
       metadata, 
       runId, 
-      groupId 
+      groupId,
+      conversationHistory
     } = await req.json();
 
     logInfo(`[${requestId}] Received request from user ${userId}`, { 
@@ -55,6 +57,7 @@ serve(async (req) => {
       inputLength: input?.length, 
       attachmentsCount: attachments?.length || 0,
       hasContextData: !!contextData,
+      conversationHistoryItems: conversationHistory?.length || 0,
       runId,
       groupId
     });
@@ -71,6 +74,38 @@ serve(async (req) => {
       content: instructions
     };
     
+    // Process conversation history into messages format for OpenAI
+    const messages = [systemMessage];
+    
+    // If we have conversation history, include relevant context
+    if (conversationHistory && conversationHistory.length > 0) {
+      // Add continuation context for handoffs
+      if (contextData?.isHandoffContinuation) {
+        messages.push({
+          role: "system",
+          content: `This conversation was handed off from the ${
+            contextData.previousAgentType || 'previous'
+          } agent to you (${agentType} agent) to help with specialized assistance. 
+          Reason: ${contextData.handoffReason || 'Not specified'}
+          
+          Please review the conversation history and maintain continuity.`
+        });
+      }
+      
+      // Add the most relevant conversation history (last 10 messages or so)
+      const maxHistoryItems = 10;
+      const relevantHistory = conversationHistory.slice(-maxHistoryItems);
+      
+      relevantHistory.forEach(item => {
+        if (item.role === 'user' || item.role === 'assistant' || item.role === 'system') {
+          messages.push({
+            role: item.role,
+            content: item.content
+          });
+        }
+      });
+    }
+    
     // Build the user message with input and context
     let userMessage = `${input}`;
     
@@ -86,9 +121,7 @@ serve(async (req) => {
         userMessage += `\n\nNote: This conversation was handed off from the ${
           contextData.previousAgentType || 'previous'
         } agent to you (${agentType} agent) to help with specialized assistance. 
-        Reason: ${contextData.handoffReason || 'Not specified'}
-        
-        Please review the conversation history and maintain continuity.`;
+        Reason: ${contextData.handoffReason || 'Not specified'}`;
         
         // Log that this is a handoff continuation
         logInfo(`[${requestId}] This is a handoff continuation from ${contextData.previousAgentType} to ${agentType}`, {
@@ -101,6 +134,12 @@ serve(async (req) => {
         userMessage += `\n\nAvailable tools: ${JSON.stringify(contextData.availableTools, null, 2)}`;
       }
     }
+    
+    // Add the current user message
+    messages.push({
+      role: "user",
+      content: userMessage
+    });
     
     // Define available tools based on agent type and context
     const tools = getToolsForAgent(agentType, enableDirectToolExecution);
@@ -204,10 +243,7 @@ serve(async (req) => {
       },
       body: JSON.stringify({
         model: model,
-        messages: [
-          systemMessage,
-          { role: "user", content: userMessage }
-        ],
+        messages: messages,
         functions: functions,
         function_call: "auto", // Let the model decide which function to call
         temperature: 0.7,

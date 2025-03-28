@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -33,6 +34,7 @@ export const useMultiAgentChat = () => {
   const [tracingEnabled, setTracingEnabled] = useState(true);
   const [currentConversationId, setCurrentConversationId] = useState<string>(uuidv4());
   const [activeToolExecutions, setActiveToolExecutions] = useState<string[]>([]);
+  const [handoffInProgress, setHandoffInProgress] = useState(false);
   const [agentInstructions, setAgentInstructions] = useState<Record<AgentType, string>>({
     main: "",
     script: "",
@@ -40,7 +42,6 @@ export const useMultiAgentChat = () => {
     tool: "",
     scene: ""
   });
-  const [handoffInProgress, setHandoffInProgress] = useState(false);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -236,7 +237,8 @@ export const useMultiAgentChat = () => {
           userId: user.id,
           sessionId: currentConversationId,
           creditsRemaining: userCredits?.credits_remaining,
-          browserUseApiKey
+          browserUseApiKey,
+          conversationHistory: messages // Pass full conversation history
         },
         runId: uuidv4(),
         groupId: currentConversationId,

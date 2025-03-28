@@ -4,30 +4,13 @@ import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
 interface JobStatus {
-  status: 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
   resultUrl?: string;
   errorMessage?: string;
   falStatus?: string;
   jobId?: string;
   requestId?: string;
 }
-
-// Helper function to normalize status between Fal.ai (uppercase) and our DB (lowercase)
-const normalizeStatus = (status: string): string => {
-  if (!status) return 'IN_QUEUE';
-  
-  const upperStatus = status.toUpperCase();
-  
-  // Map between our DB statuses and Fal.ai statuses
-  switch (upperStatus) {
-    case 'COMPLETED': return 'COMPLETED';
-    case 'FAILED': return 'FAILED';
-    case 'IN_QUEUE': return 'IN_QUEUE';
-    case 'PROCESSING': return 'PROCESSING';
-    case 'PENDING': return 'IN_QUEUE';
-    default: return 'IN_QUEUE';
-  }
-};
 
 export function useGenerationQueue(initialJobId?: string) {
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
@@ -73,7 +56,7 @@ export function useGenerationQueue(initialJobId?: string) {
         setShouldPoll(false);
         toast.error(response.errorMessage || 'Image generation failed');
       } else {
-        // Still in progress (IN_QUEUE or PROCESSING)
+        // Still in progress (IN_QUEUE)
         setShouldPoll(true);
       }
       

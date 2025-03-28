@@ -29,7 +29,16 @@ serve(async (req) => {
     // Validate that we have at least some job ID information
     if (!jobId) {
       console.log("Request data received:", JSON.stringify(requestData));
-      throw new Error('Job ID is required for retry')
+      return new Response(
+        JSON.stringify({ 
+          success: false, 
+          error: 'Job ID is required for retry' 
+        }),
+        { 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          status: 400 
+        }
+      );
     }
 
     // Get the FAL_KEY from environment
@@ -94,12 +103,12 @@ serve(async (req) => {
               
               console.log(`Created new generation with request_id: ${requestId}`);
               
-              // Update the job with the new request ID and reset status to pending
+              // Update the job with the new request ID and reset status to IN_QUEUE
               await supabase
                 .from('image_generation_jobs')
                 .update({ 
                   request_id: requestId, 
-                  status: 'pending',
+                  status: 'in_queue',  // Using lowercase in the database
                   result_url: null,
                   error_message: null,
                   retried_at: new Date().toISOString()
@@ -150,7 +159,7 @@ serve(async (req) => {
             } else if (statusData.status === 'FAILED') {
               dbStatus = 'failed';
             } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-              dbStatus = 'pending';
+              dbStatus = 'in_queue';  // Store all non-completed, non-failed statuses as in_queue in the database
             }
             
             console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`);
@@ -205,11 +214,11 @@ serve(async (req) => {
       
       jobs = [job[0]];
     } else {
-      // Get all jobs that are pending or stuck
+      // Get all jobs that are in_queue or failed
       const { data, error } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['pending', 'processing', 'failed'])
+        .in('status', ['in_queue', 'failed'])
         .order('created_at', { ascending: false })
         .limit(batchSize);
       

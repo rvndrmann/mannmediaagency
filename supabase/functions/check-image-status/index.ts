@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 interface JobStatus {
-  status: 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
   resultUrl?: string;
   errorMessage?: string;
   falStatus?: string;
@@ -103,14 +103,14 @@ serve(async (req) => {
     console.log('Status response:', statusData)
 
     // Map Fal.ai status to our database status
-    // Ensure we're using uppercase status values for Fal.ai API
-    let dbStatus = 'pending'; // Default fallback
+    // For the database we use lowercase, for the client response we use uppercase
+    let dbStatus = 'in_queue'; // Default fallback
     if (statusData.status === 'COMPLETED') {
       dbStatus = 'completed'
     } else if (statusData.status === 'FAILED') {
       dbStatus = 'failed'
     } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-      dbStatus = 'pending'
+      dbStatus = 'in_queue'
     }
     
     let resultUrl = job.result_url
@@ -171,10 +171,11 @@ serve(async (req) => {
     }
 
     // Return response with normalized uppercase status for client
+    // We map from database status (lowercase) to client response (uppercase)
     const normalizedStatus = statusData.status || 
-                             (dbStatus === 'pending' ? 'IN_QUEUE' : 
-                             dbStatus === 'completed' ? 'COMPLETED' : 
-                             dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE');
+                           (dbStatus === 'in_queue' ? 'IN_QUEUE' : 
+                            dbStatus === 'completed' ? 'COMPLETED' : 
+                            dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE');
 
     return new Response(
       JSON.stringify({

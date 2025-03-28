@@ -14,16 +14,16 @@ export function AIToolsOverview() {
   const [isRetryingAll, setIsRetryingAll] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState<{ [key: string]: boolean }>({});
 
-  // Fetch all stuck jobs (pending and processing)
+  // Fetch all stuck jobs (in_queue and failed)
   const fetchStuckJobs = async () => {
     try {
       setIsLoadingStuckJobs(true);
       
-      // Fetch image generation jobs that are still pending or processing
+      // Fetch image generation jobs that are still in_queue or failed
       const { data: imageJobs, error: imageError } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['pending', 'processing']) // Use the database's actual enum values
+        .in('status', ['in_queue', 'failed']) // Use the database's actual enum values
         .order('created_at', { ascending: false });
 
       if (imageError) throw imageError;
@@ -32,6 +32,10 @@ export function AIToolsOverview() {
       const formattedJobs = imageJobs?.map(job => ({
         ...job,
         created_at_formatted: new Date(job.created_at).toLocaleString(),
+        // Map DB status to UI status
+        status_ui: job.status === 'in_queue' ? 'IN_QUEUE' : 
+                  job.status === 'completed' ? 'COMPLETED' : 
+                  job.status === 'failed' ? 'FAILED' : 'IN_QUEUE'
       })) || [];
       
       setStuckJobs(formattedJobs);
@@ -211,11 +215,13 @@ export function AIToolsOverview() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           job.error_message?.includes('400')
                             ? 'bg-red-100 text-red-800'
-                            : job.status === 'pending'
+                            : job.status === 'in_queue'
                               ? 'bg-yellow-100 text-yellow-800'
-                              : 'bg-blue-100 text-blue-800'
+                              : job.status === 'failed'
+                                ? 'bg-red-100 text-red-800'
+                                : 'bg-blue-100 text-blue-800'
                         }`}>
-                          {job.status}
+                          {job.status_ui || job.status}
                         </span>
                       </TableCell>
                       <TableCell className="max-w-xs truncate">{job.prompt}</TableCell>

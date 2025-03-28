@@ -54,7 +54,7 @@ export function useGenerationQueue() {
               img => img.id === `temp-${item.requestId}`
             );
 
-            if (response.data.status === 'completed' && response.data.images?.[0]) {
+            if (response.data.status === 'COMPLETED' && response.data.images?.[0]) {
               const completedImage = response.data.images[0];
               
               console.log('[Queue] Generation completed:', completedImage);
@@ -81,7 +81,7 @@ export function useGenerationQueue() {
               i--;
               
               toast.success("Image generation complete!");
-            } else if (response.data.status === 'failed') {
+            } else if (response.data.status === 'FAILED') {
               console.error('[Queue] Generation failed:', response.data.error);
               
               if (placeholderIndex !== -1) {
@@ -229,7 +229,7 @@ export function useGenerationQueue() {
       }
 
       // Process the response
-      if (response.data.status === 'completed' && response.data.images?.[0]) {
+      if (response.data.status === 'COMPLETED' && response.data.images?.[0]) {
         const completedImage = response.data.images[0];
         
         // Update the image in state
@@ -242,7 +242,7 @@ export function useGenerationQueue() {
         );
         
         toast.success("Successfully retrieved the generated image!");
-      } else if (response.data.status === 'processing') {
+      } else if (response.data.status === 'IN_QUEUE') {
         // If still processing, add back to queue for continued polling
         const existingQueueItem = generationQueue.find(item => item.requestId === requestId);
         

@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 interface StatusResponse {
-  status: 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+  status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
   output?: any;
   error?: string;
 }
@@ -21,7 +21,7 @@ interface GeneratedImage {
 }
 
 // Helper function to normalize status
-const normalizeStatus = (status: string): 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED' => {
+const normalizeStatus = (status: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' => {
   if (!status) return 'IN_QUEUE';
   
   const upperStatus = status.toUpperCase();
@@ -30,14 +30,7 @@ const normalizeStatus = (status: string): 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED
     return upperStatus as 'COMPLETED' | 'FAILED';
   }
   
-  if (upperStatus === 'PROCESSING' || upperStatus === 'IN_PROGRESS') {
-    return 'PROCESSING';
-  }
-  
-  if (upperStatus === 'PENDING' || upperStatus === 'IN_QUEUE' || upperStatus === 'CREATED') {
-    return 'IN_QUEUE';
-  }
-  
+  // For any status that is not COMPLETED or FAILED, normalize to IN_QUEUE
   return 'IN_QUEUE';
 };
 
@@ -83,7 +76,7 @@ serve(async (req) => {
     const statusData = await statusResponse.json()
     console.log(`Status for request ${requestId}:`, JSON.stringify(statusData))
     
-    // Normalize the status to uppercase FAL.AI format
+    // Normalize the status to our simplified format
     const normalizedStatus = normalizeStatus(statusData.status);
     console.log(`Normalized status: ${normalizedStatus}`);
 
@@ -161,7 +154,7 @@ serve(async (req) => {
         }
       )
     } else {
-      // For in-progress status (IN_QUEUE or PROCESSING)
+      // For in-progress status (IN_QUEUE)
       return new Response(
         JSON.stringify({
           status: normalizedStatus,

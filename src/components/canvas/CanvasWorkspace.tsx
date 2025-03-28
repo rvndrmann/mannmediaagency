@@ -1,21 +1,23 @@
 
-import { CanvasProject, CanvasScene } from "@/types/canvas";
-import { SceneTable } from "./SceneTable";
-import { ScriptInputPanel } from "./ScriptInputPanel";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { Plus, History, FileVideo } from "lucide-react";
 import { useState } from "react";
-import { ProjectHistory } from "./ProjectHistory";
+import { CanvasProject, CanvasScene } from "@/types/canvas";
+import { CanvasTimeline } from "./CanvasTimeline";
+import { CanvasDetailPanel } from "./CanvasDetailPanel";
+import { CanvasPreview } from "./CanvasPreview";
+import { CanvasScriptPanel } from "./CanvasScriptPanel";
 
 interface CanvasWorkspaceProps {
-  project: CanvasProject;
+  project: CanvasProject | null;
   selectedScene: CanvasScene | null;
   selectedSceneId: string | null;
-  setSelectedSceneId: (id: string) => void;
+  setSelectedSceneId: (id: string | null) => void;
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'image' | 'video', value: string) => Promise<void>;
+  updateScene: (
+    sceneId: string,
+    type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic',
+    value: string
+  ) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: () => Promise<void>;
@@ -31,70 +33,57 @@ export function CanvasWorkspace({
   updateScene,
   divideScriptToScenes,
   saveFullScript,
-  createNewProject,
+  createNewProject
 }: CanvasWorkspaceProps) {
-  const [showHistory, setShowHistory] = useState(false);
+  const [showScript, setShowScript] = useState(false);
+  const [detailsPanelCollapsed, setDetailsPanelCollapsed] = useState(false);
 
-  if (!project || project.scenes.length === 0) {
+  if (!project) {
     return (
-      <div className="flex-1 bg-slate-100 dark:bg-slate-950 flex flex-col items-center justify-center">
-        <p className="text-lg text-slate-500 dark:text-slate-400 mb-4">
-          No scenes added yet
-        </p>
-        <Button onClick={addScene}>
-          <Plus className="h-4 w-4 mr-2" />
-          Add Scene
-        </Button>
+      <div className="flex-1 flex items-center justify-center p-4">
+        <div className="text-center">
+          <h3 className="text-xl font-semibold mb-4">No Project Selected</h3>
+          <p className="text-muted-foreground mb-6">Create a new project to get started</p>
+        </div>
       </div>
-    );
-  }
-
-  if (showHistory) {
-    return (
-      <ProjectHistory 
-        projectId={project.id} 
-        onBack={() => setShowHistory(false)} 
-      />
     );
   }
 
   return (
-    <div className="flex-1 bg-slate-100 dark:bg-slate-950 overflow-hidden flex flex-col">
-      <div className="p-4 border-b bg-background flex justify-between items-center">
-        <h2 className="text-xl font-semibold">Project Timeline</h2>
-        <div className="flex items-center gap-2">
-          <Button onClick={createNewProject} variant="outline" size="sm">
-            <FileVideo className="h-4 w-4 mr-1" />
-            New Project
-          </Button>
-          <Button onClick={() => setShowHistory(true)} variant="outline" size="sm">
-            <History className="h-4 w-4 mr-1" />
-            Project History
-          </Button>
-          <Button onClick={addScene} size="sm">
-            <Plus className="h-4 w-4 mr-1" />
-            Add Scene
-          </Button>
+    <div className="flex flex-1 overflow-hidden">
+      <div className={`flex flex-col flex-1 ${detailsPanelCollapsed ? "" : "mr-80"}`}>
+        <div className="flex-1 flex flex-col overflow-hidden">
+          {showScript ? (
+            <CanvasScriptPanel
+              project={project}
+              onClose={() => setShowScript(false)}
+              saveFullScript={saveFullScript}
+              divideScriptToScenes={divideScriptToScenes}
+            />
+          ) : (
+            <CanvasPreview
+              scene={selectedScene}
+              onShowScript={() => setShowScript(true)}
+            />
+          )}
+          
+          <CanvasTimeline
+            scenes={project.scenes}
+            selectedSceneId={selectedSceneId}
+            onSceneSelect={setSelectedSceneId}
+            onAddScene={addScene}
+            onDeleteScene={deleteScene}
+          />
         </div>
       </div>
       
-      <ScriptInputPanel 
-        className="mx-4 mt-4"
-        fullScript={project.fullScript}
-        scenes={project.scenes.map(scene => ({ id: scene.id, title: scene.title }))}
-        onScriptDivide={divideScriptToScenes}
-        onSaveFullScript={saveFullScript}
+      <CanvasDetailPanel
+        scene={selectedScene}
+        projectId={project.id}
+        updateScene={updateScene}
+        collapsed={detailsPanelCollapsed}
+        setCollapsed={setDetailsPanelCollapsed}
       />
-      
-      <ScrollArea className="flex-1 p-4">
-        <SceneTable 
-          scenes={project.scenes}
-          selectedSceneId={selectedSceneId}
-          setSelectedSceneId={setSelectedSceneId}
-          updateScene={updateScene}
-          deleteScene={deleteScene}
-        />
-      </ScrollArea>
     </div>
   );
 }

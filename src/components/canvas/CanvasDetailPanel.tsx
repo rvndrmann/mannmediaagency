@@ -3,18 +3,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PanelRight, ChevronRight, Wand2, Upload, Trash2 } from "lucide-react";
+import { PanelRight, ChevronRight, Wand2, Upload, Trash2, MessageSquare } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentSelector } from "./AgentSelector";
 import { AudioUploader } from "./AudioUploader";
 import { VideoUploader } from "./VideoUploader";
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { useCanvasAgent } from "@/hooks/use-canvas-agent";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { ChatMessage } from "@/components/chat/ChatMessage";
 
 interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
+  projectId: string;
   updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
@@ -22,24 +26,89 @@ interface CanvasDetailPanelProps {
 
 export function CanvasDetailPanel({
   scene,
+  projectId,
   updateScene,
   collapsed,
   setCollapsed,
 }: CanvasDetailPanelProps) {
-  const [selectedAgent, setSelectedAgent] = useState("main");
+  const [selectedAgent, setSelectedAgent] = useState("script");
   const [aiInstructions, setAiInstructions] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showAgentDialog, setShowAgentDialog] = useState(false);
   const productImageInputRef = useRef<HTMLInputElement>(null);
   
-  const handleGenerateContent = (contentType: 'script' | 'imagePrompt' | 'description' | 'image' | 'video') => {
+  const { 
+    isProcessing, 
+    agentMessages, 
+    activeAgent,
+    generateSceneScript,
+    generateImagePrompt,
+    generateSceneDescription
+  } = useCanvasAgent({
+    projectId,
+    sceneId: scene?.id,
+    updateScene
+  });
+  
+  useEffect(() => {
+    setIsGenerating(isProcessing);
+  }, [isProcessing]);
+  
+  const handleGenerateContent = async (contentType: 'script' | 'imagePrompt' | 'description' | 'image' | 'video') => {
     if (!scene) return;
     
     setIsGenerating(true);
-    // Mock generation for now - would be implemented with actual AI tools
-    setTimeout(() => {
-      toast.success(`Generated ${contentType} using ${selectedAgent} agent`);
+    setShowAgentDialog(true);
+    
+    try {
+      const contextData: Record<string, string> = {};
+      
+      if (scene.script && contentType !== 'script') {
+        contextData.script = scene.script;
+      }
+      
+      if (scene.description && contentType !== 'description') {
+        contextData.description = scene.description;
+      }
+      
+      if (scene.imagePrompt && contentType !== 'imagePrompt') {
+        contextData.imagePrompt = scene.imagePrompt;
+      }
+      
+      const contextString = Object.entries(contextData)
+        .map(([key, value]) => `${key.toUpperCase()}: ${value}`)
+        .join('\n\n');
+      
+      const additionalContext = aiInstructions 
+        ? `\n\nAdditional instructions: ${aiInstructions}`
+        : '';
+      
+      const fullContext = contextData ? `\n\nHere is the existing information about the scene:\n${contextString}${additionalContext}` : additionalContext;
+      
+      switch (contentType) {
+        case 'script':
+          await generateSceneScript(scene.id, fullContext);
+          break;
+        case 'description':
+          await generateSceneDescription(scene.id, fullContext);
+          break;
+        case 'imagePrompt':
+          await generateImagePrompt(scene.id, fullContext);
+          break;
+        case 'image':
+          await generateImagePrompt(scene.id, fullContext + "\nMake this very detailed and suitable for AI image generation.");
+          toast.info("Image prompt generated. Use the prompt to generate an actual image.");
+          break;
+        case 'video':
+          toast.info("Video generation coming soon. For now, use the generated script and image prompt to create your video.");
+          break;
+      }
+    } catch (error) {
+      console.error(`Error generating ${contentType}:`, error);
+      toast.error(`Failed to generate ${contentType}`);
+    } finally {
       setIsGenerating(false);
-    }, 1500);
+    }
   };
 
   const handleProductImageUpload = () => {
@@ -70,7 +139,6 @@ export function CanvasDetailPanel({
       console.error("Error uploading product image:", error);
       toast.error("Failed to upload product image");
     } finally {
-      // Reset input value to allow uploading the same file again
       if (e.target) e.target.value = '';
     }
   };
@@ -401,11 +469,57 @@ export function CanvasDetailPanel({
                     onChange={(e) => setAiInstructions(e.target.value)}
                   />
                 </div>
+                
+                <div className="space-y-2">
+                  <Label>Agent Chat</Label>
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowAgentDialog(true)}
+                  >
+                    <MessageSquare className="h-4 w-4 mr-2" />
+                    Open Agent Chat
+                  </Button>
+                </div>
               </div>
             </ScrollArea>
           </TabsContent>
         </Tabs>
       </div>
+      
+      <Dialog open={showAgentDialog} onOpenChange={setShowAgentDialog}>
+        <DialogContent className="sm:max-w-[600px] max-h-[80vh] flex flex-col">
+          <DialogHeader>
+            <DialogTitle>Canvas AI Agent</DialogTitle>
+            <DialogDescription>
+              Agent: {activeAgent.charAt(0).toUpperCase() + activeAgent.slice(1)}
+              {isGenerating && " (Processing...)"}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="flex-1 overflow-y-auto my-4 space-y-4 max-h-[60vh]">
+            {agentMessages.map((message, index) => (
+              <ChatMessage 
+                key={index} 
+                message={message}
+                showAgentName={message.role === "assistant" && message.agentType !== undefined}
+              />
+            ))}
+            
+            {agentMessages.length === 0 && (
+              <div className="text-center text-muted-foreground p-4">
+                No messages yet. Generate content to start a conversation with the AI agent.
+              </div>
+            )}
+          </div>
+          
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" onClick={() => setShowAgentDialog(false)}>
+              Close
+            </Button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </TooltipProvider>
   );
 }

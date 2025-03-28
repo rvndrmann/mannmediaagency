@@ -127,7 +127,7 @@ export default function Canvas() {
         <div className="flex flex-1 overflow-hidden">
           {showChat && (
             <div className="w-[350px] flex-shrink-0">
-              <CanvasChat onClose={toggleChat} />
+              <CanvasChat onClose={toggleChat} projectId={project?.id} />
             </div>
           )}
           

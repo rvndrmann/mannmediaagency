@@ -64,6 +64,11 @@ serve(async (req) => {
     let resultUrl = job.result_url
     let errorMessage = job.error_message
 
+    // Map Fal.ai status to our internal status
+    // IN_QUEUE -> pending/processing
+    // COMPLETED -> completed
+    // FAILED -> failed
+    
     if (statusData.status === 'COMPLETED') {
       // Fetch the result
       const resultResponse = await fetch(

@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Save, Magic } from "lucide-react";
+import { X, Save, Wand2 } from "lucide-react";
 import { CanvasProject } from "@/types/canvas";
 import { toast } from "sonner";
 
@@ -111,7 +111,7 @@ export function CanvasScriptPanel({
             onClick={handleDivideScript}
             disabled={isDividing || !fullScript}
           >
-            <Magic className="h-4 w-4 mr-1" />
+            <Wand2 className="h-4 w-4 mr-1" />
             {isDividing ? "Dividing..." : "Divide to Scenes"}
           </Button>
           <Button 

@@ -5,6 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentType } from "./multi-agent/runner/types";
 
+// Export AgentType to make it available to other modules
+export { AgentType } from "./multi-agent/runner/types";
+
 interface UseMultiAgentChatOptions {
   initialMessages?: Message[];
   onAgentSwitch?: (from: string, to: string) => void;

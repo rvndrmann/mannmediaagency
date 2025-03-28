@@ -134,7 +134,16 @@ export function AIToolsOverview() {
         toast.error(`Failed to check job status: ${error.message}`);
       } else {
         console.log(`Status check for job ${jobId}:`, data);
-        toast.success(`Job status updated`);
+        
+        if (data && data.status) {
+          const statusMessage = data.status === 'FAILED' 
+            ? `Job failed: ${data.error || 'Unknown error'}`
+            : `Job status updated: ${data.status}`;
+          
+          toast.success(statusMessage);
+        } else {
+          toast.success("Job status checked");
+        }
       }
     } catch (error) {
       console.error(`Error checking status for job ${jobId}:`, error);
@@ -279,9 +288,9 @@ export function AIToolsOverview() {
                         <span className={`px-2 py-1 rounded-full text-xs font-medium ${
                           job.error_message?.includes('400')
                             ? 'bg-red-100 text-red-800'
-                            : job.status === 'in_queue'
+                            : job.status_ui === 'IN_QUEUE'
                               ? 'bg-yellow-100 text-yellow-800'
-                              : job.status === 'failed'
+                              : job.status_ui === 'FAILED'
                                 ? 'bg-red-100 text-red-800'
                                 : 'bg-blue-100 text-blue-800'
                         }`}>

@@ -14,6 +14,28 @@ interface JobStatus {
   error?: string; 
 }
 
+// Helper function to normalize status to uppercase
+const normalizeStatus = (status: string | undefined): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' => {
+  if (!status) return 'IN_QUEUE';
+  
+  const upperStatus = status.toUpperCase();
+  
+  if (upperStatus === 'COMPLETED') return 'COMPLETED';
+  if (upperStatus === 'FAILED') return 'FAILED';
+  
+  return 'IN_QUEUE';
+};
+
+// Helper function to map database status to API status
+const mapDbStatusToApiStatus = (dbStatus: string): 'IN_QUEUE' | 'COMPLETED' | 'FAILED' => {
+  const status = dbStatus.toLowerCase();
+  
+  if (status === 'completed') return 'COMPLETED';
+  if (status === 'failed') return 'FAILED';
+  
+  return 'IN_QUEUE';
+};
+
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -70,7 +92,7 @@ serve(async (req) => {
       return new Response(
         JSON.stringify({
           jobId: job.id,
-          status: job.status.toUpperCase(),
+          status: mapDbStatusToApiStatus(job.status),
           resultUrl: job.result_url,
           error: job.error || 'No request_id available for this job'
         }),
@@ -92,23 +114,46 @@ serve(async (req) => {
     });
     
     if (!statusResponse.ok) {
+      const statusCode = statusResponse.status;
       const errorText = await statusResponse.text();
-      console.error(`Fal.ai status check error for request_id ${requestId}:`, errorText);
-      throw new Error(`Failed to check status: ${errorText}`);
+      console.error(`Fal.ai status check error for request_id ${requestId} (Status: ${statusCode}):`, errorText);
+      
+      // Update the job in the database as failed if we get a permanent error (4xx)
+      if (statusCode >= 400 && statusCode < 500) {
+        const { error: updateError } = await supabase
+          .from('image_generation_jobs')
+          .update({
+            status: 'failed',
+            error_message: `API Error (${statusCode}): ${errorText}`
+          })
+          .eq('id', jobId);
+          
+        if (updateError) {
+          console.error('Error updating job as failed:', updateError);
+        }
+        
+        return new Response(
+          JSON.stringify({
+            jobId: job.id,
+            requestId: requestId,
+            status: 'FAILED',
+            error: `API Error (${statusCode}): ${errorText}`
+          }),
+          {
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+          }
+        );
+      }
+      
+      throw new Error(`Failed to check status: ${errorText} (Status: ${statusCode})`);
     }
     
     const statusData = await statusResponse.json();
     console.log(`Status for request_id ${requestId}:`, JSON.stringify(statusData));
     
-    // Map Fal.ai status to our internal status
-    let normalizedStatus: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
-    if (statusData.status?.toUpperCase() === 'COMPLETED') {
-      normalizedStatus = 'COMPLETED';
-    } else if (statusData.status?.toUpperCase() === 'FAILED') {
-      normalizedStatus = 'FAILED';
-    } else {
-      normalizedStatus = 'IN_QUEUE';
-    }
+    // Map Fal.ai status to our internal status - ensure uppercase
+    const normalizedStatus = normalizeStatus(statusData.status);
+    console.log(`Normalized status for ${requestId}: ${normalizedStatus}`);
     
     // Extract result URL if completed
     let resultUrl = null;

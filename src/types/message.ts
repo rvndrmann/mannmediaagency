@@ -1,3 +1,4 @@
+
 export interface Message {
   id: string;
   role: "system" | "user" | "assistant" | "tool";
@@ -16,6 +17,17 @@ export interface Message {
   type?: MessageType;
   selectedTool?: string; // Added for use-ai-chat.tsx
   structured_output?: any; // Added to support structured data from LLM responses
+  continuityData?: ContinuityData; // Added for handoff context between agents
+}
+
+// Data for maintaining context during agent handoffs
+export interface ContinuityData {
+  fromAgent?: string;
+  toAgent?: string;
+  reason?: string;
+  timestamp?: string;
+  preserveHistory?: boolean;
+  additionalContext?: Record<string, any>;
 }
 
 export interface Attachment {

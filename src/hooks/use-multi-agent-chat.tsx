@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
-import { Message, Attachment, MessageType } from "@/types/message";
+import { Message, Attachment, MessageType, ContinuityData } from "@/types/message";
 import { toast } from "sonner";
 import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
@@ -185,7 +185,8 @@ export const useMultiAgentChat = () => {
         fromAgent,
         toAgent,
         reason,
-        timestamp: new Date().toISOString()
+        timestamp: new Date().toISOString(),
+        preserveHistory: true
       }
     };
     setMessages(prev => [...prev, handoffMessage]);
@@ -201,10 +202,6 @@ export const useMultiAgentChat = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    if (e) {
-      e.preventDefault();
-    }
     
     const trimmedInput = input.trim();
     console.log("Handling submit with input:", trimmedInput, "attachments:", pendingAttachments.length);

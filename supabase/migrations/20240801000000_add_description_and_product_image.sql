@@ -3,4 +3,3 @@
 ALTER TABLE canvas_scenes 
 ADD COLUMN IF NOT EXISTS description TEXT,
 ADD COLUMN IF NOT EXISTS product_image_url TEXT;
-

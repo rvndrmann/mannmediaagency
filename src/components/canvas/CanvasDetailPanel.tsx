@@ -57,8 +57,12 @@ export function CanvasDetailPanel({
       const reader = new FileReader();
       reader.onload = async (event) => {
         const dataUrl = event.target?.result as string;
-        await updateScene(scene.id, 'productImage', dataUrl);
-        toast.success("Product image uploaded successfully");
+        if (dataUrl) {
+          await updateScene(scene.id, 'productImage', dataUrl);
+          toast.success("Product image uploaded successfully");
+        } else {
+          toast.error("Failed to read the image file");
+        }
       };
       reader.readAsDataURL(file);
     } catch (error) {
@@ -149,8 +153,8 @@ export function CanvasDetailPanel({
                   <Label htmlFor="scene-script">Script</Label>
                   <Textarea
                     id="scene-script"
-                    value={scene.script || ""}
-                    onChange={(e) => updateScene(scene.id, 'script', e.target.value)}
+                    value={scene?.script || ""}
+                    onChange={(e) => updateScene(scene!.id, 'script', e.target.value)}
                     className="min-h-[120px]"
                     placeholder="Enter script for this scene..."
                   />
@@ -160,8 +164,8 @@ export function CanvasDetailPanel({
                   <Label htmlFor="scene-description">Scene Description</Label>
                   <Textarea
                     id="scene-description"
-                    value={scene.description || ""}
-                    onChange={(e) => updateScene(scene.id, 'description', e.target.value)}
+                    value={scene?.description || ""}
+                    onChange={(e) => updateScene(scene!.id, 'description', e.target.value)}
                     className="min-h-[120px]"
                     placeholder="Enter description for this scene..."
                   />
@@ -171,8 +175,8 @@ export function CanvasDetailPanel({
                   <Label htmlFor="scene-image-prompt">Image Prompt</Label>
                   <Textarea
                     id="scene-image-prompt"
-                    value={scene.imagePrompt || ""}
-                    onChange={(e) => updateScene(scene.id, 'imagePrompt', e.target.value)}
+                    value={scene?.imagePrompt || ""}
+                    onChange={(e) => updateScene(scene!.id, 'imagePrompt', e.target.value)}
                     className="min-h-[120px]"
                     placeholder="Enter image prompt for this scene..."
                   />
@@ -188,7 +192,7 @@ export function CanvasDetailPanel({
                     onChange={handleFileSelected}
                   />
 
-                  {scene.productImageUrl ? (
+                  {scene?.productImageUrl ? (
                     <div className="relative group">
                       <img 
                         src={scene.productImageUrl} 

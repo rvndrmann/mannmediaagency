@@ -83,7 +83,7 @@ I can guide you through using various tools available in our system. Would you l
         if (input.toLowerCase().includes('website') || input.toLowerCase().includes('browser')) {
           handoffRequest = {
             targetAgent: 'main',
-            reason: 'I've provided some initial guidance, but you might want to use the browser automation tool.'
+            reason: "I have provided some initial guidance, but you might want to use the browser automation tool."
           };
         }
         break;

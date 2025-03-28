@@ -1,17 +1,26 @@
 
 import { Attachment } from "@/types/message";
 import { AgentConfig, ToolContext } from "../../types";
-import { BaseAgent, AgentResult, AgentOptions } from "../types";
+import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
 
-export class BaseAgentImpl implements BaseAgent {
-  public readonly name: string;
-  public readonly config: AgentConfig;
-  protected context: ToolContext;
+export class BaseAgentImpl {
+  protected context: RunnerContext;
+  private type: AgentType = 'main';
 
   constructor(options: AgentOptions) {
-    this.name = options.config.name;
-    this.config = options.config;
     this.context = options.context;
+    this.type = this.determineType();
+  }
+
+  private determineType(): AgentType {
+    // Determine agent type from class name
+    const className = this.constructor.name;
+    if (className.includes('Main') || className.includes('Assistant')) return 'main';
+    if (className.includes('Script')) return 'script';
+    if (className.includes('Image')) return 'image';
+    if (className.includes('Tool')) return 'tool';
+    if (className.includes('Scene')) return 'scene';
+    return 'main'; // Default to main
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
@@ -19,21 +28,12 @@ export class BaseAgentImpl implements BaseAgent {
     throw new Error("Method not implemented in base class. Must be implemented by derived classes.");
   }
 
-  clone(configOverrides: Partial<AgentConfig>): BaseAgent {
-    return new BaseAgentImpl({
-      config: {
-        ...this.config,
-        ...configOverrides
-      },
-      context: this.context
-    });
+  getType(): AgentType {
+    return this.type;
   }
 
-  protected async getInstructions(context: ToolContext): Promise<string> {
-    if (typeof this.config.instructions === 'function') {
-      return await Promise.resolve(this.config.instructions(context));
-    }
-    return this.config.instructions;
+  protected async getInstructions(context: RunnerContext): Promise<string> {
+    return "";
   }
 
   protected applyInputGuardrails(input: string): Promise<boolean> {
@@ -50,17 +50,15 @@ export class BaseAgentImpl implements BaseAgent {
 
   protected async callLLM(input: string, instructions: string, tools: any[] = []): Promise<any> {
     // This is a placeholder for the actual LLM call
-    // In a real implementation, this would make a call to the LLM API
     console.log("BaseAgentImpl: LLM call would happen here with:", {
       input,
       instructions,
-      model: this.config.modelName,
       tools: tools.length > 0 ? "Using tools" : "No tools"
     });
     
     // Return a placeholder result for now
     return {
-      text: `This is a placeholder response for agent ${this.name}`,
+      text: `This is a placeholder response for agent ${this.getType()}`,
       tool_calls: [],
     };
   }

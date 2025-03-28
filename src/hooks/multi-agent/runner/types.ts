@@ -1,6 +1,7 @@
 
-import { Attachment } from "@/types/message";
+import { Attachment, Message } from "@/types/message";
 import { ToolContext, AgentConfig } from "../types";
+import { supabase } from "@/integrations/supabase/client";
 
 export type AgentType = 'main' | 'script' | 'image' | 'tool' | 'scene';
 
@@ -12,8 +13,26 @@ export interface AgentResult {
 }
 
 export interface AgentOptions {
-  config: AgentConfig;
-  context: ToolContext;
+  context: RunnerContext;
+  config?: AgentConfig;
+}
+
+export interface RunnerContext extends ToolContext {
+  metadata: {
+    conversationHistory?: Message[];
+    isHandoffContinuation?: boolean;
+    previousAgentType?: string | null;
+    handoffReason?: string;
+    [key: string]: any;
+  };
+}
+
+export interface RunnerCallbacks {
+  onMessage: (message: Message) => void;
+  onError: (error: string) => void;
+  onHandoffStart: (fromAgent: string, toAgent: string, reason: string) => void;
+  onHandoffEnd: (agentType: string) => void;
+  onToolExecution: (toolName: string, params: any) => void;
 }
 
 export interface BaseAgent {

@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { MainAgent } from "./agents/MainAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
@@ -36,20 +37,22 @@ export class AgentRunner {
   private createAgent(agentType: AgentType): BaseAgentImpl {
     console.log(`Creating agent of type: ${agentType}`);
     
+    const options = { context: this.context };
+    
     switch (agentType) {
       case "main":
-        return new MainAgent({ context: this.context });
+        return new MainAgent(options);
       case "script":
-        return new ScriptWriterAgent({ context: this.context });
+        return new ScriptWriterAgent(options);
       case "image":
-        return new ImageGeneratorAgent({ context: this.context });
+        return new ImageGeneratorAgent(options);
       case "tool":
-        return new ToolAgent({ context: this.context });
+        return new ToolAgent(options);
       case "scene":
-        return new SceneCreatorAgent({ context: this.context });
+        return new SceneCreatorAgent(options);
       default:
         console.warn(`Unknown agent type: ${agentType}, falling back to main agent`);
-        return new MainAgent({ context: this.context });
+        return new MainAgent(options);
     }
   }
 
@@ -103,7 +106,7 @@ export class AgentRunner {
         const assistantMessage: Message = {
           id: uuidv4(),
           role: "assistant",
-          content: agentResult.response,
+          content: agentResult.response || "",
           createdAt: new Date().toISOString(),
           agentType: this.currentAgent.getType(),
           handoffRequest: agentResult.nextAgent ? {
@@ -122,7 +125,7 @@ export class AgentRunner {
         // Handle handoff if requested
         if (agentResult.nextAgent) {
           const fromAgent = this.currentAgent.getType();
-          const toAgent = agentResult.nextAgent;
+          const toAgent = agentResult.nextAgent as AgentType;
           
           console.log(`Handoff requested from ${fromAgent} to ${toAgent}`);
           this.callbacks.onHandoffStart(fromAgent, toAgent, assistantMessage.handoffRequest?.reason || "");

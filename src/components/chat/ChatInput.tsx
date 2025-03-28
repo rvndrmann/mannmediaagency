@@ -58,7 +58,7 @@ export const ChatInput = ({
   const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
         onSubmit(e as any);
       }
     }
@@ -68,8 +68,8 @@ export const ChatInput = ({
     // Prevent default behavior to avoid unwanted form submission
     e.preventDefault();
     
-    // Only submit if there's input or attachments
-    if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+    // Only submit if there's input or attachments and not already loading
+    if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
       // Call the onSubmit handler with the event
       onSubmit(e as any);
     }
@@ -78,7 +78,7 @@ export const ChatInput = ({
   return (
     <form onSubmit={(e) => {
       e.preventDefault();
-      if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
         onSubmit(e);
       }
     }} className="space-y-1 w-full">

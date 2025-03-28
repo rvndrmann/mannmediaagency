@@ -68,17 +68,27 @@ export function ProjectSelector({
         // Get scene counts for each project
         const projectsWithSceneCounts = await Promise.all(
           data.map(async (project) => {
-            const { count, error: countError } = await supabase
-              .from('canvas_scenes')
-              .select('id', { count: 'exact', head: true })
-              .eq('project_id', project.id);
-              
-            return {
-              id: project.id,
-              title: project.title,
-              createdAt: project.created_at,
-              scenesCount: countError ? 0 : count || 0
-            };
+            try {
+              const { count, error: countError } = await supabase
+                .from('canvas_scenes')
+                .select('id', { count: 'exact', head: true })
+                .eq('project_id', project.id);
+                
+              return {
+                id: project.id,
+                title: project.title,
+                createdAt: project.created_at,
+                scenesCount: countError ? 0 : count || 0
+              };
+            } catch (e) {
+              console.error("Error getting scene count:", e);
+              return {
+                id: project.id,
+                title: project.title,
+                createdAt: project.created_at,
+                scenesCount: 0
+              };
+            }
           })
         );
         
@@ -122,6 +132,9 @@ export function ProjectSelector({
         toast.success("New project created");
         onProjectSelect(data.id);
         setOpen(false);
+        
+        // Navigate directly to canvas with the new project
+        navigate(`/canvas?projectId=${data.id}`);
         
         // Refresh projects list
         const { data: updatedData, error: fetchError } = await supabase
@@ -170,32 +183,34 @@ export function ProjectSelector({
           <CommandEmpty className="py-6 text-center text-sm">
             {loading ? "Loading projects..." : "No projects found."}
           </CommandEmpty>
-          <CommandGroup className="max-h-[300px] overflow-auto">
-            {projects && projects.map((project) => (
-              <CommandItem
-                key={project.id}
-                value={project.id}
-                onSelect={() => {
-                  onProjectSelect(project.id);
-                  setOpen(false);
-                }}
-                className="flex items-center justify-between"
-              >
-                <div className="flex items-center">
-                  <Video className="mr-2 h-4 w-4 text-blue-400" />
-                  <span>{project.title}</span>
-                </div>
-                <div className="flex items-center">
-                  <span className="text-xs text-gray-400 mr-2">
-                    {project.scenesCount} {project.scenesCount === 1 ? 'scene' : 'scenes'}
-                  </span>
-                  {project.id === selectedProjectId && (
-                    <Check className="h-4 w-4 text-green-500" />
-                  )}
-                </div>
-              </CommandItem>
-            ))}
-          </CommandGroup>
+          {projects && projects.length > 0 && (
+            <CommandGroup className="max-h-[300px] overflow-auto">
+              {projects.map((project) => (
+                <CommandItem
+                  key={project.id}
+                  value={project.id}
+                  onSelect={() => {
+                    onProjectSelect(project.id);
+                    setOpen(false);
+                  }}
+                  className="flex items-center justify-between"
+                >
+                  <div className="flex items-center">
+                    <Video className="mr-2 h-4 w-4 text-blue-400" />
+                    <span>{project.title}</span>
+                  </div>
+                  <div className="flex items-center">
+                    <span className="text-xs text-gray-400 mr-2">
+                      {project.scenesCount} {project.scenesCount === 1 ? 'scene' : 'scenes'}
+                    </span>
+                    {project.id === selectedProjectId && (
+                      <Check className="h-4 w-4 text-green-500" />
+                    )}
+                  </div>
+                </CommandItem>
+              ))}
+            </CommandGroup>
+          )}
           
           {allowCreateNew && (
             <>

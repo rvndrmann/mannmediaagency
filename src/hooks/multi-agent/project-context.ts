@@ -39,6 +39,10 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         throw projectError;
       }
       
+      if (!projectData) {
+        throw new Error(`Project with ID ${projectId} not found.`);
+      }
+      
       // Fetch scenes for the project
       const { data: scenesData, error: scenesError } = await supabase
         .from('canvas_scenes')
@@ -52,19 +56,22 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         
       if (scenesError) throw scenesError;
       
+      // Ensure scenesData is an array, even if empty
+      const safeScenes = scenesData || [];
+      
       // Format project with scenes
       const formattedProject: CanvasProject = {
         id: projectData.id,
         title: projectData.title,
-        description: projectData.description,
+        description: projectData.description || "",
         fullScript: projectData.full_script || "",
         createdAt: projectData.created_at,
         updatedAt: projectData.updated_at,
         userId: projectData.user_id,
-        scenes: scenesData.map(scene => ({
+        scenes: safeScenes.map(scene => ({
           id: scene.id,
           projectId: scene.project_id,
-          title: scene.title,
+          title: scene.title || "",
           order: scene.scene_order,
           script: scene.script || "",
           description: scene.description || "", 
@@ -74,7 +81,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
           videoUrl: scene.video_url || "",
           voiceOverUrl: scene.voice_over_url || "", 
           backgroundMusicUrl: scene.background_music_url || "", 
-          duration: scene.duration,
+          duration: scene.duration || 0,
           createdAt: scene.created_at,
           updatedAt: scene.updated_at
         }))

@@ -1,6 +1,5 @@
-
 import { useState, useCallback, useEffect } from "react";
-import { Message, Attachment, HandoffRequest } from "@/types/message";
+import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
@@ -41,11 +40,9 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       : "You specialize in creating detailed visual scene descriptions."
   });
   
-  // Update project context
   const setProjectContext = useCallback((project: CanvasProject) => {
     setCurrentProject(project);
     
-    // Update script agent instructions with project context
     setAgentInstructions(prev => ({
       ...prev,
       script: `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id}).
@@ -54,7 +51,6 @@ You can use the canvas tool to save scripts directly to the project.`,
 You can use the canvas tool to save scene descriptions and image prompts directly to the project.`
     }));
     
-    // Add a system message about project context
     const systemMessage: Message = {
       id: uuidv4(),
       role: "system",
@@ -66,16 +62,13 @@ ${project.fullScript ? "This project has a full script." : "This project does no
     };
     
     setMessages(prev => {
-      // Don't add duplicate system messages about the same project
       if (prev.some(m => m.role === "system" && m.content.includes(`Working with Canvas project: ${project.title}`))) {
         return prev;
       }
       return [...prev, systemMessage];
     });
-    
   }, []);
   
-  // Fetch user credits
   useEffect(() => {
     const fetchCredits = async () => {
       try {
@@ -99,7 +92,6 @@ ${project.fullScript ? "This project has a full script." : "This project does no
     fetchCredits();
   }, []);
   
-  // Handle project ID from options
   useEffect(() => {
     if (options.projectId) {
       const fetchProjectDetails = async () => {
@@ -153,7 +145,6 @@ ${project.fullScript ? "This project has a full script." : "This project does no
           
           setCurrentProject(project);
           
-          // Update script agent instructions with project context
           setAgentInstructions(prev => ({
             ...prev,
             script: `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id}).
@@ -171,7 +162,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   }, [options.projectId]);
   
-  // Handle form submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
@@ -187,7 +177,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     setPendingAttachments([]);
   };
   
-  // Switch between different agent types
   const switchAgent = (agentId: AgentType) => {
     if (options.onAgentSwitch) {
       options.onAgentSwitch(activeAgent, agentId);
@@ -196,7 +185,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     toast.success(`Switched to ${getAgentName(agentId)}`);
   };
   
-  // Get agent name for display
   const getAgentName = (agentType: AgentType): string => {
     switch (agentType) {
       case "main": return "Main Assistant";
@@ -208,22 +196,18 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
-  // Clear chat history
   const clearChat = () => {
     setMessages([]);
   };
   
-  // Add attachments
   const addAttachments = (newAttachments: Attachment[]) => {
     setPendingAttachments(prev => [...prev, ...newAttachments]);
   };
   
-  // Remove attachment by id
   const removeAttachment = (id: string) => {
     setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
   };
   
-  // Update agent instructions
   const updateAgentInstructions = (agentType: AgentType, instructions: string) => {
     setAgentInstructions(prev => ({
       ...prev,
@@ -232,30 +216,25 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     toast.success(`Updated ${getAgentName(agentType)} instructions`);
   };
   
-  // Get instructions for a specific agent
   const getAgentInstructions = (agentType: AgentType): string => {
     return agentInstructions[agentType] || "";
   };
   
-  // Toggle performance mode (GPT-4o-mini vs GPT-4o)
   const togglePerformanceMode = () => {
     setUsePerformanceModel(!usePerformanceModel);
     toast.success(`Switched to ${!usePerformanceModel ? "Performance" : "High Quality"} mode`);
   };
   
-  // Toggle direct tool execution
   const toggleDirectToolExecution = () => {
     setEnableDirectToolExecution(!enableDirectToolExecution);
     toast.success(`${!enableDirectToolExecution ? "Enabled" : "Disabled"} direct tool execution`);
   };
   
-  // Toggle tracing
   const toggleTracing = () => {
     setTracingEnabled(!tracingEnabled);
     toast.success(`${!tracingEnabled ? "Enabled" : "Disabled"} interaction tracing`);
   };
   
-  // Process handoff between agents
   const processHandoff = async (
     fromAgent: AgentType, 
     toAgent: AgentType, 
@@ -266,13 +245,11 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     setHandoffInProgress(true);
     
     try {
-      // Include project ID in continuity data if available
       if (currentProject) {
         additionalContext.projectId = currentProject.id;
         additionalContext.projectTitle = currentProject.title;
       }
       
-      // Create continuity data to maintain context between agents
       const continuityData = {
         fromAgent,
         toAgent,
@@ -282,7 +259,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         additionalContext
       };
       
-      // Add system message about handoff with enhanced context
       const handoffMessage: Message = {
         id: uuidv4(),
         role: "system",
@@ -294,10 +270,8 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       
       setMessages(prev => [...prev, handoffMessage]);
       
-      // Change the active agent
       switchAgent(toAgent);
       
-      // Short delay to allow UI to update
       await new Promise(resolve => setTimeout(resolve, 500));
       
       setHandoffInProgress(false);
@@ -310,18 +284,15 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
-  // Enhanced message sending function with real API calls
   const sendMessage = async (message: string, agentId?: AgentType) => {
     setIsLoading(true);
     
     try {
-      // Get current user session
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         throw new Error("User not authenticated");
       }
       
-      // Add user message
       const userMessage: Message = {
         id: uuidv4(),
         content: message,
@@ -332,11 +303,9 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       
       setMessages(prev => [...prev, userMessage]);
       
-      // Generate unique IDs for the conversation group and this run
       const groupId = uuidv4();
       const runId = uuidv4();
       
-      // Helper function for sending messages from the agent
       const addMessage = (text: string, type: string, attachments?: Attachment[]) => {
         const newMessage: Message = {
           id: uuidv4(),
@@ -352,13 +321,10 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         return newMessage;
       };
       
-      // Helper function to check if a tool is available
       const toolAvailable = (toolName: string) => {
-        // Simple implementation - in a real app, you'd check against available tools
         return true;
       };
       
-      // Create the agent runner
       const currentAgent = agentId || activeAgent;
       const runner = new AgentRunner(
         currentAgent, 
@@ -375,13 +341,12 @@ You can use the canvas tool to save scene descriptions and image prompts directl
           metadata: {
             conversationHistory: messages,
             instructions: agentInstructions[currentAgent],
-            projectId: currentProject?.id || options.projectId, // Pass the project ID to the agent
-            projectDetails: currentProject, // Pass full project details
+            projectId: currentProject?.id || options.projectId,
+            projectDetails: currentProject
           }
         },
         {
           onMessage: (newMessage: Message) => {
-            // Only add the message to our state if it's not already there
             setMessages(prev => {
               if (prev.some(m => m.id === newMessage.id)) {
                 return prev;
@@ -409,7 +374,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       );
       
       try {
-        // Run the agent with the user's message
         await runner.run(message, pendingAttachments, user.id);
       } catch (error) {
         console.error("Error in agent execution:", error);
@@ -427,6 +391,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   
   return {
     messages,
+    setMessages,
     input,
     setInput,
     isLoading,

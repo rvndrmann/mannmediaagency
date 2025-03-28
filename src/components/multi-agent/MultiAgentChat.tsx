@@ -22,6 +22,7 @@ import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
+import { Message } from "@/types/message";
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -40,6 +41,7 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
   
   const { 
     messages, 
+    setMessages,
     input, 
     setInput, 
     isLoading, 
@@ -148,16 +150,16 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
       setActiveProject(projectId);
       toast.success("Switched to project");
       
-      const systemMessage = {
+      const systemMessage: Message = {
         id: crypto.randomUUID(),
-        role: "system" as const,
+        role: "system",
         content: `Switched to Canvas project: ${projectDetails?.title || projectId}`,
         createdAt: new Date().toISOString(),
-        type: "system" as const
+        type: "system"
       };
       
       if (messages && Array.isArray(messages)) {
-        setMessages(prev => [...prev, systemMessage]);
+        setMessages(prevMessages => [...prevMessages, systemMessage]);
       }
     }
   };

@@ -42,7 +42,8 @@ const Payment = () => {
         if (error) throw error;
         
         if (orderData && orderData.custom_order_links) {
-          const linkData = orderData.custom_order_links;
+          // Fix the type issue by explicitly checking the structure
+          const linkData = orderData.custom_order_links as { title: string, custom_rate: number };
           setPaymentDetails({
             planName: linkData.title || "Custom Order",
             amount: linkData.custom_rate || 0,

@@ -1,167 +1,164 @@
-import { GeneratedImage, ProductShotFormData } from "@/types/product-shoot";
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "sonner";
-import { useGenerationQueue } from "./product-shoot/use-generation-queue";
-import { uploadSourceImage, uploadReferenceImage } from "./product-shoot/upload-service";
-import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 export function useProductShoot() {
-  const { isGenerating, generatedImages, addToQueue, setGeneratedImages, retryCheck } = useGenerationQueue();
+  const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [generatedImages, setGeneratedImages] = useState<any[]>([]);
 
-  const { data: session } = useQuery({
-    queryKey: ["session"],
-    queryFn: async () => {
-      const { data: { session }, error } = await supabase.auth.getSession();
-      if (error) throw error;
-      return session;
-    }
-  });
-
-  const createImageGenerationJob = async (
-    requestId: string, 
-    prompt: string, 
-    settings: any
-  ) => {
-    try {
-      const { error } = await supabase
-        .from('image_generation_jobs')
-        .insert({
-          user_id: session?.user.id,
-          request_id: requestId,
-          status: 'pending',
-          prompt: prompt,
-          settings: settings,
-          visibility: 'public'
-        });
-
-      if (error) throw error;
-    } catch (error) {
-      console.error('Error creating image generation job:', error);
-      throw error;
-    }
-  };
-
-  const handleGenerate = async (formData: ProductShotFormData) => {
-    // Prevent multiple submissions
-    if (isSubmitting || isGenerating) {
-      console.log('Generation already in progress');
+  const handleGenerate = useCallback(async (formData: any) => {
+    if (!formData.sourceFile) {
+      toast.error("Please upload a product image");
       return;
     }
 
     setIsSubmitting(true);
-    const tempRequestId = crypto.randomUUID();
-    const placeholderImage: GeneratedImage = {
-      id: `temp-${tempRequestId}`,
-      url: '',
-      content_type: 'image/png',
-      status: 'processing',
-      prompt: formData.sceneDescription
-    };
-    
-    setGeneratedImages(prev => [...prev, placeholderImage]);
 
     try {
-      if (!session) {
-        toast.error("Please sign in to continue");
-        return;
-      }
-
-      const sourceUrl = await uploadSourceImage(formData.sourceFile!);
-      let referenceUrl = '';
-
-      if (formData.generationType === 'reference' && formData.referenceFile) {
-        referenceUrl = await uploadReferenceImage(formData.referenceFile);
-      }
-
-      const requestBody: any = {
-        image_url: sourceUrl,
-        shot_size: [formData.shotWidth, formData.shotHeight],
-        num_results: formData.numResults,
-        fast: formData.fastMode,
-        placement_type: formData.placementType,
-        sync_mode: false
-      };
-
-      if (formData.generationType === 'description') {
-        requestBody.scene_description = formData.sceneDescription;
-        requestBody.optimize_description = formData.optimizeDescription;
-      } else {
-        requestBody.ref_image_url = referenceUrl;
-      }
-
-      if (formData.placementType === 'manual_placement') {
-        requestBody.manual_placement_selection = formData.manualPlacement;
-      } else if (formData.placementType === 'manual_padding') {
-        requestBody.padding_values = [
-          formData.padding.left,
-          formData.padding.right,
-          formData.padding.top,
-          formData.padding.bottom
-        ];
-      } else if (formData.placementType === 'original') {
-        requestBody.original_quality = formData.originalQuality;
-      }
-
-      console.log('Sending generation request:', requestBody);
-
-      const { data, error } = await supabase.functions.invoke<{ requestId: string }>(
-        'generate-product-shot',
-        {
-          body: JSON.stringify(requestBody)
+      // Upload image
+      const { sourceUrl } = await uploadSourceImage(formData);
+      
+      // Generate product shot
+      const { data, error } = await supabase.functions.invoke('generate-product-shot', {
+        body: {
+          image_url: sourceUrl,
+          scene_description: formData.sceneDescription,
+          ref_image_url: formData.referenceImageUrl,
+          optimize_description: formData.optimizeDescription,
+          num_results: formData.numResults,
+          fast: formData.fastMode,
+          placement_type: formData.placementType,
+          original_quality: formData.originalQuality,
+          shot_size: [formData.shotWidth, formData.shotHeight],
+          manual_placement_selection: formData.manualPlacement,
+          padding_values: [
+            formData.padding.top,
+            formData.padding.right,
+            formData.padding.bottom,
+            formData.padding.left
+          ]
         }
-      );
-
-      if (error) throw new Error(error.message);
-      if (!data?.requestId) throw new Error('No request ID received from the server');
-
-      console.log('Generation started with request ID:', data.requestId);
-
-      await createImageGenerationJob(
-        data.requestId,
-        formData.sceneDescription || '',
-        requestBody
-      );
-
-      addToQueue({
-        requestId: data.requestId,
-        prompt: formData.sceneDescription || '',
-        sourceUrl,
-        settings: requestBody
       });
 
-      toast.success("Image generation started! Please wait...");
-
-    } catch (error: any) {
-      console.error('Generation error:', error);
-      const errorMessage = error.message || "Failed to generate image. Please try again.";
-      
-      setGeneratedImages(prev => 
-        prev.map(img => 
-          img.id === `temp-${tempRequestId}`
-            ? { ...img, status: 'failed' as const }
-            : img
-        )
-      );
-      
-      if (errorMessage.toLowerCase().includes('fal_key')) {
-        toast.error("There was an issue with the AI service configuration. Please try again later or contact support.");
-      } else {
-        toast.error(errorMessage);
+      if (error) {
+        throw error;
       }
+
+      console.log('Generation result:', data);
+      
+      // Create database record
+      const { error: dbError } = await supabase
+        .from('image_generation_jobs')
+        .insert({
+          prompt: formData.sceneDescription,
+          request_id: data.requestId,
+          status: 'in_queue',  // Updated to match the new enum value
+          source_image_url: sourceUrl,
+          settings: {
+            ...formData,
+            sourceUrl,
+            shotSize: [formData.shotWidth, formData.shotHeight]
+          },
+          user_id: (await supabase.auth.getUser()).data.user?.id
+        });
+
+      if (dbError) {
+        console.error('Database error:', dbError);
+        toast.error('Error saving generation: ' + dbError.message);
+      }
+
+      // Start polling for status
+      toast.success("Image generation started");
+      setIsGenerating(true);
+
+      // Reset form and update UI
+      loadRecentGenerations();
+    } catch (err) {
+      console.error('Error during generation:', err);
+      toast.error('Error generating image: ' + (err instanceof Error ? err.message : String(err)));
     } finally {
       setIsSubmitting(false);
     }
+  }, []);
+
+  const uploadSourceImage = async (formData: any) => {
+    const file = formData.sourceFile;
+    if (!file) {
+      throw new Error("No source image provided");
+    }
+
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) {
+      throw new Error("User not authenticated");
+    }
+
+    const timestamp = new Date().getTime();
+    const imageName = `${userId}_${timestamp}_${file.name}`;
+    const imagePath = `product-shots/${imageName}`;
+
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('images')
+      .upload(imagePath, file, {
+        cacheControl: '3600',
+        upsert: false
+      });
+
+    if (uploadError) {
+      console.error('Storage error:', uploadError);
+      throw new Error('Failed to upload image: ' + uploadError.message);
+    }
+
+    const sourceUrl = `${supabase.supabaseUrl}/storage/v1/object/public/${uploadData.Key}`;
+    console.log('Uploaded image URL:', sourceUrl);
+    
+    return { sourceUrl };
   };
 
-  const handleRetryImageCheck = async (imageId: string) => {
-    if (!retryCheck) {
-      toast.error("Retry functionality not available");
-      return;
+  const loadRecentGenerations = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(10);
+
+      if (error) throw error;
+      
+      // Map the database status enum to the UI status strings
+      const mappedData = data.map(job => ({
+        ...job,
+        status: 
+          job.status === 'in_queue' ? 'processing' :
+          job.status === 'completed' ? 'completed' :
+          job.status === 'failed' ? 'failed' : 'processing'
+      }));
+      
+      setGeneratedImages(mappedData);
+    } catch (err) {
+      console.error('Error loading generations:', err);
+      toast.error('Error loading recent generations');
     }
-    
-    await retryCheck(imageId);
+  };
+
+  const handleRetryImageCheck = async (jobId: string) => {
+    setIsGenerating(true);
+    try {
+      const { data, error } = await supabase.functions.invoke('retry-image-generation', {
+        body: { jobId }
+      });
+
+      if (error) throw error;
+      if (!data.success) throw new Error(data.error || 'Unknown error during retry');
+      
+      toast.success('Generation retry initiated');
+      await loadRecentGenerations();
+    } catch (err) {
+      console.error('Error retrying generation:', err);
+      toast.error('Failed to retry generation: ' + (err instanceof Error ? err.message : String(err)));
+    } finally {
+      setIsGenerating(false);
+    }
   };
 
   return {

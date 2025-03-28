@@ -78,7 +78,7 @@ export const AIToolsOverview = () => {
       const { data: imageJobs, error: imageError } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['pending', 'processing'])
+        .in('status', ['pending', 'processing']) // Keep using 'pending' and 'processing' in the query
         .order('created_at', { ascending: false });
 
       if (imageError) throw imageError;

@@ -62,6 +62,7 @@ serve(async (req) => {
 
     let newStatus = job.status
     let resultUrl = job.result_url
+    let errorMessage = job.error_message
 
     if (statusData.status === 'COMPLETED') {
       // Fetch the result
@@ -100,10 +101,14 @@ serve(async (req) => {
       }
     } else if (statusData.status === 'FAILED') {
       newStatus = 'failed'
+      errorMessage = statusData.error || 'Unknown error occurred during generation'
       // Update job status
       await supabase
         .from('image_generation_jobs')
-        .update({ status: newStatus })
+        .update({ 
+          status: newStatus,
+          error_message: errorMessage
+        })
         .eq('id', jobId)
     }
 
@@ -111,6 +116,7 @@ serve(async (req) => {
       JSON.stringify({
         status: newStatus,
         resultUrl,
+        errorMessage,
         falStatus: statusData.status
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }

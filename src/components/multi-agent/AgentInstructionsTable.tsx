@@ -1,11 +1,11 @@
 
-import { Button } from "@/components/ui/button";
 import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { Edit } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Edit2 } from "lucide-react";
 
 interface AgentInstructionsTableProps {
   activeAgent: AgentType;
-  agentInstructions: Record<AgentType, string>;
+  agentInstructions: Record<string, string>;
   onEditInstructions: (agentType: AgentType) => void;
 }
 
@@ -14,79 +14,37 @@ export function AgentInstructionsTable({
   agentInstructions,
   onEditInstructions
 }: AgentInstructionsTableProps) {
-  const getDefaultInstructions = (agentType: AgentType): string => {
-    switch(agentType) {
-      case 'main':
-        return "You are a helpful AI assistant that can analyze user requests and provide assistance or delegate to specialized agents.";
-      case 'script':
-        return "You are a professional script writer who can create compelling narratives, ad scripts, and other written content.";
-      case 'image':
-        return "You are an expert at creating detailed image prompts for generating visual content.";
-      case 'tool':
-        return "You are a technical tool specialist. Guide users through using various tools and APIs.";
-      case 'scene':
-        return "You are a scene creation expert. Help users visualize and describe detailed environments and settings.";
-      default:
-        return "Default instructions for an AI assistant.";
+  const getAgentName = (agentType: AgentType): string => {
+    switch (agentType) {
+      case "main": return "Main Assistant";
+      case "script": return "Script Writer";
+      case "image": return "Image Generator";
+      case "tool": return "Tool Specialist";
+      case "scene": return "Scene Creator";
+      default: return "Assistant";
     }
   };
-
-  // Get the actual instructions to display (user-defined or default)
-  const getDisplayInstructions = (agentType: AgentType): string => {
-    if (agentInstructions[agentType]) {
-      return agentInstructions[agentType];
-    }
-    return getDefaultInstructions(agentType);
-  };
-
-  // Format instructions to show just a preview (first 100 characters)
-  const formatInstructions = (instructions: string): string => {
-    if (instructions.length <= 100) return instructions;
-    return instructions.substring(0, 100) + "...";
-  };
-
+  
   return (
-    <div className="mb-2 bg-[#21283B]/80 rounded-lg border border-white/10 p-3 text-white/90 shadow-md">
-      <div className="mb-2 flex items-center justify-between">
-        <h3 className="text-sm font-medium">Agent Instructions</h3>
-        <p className="text-xs text-white/60">Click edit to customize agent behavior</p>
-      </div>
-      
-      <div className="overflow-auto max-h-32 text-sm">
-        <table className="min-w-full border-collapse text-left">
-          <thead>
-            <tr className="border-b border-white/10 text-xs text-white/70">
-              <th className="py-1 px-2 w-20">Agent</th>
-              <th className="py-1 px-2">Instructions</th>
-              <th className="py-1 px-2 w-14 text-right">Edit</th>
-            </tr>
-          </thead>
-          <tbody className="text-xs">
-            {(['main', 'script', 'image', 'tool', 'scene'] as AgentType[]).map((agentType) => (
-              <tr 
-                key={agentType}
-                className={`border-b border-white/10 hover:bg-white/5 ${activeAgent === agentType ? 'bg-white/10' : ''}`}
-              >
-                <td className="py-1 px-2 font-medium">
-                  {agentType.charAt(0).toUpperCase() + agentType.slice(1)}
-                </td>
-                <td className="py-1 px-2 text-white/80">
-                  {formatInstructions(getDisplayInstructions(agentType))}
-                </td>
-                <td className="py-1 px-2 text-right">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => onEditInstructions(agentType)}
-                    className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-white/10"
-                  >
-                    <Edit className="h-3 w-3" />
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+    <div className="mb-2 bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 shadow-lg p-2">
+      <div className="space-y-1">
+        <div className="bg-[#1A1F29]/80 backdrop-blur-sm rounded-lg p-2">
+          <div className="flex justify-between items-center mb-1">
+            <h3 className="text-sm font-medium text-white">{getAgentName(activeAgent)} Instructions</h3>
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-6 px-2 text-xs text-blue-400 hover:text-blue-300 hover:bg-blue-900/20"
+              onClick={() => onEditInstructions(activeAgent)}
+            >
+              <Edit2 className="h-3 w-3 mr-1" />
+              Edit
+            </Button>
+          </div>
+          <div className="text-xs text-gray-300 whitespace-pre-wrap max-h-28 overflow-y-auto">
+            {agentInstructions[activeAgent] || "No instructions set."}
+          </div>
+        </div>
       </div>
     </div>
   );

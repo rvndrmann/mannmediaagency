@@ -10,7 +10,7 @@ export class MainAgent extends BaseAgentImpl {
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
-      console.log("Running MainAgent with input:", input, "attachments:", attachments);
+      console.log("Running MainAgent with input:", input.substring(0, 50), "attachments:", attachments.length);
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -32,10 +32,13 @@ export class MainAgent extends BaseAgentImpl {
       const handoffReason = this.context.metadata?.handoffReason || '';
       const handoffHistory = this.context.metadata?.handoffHistory || [];
       const continuityData = this.context.metadata?.continuityData || {};
+      const projectDetails = this.context.metadata?.projectDetails || null;
+      const projectId = this.context.metadata?.projectId || null;
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
+      console.log(`Project context: id=${projectId}, hasDetails=${!!projectDetails}`);
       
       // Enhanced input with handoff context if needed
       let enhancedInput = input;
@@ -47,7 +50,20 @@ export class MainAgent extends BaseAgentImpl {
           enhancedInput += `\n\nAdditional context: ${JSON.stringify(continuityData.additionalContext || {})}`;
         }
         
-        console.log("Enhanced input with handoff context:", enhancedInput);
+        console.log("Enhanced input with handoff context:", enhancedInput.substring(0, 100) + "...");
+      }
+      
+      // Add project context if available
+      let contextualInput = enhancedInput;
+      if (projectId && projectDetails) {
+        const projectContext = `
+Working with Canvas video project: "${projectDetails.title}" (ID: ${projectId})
+Number of scenes: ${projectDetails.scenes?.length || 0}
+${projectDetails.fullScript ? "This project has a full script." : "This project does not have a full script yet."}
+        `;
+        
+        contextualInput = `${enhancedInput}\n\n[Project context: ${projectContext}]`;
+        console.log("Added project context to input");
       }
       
       // Check for script writing requests
@@ -59,10 +75,18 @@ export class MainAgent extends BaseAgentImpl {
         console.log("Detected script writing request - recommend handoff to script agent");
       }
       
+      // Check for scene creation requests
+      const sceneKeywords = ['scene description', 'visual scene', 'describe the scene', 'scene for', 'image prompt'];
+      const isSceneRequest = sceneKeywords.some(keyword => lowercaseInput.includes(keyword));
+      
+      if (isSceneRequest) {
+        console.log("Detected scene description request - recommend handoff to scene agent");
+      }
+      
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
-          input: enhancedInput, // Use enhanced input to preserve context
+          input: contextualInput, // Use enhanced input with project context
           attachments,
           agentType: "main",
           userId: user.id,
@@ -78,7 +102,13 @@ export class MainAgent extends BaseAgentImpl {
             instructions: instructions,
             handoffHistory: handoffHistory,
             continuityData: continuityData,
-            isScriptRequest: isScriptRequest
+            isScriptRequest: isScriptRequest,
+            isSceneRequest: isSceneRequest,
+            projectId: projectId,
+            hasProjectDetails: !!projectDetails,
+            projectTitle: projectDetails?.title || "",
+            scenesCount: projectDetails?.scenes?.length || 0,
+            hasFullScript: !!projectDetails?.fullScript
           },
           conversationHistory: conversationHistory,
           metadata: {
@@ -95,7 +125,7 @@ export class MainAgent extends BaseAgentImpl {
         throw new Error(`Main agent error: ${error.message}`);
       }
       
-      console.log("MainAgent response:", data);
+      console.log("MainAgent response:", data?.completion?.substring(0, 100) + "...");
       
       // Handle handoff if present
       let nextAgent = null;
@@ -114,7 +144,17 @@ export class MainAgent extends BaseAgentImpl {
             ...(additionalContextForNext || {}),
             originalRequest: input,
             requiresFullScript: true,
-            scriptType: isScriptRequest ? detectScriptType(input) : "general"
+            scriptType: isScriptRequest ? detectScriptType(input) : "general",
+            projectId: projectId,
+            projectTitle: projectDetails?.title || ""
+          };
+        } else if (nextAgent === "scene") {
+          additionalContextForNext = {
+            ...(additionalContextForNext || {}),
+            originalRequest: input,
+            projectId: projectId,
+            projectTitle: projectDetails?.title || "",
+            sceneCount: projectDetails?.scenes?.length || 0
           };
         }
       } else if (isScriptRequest && data?.completion) {
@@ -126,7 +166,20 @@ export class MainAgent extends BaseAgentImpl {
           originalRequest: input,
           requiresFullScript: true,
           scriptType: detectScriptType(input),
-          forceScriptGeneration: true
+          forceScriptGeneration: true,
+          projectId: projectId,
+          projectTitle: projectDetails?.title || ""
+        };
+      } else if (isSceneRequest && data?.completion) {
+        // Force a handoff for scene creation if needed
+        console.log("Forcing handoff to scene agent for scene description request");
+        nextAgent = "scene";
+        handoffReasonResponse = "The user requested scene descriptions or image prompts.";
+        additionalContextForNext = {
+          originalRequest: input,
+          projectId: projectId,
+          projectTitle: projectDetails?.title || "",
+          sceneCount: projectDetails?.scenes?.length || 0
         };
       }
       
@@ -135,7 +188,10 @@ export class MainAgent extends BaseAgentImpl {
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
         structured_output: data?.structured_output || null,
-        additionalContext: additionalContextForNext || continuityData?.additionalContext || {}
+        additionalContext: additionalContextForNext || continuityData?.additionalContext || {
+          projectId: projectId,
+          projectTitle: projectDetails?.title || ""
+        }
       };
     } catch (error) {
       console.error("MainAgent run error:", error);

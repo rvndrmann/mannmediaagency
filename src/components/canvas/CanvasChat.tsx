@@ -1,5 +1,4 @@
 
-import { useState, useRef, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";

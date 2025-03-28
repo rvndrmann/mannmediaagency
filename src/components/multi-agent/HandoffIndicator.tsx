@@ -1,73 +1,59 @@
 
-import { useEffect, useState } from "react";
-import { ArrowRightLeft } from "lucide-react";
-import { AgentType } from "@/hooks/multi-agent/runner/types";
-import { cn } from "@/lib/utils";
+import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { FileText, Image, ArrowRight, Wrench, PenSquare } from "lucide-react";
 
 interface HandoffIndicatorProps {
   fromAgent: AgentType;
   toAgent: AgentType;
   visible: boolean;
-  onFinish?: () => void;
 }
 
-export function HandoffIndicator({ fromAgent, toAgent, visible, onFinish }: HandoffIndicatorProps) {
-  const [animationComplete, setAnimationComplete] = useState(false);
-  
-  useEffect(() => {
-    if (visible) {
-      const timer = setTimeout(() => {
-        setAnimationComplete(true);
-        if (onFinish) onFinish();
-      }, 2000);
-      return () => clearTimeout(timer);
-    } else {
-      setAnimationComplete(false);
-    }
-  }, [visible, onFinish]);
-  
+const getAgentIcon = (agentType: AgentType) => {
+  switch (agentType) {
+    case "script":
+      return <FileText className="w-5 h-5 text-blue-400" />;
+    case "image":
+      return <Image className="w-5 h-5 text-purple-400" />;
+    case "tool":
+      return <Wrench className="w-5 h-5 text-green-400" />;
+    case "scene":
+      return <PenSquare className="w-5 h-5 text-amber-400" />;
+    default:
+      return null;
+  }
+};
+
+const getAgentName = (agentType: AgentType): string => {
+  switch (agentType) {
+    case "main": return "Main Assistant";
+    case "script": return "Script Writer";
+    case "image": return "Image Generator";
+    case "tool": return "Tool Specialist";
+    case "scene": return "Scene Creator";
+    default: return "Assistant";
+  }
+};
+
+export function HandoffIndicator({ fromAgent, toAgent, visible }: HandoffIndicatorProps) {
   if (!visible) return null;
   
-  const getAgentName = (type: AgentType): string => {
-    switch (type) {
-      case 'main': return 'Main Assistant';
-      case 'script': return 'Script Writer';
-      case 'image': return 'Image Prompt';
-      case 'tool': return 'Tool Orchestrator';
-      case 'scene': return 'Scene Creator';
-      default: return type;
-    }
-  };
-  
   return (
-    <div className={cn(
-      "fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 z-50",
-      "bg-[#1A1F29] border border-white/20 rounded-lg px-5 py-4",
-      "flex flex-col items-center gap-3 shadow-lg",
-      "transition-opacity duration-500",
-      animationComplete ? "opacity-0 pointer-events-none" : "opacity-100"
-    )}>
-      <div className="flex items-center gap-3">
-        <div className="flex flex-col items-center">
-          <div className="bg-blue-600 w-10 h-10 rounded-full flex items-center justify-center">
-            <span className="text-white font-medium">{fromAgent[0].toUpperCase()}</span>
-          </div>
-          <span className="text-xs text-white/70 mt-1">{getAgentName(fromAgent)}</span>
+    <div className="fixed inset-x-0 bottom-4 flex justify-center z-50 pointer-events-none">
+      <div className="bg-[#21283B]/90 backdrop-blur-sm rounded-lg border border-white/10 text-white shadow-lg px-4 py-2 flex items-center gap-2 pointer-events-auto">
+        <div className="flex items-center gap-1">
+          {getAgentIcon(fromAgent) || <div className="w-5 h-5 rounded-full bg-blue-500" />}
+          <span className="text-sm font-medium">{getAgentName(fromAgent)}</span>
         </div>
         
-        <ArrowRightLeft className="h-5 w-5 text-white/60 animate-pulse" />
+        <ArrowRight className="text-gray-400 w-4 h-4" />
         
-        <div className="flex flex-col items-center">
-          <div className="bg-green-600 w-10 h-10 rounded-full flex items-center justify-center">
-            <span className="text-white font-medium">{toAgent[0].toUpperCase()}</span>
-          </div>
-          <span className="text-xs text-white/70 mt-1">{getAgentName(toAgent)}</span>
+        <div className="flex items-center gap-1">
+          {getAgentIcon(toAgent) || <div className="w-5 h-5 rounded-full bg-green-500" />}
+          <span className="text-sm font-medium">{getAgentName(toAgent)}</span>
         </div>
+        
+        <span className="text-xs text-gray-400 ml-2">Handoff in progress...</span>
       </div>
-      
-      <p className="text-xs text-white/80 text-center">
-        Transferring to specialized agent...
-      </p>
     </div>
   );
 }

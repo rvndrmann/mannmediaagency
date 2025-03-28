@@ -1,10 +1,12 @@
 
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
+import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { useState, useRef, useEffect } from "react";
 import { AgentSelector } from "./AgentSelector";
+import { ProjectSelector } from "./ProjectSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
@@ -30,6 +32,13 @@ interface MultiAgentChatProps {
 
 export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiAgentChatProps) => {
   const navigate = useNavigate();
+  const {
+    activeProjectId,
+    projectDetails,
+    isLoading: projectLoading,
+    setActiveProject
+  } = useProjectContext({ initialProjectId: projectId });
+  
   const { 
     messages, 
     input, 
@@ -52,7 +61,8 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
     getAgentInstructions,
     togglePerformanceMode,
     toggleDirectToolExecution,
-    toggleTracing
+    toggleTracing,
+    setProjectContext
   } = useMultiAgentChat({
     initialMessages: projectId ? [
       {
@@ -64,8 +74,23 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
     ] : undefined,
     onAgentSwitch: (from, to) => {
       toast.info(`Switched from ${from} agent to ${to} agent`);
-    }
+    },
+    projectId: activeProjectId || undefined
   });
+  
+  // Update project context whenever activeProjectId changes
+  useEffect(() => {
+    if (activeProjectId && projectDetails) {
+      setProjectContext(projectDetails);
+    }
+  }, [activeProjectId, projectDetails, setProjectContext]);
+  
+  // Initial project set from prop
+  useEffect(() => {
+    if (projectId && projectId !== activeProjectId) {
+      setActiveProject(projectId);
+    }
+  }, [projectId, activeProjectId, setActiveProject]);
   
   const [showInstructions, setShowInstructions] = useState(false);
   const [editInstructionsOpen, setEditInstructionsOpen] = useState(false);
@@ -120,6 +145,22 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
       navigate("/");
     }
   };
+  
+  const handleProjectSelect = (projectId: string) => {
+    setActiveProject(projectId);
+    toast.success("Switched to project");
+    
+    // Add a system message about project switch
+    const systemMessage = {
+      id: crypto.randomUUID(),
+      role: "system" as const,
+      content: `Switched to Canvas project: ${projectDetails?.title || projectId}`,
+      createdAt: new Date().toISOString(),
+      type: "system" as const
+    };
+    
+    // This will be handled in the use-multi-agent-chat.tsx hook
+  };
 
   return (
     <div className={`flex flex-col ${isEmbedded ? 'h-full' : 'h-screen'} bg-gradient-to-b from-[#1A1F29] to-[#121827]`}>
@@ -136,7 +177,7 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
           <div>
             <h1 className="text-lg font-semibold text-white">AI Multi-Agent Chat</h1>
             <p className="text-xs text-gray-400">
-              {projectId ? `Connected to Canvas Project #${projectId}` : "Interact with specialized AI agents"}
+              {activeProjectId ? `Connected to Canvas Project: ${projectDetails?.title || activeProjectId}` : "Interact with specialized AI agents"}
             </p>
           </div>
         </div>
@@ -244,7 +285,13 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
       </header>
       
       <div className="flex-1 container mx-auto max-w-4xl px-4 pb-2 pt-2 flex flex-col h-full overflow-hidden">
-        <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
+        <div className="mb-2 grid grid-cols-1 md:grid-cols-2 gap-2">
+          <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
+          <ProjectSelector 
+            selectedProjectId={activeProjectId || undefined} 
+            onProjectSelect={handleProjectSelect}
+          />
+        </div>
         
         {showInstructions && 
           <AgentInstructionsTable 
@@ -288,7 +335,7 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
               </div>
               <h2 className="text-base font-semibold text-white mb-1">Multi-Agent AI Chat</h2>
               <p className="text-xs text-gray-400 max-w-md">
-                {projectId 
+                {activeProjectId 
                   ? "Connected to your Canvas project. Ask me to write scripts, create scene descriptions, or generate image prompts." 
                   : "Choose an agent type above and start chatting. Each agent specializes in different tasks - use the main assistant for general help, or select a specialized agent for specific needs."}
               </p>

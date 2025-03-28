@@ -11,7 +11,7 @@ export class ScriptWriterAgent extends BaseAgentImpl {
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
-      console.log("Running ScriptWriterAgent with input:", input, "attachments:", attachments);
+      console.log("Running ScriptWriterAgent with input:", input.substring(0, 50), "attachments:", attachments.length);
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -33,12 +33,13 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       const handoffReason = this.context.metadata?.handoffReason || '';
       const handoffHistory = this.context.metadata?.handoffHistory || [];
       const continuityData = this.context.metadata?.continuityData || {};
-      const projectId = this.context.metadata?.projectId || continuityData?.projectId || null;
+      const projectId = this.context.metadata?.projectId || continuityData?.additionalContext?.projectId || null;
+      const projectDetails = this.context.metadata?.projectDetails || null;
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
-      console.log(`Canvas project context: projectId=${projectId}`);
+      console.log(`Canvas project context: projectId=${projectId}, hasDetails=${!!projectDetails}`);
       
       // Enhanced input for script writing task
       let enhancedInput = input;
@@ -58,7 +59,12 @@ Format it properly with scene headings, character dialogue, and actions where ap
         
         // Add Canvas project context if available
         if (projectId) {
-          enhancedInput += `\n\nThis is for Canvas project ID: ${projectId}. After writing the script, you should save it to the project using the canvas tool.`;
+          enhancedInput += `\n\nThis is for Canvas project ID: ${projectId}`;
+          if (projectDetails) {
+            enhancedInput += ` titled "${projectDetails.title}"`;
+            enhancedInput += `\nThis project has ${projectDetails.scenes?.length || 0} scenes.`;
+          }
+          enhancedInput += `.\nAfter writing the script, you should save it to the project using the canvas tool.`;
         }
         
         // Add additional context if available
@@ -67,6 +73,9 @@ Format it properly with scene headings, character dialogue, and actions where ap
         }
         
         console.log("Enhanced input with explicit script writing instructions");
+      } else if (projectId && projectDetails) {
+        // Add project context for direct requests to the script agent
+        enhancedInput = `${input}\n\n[PROJECT CONTEXT: You are working on Canvas project "${projectDetails.title}" (ID: ${projectId}). This project has ${projectDetails.scenes?.length || 0} scenes.${projectDetails.fullScript ? " The project already has a full script that you can modify or expand upon." : " The project needs a full script."}]`;
       }
       
       // Call the Supabase function with enhanced context for the script writer agent
@@ -90,6 +99,7 @@ Format it properly with scene headings, character dialogue, and actions where ap
             handoffHistory: handoffHistory,
             continuityData: continuityData,
             projectId: projectId, // Pass the project ID if available
+            projectDetails: projectDetails,
             toolContext: {
               canSaveToCanvas: !!projectId // Tell the agent if it can save to Canvas
             }
@@ -111,17 +121,17 @@ Format it properly with scene headings, character dialogue, and actions where ap
         throw new Error(`Script writer agent error: ${error.message}`);
       }
       
-      console.log("Script agent response:", data);
+      console.log("Script agent response:", data?.completion?.substring(0, 100) + "...");
       
       // Add custom processing for script content
       if (data?.completion) {
         // Check if there are script markers in the content
         const hasScriptMarkers = data.completion.includes('SCENE') || 
-                                data.completion.includes('INT.') || 
-                                data.completion.includes('EXT.') ||
-                                data.completion.includes('FADE IN:') ||
-                                data.completion.includes('CUT TO:');
-                                
+                               data.completion.includes('INT.') || 
+                               data.completion.includes('EXT.') ||
+                               data.completion.includes('FADE IN:') ||
+                               data.completion.includes('CUT TO:');
+                               
         if (!hasScriptMarkers && data.structured_output?.isScript !== true) {
           // Add a warning about inappropriate response
           console.warn("Script agent didn't return actual script content!");
@@ -174,6 +184,9 @@ Format it properly with scene headings, character dialogue, and actions where ap
         // Make sure to pass along the project ID
         if (projectId && additionalContextForNext) {
           additionalContextForNext.projectId = projectId;
+          if (projectDetails) {
+            additionalContextForNext.projectTitle = projectDetails.title;
+          }
         }
       }
       
@@ -183,7 +196,8 @@ Format it properly with scene headings, character dialogue, and actions where ap
         handoffReason: handoffReasonResponse,
         structured_output: data?.structured_output || null,
         additionalContext: additionalContextForNext || continuityData?.additionalContext || {
-          projectId: projectId
+          projectId: projectId,
+          projectTitle: projectDetails?.title || ""
         }
       };
     } catch (error) {

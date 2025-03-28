@@ -182,6 +182,9 @@ export class AgentRunner {
           } else if (toAgent === 'image') {
             // Add explicit instruction for image agent
             input = `${input}\n\n[IMPORTANT: You are the image generator. The user is expecting detailed image prompts. Don't just talk about it - WRITE THE IMAGE PROMPTS NOW.]`;
+          } else if (toAgent === 'scene') {
+            // Add explicit instruction for scene agent
+            input = `${input}\n\n[IMPORTANT: You are the scene creator. The user is expecting detailed scene descriptions. Write detailed and visual scene descriptions that can be used to generate images.]`;
           }
           
           // Continue with the loop, using the same input but with the new agent
@@ -231,52 +234,5 @@ export class AgentRunner {
     }
     
     throw new Error(`Maximum number of agent turns (${this.maxTurns}) exceeded`);
-  }
-  
-  // Helper method to support agent-specific tools
-  private getAgentTools(agentType: AgentType): any[] {
-    // Return appropriate tools for each agent type
-    switch(agentType) {
-      case "tool":
-        return [{
-          name: "browser_automation",
-          description: "Automate browser tasks",
-          parameters: {}
-        }];
-      case "image":
-        return [{
-          name: "generate_image",
-          description: "Generate an image from a description",
-          parameters: {}
-        }];
-      case "script":
-        return [{
-          name: "analyze_text",
-          description: "Analyze text for sentiment and key points",
-          parameters: {}
-        }, {
-          name: "write_script",
-          description: "Write a script based on the given parameters",
-          parameters: {
-            type: "object",
-            properties: {
-              format: { type: "string" },
-              topic: { type: "string" },
-              length: { type: "string" },
-              tone: { type: "string" },
-              content: { type: "string" }
-            },
-            required: ["content"]
-          }
-        }];
-      case "scene":
-        return [{
-          name: "create_scene",
-          description: "Create a visual scene from a description",
-          parameters: {}
-        }];
-      default:
-        return [];
-    }
   }
 }

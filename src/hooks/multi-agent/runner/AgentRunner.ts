@@ -118,7 +118,8 @@ export class AgentRunner {
       abortSignal: this.controller?.signal,
       addMessage: this.addMessage.bind(this),
       toolAvailable: this.toolAvailable.bind(this),
-      attachments: this.currentAttachments
+      attachments: this.currentAttachments,
+      creditsRemaining: this.params.metadata.creditsRemaining
     };
   }
 

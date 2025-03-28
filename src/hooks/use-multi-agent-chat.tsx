@@ -117,18 +117,7 @@ export const useMultiAgentChat = () => {
         }
       });
 
-      // Add user message to the chat
-      const userMessage: Message = {
-        id: uuidv4(),
-        role: "user",
-        content: trimmedInput,
-        createdAt: new Date().toISOString(),
-        attachments: pendingAttachments
-      };
-      
-      setMessages(prev => [...prev, userMessage]);
-
-      // Run the agent
+      // Run the agent (the agent runner will add the user message internally)
       await runner.run(trimmedInput, pendingAttachments, user.id);
       
       // Clear input and attachments

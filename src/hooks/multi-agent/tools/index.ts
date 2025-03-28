@@ -10,8 +10,8 @@ export interface Tool {
   description: string;
   parameters: Record<string, any>;
   requiredCredits: number;
-  execute: (params: any) => Promise<any>;
-  version: string;
+  execute: (params: any, context: any) => Promise<any>;
+  version?: string;
 }
 
 const tools: Record<string, Tool> = {

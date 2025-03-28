@@ -29,6 +29,7 @@ export function createHandoff(
     inputFilter: options.inputFilter,
     preserveContext: options.preserveContext !== false, // Default to true
     additionalContext: options.additionalContext || {},
+    includeFullHistory: options.includeFullHistory !== false, // Default to true
   };
 }
 
@@ -37,18 +38,21 @@ export function createHandoff(
  * @param history Conversation history
  * @param preHandoffItems Items before handoff
  * @param newItems New items during handoff
+ * @param conversationContext Additional context to preserve
  * @returns HandoffInputData object with all items combined
  */
 export function createHandoffInputData(
   history: string[] | Attachment[],
   preHandoffItems: any[],
-  newItems: any[]
+  newItems: any[],
+  conversationContext: Record<string, any> = {}
 ): HandoffInputData {
   return {
     inputHistory: history,
     preHandoffItems,
     newItems,
-    allItems: [...preHandoffItems, ...newItems]
+    allItems: [...preHandoffItems, ...newItems],
+    conversationContext
   };
 }
 
@@ -100,6 +104,26 @@ export const handoffFilters = {
     return {
       ...data,
       allItems: [systemMessage, ...data.allItems]
+    };
+  },
+  
+  /**
+   * Add conversation continuity context
+   */
+  addContinuityContext: (fromAgent: AgentType) => (data: HandoffInputData): HandoffInputData => {
+    // Create a system message explaining this is a handoff continuation
+    const continuityMessage = {
+      role: 'system',
+      content: `This conversation was handed off from the ${fromAgent} agent. Please review the conversation history to maintain context.`,
+      id: crypto.randomUUID(),
+      createdAt: new Date().toISOString(),
+      type: 'handoff'
+    };
+    
+    // Add it to the beginning of allItems
+    return {
+      ...data,
+      allItems: [continuityMessage, ...data.allItems]
     };
   }
 };

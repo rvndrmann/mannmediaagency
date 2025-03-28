@@ -47,6 +47,7 @@ export interface HandoffRequest {
   targetAgent: string;
   reason: string;
   context?: Record<string, any>;
+  preserveFullHistory?: boolean; // Added to control history preservation
 }
 
 export type MessageType = "user" | "agent" | "system" | "tool" | "handoff";

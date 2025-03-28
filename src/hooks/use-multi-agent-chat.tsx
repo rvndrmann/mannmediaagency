@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -8,10 +7,8 @@ import { useQuery } from "@tanstack/react-query";
 import { AgentRunner } from "./multi-agent/runner/AgentRunner";
 import { AgentType as RunnerAgentType } from "./multi-agent/runner/types";
 
-// Re-export the AgentType for use in other components
 export type AgentType = RunnerAgentType;
 
-// Define built-in agent types
 export const BUILT_IN_AGENT_TYPES = ['main', 'script', 'image', 'tool', 'scene'];
 
 const STORAGE_KEY = "multi_agent_chat_history";
@@ -62,7 +59,6 @@ export const useMultiAgentChat = () => {
     },
   });
 
-  // Persist messages to localStorage
   useEffect(() => {
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(messages));
@@ -71,7 +67,6 @@ export const useMultiAgentChat = () => {
     }
   }, [messages]);
 
-  // Persist agent instructions to localStorage
   useEffect(() => {
     try {
       localStorage.setItem("agent_instructions", JSON.stringify(agentInstructions));
@@ -80,7 +75,6 @@ export const useMultiAgentChat = () => {
     }
   }, [agentInstructions]);
 
-  // Load agent instructions from localStorage
   useEffect(() => {
     try {
       const savedInstructions = localStorage.getItem("agent_instructions");
@@ -96,12 +90,10 @@ export const useMultiAgentChat = () => {
     }
   }, []);
 
-  // Fetch task status for active tool executions
   useEffect(() => {
     if (activeToolExecutions.length === 0) return;
     
     const intervalId = setInterval(async () => {
-      // Check task statuses
       for (const taskId of activeToolExecutions) {
         try {
           const { data: { user } } = await supabase.auth.getUser();
@@ -116,9 +108,7 @@ export const useMultiAgentChat = () => {
             continue;
           }
           
-          // If the task is completed, update the message and remove from active executions
           if (data.status === 'finished' || data.status === 'stopped' || data.status === 'failed') {
-            // Find the tool message
             updateToolMessage(taskId, data);
             setActiveToolExecutions(prev => prev.filter(id => id !== taskId));
           }
@@ -131,7 +121,6 @@ export const useMultiAgentChat = () => {
     return () => clearInterval(intervalId);
   }, [activeToolExecutions]);
 
-  // Update message helper
   const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
     setMessages(prev => {
       const newMessages = [...prev];
@@ -145,7 +134,6 @@ export const useMultiAgentChat = () => {
     });
   }, []);
 
-  // Update tool message by task ID
   const updateToolMessage = useCallback((taskId: string, taskData: any) => {
     setMessages(prev => {
       const newMessages = [...prev];
@@ -169,7 +157,6 @@ export const useMultiAgentChat = () => {
     });
   }, []);
 
-  // Helper function to add a message
   const addMessage = useCallback((text: string, type: string, attachments?: Attachment[]) => {
     const message: Message = {
       id: uuidv4(),
@@ -182,13 +169,10 @@ export const useMultiAgentChat = () => {
     return message;
   }, []);
 
-  // Helper function to check if a tool is available
   const toolAvailable = useCallback((toolName: string) => {
-    // In a real implementation, this would check if the tool is available
     return true;
   }, []);
-  
-  // Add a system message indicating handoff
+
   const addHandoffMessage = useCallback((fromAgent: AgentType, toAgent: AgentType, reason: string) => {
     const handoffMessage: Message = {
       id: uuidv4(),
@@ -196,14 +180,18 @@ export const useMultiAgentChat = () => {
       content: `Transferring from ${fromAgent} agent to ${toAgent} agent: ${reason}`,
       createdAt: new Date().toISOString(),
       status: "completed",
-      type: "handoff" as MessageType
+      type: "handoff" as MessageType,
+      continuityData: {
+        fromAgent,
+        toAgent,
+        reason,
+        timestamp: new Date().toISOString()
+      }
     };
     setMessages(prev => [...prev, handoffMessage]);
     
-    // Add visual indicator of handoff in progress
     setHandoffInProgress(true);
     
-    // After a delay, hide the indicator
     setTimeout(() => {
       setHandoffInProgress(false);
     }, 2000);
@@ -211,11 +199,9 @@ export const useMultiAgentChat = () => {
     return handoffMessage;
   }, []);
 
-  // Handle message submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    // Prevent form submission behavior
     if (e) {
       e.preventDefault();
     }
@@ -240,14 +226,11 @@ export const useMultiAgentChat = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("User not authenticated");
 
-      // Check if the active agent is a custom agent
       const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
       console.log("Creating agent runner for agent type:", activeAgent);
 
-      // Get browserUseApiKey from environment or use a default
       const browserUseApiKey = import.meta.env.VITE_BROWSER_USE_API_KEY || "";
 
-      // Create context data for the agent
       const contextData = {
         usePerformanceModel,
         enableDirectToolExecution,
@@ -266,7 +249,6 @@ export const useMultiAgentChat = () => {
         toolAvailable
       };
 
-      // Create AgentRunner instance
       const runner = new AgentRunner(activeAgent, contextData, {
         onMessage: (message) => {
           console.log("Received message from agent:", message);
@@ -285,7 +267,6 @@ export const useMultiAgentChat = () => {
           setActiveAgent(toAgent);
         },
         onToolExecution: (toolName, params) => {
-          // If it's a browser-use tool, track the task ID
           if (toolName === 'browser-use' && params.taskId) {
             setActiveToolExecutions(prev => [...prev, params.taskId]);
           }
@@ -294,14 +275,11 @@ export const useMultiAgentChat = () => {
 
       console.log("Running agent with input:", trimmedInput);
       
-      // Run the agent (the agent runner will add the user message internally)
       await runner.run(trimmedInput, pendingAttachments, user.id);
       
-      // Clear input and attachments
       setInput("");
       setPendingAttachments([]);
       
-      // Refresh credits
       refetchCredits();
       
     } catch (error) {
@@ -314,7 +292,6 @@ export const useMultiAgentChat = () => {
     }
   };
 
-  // Attachment handlers
   const addAttachments = useCallback((newAttachments: Attachment[]) => {
     setPendingAttachments(prev => [...prev, ...newAttachments]);
   }, []);
@@ -323,12 +300,10 @@ export const useMultiAgentChat = () => {
     setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
   }, []);
 
-  // Agent management
   const switchAgent = useCallback((agentType: AgentType) => {
     setActiveAgent(agentType);
   }, []);
-  
-  // Agent instructions management
+
   const updateAgentInstructions = useCallback((agentType: AgentType, instructions: string) => {
     setAgentInstructions(prev => ({
       ...prev,
@@ -336,12 +311,11 @@ export const useMultiAgentChat = () => {
     }));
     toast.success(`Updated ${agentType} agent instructions`);
   }, []);
-  
+
   const getAgentInstructions = useCallback((agentType: AgentType) => {
     return agentInstructions[agentType] || "";
   }, [agentInstructions]);
 
-  // Chat management
   const clearChat = useCallback(() => {
     setMessages([]);
     setPendingAttachments([]);
@@ -398,6 +372,8 @@ export const useMultiAgentChat = () => {
     getAgentInstructions,
     togglePerformanceMode,
     toggleDirectToolExecution,
-    toggleTracing
+    toggleTracing,
+    addHandoffMessage,
+    handoffInProgress
   };
 };

@@ -81,10 +81,19 @@ serve(async (req) => {
         // We would process attachments here - for now just acknowledge them
       }
 
+      // Enhanced handoff continuation context with more details
       if (contextData.isHandoffContinuation) {
-        userMessage += `\n\nThis conversation was handed off from the ${
+        userMessage += `\n\nNote: This conversation was handed off from the ${
           contextData.previousAgentType || 'previous'
-        } agent to help with specialized assistance. Reason: ${contextData.handoffReason || 'Not specified'}`;
+        } agent to you (${agentType} agent) to help with specialized assistance. 
+        Reason: ${contextData.handoffReason || 'Not specified'}
+        
+        Please review the conversation history and maintain continuity.`;
+        
+        // Log that this is a handoff continuation
+        logInfo(`[${requestId}] This is a handoff continuation from ${contextData.previousAgentType} to ${agentType}`, {
+          reason: contextData.handoffReason
+        });
       }
 
       // If we're a tool agent, add available tools context
@@ -298,6 +307,11 @@ serve(async (req) => {
     // Check if the input might require a tool when in direct tool execution mode
     if (enableDirectToolExecution && !responseData.commandSuggestion && shouldSuggestTool(input)) {
       responseData.commandSuggestion = suggestToolCommand(input);
+    }
+    
+    // When generating a handoff request, ensure we add preserveFullHistory flag
+    if (responseData.handoffRequest) {
+      responseData.handoffRequest.preserveFullHistory = true;
     }
     
     logInfo(`[${requestId}] Generated response for ${agentType} agent`, {

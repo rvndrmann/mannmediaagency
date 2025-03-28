@@ -215,11 +215,16 @@ export class AgentRunner {
     const preHandoffItems = this.conversationHistory.slice(0, -2);
     const newItems = this.conversationHistory.slice(-2);
     
-    const inputData = {
+    const inputData: HandoffInputData = {
       inputHistory: historyContent,
       preHandoffItems,
       newItems,
-      allItems: [...preHandoffItems, ...newItems]
+      allItems: this.conversationHistory,
+      conversationContext: {
+        previousAgentType: fromAgent,
+        handoffReason: reason,
+        isHandoffContinuation: true
+      }
     };
     
     const mergedContext = {
@@ -227,6 +232,7 @@ export class AgentRunner {
       previousAgentType: fromAgent,
       handoffReason: reason,
       isHandoffContinuation: true,
+      conversationId: this.context.groupId,
       ...(additionalContext || {})
     };
     
@@ -258,7 +264,18 @@ export class AgentRunner {
       
       try {
         console.log(`Calling agent.run with input and ${attachments.length} attachments`);
-        const agentResult = await this.agent.run(input, attachments);
+        
+        const isHandoffContinuation = this.context.metadata?.isHandoffContinuation === true;
+        
+        let agentInput = input;
+        if (isHandoffContinuation && this.conversationHistory.length > 2) {
+          const contextPrefix = `[Conversation continuation from ${this.context.metadata?.previousAgentType || 'previous'} agent]\n\n`;
+          agentInput = contextPrefix + input;
+          
+          console.log("Including handoff context in agent input");
+        }
+        
+        const agentResult = await this.agent.run(agentInput, attachments);
         console.log(`Agent result:`, agentResult);
         
         const updatedAssistantMessage: Message = {
@@ -267,7 +284,8 @@ export class AgentRunner {
           status: "completed",
           handoffRequest: agentResult.nextAgent ? {
             targetAgent: agentResult.nextAgent,
-            reason: `The ${this.agentType} agent recommended transitioning to the ${agentResult.nextAgent} agent.`
+            reason: `The ${this.agentType} agent recommended transitioning to the ${agentResult.nextAgent} agent.`,
+            preserveFullHistory: true
           } : undefined
         };
         

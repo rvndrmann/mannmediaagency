@@ -42,7 +42,7 @@ export function CanvasChat({ onClose }: CanvasChatProps) {
         </Button>
       </div>
       
-      <div className="p-3 border-b border-gray-700/50">
+      <div className="border-b border-gray-700/50">
         <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
       </div>
       
@@ -71,7 +71,7 @@ export function CanvasChat({ onClose }: CanvasChatProps) {
       </ScrollArea>
       
       <div className="p-3 border-t border-gray-700/50">
-        <div className="absolute top-2 right-3 text-xs text-white/60 bg-[#262B38] px-2 py-1 rounded-md">
+        <div className="text-xs text-white/60 bg-[#262B38] px-2 py-1 rounded-md mb-2">
           Credits: {userCredits ? userCredits.credits_remaining.toFixed(2) : "Loading..."}
         </div>
         <ChatInput

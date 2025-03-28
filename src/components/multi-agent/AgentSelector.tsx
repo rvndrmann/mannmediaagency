@@ -1,5 +1,5 @@
 
-import React, { useRef } from 'react';
+import React, { useRef, useEffect } from 'react';
 import { Bot, PenLine, Image, Wrench, FileText, ArrowUp } from 'lucide-react';
 import { AgentInfo } from '@/types/message';
 import { Button } from '@/components/ui/button';
@@ -88,7 +88,10 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
 
   return (
     <div className="flex flex-col h-full">
-      <div ref={scrollContainerRef} className="flex-1 overflow-y-auto flex flex-col space-y-2 p-2 max-h-[400px]">
+      <div 
+        ref={scrollContainerRef} 
+        className="flex-1 overflow-y-auto flex flex-col space-y-2 p-2 max-h-[300px] scroll-smooth"
+      >
         {agents.map((agent) => (
           <button
             key={agent.id}
@@ -112,7 +115,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
         ))}
       </div>
       
-      {/* Scroll to top button */}
       <div className="mt-2 px-2">
         <Button 
           onClick={scrollToTop} 

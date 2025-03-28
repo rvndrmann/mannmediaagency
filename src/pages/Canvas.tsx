@@ -7,7 +7,7 @@ import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
 import { CanvasChat } from "@/components/canvas/CanvasChat";
 import { ProjectHistory } from "@/components/canvas/ProjectHistory";
 import { useCanvas } from "@/hooks/use-canvas";
-import { Loader2, MessageSquare } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -21,6 +21,7 @@ export default function Canvas() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  const [shouldCreateProject, setShouldCreateProject] = useState(false);
   
   // Check if user is authenticated
   useEffect(() => {
@@ -53,24 +54,13 @@ export default function Canvas() {
     updateProjectTitle
   } = useCanvas(projectId || undefined);
 
-  // Create a new project if none is provided
+  // Do not auto-create project, just set the shouldCreateProject flag to true
+  // if we don't have a projectId and we're authenticated
   useEffect(() => {
     if (!loading && !projectId && isAuthenticated) {
-      const createNewProject = async () => {
-        try {
-          const newProjectId = await createProject("New Video Project");
-          if (newProjectId) {
-            navigate(`/canvas?projectId=${newProjectId}`);
-          }
-        } catch (err) {
-          console.error("Failed to create new project:", err);
-          toast.error("Failed to create new project");
-        }
-      };
-      
-      createNewProject();
+      setShouldCreateProject(true);
     }
-  }, [loading, projectId, createProject, navigate, isAuthenticated]);
+  }, [loading, projectId, isAuthenticated]);
 
   const handleCreateNewProject = async () => {
     try {
@@ -121,9 +111,20 @@ export default function Canvas() {
     );
   }
 
-  // Show empty state if no project
-  if (!project && isAuthenticated) {
+  // Show empty state if no project and shouldCreateProject is true
+  if (shouldCreateProject && !project && isAuthenticated) {
     return <CanvasEmptyState onCreateProject={createProject} />;
+  }
+  
+  // Show project history if no project ID and we're not explicitly creating one
+  if (!projectId && !shouldCreateProject && isAuthenticated) {
+    return (
+      <ProjectHistory 
+        projectId="" 
+        onBack={() => setShouldCreateProject(true)}
+        onSelectProject={(id) => navigate(`/canvas?projectId=${id}`)}
+      />
+    );
   }
 
   // Show project history view if toggled
@@ -131,7 +132,8 @@ export default function Canvas() {
     return (
       <ProjectHistory 
         projectId={project.id} 
-        onBack={toggleHistory} 
+        onBack={toggleHistory}
+        onSelectProject={(id) => navigate(`/canvas?projectId=${id}`)}
       />
     );
   }

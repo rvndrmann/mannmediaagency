@@ -1,6 +1,5 @@
 
 import { useState, useEffect } from "react";
-import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,13 +21,13 @@ import {
 interface ProjectHistoryProps {
   projectId: string;
   onBack: () => void;
+  onSelectProject: (id: string) => void;
 }
 
-export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
+export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHistoryProps) {
   const [projects, setProjects] = useState<CanvasProject[]>([]);
   const [loading, setLoading] = useState(true);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
-  const navigate = useNavigate();
   
   const fetchProjects = async () => {
     try {
@@ -82,7 +81,7 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
   
   const handleProjectSelect = (selectedProjectId: string) => {
     if (selectedProjectId === projectId) return;
-    navigate(`/canvas?projectId=${selectedProjectId}`);
+    onSelectProject(selectedProjectId);
   };
   
   const handleDeleteProject = async () => {
@@ -106,7 +105,7 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
       toast.success("Project deleted successfully");
       
       if (projectToDelete === projectId) {
-        navigate('/canvas');
+        onSelectProject('');
       } else {
         fetchProjects();
       }
@@ -196,6 +195,7 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
             ) : (
               <div className="col-span-full flex flex-col items-center justify-center py-12">
                 <p className="text-muted-foreground">No project history found</p>
+                <Button className="mt-4" onClick={onBack}>Create New Project</Button>
               </div>
             )}
           </div>

@@ -3,8 +3,9 @@ import React, { useState, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardFooter, CardHeader, CardTitle } from '@/components/ui/card';
-import { Save, FileText } from 'lucide-react';
+import { Save, FileText, ChevronUp, ChevronDown } from 'lucide-react';
 import { useToast } from '@/components/ui/use-toast';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 
 interface ScriptInputPanelProps {
   className?: string;
@@ -24,6 +25,7 @@ export function ScriptInputPanel({
   const { toast } = useToast();
   const [script, setScript] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isOpen, setIsOpen] = useState(false);
 
   // Initialize script from props
   useEffect(() => {
@@ -66,29 +68,45 @@ export function ScriptInputPanel({
 
   return (
     <Card className={className}>
-      <CardHeader className="pb-3">
-        <CardTitle className="text-xl flex items-center">
-          <FileText className="mr-2 h-5 w-5" />
-          Script Editor
-        </CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Textarea
-          value={script}
-          onChange={(e) => setScript(e.target.value)}
-          placeholder="Write your script here..."
-          className="min-h-[300px] font-mono text-sm"
-        />
-      </CardContent>
-      <CardFooter className="flex justify-end">
-        <Button 
-          onClick={handleSaveScript} 
-          disabled={isSaving}
-        >
-          <Save className="mr-2 h-4 w-4" />
-          {isSaving ? 'Saving...' : 'Save Script'}
-        </Button>
-      </CardFooter>
+      <Collapsible open={isOpen} onOpenChange={setIsOpen}>
+        <CardHeader className="pb-2 flex flex-row items-center justify-between">
+          <CardTitle className="text-lg flex items-center">
+            <FileText className="mr-2 h-4 w-4" />
+            Script Editor
+          </CardTitle>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+              {isOpen ? (
+                <ChevronUp className="h-4 w-4" />
+              ) : (
+                <ChevronDown className="h-4 w-4" />
+              )}
+              <span className="sr-only">{isOpen ? "Close" : "Open"} script editor</span>
+            </Button>
+          </CollapsibleTrigger>
+        </CardHeader>
+        
+        <CollapsibleContent>
+          <CardContent>
+            <Textarea
+              value={script}
+              onChange={(e) => setScript(e.target.value)}
+              placeholder="Write your script here..."
+              className="min-h-[150px] max-h-[300px] font-mono text-sm"
+            />
+          </CardContent>
+          <CardFooter className="flex justify-end pt-0">
+            <Button 
+              onClick={handleSaveScript} 
+              disabled={isSaving}
+              size="sm"
+            >
+              <Save className="mr-2 h-4 w-4" />
+              {isSaving ? 'Saving...' : 'Save Script'}
+            </Button>
+          </CardFooter>
+        </CollapsibleContent>
+      </Collapsible>
     </Card>
   );
 }

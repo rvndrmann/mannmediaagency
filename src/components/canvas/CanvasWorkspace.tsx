@@ -79,6 +79,7 @@ export function CanvasWorkspace({
       </div>
       
       <ScriptInputPanel 
+        className="mx-4 mt-4"
         fullScript={project.fullScript}
         scenes={project.scenes.map(scene => ({ id: scene.id, title: scene.title }))}
         onScriptDivide={divideScriptToScenes}

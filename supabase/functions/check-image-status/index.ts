@@ -1,219 +1,173 @@
 
-import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
+import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-}
+};
 
 interface JobStatus {
-  status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
-  resultUrl?: string;
-  errorMessage?: string;
-  falStatus?: string;
   jobId?: string;
   requestId?: string;
+  status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
+  resultUrl?: string;
+  error?: string; 
 }
 
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: corsHeaders })
+    return new Response(null, { headers: corsHeaders });
   }
-
+  
   try {
-    // Parse request body
-    const requestData = await req.json();
-    const { jobId, requestId } = requestData;
-    
-    console.log("Request data received:", JSON.stringify(requestData));
-    
-    // Validate that we have either jobId or requestId
-    if (!jobId && !requestId) {
-      console.error("Missing jobId and requestId in request");
-      throw new Error('Either Job ID or Request ID is required')
+    // Get the FAL_KEY and Supabase admin keys
+    const FAL_KEY = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY');
+    if (!FAL_KEY) {
+      throw new Error('FAL_KEY environment variable is not set');
     }
 
-    // Get Supabase configuration
-    const supabaseUrl = Deno.env.get('SUPABASE_URL')
-    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const falApiKey = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY')
-
-    if (!supabaseUrl || !supabaseKey || !falApiKey) {
-      console.error("Missing required environment variables");
-      throw new Error('Missing required configuration')
+    const SUPABASE_URL = Deno.env.get('SUPABASE_URL');
+    const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY');
+    
+    if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
+      throw new Error('Missing required Supabase configuration');
     }
-
+    
     // Create Supabase client
-    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
-    const supabase = createClient(supabaseUrl, supabaseKey)
+    const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2');
+    const supabase = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Fetch job details - prioritize requestId if provided
-    let job;
-    if (requestId) {
-      // If requestId is provided, find the job by request_id
-      const { data: jobByRequestId, error: requestIdError } = await supabase
-        .from('image_generation_jobs')
-        .select('*')
-        .eq('request_id', requestId)
-        .single()
-
-      if (requestIdError && requestIdError.code !== 'PGRST116') {
-        console.error(`Failed to find job with request ID: ${requestId}`, requestIdError);
-        throw new Error(`Failed to find job with request ID: ${requestId}`)
-      }
-      job = jobByRequestId;
+    // Get the job ID from the request body
+    const { jobId } = await req.json();
+    
+    if (!jobId) {
+      throw new Error('jobId is required');
     }
     
-    if (!job && jobId) {
-      // Fallback to jobId
-      const { data: jobById, error: jobIdError } = await supabase
-        .from('image_generation_jobs')
-        .select('*')
-        .eq('id', jobId)
-        .single()
-
-      if (jobIdError) {
-        console.error(`Failed to find job with ID: ${jobId}`, jobIdError);
-        throw new Error(`Failed to find job with ID: ${jobId}`)
-      }
-      job = jobById;
+    console.log(`Checking status for job ID: ${jobId}`);
+    
+    // Fetch the job from the database
+    const { data: job, error: jobError } = await supabase
+      .from('image_generation_jobs')
+      .select('*')
+      .eq('id', jobId)
+      .single();
+    
+    if (jobError) {
+      console.error('Error fetching job:', jobError);
+      throw new Error(`Failed to fetch job: ${jobError.message}`);
     }
-
-    // If no job found, throw an error
+    
     if (!job) {
-      console.error("No job found for the provided identifiers");
-      throw new Error('Job not found')
+      throw new Error('Job not found');
     }
-
-    // If no request_id found but job exists, throw an error
-    if (!job.request_id) {
-      console.error(`Job found (${job.id}) but has no request_id`);
-      throw new Error('No request ID associated with this job')
-    }
-
-    console.log('Checking status for job ID:', job.id, 'request_id:', job.request_id);
-
-    // Check status in Fal.ai
-    const statusResponse = await fetch(
-      `https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}/status`,
-      {
-        headers: {
-          'Authorization': `Key ${falApiKey}`,
+    
+    const requestId = job.request_id;
+    
+    if (!requestId) {
+      console.log('Job has no request_id, skipping status check with Fal.ai');
+      return new Response(
+        JSON.stringify({
+          jobId: job.id,
+          status: job.status.toUpperCase(),
+          resultUrl: job.result_url,
+          error: job.error || 'No request_id available for this job'
+        }),
+        {
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
         }
+      );
+    }
+    
+    console.log(`Checking status for request_id: ${requestId}`);
+    
+    // Use flux-subject endpoint for consistency with retry-image-generation function
+    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
+      method: 'GET',
+      headers: {
+        'Authorization': `Key ${FAL_KEY}`,
+        'Content-Type': 'application/json'
       }
-    )
-
+    });
+    
     if (!statusResponse.ok) {
       const errorText = await statusResponse.text();
-      console.error("Failed to check job status:", errorText);
-      throw new Error(`Failed to check job status: ${errorText}`)
-    }
-
-    const statusData = await statusResponse.json()
-    console.log('Status response:', statusData);
-
-    // Map Fal.ai status to our standardized status
-    // For the database we use lowercase, for the client response we use uppercase
-    let dbStatus = 'in_queue'; // Default fallback
-    if (statusData.status === 'COMPLETED') {
-      dbStatus = 'completed';
-    } else if (statusData.status === 'FAILED') {
-      dbStatus = 'failed';
-    } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-      dbStatus = 'in_queue';
+      console.error(`Fal.ai status check error for request_id ${requestId}:`, errorText);
+      throw new Error(`Failed to check status: ${errorText}`);
     }
     
-    let resultUrl = job.result_url;
-    let errorMessage = job.error_message;
-
-    if (statusData.status === 'COMPLETED') {
-      // Fetch the result
-      const resultResponse = await fetch(
-        `https://queue.fal.run/fal-ai/flux-subject/requests/${job.request_id}`,
-        {
-          headers: {
-            'Authorization': `Key ${falApiKey}`,
-          }
-        }
-      )
-
-      if (!resultResponse.ok) {
-        const errorText = await resultResponse.text();
-        console.error("Failed to fetch result:", errorText);
-        throw new Error(`Failed to fetch result: ${errorText}`)
-      }
-
-      const resultData = await resultResponse.json()
-      console.log('Result data:', resultData);
-
-      if (resultData.images?.[0]?.url) {
-        resultUrl = resultData.images[0].url;
-
-        // Update job record
-        const { error: updateError } = await supabase
-          .from('image_generation_jobs')
-          .update({
-            status: dbStatus,
-            result_url: resultUrl,
-            checked_at: new Date().toISOString()
-          })
-          .eq('id', job.id)
-
-        if (updateError) {
-          console.error("Failed to update job record:", updateError);
-          throw new Error(`Failed to update job record: ${updateError.message}`);
-        }
-      }
-    } else if (statusData.status === 'FAILED') {
-      errorMessage = statusData.error || 'Unknown error occurred during generation';
-      // Update job status
-      await supabase
-        .from('image_generation_jobs')
-        .update({ 
-          status: dbStatus,
-          error_message: errorMessage,
-          checked_at: new Date().toISOString()
-        })
-        .eq('id', job.id);
+    const statusData = await statusResponse.json();
+    console.log(`Status for request_id ${requestId}:`, JSON.stringify(statusData));
+    
+    // Map Fal.ai status to our internal status
+    let normalizedStatus: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
+    if (statusData.status?.toUpperCase() === 'COMPLETED') {
+      normalizedStatus = 'COMPLETED';
+    } else if (statusData.status?.toUpperCase() === 'FAILED') {
+      normalizedStatus = 'FAILED';
     } else {
-      // Update for IN_QUEUE or PROCESSING status
-      await supabase
-        .from('image_generation_jobs')
-        .update({ 
-          status: dbStatus,
-          checked_at: new Date().toISOString()
-        })
-        .eq('id', job.id);
+      normalizedStatus = 'IN_QUEUE';
     }
-
-    // Return response with normalized uppercase status for client
-    const clientStatus = dbStatus === 'in_queue' ? 'IN_QUEUE' : 
-                        dbStatus === 'completed' ? 'COMPLETED' : 
-                        dbStatus === 'failed' ? 'FAILED' : 'IN_QUEUE';
-
+    
+    // Extract result URL if completed
+    let resultUrl = null;
+    if (normalizedStatus === 'COMPLETED' && statusData.result?.url) {
+      resultUrl = statusData.result.url;
+      
+      // Update the job in the database
+      const { error: updateError } = await supabase
+        .from('image_generation_jobs')
+        .update({
+          status: 'completed',
+          result_url: resultUrl
+        })
+        .eq('id', jobId);
+      
+      if (updateError) {
+        console.error('Error updating job:', updateError);
+      }
+    } else if (normalizedStatus === 'FAILED') {
+      // Update the job in the database as failed
+      const { error: updateError } = await supabase
+        .from('image_generation_jobs')
+        .update({
+          status: 'failed',
+          error_message: statusData.error || 'Unknown error'
+        })
+        .eq('id', jobId);
+      
+      if (updateError) {
+        console.error('Error updating job:', updateError);
+      }
+    }
+    
+    // Prepare response
+    const response: JobStatus = {
+      jobId: job.id,
+      requestId: requestId,
+      status: normalizedStatus,
+      resultUrl: resultUrl || job.result_url,
+      error: normalizedStatus === 'FAILED' ? (statusData.error || 'Unknown error') : undefined
+    };
+    
     return new Response(
-      JSON.stringify({
-        status: clientStatus,
-        resultUrl,
-        errorMessage,
-        falStatus: statusData.status,
-        jobId: job.id,
-        requestId: job.request_id
-      }),
-      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      JSON.stringify(response),
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+      }
     );
-
+    
   } catch (error) {
     console.error('Error in check-image-status:', error);
     return new Response(
-      JSON.stringify({ 
+      JSON.stringify({
         status: 'FAILED',
-        error: error.message || 'Unknown error occurred' 
+        error: error.message || 'An unexpected error occurred'
       }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        status: 500
       }
     );
   }

@@ -4,8 +4,18 @@ import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { Loader2, RefreshCw, RepeatIcon } from "lucide-react";
+import { Loader2, RefreshCw, RepeatIcon, Trash2 } from "lucide-react";
 import { toast } from "sonner";
+import { 
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 
 export function AIToolsOverview() {
   const [stuckJobs, setStuckJobs] = useState<any[]>([]);
@@ -13,6 +23,8 @@ export function AIToolsOverview() {
   const [isRetrying, setIsRetrying] = useState<{ [key: string]: boolean }>({});
   const [isRetryingAll, setIsRetryingAll] = useState(false);
   const [isCheckingStatus, setIsCheckingStatus] = useState<{ [key: string]: boolean }>({});
+  const [jobToDelete, setJobToDelete] = useState<string | null>(null);
+  const [isDeleting, setIsDeleting] = useState<{ [key: string]: boolean }>({});
 
   // Fetch all stuck jobs (in_queue and failed)
   const fetchStuckJobs = async () => {
@@ -133,6 +145,37 @@ export function AIToolsOverview() {
     }
   };
 
+  const deleteJob = async (jobId: string) => {
+    if (!jobId) {
+      console.error("Cannot delete job: No job ID provided");
+      toast.error("Cannot delete job: Missing job ID");
+      return;
+    }
+
+    setIsDeleting(prevState => ({ ...prevState, [jobId]: true }));
+    try {
+      const { error } = await supabase
+        .from('image_generation_jobs')
+        .delete()
+        .eq('id', jobId);
+
+      if (error) {
+        console.error(`Error deleting job ${jobId}:`, error);
+        toast.error(`Failed to delete job: ${error.message}`);
+      } else {
+        toast.success("Job deleted successfully");
+        // Remove the job from the local state
+        setStuckJobs(prevJobs => prevJobs.filter(job => job.id !== jobId));
+      }
+    } catch (error) {
+      console.error(`Error deleting job ${jobId}:`, error);
+      toast.error(`Failed to delete job: ${error instanceof Error ? error.message : "Unknown error"}`);
+    } finally {
+      setIsDeleting(prevState => ({ ...prevState, [jobId]: false }));
+      setJobToDelete(null);
+    }
+  };
+
   useEffect(() => {
     fetchStuckJobs();
   }, []);
@@ -224,7 +267,7 @@ export function AIToolsOverview() {
                     <TableHead className="w-[100px]">Status</TableHead>
                     <TableHead>Prompt</TableHead>
                     <TableHead className="w-[160px]">Created</TableHead>
-                    <TableHead className="w-[150px]">Actions</TableHead>
+                    <TableHead className="w-[180px]">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -273,6 +316,19 @@ export function AIToolsOverview() {
                               <RepeatIcon className="h-4 w-4" />
                             )}
                           </Button>
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            className="text-red-500 hover:bg-red-50"
+                            onClick={() => setJobToDelete(job.id)}
+                            disabled={isDeleting[job.id]}
+                          >
+                            {isDeleting[job.id] ? (
+                              <Loader2 className="h-4 w-4 animate-spin" />
+                            ) : (
+                              <Trash2 className="h-4 w-4" />
+                            )}
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -295,6 +351,27 @@ export function AIToolsOverview() {
           </p>
         </CardContent>
       </Card>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={!!jobToDelete} onOpenChange={(open) => !open && setJobToDelete(null)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the job and remove it from the database.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction 
+              onClick={() => jobToDelete && deleteJob(jobToDelete)}
+              className="bg-red-500 hover:bg-red-600 text-white"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

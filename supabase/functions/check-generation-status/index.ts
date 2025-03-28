@@ -56,10 +56,10 @@ serve(async (req) => {
       throw new Error('requestId is required')
     }
 
-    console.log(`Checking status for request: ${requestId}`)
+    console.log(`Checking status for request_id: ${requestId}`)
 
-    // Check status from fal.ai using the correct endpoint
-    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/bria/requests/${requestId}/status`, {
+    // Use flux-subject endpoint for consistency with retry-image-generation function
+    const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
       method: 'GET',
       headers: {
         'Authorization': `Key ${FAL_KEY}`,
@@ -74,7 +74,7 @@ serve(async (req) => {
     }
 
     const statusData = await statusResponse.json()
-    console.log(`Status for request ${requestId}:`, JSON.stringify(statusData))
+    console.log(`Status for request_id ${requestId}:`, JSON.stringify(statusData))
     
     // Normalize the status to our simplified format
     const normalizedStatus = normalizeStatus(statusData.status);

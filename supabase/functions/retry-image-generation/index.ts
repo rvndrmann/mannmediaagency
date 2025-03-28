@@ -142,8 +142,10 @@ serve(async (req) => {
             requestId = job.request_id;
           }
           
-          // Check status at Fal.ai using the request_id (not job.id)
+          // CRITICAL: Check status using request_id - this is what Fal.ai expects
           console.log(`Checking status for request_id: ${requestId}`);
+          
+          // Note the URL endpoint - using Fal.ai specific model endpoint with correct request_id parameter
           const statusResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}/status`, {
             headers: {
               "Authorization": `Key ${FAL_KEY}`
@@ -151,7 +153,7 @@ serve(async (req) => {
           });
           
           if (!statusResponse.ok) {
-            console.error(`Fal.ai status check failed for job ${job.id}, request_id: ${requestId}`);
+            console.error(`Fal.ai status check failed for request_id: ${requestId} (job ${job.id})`);
             results.push({
               id: job.id,
               request_id: requestId,
@@ -164,11 +166,11 @@ serve(async (req) => {
           const statusData = await statusResponse.json();
           const normalizedStatus = normalizeStatus(statusData.status);
           
-          console.log(`Job ${job.id} status from request_id ${requestId}: ${normalizedStatus}`);
+          console.log(`Request_id ${requestId} (job ${job.id}) status: ${normalizedStatus}`);
           
           results.push({
             id: job.id,
-            request_id: requestId,
+            request_id: requestId,  // Always return the request_id, not job.id
             success: true,
             status: normalizedStatus
           });

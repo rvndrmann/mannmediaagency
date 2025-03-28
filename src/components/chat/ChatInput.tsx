@@ -64,6 +64,13 @@ export const ChatInput = ({
     }
   };
 
+  const handleSubmitClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    if (input.trim() !== '' || (attachments && attachments.length > 0)) {
+      onSubmit(e as any);
+    }
+  };
+
   return (
     <form onSubmit={onSubmit} className="space-y-1 w-full">
       {attachments.length > 0 && (
@@ -105,7 +112,8 @@ export const ChatInput = ({
         )}
         
         <Button 
-          type="submit" 
+          type="button" 
+          onClick={handleSubmitClick}
           disabled={isLoading || (input.trim() === '' && (!attachments || attachments.length === 0))}
           variant="gradient"
           size="icon"

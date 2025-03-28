@@ -136,14 +136,26 @@ export const useMultiAgentChat = () => {
   // Handle message submission
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // Prevent form submission behavior
+    if (e) {
+      e.preventDefault();
+    }
+    
     const trimmedInput = input.trim();
-    if ((!trimmedInput && pendingAttachments.length === 0) || isLoading) return;
+    console.log("Handling submit with input:", trimmedInput, "attachments:", pendingAttachments.length);
+    
+    if ((!trimmedInput && pendingAttachments.length === 0) || isLoading) {
+      console.log("Aborting submission - empty input or already loading");
+      return;
+    }
 
     if (!userCredits || userCredits.credits_remaining < 0.07) {
       toast.error("You need at least 0.07 credits to send a message.");
       return;
     }
 
+    console.log("Setting isLoading to true");
     setIsLoading(true);
 
     try {
@@ -152,6 +164,7 @@ export const useMultiAgentChat = () => {
 
       // Check if the active agent is a custom agent
       const isCustomAgent = !BUILT_IN_AGENT_TYPES.includes(activeAgent);
+      console.log("Creating agent runner for agent type:", activeAgent);
 
       // Create AgentRunner instance
       const runner = new AgentRunner(activeAgent, {
@@ -168,12 +181,15 @@ export const useMultiAgentChat = () => {
         groupId: currentConversationId
       }, {
         onMessage: (message) => {
+          console.log("Received message from agent:", message);
           setMessages(prev => [...prev, message]);
         },
         onError: (error) => {
+          console.error("Agent error:", error);
           toast.error(error);
         },
         onHandoffEnd: (toAgent) => {
+          console.log("Handling handoff to:", toAgent);
           setActiveAgent(toAgent);
         },
         onToolExecution: (toolName, params) => {
@@ -184,6 +200,8 @@ export const useMultiAgentChat = () => {
         }
       });
 
+      console.log("Running agent with input:", trimmedInput);
+      
       // Run the agent (the agent runner will add the user message internally)
       await runner.run(trimmedInput, pendingAttachments, user.id);
       
@@ -195,9 +213,11 @@ export const useMultiAgentChat = () => {
       refetchCredits();
       
     } catch (error) {
+      console.error("Error in handleSubmit:", error);
       const errorMessage = error instanceof Error ? error.message : "Unknown error";
       toast.error(errorMessage);
     } finally {
+      console.log("Setting isLoading to false");
       setIsLoading(false);
     }
   };

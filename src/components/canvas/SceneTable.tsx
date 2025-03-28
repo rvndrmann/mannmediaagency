@@ -62,7 +62,7 @@ export function SceneTable({
     // This would be implemented with actual AI generation
   };
 
-  const handleAddMedia = (sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic') => {
+  const handleAddMedia = async (sceneId: string, type: 'image' | 'video' | 'productImage' | 'voiceOver' | 'backgroundMusic') => {
     const input = document.createElement('input');
     input.type = 'file';
     
@@ -86,7 +86,20 @@ export function SceneTable({
       
       try {
         if (type === 'voiceOver' || type === 'backgroundMusic') {
+          const { data: bucketList } = await supabase.storage.listBuckets();
           const bucketName = type === 'voiceOver' ? 'voice-over' : 'background-music';
+          
+          if (!bucketList?.find(bucket => bucket.name === bucketName)) {
+            const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
+              public: true
+            });
+            
+            if (createBucketError) {
+              console.error(`Error creating bucket ${bucketName}:`, createBucketError);
+              throw createBucketError;
+            }
+          }
+          
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           
@@ -105,7 +118,20 @@ export function SceneTable({
           
           await updateScene(sceneId, type, publicUrl);
         } else if (type === 'video') {
+          const { data: bucketList } = await supabase.storage.listBuckets();
           const bucketName = 'scene-videos';
+          
+          if (!bucketList?.find(bucket => bucket.name === bucketName)) {
+            const { error: createBucketError } = await supabase.storage.createBucket(bucketName, {
+              public: true
+            });
+            
+            if (createBucketError) {
+              console.error(`Error creating bucket ${bucketName}:`, createBucketError);
+              throw createBucketError;
+            }
+          }
+          
           const fileExt = file.name.split('.').pop();
           const fileName = `${crypto.randomUUID()}.${fileExt}`;
           

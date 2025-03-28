@@ -1,0 +1,4 @@
+
+project_id = "avdwgvjhufslhqrrmxgo"
+[functions.multi-agent-chat]
+verify_jwt = false

@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -80,24 +81,40 @@ serve(async (req) => {
     if (conversationHistory && conversationHistory.length > 0) {
       logInfo(`[${requestId}] Processing conversation history with ${conversationHistory.length} messages`);
       
-      // Add continuation context for handoffs
+      // Enhanced continuation context for handoffs
       if (contextData?.isHandoffContinuation) {
         messages.push({
           role: "system",
           content: `This conversation was handed off from the ${
             contextData.previousAgentType || 'previous'
-          } agent to you (${agentType} agent) to help with specialized assistance. 
-          Reason: ${contextData.handoffReason || 'Not specified'}
+          } agent to you (${agentType} agent) for specialized assistance. 
           
-          Please review the conversation history and maintain continuity.
+          Reason for handoff: ${contextData.handoffReason || 'Not specified'}
           
-          Important: You are now in control of this conversation thread. The user should not have to repeat their request.
-          Process the latest user message in context of the full conversation history and respond accordingly.
+          Your role: You are now the ${agentType} agent, taking over this conversation thread. The user should not have to repeat their request.
+          
+          Instructions:
+          1. Review the conversation history carefully to understand context
+          2. Maintain continuity with what has been discussed
+          3. Use your specialized capabilities as a ${agentType} agent to help the user
+          4. Address the user's request directly based on the full conversation
           
           This is a continuation of the conversation, not a new conversation.`
         });
         
-        logInfo(`[${requestId}] Added handoff continuation context from ${contextData.previousAgentType} to ${agentType}`);
+        logInfo(`[${requestId}] Added enhanced handoff continuation context from ${contextData.previousAgentType} to ${agentType}`);
+        
+        // If there's continuity data, add that too
+        if (contextData.continuityData) {
+          messages.push({
+            role: "system",
+            content: `Additional context from previous agent:
+            - Previous agent: ${contextData.continuityData.fromAgent}
+            - Handoff reason: ${contextData.continuityData.reason}
+            - Timestamp: ${contextData.continuityData.timestamp}
+            ${contextData.continuityData.additionalContext ? JSON.stringify(contextData.continuityData.additionalContext) : ''}`
+          });
+        }
       }
       
       // Process conversation history with appropriate filtering
@@ -108,7 +125,7 @@ serve(async (req) => {
       // Add the processed history messages
       relevantHistory.forEach(item => {
         if (item.role === 'user' || item.role === 'assistant' || item.role === 'system') {
-          // Add agent type annotation to assistant messages for better context
+          // Enhanced annotation for assistant messages
           let content = item.content;
           if (item.role === 'assistant' && item.agentType && item.agentType !== agentType) {
             content = `[From ${item.agentType} agent]: ${content}`;
@@ -126,7 +143,7 @@ serve(async (req) => {
       });
     }
     
-    // Build the user message with input and context
+    // Build the user message with enhanced context
     let userMessage = `${input}`;
     
     // Add additional context if needed
@@ -169,7 +186,7 @@ serve(async (req) => {
     // Define available handoffs based on agent type
     const handoffs = getHandoffsForAgent(agentType);
     
-    // Prepare the function calling schema for structured output
+    // Enhanced function calling schema for structured output
     const functions = [
       {
         name: "agentResponse",
@@ -192,6 +209,11 @@ serve(async (req) => {
                 reason: {
                   type: "string",
                   description: "The reason for the handoff"
+                },
+                preserveFullHistory: {
+                  type: "boolean",
+                  description: "Whether to preserve the full conversation history in the handoff",
+                  default: true
                 }
               },
               required: ["targetAgent", "reason"]
@@ -214,6 +236,16 @@ serve(async (req) => {
             structured_output: {
               type: "object",
               description: "Optional structured data output"
+            },
+            continuityData: {
+              type: "object",
+              description: "Optional data to maintain context across agent handoffs",
+              properties: {
+                additionalContext: {
+                  type: "object",
+                  description: "Any additional context the next agent should know"
+                }
+              }
             }
           },
           required: ["completion"]
@@ -248,6 +280,15 @@ serve(async (req) => {
               reason: {
                 type: "string",
                 description: "The reason for transferring to this agent"
+              },
+              preserveFullHistory: {
+                type: "boolean",
+                description: "Whether to preserve the full conversation history in the handoff",
+                default: true
+              },
+              additionalContext: {
+                type: "object",
+                description: "Any additional context the next agent should know"
               }
             },
             required: ["reason"]
@@ -303,7 +344,7 @@ serve(async (req) => {
           const isToolFunction = tools?.some(t => t.name === functionCall.name);
           
           if (isHandoffFunction) {
-            // Handle handoff function call
+            // Enhanced handoff function call
             const handoffArgs = JSON.parse(functionCall.arguments);
             const targetAgent = functionCall.name.replace("transfer_to_", "").replace("_agent", "");
             
@@ -312,11 +353,19 @@ serve(async (req) => {
               handoffRequest: {
                 targetAgent,
                 reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`,
-                preserveFullHistory: true // Always preserve full history for handoffs
+                preserveFullHistory: handoffArgs.preserveFullHistory !== false, // Default to true
+                additionalContext: handoffArgs.additionalContext || {}
+              },
+              continuityData: {
+                fromAgent: agentType,
+                toAgent: targetAgent,
+                reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`,
+                timestamp: new Date().toISOString(),
+                additionalContext: handoffArgs.additionalContext || {}
               }
             };
           } else if (isToolFunction) {
-            // Handle tool function call
+            // Enhanced tool function call
             const toolArgs = JSON.parse(functionCall.arguments);
             
             responseData = {
@@ -324,6 +373,11 @@ serve(async (req) => {
               commandSuggestion: {
                 name: functionCall.name,
                 parameters: toolArgs
+              },
+              structured_output: {
+                toolName: functionCall.name,
+                toolArgs: toolArgs,
+                expectedOutput: "Tool execution result"
               }
             };
           } else {
@@ -360,6 +414,12 @@ serve(async (req) => {
           targetAgent: detectedHandoff,
           reason: `Your request about "${getShortSummary(input)}" would be better handled by our ${getAgentName(detectedHandoff)}.`,
           preserveFullHistory: true
+        };
+        responseData.continuityData = {
+          fromAgent: agentType,
+          toAgent: detectedHandoff,
+          reason: `Auto-detected need for ${detectedHandoff} agent`,
+          timestamp: new Date().toISOString()
         };
       }
     }
@@ -408,7 +468,7 @@ serve(async (req) => {
   }
 });
 
-// Helper functions
+// Enhanced helper functions
 
 /**
  * Process conversation history to filter and format messages for the current agent
@@ -430,9 +490,14 @@ function processConversationHistory(history: any[], currentAgentType: string): a
     // Create a copy we can modify
     const processedItem = { ...item };
     
-    // For handoff messages, convert to system messages
+    // For handoff messages, convert to system messages with enhanced context
     if (item.type === 'handoff') {
       processedItem.role = 'system';
+      
+      // Add continuity data if available
+      if (item.continuityData) {
+        processedItem.content += `\n\nAdditional handoff context: ${JSON.stringify(item.continuityData)}`;
+      }
     }
     
     // We'll handle the assistant message annotation in the parent function
@@ -441,7 +506,7 @@ function processConversationHistory(history: any[], currentAgentType: string): a
   });
 }
 
-// Get default instructions based on agent type
+// Get enhanced default instructions based on agent type
 function getDefaultInstructions(agentType: string): string {
   const handoffInstructions = `
   You can transfer the conversation to a specialized agent when appropriate:
@@ -451,6 +516,8 @@ function getDefaultInstructions(agentType: string): string {
   - Scene Creator agent: For creating detailed visual scene descriptions
   
   ONLY transfer to another agent when the user's request clearly matches their specialty.
+  
+  When handing off, provide a clear reason why the handoff is necessary and what value the specialized agent will provide to the user.
   `;
   
   switch(agentType) {
@@ -461,16 +528,24 @@ function getDefaultInstructions(agentType: string): string {
       
       ${handoffInstructions}
       
-      Be professional, friendly, and helpful. Always consider the user's needs and provide the most helpful response possible.`;
+      Be professional, friendly, and helpful. Always consider the user's needs and provide the most helpful response possible.
+      
+      When continuing a conversation that has been handed off to you, make sure to acknowledge the handoff context and maintain continuity in the conversation.`;
       
     case 'script':
       return `You are a creative script writing assistant. Help users create compelling narratives, ad scripts, and other written content.
       
-      Focus on engaging dialogue, effective storytelling, and proper formatting for scripts. Consider the target audience, medium, and purpose of the script.
+      Focus on:
+      - Engaging dialogue and character development
+      - Effective storytelling and narrative structure
+      - Proper formatting for scripts and written content
+      - Considering the target audience and purpose
       
       ${handoffInstructions}
       
-      Be creative, but also practical. Consider the feasibility of production for any scripts you create.`;
+      Be creative, but also practical. Consider the feasibility of production for any scripts you create.
+      
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the script-related aspects of their request.`;
       
     case 'image':
       return `You are an expert at creating detailed image prompts for generating visual content.
@@ -483,7 +558,9 @@ function getDefaultInstructions(agentType: string): string {
       
       ${handoffInstructions}
       
-      Help users refine their ideas into clear, specific prompts that will generate impressive images.`;
+      Help users refine their ideas into clear, specific prompts that will generate impressive images.
+      
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the image-generation aspects of their request.`;
       
     case 'tool':
       return `You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues.
@@ -496,27 +573,32 @@ function getDefaultInstructions(agentType: string): string {
       
       ${handoffInstructions}
       
-      Be technical but accessible. Use clear language and explain complex concepts in understandable terms.`;
+      Be technical but accessible. Use clear language and explain complex concepts in understandable terms.
+      
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the technical tool-related aspects of their request.`;
       
     case 'scene':
-      return `You are a scene creation expert. Help users visualize and describe detailed environments and settings for creative projects.
+      return `You are a scene creation expert for video production. Help users visualize and describe detailed environments and settings for creative projects.
       
       When crafting scene descriptions, focus on:
       - Sensory details: what can be seen, heard, smelled, felt in the scene
       - Spatial relationships: layout, distances, positioning of elements
       - Atmosphere and mood: lighting, weather, time of day, emotional tone
       - Key elements: important objects, features, or characters in the scene
+      - Camera movements and angles: how the scene should be filmed
       
       ${handoffInstructions}
       
-      Create vivid, immersive scenes that help bring the user's vision to life.`;
+      Create vivid, immersive scenes that help bring the user's vision to life.
+      
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the scene creation aspects of their request.`;
       
     default:
       return "You are a helpful AI assistant. Answer questions clearly and concisely.";
   }
 }
 
-// Get tools for the agent based on agent type and direct execution setting
+// Get enhanced tools for the agent based on agent type and direct execution setting
 function getToolsForAgent(agentType: string, enableDirectToolExecution: boolean): any[] {
   if (!enableDirectToolExecution && agentType !== 'tool') {
     return [];
@@ -598,22 +680,122 @@ function getToolsForAgent(agentType: string, enableDirectToolExecution: boolean)
         },
         required: ["style"]
       }
+    },
+    {
+      name: "generate-scene",
+      description: "Generate a video scene based on a description",
+      parameters: {
+        type: "object",
+        properties: {
+          description: {
+            type: "string",
+            description: "Detailed description of the scene to generate"
+          },
+          duration: {
+            type: "number",
+            description: "Duration of the scene in seconds"
+          },
+          style: {
+            type: "string",
+            description: "Visual style for the scene"
+          }
+        },
+        required: ["description"]
+      }
     }
   ];
   
+  // Agent-specific tools
   switch(agentType) {
     case 'image':
-      return [...baseTools];
+      return [...baseTools, {
+        name: "analyze-image",
+        description: "Analyze an image and provide detailed information about it",
+        parameters: {
+          type: "object",
+          properties: {
+            imageUrl: {
+              type: "string",
+              description: "URL of the image to analyze"
+            },
+            analysisType: {
+              type: "string",
+              description: "Type of analysis to perform (e.g., 'composition', 'style', 'content')"
+            }
+          },
+          required: ["imageUrl"]
+        }
+      }];
       
     case 'tool':
-      return [...baseTools];
+      return [...baseTools, {
+        name: "execute-workflow",
+        description: "Execute a multi-step workflow with various tools",
+        parameters: {
+          type: "object",
+          properties: {
+            workflowName: {
+              type: "string",
+              description: "Name of the workflow to execute"
+            },
+            workflowParams: {
+              type: "object",
+              description: "Parameters for the workflow"
+            }
+          },
+          required: ["workflowName"]
+        }
+      }];
+      
+    case 'script':
+      return [{
+        name: "analyze-script",
+        description: "Analyze a script for quality, readability, and impact",
+        parameters: {
+          type: "object",
+          properties: {
+            script: {
+              type: "string",
+              description: "The script text to analyze"
+            },
+            analysisType: {
+              type: "string",
+              description: "Type of analysis (e.g., 'dialogue', 'structure', 'pacing')"
+            }
+          },
+          required: ["script"]
+        }
+      }];
+      
+    case 'scene':
+      return [
+        ...baseTools,
+        {
+          name: "create-storyboard",
+          description: "Create a storyboard from a scene description",
+          parameters: {
+            type: "object",
+            properties: {
+              scene: {
+                type: "string",
+                description: "Detailed scene description"
+              },
+              frames: {
+                type: "number",
+                description: "Number of storyboard frames to create"
+              }
+            },
+            required: ["scene"]
+          }
+        }
+      ];
       
     default:
       return baseTools;
   }
 }
 
-// Get handoffs for agent based on agent type
+// Get enhanced handoffs for agent based on agent type
 function getHandoffsForAgent(agentType: string): any[] {
   const allAgentTypes = ['main', 'script', 'image', 'tool', 'scene'];
   const availableHandoffs = allAgentTypes.filter(type => type !== agentType);
@@ -621,16 +803,29 @@ function getHandoffsForAgent(agentType: string): any[] {
   return availableHandoffs.map(targetAgent => ({
     targetAgent,
     toolName: `transfer_to_${targetAgent}_agent`,
-    toolDescription: `Transfer the conversation to the ${targetAgent} agent when the user's request requires specialized handling in that domain.`
+    toolDescription: `Transfer the conversation to the ${targetAgent} agent when the user's request requires specialized handling in ${getAgentDomain(targetAgent)}.`
   }));
 }
 
-// Check if the input should be handed off to a specialized agent
+// Helper function to get the domain of expertise for an agent
+function getAgentDomain(agentType: string): string {
+  switch(agentType) {
+    case 'main': return "general assistance";
+    case 'script': return "writing and creative content";
+    case 'image': return "image generation and visual design";
+    case 'tool': return "tool usage and technical tasks";
+    case 'scene': return "scene creation and visual environments";
+    default: return "specialized tasks";
+  }
+}
+
+// Enhanced check for handoff to a specialized agent
 function checkForHandoff(input: string, currentAgentType: string): string | null {
   if (!input) return null;
   
   const inputLower = input.toLowerCase();
   
+  // Don't handoff if already in the correct specialist agent
   if (
     (currentAgentType === 'script' && (inputLower.includes('script') || inputLower.includes('write') || inputLower.includes('content'))) ||
     (currentAgentType === 'image' && (inputLower.includes('image') || inputLower.includes('picture') || inputLower.includes('photo'))) ||
@@ -640,32 +835,39 @@ function checkForHandoff(input: string, currentAgentType: string): string | null
     return null;
   }
   
+  // Enhanced detection with more keywords and better context awareness
   if (inputLower.includes('script') || inputLower.includes('write') || 
       inputLower.includes('story') || inputLower.includes('narrative') || 
-      inputLower.includes('ad') || inputLower.includes('content')) {
+      inputLower.includes('ad') || inputLower.includes('content') ||
+      inputLower.includes('dialogue') || inputLower.includes('screenplay')) {
     return 'script';
   }
   
   if (inputLower.includes('image') || inputLower.includes('picture') || 
       inputLower.includes('photo') || inputLower.includes('visual') ||
-      inputLower.includes('illustration')) {
+      inputLower.includes('illustration') || inputLower.includes('drawing') ||
+      inputLower.includes('design') || inputLower.includes('graphic')) {
     return 'image';
   }
   
   if (inputLower.includes('tool') || inputLower.includes('browser') || 
-      inputLower.includes('automate') || inputLower.includes('website')) {
+      inputLower.includes('automate') || inputLower.includes('website') ||
+      inputLower.includes('technical') || inputLower.includes('api') ||
+      inputLower.includes('integration') || inputLower.includes('code')) {
     return 'tool';
   }
   
   if (inputLower.includes('scene') || inputLower.includes('setting') || 
-      inputLower.includes('environment') || inputLower.includes('location')) {
+      inputLower.includes('environment') || inputLower.includes('location') ||
+      inputLower.includes('storyboard') || inputLower.includes('backdrop') ||
+      inputLower.includes('camera') || inputLower.includes('shot')) {
     return 'scene';
   }
   
   return null;
 }
 
-// Check if we should suggest a tool based on the input
+// Enhanced tool suggestion check
 function shouldSuggestTool(input: string): boolean {
   if (!input) return false;
   
@@ -674,10 +876,14 @@ function shouldSuggestTool(input: string): boolean {
          inputLower.includes('website') || 
          inputLower.includes('automate') ||
          inputLower.includes('video') ||
-         inputLower.includes('youtube');
+         inputLower.includes('youtube') ||
+         inputLower.includes('tool') ||
+         inputLower.includes('generate') ||
+         inputLower.includes('create') ||
+         inputLower.includes('make');
 }
 
-// Suggest a tool command based on input
+// Enhanced tool command suggestion
 function suggestToolCommand(input: string): any {
   const inputLower = input.toLowerCase();
   
@@ -702,16 +908,27 @@ function suggestToolCommand(input: string): any {
     };
   }
   
+  if (inputLower.includes('scene') || inputLower.includes('setting')) {
+    return {
+      name: "generate-scene",
+      parameters: {
+        description: "Create a scene based on the user's description",
+        duration: 5,
+        style: "cinematic"
+      }
+    };
+  }
+  
   return null;
 }
 
-// Extract a website from the input text
+// Enhanced website extraction
 function extractWebsite(input: string): string {
   const matches = input.match(/\b(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/);
   return matches ? matches[0] : 'google.com';
 }
 
-// Get a readable name for the agent type
+// Enhanced agent name function
 function getAgentName(agentType: string): string {
   switch(agentType) {
     case 'script': return 'Script Writer';

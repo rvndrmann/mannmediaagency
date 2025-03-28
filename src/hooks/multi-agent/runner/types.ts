@@ -3,13 +3,15 @@ import { Attachment, Message, MessageType } from "@/types/message";
 import { ToolContext, AgentConfig } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AgentType = "main" | "assistant" | "tool" | "sceneCreator" | "scriptWriter" | "imageGenerator" | string;
+export type AgentType = "main" | "script" | "image" | "tool" | "scene" | string;
 
 export interface AgentResult {
   response: string | null;
   nextAgent: string | null;
+  handoffReason?: string;
   commandSuggestion?: any;
   structured_output?: any;
+  additionalContext?: Record<string, any>;
 }
 
 export interface AgentOptions {
@@ -23,6 +25,8 @@ export interface RunnerContext extends ToolContext {
     isHandoffContinuation?: boolean;
     previousAgentType?: string | null;
     handoffReason?: string;
+    handoffHistory?: Array<{ from: AgentType, to: AgentType, reason: string }>;
+    continuityData?: any;
     [key: string]: any;
   };
 }

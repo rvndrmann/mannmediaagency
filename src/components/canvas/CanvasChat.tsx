@@ -7,7 +7,8 @@ import { X, Send, Paperclip, Loader2 } from "lucide-react";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { Message, Attachment } from "@/types/message";
 import { toast } from "sonner";
-import { useMultiAgentChat, AgentType } from "@/hooks/use-multi-agent-chat";
+import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat"; 
+import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 
 interface CanvasChatProps {
@@ -24,7 +25,9 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
   const { 
     messages, 
     isLoading, 
-    sendMessage 
+    sendMessage,
+    activeAgent,
+    switchAgent
   } = useMultiAgentChat({
     initialMessages: [
       {
@@ -33,8 +36,27 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
         content: "Welcome to Canvas Assistant. How can I help you with your video project today?",
         createdAt: new Date().toISOString(),
       }
-    ]
+    ],
+    onAgentSwitch: (from, to) => {
+      toast.info(`Switched from ${from} agent to ${to} agent`);
+    }
   });
+  
+  // Get canvas-specific agent capabilities
+  const { agentMessages } = useCanvasAgent({
+    projectId,
+    sceneId: null,
+    updateScene: async () => {}
+  });
+  
+  // Effect to merge canvas agent messages if needed
+  useEffect(() => {
+    if (agentMessages.length > 0 && activeAgent === 'scene') {
+      // Could implement logic to merge canvas-specific messages
+      // for now just informing that we have canvas context
+      console.log('Canvas agent messages available for context:', agentMessages.length);
+    }
+  }, [agentMessages, activeAgent]);
   
   // Scroll to bottom when messages change
   useEffect(() => {
@@ -54,7 +76,26 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
     }
     
     try {
-      await sendMessage(input, "canvas" as AgentType);
+      // Enhanced context for canvas-related queries
+      const contextData = {
+        projectType: "canvas",
+        projectId,
+        canvasContext: true
+      };
+      
+      // Automatically switch to scene agent for scene-related queries
+      const inputLower = input.toLowerCase();
+      if (
+        activeAgent !== "scene" && 
+        (inputLower.includes("scene") || 
+         inputLower.includes("visual") || 
+         inputLower.includes("shot"))
+      ) {
+        await switchAgent("scene" as AgentType);
+        toast.info("Switched to Scene Creator agent for your request");
+      }
+      
+      await sendMessage(input, activeAgent as AgentType);
       setInput("");
       setAttachments([]);
     } catch (error) {

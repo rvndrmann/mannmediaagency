@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect } from "react";
 import { Message, Attachment } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -115,29 +116,39 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     toast.success(`${!tracingEnabled ? "Enabled" : "Disabled"} interaction tracing`);
   };
   
-  // Simulate a handoff between agents
-  const simulateHandoff = (fromAgent: AgentType, toAgent: AgentType, reason: string) => {
+  // Enhanced handoff implementation that preserves context
+  const simulateHandoff = (fromAgent: AgentType, toAgent: AgentType, reason: string, preserveFullHistory: boolean = true) => {
     setHandoffInProgress(true);
+    
+    // Create continuity data to maintain context between agents
+    const continuityData = {
+      fromAgent,
+      toAgent,
+      reason,
+      timestamp: new Date().toISOString(),
+      preserveHistory: preserveFullHistory
+    };
     
     setTimeout(() => {
       switchAgent(toAgent);
       setHandoffInProgress(false);
       
-      // Add system message about handoff
+      // Add system message about handoff with enhanced context
       const handoffMessage: Message = {
         id: uuidv4(),
         role: "system",
         content: `Conversation transferred from ${getAgentName(fromAgent)} to ${getAgentName(toAgent)}. Reason: ${reason}`,
         createdAt: new Date().toISOString(),
-        type: "handoff"
+        type: "handoff",
+        continuityData // Add continuity data for context preservation
       };
       
       setMessages(prev => [...prev, handoffMessage]);
     }, 1500);
   };
   
-  // This is the actual message sending function that's exposed
-  const sendMessage = async (message: string, agentId?: string) => {
+  // Enhanced message sending function with improved context handling
+  const sendMessage = async (message: string, agentId?: AgentType) => {
     setIsLoading(true);
     
     try {
@@ -152,26 +163,43 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       
       setMessages(prev => [...prev, userMessage]);
       
-      // Simulate response
+      // Prepare context data for better agent coordination
+      const contextData = {
+        instructions: agentInstructions[agentId || activeAgent],
+        isHandoffContinuation: false,
+        previousAgentType: null,
+        handoffReason: "",
+        conversationContext: {
+          performanceMode: usePerformanceModel,
+          directToolExecution: enableDirectToolExecution
+        }
+      };
+      
+      // Get recent message history for context
+      const recentMessages = messages.slice(-10);
+      
+      // Call the multi-agent chat edge function (simulated for now)
       setTimeout(() => {
-        const responseContent = simulateAgentResponse(message, agentId || activeAgent);
+        const responseContent = simulateAgentResponse(message, agentId || activeAgent, contextData, recentMessages);
         const response: Message = {
           id: uuidv4(),
           content: responseContent.text,
           role: "assistant",
           agentType: agentId || activeAgent,
           createdAt: new Date().toISOString(),
-          handoffRequest: responseContent.handoff
+          handoffRequest: responseContent.handoff,
+          structured_output: responseContent.structured_output
         };
         
         setMessages(prev => [...prev, response]);
         
-        // Handle handoff if needed
+        // Handle handoff if needed with improved context preservation
         if (responseContent.handoff) {
           simulateHandoff(
             agentId || activeAgent,
             responseContent.handoff.targetAgent as AgentType,
-            responseContent.handoff.reason
+            responseContent.handoff.reason,
+            responseContent.handoff.preserveFullHistory
           );
         }
         
@@ -185,52 +213,75 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     }
   };
   
-  // Simulate different agent responses based on message content
-  const simulateAgentResponse = (message: string, agentType: string): { text: string; handoff?: { targetAgent: string; reason: string } } => {
+  // Enhanced agent response simulation with improved context handling
+  const simulateAgentResponse = (
+    message: string, 
+    agentType: string, 
+    contextData: any = {}, 
+    messageHistory: Message[] = []
+  ): { 
+    text: string; 
+    handoff?: { 
+      targetAgent: string; 
+      reason: string;
+      preserveFullHistory?: boolean; 
+    };
+    structured_output?: any;
+  } => {
     const lowercaseMessage = message.toLowerCase();
     
-    // Check for handoff triggers
+    // Use message history to make more informed responses
+    const hasRecentMessages = messageHistory.length > 0;
+    const contextPrefix = hasRecentMessages ? "Based on our conversation, " : "";
+    
+    // Check for handoff triggers with improved context awareness
     if (agentType === "main" && (lowercaseMessage.includes("write") || lowercaseMessage.includes("script"))) {
       return {
-        text: "I see you're asking about writing or scripts. Let me transfer you to our Script Writer agent who specializes in this.",
+        text: `${contextPrefix}I see you're asking about writing or scripts. Let me transfer you to our Script Writer agent who specializes in this.`,
         handoff: {
           targetAgent: "script",
-          reason: "User asked about writing scripts"
+          reason: "User asked about writing scripts",
+          preserveFullHistory: true
         }
       };
     }
     
     if (agentType === "main" && (lowercaseMessage.includes("image") || lowercaseMessage.includes("picture"))) {
       return {
-        text: "I see you're asking about images. Let me transfer you to our Image Generator agent who specializes in this.",
+        text: `${contextPrefix}I see you're asking about images. Let me transfer you to our Image Generator agent who specializes in this.`,
         handoff: {
           targetAgent: "image",
-          reason: "User asked about image generation"
+          reason: "User asked about image generation",
+          preserveFullHistory: true
         }
       };
     }
     
-    // Agent-specific responses
+    // Agent-specific responses with improved context awareness
     switch (agentType) {
       case "script":
         return {
-          text: "As your Script Writer assistant, I can help craft compelling narratives and scripts. What type of content would you like me to create?"
+          text: `${contextPrefix}As your Script Writer assistant, I can help craft compelling narratives and scripts. What type of content would you like me to create?`,
+          structured_output: hasRecentMessages ? { contentType: "script", confidence: 0.9 } : undefined
         };
       case "image":
         return {
-          text: "As your Image Generator assistant, I can help craft detailed prompts for generating images. What kind of visual would you like to create?"
+          text: `${contextPrefix}As your Image Generator assistant, I can help craft detailed prompts for generating images. What kind of visual would you like to create?`,
+          structured_output: hasRecentMessages ? { contentType: "image", confidence: 0.85 } : undefined
         };
       case "tool":
         return {
-          text: "As your Tool Specialist, I can help you use various tools and APIs. What technical task would you like assistance with?"
+          text: `${contextPrefix}As your Tool Specialist, I can help you use various tools and APIs. What technical task would you like assistance with?`,
+          structured_output: hasRecentMessages ? { contentType: "tool", confidence: 0.95 } : undefined
         };
       case "scene":
         return {
-          text: "As your Scene Creator, I can help craft detailed visual environments. What kind of scene would you like me to describe?"
+          text: `${contextPrefix}As your Scene Creator, I can help craft detailed visual environments. What kind of scene would you like me to describe?`,
+          structured_output: hasRecentMessages ? { contentType: "scene", confidence: 0.88 } : undefined
         };
       default:
         return {
-          text: "I'm here to help with any questions or tasks you have. How can I assist you today?"
+          text: `${contextPrefix}I'm here to help with any questions or tasks you have. How can I assist you today?`
         };
     }
   };
@@ -250,7 +301,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     agentInstructions,
     handleSubmit,
     switchAgent,
-    clearChat: clearChat,
+    clearChat,
     addAttachments,
     removeAttachment,
     updateAgentInstructions,

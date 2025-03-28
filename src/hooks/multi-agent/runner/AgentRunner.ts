@@ -7,14 +7,15 @@ import { ToolAgent } from "./agents/ToolAgent";
 import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
 import { BaseAgentImpl } from "./agents/BaseAgentImpl";
 import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
-import { Attachment, Message, MessageType } from "@/types/message";
+import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
 
 export class AgentRunner {
   private context: RunnerContext;
   private currentAgent: BaseAgentImpl;
   private callbacks: RunnerCallbacks;
   private agentTurnCount: number = 0;
-  private maxTurns: number = 5;
+  private maxTurns: number = 7; // Increased max turns
+  private handoffHistory: { from: AgentType, to: AgentType, reason: string }[] = [];
 
   constructor(
     agentType: AgentType,
@@ -27,7 +28,8 @@ export class AgentRunner {
         ...context.metadata,
         isHandoffContinuation: false,
         previousAgentType: null,
-        handoffReason: ""
+        handoffReason: "",
+        handoffHistory: []
       }
     };
     this.callbacks = callbacks;
@@ -111,9 +113,18 @@ export class AgentRunner {
           agentType: this.currentAgent.getType(),
           handoffRequest: agentResult.nextAgent ? {
             targetAgent: agentResult.nextAgent,
-            reason: `The ${this.currentAgent.getType()} agent is handing off to the ${agentResult.nextAgent} agent.`
+            reason: agentResult.handoffReason || `The ${this.currentAgent.getType()} agent is handing off to the ${agentResult.nextAgent} agent.`,
+            preserveFullHistory: true // Preserve full history by default
           } : undefined,
-          structured_output: agentResult.structured_output
+          structured_output: agentResult.structured_output,
+          continuityData: agentResult.nextAgent ? {
+            fromAgent: this.currentAgent.getType(),
+            toAgent: agentResult.nextAgent,
+            reason: agentResult.handoffReason || "Specialized handling required",
+            timestamp: new Date().toISOString(),
+            preserveHistory: true,
+            additionalContext: agentResult.additionalContext || {}
+          } : undefined
         };
         
         // Add assistant message to conversation history
@@ -126,22 +137,30 @@ export class AgentRunner {
         if (agentResult.nextAgent) {
           const fromAgent = this.currentAgent.getType();
           const toAgent = agentResult.nextAgent as AgentType;
+          const handoffReason = agentResult.handoffReason || `The ${fromAgent} agent is handing off to the ${toAgent} agent.`;
           
-          console.log(`Handoff requested from ${fromAgent} to ${toAgent}`);
-          this.callbacks.onHandoffStart(fromAgent, toAgent, assistantMessage.handoffRequest?.reason || "");
+          console.log(`Handoff requested from ${fromAgent} to ${toAgent}: ${handoffReason}`);
+          this.callbacks.onHandoffStart(fromAgent, toAgent, handoffReason);
+          
+          // Track handoff history
+          this.handoffHistory.push({ from: fromAgent, to: toAgent, reason: handoffReason });
           
           // Update context for handoff
           this.context.metadata.isHandoffContinuation = true;
           this.context.metadata.previousAgentType = fromAgent;
-          this.context.metadata.handoffReason = assistantMessage.handoffRequest?.reason || "";
+          this.context.metadata.handoffReason = handoffReason;
+          this.context.metadata.handoffHistory = [...this.handoffHistory];
           
           // Switch to new agent
           this.currentAgent = this.createAgent(toAgent);
           
+          // Add the continuity data to the context
+          this.context.metadata.continuityData = assistantMessage.continuityData;
+          
           // Wait a moment before continuing with the next agent to allow UI updates
           await new Promise(resolve => setTimeout(resolve, 500));
           
-          // Continue with the same input for the new agent
+          // Notify that handoff is complete
           this.callbacks.onHandoffEnd(toAgent);
           
           // Use the previous assistant's response as part of the context, but keep the same user input
@@ -152,7 +171,9 @@ export class AgentRunner {
         // Handle tool execution if applicable
         if (assistantMessage.tool_name && assistantMessage.tool_arguments) {
           const toolName = assistantMessage.tool_name;
-          const toolParams = JSON.parse(assistantMessage.tool_arguments);
+          const toolParams = typeof assistantMessage.tool_arguments === 'string' 
+            ? JSON.parse(assistantMessage.tool_arguments) 
+            : assistantMessage.tool_arguments;
           
           console.log(`Tool execution requested: ${toolName}`);
           this.callbacks.onToolExecution(toolName, toolParams);
@@ -190,5 +211,38 @@ export class AgentRunner {
     }
     
     throw new Error(`Maximum number of agent turns (${this.maxTurns}) exceeded`);
+  }
+  
+  // New method to support agent-specific tools
+  private getAgentTools(agentType: AgentType): any[] {
+    // Return appropriate tools for each agent type
+    switch(agentType) {
+      case "tool":
+        return [{
+          name: "browser_automation",
+          description: "Automate browser tasks",
+          parameters: {}
+        }];
+      case "image":
+        return [{
+          name: "generate_image",
+          description: "Generate an image from a description",
+          parameters: {}
+        }];
+      case "script":
+        return [{
+          name: "analyze_text",
+          description: "Analyze text for sentiment and key points",
+          parameters: {}
+        }];
+      case "scene":
+        return [{
+          name: "create_scene",
+          description: "Create a visual scene from a description",
+          parameters: {}
+        }];
+      default:
+        return [];
+    }
   }
 }

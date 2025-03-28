@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -34,7 +35,7 @@ export const useCanvas = (projectId?: string) => {
           .select(`
             id, project_id, title, scene_order, script, description, 
             image_prompt, image_url, product_image_url, video_url, 
-            voice_over_url, background_music_url, duration, created_at, updated_at
+            voice_over_url, background_music_url, voice_over_text, duration, created_at, updated_at
           `)
           .eq('project_id', projectId)
           .order('scene_order', { ascending: true });
@@ -61,7 +62,8 @@ export const useCanvas = (projectId?: string) => {
             productImageUrl: scene.product_image_url || "",
             videoUrl: scene.video_url,
             voiceOverUrl: scene.voice_over_url || "", 
-            backgroundMusicUrl: scene.background_music_url || "", 
+            backgroundMusicUrl: scene.background_music_url || "",
+            voiceOverText: scene.voice_over_text || "",
             duration: scene.duration,
             createdAt: scene.created_at,
             updatedAt: scene.updated_at
@@ -158,6 +160,7 @@ export const useCanvas = (projectId?: string) => {
         productImageUrl: "",
         voiceOverUrl: "",
         backgroundMusicUrl: "",
+        voiceOverText: "",
         duration: null,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()

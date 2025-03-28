@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { AgentRunner } from "@/hooks/multi-agent/runner/AgentRunner";
 import { CanvasProject } from "@/types/canvas";
 
-// Correctly re-export the type using export type
 export type { AgentType } from "@/hooks/multi-agent/runner/types";
 
 interface UseMultiAgentChatOptions {
@@ -109,7 +108,7 @@ ${project.fullScript ? "This project has a full script." : "This project does no
             .select(`
               id, project_id, title, scene_order, script, description, 
               image_prompt, image_url, product_image_url, video_url, 
-              voice_over_url, background_music_url, duration, created_at, updated_at
+              voice_over_url, voice_over_text, background_music_url, duration, created_at, updated_at
             `)
             .eq('project_id', options.projectId)
             .order('scene_order', { ascending: true });
@@ -136,7 +135,8 @@ ${project.fullScript ? "This project has a full script." : "This project does no
               productImageUrl: scene.product_image_url || "",
               videoUrl: scene.video_url || "",
               voiceOverUrl: scene.voice_over_url || "", 
-              backgroundMusicUrl: scene.background_music_url || "", 
+              backgroundMusicUrl: scene.background_music_url || "",
+              voiceOverText: scene.voice_over_text || "", 
               duration: scene.duration,
               createdAt: scene.created_at,
               updatedAt: scene.updated_at

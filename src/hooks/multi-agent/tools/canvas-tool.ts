@@ -1,3 +1,4 @@
+
 import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
@@ -247,8 +248,8 @@ export const canvasTool: ToolDefinition = {
             .from('canvas_scenes')
             .select(`
               id, project_id, title, scene_order, script, description, 
-              image_prompt, image_url, product_image_url, video_url, 
-              voice_over_url, voice_over_text, background_music_url, duration, created_at, updated_at
+              image_prompt, voice_over_text, image_url, product_image_url, video_url, 
+              voice_over_url, background_music_url, duration, created_at, updated_at
             `)
             .eq('project_id', params.projectId)
             .order('scene_order', { ascending: true });
@@ -261,8 +262,11 @@ export const canvasTool: ToolDefinition = {
             };
           }
           
+          // Ensure we have valid data (even if it's an error, try to provide a safer response)
+          const scenesList = Array.isArray(scenesData) ? scenesData : [];
+          
           // Format the response
-          const formattedScenes = scenesData.map(scene => ({
+          const formattedScenes = scenesList.map(scene => ({
             id: scene.id,
             title: scene.title,
             order: scene.scene_order,

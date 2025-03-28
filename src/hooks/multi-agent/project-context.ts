@@ -49,7 +49,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         .select(`
           id, project_id, title, scene_order, script, description, 
           image_prompt, image_url, product_image_url, video_url, 
-          voice_over_url, background_music_url, duration, created_at, updated_at
+          voice_over_url, voice_over_text, background_music_url, duration, created_at, updated_at
         `)
         .eq('project_id', projectId)
         .order('scene_order', { ascending: true });
@@ -81,6 +81,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
           videoUrl: scene.video_url || "",
           voiceOverUrl: scene.voice_over_url || "", 
           backgroundMusicUrl: scene.background_music_url || "", 
+          voiceOverText: scene.voice_over_text || "",
           duration: scene.duration || 0,
           createdAt: scene.created_at,
           updatedAt: scene.updated_at

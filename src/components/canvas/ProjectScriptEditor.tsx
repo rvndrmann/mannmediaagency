@@ -20,7 +20,7 @@ interface ProjectScriptEditorProps {
   project: CanvasProject;
   scenes: CanvasScene[];
   saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   updateProjectTitle: (title: string) => Promise<void>;
 }
 
@@ -142,6 +142,7 @@ export function ProjectScriptEditor({
         let positions: number[] = [];
         
         const regex = /SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g;
+        let match;
         while ((match = regex.exec(text)) !== null) {
           positions.push(match.index);
         }

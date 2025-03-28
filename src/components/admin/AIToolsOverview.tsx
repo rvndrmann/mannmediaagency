@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCaption, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Loader2, RefreshCw, RepeatIcon } from "lucide-react";
+import { toast } from "sonner";
 
 export function AIToolsOverview() {
   const [stuckJobs, setStuckJobs] = useState<any[]>([]);
@@ -36,6 +37,7 @@ export function AIToolsOverview() {
       setStuckJobs(formattedJobs);
     } catch (error) {
       console.error('Error fetching stuck jobs:', error);
+      toast.error("Failed to fetch stuck jobs");
     } finally {
       setIsLoadingStuckJobs(false);
     }
@@ -48,8 +50,10 @@ export function AIToolsOverview() {
       await Promise.all(retryPromises);
       // After retrying all, refresh the list
       await fetchStuckJobs();
+      toast.success("All jobs have been resubmitted for processing");
     } catch (error) {
       console.error("Error retrying all jobs:", error);
+      toast.error("Failed to retry all jobs");
     } finally {
       setIsRetryingAll(false);
     }
@@ -59,16 +63,22 @@ export function AIToolsOverview() {
     setIsRetrying(prevState => ({ ...prevState, [jobId]: true }));
     try {
       const { data, error } = await supabase.functions.invoke('retry-image-generation', {
-        body: { jobId: jobId }
+        body: { jobId }
       });
 
       if (error) {
         console.error(`Error retrying job ${jobId}:`, error);
+        toast.error(`Failed to retry job: ${error.message}`);
+        return false;
       } else {
         console.log(`Job ${jobId} retried successfully:`, data);
+        toast.success(`Job resubmitted for processing`);
+        return true;
       }
     } catch (error) {
       console.error(`Error retrying job ${jobId}:`, error);
+      toast.error(`Failed to retry job: ${error instanceof Error ? error.message : "Unknown error"}`);
+      return false;
     } finally {
       setIsRetrying(prevState => ({ ...prevState, [jobId]: false }));
       fetchStuckJobs(); // Refresh the list after retrying
@@ -79,16 +89,19 @@ export function AIToolsOverview() {
     setIsCheckingStatus(prevState => ({ ...prevState, [jobId]: true }));
     try {
       const { data, error } = await supabase.functions.invoke('check-image-status', {
-        body: { jobId: jobId }
+        body: { jobId }
       });
 
       if (error) {
         console.error(`Error checking status for job ${jobId}:`, error);
+        toast.error(`Failed to check job status: ${error.message}`);
       } else {
         console.log(`Status check for job ${jobId}:`, data);
+        toast.success(`Job status updated`);
       }
     } catch (error) {
       console.error(`Error checking status for job ${jobId}:`, error);
+      toast.error(`Failed to check job status: ${error instanceof Error ? error.message : "Unknown error"}`);
     } finally {
       setIsCheckingStatus(prevState => ({ ...prevState, [jobId]: false }));
       fetchStuckJobs(); // Refresh the list after checking status

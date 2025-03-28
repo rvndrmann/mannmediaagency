@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -21,8 +22,18 @@ serve(async (req) => {
   }
 
   try {
+    // Parse request body
+    const requestData = await req.json();
+    const { jobId, forceRegenerate = false, batchSize = 10 } = requestData;
+    
+    // Validate that we have at least some job ID information
+    if (!jobId) {
+      console.log("Request data received:", JSON.stringify(requestData));
+      throw new Error('No job IDs provided for retry')
+    }
+
     // Get the FAL_KEY from environment
-    const FAL_KEY = Deno.env.get('FAL_KEY')
+    const FAL_KEY = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY')
     if (!FAL_KEY) {
       console.error('FAL_KEY environment variable is not set');
       throw new Error('FAL_KEY environment variable is not set')
@@ -48,12 +59,12 @@ serve(async (req) => {
           console.log(`Processing job ${job.id}, request_id: ${job.request_id || 'none'}`);
           
           // Skip jobs that are already completed or don't have required data
-          if (job.status === 'COMPLETED' || !job.prompt) {
+          if (job.status === 'completed' || !job.prompt) {
             results.push({
               id: job.id,
               request_id: job.request_id || '',
               success: false,
-              error: job.status === 'COMPLETED' ? 'Job already completed' : 'Missing required data'
+              error: job.status === 'completed' ? 'Job already completed' : 'Missing required data'
             });
             continue;
           }
@@ -83,12 +94,12 @@ serve(async (req) => {
               
               console.log(`Created new generation with request_id: ${requestId}`);
               
-              // Update the job with the new request ID and reset status to IN_QUEUE
+              // Update the job with the new request ID and reset status to pending
               await supabase
                 .from('image_generation_jobs')
                 .update({ 
                   request_id: requestId, 
-                  status: 'IN_QUEUE',
+                  status: 'pending',
                   result_url: null,
                   error_message: null,
                   retried_at: new Date().toISOString()
@@ -117,13 +128,13 @@ serve(async (req) => {
             const statusData = await statusResponse.json();
             console.log(`Status for request ${requestId}:`, JSON.stringify(statusData));
             
+            // Map Fal.ai status to our database status
             let dbStatus = job.status;
             let resultUrl = job.result_url;
             
-            // Use fal.ai status directly
-            dbStatus = statusData.status;
-            
             if (statusData.status === 'COMPLETED') {
+              dbStatus = 'completed';
+              
               const resultResponse = await fetch(`https://queue.fal.run/fal-ai/flux-subject/requests/${requestId}`, {
                 headers: {
                   "Authorization": `Key ${FAL_KEY}`
@@ -136,6 +147,10 @@ serve(async (req) => {
                   resultUrl = resultData.images[0].url;
                 }
               }
+            } else if (statusData.status === 'FAILED') {
+              dbStatus = 'failed';
+            } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
+              dbStatus = 'pending';
             }
             
             console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`);
@@ -194,7 +209,7 @@ serve(async (req) => {
       const { data, error } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['IN_QUEUE', 'PROCESSING', 'FAILED'])
+        .in('status', ['pending', 'processing', 'failed'])
         .order('created_at', { ascending: false })
         .limit(batchSize);
       

@@ -53,10 +53,10 @@ export const useCanvas = (projectId?: string) => {
             title: scene.title,
             order: scene.scene_order, // Map scene_order to order
             script: scene.script,
-            description: scene.description,
+            description: scene.description || "", // Ensure description is handled correctly
             imagePrompt: scene.image_prompt,
             imageUrl: scene.image_url,
-            productImageUrl: scene.product_image_url,
+            productImageUrl: scene.product_image_url || "", // Ensure product_image_url is handled correctly
             videoUrl: scene.video_url,
             duration: scene.duration,
             createdAt: scene.created_at,

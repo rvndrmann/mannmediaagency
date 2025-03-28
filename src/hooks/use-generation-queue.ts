@@ -8,10 +8,13 @@ interface JobStatus {
   resultUrl?: string;
   errorMessage?: string;
   falStatus?: string;
+  jobId?: string;
+  requestId?: string;
 }
 
 export function useGenerationQueue(initialJobId?: string) {
   const [jobId, setJobId] = useState<string | null>(initialJobId || null);
+  const [requestId, setRequestId] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState<boolean>(false);
   const [result, setResult] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -19,13 +22,16 @@ export function useGenerationQueue(initialJobId?: string) {
   const [shouldPoll, setShouldPoll] = useState<boolean>(false);
 
   // Check the status of the job
-  const checkStatus = useCallback(async (id: string) => {
+  const checkStatus = useCallback(async (id: string, requestIdParam?: string) => {
     try {
       setIsChecking(true);
       setError(null);
       
       const { data, error } = await supabase.functions.invoke('check-image-status', {
-        body: { jobId: id }
+        body: { 
+          jobId: id, 
+          requestId: requestIdParam 
+        }
       });
       
       if (error) {
@@ -36,7 +42,9 @@ export function useGenerationQueue(initialJobId?: string) {
       
       const response = data as JobStatus;
       
+      // Update states based on the response
       setStatus(response.status);
+      setRequestId(response.requestId || null);
       
       if (response.status === 'COMPLETED' && response.resultUrl) {
         setResult(response.resultUrl);
@@ -66,14 +74,14 @@ export function useGenerationQueue(initialJobId?: string) {
     
     if (jobId && shouldPoll) {
       timer = setTimeout(() => {
-        checkStatus(jobId);
+        checkStatus(jobId, requestId || undefined);
       }, 3000); // Poll every 3 seconds
     }
     
     return () => {
       if (timer) clearTimeout(timer);
     };
-  }, [jobId, shouldPoll, checkStatus]);
+  }, [jobId, shouldPoll, checkStatus, requestId]);
 
   // Start checking status when a job ID is set
   useEffect(() => {
@@ -85,6 +93,7 @@ export function useGenerationQueue(initialJobId?: string) {
       setResult(null);
       setError(null);
       setShouldPoll(false);
+      setRequestId(null);
     }
   }, [jobId, checkStatus]);
 
@@ -123,6 +132,7 @@ export function useGenerationQueue(initialJobId?: string) {
   return {
     jobId,
     setJobId,
+    requestId,
     isChecking,
     result,
     error,

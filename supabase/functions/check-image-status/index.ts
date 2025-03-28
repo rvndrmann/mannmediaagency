@@ -14,15 +14,17 @@ serve(async (req) => {
 
   try {
     // Parse request body
-    const { jobId } = await req.json()
-    if (!jobId) {
-      throw new Error('Job ID is required')
+    const { jobId, requestId } = await req.json()
+    
+    // Validate that we have either jobId or requestId
+    if (!jobId && !requestId) {
+      throw new Error('Either Job ID or Request ID is required')
     }
 
     // Get Supabase configuration
     const supabaseUrl = Deno.env.get('SUPABASE_URL')
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-    const falApiKey = Deno.env.get('FAL_AI_API_KEY')
+    const falApiKey = Deno.env.get('FAL_AI_API_KEY') || Deno.env.get('FAL_KEY')
 
     if (!supabaseUrl || !supabaseKey || !falApiKey) {
       throw new Error('Missing required configuration')
@@ -32,15 +34,37 @@ serve(async (req) => {
     const { createClient } = await import('https://esm.sh/@supabase/supabase-js@2')
     const supabase = createClient(supabaseUrl, supabaseKey)
 
-    // Get job details
-    const { data: job, error: jobError } = await supabase
-      .from('image_generation_jobs')
-      .select('*')
-      .eq('id', jobId)
-      .single()
+    // Fetch job details - prioritize requestId if provided
+    let job;
+    if (requestId) {
+      // If requestId is provided, find the job by request_id
+      const { data: jobByRequestId, error: requestIdError } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .eq('request_id', requestId)
+        .single()
 
-    if (jobError || !job) {
-      throw new Error('Job not found')
+      if (requestIdError) {
+        throw new Error(`Failed to find job with request ID: ${requestId}`)
+      }
+      job = jobByRequestId;
+    } else {
+      // Fallback to jobId
+      const { data: jobById, error: jobIdError } = await supabase
+        .from('image_generation_jobs')
+        .select('*')
+        .eq('id', jobId)
+        .single()
+
+      if (jobIdError) {
+        throw new Error(`Failed to find job with ID: ${jobId}`)
+      }
+      job = jobById;
+    }
+
+    // If no request_id found, throw an error
+    if (!job.request_id) {
+      throw new Error('No request ID associated with this job')
     }
 
     // Check status in Fal.ai
@@ -61,7 +85,7 @@ serve(async (req) => {
     console.log('Status response:', statusData)
 
     // Map Fal.ai status to our database status
-    let dbStatus = 'pending' // Default fallback
+    let dbStatus = 'pending'; // Default fallback
     if (statusData.status === 'COMPLETED') {
       dbStatus = 'completed'
     } else if (statusData.status === 'FAILED') {
@@ -101,7 +125,7 @@ serve(async (req) => {
             status: dbStatus,
             result_url: resultUrl
           })
-          .eq('id', jobId)
+          .eq('id', job.id)
 
         if (updateError) {
           throw new Error('Failed to update job record')
@@ -116,7 +140,7 @@ serve(async (req) => {
           status: dbStatus,
           error_message: errorMessage
         })
-        .eq('id', jobId)
+        .eq('id', job.id)
     } else {
       // Update for IN_QUEUE or PROCESSING status
       await supabase
@@ -124,7 +148,7 @@ serve(async (req) => {
         .update({ 
           status: dbStatus
         })
-        .eq('id', jobId)
+        .eq('id', job.id)
     }
 
     return new Response(
@@ -132,7 +156,9 @@ serve(async (req) => {
         status: dbStatus,
         resultUrl,
         errorMessage,
-        falStatus: statusData.status
+        falStatus: statusData.status,
+        jobId: job.id,
+        requestId: job.request_id
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     )

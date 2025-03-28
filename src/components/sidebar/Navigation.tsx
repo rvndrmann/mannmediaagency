@@ -19,7 +19,9 @@ import {
   Globe,
   Camera,
   ImagePlus,
-  Film
+  Film,
+  Layout,
+  MessageSquare
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -138,6 +140,20 @@ export const Navigation = () => {
   }, [notifications]);
 
   const baseNavigation: NavigationItemWithBadge[] = [
+    {
+      name: "Canvas",
+      subtext: "Video Project Canvas",
+      to: "/canvas",
+      icon: Layout,
+      current: location.pathname === "/canvas",
+    },
+    {
+      name: "Multi-Agent Chat",
+      subtext: "AI Collaboration",
+      to: "/multi-agent-chat",
+      icon: MessageSquare,
+      current: location.pathname === "/multi-agent-chat",
+    },
     {
       name: "Browser Worker AI",
       subtext: "Web Browser Automation",

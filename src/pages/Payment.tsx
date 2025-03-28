@@ -1,4 +1,3 @@
-
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
@@ -31,11 +30,10 @@ const Payment = () => {
     },
   });
 
-  // Handle the payment links data correctly
-  const selectedPaymentLink: PaymentLink = paymentLinks && paymentLinks.length > 0 
+  const selectedPaymentLink: PaymentLink = (paymentLinks && paymentLinks.length > 0) 
     ? { 
-        title: paymentLinks[0].title, 
-        custom_rate: paymentLinks[0].custom_rate 
+        title: paymentLinks[0].title || "", 
+        custom_rate: Number(paymentLinks[0].custom_rate) || 0 
       } 
     : { title: '', custom_rate: 0 };
 
@@ -68,10 +66,16 @@ const Payment = () => {
         if (error) throw error;
         
         if (orderData && orderData.custom_order_links) {
-          const linkData = orderData.custom_order_links as { title: string, custom_rate: number };
+          const linkData = Array.isArray(orderData.custom_order_links) && orderData.custom_order_links.length > 0
+            ? {
+                title: orderData.custom_order_links[0].title || "Custom Order",
+                custom_rate: Number(orderData.custom_order_links[0].custom_rate) || 0
+              }
+            : { title: "Custom Order", custom_rate: 0 };
+            
           setPaymentDetails({
-            planName: linkData.title || "Custom Order",
-            amount: linkData.custom_rate || 0,
+            planName: linkData.title,
+            amount: linkData.custom_rate,
             orderId: orderId
           });
         }

@@ -156,6 +156,9 @@ serve(async (req) => {
           }
         } else if (statusData.status === 'FAILED' || statusData.status === 'failed') {
           dbStatus = 'failed'
+        } else {
+          // For IN_QUEUE or PROCESSING, map to our pending status
+          dbStatus = 'pending'
         }
         
         console.log(`Updating job ${job.id} with status: ${dbStatus}, resultUrl: ${resultUrl || 'none'}`)

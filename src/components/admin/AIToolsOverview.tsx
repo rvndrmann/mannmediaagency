@@ -78,7 +78,7 @@ export const AIToolsOverview = () => {
       const { data: imageJobs, error: imageError } = await supabase
         .from('image_generation_jobs')
         .select('*')
-        .in('status', ['pending', 'processing']) // Keep using 'pending' and 'processing' in the query
+        .in('status', ['pending']) // Fetching only 'pending' jobs since that maps to both IN_QUEUE and PROCESSING
         .order('created_at', { ascending: false });
 
       if (imageError) throw imageError;
@@ -343,13 +343,11 @@ export const AIToolsOverview = () => {
                         <TableCell className="font-mono text-xs">{job.request_id || 'N/A'}</TableCell>
                         <TableCell>
                           <span className={`px-2 py-1 rounded-full text-xs font-medium ${
-                            job.status === 'processing' 
-                              ? 'bg-blue-100 text-blue-800' 
-                              : job.error_message?.includes('400')
-                                ? 'bg-red-100 text-red-800'
-                                : 'bg-yellow-100 text-yellow-800'
+                            job.error_message?.includes('400')
+                              ? 'bg-red-100 text-red-800'
+                              : 'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {job.status}
+                            {job.status === 'pending' ? 'IN_QUEUE' : job.status}
                           </span>
                         </TableCell>
                         <TableCell className="max-w-xs truncate">{job.prompt}</TableCell>

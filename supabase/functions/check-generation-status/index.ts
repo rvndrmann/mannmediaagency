@@ -7,7 +7,7 @@ const corsHeaders = {
 }
 
 interface StatusResponse {
-  status: 'starting' | 'processing' | 'completed' | 'failed';
+  status: 'processing' | 'completed' | 'failed';
   output?: any;
   error?: string;
 }
@@ -136,15 +136,10 @@ serve(async (req) => {
         }
       )
     } else {
-      // For in-progress status, normalize the status field
-      let normalizedStatus = 'processing';
-      if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
-        normalizedStatus = 'processing';
-      }
-      
+      // For in-progress status (IN_QUEUE or PROCESSING), normalize and map to 'processing'
       return new Response(
         JSON.stringify({
-          status: normalizedStatus,
+          status: 'processing',
           error: statusData.error
         }),
         {

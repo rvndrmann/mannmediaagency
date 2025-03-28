@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts"
 
 const corsHeaders = {
@@ -64,10 +63,10 @@ serve(async (req) => {
     let resultUrl = job.result_url
     let errorMessage = job.error_message
 
-    // Map Fal.ai status to our internal status
-    // IN_QUEUE -> pending/processing
-    // COMPLETED -> completed
-    // FAILED -> failed
+    // Explicitly map Fal.ai status to our internal enum values:
+    // - 'IN_QUEUE' or 'PROCESSING' from Fal.ai maps to 'pending' in our system
+    // - 'COMPLETED' from Fal.ai maps to 'completed' in our system
+    // - 'FAILED' from Fal.ai maps to 'failed' in our system
     
     if (statusData.status === 'COMPLETED') {
       // Fetch the result
@@ -115,6 +114,9 @@ serve(async (req) => {
           error_message: errorMessage
         })
         .eq('id', jobId)
+    } else if (statusData.status === 'IN_QUEUE' || statusData.status === 'PROCESSING') {
+      // Keep as pending in our system, but we know it's being processed
+      newStatus = 'pending'
     }
 
     return new Response(

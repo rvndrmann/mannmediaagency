@@ -30,13 +30,30 @@ export class MainAgent extends BaseAgentImpl {
       const isHandoffContinuation = this.context.metadata?.isHandoffContinuation || false;
       const previousAgentType = this.context.metadata?.previousAgentType || 'main';
       const handoffReason = this.context.metadata?.handoffReason || '';
+      const handoffHistory = this.context.metadata?.handoffHistory || [];
+      const continuityData = this.context.metadata?.continuityData || {};
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
+      console.log(`Handoff history:`, handoffHistory);
+      console.log(`Continuity data:`, continuityData);
+      
+      // Enhanced input with handoff context if needed
+      let enhancedInput = input;
+      if (isHandoffContinuation && previousAgentType) {
+        enhancedInput = `[Continuing from ${previousAgentType} agent] ${input}\n\nContext from previous agent: ${handoffReason}`;
+        
+        // Add additional context if available
+        if (continuityData && Object.keys(continuityData).length > 0) {
+          enhancedInput += `\n\nAdditional context: ${JSON.stringify(continuityData.additionalContext || {})}`;
+        }
+        
+        console.log("Enhanced input with handoff context:", enhancedInput);
+      }
       
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
-          input,
+          input: enhancedInput, // Use enhanced input to preserve context
           attachments,
           agentType: "main",
           userId: user.id,
@@ -49,7 +66,9 @@ export class MainAgent extends BaseAgentImpl {
             isHandoffContinuation: isHandoffContinuation,
             previousAgentType: previousAgentType,
             handoffReason: handoffReason,
-            instructions: instructions
+            instructions: instructions,
+            handoffHistory: handoffHistory,
+            continuityData: continuityData
           },
           conversationHistory: conversationHistory,
           metadata: {
@@ -70,19 +89,30 @@ export class MainAgent extends BaseAgentImpl {
       
       // Handle handoff if present
       let nextAgent = null;
+      let handoffReasonResponse = null;
+      let additionalContextForNext = null;
+      
       if (data?.handoffRequest) {
         console.log(`MainAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
         nextAgent = data.handoffRequest.targetAgent;
+        handoffReasonResponse = data.handoffRequest.reason;
+        additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
       }
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a response.",
         nextAgent: nextAgent,
-        structured_output: data?.structured_output || null
+        handoffReason: handoffReasonResponse,
+        structured_output: data?.structured_output || null,
+        additionalContext: additionalContextForNext || continuityData?.additionalContext || {}
       };
     } catch (error) {
       console.error("MainAgent run error:", error);
       throw error;
     }
+  }
+  
+  getType() {
+    return "main";
   }
 }

@@ -114,7 +114,8 @@ export class AgentRunner {
           handoffRequest: agentResult.nextAgent ? {
             targetAgent: agentResult.nextAgent,
             reason: agentResult.handoffReason || `The ${this.currentAgent.getType()} agent is handing off to the ${agentResult.nextAgent} agent.`,
-            preserveFullHistory: true // Preserve full history by default
+            preserveFullHistory: true, // Always preserve full history by default
+            additionalContext: agentResult.additionalContext // Pass additional context forward
           } : undefined,
           structured_output: agentResult.structured_output,
           continuityData: agentResult.nextAgent ? {
@@ -151,11 +152,22 @@ export class AgentRunner {
           this.context.metadata.handoffReason = handoffReason;
           this.context.metadata.handoffHistory = [...this.handoffHistory];
           
+          // Enhanced: Add the continuity data to the context
+          const continuityData: ContinuityData = {
+            fromAgent,
+            toAgent,
+            reason: handoffReason,
+            timestamp: new Date().toISOString(),
+            preserveHistory: true,
+            additionalContext: agentResult.additionalContext || {}
+          };
+          
+          this.context.metadata.continuityData = continuityData;
+          
+          console.log("Handoff continuity data:", continuityData);
+          
           // Switch to new agent
           this.currentAgent = this.createAgent(toAgent);
-          
-          // Add the continuity data to the context
-          this.context.metadata.continuityData = assistantMessage.continuityData;
           
           // Wait a moment before continuing with the next agent to allow UI updates
           await new Promise(resolve => setTimeout(resolve, 500));
@@ -213,7 +225,7 @@ export class AgentRunner {
     throw new Error(`Maximum number of agent turns (${this.maxTurns}) exceeded`);
   }
   
-  // New method to support agent-specific tools
+  // Helper method to support agent-specific tools
   private getAgentTools(agentType: AgentType): any[] {
     // Return appropriate tools for each agent type
     switch(agentType) {
@@ -234,6 +246,18 @@ export class AgentRunner {
           name: "analyze_text",
           description: "Analyze text for sentiment and key points",
           parameters: {}
+        }, {
+          name: "write_script",
+          description: "Write a script based on the given parameters",
+          parameters: {
+            type: "object",
+            properties: {
+              format: { type: "string" },
+              topic: { type: "string" },
+              length: { type: "string" },
+              tone: { type: "string" }
+            }
+          }
         }];
       case "scene":
         return [{

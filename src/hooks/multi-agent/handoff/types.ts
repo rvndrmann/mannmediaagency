@@ -1,6 +1,6 @@
 
 import { Attachment } from "@/types/message";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { ToolContext } from "../types";
 
 export interface HandoffInputData {
@@ -29,4 +29,5 @@ export interface HandoffRequest {
   reason: string;
   context?: Record<string, any>;
   preserveFullHistory?: boolean; // Flag to indicate full history should be preserved
+  additionalContext?: Record<string, any>; // More context data for the target agent
 }

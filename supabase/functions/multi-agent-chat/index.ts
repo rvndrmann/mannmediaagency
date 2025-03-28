@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -58,6 +57,8 @@ serve(async (req) => {
       attachmentsCount: attachments?.length || 0,
       hasContextData: !!contextData,
       conversationHistoryItems: conversationHistory?.length || 0,
+      handoffContinuation: contextData?.isHandoffContinuation,
+      previousAgentType: contextData?.previousAgentType,
       runId,
       groupId
     });
@@ -83,23 +84,39 @@ serve(async (req) => {
       
       // Enhanced continuation context for handoffs
       if (contextData?.isHandoffContinuation) {
+        const enhancedHandoffPrompt = `
+This conversation was handed off from the ${
+  contextData.previousAgentType || 'previous'
+} agent to you (${agentType} agent) for specialized assistance. 
+
+Reason for handoff: ${contextData.handoffReason || 'Not specified'}
+
+Your role: You are now the ${agentType} agent, taking over this conversation thread. 
+${agentType === 'script' ? 'As the Script Writer agent, you should help write high-quality scripts, creative content, or narratives based on the user\'s request.' : ''}
+${agentType === 'image' ? 'As the Image Generator agent, you should help craft detailed prompts for generating images based on the user\'s description.' : ''}
+${agentType === 'tool' ? 'As the Tool agent, you should help the user with technical tasks and tool usage based on their request.' : ''}
+${agentType === 'scene' ? 'As the Scene Creator agent, you should help create detailed visual scenes and environments based on the user\'s description.' : ''}
+
+The user should not have to repeat their request.
+
+Instructions:
+1. Review the conversation history carefully to understand context
+2. Maintain continuity with what has been discussed
+3. Use your specialized capabilities as a ${agentType} agent to help the user
+4. Address the user's request directly based on the full conversation
+5. If the user asked for a script, make sure to write one for them
+6. If the user asked for an image prompt, make sure to create one for them
+7. Always provide value from your specialty - don't just acknowledge the handoff
+
+This is a continuation of the conversation, not a new conversation.
+
+${contextData.handoffHistory && contextData.handoffHistory.length > 0 ? 
+  `Handoff history: ${JSON.stringify(contextData.handoffHistory)}` : ''}
+`;
+        
         messages.push({
           role: "system",
-          content: `This conversation was handed off from the ${
-            contextData.previousAgentType || 'previous'
-          } agent to you (${agentType} agent) for specialized assistance. 
-          
-          Reason for handoff: ${contextData.handoffReason || 'Not specified'}
-          
-          Your role: You are now the ${agentType} agent, taking over this conversation thread. The user should not have to repeat their request.
-          
-          Instructions:
-          1. Review the conversation history carefully to understand context
-          2. Maintain continuity with what has been discussed
-          3. Use your specialized capabilities as a ${agentType} agent to help the user
-          4. Address the user's request directly based on the full conversation
-          
-          This is a continuation of the conversation, not a new conversation.`
+          content: enhancedHandoffPrompt
         });
         
         logInfo(`[${requestId}] Added enhanced handoff continuation context from ${contextData.previousAgentType} to ${agentType}`);
@@ -112,7 +129,25 @@ serve(async (req) => {
             - Previous agent: ${contextData.continuityData.fromAgent}
             - Handoff reason: ${contextData.continuityData.reason}
             - Timestamp: ${contextData.continuityData.timestamp}
-            ${contextData.continuityData.additionalContext ? JSON.stringify(contextData.continuityData.additionalContext) : ''}`
+            ${contextData.continuityData.additionalContext ? 
+              `- Additional context: ${JSON.stringify(contextData.continuityData.additionalContext)}` : ''}
+            
+            Important: This is now YOUR conversation. The user was talking to another agent, and that agent determined YOU would be better equipped to help. So help them based on YOUR specialties.
+            `
+          });
+          
+          logInfo(`[${requestId}] Added continuity data to context`, contextData.continuityData);
+        }
+        
+        // For script agent, add specialized continuation prompt
+        if (agentType === "script") {
+          messages.push({
+            role: "system",
+            content: `As the Script Writer agent, you MUST help the user write scripts or creative content.
+            The previous agent handed this to you because they determined you'd be better at writing content.
+            DO NOT just acknowledge the handoff - actually write a script or creative content based on the user's request.
+            If you need more information, ask the user specific questions related to the script they want.
+            The user should not have to ask you again to write content - that's your primary responsibility!`
           });
         }
       }
@@ -155,22 +190,40 @@ serve(async (req) => {
 
       // Enhanced handoff continuation context with more details
       if (contextData.isHandoffContinuation) {
-        userMessage += `\n\nNote: This conversation was handed off from the ${
-          contextData.previousAgentType || 'previous'
-        } agent to you (${agentType} agent) to help with specialized assistance. 
-        Reason: ${contextData.handoffReason || 'Not specified'}
-        
-        Please continue the conversation based on this context.`;
+        // Customize based on agent type
+        if (agentType === "script") {
+          userMessage += `\n\n[Note to Script Writer agent: The user was previously talking to the ${
+            contextData.previousAgentType || 'previous'
+          } agent about: "${contextData.handoffReason || 'Not specified'}". 
+          They need your help writing a script or creative content. 
+          Do not just acknowledge this handoff - actually create the content they need.]`;
+        } else if (agentType === "image") {
+          userMessage += `\n\n[Note to Image Generator agent: The user was previously talking to the ${
+            contextData.previousAgentType || 'previous'
+          } agent about: "${contextData.handoffReason || 'Not specified'}". 
+          They need your help creating detailed image descriptions. 
+          Do not just acknowledge this handoff - create detailed image prompts as requested.]`;
+        } else {
+          userMessage += `\n\n[Note: This conversation was handed off from the ${
+            contextData.previousAgentType || 'previous'
+          } agent to you (${agentType} agent) to help with specialized assistance. 
+          Reason: ${contextData.handoffReason || 'Not specified'}
+          
+          Please continue the conversation based on this context, providing specialized help in your domain without requiring the user to repeat their request.]`;
+        }
         
         // Log that this is a handoff continuation
-        logInfo(`[${requestId}] This is a handoff continuation from ${contextData.previousAgentType} to ${agentType}`, {
-          reason: contextData.handoffReason
-        });
+        logInfo(`[${requestId}] Enhanced user message with handoff continuation context`);
       }
 
       // If we're a tool agent, add available tools context
       if (agentType === 'tool' && contextData.availableTools) {
         userMessage += `\n\nAvailable tools: ${JSON.stringify(contextData.availableTools, null, 2)}`;
+      }
+      
+      // Additional specialized context
+      if (contextData.agentSpecialty === "script_writing") {
+        userMessage += `\n\n[You are a Script Writer agent. Your primary responsibility is to write scripts and creative content. Make sure to provide a complete script based on the user's request, not just discuss it.]`;
       }
     }
     
@@ -214,6 +267,16 @@ serve(async (req) => {
                   type: "boolean",
                   description: "Whether to preserve the full conversation history in the handoff",
                   default: true
+                },
+                additionalContext: {
+                  type: "object",
+                  description: "Additional context to pass to the next agent",
+                  properties: {
+                    userIntent: { type: "string" },
+                    requestType: { type: "string" },
+                    requiredFormat: { type: "string" },
+                    priority: { type: "string" }
+                  }
                 }
               },
               required: ["targetAgent", "reason"]
@@ -253,6 +316,40 @@ serve(async (req) => {
       }
     ];
     
+    // Special tool for script writing
+    if (agentType === 'script') {
+      functions.push({
+        name: "write_script",
+        description: "Write a script based on the given parameters",
+        parameters: {
+          type: "object",
+          properties: {
+            format: { 
+              type: "string",
+              description: "The format of the script (screenplay, teleplay, ad, etc.)"
+            },
+            topic: { 
+              type: "string",
+              description: "The main topic or subject of the script"
+            },
+            length: { 
+              type: "string",
+              description: "The approximate length of the script"
+            },
+            tone: { 
+              type: "string",
+              description: "The tone of the script (serious, comedic, dramatic, etc.)"
+            },
+            content: {
+              type: "string",
+              description: "The actual script content"
+            }
+          },
+          required: ["content"]
+        }
+      });
+    }
+    
     // Add tool functions if any are available
     if (tools && tools.length > 0) {
       tools.forEach(tool => {
@@ -288,7 +385,13 @@ serve(async (req) => {
               },
               additionalContext: {
                 type: "object",
-                description: "Any additional context the next agent should know"
+                description: "Any additional context the next agent should know",
+                properties: {
+                  userIntent: { type: "string" },
+                  requestType: { type: "string" },
+                  requiredFormat: { type: "string" },
+                  priority: { type: "string" }
+                }
               }
             },
             required: ["reason"]
@@ -296,6 +399,12 @@ serve(async (req) => {
         });
       });
     }
+
+    logInfo(`[${requestId}] Calling OpenAI API with ${messages.length} messages`, {
+      model,
+      agentType,
+      functionsCount: functions.length
+    });
 
     // Call OpenAI API for the response
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -336,9 +445,37 @@ serve(async (req) => {
     // Process the response based on what function was called
     if (functionCall) {
       try {
+        logInfo(`[${requestId}] Function call detected: ${functionCall.name}`);
+        
         if (functionCall.name === "agentResponse") {
           // Standard agent response
           responseData = JSON.parse(functionCall.arguments);
+          
+          logInfo(`[${requestId}] Parsed agent response`, {
+            hasHandoff: !!responseData.handoffRequest,
+            hasCommand: !!responseData.commandSuggestion,
+            hasStructuredOutput: !!responseData.structured_output,
+            hasContData: !!responseData.continuityData
+          });
+        } else if (functionCall.name === "write_script") {
+          // Special handler for script writing
+          const scriptArgs = JSON.parse(functionCall.arguments);
+          
+          responseData = {
+            completion: scriptArgs.content || "I've written a script based on your request.",
+            structured_output: {
+              scriptType: scriptArgs.format || "general",
+              scriptTopic: scriptArgs.topic,
+              scriptTone: scriptArgs.tone,
+              scriptLength: scriptArgs.length,
+              isScript: true
+            }
+          };
+          
+          logInfo(`[${requestId}] Generated script content`, {
+            scriptFormat: scriptArgs.format,
+            contentLength: scriptArgs.content?.length || 0
+          });
         } else {
           const isHandoffFunction = handoffs?.some(h => h.toolName === functionCall.name);
           const isToolFunction = tools?.some(t => t.name === functionCall.name);
@@ -364,6 +501,11 @@ serve(async (req) => {
                 additionalContext: handoffArgs.additionalContext || {}
               }
             };
+            
+            logInfo(`[${requestId}] Handoff requested to ${targetAgent}`, {
+              reason: handoffArgs.reason,
+              additionalContext: handoffArgs.additionalContext
+            });
           } else if (isToolFunction) {
             // Enhanced tool function call
             const toolArgs = JSON.parse(functionCall.arguments);
@@ -380,6 +522,8 @@ serve(async (req) => {
                 expectedOutput: "Tool execution result"
               }
             };
+            
+            logInfo(`[${requestId}] Tool execution requested: ${functionCall.name}`);
           } else {
             // Unknown function call
             responseData = {
@@ -387,6 +531,8 @@ serve(async (req) => {
               handoffRequest: null,
               commandSuggestion: null
             };
+            
+            logInfo(`[${requestId}] Unknown function call: ${functionCall.name}`);
           }
         }
       } catch (error) {
@@ -404,6 +550,8 @@ serve(async (req) => {
         handoffRequest: null,
         commandSuggestion: null
       };
+      
+      logInfo(`[${requestId}] Plain text response (no function call)`);
     }
     
     // Check if we should automatically handoff to a specialized agent
@@ -421,12 +569,9 @@ serve(async (req) => {
           reason: `Auto-detected need for ${detectedHandoff} agent`,
           timestamp: new Date().toISOString()
         };
+        
+        logInfo(`[${requestId}] Auto-detected handoff to ${detectedHandoff}`);
       }
-    }
-    
-    // Check if the input might require a tool when in direct tool execution mode
-    if (enableDirectToolExecution && !responseData.commandSuggestion && shouldSuggestTool(input)) {
-      responseData.commandSuggestion = suggestToolCommand(input);
     }
     
     // When generating a handoff request, ensure we add preserveFullHistory flag
@@ -533,7 +678,7 @@ function getDefaultInstructions(agentType: string): string {
       When continuing a conversation that has been handed off to you, make sure to acknowledge the handoff context and maintain continuity in the conversation.`;
       
     case 'script':
-      return `You are a creative script writing assistant. Help users create compelling narratives, ad scripts, and other written content.
+      return `You are a creative script writing assistant. Your primary job is to help users create compelling narratives, ad scripts, and other written content.
       
       Focus on:
       - Engaging dialogue and character development
@@ -543,9 +688,11 @@ function getDefaultInstructions(agentType: string): string {
       
       ${handoffInstructions}
       
+      IMPORTANT: When users request a script, ALWAYS WRITE THE SCRIPT for them. Don't just talk about how you could write one - actually create the content.
+      
       Be creative, but also practical. Consider the feasibility of production for any scripts you create.
       
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the script-related aspects of their request.`;
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the script-related aspects of their request and immediately provide the creative content they need.`;
       
     case 'image':
       return `You are an expert at creating detailed image prompts for generating visual content.
@@ -560,7 +707,7 @@ function getDefaultInstructions(agentType: string): string {
       
       Help users refine their ideas into clear, specific prompts that will generate impressive images.
       
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the image-generation aspects of their request.`;
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the image-generation aspects of their request and immediately provide detailed image prompts.`;
       
     case 'tool':
       return `You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues.
@@ -591,7 +738,7 @@ function getDefaultInstructions(agentType: string): string {
       
       Create vivid, immersive scenes that help bring the user's vision to life.
       
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the scene creation aspects of their request.`;
+      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the scene creation aspects of their request and immediately provide detailed scene descriptions.`;
       
     default:
       return "You are a helpful AI assistant. Answer questions clearly and concisely.";

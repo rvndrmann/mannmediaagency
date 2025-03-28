@@ -7,6 +7,7 @@ export interface ToolDefinition {
   description: string;
   parameters: Record<string, any>;
   requiredCredits: number;
+  version?: string;
 }
 
 export interface ToolContext {

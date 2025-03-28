@@ -4,17 +4,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PanelRight, ChevronRight, Wand2 } from "lucide-react";
+import { PanelRight, ChevronRight, Wand2, Upload, Trash2 } from "lucide-react";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AgentSelector } from "./AgentSelector";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { toast } from "sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 
 interface CanvasDetailPanelProps {
   scene: CanvasScene | null;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'image' | 'video', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video', value: string) => Promise<void>;
   collapsed: boolean;
   setCollapsed: (collapsed: boolean) => void;
 }
@@ -28,8 +28,9 @@ export function CanvasDetailPanel({
   const [selectedAgent, setSelectedAgent] = useState("main");
   const [aiInstructions, setAiInstructions] = useState("");
   const [isGenerating, setIsGenerating] = useState(false);
+  const productImageInputRef = useRef<HTMLInputElement>(null);
   
-  const handleGenerateContent = (contentType: 'script' | 'imagePrompt' | 'image' | 'video') => {
+  const handleGenerateContent = (contentType: 'script' | 'imagePrompt' | 'description' | 'image' | 'video') => {
     if (!scene) return;
     
     setIsGenerating(true);
@@ -38,6 +39,46 @@ export function CanvasDetailPanel({
       toast.success(`Generated ${contentType} using ${selectedAgent} agent`);
       setIsGenerating(false);
     }, 1500);
+  };
+
+  const handleProductImageUpload = () => {
+    if (!scene) return;
+    if (productImageInputRef.current) {
+      productImageInputRef.current.click();
+    }
+  };
+
+  const handleFileSelected = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!scene) return;
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        const dataUrl = event.target?.result as string;
+        await updateScene(scene.id, 'productImage', dataUrl);
+        toast.success("Product image uploaded successfully");
+      };
+      reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Error uploading product image:", error);
+      toast.error("Failed to upload product image");
+    } finally {
+      // Reset input value to allow uploading the same file again
+      if (e.target) e.target.value = '';
+    }
+  };
+
+  const handleRemoveProductImage = async () => {
+    if (!scene) return;
+    try {
+      await updateScene(scene.id, 'productImage', '');
+      toast.success("Product image removed");
+    } catch (error) {
+      console.error("Error removing product image:", error);
+      toast.error("Failed to remove product image");
+    }
   };
   
   if (collapsed) {
@@ -114,6 +155,17 @@ export function CanvasDetailPanel({
                     placeholder="Enter script for this scene..."
                   />
                 </div>
+
+                <div className="space-y-2">
+                  <Label htmlFor="scene-description">Scene Description</Label>
+                  <Textarea
+                    id="scene-description"
+                    value={scene.description || ""}
+                    onChange={(e) => updateScene(scene.id, 'description', e.target.value)}
+                    className="min-h-[120px]"
+                    placeholder="Enter description for this scene..."
+                  />
+                </div>
                 
                 <div className="space-y-2">
                   <Label htmlFor="scene-image-prompt">Image Prompt</Label>
@@ -124,6 +176,46 @@ export function CanvasDetailPanel({
                     className="min-h-[120px]"
                     placeholder="Enter image prompt for this scene..."
                   />
+                </div>
+
+                <div className="space-y-2">
+                  <Label>Product Image</Label>
+                  <input
+                    type="file"
+                    ref={productImageInputRef}
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileSelected}
+                  />
+
+                  {scene.productImageUrl ? (
+                    <div className="relative group">
+                      <img 
+                        src={scene.productImageUrl} 
+                        alt="Product" 
+                        className="w-full h-[120px] object-contain border rounded"
+                      />
+                      <div className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/30 rounded">
+                        <Button
+                          variant="destructive"
+                          size="sm"
+                          onClick={handleRemoveProductImage}
+                        >
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Remove
+                        </Button>
+                      </div>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="outline"
+                      className="w-full h-[120px]"
+                      onClick={handleProductImageUpload}
+                    >
+                      <Upload className="h-4 w-4 mr-2" />
+                      Upload Product Image
+                    </Button>
+                  )}
                 </div>
                 
                 <div className="space-y-2">
@@ -164,6 +256,15 @@ export function CanvasDetailPanel({
                     >
                       <Wand2 className="h-4 w-4 mr-2" />
                       Script
+                    </Button>
+                    <Button 
+                      variant="outline" 
+                      className="w-full"
+                      onClick={() => handleGenerateContent('description')}
+                      disabled={isGenerating}
+                    >
+                      <Wand2 className="h-4 w-4 mr-2" />
+                      Description
                     </Button>
                     <Button 
                       variant="outline" 

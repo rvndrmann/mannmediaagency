@@ -1,3 +1,4 @@
+
 import { useState } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,7 @@ interface SceneTableProps {
   scenes: CanvasScene[];
   selectedSceneId: string | null;
   setSelectedSceneId: (id: string) => void;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'image' | 'video', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video', value: string) => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
 }
 
@@ -22,13 +23,13 @@ export function SceneTable({
   updateScene,
   deleteScene
 }: SceneTableProps) {
-  const [editingField, setEditingField] = useState<{sceneId: string, field: 'script' | 'imagePrompt'} | null>(null);
+  const [editingField, setEditingField] = useState<{sceneId: string, field: 'script' | 'imagePrompt' | 'description'} | null>(null);
   const [editedContent, setEditedContent] = useState("");
-  const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video'} | null>(null);
+  const [uploadingMedia, setUploadingMedia] = useState<{sceneId: string, type: 'image' | 'video' | 'productImage'} | null>(null);
   const [fileInput, setFileInput] = useState<HTMLInputElement | null>(null);
   const [deletingScene, setDeletingScene] = useState<string | null>(null);
   
-  const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt', content: string = "") => {
+  const handleStartEditing = (sceneId: string, field: 'script' | 'imagePrompt' | 'description', content: string = "") => {
     setEditingField({ sceneId, field });
     setEditedContent(content);
   };
@@ -38,7 +39,7 @@ export function SceneTable({
     
     try {
       await updateScene(editingField.sceneId, editingField.field, editedContent);
-      toast.success(`Scene ${editingField.field === 'script' ? 'script' : 'image prompt'} updated`);
+      toast.success(`Scene ${editingField.field === 'script' ? 'script' : editingField.field === 'description' ? 'description' : 'image prompt'} updated`);
       setEditingField(null);
     } catch (error) {
       toast.error(`Failed to update: ${error}`);
@@ -49,15 +50,15 @@ export function SceneTable({
     setEditingField(null);
   };
   
-  const handleGenerateWithAI = (sceneId: string, field: 'script' | 'imagePrompt' | 'image' | 'video') => {
+  const handleGenerateWithAI = (sceneId: string, field: 'script' | 'imagePrompt' | 'description' | 'image' | 'video') => {
     toast.info(`Generating ${field} with AI...`);
     // This would be implemented with actual AI generation
   };
 
-  const handleAddMedia = (sceneId: string, type: 'image' | 'video') => {
+  const handleAddMedia = (sceneId: string, type: 'image' | 'video' | 'productImage') => {
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = type === 'image' ? 'image/*' : 'video/*';
+    input.accept = type === 'image' || type === 'productImage' ? 'image/*' : 'video/*';
     setFileInput(input);
     
     input.onchange = async (e) => {
@@ -88,7 +89,7 @@ export function SceneTable({
     input.click();
   };
 
-  const handleRemoveMedia = (sceneId: string, type: 'image' | 'video') => {
+  const handleRemoveMedia = (sceneId: string, type: 'image' | 'video' | 'productImage') => {
     updateScene(sceneId, type, '')
       .then(() => toast.success(`${type} removed`))
       .catch(error => toast.error(`Failed to remove ${type}: ${error}`));
@@ -108,8 +109,12 @@ export function SceneTable({
     }
   };
   
-  const renderField = (scene: CanvasScene, field: 'script' | 'imagePrompt') => {
-    const content = field === 'script' ? scene.script : scene.imagePrompt;
+  const renderField = (scene: CanvasScene, field: 'script' | 'imagePrompt' | 'description') => {
+    const content = field === 'script' 
+      ? scene.script 
+      : field === 'description' 
+        ? scene.description 
+        : scene.imagePrompt;
     
     if (editingField && editingField.sceneId === scene.id && editingField.field === field) {
       return (
@@ -118,7 +123,7 @@ export function SceneTable({
             value={editedContent}
             onChange={(e) => setEditedContent(e.target.value)}
             className="min-h-[100px] text-sm"
-            placeholder={`Enter ${field === 'script' ? 'script' : 'image prompt'}...`}
+            placeholder={`Enter ${field === 'script' ? 'script' : field === 'description' ? 'description' : 'image prompt'}...`}
           />
           <div className="flex space-x-2">
             <Button size="sm" onClick={handleSave}>
@@ -159,8 +164,16 @@ export function SceneTable({
     );
   };
   
-  const renderMedia = (scene: CanvasScene, type: 'image' | 'video') => {
-    const url = type === 'image' ? scene.imageUrl : scene.videoUrl;
+  const renderMedia = (scene: CanvasScene, type: 'image' | 'video' | 'productImage') => {
+    let url;
+    if (type === 'image') {
+      url = scene.imageUrl;
+    } else if (type === 'video') {
+      url = scene.videoUrl;
+    } else if (type === 'productImage') {
+      url = scene.productImageUrl;
+    }
+    
     const isUploading = uploadingMedia && uploadingMedia.sceneId === scene.id && uploadingMedia.type === type;
     
     if (!url) {
@@ -177,27 +190,33 @@ export function SceneTable({
                 onClick={() => handleAddMedia(scene.id, type)}
               >
                 <Plus className="h-4 w-4 mr-1" />
-                Add {type === 'image' ? 'Image' : 'Video'}
+                Add {type === 'image' ? 'Image' : type === 'productImage' ? 'Product Image' : 'Video'}
               </Button>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="text-xs"
-                onClick={() => handleGenerateWithAI(scene.id, type)}
-              >
-                <Wand2 className="h-4 w-4 mr-1" />
-                Generate
-              </Button>
+              {type !== 'productImage' && (
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="text-xs"
+                  onClick={() => handleGenerateWithAI(scene.id, type === 'image' ? 'image' : 'video')}
+                >
+                  <Wand2 className="h-4 w-4 mr-1" />
+                  Generate
+                </Button>
+              )}
             </div>
           )}
         </div>
       );
     }
     
-    if (type === 'image') {
+    if (type === 'image' || type === 'productImage') {
       return (
         <div className="relative group">
-          <img src={url} alt={`Scene ${scene.title}`} className="h-[100px] object-cover rounded" />
+          <img 
+            src={url} 
+            alt={`${type === 'productImage' ? 'Product' : 'Scene'} ${scene.title}`} 
+            className="h-[100px] object-cover rounded" 
+          />
           <div className="absolute inset-0 hidden group-hover:flex items-center justify-center bg-black/30 rounded">
             <div className="flex space-x-2">
               <Button variant="ghost" size="sm" className="text-white bg-black/30 hover:bg-black/50">
@@ -207,7 +226,7 @@ export function SceneTable({
                 variant="ghost" 
                 size="sm" 
                 className="text-white bg-black/30 hover:bg-black/50"
-                onClick={() => handleRemoveMedia(scene.id, 'image')}
+                onClick={() => handleRemoveMedia(scene.id, type)}
               >
                 <Trash className="h-4 w-4 mr-1" /> Remove
               </Button>
@@ -254,10 +273,12 @@ export function SceneTable({
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead className="w-[180px]">Scene</TableHead>
-            <TableHead className="w-[30%]">Script</TableHead>
-            <TableHead className="w-[30%]">Image Prompt</TableHead>
-            <TableHead>Image</TableHead>
+            <TableHead className="w-[120px]">Scene</TableHead>
+            <TableHead className="w-[22%]">Script</TableHead>
+            <TableHead className="w-[22%]">Description</TableHead>
+            <TableHead className="w-[22%]">Image Prompt</TableHead>
+            <TableHead>Scene Image</TableHead>
+            <TableHead>Product Image</TableHead>
             <TableHead>Video</TableHead>
             <TableHead className="w-[60px]">Actions</TableHead>
           </TableRow>
@@ -271,8 +292,10 @@ export function SceneTable({
             >
               <TableCell className="font-medium">{scene.title}</TableCell>
               <TableCell>{renderField(scene, 'script')}</TableCell>
+              <TableCell>{renderField(scene, 'description')}</TableCell>
               <TableCell>{renderField(scene, 'imagePrompt')}</TableCell>
               <TableCell>{renderMedia(scene, 'image')}</TableCell>
+              <TableCell>{renderMedia(scene, 'productImage')}</TableCell>
               <TableCell>{renderMedia(scene, 'video')}</TableCell>
               <TableCell>
                 <Button

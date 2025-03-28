@@ -53,8 +53,10 @@ export const useCanvas = (projectId?: string) => {
             title: scene.title,
             order: scene.scene_order, // Map scene_order to order
             script: scene.script,
+            description: scene.description,
             imagePrompt: scene.image_prompt,
             imageUrl: scene.image_url,
+            productImageUrl: scene.product_image_url,
             videoUrl: scene.video_url,
             duration: scene.duration,
             createdAt: scene.created_at,
@@ -251,8 +253,10 @@ export const useCanvas = (projectId?: string) => {
       // Map the type to the database field
       const fieldMap: Record<SceneUpdateType, string> = {
         script: 'script',
+        description: 'description',
         imagePrompt: 'image_prompt',
         image: 'image_url',
+        productImage: 'product_image_url',
         video: 'video_url'
       };
       
@@ -273,11 +277,17 @@ export const useCanvas = (projectId?: string) => {
           ...prev,
           scenes: prev.scenes.map(scene => {
             if (scene.id === sceneId) {
-              return {
-                ...scene,
-                [type]: value,
-                updatedAt: new Date().toISOString()
-              };
+              const updatedScene = { ...scene, updatedAt: new Date().toISOString() };
+              
+              // Map the field correctly
+              if (type === 'script') updatedScene.script = value;
+              else if (type === 'description') updatedScene.description = value;
+              else if (type === 'imagePrompt') updatedScene.imagePrompt = value;
+              else if (type === 'image') updatedScene.imageUrl = value;
+              else if (type === 'productImage') updatedScene.productImageUrl = value;
+              else if (type === 'video') updatedScene.videoUrl = value;
+              
+              return updatedScene;
             }
             return scene;
           })

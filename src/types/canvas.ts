@@ -16,8 +16,10 @@ export interface CanvasScene {
   title: string;
   order: number; // We'll map this to scene_order in the database
   script?: string;
+  description?: string; // Added scene description field
   imagePrompt?: string;
   imageUrl?: string;
+  productImageUrl?: string; // Added product image URL field
   videoUrl?: string;
   duration?: number;
   createdAt: string;
@@ -34,7 +36,7 @@ export interface MediaAsset {
   createdAt: string;
 }
 
-export type SceneUpdateType = 'script' | 'imagePrompt' | 'image' | 'video';
+export type SceneUpdateType = 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video';
 
 export interface AgentAction {
   agentType: string;

@@ -44,3 +44,25 @@ export async function uploadReferenceImage(file: File) {
 
   return publicUrl;
 }
+
+export async function uploadProductImage(file: File) {
+  const fileExt = file.name.split('.').pop();
+  const fileName = `product_${crypto.randomUUID()}.${fileExt}`;
+
+  const { error: uploadError } = await supabase.storage
+    .from('product_images')
+    .upload(fileName, file, {
+      cacheControl: '3600',
+      upsert: false
+    });
+
+  if (uploadError) {
+    throw new Error(`Failed to upload product image: ${uploadError.message}`);
+  }
+
+  const { data: { publicUrl } } = supabase.storage
+    .from('product_images')
+    .getPublicUrl(fileName);
+
+  return publicUrl;
+}

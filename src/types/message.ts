@@ -32,10 +32,10 @@ export interface ContinuityData {
 export interface Attachment {
   id: string;
   name: string;
-  url: string;
   type: string;
-  size?: number;
-  contentType?: string;
+  size: number;
+  url?: string;
+  file?: File;
 }
 
 export interface Command {

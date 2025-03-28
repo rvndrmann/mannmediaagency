@@ -1,5 +1,6 @@
+
 import { useState, useRef, useEffect } from "react";
-import { Message } from "@/types/message";
+import { Message, Attachment } from "@/types/message";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -12,6 +13,7 @@ import { FileAttachmentButton } from "@/components/multi-agent/FileAttachmentBut
 import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 import { useCanvas } from "@/hooks/use-canvas";
 import { toast } from "sonner";
+import { v4 as uuidv4 } from "uuid";
 
 interface CanvasChatProps {
   onClose: () => void;
@@ -20,7 +22,7 @@ interface CanvasChatProps {
 
 export function CanvasChat({ onClose, projectId }: CanvasChatProps) {
   const [input, setInput] = useState("");
-  const [pendingAttachments, setPendingAttachments] = useState<any[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
   const [messages, setMessages] = useState<Message[]>([]);
   const [activeAgent, setActiveAgent] = useState<string>("script");
   
@@ -83,7 +85,7 @@ export function CanvasChat({ onClose, projectId }: CanvasChatProps) {
         projectTitle: project.title,
         sceneTitle: selectedScene?.title,
         sceneId: selectedScene?.id,
-      }, activeAgent as any);
+      }, activeAgent);
     } catch (error) {
       console.error("Error processing chat request:", error);
       toast.error("Failed to process request");
@@ -95,8 +97,17 @@ export function CanvasChat({ onClose, projectId }: CanvasChatProps) {
   };
   
   const addAttachments = (files: File[]) => {
-    // Implement attachment handling if needed
-    toast.info("Attachments are not yet supported in Canvas Chat");
+    // Convert File objects to Attachment objects
+    const newAttachments: Attachment[] = files.map(file => ({
+      id: uuidv4(),
+      name: file.name,
+      type: file.type,
+      size: file.size,
+      file: file
+    }));
+    
+    setPendingAttachments(prev => [...prev, ...newAttachments]);
+    toast.info("Attachments added to chat");
   };
   
   const removeAttachment = (id: string) => {

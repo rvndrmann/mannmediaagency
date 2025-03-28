@@ -43,4 +43,15 @@ export class BaseAgentImpl implements BaseAgent {
   getType(): AgentType {
     return "main";
   }
+  
+  // Added missing methods for guardrails
+  async applyInputGuardrails(input: string): Promise<string> {
+    // Default implementation just returns the input
+    return input;
+  }
+  
+  async applyOutputGuardrails(output: string): Promise<string> {
+    // Default implementation just returns the output
+    return output;
+  }
 }

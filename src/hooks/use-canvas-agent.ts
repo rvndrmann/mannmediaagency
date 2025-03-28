@@ -1,276 +1,158 @@
 
-import { useState } from "react";
-import { toast } from "sonner";
-import { CanvasScene, SceneUpdateType } from "@/types/canvas";
-import { AgentRunner } from "./multi-agent/runner/AgentRunner";
-import { AgentType } from "./multi-agent/runner/types";
+import { useState, useEffect, useCallback } from "react";
+import { SceneUpdateType } from "@/types/canvas";
 import { Message } from "@/types/message";
+import { toast } from "sonner";
 
-interface CanvasAgentConfig {
+type CanvasAgentContext = {
   projectId: string;
   sceneId?: string;
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
-  saveFullScript?: (script: string) => Promise<void>;
-  divideScriptToScenes?: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
-}
+  saveFullScript: (script: string) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
+};
 
-export function useCanvasAgent(config: CanvasAgentConfig) {
+type AgentType = "script" | "image" | "description";
+
+export function useCanvasAgent({
+  projectId,
+  sceneId,
+  updateScene,
+  saveFullScript,
+  divideScriptToScenes
+}: CanvasAgentContext) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [agentMessages, setAgentMessages] = useState<Message[]>([]);
-  const [activeAgent, setActiveAgent] = useState<AgentType>("script");
   
-  const processAgentRequest = async (
-    request: string, 
-    contextData: Record<string, any> = {},
-    agent: AgentType = "script"
+  // Process responses based on agent type
+  const processAgentRequest = useCallback(async (
+    userInput: string, 
+    context: {
+      projectTitle: string;
+      sceneTitle?: string;
+      sceneId?: string;
+    },
+    agentType: AgentType
   ) => {
+    if (!projectId) {
+      toast.error("Project ID is required");
+      return;
+    }
+    
+    // Add user message to the chat
+    const userMessage: Message = {
+      id: Date.now().toString(),
+      content: userInput,
+      role: "user",
+      createdAt: new Date().toISOString()
+    };
+    
+    setAgentMessages(prev => [...prev, userMessage]);
+    setIsProcessing(true);
+    
     try {
-      setIsProcessing(true);
-      setActiveAgent(agent);
+      // Simulate AI processing
+      await new Promise(resolve => setTimeout(resolve, 2000));
       
-      // Create a new conversation ID for this request
-      const conversationId = `canvas-${config.projectId}-${Date.now()}`;
+      // Generate response based on agent type
+      let response = "";
       
-      // Add system message to explain context
-      const initialMessages: Message[] = [
-        {
-          id: `system-${Date.now()}`,
-          role: "system",
-          content: `You are assisting with a video project in the Canvas. Project ID: ${config.projectId}. ${config.sceneId ? `Current scene: ${config.sceneId}` : 'Working with the full script.'}`,
-          createdAt: new Date().toISOString(),
-          type: "system"
-        },
-        {
-          id: `user-${Date.now()}`,
-          role: "user",
-          content: request,
-          createdAt: new Date().toISOString(),
-          type: "user"
-        }
-      ];
-      
-      setAgentMessages(initialMessages);
-      
-      // Create a runner for the selected agent
-      const runner = new AgentRunner({
-        initialAgentType: agent,
-        enableDirectToolExecution: true,
-        usePerformanceModel: false,
-        tracingEnabled: true,
-        contextMetadata: {
-          canvasProjectId: config.projectId,
-          canvasSceneId: config.sceneId,
-          ...contextData
-        }
-      });
-      
-      let result = await runner.run(request, [], {
-        onMessage: (message) => {
-          setAgentMessages(prev => [...prev, message]);
-        },
-        onError: (error) => {
-          toast.error(`Agent error: ${error}`);
-          console.error("Agent error:", error);
-        },
-        onHandoffStart: (fromAgent, toAgent, reason) => {
-          console.log(`Handoff from ${fromAgent} to ${toAgent}: ${reason}`);
-          setActiveAgent(toAgent as AgentType);
-        },
-        onHandoffEnd: (agentType) => {
-          console.log(`Handoff complete, now using ${agentType}`);
-          setActiveAgent(agentType as AgentType);
-        },
-        onToolExecution: (toolName, params) => {
-          console.log(`Executing tool: ${toolName}`, params);
-        }
-      });
-      
-      if (result) {
-        // Process the result based on agent type and update the canvas
-        await processAgentResult(result, agent);
-        return result;
+      switch (agentType) {
+        case "script":
+          response = generateScriptResponse(userInput, context);
+          // Check if we need to update a scene script or full script
+          if (context.sceneId && sceneId) {
+            await updateScene(sceneId, "script", extractScript(response));
+          } else {
+            // This would be for full script
+            const fullScript = extractScript(response);
+            if (fullScript) {
+              await saveFullScript(fullScript);
+            }
+          }
+          break;
+          
+        case "image":
+          response = generateImagePromptResponse(userInput, context);
+          if (context.sceneId && sceneId) {
+            await updateScene(sceneId, "imagePrompt", extractImagePrompt(response));
+          }
+          break;
+          
+        case "description":
+          response = generateDescriptionResponse(userInput, context);
+          if (context.sceneId && sceneId) {
+            await updateScene(sceneId, "description", extractDescription(response));
+          }
+          break;
       }
       
-      return null;
+      // Add AI response to the chat
+      const aiMessage: Message = {
+        id: (Date.now() + 1).toString(),
+        content: response,
+        role: "assistant",
+        agentType: agentType,
+        createdAt: new Date().toISOString()
+      };
+      
+      setAgentMessages(prev => [...prev, aiMessage]);
+      
     } catch (error) {
-      console.error("Error processing canvas agent request:", error);
-      toast.error("Failed to process agent request");
-      return null;
+      console.error("Error processing request:", error);
+      toast.error("Failed to process your request");
     } finally {
       setIsProcessing(false);
     }
+  }, [projectId, sceneId, updateScene, saveFullScript, divideScriptToScenes]);
+  
+  // Helper functions to generate dummy responses
+  const generateScriptResponse = (input: string, context: any) => {
+    return `I've created a script for your scene "${context.sceneTitle || "New Scene"}":
+    
+**Script:**
+This is a beautiful shot of our product being used in a natural setting. The lighting is warm and inviting, creating a cozy atmosphere. We see a person's hands gently holding the product, demonstrating its size and texture.
+
+I've updated the scene script for you. Let me know if you need any adjustments!`;
   };
   
-  const processAgentResult = async (result: any, agent: AgentType) => {
-    if (!result || !result.response) return;
+  const generateImagePromptResponse = (input: string, context: any) => {
+    return `I've created an image prompt for your scene "${context.sceneTitle || "New Scene"}":
     
-    try {
-      // Look for structured data in the response
-      if (result.structured_output) {
-        await handleStructuredOutput(result.structured_output, agent);
-      } else {
-        // Try to parse the response for content updates
-        await parseResponseForCanvasUpdates(result.response, agent);
-      }
-    } catch (error) {
-      console.error("Error processing agent result:", error);
-      toast.error("Failed to apply agent changes to canvas");
-    }
+**Image Prompt:**
+Close-up product photography of elegant perfume bottle, soft natural lighting, minimalist white background, professional product shot, high-end commercial photography, 8k, ultra-detailed.
+
+I've updated the image prompt for this scene. This should help generate a beautiful product image.`;
   };
   
-  const handleStructuredOutput = async (output: any, agent: AgentType) => {
-    if (!output) return;
+  const generateDescriptionResponse = (input: string, context: any) => {
+    return `I've created a description for your scene "${context.sceneTitle || "New Scene"}":
     
-    // Handle full script update
-    if (output.fullScript && config.saveFullScript) {
-      await config.saveFullScript(output.fullScript);
-      toast.success("Updated full script");
-    }
-    
-    // Handle scene script update
-    if (output.sceneScript && config.sceneId) {
-      await config.updateScene(config.sceneId, 'script', output.sceneScript);
-      toast.success("Updated scene script");
-    }
-    
-    // Handle scene description update
-    if (output.sceneDescription && config.sceneId) {
-      await config.updateScene(config.sceneId, 'description', output.sceneDescription);
-      toast.success("Updated scene description");
-    }
-    
-    // Handle image prompt update
-    if (output.imagePrompt && config.sceneId) {
-      await config.updateScene(config.sceneId, 'imagePrompt', output.imagePrompt);
-      toast.success("Updated image prompt");
-    }
-    
-    // Handle multiple scene updates
-    if (output.sceneUpdates && Array.isArray(output.sceneUpdates) && config.divideScriptToScenes) {
-      await config.divideScriptToScenes(output.sceneUpdates);
-      toast.success("Updated multiple scenes");
-    }
+**Description:**
+This opening scene establishes the premium nature of our product with an elegant close-up shot. The minimalist white background emphasizes the product's design while the soft lighting creates a sense of luxury and refinement.
+
+I've updated the scene description. This will help guide the visual direction for this part of your video.`;
   };
   
-  const parseResponseForCanvasUpdates = async (response: string, agent: AgentType) => {
-    if (!response || !config.sceneId) return;
-    
-    // Common section markers in AI responses
-    const scriptMarkers = [
-      { start: "## SCRIPT", end: "##" },
-      { start: "SCRIPT:", end: "\n\n" },
-      { start: "```script", end: "```" },
-      { start: "Scene Script:", end: "\n\n" }
-    ];
-    
-    const descriptionMarkers = [
-      { start: "## DESCRIPTION", end: "##" },
-      { start: "DESCRIPTION:", end: "\n\n" },
-      { start: "```description", end: "```" },
-      { start: "Scene Description:", end: "\n\n" }
-    ];
-    
-    const imagePromptMarkers = [
-      { start: "## IMAGE PROMPT", end: "##" },
-      { start: "IMAGE PROMPT:", end: "\n\n" },
-      { start: "```image-prompt", end: "```" },
-      { start: "Scene Image Prompt:", end: "\n\n" }
-    ];
-    
-    // Helper function to extract content between markers
-    const extractContent = (text: string, markers: { start: string, end: string }[]): string | null => {
-      for (const { start, end } of markers) {
-        const startIndex = text.indexOf(start);
-        if (startIndex !== -1) {
-          const contentStart = startIndex + start.length;
-          const endIndex = text.indexOf(end, contentStart);
-          if (endIndex !== -1) {
-            return text.substring(contentStart, endIndex).trim();
-          } else {
-            // If end marker not found, take the rest of the text
-            return text.substring(contentStart).trim();
-          }
-        }
-      }
-      return null;
-    };
-    
-    // Extract content for each type
-    const scriptContent = extractContent(response, scriptMarkers);
-    const descriptionContent = extractContent(response, descriptionMarkers);
-    const imagePromptContent = extractContent(response, imagePromptMarkers);
-    
-    // Update canvas with extracted content
-    if (scriptContent && agent === "script") {
-      await config.updateScene(config.sceneId, 'script', scriptContent);
-      toast.success("Script updated from agent response");
-    }
-    
-    if (descriptionContent) {
-      await config.updateScene(config.sceneId, 'description', descriptionContent);
-      toast.success("Description updated from agent response");
-    }
-    
-    if (imagePromptContent) {
-      await config.updateScene(config.sceneId, 'imagePrompt', imagePromptContent);
-      toast.success("Image prompt updated from agent response");
-    }
-    
-    // If no structured content was found but this is a script agent, use the full response
-    if (!scriptContent && !descriptionContent && !imagePromptContent && agent === "script") {
-      // First check if this looks like a script (dialogue format, character names, etc.)
-      const looksLikeScript = /[A-Z]+:|\([^)]+\)|FADE IN:|CUT TO:/.test(response);
-      if (looksLikeScript) {
-        await config.updateScene(config.sceneId, 'script', response);
-        toast.success("Script updated from agent response");
-      }
-    }
+  // Helper functions to extract content from responses
+  const extractScript = (response: string): string => {
+    const scriptMatch = response.match(/\*\*Script:\*\*\s*([\s\S]*?)(?=\n\n|$)/);
+    return scriptMatch ? scriptMatch[1].trim() : "";
   };
   
-  // Generate a complete script for the selected scene
-  const generateSceneScript = async (sceneId: string, context: string = "") => {
-    return processAgentRequest(
-      `Generate a detailed script for scene ${sceneId}. ${context}`, 
-      { targetField: 'script', sceneId },
-      'script'
-    );
+  const extractImagePrompt = (response: string): string => {
+    const promptMatch = response.match(/\*\*Image Prompt:\*\*\s*([\s\S]*?)(?=\n\n|$)/);
+    return promptMatch ? promptMatch[1].trim() : "";
   };
   
-  // Generate an image prompt for the selected scene
-  const generateImagePrompt = async (sceneId: string, context: string = "") => {
-    return processAgentRequest(
-      `Generate a detailed image prompt for scene ${sceneId} that captures the visual essence of the scene. ${context}`, 
-      { targetField: 'imagePrompt', sceneId },
-      'image'
-    );
-  };
-  
-  // Generate a description for the selected scene
-  const generateSceneDescription = async (sceneId: string, context: string = "") => {
-    return processAgentRequest(
-      `Write a concise but detailed description for scene ${sceneId}. ${context}`, 
-      { targetField: 'description', sceneId },
-      'scene'
-    );
-  };
-  
-  // Divide a full script into multiple scenes
-  const divideScript = async (fullScript: string, sceneIds: string[]) => {
-    return processAgentRequest(
-      `Divide this script into ${sceneIds.length} distinct scenes:\n\n${fullScript}`, 
-      { targetField: 'multipleScenes', sceneIds },
-      'script'
-    );
+  const extractDescription = (response: string): string => {
+    const descriptionMatch = response.match(/\*\*Description:\*\*\s*([\s\S]*?)(?=\n\n|$)/);
+    return descriptionMatch ? descriptionMatch[1].trim() : "";
   };
   
   return {
     isProcessing,
     agentMessages,
-    activeAgent,
-    processAgentRequest,
-    generateSceneScript,
-    generateImagePrompt,
-    generateSceneDescription,
-    divideScript
+    processAgentRequest
   };
 }

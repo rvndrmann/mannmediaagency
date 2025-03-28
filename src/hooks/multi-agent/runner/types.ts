@@ -1,9 +1,8 @@
-
 import { Attachment, Message, MessageType } from "@/types/message";
 import { ToolContext, AgentConfig } from "../types";
 import { supabase } from "@/integrations/supabase/client";
 
-export type AgentType = 'main' | 'script' | 'image' | 'tool' | 'scene';
+export type AgentType = "main" | "assistant" | "tool" | "sceneCreator" | "scriptWriter" | "imageGenerator" | string;
 
 export interface AgentResult {
   response: string | null;

@@ -2,17 +2,20 @@
 // Basic tools utility to support the agent architecture
 
 import { ToolDefinition } from "../types";
+import { browserUseTool } from "./browser-use-tool";
 
-export interface Tool extends ToolDefinition {
+export interface Tool {
   name: string;
   description: string;
   parameters: Record<string, any>;
   requiredCredits: number;
   execute: (params: any) => Promise<any>;
+  version: string;
 }
 
 const tools: Record<string, Tool> = {
-  // This is just a placeholder for now
+  // Register the browser-use tool
+  "browser-use": browserUseTool as unknown as Tool
 };
 
 export function getTool(name: string): Tool | null {

@@ -109,7 +109,7 @@ export function ScenesList({
               key={scene.id} 
               scene={scene} 
               isSelected={scene.id === selectedSceneId}
-              onClick={() => onSelectScene(scene.id)}
+              onSelect={() => onSelectScene(scene.id)}
               onDelete={() => setSceneToDelete(scene.id)}
             />
           ))}

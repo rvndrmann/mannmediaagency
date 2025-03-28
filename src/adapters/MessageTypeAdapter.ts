@@ -1,43 +1,31 @@
+import { v4 as uuidv4 } from 'uuid';
+import {
+  Message as LocalMessage,
+} from "@/types/local-message";
+import {
+  Message
+} from "@/types/message";
 
-import { Message as GlobalMessage, MessageStatus } from "@/types/message";
-
-// Simple Message type for components that only need basic message functionality
-export interface SimpleMessage {
-  role: "user" | "assistant" | "system" | "tool";
-  content: string;
-  status?: MessageStatus; // Use the consistent MessageStatus type
-  id: string;
-  createdAt: string;
-}
-
-// Convert the global Message type to SimpleMessage for components that expect it
-export function adaptMessageToSimple(message: GlobalMessage): SimpleMessage {
-  return {
-    role: message.role,
-    content: message.content,
-    status: message.status,
-    id: message.id,
-    createdAt: message.createdAt
-  };
-}
-
-// Create a globally compliant message from simple inputs
-export function createGlobalMessage(input: {
-  role: "user" | "assistant" | "system" | "tool";
-  content: string;
-  status?: MessageStatus;
-  tasks?: any[];
-  tool_name?: string;
-  tool_arguments?: string;
-}): GlobalMessage {
-  return {
-    id: crypto.randomUUID(),
-    createdAt: new Date().toISOString(),
-    ...input
-  };
-}
-
-// Adapt a array of GlobalMessages to SimpleMessages
-export function adaptMessagesToSimple(messages: GlobalMessage[]): SimpleMessage[] {
-  return messages.map(adaptMessageToSimple);
-}
+export const adapters = {
+  toGlobalMessage: (message: LocalMessage): Message => {
+    return {
+      id: message.id || uuidv4(),
+      role: message.role,
+      content: message.content,
+      createdAt: message.createdAt || new Date().toISOString(),
+      status: message.status,
+      tasks: message.tasks,
+      tool_name: message.tool_name,
+      tool_arguments: message.tool_arguments ? message.tool_arguments : undefined,
+      agentType: message.agentType,
+      type: message.type || "text",
+      command: message.command,
+      handoffRequest: message.handoffRequest,
+      timestamp: message.timestamp || new Date().toISOString(),
+      continuityData: message.continuityData,
+      structured_output: message.structured_output,
+      selectedTool: message.selectedTool,
+      attachments: message.attachments || []
+    };
+  },
+};

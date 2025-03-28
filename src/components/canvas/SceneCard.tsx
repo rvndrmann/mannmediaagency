@@ -1,10 +1,10 @@
 
 import { CanvasScene } from "@/types/canvas";
-import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { FileText, MoreVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
-interface SceneCardProps {
+export interface SceneCardProps {
   scene: CanvasScene;
   isSelected: boolean;
   onSelect: () => void;
@@ -12,45 +12,34 @@ interface SceneCardProps {
 }
 
 export function SceneCard({ scene, isSelected, onSelect, onDelete }: SceneCardProps) {
-  const handleDelete = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    onDelete();
-  };
-
   return (
-    <div
+    <div 
       className={cn(
-        "relative group cursor-pointer h-24 w-32 rounded-md overflow-hidden border border-border flex flex-col",
-        isSelected && "ring-2 ring-primary"
+        "p-3 border rounded-md cursor-pointer transition-colors group relative",
+        isSelected 
+          ? "bg-primary/10 border-primary/40 text-primary" 
+          : "hover:bg-background/80 border-border"
       )}
       onClick={onSelect}
     >
-      {scene.imageUrl ? (
-        <div className="relative h-16 bg-muted">
-          <img
-            src={scene.imageUrl}
-            alt={scene.title}
-            className="w-full h-full object-cover"
-          />
-        </div>
-      ) : (
-        <div className="h-16 bg-muted flex items-center justify-center text-muted-foreground text-xs">
-          No image
-        </div>
-      )}
-      
-      <div className="p-1 text-xs truncate bg-background flex-1 flex items-center">
-        <span className="truncate">{scene.title}</span>
+      <div className="flex items-center gap-2">
+        <FileText className="h-4 w-4 shrink-0" />
+        <span className="font-medium truncate">{scene.title || `Scene ${scene.order || ''}`}</span>
       </div>
       
-      <Button
-        variant="destructive"
-        size="icon"
-        className="absolute top-1 right-1 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity"
-        onClick={handleDelete}
-      >
-        <Trash2 className="h-3 w-3" />
-      </Button>
+      <div className="absolute right-2 top-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={(e) => {
+            e.stopPropagation();
+            onDelete();
+          }}
+        >
+          <MoreVertical className="h-4 w-4" />
+        </Button>
+      </div>
     </div>
   );
 }

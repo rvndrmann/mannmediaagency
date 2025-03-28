@@ -1,10 +1,9 @@
 
-import { useState } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
-import { CanvasTimeline } from "./CanvasTimeline";
-import { CanvasDetailPanel } from "./CanvasDetailPanel";
-import { CanvasPreview } from "./CanvasPreview";
-import { CanvasScriptPanel } from "./CanvasScriptPanel";
+import { ScenesList } from "./ScenesList";
+import { SceneEditor } from "./SceneEditor";
+import { ProjectScriptEditor } from "./ProjectScriptEditor";
+import { useState } from "react";
 
 interface CanvasWorkspaceProps {
   project: CanvasProject | null;
@@ -13,14 +12,11 @@ interface CanvasWorkspaceProps {
   setSelectedSceneId: (id: string | null) => void;
   addScene: () => Promise<string | undefined>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (
-    sceneId: string,
-    type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic',
-    value: string
-  ) => Promise<void>;
+  updateScene: (id: string, type: "script" | "imagePrompt" | "description" | "image" | "productImage" | "video" | "voiceOver" | "backgroundMusic", value: string) => Promise<void>;
   divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: () => Promise<void>;
+  updateProjectTitle: (title: string) => Promise<void>;
 }
 
 export function CanvasWorkspace({
@@ -33,57 +29,54 @@ export function CanvasWorkspace({
   updateScene,
   divideScriptToScenes,
   saveFullScript,
-  createNewProject
+  createNewProject,
+  updateProjectTitle
 }: CanvasWorkspaceProps) {
-  const [showScript, setShowScript] = useState(false);
-  const [detailsPanelCollapsed, setDetailsPanelCollapsed] = useState(false);
-
+  const [view, setView] = useState<"scenes" | "script">("scenes");
+  
   if (!project) {
     return (
-      <div className="flex-1 flex items-center justify-center p-4">
-        <div className="text-center">
-          <h3 className="text-xl font-semibold mb-4">No Project Selected</h3>
-          <p className="text-muted-foreground mb-6">Create a new project to get started</p>
-        </div>
+      <div className="flex-1 flex items-center justify-center">
+        <p>No project selected</p>
       </div>
     );
   }
-
+  
   return (
-    <div className="flex flex-1 overflow-hidden">
-      <div className={`flex flex-col flex-1 ${detailsPanelCollapsed ? "" : "mr-80"}`}>
-        <div className="flex-1 flex flex-col overflow-hidden">
-          {showScript ? (
-            <CanvasScriptPanel
-              project={project}
-              onClose={() => setShowScript(false)}
-              saveFullScript={saveFullScript}
-              divideScriptToScenes={divideScriptToScenes}
+    <div className="flex-1 flex overflow-hidden">
+      <ScenesList
+        scenes={project.scenes}
+        selectedSceneId={selectedSceneId}
+        onSelectScene={setSelectedSceneId}
+        onAddScene={addScene}
+        onDeleteScene={deleteScene}
+        onSwitchView={() => setView(view === "scenes" ? "script" : "scenes")}
+        currentView={view}
+        onCreateNewProject={createNewProject}
+      />
+      
+      <div className="flex-1 overflow-auto">
+        {view === "scenes" ? (
+          selectedScene ? (
+            <SceneEditor 
+              scene={selectedScene} 
+              onUpdate={updateScene} 
             />
           ) : (
-            <CanvasPreview
-              scene={selectedScene}
-              onShowScript={() => setShowScript(true)}
-            />
-          )}
-          
-          <CanvasTimeline
+            <div className="flex h-full items-center justify-center">
+              <p className="text-muted-foreground">Select a scene to edit</p>
+            </div>
+          )
+        ) : (
+          <ProjectScriptEditor 
+            project={project}
             scenes={project.scenes}
-            selectedSceneId={selectedSceneId}
-            onSceneSelect={setSelectedSceneId}
-            onAddScene={addScene}
-            onDeleteScene={deleteScene}
+            saveFullScript={saveFullScript}
+            divideScriptToScenes={divideScriptToScenes}
+            updateProjectTitle={updateProjectTitle}
           />
-        </div>
+        )}
       </div>
-      
-      <CanvasDetailPanel
-        scene={selectedScene}
-        projectId={project.id}
-        updateScene={updateScene}
-        collapsed={detailsPanelCollapsed}
-        setCollapsed={setDetailsPanelCollapsed}
-      />
     </div>
   );
 }

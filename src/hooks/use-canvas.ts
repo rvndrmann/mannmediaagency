@@ -376,6 +376,37 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  const updateProjectTitle = async (newTitle: string) => {
+    if (!project) return;
+    
+    try {
+      setError(null);
+      
+      const { error } = await supabase
+        .from('canvas_projects')
+        .update({ title: newTitle })
+        .eq('id', project.id);
+        
+      if (error) throw error;
+      
+      setProject(prev => {
+        if (!prev) return null;
+        
+        return {
+          ...prev,
+          title: newTitle,
+          updatedAt: new Date().toISOString()
+        };
+      });
+      
+      toast.success("Project title updated successfully");
+    } catch (error) {
+      console.error("Error updating project title:", error);
+      setError("Failed to update project title");
+      toast.error("Failed to update project title");
+    }
+  };
+
   const selectedScene = selectedSceneId && project
     ? project.scenes.find(scene => scene.id === selectedSceneId) || null
     : null;
@@ -392,6 +423,7 @@ export const useCanvas = (projectId?: string) => {
     deleteScene,
     updateScene,
     divideScriptToScenes,
-    saveFullScript
+    saveFullScript,
+    updateProjectTitle
   };
 };

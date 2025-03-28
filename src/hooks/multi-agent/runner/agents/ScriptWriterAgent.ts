@@ -1,6 +1,4 @@
-
 import { Attachment } from "@/types/message";
-import { AgentConfig, ToolContext } from "../../types";
 import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
@@ -138,6 +136,59 @@ Format it properly with scene headings, character dialogue, and actions where ap
           
           // We could enhance the output with a clear message that this is inappropriate
           data.completion = `${data.completion}\n\n[Note: This response doesn't contain an actual script as requested. Please ask the Script Writer agent specifically to write the script.]`;
+        }
+        
+        // Extract a title from the script if possible
+        let scriptTitle = '';
+        if (hasScriptMarkers && projectId) {
+          try {
+            // Look for a title in the script - check various patterns
+            const titlePatterns = [
+              /^Title:[\s]*(.+?)[\r\n]/i,            // Title: My Script
+              /^#\s*(.+?)[\r\n]/,                    // # My Script
+              /TITLE:[\s]*(.+?)[\r\n]/i,             // TITLE: My Script
+              /^\s*"(.+?)"[\r\n]/,                   // "My Script"
+              /FADE IN:\s*[\r\n]+\s*(.+?)[\r\n]/i,   // FADE IN: followed by title
+              /^\s*(.+?)\s*[\r\n]+by[\r\n]/i         // Title followed by "by"
+            ];
+            
+            for (const pattern of titlePatterns) {
+              const match = data.completion.match(pattern);
+              if (match && match[1]) {
+                scriptTitle = match[1].trim();
+                break;
+              }
+            }
+            
+            // If no title was found through patterns but we have a FADE IN or similar marker,
+            // use the first line after these markers as a title
+            if (!scriptTitle && (data.completion.includes('FADE IN:') || data.completion.includes('CUT TO:'))) {
+              const lines = data.completion.split('\n');
+              const fadeInIndex = lines.findIndex(line => line.includes('FADE IN:') || line.includes('CUT TO:'));
+              if (fadeInIndex >= 0 && fadeInIndex < lines.length - 1) {
+                const nextLine = lines[fadeInIndex + 1].trim();
+                if (nextLine && !nextLine.startsWith('INT.') && !nextLine.startsWith('EXT.')) {
+                  scriptTitle = nextLine;
+                }
+              }
+            }
+            
+            // If we found a title and it doesn't match the current project title, update it
+            if (scriptTitle && projectDetails && projectDetails.title !== scriptTitle) {
+              console.log(`Updating project title from "${projectDetails.title}" to "${scriptTitle}"`);
+              
+              // Update the project title in Supabase
+              await this.context.supabase
+                .from('canvas_projects')
+                .update({ title: scriptTitle })
+                .eq('id', projectId);
+              
+              // Append a message about the title update
+              data.completion += `\n\n[I've updated your project title to "${scriptTitle}" based on the script content.]`;
+            }
+          } catch (titleError) {
+            console.error("Error processing script title:", titleError);
+          }
         }
         
         // If we have project ID and script content but no explicit tool use happened, attempt to save it

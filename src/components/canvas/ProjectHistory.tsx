@@ -1,10 +1,11 @@
+
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject } from "@/types/canvas";
-import { ArrowLeft, Video, Calendar, Clock, Trash2 } from "lucide-react";
+import { ArrowLeft, Video, Calendar, Clock, Trash2, Hash } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { 
@@ -156,8 +157,12 @@ export function ProjectHistory({ projectId, onBack }: ProjectHistoryProps) {
                   <CardHeader className="pb-2 relative">
                     <CardTitle className="text-base flex items-center">
                       <Video className="h-4 w-4 mr-2 text-primary" />
-                      {project.title}
+                      {project.title} ({project.id.substring(0, 8)})
                     </CardTitle>
+                    <div className="flex items-center text-xs text-muted-foreground mt-1">
+                      <Hash className="h-3.5 w-3.5 mr-1" />
+                      ID: {project.id}
+                    </div>
                     {project.id !== projectId && (
                       <Button 
                         variant="ghost" 

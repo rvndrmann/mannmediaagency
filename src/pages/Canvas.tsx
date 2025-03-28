@@ -49,7 +49,8 @@ export default function Canvas() {
     deleteScene,
     updateScene,
     divideScriptToScenes,
-    saveFullScript
+    saveFullScript,
+    updateProjectTitle
   } = useCanvas(projectId || undefined);
 
   // Create a new project if none is provided
@@ -145,6 +146,7 @@ export default function Canvas() {
           showChatButton={true}
           onFullChatOpen={handleNavigateToChat}
           onShowHistory={toggleHistory}
+          onUpdateTitle={updateProjectTitle}
         />
         
         <div className="flex flex-1 overflow-hidden">
@@ -165,6 +167,7 @@ export default function Canvas() {
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
             createNewProject={handleCreateNewProject}
+            updateProjectTitle={updateProjectTitle}
           />
         </div>
       </div>

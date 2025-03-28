@@ -11,6 +11,7 @@ export interface PhoneAuthError {
 
 export const phoneAuthService = {
   async sendVerificationCode(phoneNumber: string): Promise<void> {
+    console.log('Sending verification code to:', phoneNumber);
     const { error } = await supabase.auth.signInWithOtp({
       phone: phoneNumber,
       options: {
@@ -19,11 +20,13 @@ export const phoneAuthService = {
     });
     
     if (error) {
+      console.error('Error sending verification code:', error);
       throw this.normalizeError(error);
     }
   },
 
   async verifyCode(phoneNumber: string, token: string): Promise<void> {
+    console.log('Verifying code for:', phoneNumber, 'token:', token);
     const { error } = await supabase.auth.verifyOtp({
       phone: phoneNumber,
       token,
@@ -31,6 +34,7 @@ export const phoneAuthService = {
     });
 
     if (error) {
+      console.error('Error verifying code:', error);
       throw this.normalizeError(error);
     }
   },
@@ -38,18 +42,27 @@ export const phoneAuthService = {
   normalizeError(error: any): PhoneAuthError {
     console.error('Auth error:', error);
 
-    if (error.message?.includes('Invalid phone')) {
-      return { 
-        message: 'Please enter a valid phone number',
-        code: 'invalid_phone' 
-      };
-    }
+    if (typeof error.message === 'string') {
+      if (error.message.includes('Invalid phone')) {
+        return { 
+          message: 'Please enter a valid phone number',
+          code: 'invalid_phone' 
+        };
+      }
 
-    if (error.message?.includes('Invalid OTP')) {
-      return { 
-        message: 'Invalid verification code. Please try again.',
-        code: 'invalid_otp' 
-      };
+      if (error.message.includes('Invalid OTP')) {
+        return { 
+          message: 'Invalid verification code. Please try again.',
+          code: 'invalid_otp' 
+        };
+      }
+
+      if (error.message.includes('User already registered')) {
+        return {
+          message: 'This phone number is already registered. Please sign in instead.',
+          code: 'user_exists'
+        };
+      }
     }
 
     return { 

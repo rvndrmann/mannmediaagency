@@ -79,6 +79,7 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
               onChange={(e) => setPhoneNumber(e.target.value)}
               className="bg-gray-900 border-gray-700 text-white"
             />
+            <p className="text-xs text-gray-400 mt-1">Include country code (e.g. +1 for US, +91 for India)</p>
           </div>
           <Button
             onClick={handlePhoneSubmit}
@@ -98,9 +99,11 @@ const PhoneLoginForm = ({ isSignUp = false }: PhoneLoginFormProps) => {
             <Input
               id="code"
               type="text"
+              inputMode="numeric"
+              pattern="[0-9]*"
               placeholder="Enter 6-digit code"
               value={verificationCode}
-              onChange={(e) => setVerificationCode(e.target.value)}
+              onChange={(e) => setVerificationCode(e.target.value.replace(/[^0-9]/g, ''))}
               className="bg-gray-900 border-gray-700 text-white"
             />
           </div>

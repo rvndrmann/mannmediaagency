@@ -13,23 +13,26 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
   const navigate = useNavigate();
 
   const handlePhoneSubmit = async () => {
-    // Only validate on submit
+    // Clean the phone number
     const cleanNumber = phoneNumber.replace(/[^\d+]/g, '');
-    if (!cleanNumber || cleanNumber.length < 5) { // Basic minimum length check
-      setError("Please enter a valid phone number");
+    
+    // Basic validation
+    if (!cleanNumber || cleanNumber.length < 10) {
+      setError("Please enter a valid phone number with country code (e.g. +1234567890)");
       return;
     }
 
     try {
       setStatus("loading");
       setError("");
-      await phoneAuthService.sendVerificationCode(phoneNumber);
+      console.log("Sending verification code to:", cleanNumber);
+      await phoneAuthService.sendVerificationCode(cleanNumber);
       setStep("code");
       toast.success("Verification code sent to your phone");
       setStatus("idle");
     } catch (err: any) {
-      const error = phoneAuthService.normalizeError(err);
-      setError(error.message);
+      console.error("Phone verification error:", err);
+      setError(err.message || "Failed to send verification code");
       setStatus("error");
     }
   };
@@ -43,13 +46,14 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
     try {
       setStatus("loading");
       setError("");
+      console.log("Verifying code:", verificationCode, "for phone:", phoneNumber);
       await phoneAuthService.verifyCode(phoneNumber, verificationCode);
       toast.success(isSignUp ? "Account created successfully!" : "Logged in successfully!");
       setStatus("success");
       navigate("/");
     } catch (err: any) {
-      const error = phoneAuthService.normalizeError(err);
-      setError(error.message);
+      console.error("Code verification error:", err);
+      setError(err.message || "Failed to verify code");
       setStatus("error");
     }
   };
@@ -67,7 +71,10 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
       setError(""); // Clear error when user types
     },
     verificationCode,
-    setVerificationCode,
+    setVerificationCode: (value: string) => {
+      setVerificationCode(value);
+      setError(""); // Clear error when user types
+    },
     status,
     step,
     error,

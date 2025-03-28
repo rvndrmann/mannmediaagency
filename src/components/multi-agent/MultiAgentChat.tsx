@@ -1,3 +1,4 @@
+
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -16,6 +17,8 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip";
 import { AgentInstructionsTable } from "./AgentInstructionsTable";
+import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
+import { HandoffIndicator } from "./HandoffIndicator";
 
 export const MultiAgentChat = () => {
   const { 
@@ -29,17 +32,26 @@ export const MultiAgentChat = () => {
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
+    handoffInProgress,
+    agentInstructions,
     handleSubmit, 
     switchAgent, 
     clearChat,
     addAttachments,
     removeAttachment,
+    updateAgentInstructions,
+    getAgentInstructions,
     togglePerformanceMode,
     toggleDirectToolExecution,
     toggleTracing
   } = useMultiAgentChat();
   
   const [showInstructions, setShowInstructions] = useState(false);
+  const [editInstructionsOpen, setEditInstructionsOpen] = useState(false);
+  const [selectedAgentForEdit, setSelectedAgentForEdit] = useState<AgentType>("main");
+  const [fromAgent, setFromAgent] = useState<AgentType>("main");
+  const [toAgent, setToAgent] = useState<AgentType>("main");
+  
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
 
@@ -56,9 +68,29 @@ export const MultiAgentChat = () => {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+  
+  // Monitor for handoff requests in messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      const lastMessage = messages[messages.length - 1];
+      if (lastMessage.handoffRequest && lastMessage.agentType) {
+        setFromAgent(lastMessage.agentType as AgentType);
+        setToAgent(lastMessage.handoffRequest.targetAgent as AgentType);
+      }
+    }
+  }, [messages]);
 
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
+  };
+  
+  const openEditInstructions = (agentType: AgentType) => {
+    setSelectedAgentForEdit(agentType);
+    setEditInstructionsOpen(true);
+  };
+  
+  const handleSaveInstructions = (agentType: AgentType, instructions: string) => {
+    updateAgentInstructions(agentType, instructions);
   };
 
   return (
@@ -174,7 +206,13 @@ export const MultiAgentChat = () => {
       <div className="flex-1 container mx-auto max-w-4xl px-4 pb-2 pt-2 flex flex-col h-full overflow-hidden">
         <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
         
-        {showInstructions && <AgentInstructionsTable activeAgent={activeAgent} />}
+        {showInstructions && 
+          <AgentInstructionsTable 
+            activeAgent={activeAgent} 
+            agentInstructions={agentInstructions}
+            onEditInstructions={openEditInstructions}
+          />
+        }
         
         <div className="flex-1 flex flex-col overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 shadow-lg">
           {messages.length > 0 ? (
@@ -261,6 +299,22 @@ export const MultiAgentChat = () => {
           </div>
         </div>
       </div>
+      
+      {/* Handoff indicator */}
+      <HandoffIndicator 
+        fromAgent={fromAgent} 
+        toAgent={toAgent} 
+        visible={handoffInProgress}
+      />
+      
+      {/* Edit instructions dialog */}
+      <EditAgentInstructionsDialog
+        open={editInstructionsOpen}
+        onOpenChange={setEditInstructionsOpen}
+        agentType={selectedAgentForEdit}
+        initialInstructions={getAgentInstructions(selectedAgentForEdit)}
+        onSave={handleSaveInstructions}
+      />
     </div>
   );
 };

@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { Message, Attachment } from "@/types/message";
+import { HandoffOptions } from "./handoff/types";
 
 export interface ToolDefinition {
   name: string;
@@ -98,6 +99,7 @@ export interface AgentConfig {
   modelName: string;
   modelSettings?: ModelSettings;
   tools?: ToolDefinition[];
+  handoffs?: HandoffOptions[]; // Added support for handoffs
   inputGuardrails?: InputGuardrail[];
   outputGuardrails?: OutputGuardrail[];
   outputType?: any;

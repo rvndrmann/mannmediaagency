@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -85,7 +84,7 @@ serve(async (req) => {
       if (contextData.isHandoffContinuation) {
         userMessage += `\n\nThis conversation was handed off from the ${
           contextData.previousAgentType || 'previous'
-        } agent to help with specialized assistance.`;
+        } agent to help with specialized assistance. Reason: ${contextData.handoffReason || 'Not specified'}`;
       }
 
       // If we're a tool agent, add available tools context
@@ -93,6 +92,12 @@ serve(async (req) => {
         userMessage += `\n\nAvailable tools: ${JSON.stringify(contextData.availableTools, null, 2)}`;
       }
     }
+    
+    // Define available tools based on agent type and context
+    const tools = getToolsForAgent(agentType, enableDirectToolExecution);
+    
+    // Define available handoffs based on agent type
+    const handoffs = getHandoffsForAgent(agentType);
     
     // Prepare the function calling schema for structured output
     const functions = [
@@ -145,6 +150,41 @@ serve(async (req) => {
         }
       }
     ];
+    
+    // Add tool functions if any are available
+    if (tools && tools.length > 0) {
+      tools.forEach(tool => {
+        functions.push({
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters || {
+            type: "object",
+            properties: {},
+            required: []
+          }
+        });
+      });
+    }
+    
+    // Add handoff functions if any are available
+    if (handoffs && handoffs.length > 0) {
+      handoffs.forEach(handoff => {
+        functions.push({
+          name: handoff.toolName,
+          description: handoff.toolDescription,
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason for transferring to this agent"
+              }
+            },
+            required: ["reason"]
+          }
+        });
+      });
+    }
 
     // Call OpenAI API for the response
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -160,7 +200,7 @@ serve(async (req) => {
           { role: "user", content: userMessage }
         ],
         functions: functions,
-        function_call: { name: "agentResponse" },
+        function_call: "auto", // Let the model decide which function to call
         temperature: 0.7,
         max_tokens: 2048
       })
@@ -175,18 +215,73 @@ serve(async (req) => {
     const openAIData = await openAIResponse.json();
     
     // Extract the function call response
-    const functionCall = openAIData.choices[0]?.message?.function_call;
+    const message = openAIData.choices[0]?.message;
+    const functionCall = message?.function_call;
     
-    if (!functionCall || functionCall.name !== "agentResponse") {
-      throw new Error("Invalid response format from OpenAI API");
-    }
+    // Initialize response data
+    let responseData: any = {
+      completion: "I processed your request but couldn't generate a proper response.",
+      handoffRequest: null,
+      commandSuggestion: null
+    };
     
-    // Parse the function call arguments
-    let responseData;
-    try {
-      responseData = JSON.parse(functionCall.arguments);
-    } catch (error) {
-      throw new Error(`Failed to parse function arguments: ${error.message}`);
+    // Process the response based on what function was called
+    if (functionCall) {
+      try {
+        if (functionCall.name === "agentResponse") {
+          // Standard agent response
+          responseData = JSON.parse(functionCall.arguments);
+        } else {
+          const isHandoffFunction = handoffs?.some(h => h.toolName === functionCall.name);
+          const isToolFunction = tools?.some(t => t.name === functionCall.name);
+          
+          if (isHandoffFunction) {
+            // Handle handoff function call
+            const handoffArgs = JSON.parse(functionCall.arguments);
+            const targetAgent = functionCall.name.replace("transfer_to_", "").replace("_agent", "");
+            
+            responseData = {
+              completion: `I think this request would be better handled by our ${getAgentName(targetAgent)} agent. ${handoffArgs.reason || ''}`,
+              handoffRequest: {
+                targetAgent,
+                reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`
+              }
+            };
+          } else if (isToolFunction) {
+            // Handle tool function call
+            const toolArgs = JSON.parse(functionCall.arguments);
+            
+            responseData = {
+              completion: `I'll execute the ${functionCall.name} tool for you. ${message.content || ''}`,
+              commandSuggestion: {
+                name: functionCall.name,
+                parameters: toolArgs
+              }
+            };
+          } else {
+            // Unknown function call
+            responseData = {
+              completion: message.content || "I processed your request but I'm not sure how to proceed.",
+              handoffRequest: null,
+              commandSuggestion: null
+            };
+          }
+        }
+      } catch (error) {
+        logError(`[${requestId}] Error parsing function arguments:`, error);
+        responseData = {
+          completion: message.content || "I encountered an error processing your request.",
+          handoffRequest: null,
+          commandSuggestion: null
+        };
+      }
+    } else if (message?.content) {
+      // No function call, just plain text
+      responseData = {
+        completion: message.content,
+        handoffRequest: null,
+        commandSuggestion: null
+      };
     }
     
     // Check if we should automatically handoff to a specialized agent
@@ -200,7 +295,7 @@ serve(async (req) => {
       }
     }
     
-    // Check if the input might require a tool
+    // Check if the input might require a tool when in direct tool execution mode
     if (enableDirectToolExecution && !responseData.commandSuggestion && shouldSuggestTool(input)) {
       responseData.commandSuggestion = suggestToolCommand(input);
     }
@@ -243,18 +338,23 @@ serve(async (req) => {
 
 // Get default instructions based on agent type
 function getDefaultInstructions(agentType: string): string {
+  const handoffInstructions = `
+  You can transfer the conversation to a specialized agent when appropriate:
+  - Script Writer agent: For writing scripts, creative content, or narratives
+  - Image Prompt agent: For generating detailed image descriptions
+  - Tool agent: For executing tools and performing technical tasks
+  - Scene Creator agent: For creating detailed visual scene descriptions
+  
+  ONLY transfer to another agent when the user's request clearly matches their specialty.
+  `;
+  
   switch(agentType) {
     case 'main':
     case 'assistant':
       return `You are a helpful AI assistant. Provide clear, accurate responses to user questions. 
       If you can't answer something, be honest about it. 
-      If a specialized agent would be better suited, you can suggest a handoff.
       
-      For certain specialized tasks, we have dedicated agents:
-      - Script Writer for creative content like ad scripts
-      - Image Prompt for generating image descriptions
-      - Tool Helper for technical assistance with our tools
-      - Scene Creator for detailed visual descriptions
+      ${handoffInstructions}
       
       Be professional, friendly, and helpful. Always consider the user's needs and provide the most helpful response possible.`;
       
@@ -263,21 +363,12 @@ function getDefaultInstructions(agentType: string): string {
       
       Focus on engaging dialogue, effective storytelling, and proper formatting for scripts. Consider the target audience, medium, and purpose of the script.
       
-      If a user asks for an ad script, make sure to include:
-      - Clear hook or attention-grabber
-      - Value proposition
-      - Key benefits or features
-      - Call to action
-      
-      For narratives or storytelling:
-      - Develop interesting characters and settings
-      - Create engaging plot arcs
-      - Incorporate appropriate tone and pacing
+      ${handoffInstructions}
       
       Be creative, but also practical. Consider the feasibility of production for any scripts you create.`;
       
     case 'image':
-      return `You are an image generation specialist. Help users craft detailed image prompts that will produce high-quality results.
+      return `You are an expert at creating detailed image prompts for generating visual content.
       
       Focus on these key aspects when creating image prompts:
       - Visual details: describe colors, lighting, composition, perspective
@@ -285,10 +376,7 @@ function getDefaultInstructions(agentType: string): string {
       - Mood and atmosphere: convey the feeling or emotion of the image
       - Subject focus: clearly describe the main subject and any background elements
       
-      Avoid:
-      - Vague descriptions that could be interpreted in multiple ways
-      - Prompts that violate content policies (violent, explicit, or harmful content)
-      - Over-complicated prompts with too many conflicting elements
+      ${handoffInstructions}
       
       Help users refine their ideas into clear, specific prompts that will generate impressive images.`;
       
@@ -301,10 +389,7 @@ function getDefaultInstructions(agentType: string): string {
       - Suggest appropriate parameters or settings
       - Help interpret the tool's output or results
       
-      If a user is experiencing issues with a tool:
-      - Help diagnose the problem
-      - Suggest troubleshooting steps
-      - Recommend alternatives if the tool isn't appropriate
+      ${handoffInstructions}
       
       Be technical but accessible. Use clear language and explain complex concepts in understandable terms.`;
       
@@ -317,10 +402,7 @@ function getDefaultInstructions(agentType: string): string {
       - Atmosphere and mood: lighting, weather, time of day, emotional tone
       - Key elements: important objects, features, or characters in the scene
       
-      Tailor your descriptions to the user's specific needs:
-      - For film/video: consider camera angles, movement, and visual composition
-      - For writing: focus on evocative language and narrative significance
-      - For gaming: consider interactivity and player experience
+      ${handoffInstructions}
       
       Create vivid, immersive scenes that help bring the user's vision to life.`;
       
@@ -329,13 +411,121 @@ function getDefaultInstructions(agentType: string): string {
   }
 }
 
+// Get tools for the agent based on agent type and direct execution setting
+function getToolsForAgent(agentType: string, enableDirectToolExecution: boolean): any[] {
+  if (!enableDirectToolExecution && agentType !== 'tool') {
+    return [];
+  }
+  
+  const baseTools = [
+    {
+      name: "browser-use",
+      description: "Use a browser to navigate websites, take screenshots, or perform web automation tasks",
+      parameters: {
+        type: "object",
+        properties: {
+          task: {
+            type: "string",
+            description: "The task to perform in the browser, described in detail"
+          },
+          url: {
+            type: "string",
+            description: "The starting URL for the browser task"
+          },
+          browserConfig: {
+            type: "object",
+            description: "Optional browser configuration settings",
+            properties: {
+              headless: {
+                type: "boolean",
+                description: "Whether to run the browser in headless mode"
+              },
+              timeout: {
+                type: "number",
+                description: "Timeout in milliseconds"
+              }
+            }
+          }
+        },
+        required: ["task"]
+      }
+    },
+    {
+      name: "image-to-video",
+      description: "Convert an image to a short video with animation effects",
+      parameters: {
+        type: "object",
+        properties: {
+          prompt: {
+            type: "string",
+            description: "Description of the desired animation or effect"
+          },
+          aspectRatio: {
+            type: "string",
+            description: "Aspect ratio of the output video (e.g., '16:9', '1:1', '9:16')"
+          },
+          duration: {
+            type: "string",
+            description: "Duration of the video in seconds"
+          }
+        },
+        required: ["prompt"]
+      }
+    },
+    {
+      name: "product-shot-v1",
+      description: "Generate a professional product shot from an uploaded image",
+      parameters: {
+        type: "object",
+        properties: {
+          style: {
+            type: "string",
+            description: "The style of the product shot (e.g., 'studio', 'lifestyle', 'minimalist')"
+          },
+          background: {
+            type: "string",
+            description: "Description of the desired background"
+          },
+          lighting: {
+            type: "string",
+            description: "The lighting style (e.g., 'soft', 'dramatic', 'natural')"
+          }
+        },
+        required: ["style"]
+      }
+    }
+  ];
+  
+  switch(agentType) {
+    case 'image':
+      return [...baseTools];
+      
+    case 'tool':
+      return [...baseTools];
+      
+    default:
+      return baseTools;
+  }
+}
+
+// Get handoffs for agent based on agent type
+function getHandoffsForAgent(agentType: string): any[] {
+  const allAgentTypes = ['main', 'script', 'image', 'tool', 'scene'];
+  const availableHandoffs = allAgentTypes.filter(type => type !== agentType);
+  
+  return availableHandoffs.map(targetAgent => ({
+    targetAgent,
+    toolName: `transfer_to_${targetAgent}_agent`,
+    toolDescription: `Transfer the conversation to the ${targetAgent} agent when the user's request requires specialized handling in that domain.`
+  }));
+}
+
 // Check if the input should be handed off to a specialized agent
 function checkForHandoff(input: string, currentAgentType: string): string | null {
   if (!input) return null;
   
   const inputLower = input.toLowerCase();
   
-  // Don't handoff if we're already using the specialized agent
   if (
     (currentAgentType === 'script' && (inputLower.includes('script') || inputLower.includes('write') || inputLower.includes('content'))) ||
     (currentAgentType === 'image' && (inputLower.includes('image') || inputLower.includes('picture') || inputLower.includes('photo'))) ||
@@ -345,27 +535,23 @@ function checkForHandoff(input: string, currentAgentType: string): string | null
     return null;
   }
   
-  // Check for script-related keywords
   if (inputLower.includes('script') || inputLower.includes('write') || 
       inputLower.includes('story') || inputLower.includes('narrative') || 
       inputLower.includes('ad') || inputLower.includes('content')) {
     return 'script';
   }
   
-  // Check for image-related keywords
   if (inputLower.includes('image') || inputLower.includes('picture') || 
       inputLower.includes('photo') || inputLower.includes('visual') ||
       inputLower.includes('illustration')) {
     return 'image';
   }
   
-  // Check for tool-related keywords
   if (inputLower.includes('tool') || inputLower.includes('browser') || 
       inputLower.includes('automate') || inputLower.includes('website')) {
     return 'tool';
   }
   
-  // Check for scene-related keywords
   if (inputLower.includes('scene') || inputLower.includes('setting') || 
       inputLower.includes('environment') || inputLower.includes('location')) {
     return 'scene';
@@ -416,7 +602,6 @@ function suggestToolCommand(input: string): any {
 
 // Extract a website from the input text
 function extractWebsite(input: string): string {
-  // Simple regex to extract something that looks like a website
   const matches = input.match(/\b(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/);
   return matches ? matches[0] : 'google.com';
 }

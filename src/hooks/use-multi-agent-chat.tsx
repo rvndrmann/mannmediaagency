@@ -36,6 +36,14 @@ export const useMultiAgentChat = () => {
   const [tracingEnabled, setTracingEnabled] = useState(true);
   const [currentConversationId, setCurrentConversationId] = useState<string>(uuidv4());
   const [activeToolExecutions, setActiveToolExecutions] = useState<string[]>([]);
+  const [agentInstructions, setAgentInstructions] = useState<Record<AgentType, string>>({
+    main: "",
+    script: "",
+    image: "",
+    tool: "",
+    scene: ""
+  });
+  const [handoffInProgress, setHandoffInProgress] = useState(false);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -62,6 +70,31 @@ export const useMultiAgentChat = () => {
       console.error("Error saving chat history to localStorage:", e);
     }
   }, [messages]);
+
+  // Persist agent instructions to localStorage
+  useEffect(() => {
+    try {
+      localStorage.setItem("agent_instructions", JSON.stringify(agentInstructions));
+    } catch (e) {
+      console.error("Error saving agent instructions to localStorage:", e);
+    }
+  }, [agentInstructions]);
+
+  // Load agent instructions from localStorage
+  useEffect(() => {
+    try {
+      const savedInstructions = localStorage.getItem("agent_instructions");
+      if (savedInstructions) {
+        const parsedInstructions = JSON.parse(savedInstructions);
+        setAgentInstructions(prev => ({
+          ...prev,
+          ...parsedInstructions
+        }));
+      }
+    } catch (e) {
+      console.error("Error loading agent instructions from localStorage:", e);
+    }
+  }, []);
 
   // Fetch task status for active tool executions
   useEffect(() => {
@@ -154,6 +187,29 @@ export const useMultiAgentChat = () => {
     // In a real implementation, this would check if the tool is available
     return true;
   }, []);
+  
+  // Add a system message indicating handoff
+  const addHandoffMessage = useCallback((fromAgent: AgentType, toAgent: AgentType, reason: string) => {
+    const handoffMessage: Message = {
+      id: uuidv4(),
+      role: "system",
+      content: `Transferring from ${fromAgent} agent to ${toAgent} agent: ${reason}`,
+      createdAt: new Date().toISOString(),
+      status: "completed",
+      type: "handoff"
+    };
+    setMessages(prev => [...prev, handoffMessage]);
+    
+    // Add visual indicator of handoff in progress
+    setHandoffInProgress(true);
+    
+    // After a delay, hide the indicator
+    setTimeout(() => {
+      setHandoffInProgress(false);
+    }, 2000);
+    
+    return handoffMessage;
+  }, []);
 
   // Handle message submission
   const handleSubmit = async (e: React.FormEvent) => {
@@ -220,6 +276,10 @@ export const useMultiAgentChat = () => {
           console.error("Agent error:", error);
           toast.error(error);
         },
+        onHandoffStart: (fromAgent, toAgent, reason) => {
+          console.log(`Handoff starting from ${fromAgent} to ${toAgent}: ${reason}`);
+          addHandoffMessage(fromAgent, toAgent, reason);
+        },
         onHandoffEnd: (toAgent) => {
           console.log("Handling handoff to:", toAgent);
           setActiveAgent(toAgent);
@@ -267,6 +327,19 @@ export const useMultiAgentChat = () => {
   const switchAgent = useCallback((agentType: AgentType) => {
     setActiveAgent(agentType);
   }, []);
+  
+  // Agent instructions management
+  const updateAgentInstructions = useCallback((agentType: AgentType, instructions: string) => {
+    setAgentInstructions(prev => ({
+      ...prev,
+      [agentType]: instructions
+    }));
+    toast.success(`Updated ${agentType} agent instructions`);
+  }, []);
+  
+  const getAgentInstructions = useCallback((agentType: AgentType) => {
+    return agentInstructions[agentType] || "";
+  }, [agentInstructions]);
 
   // Chat management
   const clearChat = useCallback(() => {
@@ -313,12 +386,16 @@ export const useMultiAgentChat = () => {
     tracingEnabled,
     currentConversationId,
     activeToolExecutions,
+    handoffInProgress,
+    agentInstructions,
     handleSubmit,
     switchAgent,
     clearChat,
     addAttachments,
     removeAttachment,
     updateMessage,
+    updateAgentInstructions,
+    getAgentInstructions,
     togglePerformanceMode,
     toggleDirectToolExecution,
     toggleTracing

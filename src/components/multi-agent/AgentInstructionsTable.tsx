@@ -1,123 +1,93 @@
 
-import { Bot, PenLine, Image, Wrench, FileText } from "lucide-react";
-import { 
-  Table, 
-  TableBody, 
-  TableCell, 
-  TableHead, 
-  TableHeader, 
-  TableRow 
-} from "@/components/ui/table";
-import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { AgentType } from "@/hooks/use-multi-agent-chat";
+import { Edit } from "lucide-react";
 
 interface AgentInstructionsTableProps {
-  activeAgent: string;
+  activeAgent: AgentType;
+  agentInstructions: Record<AgentType, string>;
+  onEditInstructions: (agentType: AgentType) => void;
 }
 
-export const AgentInstructionsTable = ({ activeAgent }: AgentInstructionsTableProps) => {
-  const agents = [
-    {
-      id: "main",
-      name: "Assistant",
-      icon: <Bot className="h-4 w-4" />,
-      description: "General AI assistant",
-      capabilities: [
-        "Answers general questions",
-        "Provides information on various topics",
-        "Routes requests to specialized agents when needed",
-        "Offers guidance on how to use the system"
-      ],
-      instructions: "You are a helpful assistant. You analyze user requests and either answer them directly or route to specialized agents."
-    },
-    {
-      id: "script",
-      name: "Script Writer",
-      icon: <PenLine className="h-4 w-4" />,
-      description: "Creates scripts and narratives",
-      capabilities: [
-        "Writes ad scripts and marketing copy",
-        "Creates narratives and stories",
-        "Develops dialogue and characters",
-        "Formats scripts professionally"
-      ],
-      instructions: "You are a script writer specializing in creating compelling narratives, dialogue, and creative content."
-    },
-    {
-      id: "image",
-      name: "Image Prompt",
-      icon: <Image className="h-4 w-4" />,
-      description: "Creates AI image prompts",
-      capabilities: [
-        "Generates detailed image prompts",
-        "Helps visualize concepts",
-        "Creates style and composition descriptions",
-        "Optimizes prompts for AI image generators"
-      ],
-      instructions: "You create detailed image generation prompts that will produce high-quality results."
-    },
-    {
-      id: "tool",
-      name: "Tool Helper",
-      icon: <Wrench className="h-4 w-4" />,
-      description: "Guides on using tools",
-      capabilities: [
-        "Explains tool functionality",
-        "Provides usage examples",
-        "Troubleshoots tool issues",
-        "Recommends appropriate tools for tasks"
-      ],
-      instructions: "You help users understand and effectively use the various tools available in the system."
-    },
-    {
-      id: "scene",
-      name: "Scene Creator",
-      icon: <FileText className="h-4 w-4" />,
-      description: "Creates detailed scenes",
-      capabilities: [
-        "Crafts rich visual descriptions",
-        "Develops settings and environments",
-        "Creates atmosphere and mood",
-        "Describes locations with sensory details"
-      ],
-      instructions: "You create detailed visual scenes with rich descriptions for settings, atmospheres, and visual elements."
+export function AgentInstructionsTable({ 
+  activeAgent, 
+  agentInstructions,
+  onEditInstructions
+}: AgentInstructionsTableProps) {
+  const getDefaultInstructions = (agentType: AgentType): string => {
+    switch(agentType) {
+      case 'main':
+        return "You are a helpful AI assistant that can analyze user requests and provide assistance or delegate to specialized agents.";
+      case 'script':
+        return "You are a professional script writer who can create compelling narratives, ad scripts, and other written content.";
+      case 'image':
+        return "You are an expert at creating detailed image prompts for generating visual content.";
+      case 'tool':
+        return "You are a technical tool specialist. Guide users through using various tools and APIs.";
+      case 'scene':
+        return "You are a scene creation expert. Help users visualize and describe detailed environments and settings.";
+      default:
+        return "Default instructions for an AI assistant.";
     }
-  ];
+  };
+
+  // Get the actual instructions to display (user-defined or default)
+  const getDisplayInstructions = (agentType: AgentType): string => {
+    if (agentInstructions[agentType]) {
+      return agentInstructions[agentType];
+    }
+    return getDefaultInstructions(agentType);
+  };
+
+  // Format instructions to show just a preview (first 100 characters)
+  const formatInstructions = (instructions: string): string => {
+    if (instructions.length <= 100) return instructions;
+    return instructions.substring(0, 100) + "...";
+  };
 
   return (
-    <div className="bg-[#21283B]/60 backdrop-blur-sm rounded-xl border border-white/10 mb-4 p-4 shadow-lg">
-      <h3 className="text-white text-lg font-medium mb-3">Agent Instructions</h3>
-      <Table className="border border-white/10 rounded-lg overflow-hidden">
-        <TableHeader className="bg-[#2D3240]">
-          <TableRow>
-            <TableHead className="text-white w-[120px]">Agent</TableHead>
-            <TableHead className="text-white">Description</TableHead>
-            <TableHead className="text-white">Capabilities</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {agents.map((agent) => (
-            <TableRow key={agent.id} className={activeAgent === agent.id ? "bg-[#3A4252]" : "hover:bg-[#2D3240]"}>
-              <TableCell className="font-medium text-white flex items-center gap-2">
-                <div className={`p-1 rounded-full ${activeAgent === agent.id ? "bg-gradient-to-r from-blue-500 to-indigo-500" : "bg-[#21283B]"}`}>
-                  {agent.icon}
-                </div>
-                {agent.name}
-                {activeAgent === agent.id && (
-                  <Badge className="ml-1 bg-gradient-to-r from-blue-500 to-indigo-500">Active</Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-gray-300">{agent.description}</TableCell>
-              <TableCell>
-                <ul className="list-disc space-y-1 pl-5 text-gray-300 text-sm">
-                  {agent.capabilities.map((capability, i) => (
-                    <li key={i}>{capability}</li>
-                  ))}
-                </ul>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
+    <div className="mb-2 bg-[#21283B]/80 rounded-lg border border-white/10 p-3 text-white/90 shadow-md">
+      <div className="mb-2 flex items-center justify-between">
+        <h3 className="text-sm font-medium">Agent Instructions</h3>
+        <p className="text-xs text-white/60">Click edit to customize agent behavior</p>
+      </div>
+      
+      <div className="overflow-auto max-h-32 text-sm">
+        <table className="min-w-full border-collapse text-left">
+          <thead>
+            <tr className="border-b border-white/10 text-xs text-white/70">
+              <th className="py-1 px-2 w-20">Agent</th>
+              <th className="py-1 px-2">Instructions</th>
+              <th className="py-1 px-2 w-14 text-right">Edit</th>
+            </tr>
+          </thead>
+          <tbody className="text-xs">
+            {(['main', 'script', 'image', 'tool', 'scene'] as AgentType[]).map((agentType) => (
+              <tr 
+                key={agentType}
+                className={`border-b border-white/10 hover:bg-white/5 ${activeAgent === agentType ? 'bg-white/10' : ''}`}
+              >
+                <td className="py-1 px-2 font-medium">
+                  {agentType.charAt(0).toUpperCase() + agentType.slice(1)}
+                </td>
+                <td className="py-1 px-2 text-white/80">
+                  {formatInstructions(getDisplayInstructions(agentType))}
+                </td>
+                <td className="py-1 px-2 text-right">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => onEditInstructions(agentType)}
+                    className="h-6 w-6 p-0 text-white/70 hover:text-white hover:bg-white/10"
+                  >
+                    <Edit className="h-3 w-3" />
+                  </Button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
-};
+}

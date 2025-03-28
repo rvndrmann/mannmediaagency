@@ -34,8 +34,24 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
   const isError = message.status === "error";
   const isUser = message.role === "user";
   const isAgent = message.role === "assistant" && message.agentType;
+  const isSystem = message.role === "system";
+  const isHandoff = message.type === "handoff";
   const hasAttachments = message.attachments && message.attachments.length > 0;
   const hasHandoffRequest = message.handoffRequest != null;
+
+  // System handoff messages get special styling
+  if (isSystem && isHandoff) {
+    return (
+      <div className="flex items-center justify-center my-2 animate-in slide-in-from-top duration-300">
+        <div className="bg-[#1A1F29] border border-white/20 rounded-full py-1 px-3 flex items-center gap-2 shadow-md">
+          <ArrowRightLeft className="h-3.5 w-3.5 text-blue-400" />
+          <span className="text-xs text-white/80">
+            {message.content}
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <Card
@@ -61,13 +77,16 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
             message.agentType === "main" ? "default" : 
             message.agentType === "script" ? "info" : 
             message.agentType === "image" ? "warning" : 
-            "success"
+            message.agentType === "scene" ? "success" :
+            "outline"
           }
           className="mb-3 text-xs"
         >
           {message.agentType === "main" ? "Main Assistant" : 
            message.agentType === "script" ? "Script Writer" : 
-           message.agentType === "image" ? "Image Prompt" : "Tool Orchestrator"}
+           message.agentType === "image" ? "Image Prompt" : 
+           message.agentType === "scene" ? "Scene Creator" : 
+           "Tool Orchestrator"}
         </Badge>
       )}
       
@@ -111,8 +130,11 @@ export const ChatMessage = ({ message, onRetry, showAgentName }: ChatMessageProp
             <Badge variant="outline" className="text-xs py-0 px-1 border-blue-400/30">
               {message.handoffRequest?.targetAgent === "main" ? "Main Assistant" : 
                message.handoffRequest?.targetAgent === "script" ? "Script Writer" : 
-               message.handoffRequest?.targetAgent === "image" ? "Image Prompt" : "Tool Orchestrator"}
+               message.handoffRequest?.targetAgent === "image" ? "Image Prompt" : 
+               message.handoffRequest?.targetAgent === "scene" ? "Scene Creator" :
+               "Tool Orchestrator"}
             </Badge>
+            {message.handoffRequest?.reason ? `: ${message.handoffRequest.reason}` : ""}
           </span>
         </div>
       )}

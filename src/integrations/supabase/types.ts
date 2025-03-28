@@ -684,6 +684,7 @@ export type Database = {
       }
       canvas_scenes: {
         Row: {
+          background_music_url: string | null
           created_at: string
           description: string | null
           duration: number | null
@@ -697,8 +698,10 @@ export type Database = {
           title: string
           updated_at: string
           video_url: string | null
+          voice_over_url: string | null
         }
         Insert: {
+          background_music_url?: string | null
           created_at?: string
           description?: string | null
           duration?: number | null
@@ -712,8 +715,10 @@ export type Database = {
           title: string
           updated_at?: string
           video_url?: string | null
+          voice_over_url?: string | null
         }
         Update: {
+          background_music_url?: string | null
           created_at?: string
           description?: string | null
           duration?: number | null
@@ -727,6 +732,7 @@ export type Database = {
           title?: string
           updated_at?: string
           video_url?: string | null
+          voice_over_url?: string | null
         }
         Relationships: [
           {

@@ -18,9 +18,17 @@ export const supabase = createClient(
       storage: localStorage,
       persistSession: true,
       autoRefreshToken: true,
+      detectSessionInUrl: true,
+      flowType: 'pkce'
     }
   }
 );
 
 // Log initialization
 console.log(`Supabase client initialized with URL: ${SUPABASE_URL}`);
+console.log(`Using environment variables: ${!!import.meta.env.VITE_SUPABASE_URL}`);
+
+// Add global error handler for Supabase
+window.addEventListener('supabase.error', (e) => {
+  console.error('Supabase global error:', e);
+});

@@ -15,6 +15,7 @@ const LoginForm = () => {
   const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
   const [loginMethod, setLoginMethod] = useState<"email" | "phone" | null>("email");
+  const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
     try {
@@ -25,6 +26,11 @@ const LoginForm = () => {
       }
       
       setIsLoading(true);
+      setError(null);
+      
+      console.log("Attempting Google login");
+      console.log("Redirect URL:", `${window.location.origin}/auth/callback`);
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -34,10 +40,14 @@ const LoginForm = () => {
 
       if (error) {
         console.error("Google login error:", error);
+        setError(error.message || "Failed to connect to Google");
         toast.error(error.message || "Failed to connect to Google");
+      } else {
+        console.log("Google OAuth flow initiated successfully");
       }
     } catch (error: any) {
       console.error("Unexpected Google login error:", error);
+      setError(error.message || "Failed to connect to Google");
       toast.error("Failed to connect to Google. Please try again.");
     } finally {
       setIsLoading(false);
@@ -51,6 +61,13 @@ const LoginForm = () => {
           <h2 className="text-3xl font-bold text-white mb-2">Welcome Back</h2>
           <p className="text-gray-400">Sign in to continue to MANNMEDIAAGENCY</p>
         </div>
+
+        {error && (
+          <div className="flex items-center gap-2 py-3 px-4 bg-red-500/10 text-red-300 rounded-md text-sm">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <p>{error}</p>
+          </div>
+        )}
 
         <div className="space-y-4">
           {loginMethod === "email" && <EmailLoginForm isSignUp={false} />}

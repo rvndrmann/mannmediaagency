@@ -39,10 +39,8 @@ export const useEmailAuth = () => {
       toast.success("Logged in successfully!");
       setStatus("success");
       
-      // Use a small delay to ensure state updates complete before navigation
-      setTimeout(() => {
-        navigate("/");
-      }, 100);
+      // Navigate to the callback page to handle session establishment
+      navigate("/auth/callback");
     } catch (err: any) {
       console.error("Unexpected login error:", err);
       setError(err.message || "An unexpected error occurred");
@@ -100,10 +98,8 @@ export const useEmailAuth = () => {
       
       if (data.session) {
         console.log("Signup successful with session:", data.user?.email);
-        // Use a small delay to ensure state updates complete before navigation
-        setTimeout(() => {
-          navigate("/");
-        }, 100);
+        // Navigate to callback to handle session establishment
+        navigate("/auth/callback");
       }
     } catch (err: any) {
       console.error("Unexpected signup error:", err);

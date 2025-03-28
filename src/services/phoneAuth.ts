@@ -22,7 +22,7 @@ export const phoneAuthService = {
         options: {
           shouldCreateUser: true,
           // Explicitly set redirect URL to ensure proper callback handling
-          emailRedirectTo: `${window.location.origin}/auth/callback`
+          redirectTo: `${window.location.origin}/auth/callback`
         }
       });
       

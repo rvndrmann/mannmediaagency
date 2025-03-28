@@ -62,7 +62,7 @@ export const usePhoneAuth = (isSignUp: boolean = true) => {
       await phoneAuthService.verifyCode(phoneNumber, verificationCode);
       toast.success(isSignUp ? "Account created successfully!" : "Logged in successfully!");
       setStatus("success");
-      navigate("/");
+      navigate("/auth/callback"); // Redirect to callback to handle session
     } catch (err: any) {
       console.error("Code verification error:", err);
       setError(err.message || "Failed to verify code");

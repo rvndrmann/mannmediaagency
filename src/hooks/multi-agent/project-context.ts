@@ -17,6 +17,32 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [projectDetails, setProjectDetails] = useState<CanvasProject | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [availableProjects, setAvailableProjects] = useState<{id: string, title: string}[]>([]);
+  const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
+
+  // Fetch list of available projects for the user
+  const fetchAvailableProjects = useCallback(async () => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return [];
+      
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .select('id, title')
+        .eq('user_id', userData.user.id)
+        .order('updated_at', { ascending: false });
+        
+      if (error) throw error;
+      
+      setAvailableProjects(data || []);
+      setHasLoadedProjects(true);
+      return data || [];
+    } catch (error) {
+      console.error("Error fetching available projects:", error);
+      setHasLoadedProjects(true);
+      return [];
+    }
+  }, []);
 
   const fetchProjectDetails = useCallback(async (projectId: string) => {
     if (!projectId) return null;
@@ -124,8 +150,11 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     projectDetails,
     isLoading,
     error,
+    availableProjects,
+    hasLoadedProjects,
     setActiveProject,
     fetchProjectDetails,
+    fetchAvailableProjects,
     refreshProject: () => activeProjectId ? fetchProjectDetails(activeProjectId) : null
   };
 }

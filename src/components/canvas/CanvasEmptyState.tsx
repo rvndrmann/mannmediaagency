@@ -48,7 +48,7 @@ export function CanvasEmptyState({ onCreateProject }: CanvasEmptyStateProps) {
             <CardTitle>Create New Project</CardTitle>
           </div>
           <CardDescription>
-            Start by creating a new video project to organize your scenes and content.
+            You don't have any existing projects. Start by creating a new video project to organize your scenes and content.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">

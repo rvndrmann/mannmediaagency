@@ -6,7 +6,7 @@ import { toast } from "sonner";
 import { AgentType } from "./multi-agent/runner/types";
 
 // Export AgentType to make it available to other modules
-export type { AgentType } from "./multi-agent/runner/types";
+export { AgentType } from "./multi-agent/runner/types";
 
 interface UseMultiAgentChatOptions {
   initialMessages?: Message[];

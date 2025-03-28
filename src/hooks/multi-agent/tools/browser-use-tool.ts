@@ -1,167 +1,105 @@
 
-import { Command } from "@/types/message";
-import { ToolDefinition, ToolResult, ToolContext } from "../types";
-import { BrowserConfig, SensitiveDataItem } from "@/hooks/browser-use/types";
-
-// Default configuration
-const defaultBrowserConfig: BrowserConfig = {
-  headless: false,
-  disableSecurity: false,
-  useOwnBrowser: false,
-  chromePath: "",
-  persistentSession: true,
-  resolution: "1920x1080",
-  theme: "Ocean",
-  darkMode: false,
-  contextConfig: {
-    minWaitPageLoadTime: 0.5,
-    waitForNetworkIdlePageLoadTime: 5.0,
-    maxWaitPageLoadTime: 15.0,
-    highlightElements: true,
-    viewportExpansion: 500
-  }
-};
-
-// Process task text by replacing sensitive data placeholders
-const processTaskWithSensitiveData = (task: string, sensitiveData?: SensitiveDataItem[]): string => {
-  if (!sensitiveData || sensitiveData.length === 0) return task;
-  
-  let processedTask = task;
-  sensitiveData.forEach(item => {
-    const placeholder = `{${item.key}}`;
-    const regex = new RegExp(placeholder, 'g');
-    processedTask = processedTask.replace(regex, item.value);
-  });
-  
-  return processedTask;
-};
-
-// Add a function to generate proxy notes
-const generateProxyNotes = (config: BrowserConfig): string => {
-  if (!config.proxy) return '';
-  
-  // Get the proxy type from the URL
-  const proxyType = config.proxy.startsWith('https://') ? 'HTTPS' :
-                    config.proxy.startsWith('socks5://') ? 'SOCKS5' :
-                    config.proxy.startsWith('socks4://') ? 'SOCKS4' : 'HTTP';
-                    
-  // Check if proxy contains authentication
-  const hasAuth = config.proxy.includes('@');
-  
-  return `\n\nNote: Using ${proxyType} proxy${hasAuth ? ' with authentication' : ''} for this task.`;
-};
+import { ToolDefinition, ToolExecutionResult } from "../types";
 
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
-  description: "Automates browser tasks like navigating websites, filling forms, taking screenshots, and more",
-  version: "1.0.0",
+  description: "Automate browser tasks including browsing websites, taking screenshots, and filling forms",
   requiredCredits: 1,
-  parameters: [
-    {
-      name: "task",
+  version: "1.0.0",
+  parameters: {
+    task: {
       type: "string",
-      description: "Description of the browser task to perform",
-      required: true,
-      prompt: "Describe the browser task in detail (e.g., 'Go to wikipedia.org and take a screenshot of the main page')"
+      description: "The task to perform in natural language (e.g., 'go to google.com and search for AI news')",
+      required: true
     },
-    {
-      name: "browserConfig",
+    browserConfig: {
       type: "object",
-      description: "Optional browser configuration options including proxy settings",
-      required: false
+      description: "Optional browser configuration",
+      required: false,
+      properties: {
+        headless: {
+          type: "boolean",
+          description: "Whether to run the browser in headless mode",
+          default: true
+        },
+        proxy: {
+          type: "string",
+          description: "Optional proxy to use (format: 'protocol://host:port')",
+        },
+        timeout: {
+          type: "number",
+          description: "Timeout in milliseconds",
+          default: 60000
+        }
+      }
+    },
+    save_browser_data: {
+      type: "boolean",
+      description: "Whether to save browser cookies and session data for future use",
+      default: true
     }
-  ],
-  
-  async execute(command: Command, context: ToolContext): Promise<ToolResult> {
+  },
+
+  async execute(params: any, context: any): Promise<ToolExecutionResult> {
     try {
-      const task = command.parameters.task as string;
-      const userBrowserConfig = command.parameters.browserConfig as Partial<BrowserConfig> || {};
+      console.log("Executing Browser-Use Tool with params:", params);
       
-      if (!task) {
+      // Check if API key is available through environment or context
+      const apiKey = context.metadata?.browserUseApiKey || process.env.BROWSER_USE_API_KEY;
+      
+      if (!apiKey) {
+        throw new Error("Browser-Use API key not found");
+      }
+
+      // Check if user has enough credits
+      if (context.creditsRemaining !== undefined && context.creditsRemaining < this.requiredCredits) {
         return {
           success: false,
-          message: "Task description is required"
+          error: `Insufficient credits. You need ${this.requiredCredits} credits, but have ${context.creditsRemaining}.`,
+          data: null
         };
       }
-      
-      // Merge user provided config with defaults
-      const browserConfig: BrowserConfig = {
-        ...defaultBrowserConfig,
-        ...userBrowserConfig
-      };
-      
-      // Process the task with sensitive data
-      const processedTask = processTaskWithSensitiveData(task, browserConfig.sensitiveData);
-      
-      // Add notes for placeholders and proxy
-      const hasPlaceholders = task.match(/\{([^}]+)\}/g);
-      let notesText = "";
-      
-      if (hasPlaceholders && browserConfig.sensitiveData && browserConfig.sensitiveData.length > 0) {
-        notesText += "\n\nNote: Sensitive data placeholders have been securely replaced.";
-      }
-      
-      if (browserConfig.proxy) {
-        notesText += generateProxyNotes(browserConfig);
-      }
-      
-      // Check if this is a proxy test request
-      if (command.parameters.action === "test-proxy" && browserConfig.proxy) {
-        const testUrl = command.parameters.testUrl as string || "https://httpbin.org/ip";
-        
-        const { data, error } = await context.supabase.functions.invoke("browser-use-api", {
-          body: { 
-            action: "test-proxy",
-            proxyUrl: browserConfig.proxy,
-            testUrl
-          }
-        });
-        
-        if (error) {
-          return {
-            success: false,
-            message: `Failed to test proxy: ${error.message || "Unknown error"}`
-          };
-        }
-        
-        return {
-          success: data.success,
-          message: data.message,
-          data: data.data
-        };
-      }
-      
-      // Execute the browser task
-      const { data, error } = await context.supabase.functions.invoke("browser-use-api", {
-        body: { 
-          task: processedTask,
-          environment: "browser",
-          browser_config: browserConfig
+
+      // Call the Supabase function to execute the browser automation task
+      const { data, error } = await context.supabase.functions.invoke('browser-use-api', {
+        body: {
+          task: params.task,
+          browserConfig: params.browserConfig || {},
+          save_browser_data: params.save_browser_data !== false,
+          userId: context.userId,
+          runId: context.runId
         }
       });
-      
+
       if (error) {
-        console.error("Error starting browser task:", error);
+        console.error("Browser-Use API error:", error);
         return {
           success: false,
-          message: `Failed to start browser task: ${error.message || "Unknown error"}`
+          error: `Browser automation failed: ${error.message}`,
+          data: null
         };
       }
-      
+
+      context.addMessage(`Browser automation task started: "${params.task}"`, "tool");
+
       return {
         success: true,
-        message: `Browser task started successfully. Task ID: ${data.taskId}${notesText}`,
         data: {
           taskId: data.taskId,
           liveUrl: data.liveUrl,
-          usingProxy: !!browserConfig.proxy
+          message: "Browser automation task started. You can check progress in the task monitor.",
+          status: "running"
+        },
+        usage: {
+          creditsUsed: this.requiredCredits
         }
       };
-    } catch (error) {
-      console.error("Error executing browser task:", error);
+    } catch (error: any) {
+      console.error("Error executing browser-use tool:", error);
       return {
         success: false,
-        message: `Error executing browser task: ${error instanceof Error ? error.message : "Unknown error"}`
+        error: `Failed to execute browser automation: ${error.message}`,
+        data: null
       };
     }
   }

@@ -23,6 +23,7 @@ interface AgentRunnerCallbacks {
   onMessage: (message: Message) => void;
   onError: (error: string) => void;
   onHandoffEnd: (toAgent: string) => void;
+  onToolExecution?: (toolName: string, params: any) => void;
 }
 
 export class AgentRunner {
@@ -65,12 +66,13 @@ export class AgentRunner {
     try {
       let agentResponse: string | null = null;
       let nextAgent: string | null = null;
+      let commandSuggestion: any = null;
 
       switch (this.agentType) {
         case "main":
         case "assistant":
           const assistantAgent = new AssistantAgent(agentContext);
-          ({ response: agentResponse, nextAgent } = await assistantAgent.run(input, attachments));
+          ({ response: agentResponse, nextAgent, commandSuggestion } = await assistantAgent.run(input, attachments));
           break;
         case "script":
           const scriptWriterAgent = new ScriptWriterAgent(agentContext);
@@ -86,11 +88,16 @@ export class AgentRunner {
           break;
         case "tool":
           const toolAgent = new ToolAgent(agentContext);
-          ({ response: agentResponse, nextAgent } = await toolAgent.run(input, attachments));
+          ({ response: agentResponse, nextAgent, commandSuggestion } = await toolAgent.run(input, attachments));
           break;
         default:
           this.status = "error";
           throw new Error(`Unknown agent type: ${this.agentType}`);
+      }
+
+      // Process any command suggestion if present and direct tool execution is enabled
+      if (commandSuggestion && this.params.enableDirectToolExecution) {
+        await this.executeToolCommand(commandSuggestion, userId);
       }
 
       if (agentResponse) {
@@ -113,6 +120,78 @@ export class AgentRunner {
     }
   }
 
+  private async executeToolCommand(command: any, userId: string): Promise<void> {
+    const { name, parameters } = command;
+    
+    if (!name) {
+      console.error("Invalid tool command: missing tool name");
+      return;
+    }
+
+    const tool = getTool(name);
+    if (!tool) {
+      console.error(`Tool not found: ${name}`);
+      return;
+    }
+
+    try {
+      // Notify about tool execution
+      if (this.callbacks.onToolExecution) {
+        this.callbacks.onToolExecution(name, parameters);
+      }
+
+      // Create tool execution message
+      const toolMessage: Message = {
+        id: uuidv4(),
+        role: "tool",
+        content: `Executing ${name} tool with parameters: ${JSON.stringify(parameters, null, 2)}`,
+        createdAt: new Date().toISOString(),
+        tool_name: name,
+        tool_arguments: JSON.stringify(parameters),
+        status: "working"
+      };
+      this.callbacks.onMessage(toolMessage);
+
+      // Execute the tool
+      const toolContext = this.createAgentContext(userId);
+      const result = await tool.execute(parameters, toolContext);
+
+      // Update the tool message with the result
+      const updatedToolMessage: Message = {
+        ...toolMessage,
+        content: result.success 
+          ? `Tool execution completed: ${JSON.stringify(result.data, null, 2)}` 
+          : `Tool execution failed: ${result.error}`,
+        status: result.success ? "completed" : "error"
+      };
+      this.callbacks.onMessage(updatedToolMessage);
+
+      // Generate an agent response about the tool execution
+      const responseMessage: Message = {
+        id: uuidv4(),
+        role: "assistant",
+        content: result.success 
+          ? `I've executed the ${name} tool successfully. ${result.data?.message || ''}` 
+          : `I attempted to use the ${name} tool, but encountered an error: ${result.error}`,
+        createdAt: new Date().toISOString(),
+        agentType: this.agentType
+      };
+      this.callbacks.onMessage(responseMessage);
+    } catch (error: any) {
+      console.error(`Error executing tool ${name}:`, error);
+      
+      // Create error message
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: "assistant",
+        content: `I attempted to use the ${name} tool, but encountered an error: ${error.message}`,
+        createdAt: new Date().toISOString(),
+        agentType: this.agentType
+      };
+      this.callbacks.onMessage(errorMessage);
+    }
+  }
+
   private createAgentContext(userId: string): ToolContext {
     return {
       supabase,
@@ -127,14 +206,31 @@ export class AgentRunner {
       addMessage: this.addMessage.bind(this),
       toolAvailable: this.toolAvailable.bind(this),
       attachments: this.currentAttachments,
-      creditsRemaining: this.params.metadata.creditsRemaining
+      creditsRemaining: this.params.metadata.creditsRemaining,
+      executeTool: this.executeTool.bind(this)
     };
+  }
+
+  private async executeTool(toolName: string, params: any): Promise<any> {
+    const tool = getTool(toolName);
+    if (!tool) {
+      throw new Error(`Tool not found: ${toolName}`);
+    }
+
+    // Get the current user
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("User not authenticated");
+    }
+
+    const context = this.createAgentContext(user.id);
+    return await tool.execute(params, context);
   }
 
   private addMessage(text: string, type: string, attachments: Attachment[] = []) {
     const message: Message = {
       id: uuidv4(),
-      role: type === "agent" ? "assistant" : "user",
+      role: type === "agent" ? "assistant" : (type === "tool" ? "tool" : "user"),
       content: text,
       createdAt: new Date().toISOString(),
       agentType: this.agentType,

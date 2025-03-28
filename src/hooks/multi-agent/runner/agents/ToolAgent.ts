@@ -2,6 +2,7 @@
 import { Attachment } from "@/types/message";
 import { ToolContext } from "../../types";
 import { BaseAgent, AgentResult } from "../types";
+import { getTool, getAvailableTools } from "../../tools";
 
 export class ToolAgent implements BaseAgent {
   private context: ToolContext;
@@ -18,8 +19,12 @@ export class ToolAgent implements BaseAgent {
         throw new Error("User not authenticated");
       }
       
-      // Get available tools
-      const availableTools = []; // Normally we would fetch these from somewhere
+      // Get available tools for context
+      const availableTools = getAvailableTools().map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        requiredCredits: tool.requiredCredits
+      }));
       
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -53,11 +58,25 @@ export class ToolAgent implements BaseAgent {
         nextAgent = data.handoffRequest.targetAgent;
       }
       
+      // Check if there's a command suggestion
+      let commandSuggestion = null;
+      if (data?.commandSuggestion) {
+        commandSuggestion = data.commandSuggestion;
+        
+        // Attempt to validate the command
+        const tool = getTool(commandSuggestion.name);
+        if (!tool) {
+          console.warn(`Tool agent suggested unknown tool: ${commandSuggestion.name}`);
+          commandSuggestion = null;
+        }
+      }
+      
       return {
         response: data?.completion || "I processed your request but couldn't help with the tool.",
-        nextAgent: nextAgent
+        nextAgent: nextAgent,
+        commandSuggestion: commandSuggestion
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("ToolAgent run error:", error);
       throw error;
     }

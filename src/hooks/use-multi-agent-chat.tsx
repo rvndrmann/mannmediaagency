@@ -32,6 +32,7 @@ export const useMultiAgentChat = () => {
   const [enableDirectToolExecution, setEnableDirectToolExecution] = useState(true);
   const [tracingEnabled, setTracingEnabled] = useState(true);
   const [currentConversationId, setCurrentConversationId] = useState<string>(uuidv4());
+  const [activeToolExecutions, setActiveToolExecutions] = useState<string[]>([]);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -59,6 +60,41 @@ export const useMultiAgentChat = () => {
     }
   }, [messages]);
 
+  // Fetch task status for active tool executions
+  useEffect(() => {
+    if (activeToolExecutions.length === 0) return;
+    
+    const intervalId = setInterval(async () => {
+      // Check task statuses
+      for (const taskId of activeToolExecutions) {
+        try {
+          const { data: { user } } = await supabase.auth.getUser();
+          if (!user) continue;
+          
+          const { data, error } = await supabase.functions.invoke('browser-use-api', {
+            body: { action: 'getTask', taskId }
+          });
+          
+          if (error) {
+            console.error("Error checking task status:", error);
+            continue;
+          }
+          
+          // If the task is completed, update the message and remove from active executions
+          if (data.status === 'finished' || data.status === 'stopped' || data.status === 'failed') {
+            // Find the tool message
+            updateToolMessage(taskId, data);
+            setActiveToolExecutions(prev => prev.filter(id => id !== taskId));
+          }
+        } catch (error) {
+          console.error("Error checking task status:", error);
+        }
+      }
+    }, 5000);
+    
+    return () => clearInterval(intervalId);
+  }, [activeToolExecutions]);
+
   // Update message helper
   const updateMessage = useCallback((index: number, updates: Partial<Message>) => {
     setMessages(prev => {
@@ -69,6 +105,30 @@ export const useMultiAgentChat = () => {
           ...updates
         };
       }
+      return newMessages;
+    });
+  }, []);
+
+  // Update tool message by task ID
+  const updateToolMessage = useCallback((taskId: string, taskData: any) => {
+    setMessages(prev => {
+      const newMessages = [...prev];
+      const index = newMessages.findIndex(msg => 
+        msg.role === 'tool' && 
+        msg.tool_arguments && 
+        JSON.parse(msg.tool_arguments).taskId === taskId
+      );
+      
+      if (index >= 0) {
+        newMessages[index] = {
+          ...newMessages[index],
+          content: `Tool execution ${taskData.status}: ${taskData.output || taskData.message || ''}`,
+          status: taskData.status === 'finished' ? 'completed' : 
+                 taskData.status === 'failed' ? 'error' : 
+                 'working'
+        };
+      }
+      
       return newMessages;
     });
   }, []);
@@ -101,7 +161,8 @@ export const useMultiAgentChat = () => {
         metadata: {
           userId: user.id,
           sessionId: currentConversationId,
-          creditsRemaining: userCredits?.credits_remaining
+          creditsRemaining: userCredits?.credits_remaining,
+          browserUseApiKey: process.env.BROWSER_USE_API_KEY
         },
         runId: uuidv4(),
         groupId: currentConversationId
@@ -114,6 +175,12 @@ export const useMultiAgentChat = () => {
         },
         onHandoffEnd: (toAgent) => {
           setActiveAgent(toAgent);
+        },
+        onToolExecution: (toolName, params) => {
+          // If it's a browser-use tool, track the task ID
+          if (toolName === 'browser-use' && params.taskId) {
+            setActiveToolExecutions(prev => [...prev, params.taskId]);
+          }
         }
       });
 
@@ -193,6 +260,7 @@ export const useMultiAgentChat = () => {
     enableDirectToolExecution,
     tracingEnabled,
     currentConversationId,
+    activeToolExecutions,
     handleSubmit,
     switchAgent,
     clearChat,

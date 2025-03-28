@@ -55,9 +55,13 @@ export class AssistantAgent implements BaseAgent {
         nextAgent = data.handoffRequest.targetAgent;
       }
       
+      // Extract command suggestion if present
+      const commandSuggestion = data?.commandSuggestion || null;
+      
       return {
         response: data?.completion || "I processed your request but couldn't generate a response.",
-        nextAgent: nextAgent
+        nextAgent: nextAgent,
+        commandSuggestion: commandSuggestion
       };
     } catch (error) {
       console.error("AssistantAgent run error:", error);

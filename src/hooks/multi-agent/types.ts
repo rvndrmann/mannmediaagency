@@ -8,6 +8,7 @@ export interface ToolDefinition {
   parameters: Record<string, any>;
   requiredCredits: number;
   version?: string;
+  execute: (params: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }
 
 export interface ToolContext {
@@ -24,6 +25,7 @@ export interface ToolContext {
   toolAvailable: (toolName: string) => boolean;
   creditsRemaining?: number;
   attachments?: Attachment[];
+  executeTool?: (toolName: string, params: any) => Promise<any>;
 }
 
 export interface ToolExecutionResult {

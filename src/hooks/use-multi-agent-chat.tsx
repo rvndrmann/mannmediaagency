@@ -100,7 +100,8 @@ export const useMultiAgentChat = () => {
         tracingDisabled: !tracingEnabled,
         metadata: {
           userId: user.id,
-          sessionId: currentConversationId
+          sessionId: currentConversationId,
+          creditsRemaining: userCredits?.credits_remaining
         },
         runId: uuidv4(),
         groupId: currentConversationId
@@ -115,6 +116,17 @@ export const useMultiAgentChat = () => {
           setActiveAgent(toAgent);
         }
       });
+
+      // Add user message to the chat
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: "user",
+        content: trimmedInput,
+        createdAt: new Date().toISOString(),
+        attachments: pendingAttachments
+      };
+      
+      setMessages(prev => [...prev, userMessage]);
 
       // Run the agent
       await runner.run(trimmedInput, pendingAttachments, user.id);

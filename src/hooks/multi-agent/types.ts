@@ -21,6 +21,8 @@ export interface ToolContext {
   abortSignal?: AbortSignal;
   addMessage: (text: string, type: string, attachments?: Attachment[]) => void;
   toolAvailable: (toolName: string) => boolean;
+  creditsRemaining?: number;
+  attachments?: Attachment[];
 }
 
 export interface ToolExecutionResult {
@@ -30,6 +32,12 @@ export interface ToolExecutionResult {
   usage?: {
     creditsUsed: number;
   };
+}
+
+export interface ToolResult {
+  success: boolean;
+  message: string;
+  data?: any;
 }
 
 export interface ToolExecutionOptions {
@@ -63,4 +71,11 @@ export interface HandoffRequest {
   targetAgent: string;
   reason: string;
   context?: Record<string, any>;
+}
+
+export enum CommandExecutionState {
+  PENDING = 'pending',
+  RUNNING = 'running',
+  COMPLETED = 'completed',
+  FAILED = 'failed'
 }

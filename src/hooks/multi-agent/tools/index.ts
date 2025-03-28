@@ -3,6 +3,7 @@
 
 import { ToolDefinition } from "../types";
 import { browserUseTool } from "./browser-use-tool";
+import { imageToVideoTool } from "./image-to-video-tool";
 
 export interface Tool {
   name: string;
@@ -15,7 +16,9 @@ export interface Tool {
 
 const tools: Record<string, Tool> = {
   // Register the browser-use tool
-  "browser-use": browserUseTool as unknown as Tool
+  "browser-use": browserUseTool as unknown as Tool,
+  // Register the image-to-video tool
+  "image-to-video": imageToVideoTool as unknown as Tool
 };
 
 export function getTool(name: string): Tool | null {

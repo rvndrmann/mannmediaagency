@@ -31,6 +31,7 @@ export class AgentRunner {
   private callbacks: AgentRunnerCallbacks;
   private status: "idle" | "running" | "completed" | "error" = "idle";
   private controller: AbortController | null = null;
+  private currentAttachments: Attachment[] = [];
 
   constructor(agentType: string, params: AgentRunnerParams, callbacks: AgentRunnerCallbacks) {
     this.agentType = agentType;
@@ -46,6 +47,7 @@ export class AgentRunner {
 
     this.status = "running";
     this.controller = new AbortController();
+    this.currentAttachments = attachments;
     
     // Add the user message first
     this.addMessage(input, "user", attachments);
@@ -115,7 +117,8 @@ export class AgentRunner {
       metadata: this.params.metadata,
       abortSignal: this.controller?.signal,
       addMessage: this.addMessage.bind(this),
-      toolAvailable: this.toolAvailable.bind(this)
+      toolAvailable: this.toolAvailable.bind(this),
+      attachments: this.currentAttachments
     };
   }
 

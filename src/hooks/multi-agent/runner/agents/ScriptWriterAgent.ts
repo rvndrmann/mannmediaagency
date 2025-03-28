@@ -19,6 +19,9 @@ export class ScriptWriterAgent extends BaseAgentImpl {
         throw new Error("User not authenticated");
       }
       
+      // Get dynamic instructions if needed
+      const instructions = await this.getInstructions(this.context);
+      
       // Call the Supabase function for the script writer agent
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -33,7 +36,8 @@ export class ScriptWriterAgent extends BaseAgentImpl {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
             isHandoffContinuation: true,
-            previousAgentType: this.context.metadata?.previousAgentType || 'main'
+            previousAgentType: this.context.metadata?.previousAgentType || 'main',
+            instructions: instructions
           },
           metadata: {
             ...this.context.metadata,
@@ -60,7 +64,8 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a script response.",
-        nextAgent: nextAgent
+        nextAgent: nextAgent,
+        structured_output: data?.structured_output || null
       };
     } catch (error) {
       console.error("ScriptWriterAgent run error:", error);

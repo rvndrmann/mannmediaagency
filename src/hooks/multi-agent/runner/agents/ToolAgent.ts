@@ -48,7 +48,10 @@ export class ToolAgent extends BaseAgentImpl {
             isHandoffContinuation: false,
             instructions: instructions
           },
-          metadata: this.context.metadata,
+          metadata: {
+            ...this.context.metadata,
+            previousAgentType: 'tool'
+          },
           runId: this.context.runId,
           groupId: this.context.groupId
         }

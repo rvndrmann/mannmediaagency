@@ -17,6 +17,9 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
         throw new Error("User not authenticated");
       }
       
+      // Get dynamic instructions if needed
+      const instructions = await this.getInstructions(this.context);
+      
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
@@ -30,9 +33,13 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: false
+            isHandoffContinuation: false,
+            instructions: instructions
           },
-          metadata: this.context.metadata,
+          metadata: {
+            ...this.context.metadata,
+            previousAgentType: 'image'
+          },
           runId: this.context.runId,
           groupId: this.context.groupId
         }
@@ -50,7 +57,8 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       
       return {
         response: data?.completion || "I processed your request but couldn't generate an image prompt.",
-        nextAgent: nextAgent
+        nextAgent: nextAgent,
+        structured_output: data?.structured_output || null
       };
     } catch (error) {
       console.error("ImageGeneratorAgent run error:", error);

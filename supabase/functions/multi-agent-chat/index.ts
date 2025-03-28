@@ -8,6 +8,9 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
+// Get OpenAI API key from environment variables
+const OPENAI_API_KEY = Deno.env.get('OPENAI_API_KEY');
+
 // Helper function for consistent logging
 function logInfo(message: string, data?: any) {
   console.log(`[INFO] ${message}`, data ? JSON.stringify(data) : '');
@@ -29,6 +32,11 @@ serve(async (req) => {
   const requestId = crypto.randomUUID();
   
   try {
+    // Check if OpenAI API key is configured
+    if (!OPENAI_API_KEY) {
+      throw new Error("OpenAI API key not configured. Please set the OPENAI_API_KEY environment variable.");
+    }
+
     const { 
       input, 
       attachments, 
@@ -55,95 +63,156 @@ serve(async (req) => {
     // Extract instructions from contextData if available
     const instructions = contextData?.instructions || getDefaultInstructions(agentType);
 
-    // Check if this is a query that should be handled by a specialized agent
-    const shouldHandoff = checkForHandoff(input, agentType);
+    // Set the model based on performance flag
+    const model = usePerformanceModel ? "gpt-4o-mini" : "gpt-4o";
     
-    // Generate a response based on agent type
-    let responseText = '';
-    let handoffRequest = null;
-    let commandSuggestion = null;
-    let structured_output = null;
+    // Build the system message with agent-specific instructions
+    const systemMessage = {
+      role: "system", 
+      content: instructions
+    };
     
-    // Add a short delay to simulate processing
-    await new Promise(resolve => setTimeout(resolve, 500));
+    // Build the user message with input and context
+    let userMessage = `${input}`;
     
-    // Process response based on agent type and instructions
-    switch(agentType) {
-      case 'main':
-      case 'assistant':
-        responseText = generateMainAssistantResponse(input, instructions);
-        
-        // Check if we should automatically handoff to a specialized agent
-        if (shouldHandoff && shouldHandoff !== agentType) {
-          handoffRequest = {
-            targetAgent: shouldHandoff,
-            reason: `Your request about "${getShortSummary(input)}" would be better handled by our ${getAgentName(shouldHandoff)}.`
-          };
-        }
-        
-        // Check if the input might require a tool
-        if (enableDirectToolExecution && shouldSuggestTool(input)) {
-          commandSuggestion = suggestToolCommand(input);
-        }
-        break;
-        
-      case 'script':
-        responseText = generateScriptWriterResponse(input, instructions);
-        break;
-        
-      case 'image':
-        responseText = generateImagePromptResponse(input, instructions);
-        break;
-        
-      case 'tool':
-        responseText = generateToolHelperResponse(input, instructions);
-        
-        // Simulate detecting a browser automation need
-        if (input.toLowerCase().includes('website') || input.toLowerCase().includes('browser')) {
-          commandSuggestion = {
-            name: "browser-use",
-            parameters: {
-              task: `Go to ${input.includes('website') ? extractWebsite(input) : 'google.com'} and take a screenshot`,
-              browserConfig: { headless: false }
-            }
-          };
-        }
-        
-        // Possibly handoff back to main agent after providing tool help
-        if (input.toLowerCase().includes('done') || input.toLowerCase().includes('thanks')) {
-          handoffRequest = {
-            targetAgent: 'main',
-            reason: "I have provided the tool assistance you needed. You can now return to the main assistant."
-          };
-        }
-        break;
-        
-      case 'scene':
-        responseText = generateSceneCreatorResponse(input, instructions);
-        break;
-        
-      default:
-        responseText = `I'm responding to your message: "${input}".\n\nI'll do my best to assist you with your request. If you need specialized help, please select a specific agent type.`;
+    // Add additional context if needed
+    if (contextData) {
+      if (contextData.hasAttachments && attachments && attachments.length > 0) {
+        userMessage += `\n\nI've attached ${attachments.length} file(s) for your reference.`;
+        // We would process attachments here - for now just acknowledge them
+      }
+
+      if (contextData.isHandoffContinuation) {
+        userMessage += `\n\nThis conversation was handed off from the ${
+          contextData.previousAgentType || 'previous'
+        } agent to help with specialized assistance.`;
+      }
+
+      // If we're a tool agent, add available tools context
+      if (agentType === 'tool' && contextData.availableTools) {
+        userMessage += `\n\nAvailable tools: ${JSON.stringify(contextData.availableTools, null, 2)}`;
+      }
     }
     
-    // Try to generate structured output if appropriate
-    if (input.toLowerCase().includes('json') || input.toLowerCase().includes('data')) {
-      structured_output = generateMockStructuredOutput(input, agentType);
+    // Prepare the function calling schema for structured output
+    const functions = [
+      {
+        name: "agentResponse",
+        description: "Generate a structured response from the agent",
+        parameters: {
+          type: "object",
+          properties: {
+            completion: {
+              type: "string",
+              description: "The assistant's response to the user's input"
+            },
+            handoffRequest: {
+              type: "object",
+              description: "Optional request to hand off to another agent",
+              properties: {
+                targetAgent: {
+                  type: "string",
+                  description: "The type of agent to hand off to (main, script, image, tool, scene)"
+                },
+                reason: {
+                  type: "string",
+                  description: "The reason for the handoff"
+                }
+              },
+              required: ["targetAgent", "reason"]
+            },
+            commandSuggestion: {
+              type: "object",
+              description: "Optional tool command suggestion",
+              properties: {
+                name: {
+                  type: "string",
+                  description: "The name of the tool to execute"
+                },
+                parameters: {
+                  type: "object",
+                  description: "Parameters for the tool execution"
+                }
+              },
+              required: ["name"]
+            },
+            structured_output: {
+              type: "object",
+              description: "Optional structured data output"
+            }
+          },
+          required: ["completion"]
+        }
+      }
+    ];
+
+    // Call OpenAI API for the response
+    const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${OPENAI_API_KEY}`
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          systemMessage,
+          { role: "user", content: userMessage }
+        ],
+        functions: functions,
+        function_call: { name: "agentResponse" },
+        temperature: 0.7,
+        max_tokens: 2048
+      })
+    });
+
+    // Parse the OpenAI response
+    if (!openAIResponse.ok) {
+      const errorData = await openAIResponse.text();
+      throw new Error(`OpenAI API error: ${openAIResponse.status} ${errorData}`);
+    }
+
+    const openAIData = await openAIResponse.json();
+    
+    // Extract the function call response
+    const functionCall = openAIData.choices[0]?.message?.function_call;
+    
+    if (!functionCall || functionCall.name !== "agentResponse") {
+      throw new Error("Invalid response format from OpenAI API");
+    }
+    
+    // Parse the function call arguments
+    let responseData;
+    try {
+      responseData = JSON.parse(functionCall.arguments);
+    } catch (error) {
+      throw new Error(`Failed to parse function arguments: ${error.message}`);
+    }
+    
+    // Check if we should automatically handoff to a specialized agent
+    if (!responseData.handoffRequest) {
+      const detectedHandoff = checkForHandoff(input, agentType);
+      if (detectedHandoff && detectedHandoff !== agentType) {
+        responseData.handoffRequest = {
+          targetAgent: detectedHandoff,
+          reason: `Your request about "${getShortSummary(input)}" would be better handled by our ${getAgentName(detectedHandoff)}.`
+        };
+      }
+    }
+    
+    // Check if the input might require a tool
+    if (enableDirectToolExecution && !responseData.commandSuggestion && shouldSuggestTool(input)) {
+      responseData.commandSuggestion = suggestToolCommand(input);
     }
     
     logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
-      responseLength: responseText.length,
-      hasHandoff: !!handoffRequest,
-      hasStructuredOutput: !!structured_output
+      responseLength: responseData.completion.length,
+      hasHandoff: !!responseData.handoffRequest,
+      hasStructuredOutput: !!responseData.structured_output
     });
 
     return new Response(
-      JSON.stringify({
-        completion: responseText,
-        handoffRequest: handoffRequest,
-        commandSuggestion: commandSuggestion,
-        structured_output: structured_output
-      }),
+      JSON.stringify(responseData),
       { 
         headers: { 
           ...corsHeaders, 
@@ -177,49 +246,87 @@ function getDefaultInstructions(agentType: string): string {
   switch(agentType) {
     case 'main':
     case 'assistant':
-      return "You are a helpful AI assistant. Provide clear, accurate responses to user questions. If you can't answer something, be honest about it. If a specialized agent would be better suited, suggest a handoff.";
+      return `You are a helpful AI assistant. Provide clear, accurate responses to user questions. 
+      If you can't answer something, be honest about it. 
+      If a specialized agent would be better suited, you can suggest a handoff.
+      
+      For certain specialized tasks, we have dedicated agents:
+      - Script Writer for creative content like ad scripts
+      - Image Prompt for generating image descriptions
+      - Tool Helper for technical assistance with our tools
+      - Scene Creator for detailed visual descriptions
+      
+      Be professional, friendly, and helpful. Always consider the user's needs and provide the most helpful response possible.`;
+      
     case 'script':
-      return "You are a creative script writing assistant. Help users create compelling narratives, ad scripts, and other written content. Focus on engaging dialogue and effective storytelling.";
+      return `You are a creative script writing assistant. Help users create compelling narratives, ad scripts, and other written content.
+      
+      Focus on engaging dialogue, effective storytelling, and proper formatting for scripts. Consider the target audience, medium, and purpose of the script.
+      
+      If a user asks for an ad script, make sure to include:
+      - Clear hook or attention-grabber
+      - Value proposition
+      - Key benefits or features
+      - Call to action
+      
+      For narratives or storytelling:
+      - Develop interesting characters and settings
+      - Create engaging plot arcs
+      - Incorporate appropriate tone and pacing
+      
+      Be creative, but also practical. Consider the feasibility of production for any scripts you create.`;
+      
     case 'image':
-      return "You are an image generation specialist. Help users craft detailed image prompts that will produce high-quality results. Focus on visual details, style, composition, and mood.";
+      return `You are an image generation specialist. Help users craft detailed image prompts that will produce high-quality results.
+      
+      Focus on these key aspects when creating image prompts:
+      - Visual details: describe colors, lighting, composition, perspective
+      - Style: specify art style, medium, technique, or artistic influence
+      - Mood and atmosphere: convey the feeling or emotion of the image
+      - Subject focus: clearly describe the main subject and any background elements
+      
+      Avoid:
+      - Vague descriptions that could be interpreted in multiple ways
+      - Prompts that violate content policies (violent, explicit, or harmful content)
+      - Over-complicated prompts with too many conflicting elements
+      
+      Help users refine their ideas into clear, specific prompts that will generate impressive images.`;
+      
     case 'tool':
-      return "You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues. Suggest appropriate tools based on user needs.";
+      return `You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues.
+      
+      When helping with tools:
+      - Explain what the tool does and when to use it
+      - Provide step-by-step instructions for using the tool
+      - Suggest appropriate parameters or settings
+      - Help interpret the tool's output or results
+      
+      If a user is experiencing issues with a tool:
+      - Help diagnose the problem
+      - Suggest troubleshooting steps
+      - Recommend alternatives if the tool isn't appropriate
+      
+      Be technical but accessible. Use clear language and explain complex concepts in understandable terms.`;
+      
     case 'scene':
-      return "You are a scene creation expert. Help users visualize and describe detailed environments and settings for creative projects. Focus on sensory details, atmosphere, and spatial relationships.";
+      return `You are a scene creation expert. Help users visualize and describe detailed environments and settings for creative projects.
+      
+      When crafting scene descriptions, focus on:
+      - Sensory details: what can be seen, heard, smelled, felt in the scene
+      - Spatial relationships: layout, distances, positioning of elements
+      - Atmosphere and mood: lighting, weather, time of day, emotional tone
+      - Key elements: important objects, features, or characters in the scene
+      
+      Tailor your descriptions to the user's specific needs:
+      - For film/video: consider camera angles, movement, and visual composition
+      - For writing: focus on evocative language and narrative significance
+      - For gaming: consider interactivity and player experience
+      
+      Create vivid, immersive scenes that help bring the user's vision to life.`;
+      
     default:
       return "You are a helpful AI assistant. Answer questions clearly and concisely.";
   }
-}
-
-// Generate a mock structured output based on input and agent type
-function generateMockStructuredOutput(input: string, agentType: string): any {
-  if (input.toLowerCase().includes('product') && input.toLowerCase().includes('json')) {
-    return {
-      productDetails: {
-        name: "Example Product",
-        price: 99.99,
-        categories: ["Electronics", "Gadgets"],
-        inStock: true
-      }
-    };
-  }
-  
-  if (input.toLowerCase().includes('user') && input.toLowerCase().includes('data')) {
-    return {
-      userData: {
-        preferences: {
-          theme: "dark",
-          notifications: true
-        },
-        recentActivities: [
-          { type: "search", query: "example", timestamp: new Date().toISOString() }
-        ]
-      }
-    };
-  }
-  
-  // Default is null - no structured output
-  return null;
 }
 
 // Check if the input should be handed off to a specialized agent
@@ -329,116 +436,4 @@ function getAgentName(agentType: string): string {
 function getShortSummary(input: string): string {
   if (!input) return "";
   return input.length > 30 ? input.substring(0, 30) + '...' : input;
-}
-
-// Generate response for the main assistant
-function generateMainAssistantResponse(input: string, instructions: string): string {
-  // If we have custom instructions, we'd use those to influence the response
-  // For now, we'll use default responses
-  return `I'm here to help with your request: "${input}".
-
-I can assist with general questions or connect you with specialized agents:
-- Script Writer for creative content like ad scripts
-- Image Prompt for generating image descriptions
-- Tool Helper for technical assistance with our tools
-- Scene Creator for detailed visual descriptions
-
-How would you like me to help you with this request?`;
-}
-
-// Generate response for the script writer agent
-function generateScriptWriterResponse(input: string, instructions: string): string {
-  // Check if the request is about writing a script or content
-  if (input.toLowerCase().includes('script') || 
-      input.toLowerCase().includes('ad') || 
-      input.toLowerCase().includes('write')) {
-    
-    // If it's about fat burner, provide a specialized response
-    if (input.toLowerCase().includes('fat burner')) {
-      return `As your Script Writer, I'll craft a compelling video ad script for a fat burner product.
-
-**TITLE: "TRANSFORM: The Science of Better Results"**
-
-**[OPENING SHOT - SPLIT SCREEN]**
-*Athletic person checking their reflection, looking dissatisfied*
-
-**VOICEOVER:** "You've tried the diets. You've put in the gym hours. But those stubborn areas just won't budge."
-
-**[PRODUCT REVEAL]**
-*Sleek bottle of fat burner appears with subtle glow*
-
-**VOICEOVER:** "Introducing TRANSFORM Fat Burner. Scientifically formulated with thermogenic compounds that work with your body's metabolism."
-
-**[SCIENCE VISUALIZATION]**
-*Simple animation showing how the product works at cellular level*
-
-**VOICEOVER:** "Our proprietary blend activates your body's natural fat-burning processes, targeting those resistant areas while preserving lean muscle."
-
-**[TESTIMONIAL MONTAGE]**
-*Quick clips of diverse users showing their transformations*
-
-**TESTIMONIAL 1:** "I lost 15 pounds in 8 weeks while following my regular workout routine."
-
-**TESTIMONIAL 2:** "The energy boost helped me push through plateaus I'd been stuck at for months."
-
-**[PRODUCT BENEFITS]**
-*Text overlay with key benefits appearing on screen*
-
-**VOICEOVER:** "TRANSFORM gives you:
-- Enhanced metabolism
-- Increased energy levels
-- Appetite control
-- No jitters or crashes"
-
-**[CLOSING SHOT]**
-*Product with website and special offer*
-
-**VOICEOVER:** "TRANSFORM Fat Burner. Science that works, results that show. Order now and get 20% off your first purchase."
-
-**[LEGAL DISCLAIMER]**
-*Small text at bottom of screen*
-
-Would you like me to revise any part of this script or provide additional creative options?`;
-    }
-    
-    // Generic script writing response
-    return `As your Script Writer, I'm analyzing your request: "${input}".
-
-I specialize in creating compelling narratives, dialogue, scripts for advertisements, and other creative content. 
-
-To create the most effective script for you, I need to understand:
-1. What is the specific purpose of this script?
-2. Who is the target audience?
-3. What key messages or benefits should be highlighted?
-4. What tone would you prefer (professional, conversational, humorous, etc.)?
-5. Are there any specific length requirements?
-
-Please provide these details and I'll craft a customized script for your needs.`;
-  }
-  
-  // Default script writer response
-  return `As your Script Writer agent, I've analyzed your request: "${input}".
-
-I specialize in crafting compelling narratives, dialogue, and creative content. How would you like me to help with your script today? I can outline scenes, develop characters, or refine existing content.`;
-}
-
-// Generate response for the image prompt agent
-function generateImagePromptResponse(input: string, instructions: string): string {
-  return `I'm the Image Prompt agent analyzing: "${input}".
-
-I'll help you create detailed image generation prompts that will produce high-quality results. What kind of image are you looking to create?`;
-}
-
-// Generate response for the tool helper agent
-function generateToolHelperResponse(input: string, instructions: string): string {
-  return `As the Tool Helper agent, I'm reviewing your request: "${input}".
-
-I can guide you through using various tools available in our system. Would you like me to help you with a specific tool or explain what options are available?`;
-}
-
-// Generate response for the scene creator agent
-function generateSceneCreatorResponse(input: string, instructions: string): string {
-  return `As your Scene Creator agent, I'm analyzing: "${input}".
-
-I specialize in crafting detailed visual scenes for creative projects. What kind of scene would you like me to help you develop? I can provide rich descriptions for settings, atmospheres, and visual elements.`;
 }

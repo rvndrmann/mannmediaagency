@@ -1,34 +1,20 @@
 
 import { createClient } from '@supabase/supabase-js';
+import type { Database } from './types';
 
-// Default values for development (these should be overridden by environment variables)
-const DEFAULT_SUPABASE_URL = 'https://avdwgvjhufslhqrrmxgo.supabase.co';
-const DEFAULT_SUPABASE_ANON_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzc5ODM4NTAsImV4cCI6MjA1MzU1OTg1MH0.wzh0gNTwGWgw-vDwxHcSdBZdiOdbABCXfQV_NuHvqzY';
+export const SUPABASE_URL = "https://avdwgvjhufslhqrrmxgo.supabase.co";
+const SUPABASE_ANON_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImF2ZHdndmpodWZzbGhxcnJteGdvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mzg4Mzg3OTMsImV4cCI6MjA1NDQxNDc5M30.NYkKpNhStznwM0M-ZwyANUJNoGsYDM7xF2oMaWQ92w4";
 
-// Get environment variables or use defaults
-export const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || DEFAULT_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || DEFAULT_SUPABASE_ANON_KEY;
-
-// Create Supabase client with proper auth configuration
-export const supabase = createClient(
+export const supabase = createClient<Database>(
   SUPABASE_URL,
-  supabaseAnonKey,
+  SUPABASE_ANON_KEY,
   {
     auth: {
-      storage: localStorage,
       persistSession: true,
+      detectSessionInUrl: true, // Changed to true to detect auth tokens in URL
       autoRefreshToken: true,
-      detectSessionInUrl: true,
-      flowType: 'pkce'
+      flowType: 'pkce',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     }
   }
 );
-
-// Log initialization
-console.log(`Supabase client initialized with URL: ${SUPABASE_URL}`);
-console.log(`Using environment variables: ${!!import.meta.env.VITE_SUPABASE_URL}`);
-
-// Add global error handler for Supabase
-window.addEventListener('supabase.error', (e) => {
-  console.error('Supabase global error:', e);
-});

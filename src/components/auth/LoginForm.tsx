@@ -8,29 +8,19 @@ import { supabase } from "@/integrations/supabase/client";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { AlertCircle } from "lucide-react";
 import PhoneLoginForm from "./PhoneLoginForm";
-import EmailLoginForm from "./EmailLoginForm";
 
 const LoginForm = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [isLoading, setIsLoading] = useState(false);
-  const [loginMethod, setLoginMethod] = useState<"email" | "phone" | null>("email");
-  const [error, setError] = useState<string | null>(null);
 
   const handleGoogleLogin = async () => {
     try {
-      if (isMobile) {
-        toast.info("For Google login, please use Chrome or Google browser. Login doesn't work in Instagram in-app browser.", {
-          duration: 5000,
-        });
-      }
+      toast.info("For Google login, please use Chrome or Google browser. Login doesn't work in Instagram in-app browser.", {
+        duration: 5000,
+      });
       
       setIsLoading(true);
-      setError(null);
-      
-      console.log("Attempting Google login");
-      console.log("Redirect URL:", `${window.location.origin}/auth/callback`);
-      
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -39,15 +29,9 @@ const LoginForm = () => {
       });
 
       if (error) {
-        console.error("Google login error:", error);
-        setError(error.message || "Failed to connect to Google");
-        toast.error(error.message || "Failed to connect to Google");
-      } else {
-        console.log("Google OAuth flow initiated successfully");
+        toast.error(error.message);
       }
-    } catch (error: any) {
-      console.error("Unexpected Google login error:", error);
-      setError(error.message || "Failed to connect to Google");
+    } catch (error) {
       toast.error("Failed to connect to Google. Please try again.");
     } finally {
       setIsLoading(false);
@@ -62,48 +46,7 @@ const LoginForm = () => {
           <p className="text-gray-400">Sign in to continue to MANNMEDIAAGENCY</p>
         </div>
 
-        {error && (
-          <div className="flex items-center gap-2 py-3 px-4 bg-red-500/10 text-red-300 rounded-md text-sm">
-            <AlertCircle className="w-4 h-4 flex-shrink-0" />
-            <p>{error}</p>
-          </div>
-        )}
-
         <div className="space-y-4">
-          {loginMethod === "email" && <EmailLoginForm isSignUp={false} />}
-
-          <div className="grid grid-cols-2 gap-2">
-            <Button
-              onClick={() => setLoginMethod("email")}
-              variant={loginMethod === "email" ? "default" : "outline"}
-              className={loginMethod === "email" 
-                ? "bg-purple-600 hover:bg-purple-700 text-white" 
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"}
-            >
-              Email Login
-            </Button>
-            <Button
-              onClick={() => setLoginMethod("phone")}
-              variant={loginMethod === "phone" ? "default" : "outline"}
-              className={loginMethod === "phone" 
-                ? "bg-purple-600 hover:bg-purple-700 text-white" 
-                : "bg-gray-800 text-gray-300 hover:bg-gray-700"}
-            >
-              Phone Login
-            </Button>
-          </div>
-
-          {loginMethod === "phone" && <PhoneLoginForm isSignUp={false} />}
-
-          <div className="relative">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-700"></div>
-            </div>
-            <div className="relative flex justify-center text-xs uppercase">
-              <span className="bg-gray-800 px-2 text-gray-400">Or continue with</span>
-            </div>
-          </div>
-
           <Button
             onClick={handleGoogleLogin}
             className="w-full bg-white hover:bg-gray-100 text-gray-900"
@@ -121,12 +64,12 @@ const LoginForm = () => {
             {isLoading ? "Connecting..." : "Continue with Google"}
           </Button>
 
-          {isMobile && (
-            <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
-              <AlertCircle className="w-4 h-4 flex-shrink-0" />
-              <p>For Google login, please use Chrome or Google browser.</p>
-            </div>
-          )}
+          <PhoneLoginForm isSignUp={false} />
+
+          <div className="flex items-center gap-2 py-2 px-3 bg-blue-500/10 text-blue-300 rounded-md text-sm">
+            <AlertCircle className="w-4 h-4 flex-shrink-0" />
+            <p>For Google login, please use Chrome or Google browser.</p>
+          </div>
         </div>
 
         <div className="text-center">

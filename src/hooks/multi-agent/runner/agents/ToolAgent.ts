@@ -1,6 +1,8 @@
 
 import { Attachment } from "@/types/message";
+import { ToolContext } from "../../types";
 import { AgentResult, AgentOptions } from "../types";
+import { getTool, getAvailableTools } from "../../tools";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class ToolAgent extends BaseAgentImpl {
@@ -10,28 +12,24 @@ export class ToolAgent extends BaseAgentImpl {
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
-      console.log("Running ToolAgent with input:", input, "attachments:", attachments);
-      
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
       if (!user) {
         throw new Error("User not authenticated");
       }
       
+      // Apply input guardrails if configured
+      await this.applyInputGuardrails(input);
+      
       // Get dynamic instructions if needed
       const instructions = await this.getInstructions(this.context);
       
-      // Get conversation history from context if available
-      const conversationHistory = this.context.metadata?.conversationHistory || [];
-      
-      console.log(`ToolAgent processing with ${conversationHistory.length} historical messages`);
-      
-      // Check if this is a handoff continuation
-      const isHandoffContinuation = this.context.metadata?.isHandoffContinuation || false;
-      const previousAgentType = this.context.metadata?.previousAgentType || 'main';
-      const handoffReason = this.context.metadata?.handoffReason || '';
-      
-      console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
+      // Get available tools for context
+      const availableTools = getAvailableTools().map(tool => ({
+        name: tool.name,
+        description: tool.description,
+        requiredCredits: tool.requiredCredits
+      }));
       
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -46,16 +44,13 @@ export class ToolAgent extends BaseAgentImpl {
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: isHandoffContinuation,
-            previousAgentType: previousAgentType,
-            handoffReason: handoffReason,
+            availableTools: availableTools,
+            isHandoffContinuation: false,
             instructions: instructions
           },
-          conversationHistory: conversationHistory,
           metadata: {
             ...this.context.metadata,
-            previousAgentType: 'tool',
-            conversationId: this.context.groupId
+            previousAgentType: 'tool'
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -66,27 +61,38 @@ export class ToolAgent extends BaseAgentImpl {
         throw new Error(`Tool agent error: ${error.message}`);
       }
       
-      console.log("ToolAgent response:", data);
+      // Apply output guardrails if configured
+      const output = data?.completion || "I processed your request but couldn't help with the tool.";
+      await this.applyOutputGuardrails(output);
       
       // Handle handoff if present
       let nextAgent = null;
       if (data?.handoffRequest) {
-        console.log(`ToolAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
         nextAgent = data.handoffRequest.targetAgent;
       }
       
+      // Check if there's a command suggestion
+      let commandSuggestion = null;
+      if (data?.commandSuggestion) {
+        commandSuggestion = data.commandSuggestion;
+        
+        // Attempt to validate the command
+        const tool = getTool(commandSuggestion.name);
+        if (!tool) {
+          console.warn(`Tool agent suggested unknown tool: ${commandSuggestion.name}`);
+          commandSuggestion = null;
+        }
+      }
+      
       return {
-        response: data?.completion || "I processed your request but couldn't generate a response.",
+        response: output,
         nextAgent: nextAgent,
+        commandSuggestion: commandSuggestion,
         structured_output: data?.structured_output || null
       };
-    } catch (error) {
+    } catch (error: any) {
       console.error("ToolAgent run error:", error);
       throw error;
     }
-  }
-  
-  getType(): string {
-    return "tool";
   }
 }

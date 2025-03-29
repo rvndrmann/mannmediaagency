@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -83,13 +82,17 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const setProjectContext = useCallback((project: CanvasProject) => {
     setCurrentProject(project);
     
-    setAgentInstructions(prev => ({
-      ...prev,
-      script: `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id}).
-You can use the canvas tool to save scripts directly to the project.`,
-      scene: `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id}).
-You can use the canvas tool to save scene descriptions and image prompts directly to the project.`
-    }));
+    setAgentInstructions(prev => {
+      const newInstructions = { ...prev };
+      
+      newInstructions.script = `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})${project.fullScript ? ". This project already has a script that you should reference and modify as needed." : "."} 
+You can use the canvas tool to save scripts directly to the project.`;
+      
+      newInstructions.scene = `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})"${project.fullScript ? ", which already has a script you should reference." : "."}
+You can use the canvas tool to save scene descriptions and image prompts directly to the project.`;
+      
+      return newInstructions;
+    });
     
     const systemMessage: Message = {
       id: uuidv4(),
@@ -187,13 +190,17 @@ ${project.fullScript ? "This project has a full script." : "This project does no
           setCurrentProject(project);
           
           // Update agent instructions with project details
-          setAgentInstructions(prev => ({
-            ...prev,
-            script: `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})${project.fullScript ? ". This project already has a script that you should reference and modify as needed." : "."} 
-You can use the canvas tool to save scripts directly to the project.`,
-            scene: `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})"${project.fullScript ? ", which already has a script you should reference." : "."}
-You can use the canvas tool to save scene descriptions and image prompts directly to the project.`
-          }));
+          setAgentInstructions(prev => {
+            const newInstructions = { ...prev };
+            
+            newInstructions.script = `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})${project.fullScript ? ". This project already has a script that you should reference and modify as needed." : "."} 
+You can use the canvas tool to save scripts directly to the project.`;
+            
+            newInstructions.scene = `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})"${project.fullScript ? ", which already has a script you should reference." : "."}
+You can use the canvas tool to save scene descriptions and image prompts directly to the project.`;
+            
+            return newInstructions;
+          });
           
           console.log("Project details loaded:", {
             id: project.id,
@@ -360,7 +367,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
-  // Completely redesigned message handling to prevent duplicates and race conditions
   const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
     if (isLoading || processingRef.current) {

@@ -25,6 +25,8 @@ import { ChatSessionSelector } from "./ChatSessionSelector";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
+import { validateMessage, createSystemMessage, createErrorMessage, createRetryHandler, handleConnectionError } from "@/utils/message-validation";
+import { ConnectionErrorAlert } from "@/components/ui/ConnectionErrorAlert";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import type { Message } from "@/types/message";
 
@@ -252,42 +254,48 @@ export const MultiAgentChat = ({
     setConnectionError(null);
     setRetryCount(0);
     toast.info("Retrying connection...");
-    const systemMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "system",
-      content: "Reconnecting to server...",
-      createdAt: new Date().toISOString(),
-      type: "system",
-      status: "working"
-    };
+    
+    const systemMessage = createSystemMessage(
+      "Reconnecting to server...", 
+      "system", 
+      "working"
+    );
     
     if (messages && Array.isArray(messages)) {
       setMessages(prevMessages => [...prevMessages, systemMessage]);
     }
     
-    supabase.from('canvas_projects').select('count').limit(1)
-      .then(() => {
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.id === systemMessage.id 
-              ? {...msg, content: "Connection restored!", status: "completed"} 
-              : msg
-          )
-        );
-        toast.success("Connection restored!");
-      })
-      .catch(err => {
-        console.error("Connection retry failed:", err);
-        setMessages(prevMessages => 
-          prevMessages.map(msg => 
-            msg.id === systemMessage.id 
-              ? {...msg, content: "Connection failed. Please try again later.", status: "error"} 
-              : msg
-          )
-        );
-        setConnectionError("Unable to connect to the server. Please check your internet connection and try again.");
-        toast.error("Connection failed");
-      });
+    createRetryHandler(
+      () => supabase.from('canvas_projects').select('count').limit(1),
+      3,
+      (error, retryCount) => {
+        if (retryCount < 3) {
+          toast.info(`Retry attempt ${retryCount}/3...`);
+        }
+      }
+    )
+    .then(() => {
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === systemMessage.id 
+            ? {...msg, content: "Connection restored!", status: "completed"} 
+            : msg
+        )
+      );
+      toast.success("Connection restored!");
+    })
+    .catch(err => {
+      console.error("Connection retry failed after multiple attempts:", err);
+      setMessages(prevMessages => 
+        prevMessages.map(msg => 
+          msg.id === systemMessage.id 
+            ? {...msg, content: "Connection failed after multiple attempts. Please try again later.", status: "error"} 
+            : msg
+        )
+      );
+      setConnectionError("Unable to connect to the server after multiple attempts. Please check your internet connection and try again later.");
+      toast.error("Connection failed after multiple attempts");
+    });
   };
 
   return (
@@ -470,21 +478,10 @@ export const MultiAgentChat = ({
         }
         
         {connectionError && (
-          <Alert variant="destructive" className="mb-2 bg-red-900/40 border-red-800">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertTitle>Connection Issue</AlertTitle>
-            <AlertDescription className="flex justify-between items-center">
-              <span>{connectionError}</span>
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={handleRetryConnection}
-                className="ml-2 text-xs border-red-700 bg-red-900/50 hover:bg-red-800/70"
-              >
-                Retry Connection
-              </Button>
-            </AlertDescription>
-          </Alert>
+          <ConnectionErrorAlert 
+            errorMessage={connectionError}
+            onRetry={handleRetryConnection}
+          />
         )}
         
         <div className={`flex-1 flex flex-col overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-${compactMode ? 'none' : 'xl'} border ${compactMode ? 'border-t border-b' : 'border'} border-white/10 shadow-lg`}>

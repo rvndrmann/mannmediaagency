@@ -15,14 +15,20 @@ export default function MultiAgentChatPage() {
     if (projectIdParam) {
       setProjectId(projectIdParam);
       console.log("Loading project from URL:", projectIdParam);
+    } else {
+      console.log("No project ID in URL parameters");
     }
     
     // Add console logs to help with debugging
-    console.log("MultiAgentChatPage rendered");
+    console.log("MultiAgentChatPage rendered with dimensions:", {
+      width: window.innerWidth,
+      height: window.innerHeight,
+      viewportHeight: window.visualViewport?.height
+    });
     
     // Force browser to repaint for smoother loading
     requestAnimationFrame(() => {
-      console.log("Animation frame triggered");
+      console.log("Animation frame triggered for page render");
     });
   }, [searchParams]);
   
@@ -36,7 +42,7 @@ export default function MultiAgentChatPage() {
           <MultiAgentChat 
             projectId={projectId}
             // Key will force component to re-mount when project changes
-            key={`chat-${projectId || 'default'}`}
+            key={`chat-${projectId || 'default'}-${Date.now()}`}
           />
         </div>
       </div>

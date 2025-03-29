@@ -19,7 +19,7 @@ export const ChatSessionSelector = ({ onClose, onSelectSession }: ChatSessionSel
   }, [chatSessions]);
 
   return (
-    <div className="absolute inset-0 z-50 bg-white dark:bg-slate-950 flex flex-col">
+    <div className="flex flex-col h-full">
       <div className="p-4 flex justify-between items-center border-b">
         <h3 className="font-medium">Chat History</h3>
         <Button size="sm" variant="ghost" onClick={onClose}>

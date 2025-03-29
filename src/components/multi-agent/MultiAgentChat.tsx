@@ -74,9 +74,9 @@ const MultiAgentChat = ({
   const [input, setInput] = useState('');
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [forceUpdate, setForceUpdate] = useState(0);
   const messagesEndRef = useRef<HTMLDivElement>(null);
+  const messageContainerRef = useRef<HTMLDivElement>(null);
   
   const {
     messages,
@@ -116,8 +116,10 @@ const MultiAgentChat = ({
   // Initialize chat session
   useEffect(() => {
     if (projectId) {
+      console.log("Initializing chat session for project:", projectId);
       getOrCreateChatSession(projectId);
     } else {
+      console.log("Initializing default chat session");
       getOrCreateChatSession(null);
     }
   }, [projectId, getOrCreateChatSession]);
@@ -125,13 +127,21 @@ const MultiAgentChat = ({
   // Scroll to bottom whenever messages change
   useEffect(() => {
     scrollToBottom();
-  }, [messages, forceUpdate]);
+  }, [messages, forceUpdate, isLoading]);
   
   // Improved scrollToBottom function that ensures scrolling works reliably
   const scrollToBottom = () => {
+    console.log("Attempting to scroll to bottom");
+    
+    // Try both methods of scrolling to the bottom
     if (messagesEndRef.current) {
       setTimeout(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+        
+        // Also try to scroll the container directly
+        if (messageContainerRef.current) {
+          messageContainerRef.current.scrollTop = messageContainerRef.current.scrollHeight;
+        }
       }, 100);
     }
   };
@@ -195,6 +205,7 @@ const MultiAgentChat = ({
     
     if (isLoading) {
       interval = window.setInterval(() => {
+        console.log("Forcing update while loading");
         setForceUpdate(prev => prev + 1);
       }, 1000) as unknown as number;
     }
@@ -215,13 +226,16 @@ const MultiAgentChat = ({
       />
       
       {showChatSelector && (
-        <ChatSessionSelector 
-          onClose={() => setShowChatSelector(false)}
-          onSelectSession={(id) => {
-            setActiveChatId(id);
-            setShowChatSelector(false);
-          }}
-        />
+        <div className="absolute inset-0 z-50 bg-white dark:bg-slate-950">
+          <ChatSessionSelector 
+            onClose={() => setShowChatSelector(false)}
+            onSelectSession={(id) => {
+              console.log("Selected chat session:", id);
+              setActiveChatId(id);
+              setShowChatSelector(false);
+            }}
+          />
+        </div>
       )}
       
       <div className="flex flex-col flex-1 overflow-hidden h-full relative">
@@ -244,7 +258,10 @@ const MultiAgentChat = ({
         />
         
         {/* Message area */}
-        <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
+        <div 
+          className="flex-1 overflow-y-auto" 
+          ref={messageContainerRef}
+        >
           <div className="p-4 space-y-4">
             {Array.isArray(messages) && messages.length === 0 && (
               <div className="text-center py-10 text-slate-500">
@@ -301,7 +318,7 @@ const MultiAgentChat = ({
           </div>
         )}
         
-        {/* Input area */}
+        {/* Input area - fixed at the bottom */}
         <div className="border-t p-4 mt-auto">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">

@@ -13,6 +13,24 @@ const ScrollArea = React.forwardRef<
   // Combine refs
   React.useImperativeHandle(forwardedRef, () => innerRef.current as HTMLDivElement);
   
+  // Add scroll method for programmatic scrolling
+  React.useEffect(() => {
+    if (innerRef.current) {
+      // Add scroll to bottom method
+      const scrollToBottom = () => {
+        if (innerRef.current) {
+          const viewport = innerRef.current.querySelector('[data-radix-scroll-area-viewport]');
+          if (viewport) {
+            viewport.scrollTop = viewport.scrollHeight;
+          }
+        }
+      };
+      
+      // @ts-ignore - Add method to ref for external access
+      innerRef.current.scrollToBottom = scrollToBottom;
+    }
+  }, []);
+  
   return (
     <ScrollAreaPrimitive.Root
       ref={innerRef}

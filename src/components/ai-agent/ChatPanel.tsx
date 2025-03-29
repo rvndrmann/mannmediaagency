@@ -1,6 +1,6 @@
 
 import { useRef, useEffect } from "react";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollAreaRef } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { Info, AlertCircle } from "lucide-react";
@@ -32,7 +32,7 @@ export const ChatPanel = ({
   isMobile = false,
   isVisible = true
 }: ChatPanelProps) => {
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement & ScrollAreaRef>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
 
   // Process messages to ensure they're in the right format
@@ -42,10 +42,14 @@ export const ChatPanel = ({
 
   const scrollToBottom = () => {
     if (lastMessageRef.current && scrollAreaRef.current) {
-      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
-      if (scrollContainer) {
-        const scrollHeight = scrollContainer.scrollHeight;
-        scrollContainer.scrollTop = scrollHeight;
+      if (scrollAreaRef.current.scrollToBottom) {
+        scrollAreaRef.current.scrollToBottom();
+      } else {
+        // Fallback method
+        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        if (scrollContainer) {
+          (scrollContainer as HTMLDivElement).scrollTop = (scrollContainer as HTMLDivElement).scrollHeight;
+        }
       }
     }
   };

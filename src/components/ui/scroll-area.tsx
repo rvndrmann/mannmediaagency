@@ -4,15 +4,15 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 
 import { cn } from "@/lib/utils"
 
-interface ScrollAreaRef {
+export interface ScrollAreaRef {
   scrollToBottom: () => void;
   scrollToTop: () => void;
   scrollTo: (options: ScrollToOptions) => void;
 }
 
 const ScrollArea = React.forwardRef<
-  HTMLDivElement & ScrollAreaRef,
-  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & { ref?: React.Ref<HTMLDivElement & ScrollAreaRef> }
+  React.ElementRef<typeof ScrollAreaPrimitive.Root> & ScrollAreaRef,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root>
 >(({ className, children, ...props }, forwardedRef) => {
   const rootRef = React.useRef<HTMLDivElement>(null);
   
@@ -63,16 +63,17 @@ const ScrollArea = React.forwardRef<
   // Combine the DOM ref and the methods object
   React.useImperativeHandle(
     forwardedRef, 
-    () => Object.assign(rootRef.current as HTMLDivElement, scrollMethods), 
+    () => {
+      // Make sure rootRef.current exists before creating the combined ref
+      if (!rootRef.current) {
+        return {} as any;
+      }
+      
+      // Create a combined object with both the DOM element and our methods
+      return Object.assign(rootRef.current, scrollMethods);
+    },
     [scrollMethods]
   );
-  
-  // Apply scroll methods directly to the rootRef for backward compatibility
-  React.useEffect(() => {
-    if (rootRef.current) {
-      Object.assign(rootRef.current, scrollMethods);
-    }
-  }, [scrollMethods]);
   
   return (
     <ScrollAreaPrimitive.Root

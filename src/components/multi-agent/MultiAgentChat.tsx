@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -12,7 +13,7 @@ import { useChatSession } from "@/contexts/ChatSessionContext";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { ProjectSelector } from "./ProjectSelector";
-import { ScrollArea } from "@/components/ui/scroll-area";
+import { ScrollArea, ScrollAreaRef } from "@/components/ui/scroll-area";
 import { getAgentName } from "@/lib/agent-icons";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, History } from "lucide-react";
@@ -74,8 +75,8 @@ const MultiAgentChat = ({
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0);
-  const [processingTimeoutRef, setProcessingTimeoutRef] = useState<NodeJS.Timeout | null>(null);
-  const scrollAreaRef = useRef<HTMLDivElement & { scrollToBottom: () => void }>(null);
+  const [processingTimeout, setProcessingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement & ScrollAreaRef>(null);
   const scrollRequested = useRef<boolean>(false);
   const scrollInProgress = useRef<boolean>(false);
   const lastMessageCount = useRef<number>(0);
@@ -212,15 +213,17 @@ const MultiAgentChat = ({
       sendMessage(input);
       setInput("");
       
-      if (processingTimeoutRef.current) {
-        clearTimeout(processingTimeoutRef.current);
+      if (processingTimeout) {
+        clearTimeout(processingTimeout);
       }
       
       setTimeout(scrollToBottom, 100);
       
-      processingTimeoutRef.current = setTimeout(() => {
+      const timeout = setTimeout(() => {
         setForceUpdate(prev => prev + 1);
-      }, 300) as unknown as number;
+      }, 300);
+      
+      setProcessingTimeout(timeout);
     } else {
       console.log("Using agent handle submit");
       agentHandleSubmit(e);
@@ -231,19 +234,28 @@ const MultiAgentChat = ({
   };
   
   useEffect(() => {
-    let interval: number | undefined;
+    let interval: NodeJS.Timeout | undefined;
     
     if (isLoading) {
-      interval = window.setInterval(() => {
+      interval = setInterval(() => {
         console.log("Forcing update while loading");
         setForceUpdate(prev => prev + 1);
-      }, 500) as unknown as number;
+      }, 500);
     }
     
     return () => {
       if (interval) clearInterval(interval);
     };
   }, [isLoading]);
+  
+  useEffect(() => {
+    // Clean up the timeout when component unmounts
+    return () => {
+      if (processingTimeout) {
+        clearTimeout(processingTimeout);
+      }
+    };
+  }, [processingTimeout]);
   
   const isContextLoaded = !isContextLoading && !!projectContext;
   

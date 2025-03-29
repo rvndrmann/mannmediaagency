@@ -2,6 +2,14 @@
 import { supabase } from "@/integrations/supabase/client";
 import { MCPServerService } from "@/services/mcpService";
 
+interface MCPToolParams {
+  sceneId: string;
+  imageAnalysis?: boolean;
+  useDescription?: boolean;
+  productShotVersion?: string;
+  aspectRatio?: string;
+}
+
 export const canvasTool = {
   name: "canvas",
   description: "Create and update video scenes in the Canvas system",
@@ -55,7 +63,7 @@ export const canvasTool = {
         await mcpServer.connect();
         
         let toolName = "";
-        let toolParams: Record<string, any> = { sceneId };
+        let toolParams: MCPToolParams = { sceneId: sceneId as string };
         
         switch (action) {
           case "updateDescription":

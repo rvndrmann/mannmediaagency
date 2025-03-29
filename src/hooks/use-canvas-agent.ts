@@ -5,6 +5,7 @@ import { Message } from "@/types/message";
 import { CanvasProject, SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
 import { MCPServerService } from "@/services/mcpService";
+import { useChatSession } from "@/contexts/ChatSessionContext";
 
 type CanvasAgentType = "scene" | "image" | "video" | null;
 
@@ -15,11 +16,38 @@ interface UseCanvasAgentProps {
 }
 
 export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAgentProps) {
+  const { 
+    getOrCreateChatSession, 
+    updateChatSession, 
+    activeSession
+  } = useChatSession();
+  
+  const [chatSessionId, setChatSessionId] = useState<string | null>(null);
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<CanvasAgentType>(null);
   const [useMcp, setUseMcp] = useState(false);
   const [mcpServer, setMcpServer] = useState<MCPServerService | null>(null);
+
+  // Get or create a chat session for this project
+  useEffect(() => {
+    if (projectId) {
+      const sessionId = getOrCreateChatSession(projectId);
+      setChatSessionId(sessionId);
+      
+      // If there's an active session with messages, use those
+      if (activeSession && activeSession.projectId === projectId) {
+        setMessages(activeSession.messages);
+      }
+    }
+  }, [projectId, getOrCreateChatSession, activeSession]);
+
+  // Update the shared chat session when messages change
+  useEffect(() => {
+    if (chatSessionId && messages.length > 0) {
+      updateChatSession(chatSessionId, messages);
+    }
+  }, [messages, chatSessionId, updateChatSession]);
 
   // Initialize MCP server
   useEffect(() => {
@@ -196,6 +224,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     generateImagePrompt,
     generateSceneImage,
     generateSceneVideo,
-    processAgentRequest
+    processAgentRequest,
+    chatSessionId
   };
 }

@@ -6,6 +6,7 @@ import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentRunner } from "@/hooks/multi-agent/runner/AgentRunner";
 import { CanvasProject } from "@/types/canvas";
+import { useChatSession } from "@/contexts/ChatSessionContext";
 
 export type { AgentType } from "@/hooks/multi-agent/runner/types";
 
@@ -13,10 +14,28 @@ interface UseMultiAgentChatOptions {
   initialMessages?: Message[];
   onAgentSwitch?: (from: string, to: string) => void;
   projectId?: string;
+  sessionId?: string; // New prop to specify which chat session to use
 }
 
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
-  const [messages, setMessages] = useState<Message[]>(options.initialMessages || []);
+  const { 
+    activeSession, 
+    activeChatId, 
+    getOrCreateChatSession, 
+    updateChatSession 
+  } = useChatSession();
+  
+  // Initialize chat session if needed
+  const [chatSessionId, setChatSessionId] = useState<string | null>(
+    options.sessionId || (options.projectId ? null : activeChatId)
+  );
+  
+  // Initialize messages from chat session or options
+  const [messages, setMessages] = useState<Message[]>(
+    options.initialMessages || (activeSession?.messages || [])
+  );
+  
+  // Rest of state variables
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
@@ -38,6 +57,24 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       ? "You specialize in creating detailed visual scene descriptions for video projects. You can save scene descriptions and image prompts directly to Canvas projects."
       : "You specialize in creating detailed visual scene descriptions."
   });
+  
+  // Initialize or get chat session
+  useEffect(() => {
+    if (!chatSessionId && options.projectId) {
+      const newSessionId = getOrCreateChatSession(
+        options.projectId, 
+        options.initialMessages || []
+      );
+      setChatSessionId(newSessionId);
+    }
+  }, [options.projectId, options.initialMessages, chatSessionId, getOrCreateChatSession]);
+  
+  // Sync messages with chat session
+  useEffect(() => {
+    if (chatSessionId && messages.length > 0) {
+      updateChatSession(chatSessionId, messages);
+    }
+  }, [messages, chatSessionId, updateChatSession]);
   
   const setProjectContext = useCallback((project: CanvasProject) => {
     setCurrentProject(project);
@@ -404,6 +441,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     handoffInProgress,
     agentInstructions,
     currentProject,
+    chatSessionId,
     handleSubmit,
     switchAgent,
     clearChat,

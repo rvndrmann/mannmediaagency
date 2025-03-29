@@ -3,7 +3,7 @@ import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { AgentSelector } from "./AgentSelector";
 import { ProjectSelector } from "./ProjectSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
@@ -21,6 +21,8 @@ import {
 import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
+import { ChatSessionSelector } from "./ChatSessionSelector";
+import { useChatSession } from "@/contexts/ChatSessionContext";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message } from "@/types/message";
 
@@ -28,9 +30,15 @@ interface MultiAgentChatProps {
   projectId?: string;
   onBack?: () => void;
   isEmbedded?: boolean;
+  sessionId?: string;
 }
 
-export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiAgentChatProps) => {
+export const MultiAgentChat = ({ 
+  projectId, 
+  onBack, 
+  isEmbedded = false,
+  sessionId
+}: MultiAgentChatProps) => {
   const navigate = useNavigate();
   const {
     activeProjectId,
@@ -38,6 +46,30 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
     isLoading: projectLoading,
     setActiveProject
   } = useProjectContext({ initialProjectId: projectId });
+  
+  const { activeChatId, getOrCreateChatSession } = useChatSession();
+  
+  // Ensure we have a valid chat session
+  const [localSessionId, setLocalSessionId] = useState<string | null>(
+    sessionId || activeChatId
+  );
+  
+  useEffect(() => {
+    if (!localSessionId && projectId) {
+      const newSessionId = getOrCreateChatSession(projectId, [
+        {
+          id: "welcome",
+          role: "system",
+          content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
+          createdAt: new Date().toISOString(),
+        }
+      ]);
+      setLocalSessionId(newSessionId);
+    } else if (!localSessionId && !projectId) {
+      const newSessionId = getOrCreateChatSession(null);
+      setLocalSessionId(newSessionId);
+    }
+  }, [projectId, localSessionId, getOrCreateChatSession]);
   
   const { 
     messages, 
@@ -65,31 +97,9 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
     toggleTracing,
     setProjectContext
   } = useMultiAgentChat({
-    initialMessages: projectId ? [
-      {
-        id: "welcome",
-        role: "system",
-        content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
-        createdAt: new Date().toISOString(),
-      }
-    ] : undefined,
-    onAgentSwitch: (from, to) => {
-      toast.info(`Switched from ${from} agent to ${to} agent`);
-    },
-    projectId: activeProjectId || undefined
+    projectId: activeProjectId || undefined,
+    sessionId: localSessionId || undefined
   });
-  
-  useEffect(() => {
-    if (activeProjectId && projectDetails) {
-      setProjectContext(projectDetails);
-    }
-  }, [activeProjectId, projectDetails, setProjectContext]);
-  
-  useEffect(() => {
-    if (projectId && projectId !== activeProjectId) {
-      setActiveProject(projectId);
-    }
-  }, [projectId, activeProjectId, setActiveProject]);
   
   const [showInstructions, setShowInstructions] = useState(false);
   const [editInstructionsOpen, setEditInstructionsOpen] = useState(false);
@@ -287,13 +297,19 @@ export const MultiAgentChat = ({ projectId, onBack, isEmbedded = false }: MultiA
       </header>
       
       <div className="flex-1 container mx-auto max-w-4xl px-4 pb-2 pt-2 flex flex-col h-full overflow-hidden">
-        <div className="mb-2 grid grid-cols-1 md:grid-cols-2 gap-2">
-          <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
-          <ProjectSelector 
-            selectedProjectId={activeProjectId || undefined} 
-            onProjectSelect={handleProjectSelect}
-            allowCreateNew={true}
-          />
+        <div className="mb-2 space-y-2">
+          {!isEmbedded && (
+            <ChatSessionSelector />
+          )}
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
+            <ProjectSelector 
+              selectedProjectId={activeProjectId || undefined} 
+              onProjectSelect={handleProjectSelect}
+              allowCreateNew={true}
+            />
+          </div>
         </div>
         
         {showInstructions && 

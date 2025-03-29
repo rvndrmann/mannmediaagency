@@ -1,9 +1,13 @@
-
-import React from 'react';
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { ThemeProvider } from 'next-themes';
+import React from "react";
+import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { Toaster as SonnerToaster } from "sonner";
+import { ThemeProvider } from "@/components/theme-provider";
+import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
+import { AuthCallback } from "@/components/auth/AuthCallback";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { ChatSessionProvider } from "@/contexts/ChatSessionContext";
+
 import Index from './pages/Index';
 import Auth from './pages/Auth';
 import AboutUs from './pages/AboutUs';
@@ -33,78 +37,71 @@ import Canvas from './pages/Canvas';
 import VideoCreator from './pages/VideoCreator';
 import LoginForm from './components/auth/LoginForm';
 import SignupForm from './components/auth/SignupForm';
-import AuthCallback from './components/auth/AuthCallback';
 import Admin from './pages/Admin';
-import { ProtectedRoute } from './components/auth/ProtectedRoute';
-import './App.css';
 
-// Create a client
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      staleTime: 5 * 60 * 1000, // 5 minutes
-      retry: 1,
-    },
-  },
-});
+// Create a client for React Query
+const queryClient = new QueryClient();
 
 function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/auth" element={<Auth />} />
-            <Route path="/auth/login" element={<LoginForm />} />
-            <Route path="/auth/signup" element={<SignupForm />} />
-            <Route path="/auth/callback" element={<AuthCallback />} />
-            <Route path="/about" element={<AboutUs />} />
-            <Route path="/contact" element={<Contact />} />
-            <Route path="/terms" element={<Terms />} />
-            <Route path="/privacy" element={<Privacy />} />
-            <Route path="/browser-use" element={<BrowserUse />} />
-            <Route path="/product-shoot" element={<ProductShoot />} />
-            <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
-            <Route path="/image-to-video" element={<ImageToVideo />} />
-            <Route path="/product-ad" element={<ProductAd />} />
-            <Route path="/plans" element={<Plans />} />
-            <Route path="/create-video" element={<CreateVideo />} />
-            <Route path="/video-creator" element={
-              <ProtectedRoute>
-                <VideoCreator />
-              </ProtectedRoute>
-            } />
-            <Route path="/settings" element={
-              <ProtectedRoute>
-                <ProfileSettings />
-              </ProtectedRoute>
-            } />
-            <Route path="/profile" element={
-              <ProtectedRoute>
-                <ProfileSettings />
-              </ProtectedRoute>
-            } />
-            <Route path="/integrations" element={<Integrations />} />
-            <Route path="/payment-success" element={<PaymentSuccess />} />
-            <Route path="/payment-failure" element={<PaymentFailure />} />
-            <Route path="/payment-cancel" element={<PaymentCancel />} />
-            <Route path="/payment" element={<Payment />} />
-            <Route path="/metadata" element={<Metadata />} />
-            <Route path="/custom-orders" element={<CustomOrders />} />
-            <Route path="/custom-order" element={<CustomOrderForm />} />
-            <Route path="/trace-analytics" element={<TraceAnalytics />} />
-            <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
-            <Route path="/explore" element={<Explore />} />
-            <Route path="/canvas" element={<Canvas />} />
-            <Route path="/admin" element={
-              <ProtectedRoute>
-                <Admin />
-              </ProtectedRoute>
-            } />
-          </Routes>
+      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+        <ChatSessionProvider>
+          <BrowserRouter>
+            <Routes>
+              <Route path="/" element={<Index />} />
+              <Route path="/auth" element={<Auth />} />
+              <Route path="/auth/login" element={<LoginForm />} />
+              <Route path="/auth/signup" element={<SignupForm />} />
+              <Route path="/auth/callback" element={<AuthCallback />} />
+              <Route path="/about" element={<AboutUs />} />
+              <Route path="/contact" element={<Contact />} />
+              <Route path="/terms" element={<Terms />} />
+              <Route path="/privacy" element={<Privacy />} />
+              <Route path="/browser-use" element={<BrowserUse />} />
+              <Route path="/product-shoot" element={<ProductShoot />} />
+              <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
+              <Route path="/image-to-video" element={<ImageToVideo />} />
+              <Route path="/product-ad" element={<ProductAd />} />
+              <Route path="/plans" element={<Plans />} />
+              <Route path="/create-video" element={<CreateVideo />} />
+              <Route path="/video-creator" element={
+                <ProtectedRoute>
+                  <VideoCreator />
+                </ProtectedRoute>
+              } />
+              <Route path="/settings" element={
+                <ProtectedRoute>
+                  <ProfileSettings />
+                </ProtectedRoute>
+              } />
+              <Route path="/profile" element={
+                <ProtectedRoute>
+                  <ProfileSettings />
+                </ProtectedRoute>
+              } />
+              <Route path="/integrations" element={<Integrations />} />
+              <Route path="/payment-success" element={<PaymentSuccess />} />
+              <Route path="/payment-failure" element={<PaymentFailure />} />
+              <Route path="/payment-cancel" element={<PaymentCancel />} />
+              <Route path="/payment" element={<Payment />} />
+              <Route path="/metadata" element={<Metadata />} />
+              <Route path="/custom-orders" element={<CustomOrders />} />
+              <Route path="/custom-order" element={<CustomOrderForm />} />
+              <Route path="/trace-analytics" element={<TraceAnalytics />} />
+              <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
+              <Route path="/explore" element={<Explore />} />
+              <Route path="/canvas" element={<Canvas />} />
+              <Route path="/admin" element={
+                <ProtectedRoute>
+                  <Admin />
+                </ProtectedRoute>
+              } />
+            </Routes>
+          </BrowserRouter>
           <Toaster />
-        </Router>
+          <SonnerToaster position="top-right" richColors />
+        </ChatSessionProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

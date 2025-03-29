@@ -3,9 +3,10 @@
 import { SupabaseClient } from '@supabase/supabase-js';
 import { Database } from './types';
 
-// Extend the SupabaseClient type with our custom RPC functions
+// Extend the SupabaseClient type correctly
 declare module '@supabase/supabase-js' {
-  interface SupabaseClient<T extends {}, SchemaName extends string & keyof T = 'public'> {
+  // Note: We're not redefining SupabaseClient here, only extending the interface
+  interface SupabaseClient {
     rpc<ResponseType = any>(
       fn: string,
       params?: object,

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
@@ -43,6 +43,11 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [tracingEnabled, setTracingEnabled] = useState<boolean>(false);
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
+  
+  // Use a ref to track the last submission time to prevent duplicate submissions
+  const lastSubmissionTimeRef = useRef<number>(0);
+  const processingRef = useRef<boolean>(false);
+  
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
     main: "You are a helpful AI assistant focused on general tasks.",
     script: options.projectId 
@@ -335,116 +340,147 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
-  const sendMessage = async (message: string, agentId?: AgentType) => {
-    setIsLoading(true);
+  const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
+    if (!messageText.trim() && attachments.length === 0) return;
+    if (isLoading || processingRef.current) return;
+    
+    // Prevent rapid double submissions
+    const now = Date.now();
+    if (now - lastSubmissionTimeRef.current < 1000) {
+      console.log("Preventing duplicate submission, too soon since last submission");
+      return;
+    }
+    
+    lastSubmissionTimeRef.current = now;
+    processingRef.current = true;
     
     try {
+      setIsLoading(true);
+      
+      // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        throw new Error("User not authenticated");
+        toast.error("You must be signed in to chat with agents");
+        return;
       }
       
-      const userMessage: Message = {
-        id: uuidv4(),
-        content: message,
-        role: "user",
-        createdAt: new Date().toISOString(),
-        attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
-      };
-      
-      setMessages(prev => [...prev, userMessage]);
-      
-      const groupId = uuidv4();
+      // Create unique IDs for this conversation
       const runId = uuidv4();
+      const groupId = chatSessionId || uuidv4();
       
-      const addMessage = (text: string, type: string, attachments?: Attachment[]) => {
-        const newMessage: Message = {
-          id: uuidv4(),
-          content: text,
-          role: "assistant",
-          createdAt: new Date().toISOString(),
-          agentType: activeAgent,
-          type: type as MessageType,
-          attachments
-        };
-        
-        setMessages(prev => [...prev, newMessage]);
-        return newMessage;
-      };
-      
-      const toolAvailable = (toolName: string) => {
-        return true;
-      };
-      
-      const currentAgent = agentId || activeAgent;
+      // Run the agent
       const runner = new AgentRunner(
-        currentAgent, 
+        activeAgent,
         {
           supabase,
-          groupId,
-          runId,
           userId: user.id,
           usePerformanceModel,
           enableDirectToolExecution,
           tracingDisabled: !tracingEnabled,
-          addMessage,
-          toolAvailable,
           metadata: {
-            conversationHistory: messages,
-            instructions: agentInstructions[currentAgent],
-            projectId: currentProject?.id || options.projectId,
+            projectId: options.projectId,
             projectDetails: currentProject,
-            trace: {
-              enabled: tracingEnabled,
-              sessionId: chatSessionId || 'unknown',
-              timestamp: new Date().toISOString()
-            }
-          }
+            groupId: groupId,
+          },
+          runId,
+          groupId,
         },
         {
-          onMessage: (newMessage: Message) => {
-            setMessages(prev => {
-              if (prev.some(m => m.id === newMessage.id)) {
-                return prev;
+          onMessage: (message: Message) => {
+            setMessages(prev => [...prev, message]);
+            
+            // If this is an agent response with a handoff request, update the active agent
+            if (
+              message.role === 'assistant' && 
+              message.handoffRequest && 
+              message.handoffRequest.targetAgent
+            ) {
+              const from = activeAgent;
+              const to = message.handoffRequest.targetAgent as AgentType;
+              
+              console.log(`Handoff from ${from} to ${to}`);
+              setHandoffInProgress(true);
+              
+              // Set the new active agent
+              setActiveAgent(to);
+              
+              // Call the onAgentSwitch callback if provided
+              if (options.onAgentSwitch) {
+                options.onAgentSwitch(from, to);
               }
-              return [...prev, newMessage];
-            });
+              
+              // Finished handoff process
+              setTimeout(() => {
+                setHandoffInProgress(false);
+              }, 500);
+            }
           },
-          onHandoffStart: (fromAgent: string, toAgent: string, reason: string) => {
-            console.log(`Starting handoff from ${fromAgent} to ${toAgent}: ${reason}`);
+          onError: (errorMessage: string) => {
+            // Add error message
+            const errorMsg: Message = {
+              id: uuidv4(),
+              role: 'system',
+              content: `Error: ${errorMessage}`,
+              createdAt: new Date().toISOString(),
+              type: 'error',
+              status: 'error'
+            };
+            
+            setMessages(prev => [...prev, errorMsg]);
+            toast.error("Error processing your request");
+          },
+          onHandoffStart: (from: AgentType, to: AgentType, reason: string) => {
+            console.log(`Handoff starting from ${from} to ${to}: ${reason}`);
             setHandoffInProgress(true);
           },
-          onHandoffEnd: (toAgent: string) => {
-            console.log(`Handoff completed to ${toAgent}`);
-            setActiveAgent(toAgent as AgentType);
+          onHandoffEnd: (agent: AgentType) => {
+            console.log(`Handoff completed to ${agent}`);
             setHandoffInProgress(false);
           },
           onToolExecution: (toolName: string, params: any) => {
             console.log(`Executing tool: ${toolName}`, params);
-          },
-          onError: (error: string) => {
-            toast.error(error);
-            setIsLoading(false);
           }
         }
       );
       
-      try {
-        await runner.run(message, pendingAttachments, user.id);
-      } catch (error) {
-        console.error("Error in agent execution:", error);
-        toast.error("Error processing your message. Please try again.");
-      }
-      
-      setIsLoading(false);
+      await runner.run(messageText, attachments, user.id);
       
     } catch (error) {
-      console.error("Error in sendMessage:", error);
-      toast.error("Failed to send message");
+      console.error("Error in handleSendMessage:", error);
+      toast.error("Failed to process message");
+    } finally {
       setIsLoading(false);
+      setPendingAttachments([]);
+      processingRef.current = false;
     }
-  };
-  
+  }, [
+    activeAgent, 
+    isLoading, 
+    chatSessionId, 
+    usePerformanceModel, 
+    enableDirectToolExecution, 
+    tracingEnabled,
+    currentProject,
+    options.projectId,
+    options.onAgentSwitch
+  ]);
+
+  const addAttachment = useCallback((attachment: Attachment) => {
+    setPendingAttachments(prev => [...prev, attachment]);
+  }, []);
+
+  const removeAttachment = useCallback((attachmentId: string) => {
+    setPendingAttachments(prev => prev.filter(a => a.id !== attachmentId));
+  }, []);
+
+  const clearAttachments = useCallback(() => {
+    setPendingAttachments([]);
+  }, []);
+
+  const clearMessages = useCallback(() => {
+    setMessages([]);
+  }, []);
+
   return {
     messages,
     setMessages,
@@ -452,27 +488,22 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     setInput,
     isLoading,
     activeAgent,
-    userCredits,
+    setActiveAgent,
     pendingAttachments,
-    usePerformanceModel,
-    enableDirectToolExecution,
-    tracingEnabled,
-    handoffInProgress,
-    agentInstructions,
-    currentProject,
-    chatSessionId,
-    handleSubmit,
-    switchAgent,
-    clearChat,
-    addAttachments,
+    addAttachment,
     removeAttachment,
-    updateAgentInstructions,
-    getAgentInstructions,
-    togglePerformanceMode,
-    toggleDirectToolExecution,
-    toggleTracing,
-    sendMessage,
-    processHandoff,
-    setProjectContext
+    clearAttachments,
+    handleSendMessage,
+    clearMessages,
+    userCredits,
+    usePerformanceModel,
+    setUsePerformanceModel,
+    enableDirectToolExecution,
+    setEnableDirectToolExecution,
+    tracingEnabled,
+    setTracingEnabled,
+    handoffInProgress,
+    setProjectContext: setCurrentProject,
+    chatSessionId
   };
 }

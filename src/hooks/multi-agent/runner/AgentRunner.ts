@@ -16,6 +16,7 @@ export class AgentRunner {
   private agentTurnCount: number = 0;
   private maxTurns: number = 7; // Increased max turns
   private handoffHistory: { from: AgentType, to: AgentType, reason: string }[] = [];
+  private isProcessing: boolean = false; // Add flag to prevent duplicate requests
 
   constructor(
     agentType: AgentType,
@@ -63,7 +64,14 @@ export class AgentRunner {
     attachments: Attachment[] = [],
     userId: string
   ): Promise<void> {
+    // Prevent duplicate requests while one is still processing
+    if (this.isProcessing) {
+      console.log("Already processing a request, ignoring duplicate");
+      return;
+    }
+    
     try {
+      this.isProcessing = true;
       console.log(`Running agent with input: ${input.substring(0, 50)}...`);
       this.agentTurnCount = 0;
       
@@ -92,6 +100,8 @@ export class AgentRunner {
     } catch (error) {
       console.error("Agent runner error:", error);
       this.callbacks.onError(error instanceof Error ? error.message : "Unknown error");
+    } finally {
+      this.isProcessing = false;
     }
   }
   

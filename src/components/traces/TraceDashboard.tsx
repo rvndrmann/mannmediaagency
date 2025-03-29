@@ -35,7 +35,6 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
         
         console.log('Fetching analytics for user:', userId);
         
-        // Use rpc() method with type parameter 
         const { data, error: fetchError } = await supabase
           .rpc<AgentAnalytics>('get_agent_trace_analytics', { user_id_param: userId });
         
@@ -64,32 +63,6 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
     }
   }, [userId]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
-        <span className="ml-3">Loading analytics...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="text-center p-8 bg-red-50 text-red-500 rounded-lg">
-        <p className="font-medium">Error</p>
-        <p>{error}</p>
-      </div>
-    );
-  }
-
-  if (!analytics) {
-    return (
-      <div className="text-center p-8 bg-gray-50 rounded-lg">
-        <p className="text-muted-foreground">No analytics data available</p>
-      </div>
-    );
-  }
-
   const formatChartData = (data: Record<string, number> | undefined) => {
     if (!data) return [];
     
@@ -99,8 +72,8 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
     }));
   };
   
-  const agentUsageData = formatChartData(analytics.agent_usage);
-  const modelUsageData = formatChartData(analytics.model_usage);
+  const agentUsageData = formatChartData(analytics?.agent_usage);
+  const modelUsageData = formatChartData(analytics?.model_usage);
 
   const StatsCard = ({ 
     title, 
@@ -126,6 +99,32 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
       </CardContent>
     </Card>
   );
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+        <span className="ml-3">Loading analytics...</span>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="text-center p-8 bg-red-50 text-red-500 rounded-lg">
+        <p className="font-medium">Error</p>
+        <p>{error}</p>
+      </div>
+    );
+  }
+
+  if (!analytics) {
+    return (
+      <div className="text-center p-8 bg-gray-50 rounded-lg">
+        <p className="text-muted-foreground">No analytics data available</p>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">

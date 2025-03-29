@@ -63,13 +63,15 @@ BEGIN
       'total_handoffs', COALESCE((SELECT total_handoffs FROM trace_metrics), 0),
       'total_tool_calls', COALESCE((SELECT total_tool_calls FROM trace_metrics), 0),
       'avg_response_time', COALESCE((SELECT avg_duration FROM trace_metrics), 0),
-      'agent_usage', (
-        SELECT jsonb_object_agg(agent_type, usage_count)
-        FROM agent_counts
+      'agent_usage', COALESCE(
+        (SELECT jsonb_object_agg(agent_type, usage_count)
+        FROM agent_counts),
+        '{}'::jsonb
       ),
-      'model_usage', (
-        SELECT jsonb_object_agg(model, usage_count)
-        FROM model_usage
+      'model_usage', COALESCE(
+        (SELECT jsonb_object_agg(model, usage_count)
+        FROM model_usage),
+        '{}'::jsonb
       )
     ) INTO result;
     
@@ -88,51 +90,59 @@ DECLARE
 BEGIN
   SELECT 
     jsonb_build_object(
-      'messages', jsonb_agg(
-        jsonb_build_object(
-          'agent_type', agent_type,
-          'user_message', user_message,
-          'assistant_response', assistant_response,
-          'timestamp', timestamp,
-          'has_attachments', has_attachments,
-          'trace', metadata->'trace'
-        ) ORDER BY timestamp
+      'messages', COALESCE(
+        jsonb_agg(
+          jsonb_build_object(
+            'agent_type', agent_type,
+            'user_message', user_message,
+            'assistant_response', assistant_response,
+            'timestamp', timestamp,
+            'has_attachments', has_attachments,
+            'trace', metadata->'trace'
+          ) ORDER BY timestamp
+        ),
+        '[]'::jsonb
       ),
       'summary', jsonb_build_object(
-        'agent_types', (
-          SELECT jsonb_agg(DISTINCT agent_type)
+        'agent_types', COALESCE(
+          (SELECT jsonb_agg(DISTINCT agent_type)
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
-            user_id = user_id_param
+            user_id = user_id_param),
+          '[]'::jsonb
         ),
-        'duration', (
-          SELECT MAX((metadata->'trace'->>'duration')::numeric)
+        'duration', COALESCE(
+          (SELECT MAX((metadata->'trace'->>'duration')::numeric)
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
-            user_id = user_id_param
+            user_id = user_id_param),
+          0
         ),
-        'handoffs', (
-          SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'handoffs')::numeric, 0))
+        'handoffs', COALESCE(
+          (SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'handoffs')::numeric, 0))
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
-            user_id = user_id_param
+            user_id = user_id_param),
+          0
         ),
-        'tool_calls', (
-          SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'toolCalls')::numeric, 0))
+        'tool_calls', COALESCE(
+          (SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'toolCalls')::numeric, 0))
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
-            user_id = user_id_param
+            user_id = user_id_param),
+          0
         ),
-        'message_count', (
-          SELECT COUNT(*)
+        'message_count', COALESCE(
+          (SELECT COUNT(*)
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
-            user_id = user_id_param
+            user_id = user_id_param),
+          0
         ),
         'model_used', (
           SELECT metadata->'trace'->'summary'->>'modelUsed'
@@ -142,8 +152,8 @@ BEGIN
             user_id = user_id_param
           LIMIT 1
         ),
-        'success', (
-          SELECT bool_and(
+        'success', COALESCE(
+          (SELECT bool_and(
             CASE 
               WHEN metadata->'trace'->'summary'->>'success' = 'true' THEN true
               ELSE false
@@ -152,7 +162,8 @@ BEGIN
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
-            user_id = user_id_param
+            user_id = user_id_param),
+          false
         )
       )
     ) INTO result
@@ -189,18 +200,21 @@ BEGIN
     GROUP BY metadata->'trace'->>'runId'
   )
   SELECT 
-    jsonb_agg(
-      jsonb_build_object(
-        'conversation_id', conversation_id,
-        'start_time', start_time,
-        'end_time', end_time,
-        'message_count', message_count,
-        'agent_types', to_jsonb(agent_types),
-        'model_used', model_used
-      ) ORDER BY start_time DESC
+    COALESCE(
+      jsonb_agg(
+        jsonb_build_object(
+          'conversation_id', conversation_id,
+          'start_time', start_time,
+          'end_time', end_time,
+          'message_count', message_count,
+          'agent_types', to_jsonb(agent_types),
+          'model_used', model_used
+        ) ORDER BY start_time DESC
+      ),
+      '[]'::jsonb
     ) INTO result
   FROM conversations;
     
-  RETURN COALESCE(result, '[]'::jsonb);
+  RETURN result;
 END;
 $$;

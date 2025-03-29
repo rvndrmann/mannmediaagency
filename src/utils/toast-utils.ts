@@ -50,6 +50,24 @@ export const showToast = {
     });
   },
   
+  // For agent responses
+  agentResponse: (agentType: string, options?: ExternalToast) => {
+    toast.success(`${agentType} agent responded`, {
+      ...toastOptions.success,
+      ...options,
+      duration: 2000
+    });
+  },
+  
+  // For handoffs
+  handoff: (from: string, to: string, options?: ExternalToast) => {
+    toast.info(`Handoff from ${from} to ${to} agent`, {
+      ...toastOptions.info,
+      ...options,
+      duration: 3000
+    });
+  },
+  
   // Specifically for MCP-related messages
   mcp: {
     success: (message: string, options?: ExternalToast) => {

@@ -10,6 +10,7 @@ import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types"
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
 import { supabase } from "@/integrations/supabase/client";
 import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
+import { showToast } from "@/utils/toast-utils";
 
 export class AgentRunner {
   public context: RunnerContext;
@@ -24,6 +25,8 @@ export class AgentRunner {
   private traceId: string;
   private runCompletionResolver: (() => void) | null = null;
   private runCompletionPromise: Promise<void> | null = null;
+  private messageQueue: Message[] = [];
+  private processingQueue: boolean = false;
 
   constructor(
     agentType: AgentType,
@@ -116,6 +119,43 @@ export class AgentRunner {
     }
   }
 
+  private processMessageQueue = () => {
+    if (this.processingQueue || this.messageQueue.length === 0) {
+      return;
+    }
+    
+    this.processingQueue = true;
+    
+    try {
+      // Process up to 3 messages at a time
+      const batch = this.messageQueue.splice(0, 3);
+      
+      batch.forEach(message => {
+        if (!this.processedMessageIds.has(message.id)) {
+          this.processedMessageIds.add(message.id);
+          this.callbacks.onMessage(message);
+        }
+      });
+    } finally {
+      this.processingQueue = false;
+      
+      // Continue processing if there are more messages
+      if (this.messageQueue.length > 0) {
+        setTimeout(this.processMessageQueue, 50);
+      }
+    }
+  };
+  
+  private addToMessageQueue = (message: Message) => {
+    if (!this.processedMessageIds.has(message.id)) {
+      this.messageQueue.push(message);
+      
+      if (!this.processingQueue) {
+        this.processMessageQueue();
+      }
+    }
+  };
+
   async run(
     input: string,
     attachments: Attachment[] = [],
@@ -195,6 +235,9 @@ export class AgentRunner {
           success: false
         }
       );
+      
+      // Show error message to user
+      showToast.error("Error running agent: " + (error instanceof Error ? error.message : "Unknown error"));
       
       // Try to finalize the trace even if there was an error
       if (!this.context.tracingDisabled) {
@@ -364,10 +407,8 @@ export class AgentRunner {
         // Add assistant message to conversation history
         this.context.metadata.conversationHistory.push(assistantMessage);
         
-        // Notify of new message with a slight delay to ensure UI gets updated
-        setTimeout(() => {
-          this.callbacks.onMessage(assistantMessage);
-        }, 10);
+        // Add to queue and notify of new message
+        this.addToMessageQueue(assistantMessage);
         
         // Save trace data for this turn
         await this.saveTraceData(
@@ -432,6 +473,21 @@ export class AgentRunner {
           
           console.log("Handoff continuity data:", continuityData);
           
+          // Create handoff confirmation message
+          const handoffConfirmation: Message = {
+            id: uuidv4(),
+            role: "system",
+            content: `Handoff from ${fromAgent} to ${toAgent} complete. Reason: ${handoffReason}`,
+            createdAt: new Date().toISOString(),
+            type: "handoff",
+            status: "completed"
+          };
+          
+          // Add to tracking and conversation history
+          this.processedMessageIds.add(handoffConfirmation.id);
+          this.context.metadata.conversationHistory.push(handoffConfirmation);
+          this.addToMessageQueue(handoffConfirmation);
+          
           // Switch to new agent
           this.currentAgent = this.createAgent(toAgent);
           
@@ -473,6 +529,22 @@ export class AgentRunner {
             agent_type: this.currentAgent.getType(),
             turn: this.agentTurnCount
           });
+          
+          // Create a tool execution confirmation message
+          const toolConfirmation: Message = {
+            id: uuidv4(),
+            role: "system",
+            content: `Tool ${toolName} executed successfully`,
+            createdAt: new Date().toISOString(),
+            type: "tool",
+            status: "completed",
+            tool_name: toolName
+          };
+          
+          // Add to tracking and conversation history
+          this.processedMessageIds.add(toolConfirmation.id);
+          this.context.metadata.conversationHistory.push(toolConfirmation);
+          this.addToMessageQueue(toolConfirmation);
         }
         
         // If we get here, the agent completed successfully without handoff
@@ -506,7 +578,10 @@ export class AgentRunner {
         this.processedMessageIds.add(errorMessage.id);
         
         this.context.metadata.conversationHistory.push(errorMessage);
-        this.callbacks.onMessage(errorMessage);
+        this.addToMessageQueue(errorMessage);
+        
+        // Show error toast
+        showToast.error(`Agent error: ${error instanceof Error ? error.message : "Unknown error"}`);
         
         // Stop after error
         throw error;

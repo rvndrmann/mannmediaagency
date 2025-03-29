@@ -27,12 +27,9 @@ import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import { supabase } from "@/integrations/supabase/client";
 import { validateMessage, createSystemMessage, createErrorMessage, createRetryHandler, handleConnectionError } from "@/utils/message-validation";
 import { ConnectionErrorAlert } from "@/components/ui/ConnectionErrorAlert";
+import { showToast } from "@/utils/toast-utils";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import type { Message } from "@/types/message";
-
-const CompactAgentSelector = lazy(() => import('../canvas/CompactAgentSelector').then(module => ({
-  default: module.CompactAgentSelector
-})));
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -72,7 +69,7 @@ export const MultiAgentChat = ({
       try {
         const newSessionId = getOrCreateChatSession(projectId, [
           {
-            id: "welcome",
+            id: crypto.randomUUID(),
             role: "system",
             content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
             createdAt: new Date().toISOString(),
@@ -82,6 +79,7 @@ export const MultiAgentChat = ({
       } catch (error) {
         console.error("Error creating chat session:", error);
         setConnectionError("Failed to create chat session. Please try refreshing the page.");
+        showToast.error("Failed to create chat session");
       }
     } else if (!localSessionId && !projectId) {
       try {
@@ -90,6 +88,7 @@ export const MultiAgentChat = ({
       } catch (error) {
         console.error("Error creating general chat session:", error);
         setConnectionError("Failed to create chat session. Please try refreshing the page.");
+        showToast.error("Failed to create general chat session");
       }
     }
   }, [projectId, localSessionId, getOrCreateChatSession]);
@@ -139,7 +138,7 @@ export const MultiAgentChat = ({
       
       if (retryCount < 2) {
         setRetryCount(prev => prev + 1);
-        toast.error(`Chat submission failed. Retrying (${retryCount + 1}/3)...`);
+        showToast.error(`Chat submission failed. Retrying (${retryCount + 1}/3)...`);
         
         setTimeout(() => {
           originalHandleSubmit(e)
@@ -153,7 +152,7 @@ export const MultiAgentChat = ({
         }, 1000 * Math.pow(2, retryCount));
       } else {
         setConnectionError("Multiple attempts to send your message failed. Please check your internet connection or try again later.");
-        toast.error("Chat submission failed after multiple attempts");
+        showToast.error("Chat submission failed after multiple attempts");
       }
     }
   }, [originalHandleSubmit, retryCount]);
@@ -166,8 +165,9 @@ export const MultiAgentChat = ({
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
+  const prevMessagesLengthRef = useRef<number>(messages.length);
 
-  const scrollToBottom = () => {
+  const scrollToBottom = useCallback(() => {
     if (lastMessageRef.current && scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
       if (scrollContainer) {
@@ -175,11 +175,17 @@ export const MultiAgentChat = ({
         scrollContainer.scrollTop = scrollHeight;
       }
     }
-  };
+  }, []);
 
   useEffect(() => {
-    scrollToBottom();
-  }, [messages, refreshKey]);
+    if (messages.length > prevMessagesLengthRef.current) {
+      prevMessagesLengthRef.current = messages.length;
+      
+      setTimeout(scrollToBottom, 50);
+      setTimeout(scrollToBottom, 150);
+      setTimeout(scrollToBottom, 300);
+    }
+  }, [messages, scrollToBottom, refreshKey]);
   
   useEffect(() => {
     if (messages.length > 0) {
@@ -194,8 +200,8 @@ export const MultiAgentChat = ({
   useEffect(() => {
     const pingServer = async () => {
       try {
-        const response = await supabase.from('canvas_projects').select('count').limit(1);
-        if (response.error) throw response.error;
+        const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
+        if (error) throw error;
         
         setConnectionError(null);
       } catch (error) {

@@ -3,6 +3,7 @@ import { useState, useEffect } from "react";
 import { Message } from "@/types/message";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { supabase } from "@/integrations/supabase/client";
+import { showToast } from "@/utils/toast-utils";
 
 // Type for chat session data
 export interface ChatSession {
@@ -43,43 +44,44 @@ export function useChatHistoryStore() {
       projectId,
       title,
       lastUpdated: new Date().toISOString(),
-      messages: initialMessages
+      messages: initialMessages,
     };
     
-    setChatSessions([...chatSessions, newSession]);
+    setChatSessions(prev => [...prev, newSession]);
     setActiveChatId(newSessionId);
+    
     return newSessionId;
   };
   
-  // Get or create chat session for a project
+  // Get or create a chat session for a project
   const getOrCreateChatSession = (projectId: string | null, initialMessages: Message[] = []) => {
-    // First, check for an existing session with this project ID
-    const existingSession = chatSessions.find(session => session.projectId === projectId);
-    
-    if (existingSession) {
-      setActiveChatId(existingSession.id);
-      
-      // If there are initial messages and the existing session has no messages,
-      // update the session with the initial messages
-      if (initialMessages.length > 0 && existingSession.messages.length === 0) {
-        updateChatSession(existingSession.id, initialMessages);
+    // First check if we already have a session for this project
+    if (projectId) {
+      const existingSession = chatSessions.find(session => session.projectId === projectId);
+      if (existingSession) {
+        setActiveChatId(existingSession.id);
+        return existingSession.id;
       }
-      
-      return existingSession.id;
     }
     
+    // If not, create a new one
     return createChatSession(projectId, initialMessages);
   };
   
-  // Update messages in a chat session
+  // Update a chat session
   const updateChatSession = (sessionId: string, messages: Message[]) => {
-    setChatSessions(
-      chatSessions.map(session => 
+    if (!sessionId) {
+      console.error("No session ID provided for update");
+      return;
+    }
+    
+    setChatSessions(prev => 
+      prev.map(session => 
         session.id === sessionId 
           ? { 
               ...session, 
-              messages,
-              lastUpdated: new Date().toISOString()
+              messages, 
+              lastUpdated: new Date().toISOString() 
             } 
           : session
       )
@@ -88,36 +90,13 @@ export function useChatHistoryStore() {
   
   // Delete a chat session
   const deleteChatSession = (sessionId: string) => {
-    const updatedSessions = chatSessions.filter(session => session.id !== sessionId);
-    setChatSessions(updatedSessions);
+    setChatSessions(prev => prev.filter(session => session.id !== sessionId));
     
-    // If we deleted the active session, set a new active session
+    // If the deleted session was active, set activeChatId to null
     if (activeChatId === sessionId) {
-      setActiveChatId(updatedSessions.length > 0 ? updatedSessions[0].id : null);
+      setActiveChatId(null);
     }
   };
-  
-  // Sync with Supabase if user is logged in
-  useEffect(() => {
-    const syncWithServer = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        if (!user) return;
-        
-        setSyncing(true);
-        
-        // Future implementation: sync with Supabase
-        // For now, we'll just use local storage
-        
-        setSyncing(false);
-      } catch (error) {
-        console.error("Error syncing chat sessions:", error);
-        setSyncing(false);
-      }
-    };
-    
-    syncWithServer();
-  }, []);
   
   return {
     chatSessions,

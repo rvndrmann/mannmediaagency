@@ -18,6 +18,7 @@ import { getAgentName } from "@/lib/agent-icons";
 import { Button } from "@/components/ui/button";
 import { PlusCircle, History } from "lucide-react";
 import { showToast } from "@/utils/toast-utils";
+import { ChatSessionSelector } from "./ChatSessionSelector";
 
 const ChatHeader = ({ 
   projectContext, 
@@ -75,6 +76,7 @@ const MultiAgentChat = ({
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const {
     messages,
@@ -125,9 +127,12 @@ const MultiAgentChat = ({
     scrollToBottom();
   }, [messages]);
   
+  // Improved scrollToBottom function that ensures scrolling works reliably
   const scrollToBottom = () => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+    if (messagesEndRef.current) {
+      setTimeout(() => {
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }, 100);
     }
   };
   
@@ -167,10 +172,12 @@ const MultiAgentChat = ({
     if (!input.trim() && (!pendingAttachments || pendingAttachments.length === 0)) return;
     
     if (sendMessage) {
+      console.log("Sending message:", input);
       sendMessage(input);
       setInput("");
       setTimeout(scrollToBottom, 100);
     } else {
+      console.log("Using agent handle submit");
       agentHandleSubmit(e);
       setInput("");
     }
@@ -187,39 +194,13 @@ const MultiAgentChat = ({
       />
       
       {showChatSelector && (
-        <div className="absolute inset-0 z-50 bg-white dark:bg-slate-950">
-          {/* We'll implement this later in its own component */}
-          <div className="p-4 flex justify-between items-center border-b">
-            <h3>Chat History</h3>
-            <Button size="sm" variant="ghost" onClick={() => setShowChatSelector(false)}>
-              Close
-            </Button>
-          </div>
-          <div className="p-4">
-            {chatSessions.map(session => (
-              <div 
-                key={session.id}
-                className="p-3 border rounded-md mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900"
-                onClick={() => {
-                  setActiveChatId(session.id);
-                  setShowChatSelector(false);
-                }}
-              >
-                <div className="font-medium text-sm">
-                  {session.title || 'Untitled Chat'}
-                </div>
-                <div className="text-xs text-slate-500">
-                  {new Date(session.lastUpdated).toLocaleString()}
-                </div>
-              </div>
-            ))}
-            {chatSessions.length === 0 && (
-              <div className="text-center py-10 text-slate-500">
-                No chat history found
-              </div>
-            )}
-          </div>
-        </div>
+        <ChatSessionSelector 
+          onClose={() => setShowChatSelector(false)}
+          onSelectSession={(id) => {
+            setActiveChatId(id);
+            setShowChatSelector(false);
+          }}
+        />
       )}
       
       <div className="flex flex-col flex-1 overflow-hidden h-full relative">
@@ -242,51 +223,49 @@ const MultiAgentChat = ({
         />
         
         {/* Message area */}
-        <div className="flex-1 overflow-hidden" ref={scrollAreaRef}>
-          <ScrollArea className="h-[calc(100vh-200px)] min-h-[400px]">
-            <div className="p-4 space-y-4">
-              {Array.isArray(messages) && messages.length === 0 && (
-                <div className="text-center py-10 text-slate-500">
-                  <p>Start a conversation with the AI assistant.</p>
-                </div>
-              )}
-              
-              {Array.isArray(messages) && messages.map((message, index) => (
-                <ChatMessage 
-                  key={message.id || index} 
-                  message={message} 
-                  showAgentName={message.role === 'assistant'}
-                  onEditContent={(type, content, sceneId) => {
-                    console.log("Edit content", type, content, sceneId);
-                  }}
-                />
-              ))}
-              
-              {handoffInProgress && (
-                <HandoffIndicator
-                  fromAgent="main"
-                  toAgent={activeAgent}
-                  onCancel={() => processHandoff("main", activeAgent, "User canceled")}
-                  visible={handoffInProgress}
-                />
-              )}
-              
-              {isLoading && (
-                <ChatMessage
-                  message={{
-                    id: 'loading',
-                    role: 'assistant',
-                    content: '',
-                    createdAt: new Date().toISOString(),
-                    status: "thinking"
-                  }}
-                  showAgentName={true}
-                />
-              )}
-              
-              <div ref={chatEndRef} />
-            </div>
-          </ScrollArea>
+        <div className="flex-1 overflow-y-auto" ref={scrollAreaRef}>
+          <div className="p-4 space-y-4">
+            {Array.isArray(messages) && messages.length === 0 && (
+              <div className="text-center py-10 text-slate-500">
+                <p>Start a conversation with the AI assistant.</p>
+              </div>
+            )}
+            
+            {Array.isArray(messages) && messages.map((message, index) => (
+              <ChatMessage 
+                key={message.id || index} 
+                message={message} 
+                showAgentName={message.role === 'assistant'}
+                onEditContent={(type, content, sceneId) => {
+                  console.log("Edit content", type, content, sceneId);
+                }}
+              />
+            ))}
+            
+            {handoffInProgress && (
+              <HandoffIndicator
+                fromAgent="main"
+                toAgent={activeAgent}
+                onCancel={() => processHandoff("main", activeAgent, "User canceled")}
+                visible={handoffInProgress}
+              />
+            )}
+            
+            {isLoading && (
+              <ChatMessage
+                message={{
+                  id: 'loading',
+                  role: 'assistant',
+                  content: '',
+                  createdAt: new Date().toISOString(),
+                  status: "thinking"
+                }}
+                showAgentName={true}
+              />
+            )}
+            
+            <div ref={messagesEndRef} style={{ height: "1px" }} />
+          </div>
         </div>
         
         {/* Attachments preview */}

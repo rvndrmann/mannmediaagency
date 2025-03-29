@@ -136,6 +136,7 @@ const MultiAgentChat = ({
     }
   }, [messages, activeChatId, updateChatSession]);
   
+  // Scroll to bottom when new messages arrive
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
@@ -184,13 +185,17 @@ const MultiAgentChat = ({
     e.preventDefault();
     if (!input.trim()) return;
     
-    // Send the message using sendMessage function from useMultiAgentChat
     if (sendMessage) {
-      // Fix: Ensure we're calling sendMessage with the correct number of arguments
       sendMessage(input);
       setInput("");
+      
+      // Force scroll to bottom after sending a message
+      setTimeout(() => {
+        if (chatEndRef.current) {
+          chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+        }
+      }, 100);
     } else {
-      // Fallback if sendMessage is not available
       agentHandleSubmit(e);
       setInput("");
     }
@@ -216,7 +221,7 @@ const MultiAgentChat = ({
           />
         )}
         
-        <div className="flex-1 overflow-hidden flex flex-col">
+        <div className="flex flex-col flex-1 overflow-hidden h-full">
           <ConnectionErrorAlert 
             errorMessage={connectionError} 
             onRetry={async () => {
@@ -227,8 +232,9 @@ const MultiAgentChat = ({
             }} 
           />
           
-          <ScrollArea className="flex-1">
-            <div className="flex-1 p-4 space-y-4">
+          {/* Increased height for the chat area */}
+          <ScrollArea className="flex-1 h-[calc(100vh-200px)] min-h-[400px]">
+            <div className="p-4 space-y-4">
               {Array.isArray(messages) && messages.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground">
                   <p>Start a conversation with the AI assistant.</p>
@@ -300,7 +306,7 @@ const MultiAgentChat = ({
             </div>
           )}
           
-          <div className="border-t p-4">
+          <div className="border-t p-4 mt-auto">
             <div className="flex items-center justify-between mb-2">
               <AgentSelector
                 selectedAgentId={activeAgent}

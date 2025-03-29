@@ -67,7 +67,6 @@ export class MCPServerService implements MCPServer {
         return data.tools;
       } else {
         console.error("Invalid response from MCP server:", data);
-        showToast.error("Invalid response from MCP server");
         throw new Error("Invalid response from MCP server");
       }
     } catch (error) {
@@ -150,7 +149,7 @@ export class MCPServerService implements MCPServer {
         }
       ];
       
-      console.warn("Using fallback mock MCP tools due to error:", error);
+      console.warn("Using fallback mock MCP tools due to error");
       this.toolsCache = canvasTools;
       return canvasTools;
     }

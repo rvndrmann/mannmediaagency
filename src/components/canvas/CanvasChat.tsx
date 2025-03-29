@@ -1,7 +1,7 @@
 
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
-import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
+import MultiAgentChat from "@/components/multi-agent/MultiAgentChat";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { useEffect, useState } from "react";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";

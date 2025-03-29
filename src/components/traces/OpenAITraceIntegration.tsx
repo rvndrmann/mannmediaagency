@@ -10,8 +10,8 @@ export function OpenAITraceIntegration() {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   
   useEffect(() => {
-    const tracesEnabled = process.env.NEXT_PUBLIC_OPENAI_TRACES_ENABLED === 'true';
-    const apiKey = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+    const tracesEnabled = import.meta.env.VITE_OPENAI_TRACES_ENABLED === 'true';
+    const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
     
     if (tracesEnabled && apiKey) {
       // Verify the API key has traces permissions
@@ -84,8 +84,8 @@ export function OpenAITraceIntegration() {
               <h4 className="font-medium mb-2">Configuration Steps:</h4>
               <ol className="list-decimal pl-5 space-y-2">
                 <li>Get an OpenAI API key with traces permission from your OpenAI dashboard</li>
-                <li>Add the API key to your environment variables as <code className="bg-slate-100 px-1 py-0.5 rounded">NEXT_PUBLIC_OPENAI_API_KEY</code></li>
-                <li>Set <code className="bg-slate-100 px-1 py-0.5 rounded">NEXT_PUBLIC_OPENAI_TRACES_ENABLED=true</code> in your environment</li>
+                <li>Add the API key to your environment variables as <code className="bg-slate-100 px-1 py-0.5 rounded">VITE_OPENAI_API_KEY</code></li>
+                <li>Set <code className="bg-slate-100 px-1 py-0.5 rounded">VITE_OPENAI_TRACES_ENABLED=true</code> in your environment</li>
                 <li>Restart your application</li>
               </ol>
             </div>

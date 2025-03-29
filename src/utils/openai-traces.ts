@@ -10,8 +10,9 @@ export type TraceEventData = {
   data: any;
 };
 
-const OPENAI_TRACES_ENABLED = process.env.NEXT_PUBLIC_OPENAI_TRACES_ENABLED === 'true';
-const OPENAI_API_KEY = process.env.NEXT_PUBLIC_OPENAI_API_KEY;
+// Use import.meta.env instead of process.env for Vite compatibility
+const OPENAI_TRACES_ENABLED = import.meta.env.VITE_OPENAI_TRACES_ENABLED === 'true';
+const OPENAI_API_KEY = import.meta.env.VITE_OPENAI_API_KEY;
 const OPENAI_API_BASE_URL = 'https://api.openai.com/v1';
 
 /**

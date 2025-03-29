@@ -1,12 +1,15 @@
 
 import { Attachment } from "@/types/message";
-import { AgentConfig, ToolContext } from "../../types";
 import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class SceneGeneratorAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
     super(options);
+  }
+
+  getType() {
+    return "scene-generator";
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
@@ -22,12 +25,13 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       // Get dynamic instructions if needed
       const instructions = await this.getInstructions(this.context);
       
-      // Get conversation history from context if available
-      const conversationHistory = this.context.metadata?.conversationHistory || [];
+      // Record trace event for scene generator agent start
+      this.recordTraceEvent("scene_generator_agent_start", {
+        input_length: input.length,
+        has_attachments: attachments && attachments.length > 0
+      });
       
-      console.log(`SceneGeneratorAgent processing with ${conversationHistory.length} historical messages`);
-      
-      // Call the Supabase function
+      // Call the Supabase function for the scene generator agent
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
           input,
@@ -36,20 +40,10 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
           userId: user.id,
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: this.context.enableDirectToolExecution,
-          tracingDisabled: this.context.tracingDisabled,
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
             attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: this.context.metadata?.isHandoffContinuation || false,
-            previousAgentType: this.context.metadata?.previousAgentType || 'main',
-            handoffReason: this.context.metadata?.handoffReason || '',
             instructions: instructions
-          },
-          conversationHistory: conversationHistory, // Pass conversation history
-          metadata: {
-            ...this.context.metadata,
-            previousAgentType: 'scene',
-            conversationId: this.context.groupId
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -57,25 +51,33 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       });
       
       if (error) {
+        console.error("Scene generator agent error:", error);
+        this.recordTraceEvent("scene_generator_agent_error", {
+          error: error.message || "Unknown error"
+        });
         throw new Error(`Scene generator agent error: ${error.message}`);
       }
       
-      console.log("SceneGeneratorAgent response:", data);
+      // Extract command suggestion if present
+      const commandSuggestion = data?.commandSuggestion || null;
       
-      // Handle handoff if present
-      let nextAgent = null;
-      if (data?.handoffRequest) {
-        console.log(`SceneGeneratorAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
-        nextAgent = data.handoffRequest.targetAgent;
-      }
+      // Record completion event
+      this.recordTraceEvent("scene_generator_agent_complete", {
+        response_length: data?.completion?.length || 0,
+        has_command_suggestion: !!commandSuggestion
+      });
       
       return {
-        response: data?.completion || "I processed your request but couldn't generate a scene description.",
-        nextAgent: nextAgent,
+        response: data?.completion || "I processed your request but couldn't generate a response.",
+        nextAgent: null,
+        commandSuggestion: commandSuggestion,
         structured_output: data?.structured_output || null
       };
     } catch (error) {
       console.error("SceneGeneratorAgent run error:", error);
+      this.recordTraceEvent("scene_generator_agent_error", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       throw error;
     }
   }

@@ -1,137 +1,75 @@
 
-import React, { useState, useRef, useEffect } from "react";
-import { SendHorizontal, PaperclipIcon } from "lucide-react";
-import { Textarea } from "@/components/ui/textarea";
+import React, { useState } from "react";
+import { Paperclip, Send } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 
 export interface ChatInputProps {
+  input: string;
+  isLoading: boolean;
+  onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
-  disabled?: boolean;
-  placeholder?: string;
-  showAttachmentButton?: boolean;
-  onAttachmentClick?: () => void;
-  input?: string;
-  onInputChange?: (value: string) => void;
-  isLoading?: boolean;
-  autoFocus?: boolean;
   useAssistantsApi?: boolean;
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
   setUseMcp?: (value: boolean) => void;
+  placeholder?: string;
+  disabled?: boolean;
 }
 
 export function ChatInput({
-  onSubmit,
-  disabled = false,
-  placeholder = "Type a message...",
-  showAttachmentButton = false,
-  onAttachmentClick,
-  input = "",
+  input,
+  isLoading,
   onInputChange,
-  isLoading = false,
-  autoFocus = true,
-  useAssistantsApi,
-  setUseAssistantsApi,
-  useMcp,
-  setUseMcp,
+  onSubmit,
+  useAssistantsApi = false,
+  setUseAssistantsApi = () => {},
+  useMcp = false,
+  setUseMcp = () => {},
+  placeholder = "Type a message...",
+  disabled = false
 }: ChatInputProps) {
-  const [localInput, setLocalInput] = useState(input);
-  const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
 
-  // Function to resize textarea based on content
-  const autoResizeTextarea = () => {
-    const textarea = textareaRef.current;
-    if (textarea) {
-      textarea.style.height = 'auto';
-      const newHeight = Math.min(textarea.scrollHeight, 150);
-      textarea.style.height = `${newHeight}px`;
-    }
-  };
-
-  // Handle input change
-  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const value = e.target.value;
-    setLocalInput(value);
-    if (onInputChange) {
-      onInputChange(value);
-    }
-  };
-
-  // Handle form submission
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (localInput.trim() || !isLoading) {
-      onSubmit(e);
-      if (!onInputChange) {
-        // Only clear local input if not controlled externally
-        setLocalInput("");
-      }
-      if (textareaRef.current) {
-        textareaRef.current.style.height = 'auto';
-      }
-    }
-  };
-
-  // Handle keyboard shortcuts
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === 'Enter' && !e.shiftKey) {
+    if (e.key === "Enter" && !e.shiftKey && !isLoading) {
       e.preventDefault();
-      handleSubmit(e);
+      if (input.trim()) {
+        onSubmit(e);
+      }
     }
   };
-
-  // Auto resize on input change
-  useEffect(() => {
-    autoResizeTextarea();
-  }, [localInput]);
-
-  // Update local input when controlled input changes
-  useEffect(() => {
-    if (onInputChange) {
-      setLocalInput(input);
-    }
-  }, [input, onInputChange]);
 
   return (
-    <form onSubmit={handleSubmit} className="relative w-full">
-      <div className="relative flex items-center">
+    <form onSubmit={onSubmit} className="relative">
+      <div className="relative">
         <Textarea
           ref={textareaRef}
-          value={localInput}
-          onChange={handleInputChange}
-          onKeyDown={handleKeyDown}
+          value={input}
+          onChange={(e) => onInputChange(e.target.value)}
           placeholder={placeholder}
+          onKeyDown={handleKeyDown}
           disabled={disabled || isLoading}
-          autoFocus={autoFocus}
-          className="min-h-[40px] w-full resize-none rounded-md border bg-background p-2 pr-12 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
-          rows={1}
+          className={cn(
+            "px-4 py-3 resize-none min-h-[52px] max-h-[200px] overflow-y-auto",
+            "focus-visible:ring-offset-0 focus-visible:ring-0",
+            "border-0 shadow-none",
+            "bg-[#262B38] placeholder-gray-400 text-white",
+            "rounded-lg"
+          )}
         />
-        {showAttachmentButton && (
+
+        <div className="absolute bottom-3 right-3 flex space-x-2">
           <Button
-            type="button"
+            type="submit"
             size="icon"
-            variant="ghost"
-            className="absolute bottom-1 right-12 h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
-            onClick={onAttachmentClick}
-            disabled={disabled || isLoading}
+            disabled={disabled || isLoading || !input.trim()}
+            className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700"
           >
-            <PaperclipIcon className="h-5 w-5" />
-            <span className="sr-only">Attach file</span>
+            <Send className="h-4 w-4" />
           </Button>
-        )}
-        <Button
-          type="submit"
-          size="icon"
-          disabled={!localInput.trim() || disabled || isLoading}
-          className={`absolute bottom-1 right-1 h-8 w-8 p-0 ${
-            !localInput.trim() || disabled || isLoading
-              ? "opacity-50"
-              : "text-primary hover:bg-primary/10"
-          }`}
-        >
-          <SendHorizontal className="h-5 w-5" />
-          <span className="sr-only">Send message</span>
-        </Button>
+        </div>
       </div>
     </form>
   );

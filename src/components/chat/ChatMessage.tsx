@@ -63,7 +63,7 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
-            {getAgentIcon(message.agentType || "main", "w-4 h-4 text-white")}
+            {React.createElement(getAgentIcon(message.agentType || "main"), { className: "w-4 h-4 text-white" })}
           </div>
         )}
       </Avatar>
@@ -99,7 +99,7 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
             <div className="mb-3">
               <AttachmentPreview 
                 attachments={message.attachments} 
-                isRemovable={false} 
+                onRemove={undefined} 
               />
             </div>
           )}

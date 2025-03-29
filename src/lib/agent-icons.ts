@@ -5,7 +5,7 @@ import { type AgentType } from '@/hooks/use-multi-agent-chat';
 /**
  * Get the icon component for a given agent type
  */
-export function getAgentIcon(agentId: string, className: string = "") {
+export function getAgentIcon(agentId: string) {
   const agentType = agentId as AgentType;
   
   switch (agentType) {

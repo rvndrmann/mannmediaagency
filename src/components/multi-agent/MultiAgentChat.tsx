@@ -77,8 +77,8 @@ const MultiAgentChat = ({
     pendingAttachments: attachments,
     addAttachments,
     removeAttachment,
-    handleSubmit,
-    sendMessage: onSendMessage,
+    handleSubmit: agentHandleSubmit,
+    sendMessage,
     clearMessages,
     processHandoff: resetHandoff
   } = useMultiAgentChat({
@@ -112,7 +112,7 @@ const MultiAgentChat = ({
     setActiveProject: setProjectId,
   } = useProjectContext();
   
-  const isContextLoaded = !isContextLoading && projectContext;
+  const isContextLoaded = !isContextLoading && !!projectContext;
   
   const { 
     chatSessions, 
@@ -185,7 +185,12 @@ const MultiAgentChat = ({
     if (content.trim() === '') return;
     
     setInput('');
-    await onSendMessage(content);
+    await sendMessage(content);
+  };
+  
+  const onSubmitForm = (e: FormEvent) => {
+    e.preventDefault();
+    handleSendMessage(input);
   };
   
   return (
@@ -229,7 +234,7 @@ const MultiAgentChat = ({
                       <ProjectSelector 
                         selectedProjectId={projectContextId}
                         onProjectSelect={(id) => setProjectId(id)}
-                        showScenes
+                        showScenes={true}
                       />
                     </div>
                   )}
@@ -308,10 +313,7 @@ const MultiAgentChat = ({
             <ChatInput
               input={input}
               onInputChange={setInput}
-              onSubmit={(e: FormEvent) => {
-                e.preventDefault();
-                handleSendMessage(input);
-              }}
+              onSubmit={onSubmitForm}
               disabled={sending || handoffActive}
               isLoading={sending}
               placeholder={

@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -8,14 +7,6 @@ import { toast } from "sonner";
 interface UseProjectContextOptions {
   initialProjectId?: string;
 }
-
-interface CachedProject {
-  project: CanvasProject;
-  timestamp: number;
-}
-
-// Cache duration in milliseconds (5 minutes)
-const CACHE_DURATION = 5 * 60 * 1000;
 
 export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [activeProjectId, setActiveProjectId] = useLocalStorage<string | null>(
@@ -27,92 +18,11 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [availableProjects, setAvailableProjects] = useState<{id: string, title: string}[]>([]);
   const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
-  const [loadAttempts, setLoadAttempts] = useState(0);
-  const [isOffline, setIsOffline] = useState(false);
-  const [localProjectCache, setLocalProjectCache] = useLocalStorage<{[key: string]: CachedProject}>(
-    "canvas-project-cache",
-    {}
-  );
-  const [sessionRefreshed, setSessionRefreshed] = useState(false);
-
-  // Check online status
-  useEffect(() => {
-    const handleOnline = () => {
-      setIsOffline(false);
-      toast.success("You're back online!");
-    };
-    
-    const handleOffline = () => {
-      setIsOffline(true);
-      toast.error("You're offline. Some features may be limited.");
-    };
-    
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    
-    // Initial check
-    setIsOffline(!navigator.onLine);
-    
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
-  
-  // Preload cached project data immediately if available
-  useEffect(() => {
-    if (activeProjectId && localProjectCache[activeProjectId]) {
-      const cachedData = localProjectCache[activeProjectId];
-      const now = Date.now();
-      
-      // Only use cache if it's not expired
-      if (now - cachedData.timestamp < CACHE_DURATION) {
-        setProjectDetails(cachedData.project);
-      }
-    }
-  }, [activeProjectId, localProjectCache]);
 
   const fetchAvailableProjects = useCallback(async () => {
-    if (isOffline) {
-      // In offline mode, try to show cached projects if available
-      const cachedProjects = Object.values(localProjectCache || {}).map(item => ({
-        id: item.project.id,
-        title: item.project.title
-      }));
-      
-      if (cachedProjects.length > 0) {
-        setAvailableProjects(cachedProjects);
-        setHasLoadedProjects(true);
-        toast.info("Showing cached projects while offline");
-        return cachedProjects;
-      }
-      
-      toast.error("You are offline. Please check your internet connection.");
-      return [];
-    }
-
     try {
-      setIsLoading(true);
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) {
-        console.error("Auth error:", userError);
-        
-        // Try to refresh the session before giving up
-        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
-        
-        if (refreshError || !refreshData.session) {
-          toast.error("Authentication error. Please log in again.");
-          return [];
-        }
-        
-        // If we successfully refreshed the session, continue with the refreshed user
-        userData.user = refreshData.user;
-      }
-      
-      if (!userData?.user) {
-        return [];
-      }
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return [];
       
       const { data, error } = await supabase
         .from('canvas_projects')
@@ -120,77 +30,24 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         .eq('user_id', userData.user.id)
         .order('updated_at', { ascending: false });
         
-      if (error) {
-        console.error("Error fetching projects:", error);
-        toast.error("Failed to load available projects");
-        throw error;
-      }
+      if (error) throw error;
       
-      const projects = data || [];
-      setAvailableProjects(projects);
+      setAvailableProjects(data || []);
       setHasLoadedProjects(true);
-      return projects;
+      return data || [];
     } catch (error) {
       console.error("Error fetching available projects:", error);
       setHasLoadedProjects(true);
-      
-      // Show different message based on error type
-      if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
-        toast.error("Network error. Please check your connection.");
-      } else {
-        toast.error("Failed to load available projects");
-      }
       return [];
-    } finally {
-      setIsLoading(false);
     }
-  }, [isOffline, localProjectCache]);
+  }, []);
 
-  const refreshAuthSession = useCallback(async () => {
-    try {
-      if (sessionRefreshed) {
-        return true; // Don't refresh more than once per component lifecycle
-      }
-      
-      const { data, error } = await supabase.auth.refreshSession();
-      if (error) {
-        console.error("Failed to refresh auth session:", error);
-        return false;
-      }
-      
-      setSessionRefreshed(true);
-      return !!data.session;
-    } catch (error) {
-      console.error("Error refreshing auth session:", error);
-      return false;
-    }
-  }, [sessionRefreshed]);
-
-  const fetchProjectDetails = useCallback(async (projectId: string, retry = false) => {
+  const fetchProjectDetails = useCallback(async (projectId: string) => {
     if (!projectId) return null;
-    
-    // Return cached project if offline
-    if (isOffline) {
-      const cachedProject = localProjectCache[projectId];
-      if (cachedProject) {
-        toast.info("Showing cached project data while offline");
-        return cachedProject.project;
-      }
-      toast.error("You are offline and this project isn't cached. Please reconnect to load it.");
-      return null;
-    }
     
     try {
       setIsLoading(true);
       setError(null);
-      
-      // Try to refresh auth session on retry attempts
-      if (retry && loadAttempts > 1) {
-        const refreshed = await refreshAuthSession();
-        if (!refreshed) {
-          throw new Error("Session expired. Please log in again.");
-        }
-      }
       
       // Fetch project details
       const { data: projectData, error: projectError } = await supabase
@@ -255,79 +112,18 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         }))
       };
       
-      // Update local cache with the latest data - FIX HERE
-      // Instead of using a function, we'll create a new object
-      const updatedCache = {
-        ...localProjectCache,
-        [projectId]: {
-          project: formattedProject,
-          timestamp: Date.now()
-        }
-      };
-      setLocalProjectCache(updatedCache);
-      
       setProjectDetails(formattedProject);
-      setLoadAttempts(0);
       return formattedProject;
     } catch (error) {
       console.error("Error fetching project details:", error);
-      
-      // Increment load attempts
-      const newAttempts = loadAttempts + 1;
-      setLoadAttempts(newAttempts);
-      
-      // Handle network errors differently
-      if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
-        setError("Network connection issue. Please check your internet connection.");
-        
-        if (newAttempts <= 3 && !retry) {
-          // Only show one error toast and attempt a retry
-          toast.error("Network connection issue. Retrying...");
-          
-          // Auto-retry with exponential backoff
-          setTimeout(() => {
-            fetchProjectDetails(projectId, true);
-          }, Math.min(1000 * Math.pow(2, newAttempts - 1), 8000)); // Max 8 second delay
-        } else {
-          // Try to use cached data if available
-          const cachedProject = localProjectCache[projectId];
-          if (cachedProject) {
-            toast.info("Using cached project data while experiencing network issues");
-            setProjectDetails(cachedProject.project);
-            return cachedProject.project;
-          }
-          
-          toast.error("Connection issues persist. Please try again later or check your network.");
-        }
-        return null;
-      }
-      
-      // Handle other errors
-      if (newAttempts <= 3 && !retry) {
-        toast.error(error instanceof Error ? error.message : "Failed to load project details");
-        
-        // Auto-retry once after a short delay
-        setTimeout(() => {
-          fetchProjectDetails(projectId, true);
-        }, 2000);
-      } else {
-        // Try to use cached data as fallback
-        const cachedProject = localProjectCache[projectId];
-        if (cachedProject) {
-          toast.info("Using cached project data");
-          setProjectDetails(cachedProject.project);
-          return cachedProject.project;
-        }
-        
-        setError(error instanceof Error ? error.message : "Unknown error fetching project");
-        toast.error("Failed to load project details. Please try again later.");
-      }
-      
+      setError(error instanceof Error ? error.message : "Unknown error fetching project");
+      // Show a toast message for better user feedback
+      toast.error(error instanceof Error ? error.message : "Failed to load project details");
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, [loadAttempts, isOffline, refreshAuthSession, localProjectCache, setLocalProjectCache]);
+  }, []);
 
   useEffect(() => {
     if (activeProjectId) {
@@ -336,15 +132,6 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       setProjectDetails(null);
     }
   }, [activeProjectId, fetchProjectDetails]);
-
-  // Effect to clear error when going online
-  useEffect(() => {
-    if (!isOffline && error && activeProjectId) {
-      // Clear error and retry fetching when going online
-      setError(null);
-      fetchProjectDetails(activeProjectId);
-    }
-  }, [isOffline, error, activeProjectId, fetchProjectDetails]);
 
   const setActiveProject = useCallback((projectId: string | null) => {
     setActiveProjectId(projectId);
@@ -355,42 +142,6 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     }
   }, [fetchProjectDetails, setActiveProjectId]);
 
-  const refreshProject = useCallback(() => {
-    if (activeProjectId) {
-      // Reset attempt counter when manually refreshing
-      setLoadAttempts(0);
-      setError(null);
-      return fetchProjectDetails(activeProjectId);
-    }
-    return null;
-  }, [activeProjectId, fetchProjectDetails]);
-
-  // Clear expired cache entries periodically
-  useEffect(() => {
-    const cleanupCache = () => {
-      const now = Date.now();
-      // Create a new cache object instead of modifying in place
-      let newCache = { ...localProjectCache };
-      let hasChanges = false;
-      
-      Object.keys(newCache).forEach(key => {
-        if (now - newCache[key].timestamp > CACHE_DURATION) {
-          delete newCache[key];
-          hasChanges = true;
-        }
-      });
-      
-      if (hasChanges) {
-        setLocalProjectCache(newCache);
-      }
-    };
-    
-    cleanupCache();
-    const interval = setInterval(cleanupCache, CACHE_DURATION);
-    
-    return () => clearInterval(interval);
-  }, [localProjectCache, setLocalProjectCache]);
-
   return {
     activeProjectId,
     projectDetails,
@@ -398,10 +149,9 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     error,
     availableProjects,
     hasLoadedProjects,
-    isOffline,
     setActiveProject,
     fetchProjectDetails,
     fetchAvailableProjects,
-    refreshProject
+    refreshProject: () => activeProjectId ? fetchProjectDetails(activeProjectId) : null
   };
 }

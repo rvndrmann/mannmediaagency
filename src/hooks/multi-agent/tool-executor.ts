@@ -46,13 +46,13 @@ export const executeCommand = async (
     if (!result.success) {
       return {
         state: CommandExecutionState.FAILED,
-        message: `Tool execution failed: ${result.message}`
+        message: `Tool execution failed: ${result.message || result.error || "Unknown error"}`
       };
     }
     
     return {
       state: CommandExecutionState.COMPLETED,
-      message: result.message,
+      message: result.message || "Tool execution completed successfully",
       data: result.data
     };
   } catch (error) {

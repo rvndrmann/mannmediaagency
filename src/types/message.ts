@@ -1,4 +1,3 @@
-
 export type MessageType = 
   | "chat" 
   | "system" 
@@ -9,7 +8,7 @@ export type MessageType =
   | "canvas"
   | "text";
 
-export type MessageStatus = "pending" | "complete" | "error" | "thinking" | "working";
+export type MessageStatus = "pending" | "complete" | "error" | "thinking" | "working" | "completed" | "in-progress";
 
 export interface Attachment {
   id: string;

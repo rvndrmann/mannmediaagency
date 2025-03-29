@@ -41,7 +41,8 @@ export const webSearchTool = {
       console.error("Web search tool error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error in web search"
+        error: error instanceof Error ? error.message : "Unknown error in web search",
+        message: "Web search failed"
       };
     }
   }

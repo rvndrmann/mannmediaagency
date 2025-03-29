@@ -20,18 +20,18 @@ export function Markdown({ children }: MarkdownProps) {
         a: ({ node, ...props }) => (
           <a className="text-blue-500 hover:underline" target="_blank" rel="noopener noreferrer" {...props} />
         ),
-        code: ({ node, inline, className, children, ...props }) => {
+        code: ({ node, className, children, ...props }) => {
           const match = /language-(\w+)/.exec(className || '');
-          return !inline ? (
+          return props.className?.includes('inline') ? (
+            <code className="bg-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
+              {children}
+            </code>
+          ) : (
             <pre className="bg-gray-800 rounded p-2 my-2 overflow-x-auto">
               <code className={`${match && `language-${match[1]}`} text-sm`} {...props}>
                 {children}
               </code>
             </pre>
-          ) : (
-            <code className="bg-gray-800 px-1 py-0.5 rounded text-sm" {...props}>
-              {children}
-            </code>
           );
         },
         blockquote: ({ node, ...props }) => (

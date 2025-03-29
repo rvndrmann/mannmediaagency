@@ -38,7 +38,8 @@ export const dataTool = {
       console.error("Data analysis tool error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error in data analysis"
+        error: error instanceof Error ? error.message : "Unknown error in data analysis",
+        message: "Data analysis failed"
       };
     }
   }

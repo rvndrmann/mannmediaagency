@@ -54,7 +54,8 @@ export const imageGenerationTool = {
       console.error("Image generation tool error:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error in image generation"
+        error: error instanceof Error ? error.message : "Unknown error in image generation",
+        message: "Image generation failed"
       };
     }
   }

@@ -33,6 +33,7 @@ export interface ToolExecutionResult {
   success: boolean;
   data?: any;
   error?: string;
+  message?: string;  // Add message property
   usage?: {
     creditsUsed: number;
   };

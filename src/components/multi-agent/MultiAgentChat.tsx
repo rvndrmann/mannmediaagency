@@ -131,7 +131,7 @@ const MultiAgentChat = ({
   }, [projectId, getOrCreateChatSession]);
   
   useEffect(() => {
-    if (activeChatId && messages.length > 0) {
+    if (activeChatId && Array.isArray(messages) && messages.length > 0) {
       updateChatSession(activeChatId, messages);
     }
   }, [messages, activeChatId, updateChatSession]);
@@ -186,8 +186,7 @@ const MultiAgentChat = ({
     
     // Send the message using sendMessage function from useMultiAgentChat
     if (sendMessage) {
-      // Fix: Check the function signature and pass the correct arguments
-      // The error indicates we're passing too many arguments
+      // Fix: Ensure we're calling sendMessage with the correct number of arguments
       sendMessage(input);
       setInput("");
     } else {
@@ -230,7 +229,7 @@ const MultiAgentChat = ({
           
           <ScrollArea className="flex-1">
             <div className="flex-1 p-4 space-y-4">
-              {messages && messages.length === 0 && (
+              {Array.isArray(messages) && messages.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground">
                   <p>Start a conversation with the AI assistant.</p>
                   {!projectId && (
@@ -245,7 +244,7 @@ const MultiAgentChat = ({
                 </div>
               )}
               
-              {messages && messages.map((message, index) => (
+              {Array.isArray(messages) && messages.map((message, index) => (
                 <ChatMessage 
                   key={message.id || index} 
                   message={message} 
@@ -292,7 +291,7 @@ const MultiAgentChat = ({
             </div>
           </ScrollArea>
           
-          {pendingAttachments && pendingAttachments.length > 0 && (
+          {Array.isArray(pendingAttachments) && pendingAttachments.length > 0 && (
             <div className="p-2 border-t">
               <AttachmentPreview
                 attachments={pendingAttachments}

@@ -26,7 +26,6 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
     handleClose();
   };
 
-  // Sort sessions by lastUpdated date descending
   // Ensure chatSessions is an array before trying to sort or access it
   const sortedSessions = Array.isArray(chatSessions) 
     ? [...chatSessions].sort((a, b) => {
@@ -65,7 +64,7 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
                     <div className="text-xs text-muted-foreground">
                       {session.lastUpdated ? formatDistanceToNow(new Date(session.lastUpdated), { addSuffix: true }) : "Unknown date"}
                     </div>
-                    {session.messages && session.messages.length > 0 && (
+                    {session.messages && Array.isArray(session.messages) && session.messages.length > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground truncate max-w-[300px]">
                         {session.messages[session.messages.length - 1].content.substring(0, 60)}
                         {session.messages[session.messages.length - 1].content.length > 60 ? "..." : ""}

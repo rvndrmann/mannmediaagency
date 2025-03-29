@@ -9,7 +9,20 @@ interface ChatSessionHookType extends Function {
   getState: () => ChatHistoryStore;
 }
 
-const ChatSessionContext = createContext<ChatHistoryStore | undefined>(undefined);
+// Ensure default values are provided for the store
+const defaultStoreValues: ChatHistoryStore = {
+  chatSessions: [],
+  activeChatId: null,
+  activeSession: null,
+  syncing: false,
+  setActiveChatId: () => {},
+  createChatSession: () => "",
+  getOrCreateChatSession: () => "",
+  updateChatSession: () => {},
+  deleteChatSession: () => {}
+};
+
+const ChatSessionContext = createContext<ChatHistoryStore>(defaultStoreValues);
 
 export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const chatHistoryStore = useChatHistoryStore();
@@ -25,7 +38,8 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
 const useHookBase = (): ChatHistoryStore => {
   const context = useContext(ChatSessionContext);
   if (context === undefined) {
-    throw new Error("useChatSession must be used within a ChatSessionProvider");
+    console.warn("useChatSession used outside of ChatSessionProvider, returning default values");
+    return defaultStoreValues;
   }
   return context;
 };
@@ -36,5 +50,10 @@ export const useChatSession = useHookBase as ChatSessionHookType;
 // Add getState method to the hook
 useChatSession.getState = (): ChatHistoryStore => {
   // Access the store state directly using the getState method from useChatHistoryStore
-  return useChatHistoryStore.getState();
+  try {
+    return useChatHistoryStore.getState();
+  } catch (error) {
+    console.warn("Error accessing chat history store state:", error);
+    return defaultStoreValues;
+  }
 };

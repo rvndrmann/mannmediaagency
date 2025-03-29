@@ -184,24 +184,15 @@ const MultiAgentChat = ({
     e.preventDefault();
     if (!input.trim()) return;
     
-    // Create a new user message
-    const userMessage: Message = {
-      id: crypto.randomUUID(),
-      role: "user",
-      content: input,
-      createdAt: new Date().toISOString(),
-      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
-    };
-    
     // Send the message using sendMessage function from useMultiAgentChat
     if (sendMessage) {
       sendMessage(input, activeAgent, pendingAttachments);
+      setInput("");
     } else {
       // Fallback if sendMessage is not available
       agentHandleSubmit(e);
+      setInput("");
     }
-    
-    setInput("");
   };
   
   return (

@@ -744,6 +744,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     clearAttachments,
     clearMessages,
     forceUiRefresh,
-    refreshTrigger: uiRefreshTrigger
+    refreshTrigger: uiRefreshTrigger,
+    sendMessage: handleSendMessage
   };
 }

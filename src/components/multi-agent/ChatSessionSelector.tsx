@@ -26,7 +26,7 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
     handleClose();
   };
 
-  // Sort sessions by created date descending
+  // Sort sessions by lastUpdated date descending
   const sortedSessions = [...chatSessions].sort((a, b) => {
     return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
   });

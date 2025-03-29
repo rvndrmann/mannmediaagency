@@ -1,27 +1,42 @@
 
 import { useState, useEffect } from "react";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Label } from "@/components/ui/label";
+import { 
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { supabase } from "@/integrations/supabase/client";
-import { Folders, ListFilter } from "lucide-react";
 
-export interface ProjectSelectorProps {
-  selectedProjectId: string;
-  onProjectSelect: (id: string) => void;
+interface ProjectSelectorProps {
+  selectedProjectId: string | null;
+  onProjectSelect: (projectId: string | null) => void;
   showScenes?: boolean;
+  compact?: boolean;
 }
 
-export function ProjectSelector({ selectedProjectId, onProjectSelect, showScenes = false }: ProjectSelectorProps) {
+export function ProjectSelector({ 
+  selectedProjectId, 
+  onProjectSelect,
+  showScenes = false,
+  compact = false 
+}: ProjectSelectorProps) {
   const [projects, setProjects] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    async function fetchProjects() {
+    const fetchProjects = async () => {
       try {
         setLoading(true);
         const { data: { user } } = await supabase.auth.getUser();
         
-        if (!user) return;
-        
+        if (!user) {
+          setLoading(false);
+          return;
+        }
+
         const { data, error } = await supabase
           .from('canvas_projects')
           .select('id, title, created_at')
@@ -36,28 +51,32 @@ export function ProjectSelector({ selectedProjectId, onProjectSelect, showScenes
       } finally {
         setLoading(false);
       }
-    }
-    
+    };
+
     fetchProjects();
   }, []);
 
+  const handleChange = (value: string) => {
+    if (value === "none") {
+      onProjectSelect(null);
+    } else {
+      onProjectSelect(value);
+    }
+  };
+
   return (
-    <div className="w-full">
-      <div className="flex items-center gap-2 mb-1 text-muted-foreground">
-        <Folders className="h-4 w-4" />
-        <span className="text-sm font-medium">Select a project</span>
-      </div>
-      
+    <div className={compact ? "" : "space-y-2"}>
+      {!compact && <Label htmlFor="project-select">Select a project</Label>}
       <Select
         value={selectedProjectId || "none"}
-        onValueChange={onProjectSelect}
+        onValueChange={handleChange}
         disabled={loading}
       >
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Select a project" />
+        <SelectTrigger className={compact ? "h-8 w-[180px]" : "w-full"}>
+          <SelectValue placeholder="Choose a project..." />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="none">No project (general chat)</SelectItem>
+          <SelectItem value="none">No project</SelectItem>
           {projects.map((project) => (
             <SelectItem key={project.id} value={project.id}>
               {project.title}

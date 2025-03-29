@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -7,6 +8,15 @@ import { toast } from "sonner";
 interface UseProjectContextOptions {
   initialProjectId?: string;
 }
+
+// Define the type for the cached project data
+interface CachedProject {
+  data: CanvasProject;
+  timestamp: number;
+}
+
+// Cache expiration time in milliseconds (5 minutes)
+const CACHE_EXPIRATION = 5 * 60 * 1000;
 
 export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [activeProjectId, setActiveProjectId] = useLocalStorage<string | null>(
@@ -18,6 +28,31 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [availableProjects, setAvailableProjects] = useState<{id: string, title: string}[]>([]);
   const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
+  
+  // Use local storage to cache project data
+  const [localProjectCache, setLocalProjectCache] = useLocalStorage<Record<string, CachedProject>>(
+    "multiagent-project-cache",
+    {}
+  );
+
+  // Clear expired cache entries
+  const cleanupCache = useCallback(() => {
+    const now = Date.now();
+    const updatedCache: Record<string, CachedProject> = {};
+    let hasChanges = false;
+    
+    Object.entries(localProjectCache).forEach(([key, value]) => {
+      if (now - value.timestamp < CACHE_EXPIRATION) {
+        updatedCache[key] = value;
+      } else {
+        hasChanges = true;
+      }
+    });
+    
+    if (hasChanges) {
+      setLocalProjectCache(updatedCache);
+    }
+  }, [localProjectCache, setLocalProjectCache]);
 
   const fetchAvailableProjects = useCallback(async () => {
     try {
@@ -46,6 +81,16 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     if (!projectId) return null;
     
     try {
+      // First check if we have a valid cache entry
+      const cachedProject = localProjectCache[projectId];
+      const now = Date.now();
+      
+      if (cachedProject && now - cachedProject.timestamp < CACHE_EXPIRATION) {
+        console.log(`Using cached project data for ${projectId}`);
+        setProjectDetails(cachedProject.data);
+        return cachedProject.data;
+      }
+      
       setIsLoading(true);
       setError(null);
       
@@ -112,6 +157,16 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         }))
       };
       
+      // Update the cache with the new data
+      const newCache = {
+        ...localProjectCache,
+        [projectId]: {
+          data: formattedProject,
+          timestamp: now
+        }
+      };
+      setLocalProjectCache(newCache);
+      
       setProjectDetails(formattedProject);
       return formattedProject;
     } catch (error) {
@@ -123,7 +178,12 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [localProjectCache, setLocalProjectCache]);
+
+  useEffect(() => {
+    // Clean up expired cache entries on mount and when cache changes
+    cleanupCache();
+  }, [cleanupCache]);
 
   useEffect(() => {
     if (activeProjectId) {

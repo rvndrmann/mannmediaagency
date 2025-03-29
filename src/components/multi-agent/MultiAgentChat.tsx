@@ -10,7 +10,7 @@ import { ProjectSelector } from "./ProjectSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { Button } from "@/components/ui/button";
-import { Zap, Trash2, Hammer, BarChartBig, ArrowLeft } from "lucide-react";
+import { Zap, Trash2, Hammer, BarChartBig, ArrowLeft, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useNavigate } from "react-router-dom";
 import { 
@@ -24,8 +24,9 @@ import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
 import { ChatSessionSelector } from "./ChatSessionSelector";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
-import { Message } from "@/types/message";
+import type { Message } from "@/types/message";
 
 // Import the CompactAgentSelector component using lazy loading
 const CompactAgentSelector = lazy(() => import('../canvas/CompactAgentSelector').then(module => ({
@@ -61,20 +62,33 @@ export const MultiAgentChat = ({
     sessionId || activeChatId
   );
   
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [retryCount, setRetryCount] = useState(0);
+  
   useEffect(() => {
     if (!localSessionId && projectId) {
-      const newSessionId = getOrCreateChatSession(projectId, [
-        {
-          id: "welcome",
-          role: "system",
-          content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
-          createdAt: new Date().toISOString(),
-        }
-      ]);
-      setLocalSessionId(newSessionId);
+      try {
+        const newSessionId = getOrCreateChatSession(projectId, [
+          {
+            id: "welcome",
+            role: "system",
+            content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
+            createdAt: new Date().toISOString(),
+          }
+        ]);
+        setLocalSessionId(newSessionId);
+      } catch (error) {
+        console.error("Error creating chat session:", error);
+        setConnectionError("Failed to create chat session. Please try refreshing the page.");
+      }
     } else if (!localSessionId && !projectId) {
-      const newSessionId = getOrCreateChatSession(null);
-      setLocalSessionId(newSessionId);
+      try {
+        const newSessionId = getOrCreateChatSession(null);
+        setLocalSessionId(newSessionId);
+      } catch (error) {
+        console.error("Error creating general chat session:", error);
+        setConnectionError("Failed to create chat session. Please try refreshing the page.");
+      }
     }
   }, [projectId, localSessionId, getOrCreateChatSession]);
   
@@ -92,7 +106,7 @@ export const MultiAgentChat = ({
     tracingEnabled,
     handoffInProgress,
     agentInstructions,
-    handleSubmit, 
+    handleSubmit: originalHandleSubmit, 
     switchAgent, 
     clearChat,
     addAttachments,
@@ -107,6 +121,39 @@ export const MultiAgentChat = ({
     projectId: activeProjectId || undefined,
     sessionId: localSessionId || undefined
   });
+
+  // Enhanced handleSubmit with error handling and retry capability
+  const handleSubmit = useCallback(async (e: React.FormEvent) => {
+    e.preventDefault();
+    setConnectionError(null);
+    
+    try {
+      await originalHandleSubmit(e);
+      // Reset retry count on successful submission
+      setRetryCount(0);
+    } catch (error) {
+      console.error("Error in chat submission:", error);
+      
+      // Handle response based on retry count
+      const errMsg = error instanceof Error ? error.message : "Unknown error";
+      
+      if (retryCount < 2) {
+        setRetryCount(prev => prev + 1);
+        toast.error(`Chat submission failed. Retrying (${retryCount + 1}/3)...`);
+        
+        // Retry after a short delay with exponential backoff
+        setTimeout(() => {
+          originalHandleSubmit(e).catch(retryErr => {
+            console.error("Retry failed:", retryErr);
+            setConnectionError("Connection issues detected. Please check your internet connection and try again.");
+          });
+        }, 1000 * Math.pow(2, retryCount));
+      } else {
+        setConnectionError("Multiple attempts to send your message failed. Please check your internet connection or try again later.");
+        toast.error("Chat submission failed after multiple attempts");
+      }
+    }
+  }, [originalHandleSubmit, retryCount]);
   
   const [showInstructions, setShowInstructions] = useState(false);
   const [editInstructionsOpen, setEditInstructionsOpen] = useState(false);
@@ -140,6 +187,32 @@ export const MultiAgentChat = ({
       }
     }
   }, [messages]);
+
+  // Set up ping to check for connection issues
+  useEffect(() => {
+    const pingServer = async () => {
+      try {
+        // Simple ping to check if Supabase is reachable
+        const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
+        if (error) throw error;
+        
+        // If we get here, connection is good
+        setConnectionError(null);
+      } catch (error) {
+        console.error("Connection check failed:", error);
+        // Only set error if not already set
+        if (!connectionError) {
+          setConnectionError("Connection to the server may be unstable. Some features might not work properly.");
+        }
+      }
+    };
+    
+    // Run ping immediately and then every 30 seconds
+    pingServer();
+    const interval = setInterval(pingServer, 30000);
+    
+    return () => clearInterval(interval);
+  }, [connectionError]);
 
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
@@ -184,6 +257,52 @@ export const MultiAgentChat = ({
   const handleViewTraces = useCallback(() => {
     navigate('/trace-analytics');
   }, [navigate]);
+  
+  const handleRetryConnection = () => {
+    setConnectionError(null);
+    setRetryCount(0);
+    toast.info("Retrying connection...");
+    // Add a "fake" system message to show the user something is happening
+    const systemMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "system",
+      content: "Reconnecting to server...",
+      createdAt: new Date().toISOString(),
+      type: "system",
+      status: "working"
+    };
+    
+    if (messages && Array.isArray(messages)) {
+      setMessages(prevMessages => [...prevMessages, systemMessage]);
+    }
+    
+    // Try to ping the server
+    supabase.from('canvas_projects').select('count').limit(1)
+      .then(() => {
+        // Update the message to show success
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === systemMessage.id 
+              ? {...msg, content: "Connection restored!", status: "completed"} 
+              : msg
+          )
+        );
+        toast.success("Connection restored!");
+      })
+      .catch(err => {
+        console.error("Connection retry failed:", err);
+        // Update the message to show failure
+        setMessages(prevMessages => 
+          prevMessages.map(msg => 
+            msg.id === systemMessage.id 
+              ? {...msg, content: "Connection failed. Please try again later.", status: "error"} 
+              : msg
+          )
+        );
+        setConnectionError("Unable to connect to the server. Please check your internet connection and try again.");
+        toast.error("Connection failed");
+      });
+  };
 
   return (
     <div className={`flex flex-col ${isEmbedded ? 'h-full' : 'h-screen'} bg-gradient-to-b from-[#1A1F29] to-[#121827]`}>
@@ -364,6 +483,24 @@ export const MultiAgentChat = ({
           />
         }
         
+        {connectionError && (
+          <Alert variant="destructive" className="mb-2 bg-red-900/40 border-red-800">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Connection Issue</AlertTitle>
+            <AlertDescription className="flex justify-between items-center">
+              <span>{connectionError}</span>
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={handleRetryConnection}
+                className="ml-2 text-xs border-red-700 bg-red-900/50 hover:bg-red-800/70"
+              >
+                Retry Connection
+              </Button>
+            </AlertDescription>
+          </Alert>
+        )}
+        
         <div className={`flex-1 flex flex-col overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-${compactMode ? 'none' : 'xl'} border ${compactMode ? 'border-t border-b' : 'border'} border-white/10 shadow-lg`}>
           {messages && messages.length > 0 ? (
             <ScrollArea ref={scrollAreaRef} className="flex-1">
@@ -425,6 +562,11 @@ export const MultiAgentChat = ({
                 onInputChange={setInput}
                 onSubmit={handleSubmit}
                 showAttachmentButton={false}
+                placeholder={
+                  connectionError 
+                    ? "Connection issues detected. Messages may not be delivered." 
+                    : `Ask ${activeAgent} agent a question...`
+                }
               />
             </div>
             
@@ -472,4 +614,3 @@ export const MultiAgentChat = ({
 };
 
 export default MultiAgentChat;
-

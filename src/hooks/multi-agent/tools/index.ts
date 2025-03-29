@@ -1,29 +1,12 @@
 
-import { canvasTool } from "./canvas-tool";
+// Import tools
 import { canvasContentTool } from "./canvas-content-tool";
-import { webSearchTool } from "./web-search-tool";
-import { dataTool } from "./data-tool";
-import { imageGenerationTool } from "./image-generation-tool";
+import { canvasTool } from "./canvas-tool";
+import { canvasDataTool } from "./canvas-data-tool"; // New data tool
 
 // Export all available tools
 export const availableTools = [
-  canvasTool,
   canvasContentTool,
-  webSearchTool,
-  dataTool,
-  imageGenerationTool
+  canvasTool,
+  canvasDataTool // Add new tool to available tools
 ];
-
-// Function to get a tool by name
-export function getToolByName(name: string) {
-  return availableTools.find(tool => tool.name === name);
-}
-
-// Export specific tools for direct import
-export {
-  canvasTool,
-  canvasContentTool,
-  webSearchTool,
-  dataTool,
-  imageGenerationTool
-};

@@ -1,5 +1,5 @@
 
-import { Bot, PenLine, Image, Wrench, FileText, User } from 'lucide-react';
+import { Bot, PenLine, Image, Wrench, FileText, User, Database } from 'lucide-react';
 import React from 'react';
 
 export function getAgentIcon(agentType: string | undefined, className: string = "w-4 h-4") {
@@ -14,6 +14,8 @@ export function getAgentIcon(agentType: string | undefined, className: string = 
       return <Wrench className={className} />;
     case 'scene':
       return <FileText className={className} />;
+    case 'data':
+      return <Database className={className} />;
     case 'user':
       return <User className={className} />;
     default:

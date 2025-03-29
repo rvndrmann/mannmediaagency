@@ -12,7 +12,8 @@ import {
   PenLine, 
   Image as ImageIcon, 
   Wrench, 
-  FileText 
+  FileText, 
+  Database 
 } from "lucide-react";
 import { useState } from "react";
 
@@ -57,6 +58,12 @@ export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelector
             <div className="flex items-center gap-2">
               <ImageIcon className="h-4 w-4 text-orange-500" />
               <span>Image Generator</span>
+            </div>
+          </SelectItem>
+          <SelectItem value="data">
+            <div className="flex items-center gap-2">
+              <Database className="h-4 w-4 text-cyan-500" />
+              <span>Data Agent</span>
             </div>
           </SelectItem>
           <SelectItem value="tool">

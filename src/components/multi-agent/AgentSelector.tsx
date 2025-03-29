@@ -1,6 +1,6 @@
 
 import React, { useRef } from 'react';
-import { Bot, PenLine, Image, Wrench, FileText } from 'lucide-react';
+import { Bot, PenLine, Image, Wrench, FileText, Database } from 'lucide-react';
 import { AgentInfo } from '@/types/message';
 import { Button } from '@/components/ui/button';
 
@@ -45,6 +45,16 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
       isBuiltIn: true
     },
     {
+      id: 'data',
+      name: 'Data Agent',
+      description: 'Extracts & manages media data',
+      icon: 'Database',
+      color: 'from-cyan-400 to-blue-500',
+      instructions: 'You extract and manage data.',
+      type: 'data',
+      isBuiltIn: true
+    },
+    {
       id: 'tool',
       name: 'Tool Helper',
       description: 'Guides on using tools',
@@ -73,6 +83,7 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
       case 'Image': return <Image className="h-4 w-4" />;
       case 'Wrench': return <Wrench className="h-4 w-4" />;
       case 'FileText': return <FileText className="h-4 w-4" />;
+      case 'Database': return <Database className="h-4 w-4" />;
       default: return <Bot className="h-4 w-4" />;
     }
   };

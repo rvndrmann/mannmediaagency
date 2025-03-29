@@ -1,6 +1,6 @@
 
 import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { FileText, Image, ArrowRight, Wrench, PenSquare } from "lucide-react";
+import { FileText, Image, ArrowRight, Wrench, PenSquare, Database } from "lucide-react";
 
 interface HandoffIndicatorProps {
   fromAgent: AgentType;
@@ -18,6 +18,8 @@ const getAgentIcon = (agentType: AgentType) => {
       return <Wrench className="w-5 h-5 text-green-400" />;
     case "scene":
       return <PenSquare className="w-5 h-5 text-amber-400" />;
+    case "data":
+      return <Database className="w-5 h-5 text-cyan-400" />; // Add Data agent icon
     default:
       return null;
   }
@@ -30,6 +32,7 @@ const getAgentName = (agentType: AgentType): string => {
     case "image": return "Image Generator";
     case "tool": return "Tool Specialist";
     case "scene": return "Scene Creator";
+    case "data": return "Data Agent"; // Add Data agent name
     default: return "Assistant";
   }
 };

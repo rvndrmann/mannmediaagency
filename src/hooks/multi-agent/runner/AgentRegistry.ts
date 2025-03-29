@@ -1,4 +1,3 @@
-
 import { BaseAgent } from "./types";
 import { AgentType } from "./types";
 import { AgentOptions } from "./types";
@@ -7,6 +6,7 @@ import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { SceneGeneratorAgent } from "./agents/SceneGeneratorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
+import { DataAgent } from "./agents/DataAgent";
 
 class AgentRegistryImpl {
   private static instance: AgentRegistryImpl;
@@ -19,6 +19,7 @@ class AgentRegistryImpl {
     this.registerAgentClass('image', ImageGeneratorAgent as unknown as new (options: AgentOptions) => BaseAgent);
     this.registerAgentClass('scene', SceneGeneratorAgent as unknown as new (options: AgentOptions) => BaseAgent);
     this.registerAgentClass('tool', ToolAgent as unknown as new (options: AgentOptions) => BaseAgent);
+    this.registerAgentClass('data', DataAgent as unknown as new (options: AgentOptions) => BaseAgent);
   }
   
   public static getInstance(): AgentRegistryImpl {

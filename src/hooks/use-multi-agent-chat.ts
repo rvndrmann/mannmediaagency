@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { AgentRunner } from "@/hooks/multi-agent/runner/AgentRunner";
 import { CanvasProject } from "@/types/canvas";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { showToast } from "@/utils/toast-utils";
 
 export type { AgentType } from "@/hooks/multi-agent/runner/types";
 
@@ -45,6 +46,9 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
   const [uiRefreshTrigger, setUiRefreshTrigger] = useState<number>(0);
   
+  const messageQueueRef = useRef<Message[]>([]);
+  const isProcessingQueueRef = useRef<boolean>(false);
+  
   const lastSubmissionTimeRef = useRef<number>(0);
   const processingRef = useRef<boolean>(false);
   const processingTimeoutRef = useRef<number | null>(null);
@@ -63,19 +67,88 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       : "You specialize in creating detailed visual scene descriptions. Your descriptions can be used to inform image prompts and video creation. You can extract, view, and edit scene content for video projects."
   });
   
+  const processMessageQueue = useCallback(() => {
+    if (isProcessingQueueRef.current || messageQueueRef.current.length === 0) {
+      return;
+    }
+    
+    isProcessingQueueRef.current = true;
+    
+    try {
+      const messagesToProcess = messageQueueRef.current.splice(0, 5);
+      
+      if (messagesToProcess.length > 0) {
+        messagesToProcess.forEach(msg => messageIdsRef.current.add(msg.id));
+        
+        setMessages(prev => {
+          const newMessages = messagesToProcess.filter(
+            msg => !prev.some(m => m.id === msg.id)
+          );
+          
+          if (newMessages.length === 0) {
+            return prev;
+          }
+          
+          console.log("Adding new messages to state:", newMessages);
+          
+          return [...prev, ...newMessages];
+        });
+        
+        if (chatSessionId) {
+          setMessages(currentMessages => {
+            console.log("Updating chat session with messages:", currentMessages.length);
+            updateChatSession(chatSessionId, currentMessages);
+            return currentMessages;
+          });
+        }
+      }
+    } finally {
+      isProcessingQueueRef.current = false;
+      
+      if (messageQueueRef.current.length > 0) {
+        setTimeout(processMessageQueue, 50);
+      }
+    }
+  }, [chatSessionId, updateChatSession]);
+  
+  const addMessageToQueue = useCallback((message: Message) => {
+    console.log("Adding message to queue:", message.id, message.content.substring(0, 30));
+    if (messageIdsRef.current.has(message.id)) {
+      console.log("Message already in queue, skipping:", message.id);
+      return;
+    }
+    
+    messageQueueRef.current.push(message);
+    
+    if (!isProcessingQueueRef.current) {
+      processMessageQueue();
+    }
+  }, [processMessageQueue]);
+  
   useEffect(() => {
     if (!chatSessionId && options.projectId) {
-      const newSessionId = getOrCreateChatSession(
-        options.projectId, 
-        options.initialMessages || []
-      );
-      setChatSessionId(newSessionId);
+      try {
+        console.log("Creating new chat session for project:", options.projectId);
+        const newSessionId = getOrCreateChatSession(
+          options.projectId, 
+          options.initialMessages || []
+        );
+        setChatSessionId(newSessionId);
+        console.log("Created new chat session:", newSessionId);
+      } catch (error) {
+        console.error("Failed to create chat session:", error);
+        showToast.error("Failed to create chat session");
+      }
     }
   }, [options.projectId, options.initialMessages, chatSessionId, getOrCreateChatSession]);
   
   useEffect(() => {
-    if (chatSessionId && messages && messages.length > 0) {
-      updateChatSession(chatSessionId, messages);
+    if (chatSessionId && messages.length > 0) {
+      const timeoutId = setTimeout(() => {
+        updateChatSession(chatSessionId, messages);
+      }, 500);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [messages, chatSessionId, updateChatSession]);
   
@@ -224,13 +297,14 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       return;
     }
     
-    await handleSendMessage(input, pendingAttachments);
-    setInput("");
-    setPendingAttachments([]);
-    
-    setTimeout(() => {
-      setUiRefreshTrigger(prev => prev + 1);
-    }, 500);
+    try {
+      await handleSendMessage(input, pendingAttachments);
+      setInput("");
+      setPendingAttachments([]);
+    } catch (error) {
+      console.error("Error submitting message:", error);
+      showToast.error("Failed to send message");
+    }
   };
   
   const switchAgent = (agentId: AgentType) => {
@@ -347,7 +421,13 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       
       messageIdsRef.current.add(handoffMessage.id);
       
-      setMessages(prev => [...prev, handoffMessage]);
+      setMessages(prev => {
+        const updatedMessages = [...prev, handoffMessage];
+        if (chatSessionId) {
+          setTimeout(() => updateChatSession(chatSessionId, updatedMessages), 10);
+        }
+        return updatedMessages;
+      });
       
       switchAgent(toAgent);
       
@@ -453,7 +533,11 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         
         if (chatSessionId) {
           setTimeout(() => {
-            updateChatSession(chatSessionId, updatedMessages);
+            try {
+              updateChatSession(chatSessionId, updatedMessages);
+            } catch (error) {
+              console.error("Error updating chat session:", error);
+            }
           }, 10);
         }
         
@@ -740,11 +824,9 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     setProjectContext,
     chatSessionId,
     processHandoff,
-    addAttachment,
-    clearAttachments,
+    addAttachment: addAttachments,
+    clearAttachments: () => setPendingAttachments([]),
     clearMessages,
-    forceUiRefresh,
-    refreshTrigger: uiRefreshTrigger,
-    sendMessage: (text: string) => handleSendMessage(text, pendingAttachments)
+    sendMessage: (text: string) => handleSendMessage(text, [])
   };
 }

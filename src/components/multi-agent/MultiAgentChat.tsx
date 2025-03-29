@@ -87,6 +87,7 @@ const MultiAgentChat = ({
   });
   
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [toolCallInProgress, setToolCallInProgress] = useState<any>(null);
@@ -136,27 +137,19 @@ const MultiAgentChat = ({
     }
   }, [messages, activeChatId, updateChatSession]);
   
-  // Scroll to bottom when new messages arrive
+  // Force scroll to bottom on component mount and when messages change
   useEffect(() => {
-    if (chatEndRef.current) {
-      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-    }
+    scrollToBottom();
   }, [messages]);
   
-  // Auto-scroll when sending messages or receiving new ones
-  useEffect(() => {
-    const scrollToBottom = () => {
-      if (chatEndRef.current) {
-        chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-      }
-    };
-    
-    scrollToBottom();
-    
-    // Schedule another scroll after a short delay to ensure new content is included
-    const timer = setTimeout(scrollToBottom, 100);
-    return () => clearTimeout(timer);
-  }, [sending, messages]);
+  // Scroll to bottom function with a more reliable approach
+  const scrollToBottom = () => {
+    if (chatEndRef.current) {
+      setTimeout(() => {
+        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+      }, 100);
+    }
+  };
   
   useEffect(() => {
     const checkConnection = async () => {
@@ -205,16 +198,17 @@ const MultiAgentChat = ({
       setInput("");
       
       // Force scroll to bottom after sending a message
-      setTimeout(() => {
-        if (chatEndRef.current) {
-          chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
-        }
-      }, 100);
+      setTimeout(scrollToBottom, 100);
     } else {
       agentHandleSubmit(e);
       setInput("");
     }
   };
+
+  // Log messages for debugging
+  useEffect(() => {
+    console.log("Current messages:", messages);
+  }, [messages]);
   
   return (
     <div className="flex flex-col w-full h-full overflow-hidden">
@@ -236,7 +230,7 @@ const MultiAgentChat = ({
           />
         )}
         
-        <div className="flex flex-col flex-1 overflow-hidden h-full">
+        <div className="flex flex-col flex-1 overflow-hidden h-full relative">
           <ConnectionErrorAlert 
             errorMessage={connectionError} 
             onRetry={async () => {
@@ -248,7 +242,7 @@ const MultiAgentChat = ({
           />
           
           {/* Message area with ScrollArea component */}
-          <div className="flex-1 overflow-hidden">
+          <div className="flex-1 overflow-hidden" ref={scrollAreaRef}>
             <ScrollArea className="h-[calc(100vh-200px)] min-h-[400px]">
               <div className="p-4 space-y-4">
                 {Array.isArray(messages) && messages.length === 0 && (

@@ -1,29 +1,21 @@
 
 import { toast } from "sonner";
 
-/**
- * Utility functions for consistent toast messages throughout the application
- */
 export const showToast = {
   success: (message: string) => {
     toast.success(message);
+    console.log("Success toast:", message);
   },
   error: (message: string) => {
     toast.error(message);
+    console.error("Error toast:", message);
   },
   info: (message: string) => {
     toast.info(message);
+    console.log("Info toast:", message);
   },
   warning: (message: string) => {
     toast.warning(message);
-  },
-  loading: (message: string) => {
-    return toast.loading(message);
-  },
-  dismiss: (toastId: string) => {
-    toast.dismiss(toastId);
-  },
-  custom: (message: string, options: any) => {
-    toast(message, options);
+    console.warn("Warning toast:", message);
   }
 };

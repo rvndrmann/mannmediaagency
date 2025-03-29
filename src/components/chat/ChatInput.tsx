@@ -12,7 +12,11 @@ export interface ChatInputProps {
   autoFocus?: boolean;
   showAttachmentButton?: boolean;
   onAttachmentClick?: () => void;
-  placeholderText?: string; // Add this prop
+  placeholderText?: string;
+  useAssistantsApi?: boolean;
+  setUseAssistantsApi?: (value: boolean) => void;
+  useMcp?: boolean;
+  setUseMcp?: (value: boolean) => void;
 }
 
 export function ChatInput({
@@ -23,7 +27,11 @@ export function ChatInput({
   autoFocus = true,
   showAttachmentButton = false,
   onAttachmentClick,
-  placeholderText = "Type a message...", // Add default value
+  placeholderText = "Type a message...",
+  useAssistantsApi,
+  setUseAssistantsApi,
+  useMcp,
+  setUseMcp,
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

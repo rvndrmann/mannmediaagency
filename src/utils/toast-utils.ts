@@ -1,90 +1,29 @@
 
 import { toast } from "sonner";
-import type { ExternalToast } from "sonner";
 
-// Define toast types for different purposes
-type ToastType = 'success' | 'error' | 'info' | 'warning';
-
-// Custom toast options for different types
-const toastOptions: Record<ToastType, ExternalToast> = {
-  success: { duration: 3000 },
-  error: { duration: 5000 },
-  info: { duration: 3000 },
-  warning: { duration: 4000 }
-};
-
-// Toast utility functions
+/**
+ * Utility functions for consistent toast messages throughout the application
+ */
 export const showToast = {
-  success: (message: string, options?: ExternalToast) => {
-    toast.success(message, { ...toastOptions.success, ...options });
+  success: (message: string) => {
+    toast.success(message);
   },
-  
-  error: (message: string, options?: ExternalToast) => {
-    console.error('Toast error:', message);
-    toast.error(message, { ...toastOptions.error, ...options });
+  error: (message: string) => {
+    toast.error(message);
   },
-  
-  info: (message: string, options?: ExternalToast) => {
-    toast.info(message, { ...toastOptions.info, ...options });
+  info: (message: string) => {
+    toast.info(message);
   },
-  
-  warning: (message: string, options?: ExternalToast) => {
-    toast.warning(message, { ...toastOptions.warning, ...options });
+  warning: (message: string) => {
+    toast.warning(message);
   },
-  
-  // Special case for connection errors
-  connectionError: (message: string, options?: ExternalToast) => {
-    console.error('Connection error:', message);
-    toast.error(`Connection error: ${message}`, { 
-      ...toastOptions.error, 
-      ...options, 
-      duration: 6000 
-    });
+  loading: (message: string) => {
+    return toast.loading(message);
   },
-  
-  // For agent transitions
-  agentSwitch: (from: string, to: string, options?: ExternalToast) => {
-    toast.info(`Switched from ${from} to ${to} agent`, { 
-      ...toastOptions.info, 
-      ...options 
-    });
+  dismiss: (toastId: string) => {
+    toast.dismiss(toastId);
   },
-  
-  // For agent responses
-  agentResponse: (agentType: string, options?: ExternalToast) => {
-    toast.success(`${agentType} agent responded`, {
-      ...toastOptions.success,
-      ...options,
-      duration: 2000
-    });
-  },
-  
-  // For handoffs
-  handoff: (from: string, to: string, options?: ExternalToast) => {
-    toast.info(`Handoff from ${from} to ${to} agent`, {
-      ...toastOptions.info,
-      ...options,
-      duration: 3000
-    });
-  },
-  
-  // Specifically for MCP-related messages
-  mcp: {
-    success: (message: string, options?: ExternalToast) => {
-      toast.success(`MCP: ${message}`, { ...toastOptions.success, ...options });
-    },
-    
-    error: (message: string, options?: ExternalToast) => {
-      console.error('MCP error:', message);
-      toast.error(`MCP error: ${message}`, { 
-        ...toastOptions.error, 
-        ...options, 
-        duration: 6000 
-      });
-    },
-    
-    info: (message: string, options?: ExternalToast) => {
-      toast.info(`MCP: ${message}`, { ...toastOptions.info, ...options });
-    }
+  custom: (message: string, options: any) => {
+    toast(message, options);
   }
 };

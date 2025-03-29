@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Message } from "@/types/message";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,12 +14,25 @@ export interface ChatSession {
   messages: Message[];
 }
 
-// Create a singleton instance to support getState functionality
-let chatHistoryState: ReturnType<typeof createChatHistoryStore> | null = null;
+// Type for the store state
+export interface ChatHistoryStore {
+  chatSessions: ChatSession[];
+  activeChatId: string | null;
+  activeSession: ChatSession | null;
+  syncing: boolean;
+  setActiveChatId: (id: string | null) => void;
+  createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  getOrCreateChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  updateChatSession: (sessionId: string, messages: Message[]) => void;
+  deleteChatSession: (sessionId: string) => void;
+}
 
-// Factory function to create the store
-function createChatHistoryStore() {
-  // Use local storage for chat sessions
+// Singleton instance for the store
+let storeInstance: ChatHistoryStore | null = null;
+
+// Function to create the store
+function createChatHistoryStore(): ChatHistoryStore {
+  // Use local storage for chat sessions with proper typing
   const [chatSessions, setChatSessions] = useLocalStorage<ChatSession[]>("chat-sessions", []);
   const [activeChatId, setActiveChatId] = useLocalStorage<string | null>("active-chat-id", null);
   const [syncing, setSyncing] = useState(false);
@@ -106,30 +119,30 @@ function createChatHistoryStore() {
     chatSessions,
     activeChatId,
     activeSession,
+    syncing,
     setActiveChatId,
     createChatSession,
     getOrCreateChatSession,
     updateChatSession,
-    deleteChatSession,
-    syncing
+    deleteChatSession
   };
 }
 
 // Export the hook with getState capability
-export function useChatHistoryStore() {
+export function useChatHistoryStore(): ChatHistoryStore {
   // Initialize the singleton if it doesn't exist
-  if (!chatHistoryState) {
-    chatHistoryState = createChatHistoryStore();
+  if (!storeInstance) {
+    storeInstance = createChatHistoryStore();
   }
   
-  return chatHistoryState;
+  return storeInstance;
 }
 
 // Add getState method to the hook for static access
-useChatHistoryStore.getState = () => {
-  if (!chatHistoryState) {
+useChatHistoryStore.getState = (): ChatHistoryStore => {
+  if (!storeInstance) {
     // Create the store on demand if it doesn't exist
-    chatHistoryState = createChatHistoryStore();
+    storeInstance = createChatHistoryStore();
   }
-  return chatHistoryState;
+  return storeInstance;
 };

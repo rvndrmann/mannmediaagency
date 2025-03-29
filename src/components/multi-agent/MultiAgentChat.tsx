@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
+
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -29,7 +30,7 @@ import { validateMessage, createSystemMessage, createErrorMessage, createRetryHa
 import { ConnectionErrorAlert } from "@/components/ui/ConnectionErrorAlert";
 import { showToast } from "@/utils/toast-utils";
 import { CompactAgentSelector } from "@/components/canvas/CompactAgentSelector";
-import type { AgentType } from "@/hooks/use-multi-agent-chat";
+import type { AgentType } from "@/hooks/multi-agent/runner/types";
 import type { Message } from "@/types/message";
 
 interface MultiAgentChatProps {

@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useLocalStorage } from "@/hooks/use-local-storage";
@@ -18,6 +19,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [error, setError] = useState<string | null>(null);
   const [availableProjects, setAvailableProjects] = useState<{id: string, title: string}[]>([]);
   const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
+  const [loadAttempts, setLoadAttempts] = useState(0);
 
   const fetchAvailableProjects = useCallback(async () => {
     try {
@@ -38,11 +40,12 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     } catch (error) {
       console.error("Error fetching available projects:", error);
       setHasLoadedProjects(true);
+      toast.error("Failed to load available projects");
       return [];
     }
   }, []);
 
-  const fetchProjectDetails = useCallback(async (projectId: string) => {
+  const fetchProjectDetails = useCallback(async (projectId: string, retry = false) => {
     if (!projectId) return null;
     
     try {
@@ -113,17 +116,32 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       };
       
       setProjectDetails(formattedProject);
+      setLoadAttempts(0);
       return formattedProject;
     } catch (error) {
       console.error("Error fetching project details:", error);
-      setError(error instanceof Error ? error.message : "Unknown error fetching project");
-      // Show a toast message for better user feedback
-      toast.error(error instanceof Error ? error.message : "Failed to load project details");
+      
+      const newAttempts = loadAttempts + 1;
+      setLoadAttempts(newAttempts);
+      
+      if (newAttempts <= 3 && !retry) {
+        // Only show one error toast and attempt a retry
+        toast.error(error instanceof Error ? error.message : "Failed to load project details");
+        
+        // Auto-retry once after a short delay
+        setTimeout(() => {
+          fetchProjectDetails(projectId, true);
+        }, 2000);
+      } else {
+        setError(error instanceof Error ? error.message : "Unknown error fetching project");
+        toast.error("Failed to load project details. Please try again later.");
+      }
+      
       return null;
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [loadAttempts]);
 
   useEffect(() => {
     if (activeProjectId) {
@@ -142,6 +160,15 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     }
   }, [fetchProjectDetails, setActiveProjectId]);
 
+  const refreshProject = useCallback(() => {
+    if (activeProjectId) {
+      // Reset attempt counter when manually refreshing
+      setLoadAttempts(0);
+      return fetchProjectDetails(activeProjectId);
+    }
+    return null;
+  }, [activeProjectId, fetchProjectDetails]);
+
   return {
     activeProjectId,
     projectDetails,
@@ -152,6 +179,6 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     setActiveProject,
     fetchProjectDetails,
     fetchAvailableProjects,
-    refreshProject: () => activeProjectId ? fetchProjectDetails(activeProjectId) : null
+    refreshProject
   };
 }

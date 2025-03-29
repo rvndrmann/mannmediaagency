@@ -7,13 +7,14 @@ import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
 import { CanvasChat } from "@/components/canvas/CanvasChat";
 import { ProjectHistory } from "@/components/canvas/ProjectHistory";
 import { useCanvas } from "@/hooks/use-canvas";
-import { Loader2 } from "lucide-react";
+import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
 
 export default function Canvas() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -24,6 +25,7 @@ export default function Canvas() {
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [shouldCreateProject, setShouldCreateProject] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   // Get project context
   const { 
@@ -39,12 +41,24 @@ export default function Canvas() {
   // Check if user is authenticated
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-      
-      if (!data.session) {
-        toast.error("Please log in to access the Canvas");
-        navigate("/auth");
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+        
+        setIsAuthenticated(!!data.session);
+        
+        if (!data.session) {
+          setAuthError("Please log in to access the Canvas");
+          toast.error("Please log in to access the Canvas");
+          navigate("/auth");
+        }
+      } catch (err: any) {
+        console.error("Auth error:", err);
+        setAuthError(err.message || "Authentication error");
+        setIsAuthenticated(false);
       }
     };
     
@@ -93,6 +107,8 @@ export default function Canvas() {
     project,
     loading,
     error,
+    retryLoading,
+    isRetrying,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
@@ -133,26 +149,69 @@ export default function Canvas() {
     navigate(`/multi-agent-chat?projectId=${projectId}`);
   };
 
-  // Show loading state
-  if (loading || isAuthenticated === null) {
+  // Show authentication loading state
+  if (isAuthenticated === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
-        <p className="ml-2 text-xl">Loading canvas...</p>
+        <p className="ml-2 text-xl">Checking authentication...</p>
       </div>
     );
   }
 
-  // Handle error state
+  // Show authentication error
+  if (authError && !isAuthenticated) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <Alert variant="destructive" className="mb-4 max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Authentication Error</AlertTitle>
+          <AlertDescription>{authError}</AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => navigate("/auth")}
+          className="mt-4"
+        >
+          Go to Login
+        </Button>
+      </div>
+    );
+  }
+
+  // Show loading state
+  if (loading && !error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-primary mr-2" />
+        <p className="text-xl">Loading canvas{isRetrying ? " (retrying)" : ""}...</p>
+      </div>
+    );
+  }
+
+  // Handle error state with retry option
   if (error) {
     return (
-      <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-xl text-red-500 mb-4">{error}</p>
-        <Button 
-          onClick={() => navigate("/")}
-        >
-          Return to Home
-        </Button>
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <Alert variant="destructive" className="mb-4 max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>Error Loading Project</AlertTitle>
+          <AlertDescription>{error}</AlertDescription>
+        </Alert>
+        <div className="flex gap-4 mt-4">
+          <Button 
+            onClick={retryLoading}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry Loading
+          </Button>
+          <Button 
+            variant="outline"
+            onClick={() => navigate("/")}
+          >
+            Return to Home
+          </Button>
+        </div>
       </div>
     );
   }
@@ -216,6 +275,7 @@ export default function Canvas() {
             saveFullScript={saveFullScript}
             createNewProject={handleCreateNewProject}
             updateProjectTitle={updateProjectTitle}
+            onRetryLoading={retryLoading}
           />
         </div>
       </div>

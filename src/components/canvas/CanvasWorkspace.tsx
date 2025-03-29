@@ -1,9 +1,8 @@
-
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle } from "lucide-react";
+import { PlusCircle, RefreshCw } from "lucide-react";
 import { useState, useEffect } from "react";
 import { ProjectScriptEditor } from "./ProjectScriptEditor";
 import { SceneEditor } from "./SceneEditor";
@@ -21,6 +20,7 @@ interface CanvasWorkspaceProps {
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
+  onRetryLoading?: () => void;
 }
 
 export function CanvasWorkspace({
@@ -34,12 +34,12 @@ export function CanvasWorkspace({
   divideScriptToScenes,
   saveFullScript,
   createNewProject,
-  updateProjectTitle
+  updateProjectTitle,
+  onRetryLoading
 }: CanvasWorkspaceProps) {
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("script");
   
-  // Update active tab to "scenes" when a scene is selected
   useEffect(() => {
     if (selectedSceneId) {
       setActiveTab("scenes");
@@ -54,12 +54,25 @@ export function CanvasWorkspace({
           <p className="text-muted-foreground mb-4">
             Create a new project to get started or select an existing project.
           </p>
-          <Button 
-            onClick={() => createNewProject("New Project").then(() => {})}
-            size="lg"
-          >
-            Create New Project
-          </Button>
+          <div className="flex flex-col gap-4 items-center">
+            <Button 
+              onClick={() => createNewProject("New Project").then(() => {})}
+              size="lg"
+            >
+              Create New Project
+            </Button>
+            
+            {onRetryLoading && (
+              <Button 
+                variant="outline" 
+                onClick={onRetryLoading}
+                className="flex items-center gap-2"
+              >
+                <RefreshCw className="h-4 w-4" />
+                Retry Loading Project
+              </Button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -86,7 +99,7 @@ export function CanvasWorkspace({
           />
         </TabsContent>
         
-        <TabsContent value="scenes" className="flex-1 p-0 overflow-hidden flex">
+        <TabsContent value="scenes" className="flex-1 overflow-hidden">
           <div className="w-64 border-r flex flex-col">
             <div className="p-4 border-b flex items-center justify-between">
               <h3 className="font-medium">Scenes</h3>

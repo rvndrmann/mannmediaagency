@@ -1,3 +1,4 @@
+
 import { v4 as uuidv4 } from "uuid";
 import { MainAgent } from "./agents/MainAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
@@ -21,6 +22,8 @@ export class AgentRunner {
   private traceStartTime: number = 0;
   private processedMessageIds: Set<string> = new Set(); // Track processed message IDs
   private traceId: string;
+  private runCompletionResolver: (() => void) | null = null;
+  private runCompletionPromise: Promise<void> | null = null;
 
   constructor(
     agentType: AgentType,
@@ -44,6 +47,11 @@ export class AgentRunner {
     
     // Initialize the trace
     this.initializeTrace();
+    
+    // Create a promise that resolves when the run completes
+    this.runCompletionPromise = new Promise<void>(resolve => {
+      this.runCompletionResolver = resolve;
+    });
   }
 
   private async initializeTrace() {
@@ -197,7 +205,20 @@ export class AgentRunner {
       
     } finally {
       this.isProcessing = false;
+      // Resolve the run completion promise
+      if (this.runCompletionResolver) {
+        this.runCompletionResolver();
+        this.runCompletionResolver = null;
+      }
     }
+  }
+  
+  // Method to wait for run completion
+  async waitForCompletion(): Promise<void> {
+    if (this.runCompletionPromise) {
+      return this.runCompletionPromise;
+    }
+    return Promise.resolve();
   }
   
   private recordTraceEvent(eventType: string, eventData: any) {
@@ -343,8 +364,10 @@ export class AgentRunner {
         // Add assistant message to conversation history
         this.context.metadata.conversationHistory.push(assistantMessage);
         
-        // Notify of new message
-        this.callbacks.onMessage(assistantMessage);
+        // Notify of new message with a slight delay to ensure UI gets updated
+        setTimeout(() => {
+          this.callbacks.onMessage(assistantMessage);
+        }, 10);
         
         // Save trace data for this turn
         await this.saveTraceData(

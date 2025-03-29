@@ -65,6 +65,7 @@ export const MultiAgentChat = ({
   
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [retryCount, setRetryCount] = useState(0);
+  const [refreshKey, setRefreshKey] = useState<number>(0);
   
   useEffect(() => {
     if (!localSessionId && projectId) {
@@ -130,6 +131,7 @@ export const MultiAgentChat = ({
     try {
       await originalHandleSubmit(e);
       setRetryCount(0);
+      setTimeout(() => setRefreshKey(prev => prev + 1), 100);
     } catch (error) {
       console.error("Error in chat submission:", error);
       
@@ -140,10 +142,14 @@ export const MultiAgentChat = ({
         toast.error(`Chat submission failed. Retrying (${retryCount + 1}/3)...`);
         
         setTimeout(() => {
-          originalHandleSubmit(e).catch(retryErr => {
-            console.error("Retry failed:", retryErr);
-            setConnectionError("Connection issues detected. Please check your internet connection and try again.");
-          });
+          originalHandleSubmit(e)
+            .then(() => {
+              setRefreshKey(prev => prev + 1);
+            })
+            .catch(retryErr => {
+              console.error("Retry failed:", retryErr);
+              setConnectionError("Connection issues detected. Please check your internet connection and try again.");
+            });
         }, 1000 * Math.pow(2, retryCount));
       } else {
         setConnectionError("Multiple attempts to send your message failed. Please check your internet connection or try again later.");
@@ -173,7 +179,7 @@ export const MultiAgentChat = ({
 
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, refreshKey]);
   
   useEffect(() => {
     if (messages.length > 0) {
@@ -283,6 +289,7 @@ export const MultiAgentChat = ({
         )
       );
       toast.success("Connection restored!");
+      setRefreshKey(prev => prev + 1);
     })
     .catch(err => {
       console.error("Connection retry failed after multiple attempts:", err);

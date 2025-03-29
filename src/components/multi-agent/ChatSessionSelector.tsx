@@ -13,7 +13,7 @@ export interface ChatSessionSelectorProps {
 }
 
 export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSelectorProps) {
-  const { chatSessions, activeChatId } = useChatSession();
+  const { chatSessions = [], activeChatId } = useChatSession();
   const [open, setOpen] = useState(true);
 
   const handleClose = () => {
@@ -27,9 +27,12 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
   };
 
   // Sort sessions by lastUpdated date descending
-  const sortedSessions = [...chatSessions].sort((a, b) => {
-    return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
-  });
+  // Ensure chatSessions is an array before trying to sort or access it
+  const sortedSessions = Array.isArray(chatSessions) 
+    ? [...chatSessions].sort((a, b) => {
+        return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
+      })
+    : [];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>

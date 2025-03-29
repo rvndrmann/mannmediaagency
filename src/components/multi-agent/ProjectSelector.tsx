@@ -77,7 +77,7 @@ export function ProjectSelector({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">No project</SelectItem>
-          {projects.map((project) => (
+          {Array.isArray(projects) && projects.map((project) => (
             <SelectItem key={project.id} value={project.id}>
               {project.title}
             </SelectItem>

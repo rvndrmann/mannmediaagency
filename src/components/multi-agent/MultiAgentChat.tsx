@@ -230,7 +230,7 @@ const MultiAgentChat = ({
           
           <ScrollArea className="flex-1">
             <div className="flex-1 p-4 space-y-4">
-              {messages.length === 0 && (
+              {messages && messages.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground">
                   <p>Start a conversation with the AI assistant.</p>
                   {!projectId && (
@@ -245,7 +245,7 @@ const MultiAgentChat = ({
                 </div>
               )}
               
-              {messages.map((message, index) => (
+              {messages && messages.map((message, index) => (
                 <ChatMessage 
                   key={message.id || index} 
                   message={message} 

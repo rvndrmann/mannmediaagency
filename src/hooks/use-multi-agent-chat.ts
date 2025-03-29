@@ -74,7 +74,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   }, [options.projectId, options.initialMessages, chatSessionId, getOrCreateChatSession]);
   
   useEffect(() => {
-    if (chatSessionId && messages.length > 0) {
+    if (chatSessionId && messages && messages.length > 0) {
       updateChatSession(chatSessionId, messages);
     }
   }, [messages, chatSessionId, updateChatSession]);
@@ -710,14 +710,14 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   }, []);
 
   return {
-    messages,
+    messages: messages || [],
     setMessages,
     input,
     setInput,
     isLoading,
     activeAgent,
     setActiveAgent,
-    pendingAttachments,
+    pendingAttachments: pendingAttachments || [],
     userCredits,
     usePerformanceModel,
     setUsePerformanceModel,

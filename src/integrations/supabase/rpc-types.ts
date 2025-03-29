@@ -11,7 +11,7 @@ declare module '@supabase/supabase-js' {
       fn: string,
       params?: object,
       options?: { count?: null | 'exact' | 'planned' | 'estimated', head?: boolean }
-    ): Promise<{ data: ResponseType; error: Error | null }>;
+    ): Promise<{ data: ResponseType; error: Error | null; count?: number }>;
   }
 }
 
@@ -54,4 +54,5 @@ export interface SupabaseError extends Error {
   details?: string;
   hint?: string;
   message: string;
+  statusCode?: number;
 }

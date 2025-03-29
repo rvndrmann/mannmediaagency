@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -44,8 +45,11 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
   
+  // Refs for handling debouncing and preventing duplicate submissions
   const lastSubmissionTimeRef = useRef<number>(0);
   const processingRef = useRef<boolean>(false);
+  const processingTimeoutRef = useRef<number | null>(null);
+  const submissionIdRef = useRef<string | null>(null);
   
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
     main: "You are a helpful AI assistant focused on general tasks.",
@@ -339,9 +343,13 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
+  // Enhanced debounced message handling with ID tracking to prevent duplicates
   const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
     if (isLoading || processingRef.current) return;
+    
+    // Generate a unique submission ID
+    const submissionId = uuidv4();
     
     // Prevent rapid double submissions
     const now = Date.now();
@@ -350,11 +358,40 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       return;
     }
     
+    // Clear any pending timeout
+    if (processingTimeoutRef.current) {
+      clearTimeout(processingTimeoutRef.current);
+    }
+    
+    // Set a timeout to reset processing state if something goes wrong
+    processingTimeoutRef.current = window.setTimeout(() => {
+      if (processingRef.current && submissionIdRef.current === submissionId) {
+        console.log("Processing timeout reached, resetting state");
+        processingRef.current = false;
+        setIsLoading(false);
+        submissionIdRef.current = null;
+      }
+    }, 30000) as unknown as number; // 30 second safety timeout
+    
+    // Track this submission
     lastSubmissionTimeRef.current = now;
     processingRef.current = true;
+    submissionIdRef.current = submissionId;
     
     try {
       setIsLoading(true);
+      
+      // Create user message
+      const userMessage: Message = {
+        id: uuidv4(),
+        role: "user",
+        content: messageText,
+        createdAt: new Date().toISOString(),
+        attachments: attachments.length > 0 ? attachments : undefined
+      };
+      
+      // Add user message to chat history
+      setMessages(prev => [...prev, userMessage]);
       
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
@@ -367,7 +404,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       const runId = uuidv4();
       const groupId = chatSessionId || uuidv4();
       
-      // Run the agent
+      // Run the agent with a properly defined toolAvailable function
       const runner = new AgentRunner(
         activeAgent,
         {
@@ -380,6 +417,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
             projectId: options.projectId,
             projectDetails: currentProject,
             groupId: groupId,
+            conversationHistory: [...messages, userMessage]
           },
           runId,
           groupId,
@@ -387,63 +425,75 @@ You can use the canvas tool to save scene descriptions and image prompts directl
             console.log(`Adding message: ${text.substring(0, 50)}...`);
           },
           toolAvailable: (toolName: string) => {
-            return true; // Default implementation - assume all tools are available
+            return true; // All tools are available
           }
         },
         {
           onMessage: (message: Message) => {
-            setMessages(prev => [...prev, message]);
-            
-            // If this is an agent response with a handoff request, update the active agent
-            if (
-              message.role === 'assistant' && 
-              message.handoffRequest && 
-              message.handoffRequest.targetAgent
-            ) {
-              const from = activeAgent;
-              const to = message.handoffRequest.targetAgent as AgentType;
+            // Only add the message if we're still processing this submission
+            if (submissionIdRef.current === submissionId) {
+              setMessages(prev => [...prev, message]);
               
-              console.log(`Handoff from ${from} to ${to}`);
-              setHandoffInProgress(true);
-              
-              // Set the new active agent
-              setActiveAgent(to);
-              
-              // Call the onAgentSwitch callback if provided
-              if (options.onAgentSwitch) {
-                options.onAgentSwitch(from, to);
+              // If this is an agent response with a handoff request, update the active agent
+              if (
+                message.role === 'assistant' && 
+                message.handoffRequest && 
+                message.handoffRequest.targetAgent
+              ) {
+                const from = activeAgent;
+                const to = message.handoffRequest.targetAgent as AgentType;
+                
+                console.log(`Handoff from ${from} to ${to}`);
+                setHandoffInProgress(true);
+                
+                // Set the new active agent
+                setActiveAgent(to);
+                
+                // Call the onAgentSwitch callback if provided
+                if (options.onAgentSwitch) {
+                  options.onAgentSwitch(from, to);
+                }
+                
+                // Finished handoff process
+                setTimeout(() => {
+                  setHandoffInProgress(false);
+                }, 500);
               }
-              
-              // Finished handoff process
-              setTimeout(() => {
-                setHandoffInProgress(false);
-              }, 500);
             }
           },
           onError: (errorMessage: string) => {
-            // Add error message
-            const errorMsg: Message = {
-              id: uuidv4(),
-              role: 'system',
-              content: `Error: ${errorMessage}`,
-              createdAt: new Date().toISOString(),
-              type: 'error',
-              status: 'error'
-            };
-            
-            setMessages(prev => [...prev, errorMsg]);
-            toast.error("Error processing your request");
+            // Only add the error if we're still processing this submission
+            if (submissionIdRef.current === submissionId) {
+              // Add error message
+              const errorMsg: Message = {
+                id: uuidv4(),
+                role: 'system',
+                content: `Error: ${errorMessage}`,
+                createdAt: new Date().toISOString(),
+                type: 'error',
+                status: 'error'
+              };
+              
+              setMessages(prev => [...prev, errorMsg]);
+              toast.error("Error processing your request");
+            }
           },
           onHandoffStart: (from: AgentType, to: AgentType, reason: string) => {
-            console.log(`Handoff starting from ${from} to ${to}: ${reason}`);
-            setHandoffInProgress(true);
+            if (submissionIdRef.current === submissionId) {
+              console.log(`Handoff starting from ${from} to ${to}: ${reason}`);
+              setHandoffInProgress(true);
+            }
           },
           onHandoffEnd: (agent: AgentType) => {
-            console.log(`Handoff completed to ${agent}`);
-            setHandoffInProgress(false);
+            if (submissionIdRef.current === submissionId) {
+              console.log(`Handoff completed to ${agent}`);
+              setHandoffInProgress(false);
+            }
           },
           onToolExecution: (toolName: string, params: any) => {
-            console.log(`Executing tool: ${toolName}`, params);
+            if (submissionIdRef.current === submissionId) {
+              console.log(`Executing tool: ${toolName}`, params);
+            }
           }
         }
       );
@@ -452,11 +502,37 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
-      toast.error("Failed to process message");
+      
+      // Only show error if we're still processing this submission
+      if (submissionIdRef.current === submissionId) {
+        toast.error("Failed to process message");
+        
+        // Add error message to chat
+        const errorMsg: Message = {
+          id: uuidv4(),
+          role: 'system',
+          content: `Error: ${error instanceof Error ? error.message : "An unknown error occurred"}`,
+          createdAt: new Date().toISOString(),
+          type: 'error',
+          status: 'error'
+        };
+        
+        setMessages(prev => [...prev, errorMsg]);
+      }
     } finally {
-      setIsLoading(false);
-      setPendingAttachments([]);
-      processingRef.current = false;
+      // Only reset state if we're still processing this submission
+      if (submissionIdRef.current === submissionId) {
+        setIsLoading(false);
+        setPendingAttachments([]);
+        processingRef.current = false;
+        submissionIdRef.current = null;
+        
+        // Clear the safety timeout
+        if (processingTimeoutRef.current) {
+          clearTimeout(processingTimeoutRef.current);
+          processingTimeoutRef.current = null;
+        }
+      }
     }
   }, [
     activeAgent, 
@@ -468,19 +544,28 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     currentProject,
     options.projectId,
     options.onAgentSwitch,
-    setMessages
+    messages
   ]);
 
-  const addAttachment = useCallback((attachment: Attachment) => {
+  const addAttachment = (attachment: Attachment) => {
     setPendingAttachments(prev => [...prev, attachment]);
-  }, []);
+  };
 
-  const clearAttachments = useCallback(() => {
+  const clearAttachments = () => {
     setPendingAttachments([]);
-  }, []);
+  };
 
-  const clearMessages = useCallback(() => {
+  const clearMessages = () => {
     setMessages([]);
+  };
+
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
+    };
   }, []);
 
   return {
@@ -512,6 +597,10 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     toggleDirectToolExecution,
     toggleTracing,
     setProjectContext: setCurrentProject,
-    chatSessionId
+    chatSessionId,
+    processHandoff,
+    addAttachment,
+    clearAttachments,
+    clearMessages
   };
 }

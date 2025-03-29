@@ -30,12 +30,12 @@ export const AdminUsageStats = () => {
   const fetchStats = async () => {
     setLoading(true);
     try {
-      // Fetch total users
-      const { data: usersData, error: usersError } = await supabase
+      // Fetch total users - using count method
+      const { count: usersCount, error: usersError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
       
-      const totalUsers = usersData?.length || 0;
+      const totalUsers = usersCount || 0;
       
       if (usersError) throw usersError;
       
@@ -43,30 +43,30 @@ export const AdminUsageStats = () => {
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const { data: activeUsersData, error: activeUsersError } = await supabase
+      const { count: activeUsersCount, error: activeUsersError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .gt('updated_at', thirtyDaysAgo.toISOString());
       
-      const activeUsers = activeUsersData?.length || 0;
+      const activeUsers = activeUsersCount || 0;
       
       if (activeUsersError) throw activeUsersError;
       
-      // Fetch total images
-      const { data: imagesData, error: imagesError } = await supabase
+      // Fetch total images - using count method
+      const { count: imagesCount, error: imagesError } = await supabase
         .from('image_generation_jobs')
         .select('*', { count: 'exact', head: true });
       
-      const totalImages = imagesData?.length || 0;
+      const totalImages = imagesCount || 0;
       
       if (imagesError) throw imagesError;
       
-      // Fetch total videos
-      const { data: videosData, error: videosError } = await supabase
+      // Fetch total videos - using count method
+      const { count: videosCount, error: videosError } = await supabase
         .from('video_generation_jobs')
         .select('*', { count: 'exact', head: true });
       
-      const totalVideos = videosData?.length || 0;
+      const totalVideos = videosCount || 0;
       
       if (videosError) throw videosError;
       

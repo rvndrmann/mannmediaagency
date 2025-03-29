@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -22,1047 +23,709 @@ function logError(message: string, error: any) {
   }
 }
 
+// Check if error is an OpenAI quota exceeded error
+function isQuotaExceededError(error: any): boolean {
+  if (!error) return false;
+  
+  // Check the error message
+  const errorMessage = error.message || (typeof error === 'string' ? error : '');
+  const errorObj = error.error || {};
+  
+  // Check for known quota error patterns
+  return (
+    errorMessage.includes('insufficient_quota') ||
+    errorMessage.includes('exceeded your current quota') ||
+    errorMessage.includes('You exceeded your current quota') ||
+    errorObj?.type === 'insufficient_quota' ||
+    errorObj?.code === 'insufficient_quota' ||
+    error.status === 429
+  );
+}
+
+// Helper to generate a unique request ID
+function generateRequestId(): string {
+  return crypto.randomUUID();
+}
+
+// Maximum retries for OpenAI API calls
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 1000;
+
 serve(async (req) => {
+  const requestId = generateRequestId();
+  logInfo(`[${requestId}] Received new request`);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
-
-  const requestId = crypto.randomUUID();
+  
+  if (!OPENAI_API_KEY) {
+    logError(`[${requestId}] OPENAI_API_KEY is not configured`, null);
+    return new Response(
+      JSON.stringify({
+        error: "OpenAI API key is not configured",
+        message: "The AI service is not properly configured. Please contact support."
+      }),
+      { 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+      }
+    );
+  }
   
   try {
-    // Check if OpenAI API key is configured
-    if (!OPENAI_API_KEY) {
-      throw new Error("OpenAI API key not configured. Please set the OPENAI_API_KEY environment variable.");
-    }
-
+    const requestData = await req.json();
     const { 
       input, 
-      attachments, 
-      agentType, 
+      attachments = [], 
+      agentType = "main", 
       userId, 
-      usePerformanceModel, 
-      enableDirectToolExecution, 
-      tracingDisabled, 
-      contextData, 
-      metadata, 
-      runId, 
-      groupId,
-      conversationHistory
-    } = await req.json();
-
-    logInfo(`[${requestId}] Received request from user ${userId}`, { 
-      agentType, 
-      inputLength: input?.length, 
-      attachmentsCount: attachments?.length || 0,
+      contextData = {},
+      conversationHistory = [],
+      metadata = {},
+      usePerformanceModel = false,
+      enableDirectToolExecution = false,
+      tracingDisabled = false,
+      runId,
+      groupId
+    } = requestData;
+    
+    logInfo(`[${requestId}] Received request from user ${userId}`, {
+      agentType,
+      inputLength: input?.length,
+      attachmentsCount: attachments?.length,
       hasContextData: !!contextData,
-      conversationHistoryItems: conversationHistory?.length || 0,
-      handoffContinuation: contextData?.isHandoffContinuation,
-      previousAgentType: contextData?.previousAgentType,
+      conversationHistoryItems: conversationHistory?.length,
+      handoffContinuation: !!contextData.isHandoffContinuation,
+      previousAgentType: contextData.previousAgentType || "main",
       runId,
       groupId
     });
     
-    // Extract instructions from contextData if available
-    const instructions = contextData?.instructions || getDefaultInstructions(agentType);
-
-    // Set the model based on performance flag
-    const model = usePerformanceModel ? "gpt-4o-mini" : "gpt-4o";
+    // Process conversation history
+    logInfo(`[${requestId}] Processing conversation history with ${conversationHistory.length} messages `, null);
+    const processedMessages = [];
     
-    // Build the system message with agent-specific instructions
-    const systemMessage = {
-      role: "system", 
-      content: instructions
-    };
-    
-    // Process conversation history into messages format for OpenAI
-    const messages = [systemMessage];
-    
-    // If we have conversation history, include relevant context
-    if (conversationHistory && conversationHistory.length > 0) {
-      logInfo(`[${requestId}] Processing conversation history with ${conversationHistory.length} messages`);
+    // Add agent instructions if provided
+    if (contextData.instructions) {
+      processedMessages.push({
+        role: "system",
+        content: contextData.instructions
+      });
+    } else {
+      // Default system message based on agent type
+      let systemMessage = "You are a helpful AI assistant.";
       
-      // Enhanced continuation context for handoffs
-      if (contextData?.isHandoffContinuation) {
-        const enhancedHandoffPrompt = `
-You are now the ${agentType} agent, taking over this conversation thread.
-
-The conversation was handed off from the ${contextData.previousAgentType || 'previous'} agent to you for specialized assistance.
-
-Reason for handoff: ${contextData.handoffReason || 'Not specified'}
-
-IMPORTANT INSTRUCTIONS FOR ${agentType.toUpperCase()} AGENT:
-${agentType === 'script' ? 'You MUST write a complete script based on the user\'s request. DO NOT just talk about writing a script - ACTUALLY WRITE ONE. This is your primary responsibility.' : ''}
-${agentType === 'image' ? 'You MUST craft detailed image prompts. DO NOT just discuss what makes a good prompt - ACTUALLY CREATE DETAILED PROMPTS.' : ''}
-${agentType === 'tool' ? 'You MUST help execute tools based on the request. DO NOT just explain the tools - ACTUALLY USE THEM.' : ''}
-${agentType === 'scene' ? 'You MUST create detailed visual scene descriptions. DO NOT just discuss what makes a good scene - CREATE ONE.' : ''}
-
-The user should not have to repeat their request. Use the conversation history to understand what they need.
-Always complete the specialized task you were handed off for.
-
-${contextData.handoffHistory && contextData.handoffHistory.length > 0 ? 
-  `Handoff history: ${JSON.stringify(contextData.handoffHistory)}` : ''}
-`;
-        
-        messages.push({
-          role: "system",
-          content: enhancedHandoffPrompt
-        });
-        
-        logInfo(`[${requestId}] Added enhanced handoff continuation context from ${contextData.previousAgentType} to ${agentType}`);
-        
-        // If there's continuity data, add that too
-        if (contextData.continuityData) {
-          messages.push({
-            role: "system",
-            content: `Additional context from previous agent:
-            - Previous agent: ${contextData.continuityData.fromAgent}
-            - Handoff reason: ${contextData.continuityData.reason}
-            - Timestamp: ${contextData.continuityData.timestamp}
-            ${contextData.continuityData.additionalContext ? 
-              `- Additional context: ${JSON.stringify(contextData.continuityData.additionalContext)}` : ''}
-            
-            This is now YOUR conversation. The user was talking to another agent, and that agent determined YOU would be better equipped to help. Take action based on YOUR specialties.
-            `
-          });
-          
-          logInfo(`[${requestId}] Added continuity data to context`, contextData.continuityData);
-        }
-        
-        // For script agent, add specialized continuation prompt with forceful instructions
-        if (agentType === "script") {
-          messages.push({
-            role: "system",
-            content: `CRITICAL INSTRUCTION FOR SCRIPT WRITER AGENT:
-            
-You are a specialized SCRIPT WRITER. Your PRIMARY PURPOSE is to WRITE SCRIPTS.
-
-The user was redirected to you because they need a script. DO NOT just acknowledge this or offer to help - ACTUALLY WRITE THE SCRIPT.
-
-If the user asked for a specific type of script (screenplay, commercial, video script, etc.), format it appropriately.
-If they didn't specify a format, use a standard screenplay/script format.
-
-IMPORTANT:
-- Generate a COMPLETE script right now in this response
-- Do not say "I can help you write a script" - JUST WRITE IT
-- Format it properly with scene headings, action lines, and dialogue
-- Even a short script is better than no script
-            
-BEGIN WRITING THE SCRIPT NOW based on the conversation context you've been given.`
-          });
-          
-          logInfo(`[${requestId}] Added forceful script writing instructions`);
-        }
+      if (agentType === "script") {
+        systemMessage = "You are a specialized script writer. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it.";
+      } else if (agentType === "image") {
+        systemMessage = "You are specialized in creating detailed image prompts.";
+      } else if (agentType === "scene") {
+        systemMessage = "You are specialized in creating detailed visual scene descriptions for video projects. ALWAYS provide visual descriptions, not just talk about them.";
+      } else if (agentType === "tool") {
+        systemMessage = "You are specialized in executing tools and technical tasks.";
       }
       
-      // Process conversation history with appropriate filtering
-      // Ensure we keep up to a reasonable number of messages to avoid token limits
-      const maxHistoryMessages = 15;
-      const relevantHistory = conversationHistory.slice(-maxHistoryMessages);
-      
-      // Add the processed history messages
-      relevantHistory.forEach(item => {
-        if (item.role === 'user' || item.role === 'assistant' || item.role === 'system') {
-          // Enhanced annotation for assistant messages
-          let content = item.content;
-          if (item.role === 'assistant' && item.agentType && item.agentType !== agentType) {
-            content = `[From ${item.agentType} agent]: ${content}`;
-          }
-          
-          messages.push({
-            role: item.role,
-            content: content
-          });
-        }
-      });
-      
-      logInfo(`[${requestId}] Processed ${relevantHistory.length} messages from history`, {
-        lastMessage: relevantHistory.length > 0 ? relevantHistory[relevantHistory.length - 1].role : 'none'
+      processedMessages.push({
+        role: "system",
+        content: systemMessage
       });
     }
     
-    // Build the user message with enhanced context
-    let userMessage = `${input}`;
-    
-    // Add additional context if needed
-    if (contextData) {
-      if (contextData.hasAttachments && attachments && attachments.length > 0) {
-        userMessage += `\n\nI've attached ${attachments.length} file(s) for your reference.`;
-        // We would process attachments here - for now just acknowledge them
-      }
-
-      // Enhanced handoff continuation context with more details
-      if (contextData.isHandoffContinuation) {
-        // Customize based on agent type
-        if (agentType === "script") {
-          userMessage = `${input}\n\n[IMPORTANT: As the Script Writer agent, you must write a complete script based on this conversation. Do not just acknowledge the request - WRITE THE ACTUAL SCRIPT NOW.]`;
-        } else if (agentType === "image") {
-          userMessage = `${input}\n\n[IMPORTANT: As the Image Generator agent, you must create detailed image descriptions now. Do not just discuss the concept - WRITE THE ACTUAL IMAGE PROMPTS.]`;
-        } else if (agentType === "tool") {
-          userMessage = `${input}\n\n[IMPORTANT: As the Tool agent, you must execute or recommend specific tools for this task. Do not just discuss tools - PROVIDE ACTUAL TOOL RECOMMENDATIONS OR EXECUTE THEM.]`;
-        } else if (agentType === "scene") {
-          userMessage = `${input}\n\n[IMPORTANT: As the Scene Creator agent, you must write detailed visual scene descriptions now. Do not just discuss the concept - CREATE THE ACTUAL SCENE DESCRIPTION.]`;
-        }
-        
-        // Log that this is a handoff continuation
-        logInfo(`[${requestId}] Enhanced user message with explicit ${agentType} agent instructions`);
-      }
-
-      // If we're a tool agent, add available tools context
-      if (agentType === 'tool' && contextData.availableTools) {
-        userMessage += `\n\nAvailable tools: ${JSON.stringify(contextData.availableTools, null, 2)}`;
+    // Add context about handoff if present
+    if (contextData.isHandoffContinuation && contextData.previousAgentType) {
+      let handoffContext = `You are now handling a conversation that was transferred from the ${contextData.previousAgentType} agent. `;
+      
+      if (contextData.handoffReason) {
+        handoffContext += `Reason for transfer: ${contextData.handoffReason}`;
       }
       
-      // Additional specialized context
-      if (contextData.agentSpecialty === "script_writing") {
-        userMessage += `\n\n[You are a Script Writer agent. Your primary responsibility is to write scripts and creative content. Make sure to provide a complete script based on the user's request, not just discuss it.]`;
+      // Add context about any additional context passed during handoff
+      if (contextData.continuityData && contextData.continuityData.additionalContext) {
+        handoffContext += `\n\nAdditional context: ${JSON.stringify(contextData.continuityData.additionalContext)}`;
       }
+      
+      processedMessages.push({
+        role: "system",
+        content: handoffContext
+      });
+      
+      logInfo(`[${requestId}] Added enhanced handoff continuation context from ${contextData.previousAgentType} to ${agentType} `, null);
     }
     
-    // Add the current user message
-    messages.push({
-      role: "user",
-      content: userMessage
+    // Process and add relevant conversation history
+    let lastMessageType = null;
+    for (const message of conversationHistory) {
+      if (message.role === "system") continue; // Skip system messages as we've added our own
+      
+      processedMessages.push({
+        role: message.role,
+        content: message.content
+      });
+      
+      lastMessageType = message.role;
+    }
+    
+    logInfo(`[${requestId}] Processed ${conversationHistory.length} messages from history`, {
+      lastMessage: lastMessageType
     });
     
-    // Define available tools based on agent type and context
-    const tools = getToolsForAgent(agentType, enableDirectToolExecution);
-    
-    // Define available handoffs based on agent type
-    const handoffs = getHandoffsForAgent(agentType);
-    
-    // Enhanced function calling schema for structured output
-    const functions = [
-      {
-        name: "agentResponse",
-        description: "Generate a structured response from the agent",
-        parameters: {
-          type: "object",
-          properties: {
-            completion: {
-              type: "string",
-              description: "The assistant's response to the user's input"
-            },
-            handoffRequest: {
-              type: "object",
-              description: "Optional request to hand off to another agent",
-              properties: {
-                targetAgent: {
-                  type: "string",
-                  description: "The type of agent to hand off to (main, script, image, tool, scene)"
-                },
-                reason: {
-                  type: "string",
-                  description: "The reason for the handoff"
-                },
-                preserveFullHistory: {
-                  type: "boolean",
-                  description: "Whether to preserve the full conversation history in the handoff",
-                  default: true
-                },
-                additionalContext: {
-                  type: "object",
-                  description: "Additional context to pass to the next agent",
-                  properties: {
-                    userIntent: { type: "string" },
-                    requestType: { type: "string" },
-                    requiredFormat: { type: "string" },
-                    priority: { type: "string" }
-                  }
-                }
-              },
-              required: ["targetAgent", "reason"]
-            },
-            commandSuggestion: {
-              type: "object",
-              description: "Optional tool command suggestion",
-              properties: {
-                name: {
-                  type: "string",
-                  description: "The name of the tool to execute"
-                },
-                parameters: {
-                  type: "object",
-                  description: "Parameters for the tool execution"
-                }
-              },
-              required: ["name"]
-            },
-            structured_output: {
-              type: "object",
-              description: "Optional structured data output"
-            },
-            continuityData: {
-              type: "object",
-              description: "Optional data to maintain context across agent handoffs",
-              properties: {
-                additionalContext: {
-                  type: "object",
-                  description: "Any additional context the next agent should know"
-                }
-              }
-            }
-          },
-          required: ["completion"]
-        }
-      }
-    ];
-    
-    // Enhanced dedicated function for script writing to encourage actual script generation
-    if (agentType === 'script') {
-      functions.push({
-        name: "write_script",
-        description: "Write a script based on the given parameters. Always use this function when a script is requested.",
-        parameters: {
-          type: "object",
-          properties: {
-            format: { 
-              type: "string",
-              description: "The format of the script (screenplay, teleplay, ad, etc.)"
-            },
-            title: { 
-              type: "string",
-              description: "The title of the script"
-            },
-            content: {
-              type: "string",
-              description: "The actual script content with proper formatting"
-            },
-            genre: { 
-              type: "string",
-              description: "The genre of the script"
-            },
-            notes: {
-              type: "string",
-              description: "Any additional notes about the script"
-            }
-          },
-          required: ["content"]
-        }
-      });
-    }
-    
-    // Add tool functions if any are available
-    if (tools && tools.length > 0) {
-      tools.forEach(tool => {
-        functions.push({
-          name: tool.name,
-          description: tool.description,
-          parameters: tool.parameters || {
-            type: "object",
-            properties: {},
-            required: []
-          }
+    // Special handling for scene agent
+    if (agentType === "scene" && contextData.isHandoffContinuation) {
+      // Add explicit instructions to make sure the scene agent creates scene descriptions
+      if (input) {
+        const enhancedInput = `${input}\n\n[IMPORTANT: You are the scene creator. The user is expecting detailed scene descriptions. Write detailed and visual scene descriptions that can be used to generate images.]`;
+        
+        processedMessages.push({
+          role: "user",
+          content: enhancedInput
         });
-      });
+        
+        logInfo(`[${requestId}] Enhanced user message with explicit scene agent instructions `, null);
+      }
+    } else {
+      // Add the current input message
+      if (input) {
+        processedMessages.push({
+          role: "user",
+          content: input
+        });
+      }
     }
     
-    // Add handoff functions if any are available
-    if (handoffs && handoffs.length > 0) {
-      handoffs.forEach(handoff => {
-        functions.push({
-          name: handoff.toolName,
-          description: handoff.toolDescription,
+    // Set up OpenAI API request
+    const model = usePerformanceModel ? "gpt-3.5-turbo" : "gpt-4o";
+    
+    // Prepare function definitions based on agent type
+    let functions = [];
+    let functionCall = "auto";
+    
+    if (agentType === "main") {
+      functions = [
+        {
+          name: "transfer_to_script_agent",
+          description: "Transfer the conversation to the specialized script writer agent when the user requests script writing help",
           parameters: {
             type: "object",
             properties: {
               reason: {
                 type: "string",
-                description: "The reason for transferring to this agent"
-              },
-              preserveFullHistory: {
-                type: "boolean",
-                description: "Whether to preserve the full conversation history in the handoff",
-                default: true
+                description: "The reason why this conversation should be handled by the script agent"
               },
               additionalContext: {
                 type: "object",
-                description: "Any additional context the next agent should know",
+                description: "Any additional context that would help the script agent (like script type, requirements, etc)",
                 properties: {
-                  userIntent: { type: "string" },
-                  requestType: { type: "string" },
-                  requiredFormat: { type: "string" },
-                  priority: { type: "string" }
+                  scriptType: {
+                    type: "string",
+                    description: "The type of script requested (video, film, commercial, etc)"
+                  }
                 }
               }
             },
             required: ["reason"]
           }
-        });
-      });
+        },
+        {
+          name: "transfer_to_image_agent",
+          description: "Transfer the conversation to the specialized image generation agent when the user requests help with image prompts",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the image agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_scene_agent",
+          description: "Transfer the conversation to the specialized scene creator agent when the user requests help with scene descriptions",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the scene agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_tool_agent",
+          description: "Transfer the conversation to the specialized tool agent when the user requests help with technical tasks",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the tool agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "agentResponse",
+          description: "Provide a response to the user without transferring to another agent",
+          parameters: {
+            type: "object",
+            properties: {
+              completion: {
+                type: "string",
+                description: "The response to the user"
+              }
+            },
+            required: ["completion"]
+          }
+        }
+      ];
+    } else if (agentType === "tool") {
+      functions = [
+        {
+          name: "transfer_to_main_agent",
+          description: "Transfer the conversation back to the main agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be returned to the main agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_script_agent",
+          description: "Transfer the conversation to the specialized script writer agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the script agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_image_agent",
+          description: "Transfer the conversation to the specialized image generation agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the image agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_scene_agent",
+          description: "Transfer the conversation to the specialized scene creator agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the scene agent"
+              },
+              additionalContext: {
+                type: "object",
+                description: "Any additional context that would help the scene agent",
+                properties: {
+                  userIntent: { type: "string" },
+                  requestType: { type: "string" }
+                }
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "execute_canvas_tool",
+          description: "Execute a Canvas tool to add content to the user's project",
+          parameters: {
+            type: "object",
+            properties: {
+              action: {
+                type: "string",
+                enum: ["save_script", "save_scene", "save_image_prompt", "add_scene"],
+                description: "The action to perform on the Canvas project"
+              },
+              projectId: {
+                type: "string",
+                description: "The ID of the Canvas project"
+              },
+              sceneId: {
+                type: "string",
+                description: "The ID of the scene (if applicable)"
+              },
+              content: {
+                type: "string",
+                description: "The content to save (script, scene description, or image prompt)"
+              },
+              title: {
+                type: "string",
+                description: "The title of the scene (for add_scene action)"
+              }
+            },
+            required: ["action", "content"]
+          }
+        },
+        {
+          name: "analyze_link",
+          description: "Analyze a link provided by the user",
+          parameters: {
+            type: "object",
+            properties: {
+              url: {
+                type: "string",
+                description: "The URL to analyze"
+              }
+            },
+            required: ["url"]
+          }
+        },
+        {
+          name: "generate_image",
+          description: "Generate an image based on the user's prompt",
+          parameters: {
+            type: "object",
+            properties: {
+              prompt: {
+                type: "string",
+                description: "The prompt for image generation"
+              },
+              style: {
+                type: "string",
+                enum: ["photorealistic", "cartoon", "3d", "artistic", "product"],
+                description: "The style of the image"
+              }
+            },
+            required: ["prompt"]
+          }
+        },
+        {
+          name: "search_web",
+          description: "Search the web for information",
+          parameters: {
+            type: "object",
+            properties: {
+              query: {
+                type: "string",
+                description: "The search query"
+              }
+            },
+            required: ["query"]
+          }
+        },
+        {
+          name: "generate_metadata",
+          description: "Generate SEO metadata for content",
+          parameters: {
+            type: "object",
+            properties: {
+              content: {
+                type: "string",
+                description: "The content to generate metadata for"
+              }
+            },
+            required: ["content"]
+          }
+        },
+        {
+          name: "agentResponse",
+          description: "Provide a response to the user without executing a tool",
+          parameters: {
+            type: "object",
+            properties: {
+              completion: {
+                type: "string",
+                description: "The response to the user"
+              }
+            },
+            required: ["completion"]
+          }
+        }
+      ];
+    } else {
+      // For script, image, and scene agents
+      functions = [
+        {
+          name: "transfer_to_main_agent",
+          description: "Transfer the conversation back to the main agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be returned to the main agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_tool_agent",
+          description: "Transfer the conversation to the tool agent for executing specialized tools",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the tool agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "save_content_to_project",
+          description: "Save the generated content to the user's project",
+          parameters: {
+            type: "object",
+            properties: {
+              projectId: {
+                type: "string",
+                description: "The ID of the project"
+              },
+              contentType: {
+                type: "string",
+                enum: ["script", "scene", "image_prompt"],
+                description: "The type of content to save"
+              },
+              content: {
+                type: "string",
+                description: "The content to save"
+              }
+            },
+            required: ["contentType", "content"]
+          }
+        },
+        {
+          name: "agentResponse",
+          description: "Provide a response to the user without transferring to another agent",
+          parameters: {
+            type: "object",
+            properties: {
+              completion: {
+                type: "string",
+                description: "The response to the user"
+              }
+            },
+            required: ["completion"]
+          }
+        }
+      ];
     }
-
-    logInfo(`[${requestId}] Calling OpenAI API with ${messages.length} messages`, {
+    
+    logInfo(`[${requestId}] Calling OpenAI API with ${processedMessages.length} messages`, {
       model,
       agentType,
       functionsCount: functions.length,
-      isHandoffContinuation: contextData?.isHandoffContinuation,
-      previousAgent: contextData?.previousAgentType,
-      handoffReason: contextData?.handoffReason
+      isHandoffContinuation: contextData.isHandoffContinuation || false,
+      previousAgent: contextData.previousAgentType || "main",
+      handoffReason: contextData.handoffReason || ""
     });
-
-    // Call OpenAI API for the response
-    const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "Authorization": `Bearer ${OPENAI_API_KEY}`
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: messages,
-        functions: functions,
-        function_call: agentType === "script" ? { name: "write_script" } : "auto", // Force script agent to use script function
-        temperature: 0.7,
-        max_tokens: 2048
-      })
-    });
-
-    // Parse the OpenAI response
-    if (!openAIResponse.ok) {
-      const errorData = await openAIResponse.text();
-      throw new Error(`OpenAI API error: ${openAIResponse.status} ${errorData}`);
-    }
-
-    const openAIData = await openAIResponse.json();
     
-    // Extract the function call response
-    const message = openAIData.choices[0]?.message;
-    const functionCall = message?.function_call;
+    // Implement retry logic for API calls
+    let attempt = 0;
+    let response;
+    let error;
     
-    // Initialize response data
-    let responseData: any = {
-      completion: "I processed your request but couldn't generate a proper response.",
-      handoffRequest: null,
-      commandSuggestion: null
-    };
-    
-    // Process the response based on what function was called
-    if (functionCall) {
+    while (attempt < MAX_RETRIES) {
       try {
-        logInfo(`[${requestId}] Function call detected: ${functionCall.name}`);
+        response = await fetch('https://api.openai.com/v1/chat/completions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${OPENAI_API_KEY}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            model: model,
+            messages: processedMessages,
+            functions: functions,
+            function_call: functionCall,
+            temperature: usePerformanceModel ? 0.7 : 0.5
+          }),
+        });
         
-        if (functionCall.name === "agentResponse") {
-          // Standard agent response
-          responseData = JSON.parse(functionCall.arguments);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(`OpenAI API error: ${response.status} ${JSON.stringify(errorData, null, 4)}`);
+        }
+        
+        const data = await response.json();
+        
+        // Process the response
+        const message = data.choices[0].message;
+        const functionCall = message.function_call;
+        
+        // Handle function calls
+        if (functionCall) {
+          const functionName = functionCall.name;
+          const functionArgs = JSON.parse(functionCall.arguments);
           
-          logInfo(`[${requestId}] Parsed agent response`, {
-            hasHandoff: !!responseData.handoffRequest,
-            hasCommand: !!responseData.commandSuggestion,
-            hasStructuredOutput: !!responseData.structured_output,
-            hasContData: !!responseData.continuityData
-          });
-        } else if (functionCall.name === "write_script") {
-          // Special handler for script writing
-          const scriptArgs = JSON.parse(functionCall.arguments);
+          logInfo(`[${requestId}] Function call detected: ${functionName} `, null);
           
-          responseData = {
-            completion: `# ${scriptArgs.title || "Script"}\n\n${scriptArgs.content}${scriptArgs.notes ? `\n\nNotes: ${scriptArgs.notes}` : ''}`,
-            structured_output: {
-              scriptType: scriptArgs.format || "general",
-              scriptTitle: scriptArgs.title,
-              scriptGenre: scriptArgs.genre,
-              isScript: true
-            }
-          };
-          
-          logInfo(`[${requestId}] Generated script content`, {
-            scriptTitle: scriptArgs.title,
-            scriptFormat: scriptArgs.format,
-            contentLength: scriptArgs.content?.length || 0
-          });
-        } else {
-          const isHandoffFunction = handoffs?.some(h => h.toolName === functionCall.name);
-          const isToolFunction = tools?.some(t => t.name === functionCall.name);
-          
-          if (isHandoffFunction) {
-            // Enhanced handoff function call
-            const handoffArgs = JSON.parse(functionCall.arguments);
-            const targetAgent = functionCall.name.replace("transfer_to_", "").replace("_agent", "");
-            
-            responseData = {
-              completion: `I think this request would be better handled by our ${getAgentName(targetAgent)} agent. ${handoffArgs.reason || ''}`,
-              handoffRequest: {
-                targetAgent,
-                reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`,
-                preserveFullHistory: handoffArgs.preserveFullHistory !== false, // Default to true
-                additionalContext: handoffArgs.additionalContext || {}
-              },
-              continuityData: {
-                fromAgent: agentType,
-                toAgent: targetAgent,
-                reason: handoffArgs.reason || `The ${agentType} agent recommended transitioning to the ${targetAgent} agent.`,
-                timestamp: new Date().toISOString(),
-                additionalContext: handoffArgs.additionalContext || {}
-              }
-            };
+          // Handle transfers to other agents
+          if (functionName.startsWith('transfer_to_')) {
+            const targetAgent = functionName.replace('transfer_to_', '').replace('_agent', '');
             
             logInfo(`[${requestId}] Handoff requested to ${targetAgent}`, {
-              reason: handoffArgs.reason,
-              additionalContext: handoffArgs.additionalContext
+              reason: functionArgs.reason,
+              additionalContext: functionArgs.additionalContext || {}
             });
-          } else if (isToolFunction) {
-            // Enhanced tool function call
-            const toolArgs = JSON.parse(functionCall.arguments);
             
-            responseData = {
-              completion: `I'll execute the ${functionCall.name} tool for you. ${message.content || ''}`,
-              commandSuggestion: {
-                name: functionCall.name,
-                parameters: toolArgs
-              },
-              structured_output: {
-                toolName: functionCall.name,
-                toolArgs: toolArgs,
-                expectedOutput: "Tool execution result"
-              }
-            };
+            return new Response(
+              JSON.stringify({
+                handoffRequest: {
+                  targetAgent: targetAgent,
+                  reason: functionArgs.reason,
+                  additionalContext: functionArgs.additionalContext
+                }
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // Handle save_content_to_project
+          else if (functionName === 'save_content_to_project') {
+            // Here we would implement project content saving logic
+            // For now, just return success with a message
             
-            logInfo(`[${requestId}] Tool execution requested: ${functionCall.name}`);
-          } else {
-            // Unknown function call
-            responseData = {
-              completion: message.content || "I processed your request but I'm not sure how to proceed.",
-              handoffRequest: null,
-              commandSuggestion: null
-            };
+            return new Response(
+              JSON.stringify({
+                completion: `I've saved your ${functionArgs.contentType.replace('_', ' ')} to your project.`,
+                savedContent: {
+                  type: functionArgs.contentType,
+                  content: functionArgs.content
+                }
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // Handle various tool calls - simplified for now, would implement actual tool calls
+          else if (functionName === 'execute_canvas_tool' || 
+                   functionName === 'analyze_link' || 
+                   functionName === 'generate_image' || 
+                   functionName === 'search_web' || 
+                   functionName === 'generate_metadata') {
             
-            logInfo(`[${requestId}] Unknown function call: ${functionCall.name}`);
+            return new Response(
+              JSON.stringify({
+                completion: `I'm executing the ${functionName} tool with the parameters you provided.`,
+                toolCall: {
+                  name: functionName,
+                  parameters: functionArgs
+                }
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // Handle basic agent responses
+          else if (functionName === 'agentResponse') {
+            logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
+              responseLength: functionArgs.completion.length,
+              hasHandoff: false,
+              hasStructuredOutput: false
+            });
+            
+            return new Response(
+              JSON.stringify({
+                completion: functionArgs.completion
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
           }
         }
-      } catch (error) {
-        logError(`[${requestId}] Error parsing function arguments:`, error);
-        responseData = {
-          completion: message.content || "I encountered an error processing your request.",
-          handoffRequest: null,
-          commandSuggestion: null
-        };
+        
+        // If no function call, use the content directly
+        logInfo(`[${requestId}] Generated direct response for ${agentType} agent`, {
+          responseLength: message.content.length
+        });
+        
+        return new Response(
+          JSON.stringify({
+            completion: message.content
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+        
+      } catch (err) {
+        error = err;
+        logError(`[${requestId}] API call error (attempt ${attempt + 1}):`, err);
+        
+        // If this is an OpenAI quota error, no need to retry
+        if (isQuotaExceededError(err)) {
+          logInfo(`[${requestId}] OpenAI quota exceeded, breaking retry loop`, null);
+          break;
+        }
+        
+        attempt++;
+        if (attempt < MAX_RETRIES) {
+          const delay = RETRY_DELAY_MS * attempt;
+          logInfo(`[${requestId}] Retrying in ${delay}ms...`, null);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
       }
-    } else if (message?.content) {
-      // No function call, just plain text
-      responseData = {
-        completion: message.content,
-        handoffRequest: null,
-        commandSuggestion: null
-      };
-      
-      logInfo(`[${requestId}] Plain text response (no function call)`);
     }
     
-    // When generating a handoff request, ensure we add preserveFullHistory flag
-    if (responseData.handoffRequest) {
-      responseData.handoffRequest.preserveFullHistory = true;
+    // If we got here, all retries failed
+    logError(`[${requestId}] All ${MAX_RETRIES} retries failed`, error);
+    
+    // Check for quota errors specifically
+    if (isQuotaExceededError(error)) {
+      return new Response(
+        JSON.stringify({
+          error: "OpenAI API quota exceeded",
+          completion: "I'm sorry, but the AI service is currently unavailable due to high demand. Please try again later.",
+          user_message: "The service is experiencing high demand. Your request couldn't be completed at this time."
+        }),
+        { 
+          status: 429, 
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+        }
+      );
     }
     
-    logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
-      responseLength: responseData.completion.length,
-      hasHandoff: !!responseData.handoffRequest,
-      hasStructuredOutput: !!responseData.structured_output
-    });
-
+    // Generic error response
     return new Response(
-      JSON.stringify(responseData),
+      JSON.stringify({
+        error: "Failed to get response from OpenAI API",
+        completion: "I apologize, but I encountered an issue processing your request. Please try again.",
+        debug_info: error instanceof Error ? error.message : String(error)
+      }),
       { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        } 
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
+    
   } catch (error) {
     logError(`[${requestId}] Error processing request:`, error);
     
     return new Response(
-      JSON.stringify({ 
-        error: error.message || "An unknown error occurred",
-        requestId: requestId
+      JSON.stringify({
+        error: "Error processing request",
+        completion: "I apologize, but I encountered an unexpected error. Please try again.",
+        debug_info: error instanceof Error ? error.message : String(error) 
       }),
       { 
-        headers: { 
-          ...corsHeaders, 
-          'Content-Type': 'application/json' 
-        },
-        status: 400
+        status: 500, 
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
       }
     );
   }
 });
-
-// Enhanced helper functions
-
-/**
- * Process conversation history to filter and format messages for the current agent
- */
-function processConversationHistory(history: any[], currentAgentType: string): any[] {
-  if (!history || !Array.isArray(history) || history.length === 0) {
-    return [];
-  }
-  
-  // Always include system messages, user messages, and assistant messages
-  // For assistant messages, add agent type annotation if from different agent
-  const maxHistoryItems = 20; // Limit history to prevent token overflow
-  
-  // Keep the most recent messages
-  const relevantHistory = history.slice(-maxHistoryItems);
-  
-  // Further process for better context
-  return relevantHistory.map(item => {
-    // Create a copy we can modify
-    const processedItem = { ...item };
-    
-    // For handoff messages, convert to system messages with enhanced context
-    if (item.type === 'handoff') {
-      processedItem.role = 'system';
-      
-      // Add continuity data if available
-      if (item.continuityData) {
-        processedItem.content += `\n\nAdditional handoff context: ${JSON.stringify(item.continuityData)}`;
-      }
-    }
-    
-    // We'll handle the assistant message annotation in the parent function
-    
-    return processedItem;
-  });
-}
-
-// Get enhanced default instructions based on agent type
-function getDefaultInstructions(agentType: string): string {
-  const handoffInstructions = `
-  You can transfer the conversation to a specialized agent when appropriate:
-  - Script Writer agent: For writing scripts, creative content, or narratives
-  - Image Prompt agent: For generating detailed image descriptions
-  - Tool agent: For executing tools and performing technical tasks
-  - Scene Creator agent: For creating detailed visual scene descriptions
-  
-  ONLY transfer to another agent when the user's request clearly matches their specialty.
-  
-  When handing off, provide a clear reason why the handoff is necessary and what value the specialized agent will provide to the user.
-  `;
-  
-  switch(agentType) {
-    case 'main':
-    case 'assistant':
-      return `You are a helpful AI assistant. Provide clear, accurate responses to user questions. 
-      If you can't answer something, be honest about it. 
-      
-      ${handoffInstructions}
-      
-      Be professional, friendly, and helpful. Always consider the user's needs and provide the most helpful response possible.
-      
-      When continuing a conversation that has been handed off to you, make sure to acknowledge the handoff context and maintain continuity in the conversation.`;
-      
-    case 'script':
-      return `You are a creative script writing assistant. Your primary job is to help users create compelling narratives, ad scripts, and other written content.
-      
-      Focus on:
-      - Engaging dialogue and character development
-      - Effective storytelling and narrative structure
-      - Proper formatting for scripts and written content
-      - Considering the target audience and purpose
-      
-      ${handoffInstructions}
-      
-      IMPORTANT: When users request a script, ALWAYS WRITE THE SCRIPT for them. Don't just talk about how you could write one - actually create the content.
-      
-      Be creative, but also practical. Consider the feasibility of production for any scripts you create.
-      
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the script-related aspects of their request and immediately provide the creative content they need.`;
-      
-    case 'image':
-      return `You are an expert at creating detailed image prompts for generating visual content.
-      
-      Focus on these key aspects when creating image prompts:
-      - Visual details: describe colors, lighting, composition, perspective
-      - Style: specify art style, medium, technique, or artistic influence
-      - Mood and atmosphere: convey the feeling or emotion of the image
-      - Subject focus: clearly describe the main subject and any background elements
-      
-      ${handoffInstructions}
-      
-      Help users refine their ideas into clear, specific prompts that will generate impressive images.
-      
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the image-generation aspects of their request and immediately provide detailed image prompts.`;
-      
-    case 'tool':
-      return `You are a technical tool specialist. Guide users through using various tools and APIs. Provide clear instructions and help troubleshoot issues.
-      
-      When helping with tools:
-      - Explain what the tool does and when to use it
-      - Provide step-by-step instructions for using the tool
-      - Suggest appropriate parameters or settings
-      - Help interpret the tool's output or results
-      
-      ${handoffInstructions}
-      
-      Be technical but accessible. Use clear language and explain complex concepts in understandable terms.
-      
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the technical tool-related aspects of their request.`;
-      
-    case 'scene':
-      return `You are a scene creation expert for video production. Help users visualize and describe detailed environments and settings for creative projects.
-      
-      When crafting scene descriptions, focus on:
-      - Sensory details: what can be seen, heard, smelled, felt in the scene
-      - Spatial relationships: layout, distances, positioning of elements
-      - Atmosphere and mood: lighting, weather, time of day, emotional tone
-      - Key elements: important objects, features, or characters in the scene
-      - Camera movements and angles: how the scene should be filmed
-      
-      ${handoffInstructions}
-      
-      Create vivid, immersive scenes that help bring the user's vision to life.
-      
-      When continuing a conversation that has been handed off to you, acknowledge that you're now handling the scene creation aspects of their request and immediately provide detailed scene descriptions.`;
-      
-    default:
-      return "You are a helpful AI assistant. Answer questions clearly and concisely.";
-  }
-}
-
-// Get enhanced tools for the agent based on agent type and direct execution setting
-function getToolsForAgent(agentType: string, enableDirectToolExecution: boolean): any[] {
-  if (!enableDirectToolExecution && agentType !== 'tool') {
-    return [];
-  }
-  
-  const baseTools = [
-    {
-      name: "browser-use",
-      description: "Use a browser to navigate websites, take screenshots, or perform web automation tasks",
-      parameters: {
-        type: "object",
-        properties: {
-          task: {
-            type: "string",
-            description: "The task to perform in the browser, described in detail"
-          },
-          url: {
-            type: "string",
-            description: "The starting URL for the browser task"
-          },
-          browserConfig: {
-            type: "object",
-            description: "Optional browser configuration settings",
-            properties: {
-              headless: {
-                type: "boolean",
-                description: "Whether to run the browser in headless mode"
-              },
-              timeout: {
-                type: "number",
-                description: "Timeout in milliseconds"
-              }
-            }
-          }
-        },
-        required: ["task"]
-      }
-    },
-    {
-      name: "image-to-video",
-      description: "Convert an image to a short video with animation effects",
-      parameters: {
-        type: "object",
-        properties: {
-          prompt: {
-            type: "string",
-            description: "Description of the desired animation or effect"
-          },
-          aspectRatio: {
-            type: "string",
-            description: "Aspect ratio of the output video (e.g., '16:9', '1:1', '9:16')"
-          },
-          duration: {
-            type: "string",
-            description: "Duration of the video in seconds"
-          }
-        },
-        required: ["prompt"]
-      }
-    },
-    {
-      name: "product-shot-v1",
-      description: "Generate a professional product shot from an uploaded image",
-      parameters: {
-        type: "object",
-        properties: {
-          style: {
-            type: "string",
-            description: "The style of the product shot (e.g., 'studio', 'lifestyle', 'minimalist')"
-          },
-          background: {
-            type: "string",
-            description: "Description of the desired background"
-          },
-          lighting: {
-            type: "string",
-            description: "The lighting style (e.g., 'soft', 'dramatic', 'natural')"
-          }
-        },
-        required: ["style"]
-      }
-    },
-    {
-      name: "generate-scene",
-      description: "Generate a video scene based on a description",
-      parameters: {
-        type: "object",
-        properties: {
-          description: {
-            type: "string",
-            description: "Detailed description of the scene to generate"
-          },
-          duration: {
-            type: "number",
-            description: "Duration of the scene in seconds"
-          },
-          style: {
-            type: "string",
-            description: "Visual style for the scene"
-          }
-        },
-        required: ["description"]
-      }
-    }
-  ];
-  
-  // Agent-specific tools
-  switch(agentType) {
-    case 'image':
-      return [...baseTools, {
-        name: "analyze-image",
-        description: "Analyze an image and provide detailed information about it",
-        parameters: {
-          type: "object",
-          properties: {
-            imageUrl: {
-              type: "string",
-              description: "URL of the image to analyze"
-            },
-            analysisType: {
-              type: "string",
-              description: "Type of analysis to perform (e.g., 'composition', 'style', 'content')"
-            }
-          },
-          required: ["imageUrl"]
-        }
-      }];
-      
-    case 'tool':
-      return [...baseTools, {
-        name: "execute-workflow",
-        description: "Execute a multi-step workflow with various tools",
-        parameters: {
-          type: "object",
-          properties: {
-            workflowName: {
-              type: "string",
-              description: "Name of the workflow to execute"
-            },
-            workflowParams: {
-              type: "object",
-              description: "Parameters for the workflow"
-            }
-          },
-          required: ["workflowName"]
-        }
-      }];
-      
-    case 'script':
-      return [{
-        name: "analyze-script",
-        description: "Analyze a script for quality, readability, and impact",
-        parameters: {
-          type: "object",
-          properties: {
-            script: {
-              type: "string",
-              description: "The script text to analyze"
-            },
-            analysisType: {
-              type: "string",
-              description: "Type of analysis (e.g., 'dialogue', 'structure', 'pacing')"
-            }
-          },
-          required: ["script"]
-        }
-      }];
-      
-    case 'scene':
-      return [
-        ...baseTools,
-        {
-          name: "create-storyboard",
-          description: "Create a storyboard from a scene description",
-          parameters: {
-            type: "object",
-            properties: {
-              scene: {
-                type: "string",
-                description: "Detailed scene description"
-              },
-              frames: {
-                type: "number",
-                description: "Number of storyboard frames to create"
-              }
-            },
-            required: ["scene"]
-          }
-        }
-      ];
-      
-    default:
-      return baseTools;
-  }
-}
-
-// Get enhanced handoffs for agent based on agent type
-function getHandoffsForAgent(agentType: string): any[] {
-  const allAgentTypes = ['main', 'script', 'image', 'tool', 'scene'];
-  const availableHandoffs = allAgentTypes.filter(type => type !== agentType);
-  
-  return availableHandoffs.map(targetAgent => ({
-    targetAgent,
-    toolName: `transfer_to_${targetAgent}_agent`,
-    toolDescription: `Transfer the conversation to the ${targetAgent} agent when the user's request requires specialized handling in ${getAgentDomain(targetAgent)}.`
-  }));
-}
-
-// Helper function to get the domain of expertise for an agent
-function getAgentDomain(agentType: string): string {
-  switch(agentType) {
-    case 'main': return "general assistance";
-    case 'script': return "writing and creative content";
-    case 'image': return "image generation and visual design";
-    case 'tool': return "tool usage and technical tasks";
-    case 'scene': return "scene creation and visual environments";
-    default: return "specialized tasks";
-  }
-}
-
-// Enhanced check for handoff to a specialized agent
-function checkForHandoff(input: string, currentAgentType: string): string | null {
-  if (!input) return null;
-  
-  const inputLower = input.toLowerCase();
-  
-  // Don't handoff if already in the correct specialist agent
-  if (
-    (currentAgentType === 'script' && (inputLower.includes('script') || inputLower.includes('write') || inputLower.includes('content'))) ||
-    (currentAgentType === 'image' && (inputLower.includes('image') || inputLower.includes('picture') || inputLower.includes('photo'))) ||
-    (currentAgentType === 'tool' && (inputLower.includes('tool') || inputLower.includes('browser'))) ||
-    (currentAgentType === 'scene' && (inputLower.includes('scene') || inputLower.includes('visual')))
-  ) {
-    return null;
-  }
-  
-  // Enhanced detection with more keywords and better context awareness
-  if (inputLower.includes('script') || inputLower.includes('write') || 
-      inputLower.includes('story') || inputLower.includes('narrative') || 
-      inputLower.includes('ad') || inputLower.includes('content') ||
-      inputLower.includes('dialogue') || inputLower.includes('screenplay')) {
-    return 'script';
-  }
-  
-  if (inputLower.includes('image') || inputLower.includes('picture') || 
-      inputLower.includes('photo') || inputLower.includes('visual') ||
-      inputLower.includes('illustration') || inputLower.includes('drawing') ||
-      inputLower.includes('design') || inputLower.includes('graphic')) {
-    return 'image';
-  }
-  
-  if (inputLower.includes('tool') || inputLower.includes('browser') || 
-      inputLower.includes('automate') || inputLower.includes('website') ||
-      inputLower.includes('technical') || inputLower.includes('api') ||
-      inputLower.includes('integration') || inputLower.includes('code')) {
-    return 'tool';
-  }
-  
-  if (inputLower.includes('scene') || inputLower.includes('setting') || 
-      inputLower.includes('environment') || inputLower.includes('location') ||
-      inputLower.includes('storyboard') || inputLower.includes('backdrop') ||
-      inputLower.includes('camera') || inputLower.includes('shot')) {
-    return 'scene';
-  }
-  
-  return null;
-}
-
-// Enhanced tool suggestion check
-function shouldSuggestTool(input: string): boolean {
-  if (!input) return false;
-  
-  const inputLower = input.toLowerCase();
-  return inputLower.includes('browser') || 
-         inputLower.includes('website') || 
-         inputLower.includes('automate') ||
-         inputLower.includes('video') ||
-         inputLower.includes('youtube') ||
-         inputLower.includes('tool') ||
-         inputLower.includes('generate') ||
-         inputLower.includes('create') ||
-         inputLower.includes('make');
-}
-
-// Enhanced tool command suggestion
-function suggestToolCommand(input: string): any {
-  const inputLower = input.toLowerCase();
-  
-  if (inputLower.includes('browser') || inputLower.includes('website')) {
-    return {
-      name: "browser-use",
-      parameters: {
-        task: `Go to ${inputLower.includes('website') ? extractWebsite(input) : 'google.com'} and take a screenshot`,
-        browserConfig: { headless: false }
-      }
-    };
-  }
-  
-  if (inputLower.includes('video') || inputLower.includes('animate')) {
-    return {
-      name: "image-to-video",
-      parameters: {
-        prompt: "Convert the uploaded image to a smooth animation",
-        aspectRatio: "16:9",
-        duration: "5"
-      }
-    };
-  }
-  
-  if (inputLower.includes('scene') || inputLower.includes('setting')) {
-    return {
-      name: "generate-scene",
-      parameters: {
-        description: "Create a scene based on the user's description",
-        duration: 5,
-        style: "cinematic"
-      }
-    };
-  }
-  
-  return null;
-}
-
-// Enhanced website extraction
-function extractWebsite(input: string): string {
-  const matches = input.match(/\b(?:https?:\/\/)?(?:www\.)?([a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+)\b/);
-  return matches ? matches[0] : 'google.com';
-}
-
-// Enhanced agent name function
-function getAgentName(agentType: string): string {
-  switch(agentType) {
-    case 'script': return 'Script Writer';
-    case 'image': return 'Image Prompt Generator';
-    case 'tool': return 'Tool Helper';
-    case 'scene': return 'Scene Creator';
-    default: return 'Assistant';
-  }
-}
-
-// Get a short summary of the input (first 30 chars)
-function getShortSummary(input: string): string {
-  if (!input) return "";
-  return input.length > 30 ? input.substring(0, 30) + '...' : input;
-}

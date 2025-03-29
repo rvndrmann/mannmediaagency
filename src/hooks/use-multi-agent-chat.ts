@@ -683,7 +683,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     messages,
     updateChatSession
   ]);
-  
+
   const addAttachment = (attachment: Attachment) => {
     setPendingAttachments(prev => [...prev, attachment]);
   };
@@ -745,6 +745,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     clearMessages,
     forceUiRefresh,
     refreshTrigger: uiRefreshTrigger,
-    sendMessage: handleSendMessage
+    sendMessage: (text: string) => handleSendMessage(text, pendingAttachments)
   };
 }

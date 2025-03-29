@@ -186,7 +186,9 @@ const MultiAgentChat = ({
     
     // Send the message using sendMessage function from useMultiAgentChat
     if (sendMessage) {
-      sendMessage(input, activeAgent, pendingAttachments);
+      // Fix: Check the function signature and pass the correct arguments
+      // The error indicates we're passing too many arguments
+      sendMessage(input);
       setInput("");
     } else {
       // Fallback if sendMessage is not available

@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
@@ -11,22 +10,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-
-interface AgentAnalytics {
-  total_traces: number;
-  total_messages: number;
-  total_handoffs: number;
-  total_tool_calls: number;
-  avg_response_time: number;
-  agent_usage: {
-    agent_name: string;
-    count: number;
-  }[];
-  model_usage: {
-    model_name: string;
-    count: number;
-  }[];
-}
+import { AgentAnalytics } from '@/integrations/supabase/rpc-types';
 
 interface TraceDashboardProps {
   userId: string;
@@ -48,12 +32,10 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
         setLoading(true);
         setError(null);
         
-        // Use type assertion to handle RPC function that isn't in the known list
+        // Use postgres() method to bypass type checking for RPC functions not in the schema
         const { data, error: fetchError } = await supabase
-          .rpc('get_agent_trace_analytics', { user_id_param: userId }) as unknown as { 
-            data: AgentAnalytics; 
-            error: Error | null;
-          };
+          .postgres<AgentAnalytics>('SELECT * FROM get_agent_trace_analytics($1)', [userId])
+          .single();
         
         if (fetchError) {
           throw fetchError;
@@ -99,7 +81,6 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
     );
   }
 
-  // Stats card component - extracted to make the code more readable
   const StatsCard = ({ 
     title, 
     value, 

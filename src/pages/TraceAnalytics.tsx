@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,28 +10,7 @@ import { TraceDashboard } from '@/components/traces/TraceDashboard';
 import { Loader2, BarChart, ListFilter, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
-
-interface Conversation {
-  conversation_id: string;
-  start_time: string; 
-  end_time: string;
-  message_count: number;
-  agent_types: string[];
-  model_used: string;
-}
-
-interface TraceData {
-  messages: any[];
-  summary: {
-    agent_types: string[];
-    duration: number;
-    handoffs: number;
-    tool_calls: number;
-    message_count: number;
-    model_used: string;
-    success: boolean;
-  };
-}
+import { Conversation, TraceData } from '@/integrations/supabase/rpc-types';
 
 const TraceAnalytics: React.FC = () => {
   const { toast } = useToast();
@@ -56,12 +34,10 @@ const TraceAnalytics: React.FC = () => {
         if (user) {
           setUserId(user.id);
           
-          // Use type assertion to handle RPC function that isn't in the known list
+          // Use postgres() method to bypass type checking for RPC functions not in the schema
           const { data, error: conversationsError } = await supabase
-            .rpc('get_user_conversations', { user_id_param: user.id }) as unknown as {
-              data: Conversation[];
-              error: Error | null;
-            };
+            .postgres<Conversation[]>('SELECT * FROM get_user_conversations($1)', [user.id])
+            .single();
           
           if (conversationsError) {
             throw conversationsError;
@@ -90,15 +66,10 @@ const TraceAnalytics: React.FC = () => {
     try {
       setTraceDataLoading(true);
       
-      // Use type assertion to handle RPC function that isn't in the known list
+      // Use postgres() method to bypass type checking for RPC functions not in the schema
       const { data, error } = await supabase
-        .rpc('get_conversation_trace', { 
-          conversation_id: conversationId, 
-          user_id_param: userId 
-        }) as unknown as {
-          data: TraceData;
-          error: Error | null;
-        };
+        .postgres<TraceData>('SELECT * FROM get_conversation_trace($1, $2)', [conversationId, userId])
+        .single();
       
       if (error) {
         throw error;

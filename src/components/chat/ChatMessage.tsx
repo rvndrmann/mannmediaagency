@@ -1,5 +1,4 @@
 
-import React from "react";
 import { Message } from "@/types/message";
 import { Avatar } from "@/components/ui/avatar";
 import { Markdown } from "@/components/ui/markdown";
@@ -36,12 +35,12 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
   return (
     <div
       className={cn(
-        "flex gap-3 group w-full",
+        "flex gap-3 group",
         message.role === "user" ? "flex-row-reverse" : "flex-row"
       )}
     >
       <Avatar className={cn(
-        "rounded-md overflow-hidden mt-1 w-8 h-8 border flex-shrink-0",
+        "rounded-md overflow-hidden mt-1 w-8 h-8 border",
         message.role === "user" ? "bg-primary" : "bg-secondary",
         message.agentType === "tool" && "bg-emerald-500",
         message.agentType === "script" && "bg-blue-500",
@@ -64,13 +63,13 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
           </div>
         ) : (
           <div className="flex items-center justify-center h-full">
-            {React.createElement(getAgentIcon(message.agentType || "main"), { className: "w-4 h-4 text-white" })}
+            {getAgentIcon(message.agentType || "main", "w-4 h-4 text-white")}
           </div>
         )}
       </Avatar>
       
       <div className={cn(
-        "flex flex-col max-w-[90%] sm:max-w-[80%]",
+        "flex flex-col max-w-[90%] sm:max-w-[75%]",
         message.role === "user" ? "items-end" : "items-start"
       )}>
         {showAgentName && message.role === "assistant" && message.agentType && (
@@ -87,7 +86,7 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
         )}
         
         <div className={cn(
-          "p-3 rounded-lg w-full break-words",
+          "p-3 rounded-lg",
           message.role === "user" 
             ? "bg-primary text-primary-foreground" 
             : message.type === "system" 
@@ -96,16 +95,16 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
                 ? "bg-red-500/10 text-red-600 dark:text-red-400 text-sm border border-red-500/20"
                 : "bg-muted text-card-foreground"
         )}>
-          {message.attachments && Array.isArray(message.attachments) && message.attachments.length > 0 && (
+          {message.attachments && message.attachments.length > 0 && (
             <div className="mb-3">
               <AttachmentPreview 
                 attachments={message.attachments} 
-                onRemove={undefined} 
+                isRemovable={false} 
               />
             </div>
           )}
           
-          <Markdown>{message.content || ""}</Markdown>
+          <Markdown>{message.content}</Markdown>
           
           {message.status && (
             <div className="mt-2">

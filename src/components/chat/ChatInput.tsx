@@ -1,11 +1,15 @@
 
-import React, { useState } from "react";
-import { Paperclip, Send } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { useState } from "react";
 import { Textarea } from "@/components/ui/textarea";
-import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { Send, Paperclip, Sparkles } from "lucide-react";
+import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
+import { FileAttachmentButton } from "@/components/multi-agent/FileAttachmentButton";
+import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
+import { Attachment } from "@/types/message";
 
-export interface ChatInputProps {
+interface ChatInputProps {
   input: string;
   isLoading: boolean;
   onInputChange: (value: string) => void;
@@ -14,63 +18,125 @@ export interface ChatInputProps {
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
   setUseMcp?: (value: boolean) => void;
-  placeholder?: string;
-  disabled?: boolean;
+  attachments?: Attachment[];
+  onAttachmentAdd?: (attachments: Attachment[]) => void;
+  onAttachmentRemove?: (id: string) => void;
+  showAttachmentButton?: boolean;
 }
 
-export function ChatInput({
-  input,
-  isLoading,
-  onInputChange,
+export const ChatInput = ({ 
+  input, 
+  isLoading, 
+  onInputChange, 
   onSubmit,
   useAssistantsApi = false,
   setUseAssistantsApi = () => {},
   useMcp = false,
   setUseMcp = () => {},
-  placeholder = "Type a message...",
-  disabled = false
-}: ChatInputProps) {
-  const textareaRef = React.useRef<HTMLTextAreaElement>(null);
+  attachments = [],
+  onAttachmentAdd,
+  onAttachmentRemove,
+  showAttachmentButton = false
+}: ChatInputProps) => {
+  const MAX_WORDS = 350;
 
-  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
-    if (e.key === "Enter" && !e.shiftKey && !isLoading) {
+  const countWords = (text: string) => {
+    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
+  };
+
+  const currentWords = countWords(input);
+  const progress = (currentWords / MAX_WORDS) * 100;
+  const isWordLimitExceeded = currentWords >= MAX_WORDS;
+
+  const handleChange = (value: string) => {
+    const words = countWords(value);
+    if (words <= MAX_WORDS) {
+      onInputChange(value);
+    }
+  };
+
+  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (input.trim()) {
-        onSubmit(e);
+      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
+        onSubmit(e as any);
       }
     }
   };
 
-  return (
-    <form onSubmit={onSubmit} className="relative">
-      <div className="relative">
-        <Textarea
-          ref={textareaRef}
-          value={input}
-          onChange={(e) => onInputChange(e.target.value)}
-          placeholder={placeholder}
-          onKeyDown={handleKeyDown}
-          disabled={disabled || isLoading}
-          className={cn(
-            "px-4 py-3 resize-none min-h-[52px] max-h-[200px] overflow-y-auto",
-            "focus-visible:ring-offset-0 focus-visible:ring-0",
-            "border-0 shadow-none",
-            "bg-[#262B38] placeholder-gray-400 text-white",
-            "rounded-lg"
-          )}
-        />
+  const handleSubmitClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+    // Prevent default behavior to avoid unwanted form submission
+    e.preventDefault();
+    
+    // Only submit if there's input or attachments and not already loading
+    if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
+      // Call the onSubmit handler with the event
+      onSubmit(e as any);
+    }
+  };
 
-        <div className="absolute bottom-3 right-3 flex space-x-2">
-          <Button
-            type="submit"
-            size="icon"
-            disabled={disabled || isLoading || !input.trim()}
-            className="h-8 w-8 rounded-full bg-blue-600 hover:bg-blue-700"
-          >
-            <Send className="h-4 w-4" />
-          </Button>
+  return (
+    <form onSubmit={(e) => {
+      e.preventDefault();
+      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
+        onSubmit(e);
+      }
+    }} className="space-y-1 w-full">
+      {attachments.length > 0 && (
+        <AttachmentPreview
+          attachments={attachments}
+          onRemove={onAttachmentRemove}
+          isRemovable={true}
+        />
+      )}
+      
+      <div className="flex gap-2 items-end w-full">
+        <div className="flex-1 relative">
+          <Textarea
+            value={input}
+            onChange={(e) => handleChange(e.target.value)}
+            onKeyDown={handleInputKeyPress}
+            placeholder="Type your message..."
+            disabled={isLoading}
+            className="min-h-[40px] max-h-[100px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-2xl px-3 py-2 shadow-inner"
+          />
+          <div className="absolute bottom-1 left-3 right-10">
+            <div className="flex justify-between items-center">
+              <span className={`text-xs ${isWordLimitExceeded ? 'text-red-500' : 'text-gray-400'}`}>
+                {currentWords}/{MAX_WORDS}
+              </span>
+              <div className="flex-1 mx-2">
+                <Progress 
+                  value={progress} 
+                  className="h-1" 
+                  indicatorClassName={isWordLimitExceeded ? "bg-red-500" : undefined}
+                />
+              </div>
+            </div>
+          </div>
         </div>
+        
+        {showAttachmentButton && onAttachmentAdd && (
+          <FileAttachmentButton onAttach={onAttachmentAdd} />
+        )}
+        
+        <Button 
+          type="button" 
+          onClick={handleSubmitClick}
+          disabled={isLoading || (input.trim() === '' && (!attachments || attachments.length === 0))}
+          variant="gradient"
+          size="icon"
+          className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+        >
+          <span>
+            {isLoading ? (
+              <Sparkles className="h-4 w-4 animate-pulse" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </span>
+        </Button>
       </div>
     </form>
   );
-}
+};

@@ -1,28 +1,21 @@
 
 import React, { createContext, useContext, ReactNode } from "react";
-import { useChatHistoryStore, ChatSession, ChatHistoryStore } from "@/hooks/use-chat-history-store";
+import { useChatHistoryStore, ChatSession } from "@/hooks/use-chat-history-store";
 import { Message } from "@/types/message";
 
-// Define a separate interface for the hook with getState
-interface ChatSessionHookType extends Function {
-  (): ChatHistoryStore;
-  getState: () => ChatHistoryStore;
+interface ChatSessionContextType {
+  chatSessions: ChatSession[];
+  activeChatId: string | null;
+  activeSession: ChatSession | null;
+  setActiveChatId: (id: string | null) => void;
+  createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  getOrCreateChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  updateChatSession: (sessionId: string, messages: Message[]) => void;
+  deleteChatSession: (sessionId: string) => void;
+  syncing: boolean;
 }
 
-// Ensure default values are provided for the store
-const defaultStoreValues: ChatHistoryStore = {
-  chatSessions: [],
-  activeChatId: null,
-  activeSession: null,
-  syncing: false,
-  setActiveChatId: () => {},
-  createChatSession: () => "",
-  getOrCreateChatSession: () => "",
-  updateChatSession: () => {},
-  deleteChatSession: () => {}
-};
-
-const ChatSessionContext = createContext<ChatHistoryStore>(defaultStoreValues);
+const ChatSessionContext = createContext<ChatSessionContextType | undefined>(undefined);
 
 export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const chatHistoryStore = useChatHistoryStore();
@@ -34,26 +27,10 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Create the base hook function
-const useHookBase = (): ChatHistoryStore => {
+export function useChatSession() {
   const context = useContext(ChatSessionContext);
   if (context === undefined) {
-    console.warn("useChatSession used outside of ChatSessionProvider, returning default values");
-    return defaultStoreValues;
+    throw new Error("useChatSession must be used within a ChatSessionProvider");
   }
   return context;
-};
-
-// Cast the hook function to include the getState method
-export const useChatSession = useHookBase as ChatSessionHookType;
-
-// Add getState method to the hook
-useChatSession.getState = (): ChatHistoryStore => {
-  // Access the store state directly using the getState method from useChatHistoryStore
-  try {
-    return useChatHistoryStore.getState();
-  } catch (error) {
-    console.warn("Error accessing chat history store state:", error);
-    return defaultStoreValues;
-  }
-};
+}

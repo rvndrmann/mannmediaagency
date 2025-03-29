@@ -1,9 +1,8 @@
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 import { Message } from "@/types/message";
 import { useLocalStorage } from "@/hooks/use-local-storage";
 import { supabase } from "@/integrations/supabase/client";
-import { showToast } from "@/utils/toast-utils";
 
 // Type for chat session data
 export interface ChatSession {
@@ -14,25 +13,8 @@ export interface ChatSession {
   messages: Message[];
 }
 
-// Type for the store state
-export interface ChatHistoryStore {
-  chatSessions: ChatSession[];
-  activeChatId: string | null;
-  activeSession: ChatSession | null;
-  syncing: boolean;
-  setActiveChatId: (id: string | null) => void;
-  createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
-  getOrCreateChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
-  updateChatSession: (sessionId: string, messages: Message[]) => void;
-  deleteChatSession: (sessionId: string) => void;
-}
-
-// Singleton instance for the store
-let storeInstance: ChatHistoryStore | null = null;
-
-// Function to create the store
-function createChatHistoryStore(): ChatHistoryStore {
-  // Use local storage for chat sessions with proper typing
+export function useChatHistoryStore() {
+  // Use local storage for chat sessions
   const [chatSessions, setChatSessions] = useLocalStorage<ChatSession[]>("chat-sessions", []);
   const [activeChatId, setActiveChatId] = useLocalStorage<string | null>("active-chat-id", null);
   const [syncing, setSyncing] = useState(false);
@@ -61,92 +43,91 @@ function createChatHistoryStore(): ChatHistoryStore {
       projectId,
       title,
       lastUpdated: new Date().toISOString(),
-      messages: initialMessages,
+      messages: initialMessages
     };
     
-    // Fix the type error by correctly handling the state update
     setChatSessions([...chatSessions, newSession]);
     setActiveChatId(newSessionId);
-    
     return newSessionId;
   };
   
-  // Get or create a chat session for a project
+  // Get or create chat session for a project
   const getOrCreateChatSession = (projectId: string | null, initialMessages: Message[] = []) => {
-    // First check if we already have a session for this project
-    if (projectId) {
-      const existingSession = chatSessions.find(session => session.projectId === projectId);
-      if (existingSession) {
-        setActiveChatId(existingSession.id);
-        return existingSession.id;
+    // First, check for an existing session with this project ID
+    const existingSession = chatSessions.find(session => session.projectId === projectId);
+    
+    if (existingSession) {
+      setActiveChatId(existingSession.id);
+      
+      // If there are initial messages and the existing session has no messages,
+      // update the session with the initial messages
+      if (initialMessages.length > 0 && existingSession.messages.length === 0) {
+        updateChatSession(existingSession.id, initialMessages);
       }
+      
+      return existingSession.id;
     }
     
-    // If not, create a new one
     return createChatSession(projectId, initialMessages);
   };
   
-  // Update a chat session
+  // Update messages in a chat session
   const updateChatSession = (sessionId: string, messages: Message[]) => {
-    if (!sessionId) {
-      console.error("No session ID provided for update");
-      return;
-    }
-    
-    // Fix the type error by correctly handling the state update
-    const updatedSessions = chatSessions.map(session => 
-      session.id === sessionId 
-        ? { 
-            ...session, 
-            messages, 
-            lastUpdated: new Date().toISOString() 
-          } 
-        : session
+    setChatSessions(
+      chatSessions.map(session => 
+        session.id === sessionId 
+          ? { 
+              ...session, 
+              messages,
+              lastUpdated: new Date().toISOString()
+            } 
+          : session
+      )
     );
-    
-    setChatSessions(updatedSessions);
   };
   
   // Delete a chat session
   const deleteChatSession = (sessionId: string) => {
-    // Fix the type error by correctly handling the state update
-    const filteredSessions = chatSessions.filter(session => session.id !== sessionId);
-    setChatSessions(filteredSessions);
+    const updatedSessions = chatSessions.filter(session => session.id !== sessionId);
+    setChatSessions(updatedSessions);
     
-    // If the deleted session was active, set activeChatId to null
+    // If we deleted the active session, set a new active session
     if (activeChatId === sessionId) {
-      setActiveChatId(null);
+      setActiveChatId(updatedSessions.length > 0 ? updatedSessions[0].id : null);
     }
   };
+  
+  // Sync with Supabase if user is logged in
+  useEffect(() => {
+    const syncWithServer = async () => {
+      try {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        
+        setSyncing(true);
+        
+        // Future implementation: sync with Supabase
+        // For now, we'll just use local storage
+        
+        setSyncing(false);
+      } catch (error) {
+        console.error("Error syncing chat sessions:", error);
+        setSyncing(false);
+      }
+    };
+    
+    syncWithServer();
+  }, []);
   
   return {
     chatSessions,
     activeChatId,
     activeSession,
-    syncing,
     setActiveChatId,
     createChatSession,
     getOrCreateChatSession,
     updateChatSession,
-    deleteChatSession
+    deleteChatSession,
+    syncing
   };
 }
-
-// Export the hook with getState capability
-export function useChatHistoryStore(): ChatHistoryStore {
-  // Initialize the singleton if it doesn't exist
-  if (!storeInstance) {
-    storeInstance = createChatHistoryStore();
-  }
-  
-  return storeInstance;
-}
-
-// Add getState method to the hook for static access
-useChatHistoryStore.getState = (): ChatHistoryStore => {
-  if (!storeInstance) {
-    // Create the store on demand if it doesn't exist
-    storeInstance = createChatHistoryStore();
-  }
-  return storeInstance;
-};

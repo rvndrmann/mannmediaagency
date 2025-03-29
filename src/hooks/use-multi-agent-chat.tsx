@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -7,7 +8,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { AgentRunner } from "@/hooks/multi-agent/runner/AgentRunner";
 import { CanvasProject } from "@/types/canvas";
 import { useChatSession } from "@/contexts/ChatSessionContext";
-import { showToast } from "@/utils/toast-utils";
 
 export type { AgentType } from "@/hooks/multi-agent/runner/types";
 
@@ -45,10 +45,6 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
   
-  // Message queue to prevent race conditions
-  const messageQueueRef = useRef<Message[]>([]);
-  const isProcessingQueueRef = useRef<boolean>(false);
-  
   // Enhanced refs for handling debouncing and preventing duplicate submissions
   const lastSubmissionTimeRef = useRef<number>(0);
   const processingRef = useRef<boolean>(false);
@@ -68,108 +64,32 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       : "You specialize in creating detailed visual scene descriptions. Your descriptions can be used to inform image prompts and video creation. You can extract, view, and edit scene content for video projects."
   });
   
-  const processMessageQueue = useCallback(() => {
-    if (isProcessingQueueRef.current || messageQueueRef.current.length === 0) {
-      return;
-    }
-    
-    isProcessingQueueRef.current = true;
-    
-    try {
-      // Take a batch of messages (up to 5) to process at once
-      const messagesToProcess = messageQueueRef.current.splice(0, 5);
-      
-      if (messagesToProcess.length > 0) {
-        // Add these message IDs to our tracking
-        messagesToProcess.forEach(msg => messageIdsRef.current.add(msg.id));
-        
-        // Update messages state with the batch
-        setMessages(prev => {
-          // Filter out any messages we already have
-          const newMessages = messagesToProcess.filter(
-            msg => !prev.some(m => m.id === msg.id)
-          );
-          
-          if (newMessages.length === 0) {
-            return prev;
-          }
-          
-          return [...prev, ...newMessages];
-        });
-        
-        // Also update chat session if we have an ID
-        if (chatSessionId) {
-          setMessages(currentMessages => {
-            updateChatSession(chatSessionId, currentMessages);
-            return currentMessages;
-          });
-        }
-      }
-    } finally {
-      isProcessingQueueRef.current = false;
-      
-      // If there are more messages to process, continue
-      if (messageQueueRef.current.length > 0) {
-        setTimeout(processMessageQueue, 50);
-      }
-    }
-  }, [chatSessionId, updateChatSession]);
-  
-  const addMessageToQueue = useCallback((message: Message) => {
-    // Don't add if we already have this message ID
-    if (messageIdsRef.current.has(message.id)) {
-      return;
-    }
-    
-    // Add to queue
-    messageQueueRef.current.push(message);
-    
-    // Start processing if not already doing so
-    if (!isProcessingQueueRef.current) {
-      processMessageQueue();
-    }
-  }, [processMessageQueue]);
-  
   useEffect(() => {
     if (!chatSessionId && options.projectId) {
-      try {
-        const newSessionId = getOrCreateChatSession(
-          options.projectId, 
-          options.initialMessages || []
-        );
-        setChatSessionId(newSessionId);
-      } catch (error) {
-        console.error("Failed to create chat session:", error);
-        showToast.error("Failed to create chat session");
-      }
+      const newSessionId = getOrCreateChatSession(
+        options.projectId, 
+        options.initialMessages || []
+      );
+      setChatSessionId(newSessionId);
     }
   }, [options.projectId, options.initialMessages, chatSessionId, getOrCreateChatSession]);
   
   useEffect(() => {
     if (chatSessionId && messages.length > 0) {
-      // Debounce session updates to prevent too many writes
-      const timeoutId = setTimeout(() => {
-        updateChatSession(chatSessionId, messages);
-      }, 500);
-      
-      return () => clearTimeout(timeoutId);
+      updateChatSession(chatSessionId, messages);
     }
   }, [messages, chatSessionId, updateChatSession]);
   
   const setProjectContext = useCallback((project: CanvasProject) => {
     setCurrentProject(project);
     
-    setAgentInstructions(prev => {
-      const newInstructions = { ...prev };
-      
-      newInstructions.script = `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})${project.fullScript ? ". This project already has a script that you should reference and modify as needed." : "."} 
-You can use the canvas tool to save scripts directly to the project.`;
-      
-      newInstructions.scene = `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})"${project.fullScript ? ", which already has a script you should reference." : "."}
-You can use the canvas tool to save scene descriptions and image prompts directly to the project.`;
-      
-      return newInstructions;
-    });
+    setAgentInstructions(prev => ({
+      ...prev,
+      script: `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id}).
+You can use the canvas tool to save scripts directly to the project.`,
+      scene: `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id}).
+You can use the canvas tool to save scene descriptions and image prompts directly to the project.`
+    }));
     
     const systemMessage: Message = {
       id: uuidv4(),
@@ -267,17 +187,13 @@ ${project.fullScript ? "This project has a full script." : "This project does no
           setCurrentProject(project);
           
           // Update agent instructions with project details
-          setAgentInstructions(prev => {
-            const newInstructions = { ...prev };
-            
-            newInstructions.script = `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})${project.fullScript ? ". This project already has a script that you should reference and modify as needed." : "."} 
-You can use the canvas tool to save scripts directly to the project.`;
-            
-            newInstructions.scene = `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})"${project.fullScript ? ", which already has a script you should reference." : "."}
-You can use the canvas tool to save scene descriptions and image prompts directly to the project.`;
-            
-            return newInstructions;
-          });
+          setAgentInstructions(prev => ({
+            ...prev,
+            script: `You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})${project.fullScript ? ". This project already has a script that you should reference and modify as needed." : "."} 
+You can use the canvas tool to save scripts directly to the project.`,
+            scene: `You specialize in creating detailed visual scene descriptions for video projects. You can provide detailed image prompts that will generate compelling visuals for each scene. You're currently working on the Canvas project "${project.title}" (ID: ${project.id})"${project.fullScript ? ", which already has a script you should reference." : "."}
+You can use the canvas tool to save scene descriptions and image prompts directly to the project.`
+          }));
           
           console.log("Project details loaded:", {
             id: project.id,
@@ -304,18 +220,13 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
     
     if (!input.trim() && pendingAttachments.length === 0) {
-      showToast.error("Please enter a message or attach a file");
+      toast.error("Please enter a message or attach a file");
       return;
     }
     
-    try {
-      await handleSendMessage(input, pendingAttachments);
-      setInput("");
-      setPendingAttachments([]);
-    } catch (error) {
-      console.error("Error submitting message:", error);
-      showToast.error("Failed to send message");
-    }
+    await handleSendMessage(input, pendingAttachments);
+    setInput("");
+    setPendingAttachments([]);
   };
   
   const switchAgent = (agentId: AgentType) => {
@@ -449,6 +360,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
+  // Completely redesigned message handling to prevent duplicates and race conditions
   const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
     if (isLoading || processingRef.current) {
@@ -483,17 +395,21 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         
         // Add error message
         const timeoutErrorId = uuidv4();
-        const errorMsg: Message = {
-          id: timeoutErrorId,
-          role: 'system',
-          content: 'The request timed out. Please try again.',
-          createdAt: new Date().toISOString(),
-          type: 'error',
-          status: 'error'
-        };
+        messageIdsRef.current.add(timeoutErrorId);
         
-        addMessageToQueue(errorMsg);
-        showToast.error("Request timed out. Please try again.");
+        setMessages(prev => [
+          ...prev,
+          {
+            id: timeoutErrorId,
+            role: 'system',
+            content: 'The request timed out. Please try again.',
+            createdAt: new Date().toISOString(),
+            type: 'error',
+            status: 'error'
+          }
+        ]);
+        
+        toast.error("Request timed out. Please try again.");
       }
     }, 30000) as unknown as number; // 30 second safety timeout
     
@@ -529,11 +445,12 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         attachments: attachments.length > 0 ? attachments : undefined
       };
       
-      // Add message directly to state (don't use queue for user messages)
+      // Add the message ID to our tracking set
       messageIdsRef.current.add(messageId);
       
-      console.log("Adding user message with ID:", messageId);
+      console.log("Adding user message with ID:", messageId, "tracking", messageIdsRef.current.size, "messages");
       
+      // Add user message to chat history - only if not already present
       setMessages(prev => {
         // Final check to ensure we don't add it again
         if (prev.some(m => m.id === messageId)) {
@@ -546,25 +463,13 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       // Get the current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
-        showToast.error("You must be signed in to chat with agents");
+        toast.error("You must be signed in to chat with agents");
         return;
       }
       
       // Create unique IDs for this conversation
       const runId = uuidv4();
       const groupId = chatSessionId || uuidv4();
-      
-      // Create a wrapped version of the handleMessage function
-      const handleMessage = (message: Message) => {
-        // Only process if still handling this submission
-        if (submissionIdRef.current !== submissionId) {
-          console.log("Ignoring message for different submission:", message.id);
-          return;
-        }
-        
-        // Add message to the queue
-        addMessageToQueue(message);
-      };
       
       // Run the agent with a properly defined toolAvailable function
       const runner = new AgentRunner(
@@ -591,12 +496,83 @@ You can use the canvas tool to save scene descriptions and image prompts directl
           }
         },
         {
-          onMessage: handleMessage,
+          onMessage: (message: Message) => {
+            // Only add the message if we're still processing this submission
+            // and haven't seen this message ID already
+            if (submissionIdRef.current !== submissionId) {
+              console.log("Ignoring message for different submission ID:", message.id);
+              return;
+            }
+            
+            if (messageIdsRef.current.has(message.id)) {
+              console.log("Prevented duplicate message with ID:", message.id);
+              return;
+            }
+            
+            // Add the ID to our tracking set
+            messageIdsRef.current.add(message.id);
+            console.log("Adding message with ID:", message.id, "tracking", messageIdsRef.current.size, "messages");
+            
+            // Look for any almost identical messages that might have been added very recently
+            let isDuplicate = false;
+            setMessages(prev => {
+              // Double-check again to prevent race conditions
+              if (prev.some(m => m.id === message.id)) {
+                console.log("Prevented duplicate message (already in state):", message.id);
+                isDuplicate = true;
+                return prev;
+              }
+              
+              // Check for almost identical messages (same role, content, created in last 3 seconds)
+              const similarMessage = prev.find(m => 
+                m.role === message.role && 
+                m.content === message.content &&
+                Date.now() - new Date(m.createdAt).getTime() < 3000
+              );
+              
+              if (similarMessage) {
+                console.log("Prevented duplicate message (similar content):", message.id);
+                isDuplicate = true;
+                return prev;
+              }
+              
+              return [...prev, message];
+            });
+            
+            if (isDuplicate) return;
+            
+            // If this is an agent response with a handoff request, update the active agent
+            if (
+              message.role === 'assistant' && 
+              message.handoffRequest && 
+              message.handoffRequest.targetAgent
+            ) {
+              const from = activeAgent;
+              const to = message.handoffRequest.targetAgent as AgentType;
+              
+              console.log(`Handoff from ${from} to ${to}`);
+              setHandoffInProgress(true);
+              
+              // Set the new active agent
+              setActiveAgent(to);
+              
+              // Call the onAgentSwitch callback if provided
+              if (options.onAgentSwitch) {
+                options.onAgentSwitch(from, to);
+              }
+              
+              // Finished handoff process
+              setTimeout(() => {
+                setHandoffInProgress(false);
+              }, 500);
+            }
+          },
           onError: (errorMessage: string) => {
             // Only add the error if we're still processing this submission
             if (submissionIdRef.current === submissionId) {
               // Generate a unique ID for the error message
               const errorId = uuidv4();
+              messageIdsRef.current.add(errorId);
               
               // Add error message
               const errorMsg: Message = {
@@ -608,74 +584,42 @@ You can use the canvas tool to save scene descriptions and image prompts directl
                 status: 'error'
               };
               
-              addMessageToQueue(errorMsg);
-              showToast.error("Error processing your request");
+              setMessages(prev => [...prev, errorMsg]);
+              toast.error("Error processing your request");
             }
           },
           onHandoffStart: (from: AgentType, to: AgentType, reason: string) => {
             if (submissionIdRef.current === submissionId) {
               console.log(`Handoff starting from ${from} to ${to}: ${reason}`);
               setHandoffInProgress(true);
-              
-              // Add handoff indicator message
-              const handoffMsg: Message = {
-                id: uuidv4(),
-                role: "system",
-                content: `Transferring from ${getAgentName(from)} to ${getAgentName(to)}...`,
-                createdAt: new Date().toISOString(),
-                type: "handoff",
-                status: "working"
-              };
-              
-              addMessageToQueue(handoffMsg);
-              showToast.info(`Handoff from ${getAgentName(from)} to ${getAgentName(to)}`);
             }
           },
           onHandoffEnd: (agent: AgentType) => {
             if (submissionIdRef.current === submissionId) {
               console.log(`Handoff completed to ${agent}`);
               setHandoffInProgress(false);
-              setActiveAgent(agent);
-              
-              // Call onAgentSwitch if provided
-              if (options.onAgentSwitch) {
-                options.onAgentSwitch(activeAgent, agent);
-              }
             }
           },
           onToolExecution: (toolName: string, params: any) => {
             if (submissionIdRef.current === submissionId) {
               console.log(`Executing tool: ${toolName}`, params);
-              
-              // Add tool execution indicator
-              const toolMsg: Message = {
-                id: uuidv4(),
-                role: "tool",
-                content: `Executing tool: ${toolName}`,
-                createdAt: new Date().toISOString(),
-                tool_name: toolName,
-                tool_arguments: params,
-                status: "working"
-              };
-              
-              addMessageToQueue(toolMsg);
             }
           }
         }
       );
       
       await runner.run(messageText, attachments, user.id);
-      await runner.waitForCompletion();
       
     } catch (error) {
       console.error("Error in handleSendMessage:", error);
       
       // Only show error if we're still processing this submission
       if (submissionIdRef.current === submissionId) {
-        showToast.error("Failed to process message");
+        toast.error("Failed to process message");
         
         // Add error message to chat
         const errorId = uuidv4();
+        messageIdsRef.current.add(errorId);
         
         const errorMsg: Message = {
           id: errorId,
@@ -686,7 +630,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
           status: 'error'
         };
         
-        addMessageToQueue(errorMsg);
+        setMessages(prev => [...prev, errorMsg]);
       }
     } finally {
       // Only reset state if we're still processing this submission
@@ -713,9 +657,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     currentProject,
     options.projectId,
     options.onAgentSwitch,
-    messages,
-    addMessageToQueue,
-    getAgentName
+    messages
   ]);
 
   const addAttachment = (attachment: Attachment) => {

@@ -1,112 +1,106 @@
 
-import React from 'react';
-import { Button } from "@/components/ui/button";
+import { Bot, PenLine, Image, Wrench, FileText, Database } from 'lucide-react';
+import { useRef } from 'react';
+import { cn } from '@/lib/utils';
 import { 
-  Tooltip, 
-  TooltipContent, 
-  TooltipProvider, 
-  TooltipTrigger 
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger
 } from "@/components/ui/tooltip";
-import { cva } from "class-variance-authority";
-import type { AgentType } from "@/hooks/use-multi-agent-chat";
-import { getAgentIcon, getAgentName } from "@/lib/agent-icons";
+import type { AgentType } from '@/hooks/use-multi-agent-chat';
 
-const agentButtonVariants = cva(
-  "flex items-center justify-center h-8 w-8 rounded-full transition-all duration-200 border",
-  {
-    variants: {
-      agentType: {
-        main: "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30 border-blue-400/30",
-        script: "bg-green-500/20 text-green-400 hover:bg-green-500/30 border-green-400/30",
-        image: "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border-purple-400/30",
-        tool: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border-amber-400/30",
-        scene: "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border-rose-400/30",
-        data: "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 border-cyan-400/30",
-      },
-      selected: {
-        true: "ring-2 ring-offset-1 ring-offset-[#21283B] scale-110",
-        false: "opacity-80 hover:opacity-100",
-      },
-    },
-    defaultVariants: {
-      agentType: "main",
-      selected: false,
-    },
-  }
-);
+type AgentOption = {
+  id: AgentType;
+  name: string;
+  icon: React.ReactNode;
+  color: string;
+  description: string;
+};
 
 interface CompactAgentSelectorProps {
   selectedAgent: AgentType;
-  onSelect: (agentType: AgentType) => void;
+  onSelect: (agentId: AgentType) => void;
 }
 
 export function CompactAgentSelector({ selectedAgent, onSelect }: CompactAgentSelectorProps) {
-  const agents: { type: AgentType; name: string; icon: string; description: string }[] = [
-    { 
-      type: "main", 
-      name: "Main Assistant", 
-      icon: "💬", 
-      description: "General purpose assistant for various tasks" 
-    },
-    { 
-      type: "script", 
-      name: "Script Writer", 
-      icon: "📝", 
-      description: "Specializes in writing video scripts and creative content" 
-    },
-    { 
-      type: "image", 
-      name: "Image Generator", 
-      icon: "🖼️", 
-      description: "Creates detailed image prompts for visual content" 
-    },
-    { 
-      type: "tool", 
-      name: "Tool Specialist", 
-      icon: "🔧", 
-      description: "Executes specialized tools and technical tasks" 
-    },
-    { 
-      type: "scene", 
-      name: "Scene Creator", 
-      icon: "🎬", 
-      description: "Creates detailed scene descriptions for videos" 
+  const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const agents: AgentOption[] = [
+    {
+      id: 'main',
+      name: 'Assistant',
+      icon: <Bot className="h-3.5 w-3.5" />,
+      color: 'bg-gradient-to-r from-blue-400 to-indigo-500',
+      description: 'General AI assistant for any task'
     },
     {
-      type: "data",
-      name: "Data Agent",
-      icon: "📊",
-      description: "Extracts and processes data from various sources"
+      id: 'script',
+      name: 'Script',
+      icon: <PenLine className="h-3.5 w-3.5" />,
+      color: 'bg-gradient-to-r from-amber-400 to-orange-500',
+      description: 'Creates scripts and narratives'
+    },
+    {
+      id: 'image',
+      name: 'Image',
+      icon: <Image className="h-3.5 w-3.5" />,
+      color: 'bg-gradient-to-r from-emerald-400 to-green-500',
+      description: 'Creates AI image prompts'
+    },
+    {
+      id: 'data',
+      name: 'Data',
+      icon: <Database className="h-3.5 w-3.5" />,
+      color: 'bg-gradient-to-r from-cyan-400 to-blue-500',
+      description: 'Extracts & manages media data'
+    },
+    {
+      id: 'tool',
+      name: 'Tools',
+      icon: <Wrench className="h-3.5 w-3.5" />,
+      color: 'bg-gradient-to-r from-purple-400 to-violet-500',
+      description: 'Guides on using tools'
+    },
+    {
+      id: 'scene',
+      name: 'Scene',
+      icon: <FileText className="h-3.5 w-3.5" />,
+      color: 'bg-gradient-to-r from-rose-400 to-pink-500',
+      description: 'Creates detailed scenes'
     }
   ];
 
   return (
-    <div className="flex items-center justify-center space-x-2 py-2 px-1 bg-[#1A1F29]/50 backdrop-blur-sm border-b border-white/10">
-      <TooltipProvider delayDuration={300}>
-        {agents.map((agent) => (
-          <Tooltip key={agent.type}>
-            <TooltipTrigger asChild>
-              <Button
-                type="button"
-                className={agentButtonVariants({ 
-                  agentType: agent.type as any, 
-                  selected: selectedAgent === agent.type 
-                })}
-                onClick={() => onSelect(agent.type)}
-                aria-label={agent.name}
-              >
-                <span role="img" aria-label={agent.name}>
-                  {agent.icon}
-                </span>
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent side="bottom" className="bg-[#2D3240] border-[#434759] text-white text-xs">
-              <p className="font-medium">{agent.name}</p>
-              <p className="text-gray-300 text-[10px]">{agent.description}</p>
-            </TooltipContent>
-          </Tooltip>
-        ))}
-      </TooltipProvider>
-    </div>
+    <TooltipProvider delayDuration={300}>
+      <div className="py-1.5 px-1 overflow-hidden bg-[#21283B]/80 border-b border-white/10">
+        <div 
+          ref={scrollRef}
+          className="flex space-x-1.5 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 pb-1"
+        >
+          {agents.map((agent) => (
+            <Tooltip key={agent.id}>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => onSelect(agent.id)}
+                  className={cn(
+                    "flex-shrink-0 flex items-center py-1 px-2 rounded-md transition-colors text-xs",
+                    selectedAgent === agent.id
+                      ? `${agent.color} text-white`
+                      : 'bg-[#2D3240]/80 hover:bg-[#3A4256] text-gray-300'
+                  )}
+                >
+                  <span className="mr-1">{agent.icon}</span>
+                  <span>{agent.name}</span>
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="bottom" className="text-xs bg-[#333] border-[#555] text-white">
+                {agent.description}
+              </TooltipContent>
+            </Tooltip>
+          ))}
+        </div>
+      </div>
+    </TooltipProvider>
   );
 }

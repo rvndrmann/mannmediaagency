@@ -1,56 +1,86 @@
 
+import { useState } from "react";
+import { X, FileText, Image as ImageIcon, Eye, Download } from "lucide-react";
 import { Attachment } from "@/types/message";
-import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export interface AttachmentPreviewProps {
+interface AttachmentPreviewProps {
   attachments: Attachment[];
   onRemove?: (id: string) => void;
+  isRemovable?: boolean;
 }
 
-export function AttachmentPreview({ attachments, onRemove }: AttachmentPreviewProps) {
-  if (!attachments || attachments.length === 0) return null;
+export function AttachmentPreview({ 
+  attachments, 
+  onRemove,
+  isRemovable = false 
+}: AttachmentPreviewProps) {
+  const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
+
+  const getFileIcon = (attachment: Attachment) => {
+    if (attachment.type === 'image') {
+      return <ImageIcon className="h-4 w-4 text-blue-500" />;
+    }
+    return <FileText className="h-4 w-4 text-gray-500" />;
+  };
+
+  const getFileExtension = (attachment: Attachment) => {
+    if (!attachment.name) return '';
+    const parts = attachment.name.split('.');
+    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
+  };
+
+  const handlePreview = (attachment: Attachment) => {
+    setSelectedAttachment(attachment);
+    
+    // For files with URLs, open in new tab
+    if (attachment.url) {
+      window.open(attachment.url, '_blank');
+    }
+  };
+
+  const formatFileSize = (bytes: number) => {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  };
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-wrap gap-2 mb-2">
       {attachments.map((attachment) => (
-        <div
-          key={attachment.id}
-          className="relative border rounded-lg overflow-hidden bg-muted"
+        <div 
+          key={attachment.id} 
+          className="relative group flex items-center space-x-2 bg-gray-800/40 backdrop-blur-sm p-2 rounded-md border border-white/10"
         >
-          {attachment.type.startsWith("image/") ? (
-            <div className="relative w-20 h-20">
-              <img
-                src={attachment.url}
-                alt={attachment.name}
-                className="object-cover w-full h-full"
-              />
-              {onRemove && (
-                <button
-                  onClick={() => onRemove(attachment.id)}
-                  className="absolute top-1 right-1 bg-black/50 rounded-full p-0.5 hover:bg-black/70"
-                >
-                  <X className="h-3 w-3 text-white" />
-                </button>
-              )}
+          <div className="flex items-center space-x-2">
+            {getFileIcon(attachment)}
+            <div>
+              <p className="text-xs truncate max-w-[150px]">{attachment.name}</p>
+              <p className="text-[10px] text-gray-400">
+                {getFileExtension(attachment)} • {formatFileSize(attachment.size)}
+              </p>
             </div>
-          ) : (
-            <div className="p-2 flex items-center gap-2">
-              <div className="text-xs truncate max-w-[100px]">
-                {attachment.name}
-              </div>
-              {onRemove && (
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => onRemove(attachment.id)}
-                  className="p-0 h-auto"
-                >
-                  <X className="h-3 w-3" />
-                </Button>
-              )}
-            </div>
-          )}
+          </div>
+          
+          <div className="flex items-center space-x-1">
+            {attachment.url && (
+              <button 
+                onClick={() => handlePreview(attachment)}
+                className="text-white/60 hover:text-white p-1 rounded"
+              >
+                <Eye className="h-3 w-3" />
+              </button>
+            )}
+            
+            {isRemovable && onRemove && (
+              <button 
+                onClick={() => onRemove(attachment.id)} 
+                className="text-white/60 hover:text-white p-1 rounded"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            )}
+          </div>
         </div>
       ))}
     </div>

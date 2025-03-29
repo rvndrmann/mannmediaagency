@@ -1,7 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { MCPServerService } from "@/services/mcpService";
-import { showToast } from "@/utils/toast-utils";
 
 interface MCPToolParams {
   sceneId: string;
@@ -56,106 +55,61 @@ export const canvasTool = {
   },
   
   execute: async (params, context) => {
-    let mcpServer = null;
-    
     try {
       const { action, projectId, sceneId, content, useMcp = true, productShotVersion, aspectRatio } = params;
       
-      console.log(`Executing canvas tool with action '${action}' for project ${projectId}${sceneId ? `, scene ${sceneId}` : ''}`);
-      
       // Default to MCP execution (now the default approach)
       if (useMcp !== false) {
-        console.log(`Executing canvas tool with MCP for project ${projectId}, action: ${action}`);
+        const mcpServer = new MCPServerService(`https://api.example.com/mcp/${projectId}`);
+        await mcpServer.connect();
         
-        mcpServer = new MCPServerService(projectId);
+        let toolName = "";
+        let toolParams: MCPToolParams = { sceneId: sceneId as string };
         
-        try {
-          await mcpServer.connect();
-          
-          let toolName = "";
-          let toolParams: MCPToolParams = { sceneId: sceneId as string };
-          
-          switch (action) {
-            case "updateDescription":
-              toolName = "update_scene_description";
-              toolParams = { 
-                ...toolParams, 
-                imageAnalysis: true 
-              };
-              break;
-            case "generateImagePrompt":
-              toolName = "update_image_prompt";
-              toolParams = { 
-                ...toolParams, 
-                useDescription: true 
-              };
-              break;
-            case "generateImage":
-              toolName = "generate_scene_image";
-              toolParams = { 
-                ...toolParams, 
-                productShotVersion: productShotVersion || "v2" 
-              };
-              break;
-            case "generateVideo":
-              toolName = "create_scene_video";
-              toolParams = { 
-                ...toolParams, 
-                aspectRatio: aspectRatio || "16:9" 
-              };
-              break;
-            case "createScene":
-            case "updateScene":
-              // These actions are handled by legacy implementation
-              throw new Error(`MCP does not support ${action} - falling back to legacy implementation`);
-            default:
-              throw new Error(`Unsupported MCP action: ${action}`);
-          }
-          
-          console.log(`Calling MCP tool: ${toolName} with params:`, toolParams);
-          
-          const result = await mcpServer.callTool(toolName, toolParams);
-          
-          // Cleanup MCP server connection
-          if (mcpServer) {
-            await mcpServer.cleanup();
-            mcpServer = null;
-          }
-          
-          console.log(`MCP tool result for ${toolName}:`, result);
-          
-          // Show toast notifications for successful operations
-          if (result.success) {
-            showToast.success(result.result || `Operation ${action} completed successfully`);
-          }
-          
-          return {
-            success: result.success !== false,
-            message: result.result || "Operation completed via MCP",
-            data: result
-          };
-        } catch (error) {
-          console.error("Error using MCP for canvas tool:", error);
-          showToast.error(`MCP operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          
-          // Cleanup MCP server connection on error
-          if (mcpServer) {
-            await mcpServer.cleanup();
-            mcpServer = null;
-          }
-          
-          // Allow fallback to legacy implementation if MCP fails
-          if (useMcp === true) {
-            console.log("Falling back to legacy implementation after MCP failure");
-          } else {
-            throw error; // Re-throw if explicit MCP was requested
-          }
+        switch (action) {
+          case "updateDescription":
+            toolName = "update_scene_description";
+            toolParams = { 
+              ...toolParams, 
+              imageAnalysis: true 
+            };
+            break;
+          case "generateImagePrompt":
+            toolName = "update_image_prompt";
+            toolParams = { 
+              ...toolParams, 
+              useDescription: true 
+            };
+            break;
+          case "generateImage":
+            toolName = "generate_scene_image";
+            toolParams = { 
+              ...toolParams, 
+              productShotVersion: productShotVersion || "v2" 
+            };
+            break;
+          case "generateVideo":
+            toolName = "create_scene_video";
+            toolParams = { 
+              ...toolParams, 
+              aspectRatio: aspectRatio || "16:9" 
+            };
+            break;
+          default:
+            throw new Error(`Unsupported MCP action: ${action}`);
         }
+        
+        const result = await mcpServer.callTool(toolName, toolParams);
+        await mcpServer.cleanup();
+        
+        return {
+          success: result.success !== false,
+          message: result.result || "Operation completed via MCP",
+          data: result
+        };
       }
       
       // Legacy execution (without MCP)
-      console.log(`Executing canvas tool with legacy implementation for project ${projectId}, action: ${action}`);
-      
       switch (action) {
         case "updateDescription":
         case "generateImagePrompt": {
@@ -170,10 +124,6 @@ export const canvasTool = {
           });
           
           if (error) throw error;
-          
-          if (data.success) {
-            showToast.success(`Scene ${type} updated successfully`);
-          }
           
           return {
             success: data.success !== false,
@@ -195,10 +145,6 @@ export const canvasTool = {
           
           if (error) throw error;
           
-          if (data.success) {
-            showToast.success(`Scene image generated successfully`);
-          }
-          
           return {
             success: data.success !== false,
             message: `Scene image ${data.success ? "generated" : "generation failed"}`,
@@ -217,10 +163,6 @@ export const canvasTool = {
           });
           
           if (error) throw error;
-          
-          if (data.success) {
-            showToast.success(`Scene video generated successfully`);
-          }
           
           return {
             success: data.success !== false,
@@ -243,8 +185,6 @@ export const canvasTool = {
           
           if (error) throw error;
           
-          showToast.success("New scene created");
-          
           return {
             success: true,
             message: "New scene created",
@@ -266,8 +206,6 @@ export const canvasTool = {
           
           if (error) throw error;
           
-          showToast.success("Scene updated");
-          
           return {
             success: true,
             message: "Scene updated",
@@ -280,18 +218,6 @@ export const canvasTool = {
       }
     } catch (error) {
       console.error("Canvas tool error:", error);
-      
-      // Ensure MCP server is cleaned up on error
-      if (mcpServer) {
-        try {
-          await mcpServer.cleanup();
-        } catch (cleanupError) {
-          console.error("Error during MCP server cleanup:", cleanupError);
-        }
-      }
-      
-      showToast.error(`Canvas operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
       return {
         success: false,
         message: `Canvas operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,

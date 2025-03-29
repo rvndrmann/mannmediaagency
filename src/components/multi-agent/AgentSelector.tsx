@@ -1,82 +1,110 @@
 
-import { cn } from "@/lib/utils";
-import { useState } from "react";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { getAgentIcon, getAgentName } from "@/lib/agent-icons";
-import { AgentType } from "@/hooks/use-multi-agent-chat";
+import React, { useRef } from 'react';
+import { Bot, PenLine, Image, Wrench, FileText, Database } from 'lucide-react';
+import { AgentInfo } from '@/types/message';
+import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { getAgentIcon } from '@/lib/agent-icons';
+import { type AgentType } from '@/hooks/use-multi-agent-chat';
 
 interface AgentSelectorProps {
-  selectedAgentId: string;
   onSelect: (agentId: AgentType) => void;
-  disabled?: boolean;
+  selectedAgentId: AgentType;
 }
 
-export function AgentSelector({
-  selectedAgentId,
-  onSelect,
-  disabled = false,
-}: AgentSelectorProps) {
-  const agents = [
-    { id: "main", name: "Main Assistant" },
-    { id: "script", name: "Script Writer" },
-    { id: "image", name: "Image Generator" },
-    { id: "scene", name: "Scene Creator" },
-    { id: "tool", name: "Tool Specialist" },
+export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selectedAgentId }) => {
+  const scrollContainerRef = useRef<HTMLDivElement>(null);
+  
+  // Built-in agent definitions with required type and isBuiltIn properties
+  const agents: AgentInfo[] = [
+    {
+      id: 'main',
+      name: 'Assistant',
+      description: 'General AI assistant',
+      icon: 'Bot',
+      color: 'from-blue-400 to-indigo-500',
+      instructions: 'You are a helpful assistant.',
+      type: 'assistant',
+      isBuiltIn: true
+    },
+    {
+      id: 'script',
+      name: 'Script Writer',
+      description: 'Creates scripts and narratives',
+      icon: 'PenLine',
+      color: 'from-amber-400 to-orange-500',
+      instructions: 'You are a script writer.',
+      type: 'script',
+      isBuiltIn: true
+    },
+    {
+      id: 'image',
+      name: 'Image Prompt',
+      description: 'Creates AI image prompts',
+      icon: 'Image',
+      color: 'from-emerald-400 to-green-500',
+      instructions: 'You create image prompts.',
+      type: 'image',
+      isBuiltIn: true
+    },
+    {
+      id: 'data',
+      name: 'Data Agent',
+      description: 'Extracts & manages media data',
+      icon: 'Database',
+      color: 'from-cyan-400 to-blue-500',
+      instructions: 'You extract and manage data.',
+      type: 'data',
+      isBuiltIn: true
+    },
+    {
+      id: 'tool',
+      name: 'Tool Helper',
+      description: 'Guides on using tools',
+      icon: 'Wrench',
+      color: 'from-purple-400 to-violet-500',
+      instructions: 'You help with tools.',
+      type: 'tool',
+      isBuiltIn: true
+    },
+    {
+      id: 'scene',
+      name: 'Scene Creator',
+      description: 'Creates detailed scenes',
+      icon: 'FileText',
+      color: 'from-rose-400 to-pink-500',
+      instructions: 'You create scenes.',
+      type: 'scene',
+      isBuiltIn: true
+    }
   ];
 
-  const handleChange = (value: string) => {
-    onSelect(value as AgentType);
-  };
-
-  const AgentIcon = getAgentIcon(selectedAgentId);
-
   return (
-    <Select value={selectedAgentId} onValueChange={handleChange} disabled={disabled}>
-      <SelectTrigger className="w-[180px] h-8 bg-muted/50">
-        <div className="flex items-center">
-          <div className={cn(
-            "mr-2 h-6 w-6 rounded-md flex items-center justify-center",
-            selectedAgentId === "main" && "bg-secondary text-secondary-foreground",
-            selectedAgentId === "script" && "bg-blue-500 text-white",
-            selectedAgentId === "image" && "bg-purple-500 text-white",
-            selectedAgentId === "scene" && "bg-amber-500 text-white",
-            selectedAgentId === "tool" && "bg-emerald-500 text-white",
-          )}>
-            <AgentIcon className="h-4 w-4" />
-          </div>
-          <SelectValue placeholder="Select Agent">
-            {getAgentName(selectedAgentId as AgentType)}
-          </SelectValue>
-        </div>
-      </SelectTrigger>
-      <SelectContent>
-        {agents.map((agent) => {
-          const Icon = getAgentIcon(agent.id);
-          return (
-            <SelectItem key={agent.id} value={agent.id}>
-              <div className="flex items-center">
-                <div className={cn(
-                  "mr-2 h-6 w-6 rounded-md flex items-center justify-center",
-                  agent.id === "main" && "bg-secondary text-secondary-foreground",
-                  agent.id === "script" && "bg-blue-500 text-white",
-                  agent.id === "image" && "bg-purple-500 text-white",
-                  agent.id === "scene" && "bg-amber-500 text-white",
-                  agent.id === "tool" && "bg-emerald-500 text-white",
-                )}>
-                  <Icon className="h-4 w-4" />
-                </div>
-                <span>{agent.name}</span>
-              </div>
-            </SelectItem>
-          );
-        })}
-      </SelectContent>
-    </Select>
+    <div className="rounded-lg border border-white/10 bg-[#21283B]/60 backdrop-blur-sm p-2">
+      <div 
+        ref={scrollContainerRef} 
+        className="flex space-x-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-700"
+      >
+        {agents.map((agent) => (
+          <button
+            key={agent.id}
+            onClick={() => onSelect(agent.id as AgentType)}
+            className={cn(
+              "flex-shrink-0 flex items-center justify-center flex-col py-2 px-3 rounded-lg transition-colors",
+              selectedAgentId === agent.id
+                ? `bg-gradient-to-r ${agent.color} text-white`
+                : 'hover:bg-[#2D3648] text-gray-300'
+            )}
+          >
+            <div className={`p-2 rounded-full ${selectedAgentId === agent.id ? 'bg-white/20' : 'bg-[#2A3040]'}`}>
+              {getAgentIcon(agent.id, "h-5 w-5")}
+            </div>
+            <div className="font-medium text-xs mt-1.5">{agent.name}</div>
+          </button>
+        ))}
+      </div>
+    </div>
   );
-}
+};
+
+export default AgentSelector;

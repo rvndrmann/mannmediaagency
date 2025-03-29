@@ -1,94 +1,76 @@
 
-import { Helmet } from 'react-helmet';
-import MultiAgentChat from '@/components/multi-agent/MultiAgentChat';
-import { useEffect, useState, useLayoutEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
-import { showToast } from '@/utils/toast-utils';
+import { useEffect, useState } from "react";
+import { useSearchParams, Link } from "react-router-dom";
+import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
+import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Button } from "@/components/ui/button";
+import { BarChartBig } from "lucide-react";
+import { toast } from "sonner";
 
 export default function MultiAgentChatPage() {
   const [searchParams] = useSearchParams();
-  const [projectId, setProjectId] = useState<string | undefined>(undefined);
-  const [viewportHeight, setViewportHeight] = useState<number | undefined>(undefined);
+  const projectId = searchParams.get('projectId');
+  const sessionId = searchParams.get('sessionId');
   
-  // Use layout effect to set initial viewport height
-  useLayoutEffect(() => {
-    const updateViewportHeight = () => {
-      const height = window.visualViewport?.height || window.innerHeight;
-      setViewportHeight(height);
-      document.documentElement.style.setProperty('--vh', `${height * 0.01}px`);
-    };
-    
-    updateViewportHeight();
-    
-    // Add event listeners to handle viewport changes
-    window.addEventListener('resize', updateViewportHeight);
-    if (window.visualViewport) {
-      window.visualViewport.addEventListener('resize', updateViewportHeight);
-    }
-    
-    return () => {
-      window.removeEventListener('resize', updateViewportHeight);
-      if (window.visualViewport) {
-        window.visualViewport.removeEventListener('resize', updateViewportHeight);
-      }
-    };
-  }, []);
+  const { setActiveProject } = useProjectContext({ initialProjectId: projectId || undefined });
+  const { getOrCreateChatSession } = useChatSession();
   
+  const [chatSessionId, setChatSessionId] = useState<string | null>(
+    sessionId || null
+  );
+  
+  // Initialize chat session if needed
   useEffect(() => {
-    // Extract project ID from URL if present
-    const projectIdParam = searchParams.get('projectId');
-    if (projectIdParam) {
-      setProjectId(projectIdParam);
-      console.log("Loading project from URL:", projectIdParam);
-    } else {
-      console.log("No project ID in URL parameters");
+    if (!chatSessionId) {
+      if (projectId) {
+        // Get or create a session for this project
+        const newSessionId = getOrCreateChatSession(projectId);
+        setChatSessionId(newSessionId);
+      } else {
+        // Create a new general chat session
+        const newSessionId = getOrCreateChatSession(null);
+        setChatSessionId(newSessionId);
+      }
     }
-    
-    // Add console logs to help with debugging
-    console.log("MultiAgentChatPage rendered with dimensions:", {
-      width: window.innerWidth,
-      height: window.innerHeight,
-      viewportHeight: window.visualViewport?.height
-    });
-    
-    // Force browser to repaint for smoother loading and prevent layout shifts
-    requestAnimationFrame(() => {
-      document.documentElement.style.height = '100%';
-      document.body.style.height = '100%';
-      console.log("Animation frame triggered for page render");
-    });
-  }, [searchParams]);
+  }, [projectId, chatSessionId, getOrCreateChatSession]);
+
+  useEffect(() => {
+    // Set page title based on project
+    document.title = projectId 
+      ? `Canvas Project #${projectId} - AI Collaboration` 
+      : "Multi-Agent Chat | AI Collaboration";
+      
+    // Ensure project is set in context
+    if (projectId) {
+      setActiveProject(projectId);
+    }
+  }, [projectId, setActiveProject]);
   
+  const handleViewTraces = () => {
+    toast.success("Navigating to trace analytics");
+  };
+
   return (
     <>
-      <Helmet>
-        <title>AI Chat | Video Creator</title>
-        <style>{`
-          :root {
-            --vh: 1vh;
-          }
-          html, body {
-            height: 100%;
-            overflow: hidden;
-          }
-          #root {
-            height: 100%;
-          }
-          .app-height {
-            height: 100vh;
-            height: calc(var(--vh, 1vh) * 100);
-          }
-        `}</style>
-      </Helmet>
-      <div className="flex flex-col app-height overflow-hidden bg-white dark:bg-slate-950">
-        <div className="flex-1 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
-          <MultiAgentChat 
-            projectId={projectId}
-            // Key will force component to re-mount when project changes
-            key={`chat-${projectId || 'default'}-${Date.now()}`}
-          />
-        </div>
+      <div className="absolute top-4 right-4 z-50">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="flex items-center gap-1 text-xs"
+          asChild
+        >
+          <Link to="/trace-analytics">
+            <BarChartBig className="h-3 w-3 mr-1" />
+            View Traces
+          </Link>
+        </Button>
       </div>
+      
+      <MultiAgentChat 
+        projectId={projectId || undefined} 
+        sessionId={chatSessionId || undefined}
+      />
     </>
   );
 }

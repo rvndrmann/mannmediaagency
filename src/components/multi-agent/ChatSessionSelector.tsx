@@ -1,65 +1,121 @@
 
-import React, { useEffect } from 'react';
-import { Button } from '@/components/ui/button';
-import { useChatSession } from '@/contexts/ChatSessionContext';
-import { formatDistanceToNow } from 'date-fns';
-import { X } from 'lucide-react';
+import React from "react";
+import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Button } from "@/components/ui/button";
+import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { PlusCircle, X } from "lucide-react";
+import { formatDistanceToNow } from "date-fns";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface ChatSessionSelectorProps {
-  onClose: () => void;
-  onSelectSession: (sessionId: string) => void;
+  onCreateNew?: () => void;
+  maxDisplayed?: number;
 }
 
-export const ChatSessionSelector = ({ onClose, onSelectSession }: ChatSessionSelectorProps) => {
-  const { chatSessions, activeChatId } = useChatSession();
+export function ChatSessionSelector({ 
+  onCreateNew,
+  maxDisplayed = 5
+}: ChatSessionSelectorProps) {
+  const { 
+    chatSessions,
+    activeChatId,
+    setActiveChatId,
+    deleteChatSession,
+    createChatSession
+  } = useChatSession();
 
-  // Ensure chat sessions are loaded
-  useEffect(() => {
-    console.log("Chat sessions loaded:", chatSessions.length);
-  }, [chatSessions]);
+  // Sort sessions by lastUpdated, most recent first
+  const sortedSessions = [...chatSessions].sort((a, b) => 
+    new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
+  ).slice(0, maxDisplayed);
 
-  return (
-    <div className="flex flex-col h-full">
-      <div className="p-4 flex justify-between items-center border-b">
-        <h3 className="font-medium">Chat History</h3>
-        <Button size="sm" variant="ghost" onClick={onClose}>
-          <X className="h-4 w-4" />
+  // Handle creating a new chat
+  const handleCreateNew = () => {
+    if (onCreateNew) {
+      onCreateNew();
+    } else {
+      createChatSession(null);
+    }
+  };
+
+  // For empty state
+  if (chatSessions.length === 0) {
+    return (
+      <div className="flex items-center justify-center h-10 px-2">
+        <Button 
+          variant="ghost" 
+          size="sm" 
+          onClick={handleCreateNew}
+          className="flex items-center gap-1"
+        >
+          <PlusCircle className="h-4 w-4" />
+          <span>Start New Chat</span>
         </Button>
       </div>
-      
-      <div className="p-4 flex-1 overflow-auto">
-        {chatSessions.length === 0 ? (
-          <div className="text-center py-10 text-slate-500">
-            No chat history found
-          </div>
-        ) : (
-          chatSessions.map(session => (
-            <div 
-              key={session.id}
-              className={`p-3 border rounded-md mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 ${
-                session.id === activeChatId ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
-              }`}
-              onClick={() => {
-                console.log("Selected session:", session.id);
-                onSelectSession(session.id);
-              }}
-            >
-              <div className="font-medium text-sm">
-                {session.title || 'Untitled Chat'}
-              </div>
-              <div className="text-xs text-slate-500 mt-1">
-                {formatDistanceToNow(new Date(session.lastUpdated), { addSuffix: true })}
-              </div>
-              {session.messages && session.messages.length > 0 && (
-                <div className="text-xs text-slate-500 mt-1 truncate">
-                  {session.messages[session.messages.length - 1]?.content?.substring(0, 50)}
-                  {session.messages[session.messages.length - 1]?.content?.length > 50 ? '...' : ''}
+    );
+  }
+
+  return (
+    <TooltipProvider>
+      <div className="flex items-center gap-2">
+        <Tabs 
+          value={activeChatId || undefined} 
+          onValueChange={(value) => setActiveChatId(value)}
+          className="w-full"
+        >
+          <ScrollArea className="w-full px-1 max-w-[600px]">
+            <TabsList className="flex w-full h-10 overflow-x-auto">
+              {sortedSessions.map(session => (
+                <div key={session.id} className="flex items-center">
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <TabsTrigger 
+                        value={session.id}
+                        className="relative px-3 py-1 flex-shrink-0 max-w-[180px] truncate"
+                      >
+                        {session.title}
+                      </TabsTrigger>
+                    </TooltipTrigger>
+                    <TooltipContent side="bottom">
+                      <p>{session.title}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Last updated {formatDistanceToNow(new Date(session.lastUpdated))} ago
+                      </p>
+                      <p className="text-xs text-muted-foreground">
+                        {session.messages.length} messages
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                  
+                  {session.id === activeChatId && (
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-5 w-5 ml-1"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        deleteChatSession(session.id);
+                      }}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
-              )}
-            </div>
-          ))
-        )}
+              ))}
+            </TabsList>
+          </ScrollArea>
+        </Tabs>
+        
+        <Button 
+          variant="outline" 
+          size="icon" 
+          onClick={handleCreateNew}
+          className="flex-shrink-0"
+        >
+          <PlusCircle className="h-4 w-4" />
+        </Button>
       </div>
-    </div>
+    </TooltipProvider>
   );
-};
+}

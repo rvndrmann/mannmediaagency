@@ -82,7 +82,6 @@ export function SidePanel({
           setUseAssistantsApi={setUseAssistantsApi}
           useMcp={useMcp}
           setUseMcp={setUseMcp}
-          placeholder="Type a message..."
         />
       </div>
     </div>

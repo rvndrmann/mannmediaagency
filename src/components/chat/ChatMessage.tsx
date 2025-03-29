@@ -1,4 +1,4 @@
-
+import React from "react";
 import { Message } from "@/types/message";
 import { Avatar } from "@/components/ui/avatar";
 import { Markdown } from "@/components/ui/markdown";

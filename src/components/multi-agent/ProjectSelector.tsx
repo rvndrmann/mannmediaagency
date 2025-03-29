@@ -49,7 +49,7 @@ export function ProjectSelector({ selectedProjectId, onProjectSelect, showScenes
       </div>
       
       <Select
-        value={selectedProjectId || ""}
+        value={selectedProjectId || "none"}
         onValueChange={onProjectSelect}
         disabled={loading}
       >
@@ -57,7 +57,7 @@ export function ProjectSelector({ selectedProjectId, onProjectSelect, showScenes
           <SelectValue placeholder="Select a project" />
         </SelectTrigger>
         <SelectContent>
-          <SelectItem value="">No project (general chat)</SelectItem>
+          <SelectItem value="none">No project (general chat)</SelectItem>
           {projects.map((project) => (
             <SelectItem key={project.id} value={project.id}>
               {project.title}

@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -19,7 +18,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormEvent } from "react";
 import { getAgentName } from "@/lib/agent-icons";
 
-// Custom ChatHeader component
 const ChatHeader = ({ 
   projectContext, 
   isContextLoaded, 
@@ -181,11 +179,13 @@ const MultiAgentChat = ({
     createChatSession(projectId);
   };
   
-  const handleSendMessage = async (content: string) => {
-    if (content.trim() === '') return;
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim()) return;
     
-    setInput('');
-    await sendMessage(content);
+    await chat.handleSendMessage(input, selectedAgentId, attachments);
+    setInput("");
+    setAttachments([]);
   };
   
   const onSubmitForm = (e: FormEvent) => {

@@ -1,9 +1,8 @@
-
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
-import { format } from "date-fns";
+import { format, formatDistanceToNow } from "date-fns";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { X } from "lucide-react";
 
@@ -28,7 +27,7 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
 
   // Sort sessions by created date descending
   const sortedSessions = [...chatSessions].sort((a, b) => {
-    return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime();
+    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
   });
 
   return (
@@ -60,7 +59,7 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
                       {session.title || "Chat session"}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {format(new Date(session.createdAt), "MMM d, yyyy h:mm a")}
+                      {session.created_at ? formatDistanceToNow(new Date(session.created_at), { addSuffix: true }) : "Unknown date"}
                     </div>
                     {session.messages && session.messages.length > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground truncate max-w-[300px]">

@@ -49,9 +49,9 @@ export const StyleSelector = ({ style, setStyle }: StyleSelectorProps) => {
           {storyTypes?.map((type) => (
             <SelectItem 
               key={type.id} 
-              value={type.story_type || ""}
+              value={type.story_type || `style-${type.id}`}
             >
-              {type.story_type}
+              {type.story_type || `Style ${type.id}`}
             </SelectItem>
           ))}
         </SelectContent>
@@ -59,4 +59,3 @@ export const StyleSelector = ({ style, setStyle }: StyleSelectorProps) => {
     </div>
   );
 };
-

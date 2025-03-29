@@ -3,7 +3,7 @@
  * Utility for integrating with OpenAI Traces API
  */
 
-type TraceEventData = {
+export type TraceEventData = {
   trace_id: string;
   event_type: string;
   timestamp: string;

@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { MainAgent } from "./agents/MainAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
@@ -9,6 +8,7 @@ import { BaseAgentImpl } from "./agents/BaseAgentImpl";
 import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
 import { supabase } from "@/integrations/supabase/client";
+import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
 
 export class AgentRunner {
   private context: RunnerContext;
@@ -38,21 +38,21 @@ export class AgentRunner {
       }
     };
     this.callbacks = callbacks;
-    this.currentAgent = this.createAgent(agentType);
-    this.traceStartTime = Date.now();
     this.traceId = uuidv4();
+    this.traceStartTime = Date.now();
+    this.currentAgent = this.createAgent(agentType);
     
     // Initialize the trace
     this.initializeTrace();
   }
 
-  private initializeTrace() {
+  private async initializeTrace() {
     // If OpenAI tracing is enabled, set up the trace here
     if (!this.context.tracingDisabled && typeof window !== 'undefined' && window.fetch) {
       try {
         const traceDetails = {
           trace_id: this.traceId,
-          project_id: this.context.projectId || 'default_project',
+          project_id: this.context.metadata?.projectId || 'default_project',
           user_id: this.context.userId || 'anonymous',
           metadata: {
             agent_type: this.currentAgent.getType(),
@@ -63,8 +63,20 @@ export class AgentRunner {
         // Log trace initialization
         console.log("Initializing trace:", traceDetails);
         
-        // You could send an initial trace event to OpenAI here
-        // This would require your OpenAI API key with tracing permissions
+        // Send an initial trace event to OpenAI
+        const success = await initializeTrace(this.traceId, {
+          user_id: this.context.userId,
+          conversation_id: this.context.groupId,
+          initial_agent: this.currentAgent.getType(),
+          application: 'multi-agent-chat',
+          project_id: this.context.metadata?.projectId || null
+        });
+        
+        if (success) {
+          console.log(`Successfully initialized trace with ID: ${this.traceId}`);
+        } else {
+          console.warn(`Failed to initialize trace with ID: ${this.traceId}`);
+        }
       } catch (error) {
         console.error("Error initializing trace:", error);
       }
@@ -146,6 +158,14 @@ export class AgentRunner {
       // Start the agent loop
       await this.runAgentLoop(input, attachments, userId);
       
+      // Finalize the trace when everything is done
+      if (!this.context.tracingDisabled) {
+        const success = await finalizeTrace(this.traceId);
+        if (success) {
+          console.log(`Successfully finalized trace with ID: ${this.traceId}`);
+        }
+      }
+      
     } catch (error) {
       console.error("Agent runner error:", error);
       this.callbacks.onError(error instanceof Error ? error.message : "Unknown error");
@@ -167,6 +187,14 @@ export class AgentRunner {
           success: false
         }
       );
+      
+      // Try to finalize the trace even if there was an error
+      if (!this.context.tracingDisabled) {
+        finalizeTrace(this.traceId).catch(err => {
+          console.error("Error finalizing trace after error:", err);
+        });
+      }
+      
     } finally {
       this.isProcessing = false;
     }
@@ -179,14 +207,13 @@ export class AgentRunner {
           trace_id: this.traceId,
           event_type: eventType,
           timestamp: new Date().toISOString(),
-          data: eventData
+          data: {
+            agent_type: this.currentAgent.getType(),
+            ...eventData
+          }
         };
         
         console.log(`Recording trace event: ${eventType}`, event);
-        
-        // Here you would send the event to OpenAI's trace endpoint
-        // This requires your OpenAI API key with tracing permissions
-        // Example endpoint: https://api.openai.com/v1/traces/{traceId}/events
       } catch (error) {
         console.error("Error recording trace event:", error);
       }

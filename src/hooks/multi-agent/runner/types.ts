@@ -17,6 +17,7 @@ export interface AgentResult {
 export interface AgentOptions {
   context: RunnerContext;
   config?: AgentConfig;
+  traceId?: string;
 }
 
 export interface RunnerContext extends ToolContext {
@@ -24,6 +25,7 @@ export interface RunnerContext extends ToolContext {
   groupId: string;
   runId: string;
   userId: string;
+  projectId?: string;
   usePerformanceModel: boolean;
   enableDirectToolExecution: boolean;
   tracingDisabled: boolean;

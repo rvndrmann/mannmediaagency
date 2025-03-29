@@ -10,6 +10,10 @@ export class ToolAgent extends BaseAgentImpl {
     super(options);
   }
 
+  getType() {
+    return "tool";
+  }
+
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
       // Get the current user
@@ -30,6 +34,13 @@ export class ToolAgent extends BaseAgentImpl {
         description: tool.description,
         requiredCredits: tool.requiredCredits
       }));
+      
+      // Record trace event for tool agent start
+      this.recordTraceEvent("tool_agent_start", {
+        input_length: input.length,
+        has_attachments: attachments && attachments.length > 0,
+        available_tools_count: availableTools.length
+      });
       
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -58,6 +69,9 @@ export class ToolAgent extends BaseAgentImpl {
       });
       
       if (error) {
+        this.recordTraceEvent("tool_agent_error", {
+          error: error.message
+        });
         throw new Error(`Tool agent error: ${error.message}`);
       }
       
@@ -69,6 +83,10 @@ export class ToolAgent extends BaseAgentImpl {
       let nextAgent = null;
       if (data?.handoffRequest) {
         nextAgent = data.handoffRequest.targetAgent;
+        this.recordTraceEvent("tool_agent_handoff", {
+          target_agent: nextAgent,
+          reason: data.handoffRequest.reason
+        });
       }
       
       // Check if there's a command suggestion
@@ -81,8 +99,20 @@ export class ToolAgent extends BaseAgentImpl {
         if (!tool) {
           console.warn(`Tool agent suggested unknown tool: ${commandSuggestion.name}`);
           commandSuggestion = null;
+        } else {
+          this.recordTraceEvent("tool_suggestion", {
+            tool_name: commandSuggestion.name,
+            has_parameters: !!commandSuggestion.parameters
+          });
         }
       }
+      
+      // Record completion event
+      this.recordTraceEvent("tool_agent_complete", {
+        response_length: output.length,
+        has_handoff: !!nextAgent,
+        has_command_suggestion: !!commandSuggestion
+      });
       
       return {
         response: output,
@@ -92,6 +122,9 @@ export class ToolAgent extends BaseAgentImpl {
       };
     } catch (error: any) {
       console.error("ToolAgent run error:", error);
+      this.recordTraceEvent("tool_agent_error", {
+        error: error.message || "Unknown error"
+      });
       throw error;
     }
   }

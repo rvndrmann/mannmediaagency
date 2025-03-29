@@ -9,6 +9,10 @@ export class AssistantAgent extends BaseAgentImpl {
     super(options);
   }
 
+  getType() {
+    return "assistant";
+  }
+
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
       console.log("Running AssistantAgent with input:", input, "attachments:", attachments);
@@ -27,6 +31,13 @@ export class AssistantAgent extends BaseAgentImpl {
       
       // Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
+      
+      // Record trace event for assistant agent start
+      this.recordTraceEvent("assistant_agent_start", {
+        input_length: input.length,
+        has_attachments: attachments && attachments.length > 0,
+        history_length: conversationHistory.length
+      });
       
       // Call the Supabase function for the assistant agent
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -58,6 +69,9 @@ export class AssistantAgent extends BaseAgentImpl {
       
       if (error) {
         console.error("Assistant agent error:", error);
+        this.recordTraceEvent("assistant_agent_error", {
+          error: error.message || "Unknown error"
+        });
         throw new Error(`Assistant agent error: ${error.message}`);
       }
       
@@ -68,6 +82,10 @@ export class AssistantAgent extends BaseAgentImpl {
       if (data?.handoffRequest) {
         console.log("Handoff requested to:", data.handoffRequest.targetAgent);
         nextAgent = data.handoffRequest.targetAgent;
+        this.recordTraceEvent("assistant_agent_handoff", {
+          target_agent: nextAgent,
+          reason: data.handoffRequest.reason
+        });
       }
       
       // Extract command suggestion if present
@@ -77,6 +95,13 @@ export class AssistantAgent extends BaseAgentImpl {
       const output = data?.completion || "I processed your request but couldn't generate a response.";
       await this.applyOutputGuardrails(output);
       
+      // Record completion event
+      this.recordTraceEvent("assistant_agent_complete", {
+        response_length: output.length,
+        has_handoff: !!nextAgent,
+        has_command_suggestion: !!commandSuggestion
+      });
+      
       return {
         response: output,
         nextAgent: nextAgent,
@@ -85,6 +110,9 @@ export class AssistantAgent extends BaseAgentImpl {
       };
     } catch (error) {
       console.error("AssistantAgent run error:", error);
+      this.recordTraceEvent("assistant_agent_error", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       throw error;
     }
   }

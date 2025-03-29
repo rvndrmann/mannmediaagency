@@ -9,6 +9,10 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
     super(options);
   }
 
+  getType() {
+    return "image";
+  }
+
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
       console.log("Running ImageGeneratorAgent with input:", input, "attachments:", attachments);
@@ -33,6 +37,15 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       const handoffReason = this.context.metadata?.handoffReason || '';
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
+      
+      // Record trace event for image generator agent start
+      this.recordTraceEvent("image_agent_start", {
+        input_length: input.length,
+        has_attachments: attachments && attachments.length > 0,
+        is_handoff_continuation: isHandoffContinuation,
+        from_agent: previousAgentType,
+        history_length: conversationHistory.length
+      });
       
       // Call the Supabase function
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
@@ -64,6 +77,9 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       });
       
       if (error) {
+        this.recordTraceEvent("image_agent_error", {
+          error: error.message || "Unknown error"
+        });
         throw new Error(`Image generator agent error: ${error.message}`);
       }
       
@@ -74,7 +90,18 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       if (data?.handoffRequest) {
         console.log(`ImageGeneratorAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
         nextAgent = data.handoffRequest.targetAgent;
+        this.recordTraceEvent("image_agent_handoff", {
+          target_agent: nextAgent,
+          reason: data.handoffRequest.reason
+        });
       }
+      
+      // Record completion event
+      this.recordTraceEvent("image_agent_complete", {
+        response_length: data?.completion?.length || 0,
+        has_handoff: !!nextAgent,
+        has_image_prompts: data?.completion?.includes("prompt:") || false
+      });
       
       return {
         response: data?.completion || "I processed your request but couldn't generate an image prompt.",
@@ -83,6 +110,9 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       };
     } catch (error) {
       console.error("ImageGeneratorAgent run error:", error);
+      this.recordTraceEvent("image_agent_error", {
+        error: error instanceof Error ? error.message : "Unknown error"
+      });
       throw error;
     }
   }

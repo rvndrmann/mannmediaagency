@@ -28,6 +28,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { validateMessage, createSystemMessage, createErrorMessage, createRetryHandler, handleConnectionError } from "@/utils/message-validation";
 import { ConnectionErrorAlert } from "@/components/ui/ConnectionErrorAlert";
 import { showToast } from "@/utils/toast-utils";
+import { CompactAgentSelector } from "@/components/canvas/CompactAgentSelector";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import type { Message } from "@/types/message";
 
@@ -197,27 +198,6 @@ export const MultiAgentChat = ({
     }
   }, [messages]);
 
-  useEffect(() => {
-    const pingServer = async () => {
-      try {
-        const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
-        if (error) throw error;
-        
-        setConnectionError(null);
-      } catch (error) {
-        console.error("Connection check failed:", error);
-        if (!connectionError) {
-          setConnectionError("Connection to the server may be unstable. Some features might not work properly.");
-        }
-      }
-    };
-    
-    pingServer();
-    const interval = setInterval(pingServer, 30000);
-    
-    return () => clearInterval(interval);
-  }, [connectionError]);
-
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
   };
@@ -309,6 +289,20 @@ export const MultiAgentChat = ({
       setConnectionError("Unable to connect to the server after multiple attempts. Please check your internet connection and try again later.");
       toast.error("Connection failed after multiple attempts");
     });
+  };
+
+  const pingServer = async () => {
+    try {
+      const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
+      if (error) throw error;
+      
+      setConnectionError(null);
+    } catch (error) {
+      console.error("Connection check failed:", error);
+      if (!connectionError) {
+        setConnectionError("Connection to the server may be unstable. Some features might not work properly.");
+      }
+    }
   };
 
   return (

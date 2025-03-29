@@ -14,7 +14,11 @@ export interface ChatSession {
   messages: Message[];
 }
 
-export function useChatHistoryStore() {
+// Create a singleton instance to support getState functionality
+let chatHistoryState: ReturnType<typeof createChatHistoryStore> | null = null;
+
+// Factory function to create the store
+function createChatHistoryStore() {
   // Use local storage for chat sessions
   const [chatSessions, setChatSessions] = useLocalStorage<ChatSession[]>("chat-sessions", []);
   const [activeChatId, setActiveChatId] = useLocalStorage<string | null>("active-chat-id", null);
@@ -47,7 +51,7 @@ export function useChatHistoryStore() {
       messages: initialMessages,
     };
     
-    setChatSessions(prev => [...prev, newSession]);
+    setChatSessions((prev: ChatSession[]) => [...prev, newSession]);
     setActiveChatId(newSessionId);
     
     return newSessionId;
@@ -75,7 +79,7 @@ export function useChatHistoryStore() {
       return;
     }
     
-    setChatSessions(prev => 
+    setChatSessions((prev: ChatSession[]) => 
       prev.map(session => 
         session.id === sessionId 
           ? { 
@@ -90,7 +94,7 @@ export function useChatHistoryStore() {
   
   // Delete a chat session
   const deleteChatSession = (sessionId: string) => {
-    setChatSessions(prev => prev.filter(session => session.id !== sessionId));
+    setChatSessions((prev: ChatSession[]) => prev.filter(session => session.id !== sessionId));
     
     // If the deleted session was active, set activeChatId to null
     if (activeChatId === sessionId) {
@@ -110,3 +114,22 @@ export function useChatHistoryStore() {
     syncing
   };
 }
+
+// Export the hook with getState capability
+export function useChatHistoryStore() {
+  // Initialize the singleton if it doesn't exist
+  if (!chatHistoryState) {
+    chatHistoryState = createChatHistoryStore();
+  }
+  
+  return chatHistoryState;
+}
+
+// Add getState method to the hook for static access
+useChatHistoryStore.getState = () => {
+  if (!chatHistoryState) {
+    // Create the store on demand if it doesn't exist
+    chatHistoryState = createChatHistoryStore();
+  }
+  return chatHistoryState;
+};

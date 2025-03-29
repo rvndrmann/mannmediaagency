@@ -33,23 +33,20 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Export the hook with getState capability
-export const useChatSession = (() => {
-  // Create the base hook function
-  const useHook = () => {
-    const context = useContext(ChatSessionContext);
-    if (context === undefined) {
-      throw new Error("useChatSession must be used within a ChatSessionProvider");
-    }
-    return context;
-  };
-  
-  // Add the getState static method
-  (useHook as ChatSessionHookType).getState = () => {
-    // Access the store state directly
-    const store = useChatHistoryStore.getState ? useChatHistoryStore.getState() : useChatHistoryStore();
-    return store;
-  };
-  
-  return useHook as ChatSessionHookType;
-})();
+// Create the base hook function
+const useHookBase = (): ChatSessionContextType => {
+  const context = useContext(ChatSessionContext);
+  if (context === undefined) {
+    throw new Error("useChatSession must be used within a ChatSessionProvider");
+  }
+  return context;
+};
+
+// Cast the hook function to include the getState method
+export const useChatSession = useHookBase as ChatSessionHookType;
+
+// Add getState method to the hook
+useChatSession.getState = (): ChatSessionContextType => {
+  // Access the store state directly using the getState method from useChatHistoryStore
+  return useChatHistoryStore.getState();
+};

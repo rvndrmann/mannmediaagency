@@ -53,7 +53,8 @@ export const useChatSession: ChatSessionHookType = (() => {
   
   // Add the getState static method
   (useHook as any).getState = () => {
-    const store = useChatHistoryStore.getState();
+    // Access the store state directly
+    const store = useChatHistoryStore.getState ? useChatHistoryStore.getState() : useChatHistoryStore();
     return {
       ...store,
       getState: () => store

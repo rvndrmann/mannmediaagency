@@ -1,5 +1,5 @@
 
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { useChatSession } from '@/contexts/ChatSessionContext';
 import { formatDistanceToNow } from 'date-fns';
@@ -12,6 +12,11 @@ interface ChatSessionSelectorProps {
 
 export const ChatSessionSelector = ({ onClose, onSelectSession }: ChatSessionSelectorProps) => {
   const { chatSessions, activeChatId } = useChatSession();
+
+  // Ensure chat sessions are loaded
+  useEffect(() => {
+    console.log("Chat sessions loaded:", chatSessions.length);
+  }, [chatSessions]);
 
   return (
     <div className="absolute inset-0 z-50 bg-white dark:bg-slate-950 flex flex-col">
@@ -35,6 +40,7 @@ export const ChatSessionSelector = ({ onClose, onSelectSession }: ChatSessionSel
                 session.id === activeChatId ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
               }`}
               onClick={() => {
+                console.log("Selected session:", session.id);
                 onSelectSession(session.id);
               }}
             >

@@ -74,8 +74,8 @@ const MultiAgentChat = ({
   const [input, setInput] = useState('');
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
+  const [forceUpdate, setForceUpdate] = useState(0); // Add force update state
   const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const chatEndRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   
   const {
@@ -125,7 +125,7 @@ const MultiAgentChat = ({
   // Scroll to bottom whenever messages change
   useEffect(() => {
     scrollToBottom();
-  }, [messages]);
+  }, [messages, forceUpdate]);
   
   // Improved scrollToBottom function that ensures scrolling works reliably
   const scrollToBottom = () => {
@@ -176,12 +176,33 @@ const MultiAgentChat = ({
       sendMessage(input);
       setInput("");
       setTimeout(scrollToBottom, 100);
+      
+      // Force update after a short delay to ensure UI updates
+      setTimeout(() => setForceUpdate(prev => prev + 1), 300);
     } else {
       console.log("Using agent handle submit");
       agentHandleSubmit(e);
       setInput("");
+      
+      // Force update after a short delay to ensure UI updates
+      setTimeout(() => setForceUpdate(prev => prev + 1), 300);
     }
   };
+  
+  // Force update UI periodically during loading to ensure messages appear
+  useEffect(() => {
+    let interval: number | undefined;
+    
+    if (isLoading) {
+      interval = window.setInterval(() => {
+        setForceUpdate(prev => prev + 1);
+      }, 1000) as unknown as number;
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLoading]);
   
   const isContextLoaded = !isContextLoading && !!projectContext;
   
@@ -231,16 +252,18 @@ const MultiAgentChat = ({
               </div>
             )}
             
-            {Array.isArray(messages) && messages.map((message, index) => (
-              <ChatMessage 
-                key={message.id || index} 
-                message={message} 
-                showAgentName={message.role === 'assistant'}
-                onEditContent={(type, content, sceneId) => {
-                  console.log("Edit content", type, content, sceneId);
-                }}
-              />
-            ))}
+            {Array.isArray(messages) && messages.length > 0 && 
+              messages.map((message, index) => (
+                <ChatMessage 
+                  key={`${message.id || index}-${forceUpdate}`} 
+                  message={message} 
+                  showAgentName={message.role === 'assistant'}
+                  onEditContent={(type, content, sceneId) => {
+                    console.log("Edit content", type, content, sceneId);
+                  }}
+                />
+              ))
+            }
             
             {handoffInProgress && (
               <HandoffIndicator
@@ -254,7 +277,7 @@ const MultiAgentChat = ({
             {isLoading && (
               <ChatMessage
                 message={{
-                  id: 'loading',
+                  id: 'loading-' + new Date().getTime(),
                   role: 'assistant',
                   content: '',
                   createdAt: new Date().toISOString(),

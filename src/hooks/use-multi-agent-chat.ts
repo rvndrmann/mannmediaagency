@@ -665,10 +665,19 @@ ${project.fullScript ? "This project has a full script." : "This project does no
     }
   };
 
+  // Add the missing functions that cause the error
   const addAttachment = (attachment: Attachment) => {
     setPendingAttachments(prev => [...prev, attachment]);
   };
-
+  
+  const addAttachments = (newAttachments: Attachment[]) => {
+    setPendingAttachments(prev => [...prev, ...newAttachments]);
+  };
+  
+  const removeAttachment = (id: string) => {
+    setPendingAttachments(prev => prev.filter(attachment => attachment.id !== id));
+  };
+  
   const clearAttachments = () => {
     setPendingAttachments([]);
   };
@@ -683,13 +692,6 @@ ${project.fullScript ? "This project has a full script." : "This project does no
     return () => {
       if (processingTimeoutRef.current) {
         window.clearTimeout(processingTimeoutRef.current as any);
-      }
-      
-      // Attempt to clean up any running agent
-      if (agentRunnerRef.current) {
-        agentRunnerRef.current.waitForCompletion().catch(e => {
-          console.log("Error cleaning up agent runner on unmount:", e);
-        });
       }
     };
   }, []);

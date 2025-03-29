@@ -301,6 +301,12 @@ export class AgentRunner {
           has_handoff: !!agentResult.nextAgent
         });
         
+        // Handle empty or invalid responses by providing a fallback
+        if (!agentResult.response || agentResult.response.trim() === '') {
+          console.log("Empty response detected from agent, using fallback response");
+          agentResult.response = `I'm sorry, I wasn't able to process that request properly. How else can I help you with your ${this.currentAgent.getType()} needs?`;
+        }
+        
         // Create assistant message
         const assistantMessage: Message = {
           id: uuidv4(),

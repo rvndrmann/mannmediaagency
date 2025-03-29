@@ -42,8 +42,15 @@ export class MainAgent extends BaseAgentImpl {
       
       // Enhanced input with handoff context if needed
       let enhancedInput = input;
+      
+      // Handle very short inputs by providing additional context to the agent
+      if (input.trim().length < 5) {
+        enhancedInput = `${input}\n\n[Note: This is a brief greeting or very short message. Please respond appropriately with a friendly greeting and offer assistance with the Canvas project if available.]`;
+        console.log("Enhanced very short input with context:", enhancedInput);
+      }
+      
       if (isHandoffContinuation && previousAgentType) {
-        enhancedInput = `[Continuing from ${previousAgentType} agent] ${input}\n\nContext from previous agent: ${handoffReason}`;
+        enhancedInput = `[Continuing from ${previousAgentType} agent] ${enhancedInput}\n\nContext from previous agent: ${handoffReason}`;
         
         // Add additional context if available
         if (continuityData && Object.keys(continuityData).length > 0) {
@@ -150,7 +157,24 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
       });
       
       if (error) {
+        console.error("Main agent invoke error:", error);
         throw new Error(`Main agent error: ${error.message}`);
+      }
+      
+      // Add fallback for empty responses
+      if (!data?.completion || data.completion.trim() === '') {
+        console.log("Empty response detected, providing fallback response");
+        return {
+          response: "I'm here to help with your Canvas project. How can I assist you today?",
+          nextAgent: null,
+          handoffReason: null,
+          structured_output: data?.structured_output || null,
+          additionalContext: {
+            projectId: projectId,
+            projectTitle: projectDetails?.title || "",
+            existingScript: projectDetails?.fullScript || null
+          }
+        };
       }
       
       console.log("MainAgent response:", data?.completion?.substring(0, 100) + "...");

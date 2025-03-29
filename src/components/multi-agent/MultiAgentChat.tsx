@@ -233,20 +233,11 @@ const MultiAgentChat = ({
           />
           
           {/* Increased height for the chat area */}
-          <ScrollArea className="flex-1 h-[calc(100vh-200px)] min-h-[400px]">
+          <ScrollArea className="flex-1 h-[calc(100vh-250px)] min-h-[500px]">
             <div className="p-4 space-y-4">
               {Array.isArray(messages) && messages.length === 0 && (
                 <div className="text-center py-10 text-muted-foreground">
                   <p>Start a conversation with the AI assistant.</p>
-                  {!projectId && (
-                    <div className="mt-8">
-                      <ProjectSelector 
-                        selectedProjectId={projectContextId}
-                        onProjectSelect={(id) => setProjectId(id)}
-                        showScenes={true}
-                      />
-                    </div>
-                  )}
                 </div>
               )}
               
@@ -255,6 +246,9 @@ const MultiAgentChat = ({
                   key={message.id || index} 
                   message={message} 
                   showAgentName={message.role === 'assistant'}
+                  onEditContent={(type, content, sceneId) => {
+                    console.log("Edit content", type, content, sceneId);
+                  }}
                 />
               ))}
               
@@ -308,10 +302,18 @@ const MultiAgentChat = ({
           
           <div className="border-t p-4 mt-auto">
             <div className="flex items-center justify-between mb-2">
-              <AgentSelector
-                selectedAgentId={activeAgent}
-                onSelect={setActiveAgent}
-              />
+              <div className="flex items-center space-x-2">
+                <AgentSelector
+                  selectedAgentId={activeAgent}
+                  onSelect={setActiveAgent}
+                />
+                
+                <ProjectSelector 
+                  selectedProjectId={projectContextId}
+                  onProjectSelect={setProjectId}
+                  compact={true}
+                />
+              </div>
               
               <FileAttachmentButton
                 onAttach={addAttachments}

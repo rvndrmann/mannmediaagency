@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -72,7 +73,7 @@ const MultiAgentChat = ({
     handoffInProgress: handoffActive,
     activeAgent,
     setActiveAgent,
-    pendingAttachments: attachments,
+    pendingAttachments,
     addAttachments,
     removeAttachment,
     handleSubmit: agentHandleSubmit,
@@ -179,18 +180,28 @@ const MultiAgentChat = ({
     createChatSession(projectId);
   };
   
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = (e: FormEvent) => {
     e.preventDefault();
     if (!input.trim()) return;
     
-    await chat.handleSendMessage(input, selectedAgentId, attachments);
+    // Create a new user message
+    const userMessage: Message = {
+      id: crypto.randomUUID(),
+      role: "user",
+      content: input,
+      createdAt: new Date().toISOString(),
+      attachments: pendingAttachments.length > 0 ? [...pendingAttachments] : undefined
+    };
+    
+    // Send the message using sendMessage function from useMultiAgentChat
+    if (sendMessage) {
+      sendMessage(input, activeAgent, pendingAttachments);
+    } else {
+      // Fallback if sendMessage is not available
+      agentHandleSubmit(e);
+    }
+    
     setInput("");
-    setAttachments([]);
-  };
-  
-  const onSubmitForm = (e: FormEvent) => {
-    e.preventDefault();
-    handleSendMessage(input);
   };
   
   return (
@@ -288,10 +299,10 @@ const MultiAgentChat = ({
             </div>
           </ScrollArea>
           
-          {attachments.length > 0 && (
+          {pendingAttachments && pendingAttachments.length > 0 && (
             <div className="p-2 border-t">
               <AttachmentPreview
-                attachments={attachments}
+                attachments={pendingAttachments}
                 onRemove={removeAttachment}
               />
             </div>
@@ -313,7 +324,7 @@ const MultiAgentChat = ({
             <ChatInput
               input={input}
               onInputChange={setInput}
-              onSubmit={onSubmitForm}
+              onSubmit={handleSendMessage}
               disabled={sending || handoffActive}
               isLoading={sending}
               placeholder={

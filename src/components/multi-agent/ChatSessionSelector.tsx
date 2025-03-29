@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { ScrollArea } from "@/components/ui/scroll-area";
@@ -27,7 +28,7 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
 
   // Sort sessions by created date descending
   const sortedSessions = [...chatSessions].sort((a, b) => {
-    return new Date(b.created_at || 0).getTime() - new Date(a.created_at || 0).getTime();
+    return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
   });
 
   return (
@@ -59,7 +60,7 @@ export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSel
                       {session.title || "Chat session"}
                     </div>
                     <div className="text-xs text-muted-foreground">
-                      {session.created_at ? formatDistanceToNow(new Date(session.created_at), { addSuffix: true }) : "Unknown date"}
+                      {session.lastUpdated ? formatDistanceToNow(new Date(session.lastUpdated), { addSuffix: true }) : "Unknown date"}
                     </div>
                     {session.messages && session.messages.length > 0 && (
                       <div className="text-xs mt-1 text-muted-foreground truncate max-w-[300px]">

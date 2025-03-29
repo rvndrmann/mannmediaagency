@@ -16,8 +16,9 @@ import { ProjectSelector } from "./ProjectSelector";
 import { Separator } from "@/components/ui/separator";
 import { ChatSessionSelector } from "./ChatSessionSelector";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { FormEvent } from "react";
 
-// Custom ChatHeader component (since the import is missing)
+// Custom ChatHeader component
 const ChatHeader = ({ 
   projectContext, 
   isContextLoaded, 
@@ -72,10 +73,10 @@ const MultiAgentChat = ({
     activeAgent,
     setActiveAgent,
     pendingAttachments: attachments,
-    addAttachments: setAttachments,
-    removeAttachment: cancelAttachment,
+    addAttachments,
+    removeAttachment,
     handleSubmit,
-    handleSendMessage: onSendMessage,
+    sendMessage: onSendMessage,
     clearMessages,
     processHandoff: resetHandoff
   } = useMultiAgentChat({
@@ -95,7 +96,7 @@ const MultiAgentChat = ({
   const handoffInfo = handoffActive ? { 
     fromAgent: "main", 
     toAgent: activeAgent, 
-    reason: "Specialized handling" 
+    status: "Specialized handling" 
   } : null;
   
   const agents = [
@@ -206,7 +207,7 @@ const MultiAgentChat = ({
       <Suspense fallback={<div className="p-4 text-center">Loading chat...</div>}>
         {showChatSelector && (
           <ChatSessionSelector 
-            closeModal={() => setShowChatSelector(false)}
+            onClose={() => setShowChatSelector(false)}
             onSelectSession={(id) => {
               setActiveChatId(id);
               setShowChatSelector(false);
@@ -235,9 +236,6 @@ const MultiAgentChat = ({
                       <ProjectSelector 
                         selectedProjectId={projectContextId}
                         onProjectSelect={(id) => setProjectId(id)}
-                        onSceneSelect={(projectId, sceneId) => {
-                          setProjectId(projectId);
-                        }}
                         showScenes
                       />
                     </div>
@@ -257,7 +255,6 @@ const MultiAgentChat = ({
                 <HandoffIndicator
                   fromAgent={handoffInfo.fromAgent}
                   toAgent={handoffInfo.toAgent}
-                  reason={handoffInfo.reason}
                   onCancel={() => resetHandoff(handoffInfo.fromAgent, activeAgent, "User canceled")}
                 />
               )}
@@ -296,7 +293,7 @@ const MultiAgentChat = ({
             <div className="p-2 border-t">
               <AttachmentPreview
                 attachments={attachments}
-                onRemoveAttachment={cancelAttachment}
+                onRemove={removeAttachment}
               />
             </div>
           )}
@@ -304,19 +301,27 @@ const MultiAgentChat = ({
           <div className="border-t p-4">
             <div className="flex items-center justify-between mb-2">
               <AgentSelector
-                activeAgent={activeAgent}
-                onChange={setActiveAgent}
+                agent={activeAgent}
+                onSelect={setActiveAgent}
                 disabled={sending || handoffActive}
               />
               
               <FileAttachmentButton
-                onSelectFile={setAttachments}
+                onAttach={addAttachments}
                 disabled={sending || handoffActive}
               />
             </div>
             
             <ChatInput
-              onSubmit={handleSendMessage}
+              onSubmit={(e: FormEvent) => {
+                e.preventDefault();
+                const form = e.target as HTMLFormElement;
+                const input = form.querySelector('input');
+                if (input) {
+                  handleSendMessage(input.value);
+                  input.value = '';
+                }
+              }}
               disabled={sending || handoffActive}
               placeholder={
                 handoffActive

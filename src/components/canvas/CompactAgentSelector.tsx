@@ -8,7 +8,8 @@ import {
   TooltipTrigger 
 } from "@/components/ui/tooltip";
 import { cva } from "class-variance-authority";
-import type { AgentType } from "@/hooks/multi-agent/runner/types";
+import type { AgentType } from "@/hooks/use-multi-agent-chat";
+import { getAgentIcon, getAgentName } from "@/lib/agent-icons";
 
 const agentButtonVariants = cva(
   "flex items-center justify-center h-8 w-8 rounded-full transition-all duration-200 border",
@@ -20,6 +21,7 @@ const agentButtonVariants = cva(
         image: "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 border-purple-400/30",
         tool: "bg-amber-500/20 text-amber-400 hover:bg-amber-500/30 border-amber-400/30",
         scene: "bg-rose-500/20 text-rose-400 hover:bg-rose-500/30 border-rose-400/30",
+        data: "bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 border-cyan-400/30",
       },
       selected: {
         true: "ring-2 ring-offset-1 ring-offset-[#21283B] scale-110",
@@ -70,6 +72,12 @@ export function CompactAgentSelector({ selectedAgent, onSelect }: CompactAgentSe
       icon: "🎬", 
       description: "Creates detailed scene descriptions for videos" 
     },
+    {
+      type: "data",
+      name: "Data Agent",
+      icon: "📊",
+      description: "Extracts and processes data from various sources"
+    }
   ];
 
   return (

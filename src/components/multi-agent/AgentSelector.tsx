@@ -5,6 +5,7 @@ import { AgentInfo } from '@/types/message';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
 import { type AgentType } from '@/hooks/use-multi-agent-chat';
+import { getAgentIcon, getAgentColor, getAgentName } from '@/lib/agent-icons';
 
 interface AgentSelectorProps {
   onSelect: (agentId: AgentType) => void;
@@ -79,23 +80,9 @@ export function AgentSelector({ onSelect, selectedAgentId, disabled = false }: A
     }
   ];
 
-  const getAgentIcon = (agentId: string, className: string = "") => {
-    switch (agentId) {
-      case 'main':
-        return <Bot className={className} />;
-      case 'script':
-        return <PenLine className={className} />;
-      case 'image':
-        return <Image className={className} />;
-      case 'tool':
-        return <Wrench className={className} />;
-      case 'scene':
-        return <FileText className={className} />;
-      case 'data':
-        return <Database className={className} />;
-      default:
-        return <Bot className={className} />;
-    }
+  const renderAgentIcon = (agentId: string, className: string = "") => {
+    const IconComponent = getAgentIcon(agentId);
+    return <IconComponent className={className} />;
   };
 
   return (
@@ -112,15 +99,15 @@ export function AgentSelector({ onSelect, selectedAgentId, disabled = false }: A
             className={cn(
               "flex-shrink-0 flex items-center justify-center flex-col py-2 px-3 rounded-lg transition-colors",
               selectedAgentId === agent.id
-                ? `bg-gradient-to-r ${agent.color} text-white`
+                ? `bg-gradient-to-r ${getAgentColor(agent.id as AgentType)} text-white`
                 : 'hover:bg-[#2D3648] text-gray-300',
               disabled && "opacity-50 cursor-not-allowed"
             )}
           >
             <div className={`p-2 rounded-full ${selectedAgentId === agent.id ? 'bg-white/20' : 'bg-[#2A3040]'}`}>
-              {getAgentIcon(agent.id, "h-5 w-5")}
+              {renderAgentIcon(agent.id, "h-5 w-5")}
             </div>
-            <div className="font-medium text-xs mt-1.5">{agent.name}</div>
+            <div className="font-medium text-xs mt-1.5">{getAgentName(agent.id as AgentType)}</div>
           </button>
         ))}
       </div>

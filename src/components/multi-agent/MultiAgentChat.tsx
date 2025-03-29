@@ -1,3 +1,4 @@
+
 import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -16,6 +17,7 @@ import { Separator } from "@/components/ui/separator";
 import { ChatSessionSelector } from "./ChatSessionSelector";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { FormEvent } from "react";
+import { getAgentName } from "@/lib/agent-icons";
 
 // Custom ChatHeader component
 const ChatHeader = ({ 
@@ -315,7 +317,7 @@ const MultiAgentChat = ({
               placeholder={
                 handoffActive
                   ? "Handoff in progress..."
-                  : `Message ${activeAgent} agent...`
+                  : `Message ${getAgentName(activeAgent)} agent...`
               }
             />
           </div>

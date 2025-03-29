@@ -10,19 +10,19 @@ export function getAgentIcon(agentId: string, className: string = "") {
   
   switch (agentType) {
     case 'main':
-      return <Bot className={className} />;
+      return Bot;
     case 'script':
-      return <FileText className={className} />;
+      return FileText;
     case 'image':
-      return <Image className={className} />;
+      return Image;
     case 'tool':
-      return <Wrench className={className} />;
+      return Wrench;
     case 'scene':
-      return <PenSquare className={className} />;
+      return PenSquare;
     case 'data':
-      return <Database className={className} />;
+      return Database;
     default:
-      return <Bot className={className} />;
+      return Bot;
   }
 }
 

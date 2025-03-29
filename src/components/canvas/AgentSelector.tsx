@@ -16,6 +16,7 @@ import {
   Database 
 } from "lucide-react";
 import { useState } from "react";
+import { getAgentIcon } from "@/lib/agent-icons";
 
 interface AgentSelectorProps {
   onChange?: (value: string) => void;
@@ -29,6 +30,18 @@ export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelector
     setSelectedAgent(value);
     if (onChange) {
       onChange(value);
+    }
+  };
+
+  const getAgentIconComponent = (agentId: string) => {
+    switch (agentId) {
+      case "main": return <Bot className="h-4 w-4 text-primary" />;
+      case "script": return <PenLine className="h-4 w-4 text-indigo-500" />;
+      case "image": return <ImageIcon className="h-4 w-4 text-orange-500" />;
+      case "data": return <Database className="h-4 w-4 text-cyan-500" />;
+      case "tool": return <Wrench className="h-4 w-4 text-blue-500" />;
+      case "scene": return <FileText className="h-4 w-4 text-green-500" />;
+      default: return <Bot className="h-4 w-4 text-primary" />;
     }
   };
   

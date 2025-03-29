@@ -14,7 +14,7 @@ interface UseMultiAgentChatOptions {
   initialMessages?: Message[];
   onAgentSwitch?: (from: string, to: string) => void;
   projectId?: string;
-  sessionId?: string; // New prop to specify which chat session to use
+  sessionId?: string;
 }
 
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
@@ -25,17 +25,14 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     updateChatSession 
   } = useChatSession();
   
-  // Initialize chat session if needed
   const [chatSessionId, setChatSessionId] = useState<string | null>(
     options.sessionId || (options.projectId ? null : activeChatId)
   );
   
-  // Initialize messages from chat session or options
   const [messages, setMessages] = useState<Message[]>(
     options.initialMessages || (activeSession?.messages || [])
   );
   
-  // Rest of state variables
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
@@ -58,7 +55,6 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       : "You specialize in creating detailed visual scene descriptions."
   });
   
-  // Initialize or get chat session
   useEffect(() => {
     if (!chatSessionId && options.projectId) {
       const newSessionId = getOrCreateChatSession(
@@ -69,7 +65,6 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     }
   }, [options.projectId, options.initialMessages, chatSessionId, getOrCreateChatSession]);
   
-  // Sync messages with chat session
   useEffect(() => {
     if (chatSessionId && messages.length > 0) {
       updateChatSession(chatSessionId, messages);
@@ -268,9 +263,28 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   };
   
   const toggleTracing = () => {
-    setTracingEnabled(!tracingEnabled);
+    const newTracingEnabled = !tracingEnabled;
+    setTracingEnabled(newTracingEnabled);
+    
+    try {
+      localStorage.setItem('multiagent_tracing_enabled', JSON.stringify(newTracingEnabled));
+    } catch (e) {
+      console.error('Error saving tracing preference to localStorage', e);
+    }
+    
     toast.success(`${!tracingEnabled ? "Enabled" : "Disabled"} interaction tracing`);
   };
+  
+  useEffect(() => {
+    try {
+      const savedTracingEnabled = localStorage.getItem('multiagent_tracing_enabled');
+      if (savedTracingEnabled !== null) {
+        setTracingEnabled(JSON.parse(savedTracingEnabled));
+      }
+    } catch (e) {
+      console.error('Error loading tracing preference from localStorage', e);
+    }
+  }, []);
   
   const processHandoff = async (
     fromAgent: AgentType, 
@@ -379,7 +393,12 @@ You can use the canvas tool to save scene descriptions and image prompts directl
             conversationHistory: messages,
             instructions: agentInstructions[currentAgent],
             projectId: currentProject?.id || options.projectId,
-            projectDetails: currentProject
+            projectDetails: currentProject,
+            trace: {
+              enabled: tracingEnabled,
+              sessionId: chatSessionId || 'unknown',
+              timestamp: new Date().toISOString()
+            }
           }
         },
         {

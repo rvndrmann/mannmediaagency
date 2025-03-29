@@ -42,69 +42,69 @@ import Admin from './pages/Admin';
 // Create a client for React Query
 const queryClient = new QueryClient();
 
-function App() {
+export default function App() {
   return (
-    <QueryClientProvider client={queryClient}>
-      <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
-        <ChatSessionProvider>
-          <BrowserRouter>
-            <Routes>
-              <Route path="/" element={<Index />} />
-              <Route path="/auth" element={<Auth />} />
-              <Route path="/auth/login" element={<LoginForm />} />
-              <Route path="/auth/signup" element={<SignupForm />} />
-              <Route path="/auth/callback" element={<AuthCallback />} />
-              <Route path="/about" element={<AboutUs />} />
-              <Route path="/contact" element={<Contact />} />
-              <Route path="/terms" element={<Terms />} />
-              <Route path="/privacy" element={<Privacy />} />
-              <Route path="/browser-use" element={<BrowserUse />} />
-              <Route path="/product-shoot" element={<ProductShoot />} />
-              <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
-              <Route path="/image-to-video" element={<ImageToVideo />} />
-              <Route path="/product-ad" element={<ProductAd />} />
-              <Route path="/plans" element={<Plans />} />
-              <Route path="/create-video" element={<CreateVideo />} />
-              <Route path="/video-creator" element={
-                <ProtectedRoute>
-                  <VideoCreator />
-                </ProtectedRoute>
-              } />
-              <Route path="/settings" element={
-                <ProtectedRoute>
-                  <ProfileSettings />
-                </ProtectedRoute>
-              } />
-              <Route path="/profile" element={
-                <ProtectedRoute>
-                  <ProfileSettings />
-                </ProtectedRoute>
-              } />
-              <Route path="/integrations" element={<Integrations />} />
-              <Route path="/payment-success" element={<PaymentSuccess />} />
-              <Route path="/payment-failure" element={<PaymentFailure />} />
-              <Route path="/payment-cancel" element={<PaymentCancel />} />
-              <Route path="/payment" element={<Payment />} />
-              <Route path="/metadata" element={<Metadata />} />
-              <Route path="/custom-orders" element={<CustomOrders />} />
-              <Route path="/custom-order" element={<CustomOrderForm />} />
-              <Route path="/trace-analytics" element={<TraceAnalytics />} />
-              <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
-              <Route path="/explore" element={<Explore />} />
-              <Route path="/canvas" element={<Canvas />} />
-              <Route path="/admin" element={
-                <ProtectedRoute>
-                  <Admin />
-                </ProtectedRoute>
-              } />
-            </Routes>
-          </BrowserRouter>
-          <Toaster />
-          <SonnerToaster position="top-right" richColors />
-        </ChatSessionProvider>
-      </ThemeProvider>
-    </QueryClientProvider>
+    <div>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider defaultTheme="dark" storageKey="vite-ui-theme">
+          <ChatSessionProvider>
+            <BrowserRouter>
+              <Routes>
+                <Route path="/" element={<Index />} />
+                <Route path="/auth" element={<Auth />} />
+                <Route path="/auth/login" element={<LoginForm />} />
+                <Route path="/auth/signup" element={<SignupForm />} />
+                <Route path="/auth/callback" element={<AuthCallback />} />
+                <Route path="/about" element={<AboutUs />} />
+                <Route path="/contact" element={<Contact />} />
+                <Route path="/terms" element={<Terms />} />
+                <Route path="/privacy" element={<Privacy />} />
+                <Route path="/browser-use" element={<BrowserUse />} />
+                <Route path="/product-shoot" element={<ProductShoot />} />
+                <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
+                <Route path="/image-to-video" element={<ImageToVideo />} />
+                <Route path="/product-ad" element={<ProductAd />} />
+                <Route path="/plans" element={<Plans />} />
+                <Route path="/create-video" element={<CreateVideo />} />
+                <Route path="/video-creator" element={
+                  <ProtectedRoute>
+                    <VideoCreator />
+                  </ProtectedRoute>
+                } />
+                <Route path="/settings" element={
+                  <ProtectedRoute>
+                    <ProfileSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/profile" element={
+                  <ProtectedRoute>
+                    <ProfileSettings />
+                  </ProtectedRoute>
+                } />
+                <Route path="/integrations" element={<Integrations />} />
+                <Route path="/payment-success" element={<PaymentSuccess />} />
+                <Route path="/payment-failure" element={<PaymentFailure />} />
+                <Route path="/payment-cancel" element={<PaymentCancel />} />
+                <Route path="/payment" element={<Payment />} />
+                <Route path="/metadata" element={<Metadata />} />
+                <Route path="/custom-orders" element={<CustomOrders />} />
+                <Route path="/custom-order" element={<CustomOrderForm />} />
+                <Route path="/trace-analytics" element={<TraceAnalytics />} />
+                <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
+                <Route path="/explore" element={<Explore />} />
+                <Route path="/canvas" element={<Canvas />} />
+                <Route path="/admin" element={
+                  <ProtectedRoute>
+                    <Admin />
+                  </ProtectedRoute>
+                } />
+              </Routes>
+            </BrowserRouter>
+            <Toaster />
+            <SonnerToaster position="top-right" richColors />
+          </ChatSessionProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </div>
   );
 }
-
-export default App;

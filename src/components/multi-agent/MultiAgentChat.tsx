@@ -49,7 +49,6 @@ export const MultiAgentChat = ({
   
   const { activeChatId, getOrCreateChatSession } = useChatSession();
   
-  // Ensure we have a valid chat session
   const [localSessionId, setLocalSessionId] = useState<string | null>(
     sessionId || activeChatId
   );
@@ -174,6 +173,10 @@ export const MultiAgentChat = ({
     }
   };
 
+  const handleViewTraces = useCallback(() => {
+    navigate('/trace-analytics');
+  }, [navigate]);
+
   return (
     <div className={`flex flex-col ${isEmbedded ? 'h-full' : 'h-screen'} bg-gradient-to-b from-[#1A1F29] to-[#121827]`}>
       <header className="p-2 flex items-center justify-between bg-[#1A1F29]/80 backdrop-blur-sm border-b border-white/10">
@@ -263,6 +266,27 @@ export const MultiAgentChat = ({
               </TooltipContent>
             </Tooltip>
           </TooltipProvider>
+          
+          {tracingEnabled && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleViewTraces}
+                    className="border-blue-600 bg-blue-800/20 text-blue-400 hover:bg-blue-800/30 text-xs h-6 px-2"
+                  >
+                    <BarChartBig className="h-3 w-3 mr-1" />
+                    View Traces
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent className="bg-[#2D3240] border-[#434759] text-white">
+                  <p className="text-xs">View detailed analytics of your agent interactions</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
           
           <Button
             variant="outline"

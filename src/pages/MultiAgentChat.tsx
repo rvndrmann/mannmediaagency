@@ -1,9 +1,12 @@
 
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, Link } from "react-router-dom";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Button } from "@/components/ui/button";
+import { BarChartBig } from "lucide-react";
+import { toast } from "sonner";
 
 export default function MultiAgentChatPage() {
   const [searchParams] = useSearchParams();
@@ -43,9 +46,31 @@ export default function MultiAgentChatPage() {
       setActiveProject(projectId);
     }
   }, [projectId, setActiveProject]);
+  
+  const handleViewTraces = () => {
+    toast.success("Navigating to trace analytics");
+  };
 
-  return <MultiAgentChat 
-    projectId={projectId || undefined} 
-    sessionId={chatSessionId || undefined}
-  />;
+  return (
+    <>
+      <div className="absolute top-4 right-4 z-50">
+        <Button 
+          variant="outline" 
+          size="sm" 
+          className="flex items-center gap-1 text-xs"
+          asChild
+        >
+          <Link to="/trace-analytics">
+            <BarChartBig className="h-3 w-3 mr-1" />
+            View Traces
+          </Link>
+        </Button>
+      </div>
+      
+      <MultiAgentChat 
+        projectId={projectId || undefined} 
+        sessionId={chatSessionId || undefined}
+      />
+    </>
+  );
 }

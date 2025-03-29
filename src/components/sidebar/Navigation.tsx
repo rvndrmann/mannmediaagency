@@ -21,7 +21,8 @@ import {
   ImagePlus,
   Film,
   Layout,
-  MessageSquare
+  MessageSquare,
+  BarChartBig
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import { Separator } from "@/components/ui/separator";
@@ -153,6 +154,13 @@ export const Navigation = () => {
       to: "/multi-agent-chat",
       icon: MessageSquare,
       current: location.pathname === "/multi-agent-chat",
+    },
+    {
+      name: "Trace Analytics",
+      subtext: "Agent Interaction Analysis",
+      to: "/trace-analytics",
+      icon: BarChartBig,
+      current: location.pathname === "/trace-analytics", 
     },
     {
       name: "Browser Worker AI",

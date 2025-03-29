@@ -1,4 +1,3 @@
-
 import { MCPServer } from "@/types/mcp";
 import { supabase } from "@/integrations/supabase/client";
 import { showToast } from "@/utils/toast-utils";
@@ -10,6 +9,9 @@ export class MCPServerService implements MCPServer {
   private connectionStatus: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
   private retryAttempts: number = 0;
   private maxRetries: number = 3;
+  private connectedSince: number | null = null;
+  private lastActivityTime: number = Date.now();
+  private heartbeatInterval: NodeJS.Timeout | null = null;
   
   constructor(projectId: string) {
     this.projectId = projectId;
@@ -30,13 +32,53 @@ export class MCPServerService implements MCPServer {
       await this.listTools();
       
       this.connectionStatus = 'connected';
+      this.connectedSince = Date.now();
+      this.lastActivityTime = Date.now();
       this.retryAttempts = 0;
+      
+      // Start heartbeat to keep connection alive
+      this.startHeartbeat();
+      
       console.log("Successfully connected to MCP server");
     } catch (error) {
       this.connectionStatus = 'disconnected';
       console.error("Failed to connect to MCP server:", error);
       showToast.error("Failed to connect to MCP server");
       throw error;
+    }
+  }
+  
+  private startHeartbeat(): void {
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+    }
+    
+    // Check connection health every 30 seconds
+    this.heartbeatInterval = setInterval(() => {
+      const inactiveTime = Date.now() - this.lastActivityTime;
+      
+      // If inactive for more than 2 minutes, check connection
+      if (inactiveTime > 120000) {
+        this.checkConnection();
+      }
+    }, 30000);
+  }
+  
+  private async checkConnection(): Promise<void> {
+    try {
+      if (this.connectionStatus !== 'connected') {
+        return;
+      }
+      
+      console.log("Checking MCP connection health");
+      await this.listTools();
+      this.lastActivityTime = Date.now();
+    } catch (error) {
+      console.warn("Connection check failed, will attempt reconnect");
+      this.connectionStatus = 'disconnected';
+      this.connect().catch(err => {
+        console.error("Reconnection attempt failed:", err);
+      });
     }
   }
   
@@ -47,6 +89,7 @@ export class MCPServerService implements MCPServer {
     
     try {
       console.log("Fetching tools from MCP server for project:", this.projectId);
+      this.lastActivityTime = Date.now();
       
       const { data, error } = await supabase.functions.invoke('mcp-server', {
         body: {
@@ -158,6 +201,7 @@ export class MCPServerService implements MCPServer {
   async callTool(name: string, parameters: any): Promise<any> {
     try {
       console.log(`Calling MCP tool ${name} with parameters:`, parameters);
+      this.lastActivityTime = Date.now();
       
       if (this.connectionStatus !== 'connected') {
         await this.connect();
@@ -232,10 +276,117 @@ export class MCPServerService implements MCPServer {
     }
   }
   
+  async callToolStream(name: string, parameters: any, onProgress?: (data: any) => void): Promise<any> {
+    try {
+      console.log(`Streaming MCP tool ${name} with parameters:`, parameters);
+      this.lastActivityTime = Date.now();
+      
+      if (this.connectionStatus !== 'connected') {
+        await this.connect();
+      }
+      
+      const { data, error } = await supabase.functions.invoke('mcp-server', {
+        body: {
+          operation: "call_tool_stream",
+          toolName: name,
+          parameters: parameters,
+          projectId: this.projectId
+        }
+      });
+      
+      if (error) {
+        console.error(`Error streaming MCP tool ${name}:`, error);
+        showToast.error(`Failed to stream MCP tool ${name}: ${error.message}`);
+        throw error;
+      }
+      
+      if (data && data.stream_id) {
+        return this.pollStreamResults(data.stream_id, onProgress);
+      }
+      
+      console.log(`MCP tool ${name} result:`, data);
+      return data;
+    } catch (error) {
+      console.error(`Error in streaming MCP tool (${name}):`, error);
+      
+      // Try to reconnect if the error might be connection-related
+      if (this.retryAttempts < this.maxRetries) {
+        this.retryAttempts++;
+        this.connectionStatus = 'disconnected';
+        console.log(`Attempting reconnection (attempt ${this.retryAttempts}/${this.maxRetries})`);
+        
+        try {
+          await this.connect();
+          // If reconnection successful, try the call again
+          return this.callToolStream(name, parameters, onProgress);
+        } catch (reconnectError) {
+          console.error("Reconnection failed:", reconnectError);
+        }
+      }
+      
+      throw error;
+    }
+  }
+  
+  private async pollStreamResults(streamId: string, onProgress?: (data: any) => void): Promise<any> {
+    let complete = false;
+    let result: any = null;
+    let retries = 0;
+    const maxRetries = 30;
+    
+    while (!complete && retries < maxRetries) {
+      try {
+        const { data, error } = await supabase.functions.invoke('mcp-server', {
+          body: {
+            operation: "get_stream_result",
+            streamId: streamId,
+            projectId: this.projectId
+          }
+        });
+        
+        if (error) {
+          console.error("Error polling stream results:", error);
+          if (retries >= maxRetries - 1) {
+            throw error;
+          }
+        } else if (data) {
+          if (data.complete) {
+            complete = true;
+            result = data.result;
+          } else if (data.progress && onProgress) {
+            onProgress(data.progress);
+          }
+        }
+        
+        if (!complete) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second before polling again
+          retries++;
+        }
+      } catch (error) {
+        console.error("Error in pollStreamResults:", error);
+        retries++;
+        await new Promise(resolve => setTimeout(resolve, 2000)); // Wait 2 seconds after an error
+      }
+    }
+    
+    if (!complete) {
+      throw new Error("Stream polling timed out");
+    }
+    
+    return result;
+  }
+  
   async cleanup(): Promise<void> {
     console.log("Cleaning up MCP server connection for project:", this.projectId);
+    
+    if (this.heartbeatInterval) {
+      clearInterval(this.heartbeatInterval);
+      this.heartbeatInterval = null;
+    }
+    
     this.toolsCache = null;
     this.connectionStatus = 'disconnected';
+    this.connectedSince = null;
   }
   
   invalidateToolsCache(): void {
@@ -245,5 +396,13 @@ export class MCPServerService implements MCPServer {
   
   getConnectionStatus(): string {
     return this.connectionStatus;
+  }
+  
+  getConnectionInfo(): { status: string; connectedSince: number | null; lastActivity: number } {
+    return {
+      status: this.connectionStatus,
+      connectedSince: this.connectedSince,
+      lastActivity: this.lastActivityTime
+    };
   }
 }

@@ -34,6 +34,8 @@ export const ChatPanel = ({
 }: ChatPanelProps) => {
   const scrollAreaRef = useRef<HTMLDivElement & ScrollAreaRef>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const messageCountRef = useRef<number>(0);
 
   // Process messages to ensure they're in the right format
   const adaptedMessages: SimpleMessage[] = messages.length > 0 && "id" in (messages[0] || {}) 
@@ -41,23 +43,45 @@ export const ChatPanel = ({
     : convertToSimpleMessages(messages as any[]);
 
   const scrollToBottom = () => {
-    if (lastMessageRef.current && scrollAreaRef.current) {
-      if (scrollAreaRef.current.scrollToBottom) {
+    // Clear any existing timeout to prevent duplicate scrolls
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Set a small timeout to ensure DOM has updated
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (scrollAreaRef.current?.scrollToBottom) {
+        console.log("ChatPanel: Scrolling to bottom");
         scrollAreaRef.current.scrollToBottom();
+        
+        // Double-check scroll position after a short delay
+        setTimeout(() => {
+          if (scrollAreaRef.current?.scrollToBottom) {
+            scrollAreaRef.current.scrollToBottom();
+          }
+        }, 100);
       } else {
+        console.warn("ChatPanel: ScrollArea ref missing scrollToBottom method");
+        
         // Fallback method
-        const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+        const scrollContainer = scrollAreaRef.current?.querySelector('[data-radix-scroll-area-viewport]');
         if (scrollContainer) {
           (scrollContainer as HTMLDivElement).scrollTop = (scrollContainer as HTMLDivElement).scrollHeight;
         }
       }
-    }
+    }, 50);
   };
 
-  // Scroll to bottom when messages change or when the chat becomes visible
+  // Scroll when messages change or loading state changes
   useEffect(() => {
-    scrollToBottom();
-  }, [messages]);
+    const newCount = adaptedMessages.length;
+    const hasNewMessages = newCount > messageCountRef.current;
+    messageCountRef.current = newCount;
+    
+    if (hasNewMessages || isLoading) {
+      scrollToBottom();
+    }
+  }, [adaptedMessages, isLoading]);
 
   // Force scroll to bottom when the component becomes visible
   useEffect(() => {
@@ -69,6 +93,26 @@ export const ChatPanel = ({
       return () => clearTimeout(timer);
     }
   }, [isVisible]);
+  
+  // Set up periodic scrolling while loading
+  useEffect(() => {
+    if (isLoading) {
+      const interval = setInterval(() => {
+        scrollToBottom();
+      }, 500);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isLoading]);
+  
+  // Clean up timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, []);
 
   // Check if there are any error messages
   const hasErrors = adaptedMessages.some(msg => msg.status === "error");

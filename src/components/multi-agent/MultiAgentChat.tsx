@@ -1,5 +1,5 @@
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { PlusCircle, History } from "lucide-react";
 import { showToast } from "@/utils/toast-utils";
 import { ChatSessionSelector } from "./ChatSessionSelector";
+import { MessageProcessor } from "@/utils/message-processor";
 
 const ChatHeader = ({ 
   projectContext, 
@@ -74,12 +75,12 @@ const MultiAgentChat = ({
   const [input, setInput] = useState('');
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [forceUpdate, setForceUpdate] = useState(0);
   const [processingTimeout, setProcessingTimeout] = useState<NodeJS.Timeout | null>(null);
+  const [messageProcessor] = useState<MessageProcessor>(() => new MessageProcessor());
+  
   const scrollAreaRef = useRef<HTMLDivElement & ScrollAreaRef>(null);
-  const scrollRequested = useRef<boolean>(false);
-  const scrollInProgress = useRef<boolean>(false);
-  const lastMessageCount = useRef<number>(0);
+  const scrollTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const isInitialRenderRef = useRef<boolean>(true);
   
   const {
     messages,
@@ -116,6 +117,74 @@ const MultiAgentChat = ({
     createChatSession
   } = useChatSession();
   
+  // Improved scroll to bottom function with debouncing
+  const scrollToBottom = useCallback(() => {
+    // Clear any existing timeout to prevent multiple calls
+    if (scrollTimeoutRef.current) {
+      clearTimeout(scrollTimeoutRef.current);
+    }
+    
+    // Set a small timeout to ensure DOM has updated
+    scrollTimeoutRef.current = setTimeout(() => {
+      if (scrollAreaRef.current?.scrollToBottom) {
+        console.log("Executing scrollToBottom");
+        scrollAreaRef.current.scrollToBottom();
+        
+        // Double-check scroll position
+        const checkTimeout = setTimeout(() => {
+          scrollAreaRef.current?.scrollToBottom?.();
+        }, 100);
+        
+        return () => clearTimeout(checkTimeout);
+      } else {
+        console.warn("ScrollArea ref missing scrollToBottom method");
+      }
+    }, 50);
+  }, []);
+  
+  // Handle message updates
+  useEffect(() => {
+    // Initialize message processor handler
+    messageProcessor.setMessageHandler((newMessages) => {
+      if (newMessages.length > 0) {
+        console.log(`Processing ${newMessages.length} new messages`);
+        scrollToBottom();
+      }
+    });
+    
+    // Clean up scroll timeouts on unmount
+    return () => {
+      if (scrollTimeoutRef.current) {
+        clearTimeout(scrollTimeoutRef.current);
+      }
+    };
+  }, [scrollToBottom, messageProcessor]);
+  
+  // Monitor messages for changes and scroll
+  useEffect(() => {
+    // Only scroll on updates after initial render
+    if (isInitialRenderRef.current) {
+      isInitialRenderRef.current = false;
+      scrollToBottom();
+    } else if (messages.length > 0) {
+      scrollToBottom();
+    }
+  }, [messages, scrollToBottom]);
+  
+  // When loading status changes, ensure we scroll to show loading indicator
+  useEffect(() => {
+    if (isLoading) {
+      scrollToBottom();
+      
+      // Set up periodic scrolling during loading
+      const interval = setInterval(() => {
+        scrollToBottom();
+      }, 500);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isLoading, scrollToBottom]);
+  
   useEffect(() => {
     if (projectId) {
       console.log("Initializing chat session for project:", projectId);
@@ -125,54 +194,6 @@ const MultiAgentChat = ({
       getOrCreateChatSession(null);
     }
   }, [projectId, getOrCreateChatSession]);
-  
-  const scrollToBottom = () => {
-    if (scrollInProgress.current) {
-      scrollRequested.current = true;
-      return;
-    }
-    
-    scrollInProgress.current = true;
-    console.log("Executing scrollToBottom");
-    
-    if (scrollAreaRef.current?.scrollToBottom) {
-      scrollAreaRef.current.scrollToBottom();
-      
-      setTimeout(() => {
-        scrollInProgress.current = false;
-        
-        if (scrollRequested.current) {
-          scrollRequested.current = false;
-          scrollToBottom();
-        }
-      }, 100);
-    } else {
-      console.warn("ScrollArea ref missing scrollToBottom method");
-      scrollInProgress.current = false;
-    }
-  };
-  
-  useEffect(() => {
-    const newMessageCount = messages.length;
-    const shouldScroll = newMessageCount > lastMessageCount.current || isLoading;
-    lastMessageCount.current = newMessageCount;
-    
-    if (shouldScroll) {
-      console.log("Message count or loading state changed, scrolling to bottom");
-      requestAnimationFrame(() => {
-        scrollToBottom();
-      });
-    }
-  }, [messages, isLoading]);
-  
-  useEffect(() => {
-    if (forceUpdate > 0) {
-      console.log("Force update triggered, scrolling to bottom");
-      setTimeout(() => {
-        scrollToBottom();
-      }, 50);
-    }
-  }, [forceUpdate]);
   
   useEffect(() => {
     const checkConnection = async () => {
@@ -217,10 +238,10 @@ const MultiAgentChat = ({
         clearTimeout(processingTimeout);
       }
       
-      setTimeout(scrollToBottom, 100);
+      scrollToBottom();
       
       const timeout = setTimeout(() => {
-        setForceUpdate(prev => prev + 1);
+        scrollToBottom();
       }, 300);
       
       setProcessingTimeout(timeout);
@@ -229,24 +250,9 @@ const MultiAgentChat = ({
       agentHandleSubmit(e);
       setInput("");
       
-      setTimeout(() => setForceUpdate(prev => prev + 1), 300);
+      setTimeout(scrollToBottom, 300);
     }
   };
-  
-  useEffect(() => {
-    let interval: NodeJS.Timeout | undefined;
-    
-    if (isLoading) {
-      interval = setInterval(() => {
-        console.log("Forcing update while loading");
-        setForceUpdate(prev => prev + 1);
-      }, 500);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [isLoading]);
   
   useEffect(() => {
     // Clean up the timeout when component unmounts
@@ -313,7 +319,7 @@ const MultiAgentChat = ({
             {Array.isArray(messages) && messages.length > 0 && 
               messages.map((message, index) => (
                 <ChatMessage 
-                  key={`${message.id || index}-${forceUpdate}`} 
+                  key={`${message.id || index}`} 
                   message={message} 
                   showAgentName={message.role === 'assistant'}
                   onEditContent={(type, content, sceneId) => {

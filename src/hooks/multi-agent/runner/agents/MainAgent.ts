@@ -38,7 +38,7 @@ export class MainAgent extends BaseAgentImpl {
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
-      console.log(`Project context: id=${projectId}, hasDetails=${!!projectDetails}`);
+      console.log(`Project context: id=${projectId}, hasDetails=${!!projectDetails}, hasScript=${!!projectDetails?.fullScript}`);
       
       // Enhanced input with handoff context if needed
       let enhancedInput = input;
@@ -60,10 +60,21 @@ export class MainAgent extends BaseAgentImpl {
 Working with Canvas video project: "${projectDetails.title}" (ID: ${projectId})
 Number of scenes: ${projectDetails.scenes?.length || 0}
 ${projectDetails.fullScript ? "This project has a full script." : "This project does not have a full script yet."}
-        `;
+`;
         
-        contextualInput = `${enhancedInput}\n\n[Project context: ${projectContext}]`;
-        console.log("Added project context to input");
+        // Include a brief excerpt of the script if available
+        if (projectDetails.fullScript) {
+          const scriptExcerpt = projectDetails.fullScript.substring(0, 300);
+          const projectContextWithScript = `${projectContext}
+Script excerpt:
+${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues)' : ''}
+`;
+          contextualInput = `${enhancedInput}\n\n[Project context: ${projectContextWithScript}]`;
+          console.log("Added project context with script excerpt to input");
+        } else {
+          contextualInput = `${enhancedInput}\n\n[Project context: ${projectContext}]`;
+          console.log("Added project context to input");
+        }
       }
       
       // Check for script writing requests
@@ -108,13 +119,16 @@ ${projectDetails.fullScript ? "This project has a full script." : "This project 
             hasProjectDetails: !!projectDetails,
             projectTitle: projectDetails?.title || "",
             scenesCount: projectDetails?.scenes?.length || 0,
-            hasFullScript: !!projectDetails?.fullScript
+            hasFullScript: !!projectDetails?.fullScript,
+            scriptExcerpt: projectDetails?.fullScript ? projectDetails.fullScript.substring(0, 500) : null
           },
           conversationHistory: conversationHistory,
           metadata: {
             ...this.context.metadata,
             previousAgentType: 'main',
-            conversationId: this.context.groupId
+            conversationId: this.context.groupId,
+            projectId: projectId,
+            projectDetails: projectDetails
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -146,7 +160,8 @@ ${projectDetails.fullScript ? "This project has a full script." : "This project 
             requiresFullScript: true,
             scriptType: isScriptRequest ? detectScriptType(input) : "general",
             projectId: projectId,
-            projectTitle: projectDetails?.title || ""
+            projectTitle: projectDetails?.title || "",
+            existingScript: projectDetails?.fullScript || null
           };
         } else if (nextAgent === "scene") {
           additionalContextForNext = {
@@ -154,7 +169,8 @@ ${projectDetails.fullScript ? "This project has a full script." : "This project 
             originalRequest: input,
             projectId: projectId,
             projectTitle: projectDetails?.title || "",
-            sceneCount: projectDetails?.scenes?.length || 0
+            sceneCount: projectDetails?.scenes?.length || 0,
+            existingScript: projectDetails?.fullScript || null
           };
         }
       } else if (isScriptRequest && data?.completion) {
@@ -168,7 +184,8 @@ ${projectDetails.fullScript ? "This project has a full script." : "This project 
           scriptType: detectScriptType(input),
           forceScriptGeneration: true,
           projectId: projectId,
-          projectTitle: projectDetails?.title || ""
+          projectTitle: projectDetails?.title || "",
+          existingScript: projectDetails?.fullScript || null
         };
       } else if (isSceneRequest && data?.completion) {
         // Force a handoff for scene creation if needed
@@ -179,7 +196,8 @@ ${projectDetails.fullScript ? "This project has a full script." : "This project 
           originalRequest: input,
           projectId: projectId,
           projectTitle: projectDetails?.title || "",
-          sceneCount: projectDetails?.scenes?.length || 0
+          sceneCount: projectDetails?.scenes?.length || 0,
+          existingScript: projectDetails?.fullScript || null
         };
       }
       
@@ -190,7 +208,8 @@ ${projectDetails.fullScript ? "This project has a full script." : "This project 
         structured_output: data?.structured_output || null,
         additionalContext: additionalContextForNext || continuityData?.additionalContext || {
           projectId: projectId,
-          projectTitle: projectDetails?.title || ""
+          projectTitle: projectDetails?.title || "",
+          existingScript: projectDetails?.fullScript || null
         }
       };
     } catch (error) {

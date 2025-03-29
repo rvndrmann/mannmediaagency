@@ -102,9 +102,21 @@ serve(async (req) => {
       runId,
       groupId
     });
+
+    // Check for project context
+    const projectId = metadata?.projectId || contextData?.projectId;
+    const projectDetails = metadata?.projectDetails || contextData?.projectDetails;
+    
+    if (projectId && projectDetails) {
+      logInfo(`[${requestId}] Request includes project context for project ${projectId}`, {
+        title: projectDetails.title,
+        scenesCount: projectDetails.scenes?.length || 0,
+        hasFullScript: !!projectDetails.fullScript
+      });
+    }
     
     // Process conversation history
-    logInfo(`[${requestId}] Processing conversation history with ${conversationHistory.length} messages `, null);
+    logInfo(`[${requestId}] Processing conversation history with ${conversationHistory.length} messages`, null);
     const processedMessages = [];
     
     // Add agent instructions if provided
@@ -119,12 +131,37 @@ serve(async (req) => {
       
       if (agentType === "script") {
         systemMessage = "You are a specialized script writer. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it.";
+        // Add project script context if available
+        if (projectDetails?.fullScript) {
+          systemMessage += `\n\nThe project already has the following script that you can reference:\n\n${projectDetails.fullScript.substring(0, 1500)}${projectDetails.fullScript.length > 1500 ? '...(script continues)' : ''}`;
+        }
       } else if (agentType === "image") {
         systemMessage = "You are specialized in creating detailed image prompts.";
       } else if (agentType === "scene") {
         systemMessage = "You are specialized in creating detailed visual scene descriptions for video projects. ALWAYS provide visual descriptions, not just talk about them.";
+        // Add scene context if available
+        if (projectDetails?.scenes && projectDetails.scenes.length > 0) {
+          systemMessage += "\n\nThe project has the following scenes:";
+          projectDetails.scenes.slice(0, 5).forEach((scene, index) => {
+            systemMessage += `\n- Scene ${index + 1}: ${scene.title || 'Untitled'} ${scene.description ? `- ${scene.description.substring(0, 100)}${scene.description.length > 100 ? '...' : ''}` : ''}`;
+          });
+          if (projectDetails.scenes.length > 5) {
+            systemMessage += `\n- (${projectDetails.scenes.length - 5} more scenes)`;
+          }
+        }
       } else if (agentType === "tool") {
         systemMessage = "You are specialized in executing tools and technical tasks.";
+      } else {
+        // Main agent - add project context
+        if (projectDetails) {
+          systemMessage = `You are a helpful AI assistant. You're currently working with a Canvas video project titled "${projectDetails.title}" (ID: ${projectId}).`;
+          if (projectDetails.fullScript) {
+            systemMessage += ` The project has a full script.`;
+          }
+          if (projectDetails.scenes?.length > 0) {
+            systemMessage += ` It contains ${projectDetails.scenes.length} scenes.`;
+          }
+        }
       }
       
       processedMessages.push({
@@ -146,12 +183,25 @@ serve(async (req) => {
         handoffContext += `\n\nAdditional context: ${JSON.stringify(contextData.continuityData.additionalContext)}`;
       }
       
+      // Add project context again in the handoff
+      if (projectId && projectDetails) {
+        handoffContext += `\n\nThis conversation is about Canvas project "${projectDetails.title}" (ID: ${projectId}).`;
+        if (projectDetails.fullScript) {
+          handoffContext += ` The project has a full script that you can reference.`;
+        }
+      }
+      
       processedMessages.push({
         role: "system",
         content: handoffContext
       });
       
       logInfo(`[${requestId}] Added enhanced handoff continuation context from ${contextData.previousAgentType} to ${agentType} `, null);
+      
+      // Add continuity data to context
+      if (contextData.continuityData) {
+        logInfo(`[${requestId}] Added continuity data to context`, contextData.continuityData);
+      }
     }
     
     // Process and add relevant conversation history
@@ -183,6 +233,23 @@ serve(async (req) => {
         });
         
         logInfo(`[${requestId}] Enhanced user message with explicit scene agent instructions `, null);
+      }
+    } else if (agentType === "script" && contextData.isHandoffContinuation) {
+      // Add explicit instructions for script agent
+      if (input) {
+        let enhancedInput = `${input}\n\n[IMPORTANT: You are the script writer. The user is expecting a complete script. Write a properly formatted script now.]`;
+        
+        // Add project script if available
+        if (projectDetails?.fullScript) {
+          enhancedInput += `\n\nThe project already has this script that you can reference or modify:\n\n${projectDetails.fullScript.substring(0, 1000)}${projectDetails.fullScript.length > 1000 ? '...(script continues)' : ''}`;
+        }
+        
+        processedMessages.push({
+          role: "user",
+          content: enhancedInput
+        });
+        
+        logInfo(`[${requestId}] Enhanced user message with explicit script agent instructions and existing script`, null);
       }
     } else {
       // Add the current input message
@@ -652,7 +719,8 @@ serve(async (req) => {
         }
         
         // If no function call, use the content directly
-        logInfo(`[${requestId}] Generated direct response for ${agentType} agent`, {
+        logInfo(`[${requestId}] Plain text response (no function call) `, null);
+        logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
           responseLength: message.content.length
         });
         

@@ -1,3 +1,4 @@
+
 import { Attachment } from "@/types/message";
 import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
@@ -33,11 +34,12 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       const continuityData = this.context.metadata?.continuityData || {};
       const projectId = this.context.metadata?.projectId || continuityData?.additionalContext?.projectId || null;
       const projectDetails = this.context.metadata?.projectDetails || null;
+      const existingScript = projectDetails?.fullScript || continuityData?.additionalContext?.existingScript || null;
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
-      console.log(`Canvas project context: projectId=${projectId}, hasDetails=${!!projectDetails}`);
+      console.log(`Canvas project context: projectId=${projectId}, hasDetails=${!!projectDetails}, hasScript=${!!existingScript}`);
       
       // Enhanced input for script writing task
       let enhancedInput = input;
@@ -65,6 +67,11 @@ Format it properly with scene headings, character dialogue, and actions where ap
           enhancedInput += `.\nAfter writing the script, you should save it to the project using the canvas tool.`;
         }
         
+        // Include existing script if available
+        if (existingScript) {
+          enhancedInput += `\n\nThe project already has the following script that you should reference or modify:\n\n${existingScript.substring(0, 1000)}${existingScript.length > 1000 ? '\n...(script continues)' : ''}`;
+        }
+        
         // Add additional context if available
         if (continuityData && continuityData.additionalContext) {
           enhancedInput += `\n\nAdditional context: ${JSON.stringify(continuityData.additionalContext)}`;
@@ -74,6 +81,11 @@ Format it properly with scene headings, character dialogue, and actions where ap
       } else if (projectId && projectDetails) {
         // Add project context for direct requests to the script agent
         enhancedInput = `${input}\n\n[PROJECT CONTEXT: You are working on Canvas project "${projectDetails.title}" (ID: ${projectId}). This project has ${projectDetails.scenes?.length || 0} scenes.${projectDetails.fullScript ? " The project already has a full script that you can modify or expand upon." : " The project needs a full script."}]`;
+        
+        // Include existing script if available
+        if (projectDetails.fullScript) {
+          enhancedInput += `\n\nExisting script:\n\n${projectDetails.fullScript.substring(0, 1000)}${projectDetails.fullScript.length > 1000 ? '\n...(script continues)' : ''}`;
+        }
       }
       
       // Call the Supabase function with enhanced context for the script writer agent
@@ -98,6 +110,7 @@ Format it properly with scene headings, character dialogue, and actions where ap
             continuityData: continuityData,
             projectId: projectId, // Pass the project ID if available
             projectDetails: projectDetails,
+            existingScript: existingScript,
             toolContext: {
               canSaveToCanvas: !!projectId // Tell the agent if it can save to Canvas
             }
@@ -107,7 +120,8 @@ Format it properly with scene headings, character dialogue, and actions where ap
             ...this.context.metadata,
             previousAgentType: 'script',
             conversationId: this.context.groupId,
-            projectId: projectId // Include project ID in metadata
+            projectId: projectId, // Include project ID in metadata
+            projectDetails: projectDetails
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -248,7 +262,8 @@ Format it properly with scene headings, character dialogue, and actions where ap
         structured_output: data?.structured_output || null,
         additionalContext: additionalContextForNext || continuityData?.additionalContext || {
           projectId: projectId,
-          projectTitle: projectDetails?.title || ""
+          projectTitle: projectDetails?.title || "",
+          existingScript: existingScript
         }
       };
     } catch (error) {

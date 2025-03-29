@@ -48,6 +48,29 @@ export interface TraceData {
   };
 }
 
+export interface ScriptData {
+  id: string;
+  project_id: string;
+  content: string;
+  created_at: string;
+  updated_at: string;
+  title?: string;
+  scenes?: Scene[];
+}
+
+export interface Scene {
+  id: string;
+  project_id: string;
+  title: string;
+  scene_order: number;
+  script: string;
+  description: string;
+  image_prompt: string;
+  image_url: string;
+  created_at: string;
+  updated_at: string;
+}
+
 // Type for Supabase error extension
 export interface SupabaseError extends Error {
   code?: string;

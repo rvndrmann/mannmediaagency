@@ -170,8 +170,8 @@ export function useChatHandler(setInput: (value: string) => void) {
 
       console.log('Sending chat request with messages:', messages.length + 1);
 
-      // Update first task to in-progress
-      updateTaskStatus(assistantMessage.tasks![0].id, "in-progress");
+      // Update first task to working
+      updateTaskStatus(assistantMessage.tasks![0].id, "working");
       
       // Detect any commands in the user message
       const commands = parseCommands(input);
@@ -193,8 +193,8 @@ export function useChatHandler(setInput: (value: string) => void) {
         updateTaskStatus(assistantMessage.tasks![1].id, "completed", "No specific commands detected");
       }
       
-      // Update the third task to in-progress
-      updateTaskStatus(assistantMessage.tasks![2].id, "in-progress");
+      // Update the third task to working
+      updateTaskStatus(assistantMessage.tasks![2].id, "working");
 
       // Send only the last few messages to reduce payload size
       const recentMessages = [...messages, userMessage].slice(-10);
@@ -242,7 +242,7 @@ export function useChatHandler(setInput: (value: string) => void) {
         
         // Update all pending tasks to error
         const updatedTasks = newMessages[lastIndex].tasks?.map(task => 
-          task.status === "pending" || task.status === "in-progress" 
+          task.status === "pending" || task.status === "working"
             ? { ...task, status: "error" as const } 
             : task
         );

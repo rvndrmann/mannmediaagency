@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -251,7 +252,7 @@ export const useAIChat = () => {
       refetchCredits();
 
       // 4. Start processing with AI
-      updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "in-progress");
+      updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "working");
       
       // 5. Make call to AI function
       const data = await makeRequestWithRetry('chat-with-langflow', { 
@@ -262,7 +263,7 @@ export const useAIChat = () => {
       console.log(`[${requestId}] Received response:`, data);
 
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "completed");
-      updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "in-progress");
+      updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "working");
 
       if (data && data.message) {
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");

@@ -1,214 +1,155 @@
 
-import { useState, useEffect, useCallback } from "react";
-import { SceneUpdateType } from "@/types/canvas";
+import { useState, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
 import { Message } from "@/types/message";
+import { CanvasProject, SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
+import { MCPServerService } from "@/services/mcpService";
 
-type AgentType = "script" | "image" | "description";
+type CanvasAgentType = "scene" | "image" | "video" | null;
 
-export type CanvasAgentContext = {
+interface UseCanvasAgentProps {
   projectId: string;
-  sceneId?: string;
+  sceneId: string;
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
-  saveFullScript?: (script: string) => Promise<void>;
-  divideScriptToScenes?: (sceneScripts: Array<{ id: string; content: string }>) => Promise<void>;
-};
+}
 
-export function useCanvasAgent({
-  projectId,
-  sceneId,
-  updateScene,
-  saveFullScript,
-  divideScriptToScenes
-}: CanvasAgentContext) {
+export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAgentProps) {
+  const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [agentMessages, setAgentMessages] = useState<Message[]>([]);
-  const [activeAgent, setActiveAgent] = useState<string>('assistant');
-  
-  // Generate Script for a scene
-  const generateSceneScript = useCallback(async (sceneId: string, context: string = '') => {
-    if (!projectId) {
-      toast.error("Project ID is required");
-      return;
+  const [activeAgent, setActiveAgent] = useState<CanvasAgentType>(null);
+  const [useMcp, setUseMcp] = useState(false);
+  const [mcpServer, setMcpServer] = useState<MCPServerService | null>(null);
+
+  // Initialize MCP server
+  useEffect(() => {
+    if (useMcp && !mcpServer) {
+      const server = new MCPServerService(`https://api.example.com/mcp/${projectId}`);
+      server.connect().then(() => {
+        setMcpServer(server);
+      }).catch(error => {
+        console.error("Failed to connect to MCP server:", error);
+        toast.error("Failed to connect to MCP server");
+      });
     }
-    
-    setActiveAgent('script');
-    
-    const prompt = `Generate a creative and engaging script for a video scene.${context}`;
-    return await processAgentRequest(
-      prompt, 
-      { projectTitle: "Video Project", sceneId, sceneTitle: "Scene" },
-      "script"
-    );
-  }, [projectId]);
-  
-  // Generate Image Prompt for a scene
-  const generateImagePrompt = useCallback(async (sceneId: string, context: string = '') => {
-    if (!projectId) {
-      toast.error("Project ID is required");
-      return;
-    }
-    
-    setActiveAgent('image');
-    
-    const prompt = `Generate a detailed image prompt for a video scene that can be used for AI image generation.${context}`;
-    return await processAgentRequest(
-      prompt, 
-      { projectTitle: "Video Project", sceneId, sceneTitle: "Scene" },
-      "image"
-    );
-  }, [projectId]);
-  
-  // Generate Description for a scene
-  const generateSceneDescription = useCallback(async (sceneId: string, context: string = '') => {
-    if (!projectId) {
-      toast.error("Project ID is required");
-      return;
-    }
-    
-    setActiveAgent('description');
-    
-    const prompt = `Generate a concise but descriptive scene description for a video.${context}`;
-    return await processAgentRequest(
-      prompt, 
-      { projectTitle: "Video Project", sceneId, sceneTitle: "Scene" },
-      "description"
-    );
-  }, [projectId]);
-  
-  // Process responses based on agent type
-  const processAgentRequest = useCallback(async (
-    userInput: string, 
-    context: {
-      projectTitle: string;
-      sceneTitle?: string;
-      sceneId?: string;
-    },
-    agentType: AgentType
-  ) => {
-    if (!projectId) {
-      toast.error("Project ID is required");
-      return;
-    }
-    
-    // Add user message to the chat
-    const userMessage: Message = {
-      id: Date.now().toString(),
-      content: userInput,
-      role: "user",
-      createdAt: new Date().toISOString()
-    };
-    
-    setAgentMessages(prev => [...prev, userMessage]);
-    setIsProcessing(true);
-    
-    try {
-      // Simulate AI processing
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Generate response based on agent type
-      let response = "";
-      
-      switch (agentType) {
-        case "script":
-          response = generateScriptResponse(userInput, context);
-          // Check if we need to update a scene script or full script
-          if (context.sceneId && sceneId) {
-            await updateScene(sceneId, "script", extractScript(response));
-          } else if (saveFullScript) {
-            // This would be for full script
-            const fullScript = extractScript(response);
-            if (fullScript) {
-              await saveFullScript(fullScript);
-            }
-          }
-          break;
-          
-        case "image":
-          response = generateImagePromptResponse(userInput, context);
-          if (context.sceneId && sceneId) {
-            await updateScene(sceneId, "imagePrompt", extractImagePrompt(response));
-          }
-          break;
-          
-        case "description":
-          response = generateDescriptionResponse(userInput, context);
-          if (context.sceneId && sceneId) {
-            await updateScene(sceneId, "description", extractDescription(response));
-          }
-          break;
+
+    return () => {
+      // Clean up MCP server on unmount
+      if (mcpServer) {
+        mcpServer.cleanup().catch(console.error);
       }
-      
-      // Add AI response to the chat
-      const aiMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        content: response,
-        role: "assistant",
-        agentType: agentType,
-        createdAt: new Date().toISOString()
-      };
-      
-      setAgentMessages(prev => [...prev, aiMessage]);
-      
+    };
+  }, [useMcp, projectId, mcpServer]);
+
+  // Process agent request (common function for all agent types)
+  const processAgentRequest = useCallback(async (
+    type: CanvasAgentType,
+    prompt: string,
+    updateType: SceneUpdateType
+  ) => {
+    if (isProcessing) {
+      toast.error("Already processing a request");
+      return;
+    }
+
+    setIsProcessing(true);
+    setActiveAgent(type);
+
+    try {
+      if (useMcp && mcpServer) {
+        // Use MCP to process the request
+        const toolName = updateType === 'description' 
+          ? 'update_scene_description' 
+          : updateType === 'imagePrompt' 
+            ? 'update_image_prompt' 
+            : updateType === 'image' 
+              ? 'generate_scene_image' 
+              : 'create_scene_video';
+              
+        const result = await mcpServer.callTool(toolName, {
+          sceneId,
+          imageAnalysis: true,
+          useDescription: true,
+          productShotVersion: "v2",
+          aspectRatio: "16:9"
+        });
+        
+        // Handle the result - this would need to be customized based on the real implementation
+        if (result.success) {
+          toast.success(result.result);
+          
+          // Refresh the scene data - in a real implementation, the MCP tool would update the scene directly
+          // Here we're simulating that the MCP updated the scene
+          return;
+        } else {
+          throw new Error(result.error || "Failed to process request with MCP");
+        }
+      }
+
+      // Legacy implementation (without MCP)
+      const { data, error } = await supabase.functions.invoke(
+        type === 'image' ? 'generate-image-prompts' : 'canvas-scene-agent',
+        {
+          body: {
+            sceneId,
+            prompt,
+            type: updateType,
+            projectId
+          }
+        }
+      );
+
+      if (error) {
+        throw error;
+      }
+
+      if (data && data.success) {
+        const updatedContent = data.content || data.imagePrompt || '';
+        await updateScene(sceneId, updateType, updatedContent);
+        toast.success(`Scene ${updateType} updated successfully`);
+      } else {
+        throw new Error(data?.error || "Failed to process request");
+      }
     } catch (error) {
-      console.error("Error processing request:", error);
-      toast.error("Failed to process your request");
+      console.error(`Error processing ${type} agent request:`, error);
+      toast.error(`Failed to process ${type} agent request: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
+      setActiveAgent(null);
     }
-  }, [projectId, sceneId, updateScene, saveFullScript, divideScriptToScenes]);
-  
-  // Helper functions to generate dummy responses
-  const generateScriptResponse = (input: string, context: any) => {
-    return `I've created a script for your scene "${context.sceneTitle || "New Scene"}":
-    
-**Script:**
-This is a beautiful shot of our product being used in a natural setting. The lighting is warm and inviting, creating a cozy atmosphere. We see a person's hands gently holding the product, demonstrating its size and texture.
+  }, [isProcessing, useMcp, mcpServer, sceneId, updateScene]);
 
-I've updated the scene script for you. Let me know if you need any adjustments!`;
-  };
-  
-  const generateImagePromptResponse = (input: string, context: any) => {
-    return `I've created an image prompt for your scene "${context.sceneTitle || "New Scene"}":
-    
-**Image Prompt:**
-Close-up product photography of elegant perfume bottle, soft natural lighting, minimalist white background, professional product shot, high-end commercial photography, 8k, ultra-detailed.
+  // Generate scene description
+  const generateSceneDescription = useCallback(async (sceneId: string, context: string) => {
+    return processAgentRequest('scene', context, 'description');
+  }, [processAgentRequest]);
 
-I've updated the image prompt for this scene. This should help generate a beautiful product image.`;
-  };
-  
-  const generateDescriptionResponse = (input: string, context: any) => {
-    return `I've created a description for your scene "${context.sceneTitle || "New Scene"}":
-    
-**Description:**
-This opening scene establishes the premium nature of our product with an elegant close-up shot. The minimalist white background emphasizes the product's design while the soft lighting creates a sense of luxury and refinement.
+  // Generate image prompt
+  const generateImagePrompt = useCallback(async (sceneId: string, context: string) => {
+    return processAgentRequest('image', context, 'imagePrompt');
+  }, [processAgentRequest]);
 
-I've updated the scene description. This will help guide the visual direction for this part of your video.`;
-  };
-  
-  // Helper functions to extract content from responses
-  const extractScript = (response: string): string => {
-    const scriptMatch = response.match(/\*\*Script:\*\*\s*([\s\S]*?)(?=\n\n|$)/);
-    return scriptMatch ? scriptMatch[1].trim() : "";
-  };
-  
-  const extractImagePrompt = (response: string): string => {
-    const promptMatch = response.match(/\*\*Image Prompt:\*\*\s*([\s\S]*?)(?=\n\n|$)/);
-    return promptMatch ? promptMatch[1].trim() : "";
-  };
-  
-  const extractDescription = (response: string): string => {
-    const descriptionMatch = response.match(/\*\*Description:\*\*\s*([\s\S]*?)(?=\n\n|$)/);
-    return descriptionMatch ? descriptionMatch[1].trim() : "";
-  };
-  
+  // Generate scene image using product shot
+  const generateSceneImage = useCallback(async (sceneId: string, context: string) => {
+    return processAgentRequest('image', context, 'image');
+  }, [processAgentRequest]);
+
+  // Generate scene video using image-to-video
+  const generateSceneVideo = useCallback(async (sceneId: string, context: string) => {
+    return processAgentRequest('video', context, 'video');
+  }, [processAgentRequest]);
+
   return {
+    messages,
+    setMessages,
     isProcessing,
-    agentMessages,
     activeAgent,
-    generateSceneScript,
-    generateImagePrompt,
+    useMcp,
+    setUseMcp,
     generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo,
     processAgentRequest
   };
 }

@@ -6,12 +6,13 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Sparkles, MessageSquare } from "lucide-react";
+import { Save, Sparkles, MessageSquare, Video, Image } from "lucide-react";
 import { useCanvasAgent } from "@/hooks/use-canvas-agent";
+import { Switch } from "@/components/ui/switch";
 
 interface SceneEditorProps {
   scene: CanvasScene;
-  onUpdate: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText', value: string) => Promise<void>;
+  onUpdate: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
 }
 
 export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
@@ -25,11 +26,14 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   
   const { 
     isProcessing,
-    agentMessages,
     activeAgent,
+    useMcp,
+    setUseMcp,
     generateSceneScript,
+    generateSceneDescription,
     generateImagePrompt,
-    generateSceneDescription
+    generateSceneImage,
+    generateSceneVideo
   } = useCanvasAgent({
     projectId: scene.projectId,
     sceneId: scene.id,
@@ -122,11 +126,50 @@ Format the prompt to get the best results from an AI image generator.`;
     }
   };
   
+  const generateImage = async () => {
+    if (!imagePrompt.trim()) {
+      toast.error("Please generate or enter an image prompt first");
+      return;
+    }
+    
+    try {
+      await generateSceneImage(scene.id, imagePrompt);
+      toast.success("Scene image generated successfully");
+    } catch (error) {
+      console.error("Error generating scene image:", error);
+      toast.error("Failed to generate scene image");
+    }
+  };
+  
+  const generateVideo = async () => {
+    if (!scene.imageUrl) {
+      toast.error("Please generate a scene image first");
+      return;
+    }
+    
+    try {
+      await generateSceneVideo(scene.id, description);
+      toast.success("Scene video generated successfully");
+    } catch (error) {
+      console.error("Error generating scene video:", error);
+      toast.error("Failed to generate scene video");
+    }
+  };
+  
   return (
     <div className="p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold mb-1">{title}</h2>
-        <p className="text-muted-foreground">Scene ID: {scene.id}</p>
+        <div className="flex justify-between items-center">
+          <p className="text-muted-foreground">Scene ID: {scene.id}</p>
+          <div className="flex items-center space-x-2">
+            <span className="text-sm text-muted-foreground">Use MCP</span>
+            <Switch 
+              checked={useMcp} 
+              onCheckedChange={setUseMcp} 
+            />
+          </div>
+        </div>
       </div>
       
       <div className="space-y-6">
@@ -244,6 +287,26 @@ Format the prompt to get the best results from an AI image generator.`;
             placeholder="Write an image prompt for AI image generation..."
             className="min-h-[150px]"
           />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <Button
+            variant="outline"
+            disabled={!imagePrompt.trim() || isProcessing}
+            onClick={generateImage}
+          >
+            <Image className="h-4 w-4 mr-2" />
+            {isProcessing && activeAgent === 'image' ? "Generating Image..." : "Generate Scene Image"}
+          </Button>
+          
+          <Button
+            variant="outline"
+            disabled={!scene.imageUrl || isProcessing}
+            onClick={generateVideo}
+          >
+            <Video className="h-4 w-4 mr-2" />
+            {isProcessing && activeAgent === 'video' ? "Generating Video..." : "Generate Scene Video"}
+          </Button>
         </div>
         
         <div className="pt-4 border-t">

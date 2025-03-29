@@ -4,36 +4,64 @@ import * as ScrollAreaPrimitive from "@radix-ui/react-scroll-area"
 
 import { cn } from "@/lib/utils"
 
+interface ScrollAreaRef {
+  scrollToBottom: () => void;
+  scrollToTop: () => void;
+  scrollTo: (options: ScrollToOptions) => void;
+}
+
 const ScrollArea = React.forwardRef<
-  React.ElementRef<typeof ScrollAreaPrimitive.Root>,
-  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & { ref?: React.Ref<HTMLDivElement> }
+  HTMLDivElement & ScrollAreaRef,
+  React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.Root> & { ref?: React.Ref<HTMLDivElement & ScrollAreaRef> }
 >(({ className, children, ...props }, forwardedRef) => {
-  const innerRef = React.useRef<HTMLDivElement>(null);
+  const rootRef = React.useRef<HTMLDivElement>(null);
   
-  // Combine refs
-  React.useImperativeHandle(forwardedRef, () => innerRef.current as HTMLDivElement);
-  
-  // Add scroll method for programmatic scrolling
-  React.useEffect(() => {
-    if (innerRef.current) {
-      // Add scroll to bottom method
-      const scrollToBottom = () => {
-        if (innerRef.current) {
-          const viewport = innerRef.current.querySelector('[data-radix-scroll-area-viewport]');
-          if (viewport) {
-            viewport.scrollTop = viewport.scrollHeight;
-          }
+  // Create a ref object with scroll methods
+  const scrollMethods = React.useMemo(() => ({
+    scrollToBottom: () => {
+      if (rootRef.current) {
+        const viewport = rootRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
+        if (viewport) {
+          console.log("Scrolling to bottom, current height:", viewport.scrollHeight);
+          viewport.scrollTop = viewport.scrollHeight;
         }
-      };
-      
-      // @ts-ignore - Add method to ref for external access
-      innerRef.current.scrollToBottom = scrollToBottom;
+      }
+    },
+    scrollToTop: () => {
+      if (rootRef.current) {
+        const viewport = rootRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
+        if (viewport) {
+          viewport.scrollTop = 0;
+        }
+      }
+    },
+    scrollTo: (options: ScrollToOptions) => {
+      if (rootRef.current) {
+        const viewport = rootRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
+        if (viewport) {
+          viewport.scrollTo(options);
+        }
+      }
     }
-  }, []);
+  }), []);
+  
+  // Combine the DOM ref and the methods object
+  React.useImperativeHandle(
+    forwardedRef, 
+    () => Object.assign(rootRef.current as HTMLDivElement, scrollMethods), 
+    [scrollMethods]
+  );
+  
+  // Apply scroll methods directly to the rootRef for backward compatibility
+  React.useEffect(() => {
+    if (rootRef.current) {
+      Object.assign(rootRef.current, scrollMethods);
+    }
+  }, [scrollMethods]);
   
   return (
     <ScrollAreaPrimitive.Root
-      ref={innerRef}
+      ref={rootRef}
       className={cn("relative overflow-hidden", className)}
       {...props}
     >

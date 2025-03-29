@@ -28,6 +28,8 @@ export default function MultiAgentChatPage() {
     
     // Force browser to repaint for smoother loading
     requestAnimationFrame(() => {
+      document.documentElement.style.height = '100%';
+      document.body.style.height = '100%';
       console.log("Animation frame triggered for page render");
     });
   }, [searchParams]);
@@ -38,7 +40,7 @@ export default function MultiAgentChatPage() {
         <title>AI Chat | Video Creator</title>
       </Helmet>
       <div className="flex flex-col h-full min-h-screen overflow-hidden bg-white dark:bg-slate-950">
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden" style={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
           <MultiAgentChat 
             projectId={projectId}
             // Key will force component to re-mount when project changes

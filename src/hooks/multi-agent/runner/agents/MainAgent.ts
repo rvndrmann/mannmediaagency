@@ -94,7 +94,20 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
         console.log("Detected scene description request - recommend handoff to scene agent");
       }
       
-      // Call the Supabase function
+      // Create a trace event for tracking
+      const traceEvent = {
+        eventType: 'agent_request',
+        timestamp: new Date().toISOString(),
+        data: {
+          agentType: 'main',
+          inputLength: contextualInput.length,
+          isHandoffContinuation,
+          previousAgentType: previousAgentType,
+          hasAttachments: attachments && attachments.length > 0
+        }
+      };
+      
+      // Call the Supabase function with enhanced trace data
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
           input: contextualInput, // Use enhanced input with project context
@@ -128,7 +141,8 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
             previousAgentType: 'main',
             conversationId: this.context.groupId,
             projectId: projectId,
-            projectDetails: projectDetails
+            projectDetails: projectDetails,
+            traceEvent
           },
           runId: this.context.runId,
           groupId: this.context.groupId

@@ -2958,6 +2958,19 @@ export type Database = {
         Args: Record<PropertyKey, never>
         Returns: unknown[]
       }
+      get_agent_trace_analytics: {
+        Args: {
+          user_id_param: string
+        }
+        Returns: Json
+      }
+      get_conversation_trace: {
+        Args: {
+          conversation_id: string
+          user_id_param: string
+        }
+        Returns: Json
+      }
       get_pending_custom_orders_count: {
         Args: Record<PropertyKey, never>
         Returns: number
@@ -2973,6 +2986,12 @@ export type Database = {
           user_id: string
         }
         Returns: number
+      }
+      get_user_conversations: {
+        Args: {
+          user_id_param: string
+        }
+        Returns: Json
       }
       get_video_templates: {
         Args: Record<PropertyKey, never>

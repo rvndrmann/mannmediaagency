@@ -1,7 +1,8 @@
+
 import React, { useEffect, useState } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { 
-  BarChart as BarChartIcon, 
+  BarChartBig, 
   Handshake, 
   LayoutGrid, 
   MessageSquare, 
@@ -132,7 +133,7 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
         <StatsCard
           title="Total Traces"
           value={analytics.total_traces || 0}
-          icon={BarChartIcon}
+          icon={BarChartBig}
           description="Agent conversation sessions"
         />
         

@@ -8,6 +8,7 @@ import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
 import { BaseAgentImpl } from "./agents/BaseAgentImpl";
 import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
+import { supabase } from "@/integrations/supabase/client";
 
 export class AgentRunner {
   private context: RunnerContext;
@@ -17,6 +18,7 @@ export class AgentRunner {
   private maxTurns: number = 7; // Increased max turns
   private handoffHistory: { from: AgentType, to: AgentType, reason: string }[] = [];
   private isProcessing: boolean = false; // Add flag to prevent duplicate requests
+  private traceStartTime: number = 0;
 
   constructor(
     agentType: AgentType,
@@ -35,6 +37,7 @@ export class AgentRunner {
     };
     this.callbacks = callbacks;
     this.currentAgent = this.createAgent(agentType);
+    this.traceStartTime = Date.now();
   }
 
   private createAgent(agentType: AgentType): BaseAgentImpl {
@@ -74,6 +77,7 @@ export class AgentRunner {
       this.isProcessing = true;
       console.log(`Running agent with input: ${input.substring(0, 50)}...`);
       this.agentTurnCount = 0;
+      this.traceStartTime = Date.now();
       
       // Add user message to conversation history
       const userMessage: Message = {
@@ -95,17 +99,84 @@ export class AgentRunner {
       this.context.metadata.conversationHistory.push(userMessage);
       
       // Start the agent loop
-      await this.runAgentLoop(input, attachments);
+      await this.runAgentLoop(input, attachments, userId);
       
     } catch (error) {
       console.error("Agent runner error:", error);
       this.callbacks.onError(error instanceof Error ? error.message : "Unknown error");
+      
+      // Log the error in the trace data
+      await this.saveTraceData(
+        "error", 
+        "Error during agent execution", 
+        this.context.groupId || uuidv4(),
+        {
+          error: error instanceof Error ? error.message : "Unknown error",
+          agent_type: this.currentAgent.getType(),
+          success: false
+        }
+      );
     } finally {
       this.isProcessing = false;
     }
   }
   
-  private async runAgentLoop(input: string, attachments: Attachment[]): Promise<void> {
+  private async saveTraceData(
+    agent_type: string, 
+    user_message: string, 
+    runId: string,
+    traceMetadata: any
+  ): Promise<void> {
+    if (!this.context.tracingDisabled && this.context.supabase) {
+      try {
+        // Calculate total duration
+        const duration = Date.now() - this.traceStartTime;
+        
+        // Create trace summary
+        const traceSummary = {
+          runId,
+          duration,
+          agentType: agent_type,
+          timestamp: new Date().toISOString(),
+          handoffs: this.handoffHistory.length,
+          toolCalls: 0, // This would be updated if we tracked tool calls
+          messageCount: this.context.metadata.conversationHistory?.length || 0,
+          modelUsed: this.context.usePerformanceModel ? "gpt-3.5-turbo" : "gpt-4o",
+          success: traceMetadata.error ? false : true
+        };
+        
+        // Save to database if user is authenticated
+        if (this.context.supabase && this.context.userId) {
+          await this.context.supabase.from('agent_interactions').insert({
+            user_id: this.context.userId,
+            agent_type,
+            user_message,
+            assistant_response: traceMetadata.response || "",
+            has_attachments: !!traceMetadata.attachments,
+            metadata: {
+              trace: {
+                runId,
+                duration,
+                timestamp: new Date().toISOString(),
+                summary: {
+                  handoffs: this.handoffHistory.length,
+                  toolCalls: 0,
+                  messageCount: this.context.metadata.conversationHistory?.length || 0,
+                  modelUsed: this.context.usePerformanceModel ? "gpt-3.5-turbo" : "gpt-4o",
+                  success: traceMetadata.error ? false : true
+                },
+                events: traceMetadata.events || []
+              }
+            }
+          });
+        }
+      } catch (error) {
+        console.error("Error saving trace data:", error);
+      }
+    }
+  }
+  
+  private async runAgentLoop(input: string, attachments: Attachment[], userId: string): Promise<void> {
     while (this.agentTurnCount < this.maxTurns) {
       this.agentTurnCount++;
       console.log(`Agent turn ${this.agentTurnCount} of ${this.maxTurns} with agent type: ${this.currentAgent.getType()}`);
@@ -143,6 +214,29 @@ export class AgentRunner {
         
         // Notify of new message
         this.callbacks.onMessage(assistantMessage);
+        
+        // Save trace data for this turn
+        await this.saveTraceData(
+          this.currentAgent.getType(),
+          input,
+          this.context.groupId || this.context.runId || uuidv4(),
+          {
+            response: agentResult.response,
+            attachments: attachments?.length > 0,
+            events: [
+              {
+                eventType: 'agent_response',
+                timestamp: new Date().toISOString(),
+                data: {
+                  agentType: this.currentAgent.getType(),
+                  hasHandoff: !!agentResult.nextAgent,
+                  targetAgent: agentResult.nextAgent,
+                  handoffReason: agentResult.handoffReason
+                }
+              }
+            ]
+          }
+        );
         
         // Handle handoff if requested
         if (agentResult.nextAgent) {

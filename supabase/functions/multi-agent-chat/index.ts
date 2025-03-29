@@ -1,4 +1,3 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -608,6 +607,7 @@ serve(async (req) => {
     let attempt = 0;
     let response;
     let error;
+    const startTime = Date.now();
     
     while (attempt < MAX_RETRIES) {
       try {

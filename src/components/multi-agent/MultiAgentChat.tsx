@@ -1,5 +1,4 @@
-
-import { useEffect, useState, useRef, useCallback } from "react";
+import { useEffect, useState, useRef, useCallback, Suspense } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -294,15 +293,17 @@ export const MultiAgentChat = ({
 
   const pingServer = async () => {
     try {
-      const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
-      if (error) throw error;
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .select('count')
+        .limit(1)
+        .then(result => result);
       
-      setConnectionError(null);
+      if (error) throw error;
+      return { data, error: null };
     } catch (error) {
       console.error("Connection check failed:", error);
-      if (!connectionError) {
-        setConnectionError("Connection to the server may be unstable. Some features might not work properly.");
-      }
+      return { data: null, error };
     }
   };
 

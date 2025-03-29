@@ -64,7 +64,8 @@ function createChatHistoryStore(): ChatHistoryStore {
       messages: initialMessages,
     };
     
-    setChatSessions((prev: ChatSession[]) => [...prev, newSession]);
+    // Fix the type error by correctly handling the state update
+    setChatSessions([...chatSessions, newSession]);
     setActiveChatId(newSessionId);
     
     return newSessionId;
@@ -92,22 +93,25 @@ function createChatHistoryStore(): ChatHistoryStore {
       return;
     }
     
-    setChatSessions((prev: ChatSession[]) => 
-      prev.map(session => 
-        session.id === sessionId 
-          ? { 
-              ...session, 
-              messages, 
-              lastUpdated: new Date().toISOString() 
-            } 
-          : session
-      )
+    // Fix the type error by correctly handling the state update
+    const updatedSessions = chatSessions.map(session => 
+      session.id === sessionId 
+        ? { 
+            ...session, 
+            messages, 
+            lastUpdated: new Date().toISOString() 
+          } 
+        : session
     );
+    
+    setChatSessions(updatedSessions);
   };
   
   // Delete a chat session
   const deleteChatSession = (sessionId: string) => {
-    setChatSessions((prev: ChatSession[]) => prev.filter(session => session.id !== sessionId));
+    // Fix the type error by correctly handling the state update
+    const filteredSessions = chatSessions.filter(session => session.id !== sessionId);
+    setChatSessions(filteredSessions);
     
     // If the deleted session was active, set activeChatId to null
     if (activeChatId === sessionId) {

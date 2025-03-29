@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/integrations/supabase/client';
@@ -11,6 +12,7 @@ import { Loader2, BarChart, ListFilter, ArrowLeft } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Conversation, TraceData } from '@/integrations/supabase/rpc-types';
+import { toast as sonnerToast } from 'sonner';
 
 const TraceAnalytics: React.FC = () => {
   const { toast } = useToast();
@@ -33,27 +35,33 @@ const TraceAnalytics: React.FC = () => {
         
         if (user) {
           setUserId(user.id);
+          console.log('Fetching conversations for user:', user.id);
           
-          // Use postgres() method to bypass type checking for RPC functions not in the schema
+          // Use rpc() with proper type parameter
           const { data, error: conversationsError } = await supabase
-            .postgres<Conversation[]>('SELECT * FROM get_user_conversations($1)', [user.id])
-            .single();
+            .rpc<Conversation[]>('get_user_conversations', { user_id_param: user.id });
           
           if (conversationsError) {
+            console.error('RPC error:', conversationsError);
             throw conversationsError;
           }
           
           if (data) {
-            setConversations(data);
+            console.log('Retrieved conversations:', data);
+            setConversations(Array.isArray(data) ? data : []);
+          } else {
+            console.log('No conversations data returned');
+            setConversations([]);
           }
         }
-      } catch (error) {
+      } catch (error: any) {
         console.error('Error fetching user data:', error);
         toast({
           title: 'Error',
           description: 'Failed to fetch user data and conversations.',
           variant: 'destructive'
         });
+        sonnerToast.error('Failed to load conversations');
       } finally {
         setIsLoading(false);
       }
@@ -65,25 +73,35 @@ const TraceAnalytics: React.FC = () => {
   const fetchConversationTrace = async (conversationId: string) => {
     try {
       setTraceDataLoading(true);
+      console.log('Fetching trace for conversation:', conversationId);
       
-      // Use postgres() method to bypass type checking for RPC functions not in the schema
+      // Use rpc() with proper type parameter
       const { data, error } = await supabase
-        .postgres<TraceData>('SELECT * FROM get_conversation_trace($1, $2)', [conversationId, userId])
-        .single();
+        .rpc<TraceData>('get_conversation_trace', { 
+          conversation_id: conversationId, 
+          user_id_param: userId 
+        });
       
       if (error) {
+        console.error('RPC error:', error);
         throw error;
       }
       
+      if (!data) {
+        throw new Error('No trace data returned');
+      }
+      
+      console.log('Retrieved trace data:', data);
       setTraceData(data);
       setSelectedConversationId(conversationId);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching trace data:', error);
       toast({
         title: 'Error',
         description: 'Failed to fetch trace data for this conversation.',
         variant: 'destructive'
       });
+      sonnerToast.error('Failed to load trace data');
     } finally {
       setTraceDataLoading(false);
     }
@@ -152,7 +170,7 @@ const TraceAnalytics: React.FC = () => {
                           </div>
                           <div className="mt-1 text-xs text-muted-foreground">
                             <div className="flex gap-1 flex-wrap">
-                              {conv.agent_types.map((agent: string, i: number) => (
+                              {conv.agent_types && Array.isArray(conv.agent_types) && conv.agent_types.map((agent: string, i: number) => (
                                 <span key={i} className="bg-secondary px-1.5 py-0.5 rounded-sm">
                                   {agent}
                                 </span>

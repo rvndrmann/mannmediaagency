@@ -58,19 +58,19 @@ BEGIN
   )
   SELECT
     jsonb_build_object(
-      'agent_usage', (SELECT jsonb_object_agg(agent_type, usage_count) FROM agent_counts),
-      'total_interactions', (SELECT total_interactions FROM trace_metrics),
-      'total_conversations', (SELECT total_conversations FROM trace_metrics),
-      'avg_duration_ms', (SELECT avg_duration FROM trace_metrics),
-      'success_rate', CASE 
-                          WHEN (SELECT total_interactions FROM trace_metrics) > 0 
-                          THEN (SELECT successful_traces::float / total_interactions FROM trace_metrics) 
-                          ELSE 0 
-                       END,
-      'total_handoffs', (SELECT total_handoffs FROM trace_metrics),
-      'total_tool_calls', (SELECT total_tool_calls FROM trace_metrics),
-      'total_messages', (SELECT total_messages FROM trace_metrics),
-      'model_usage', (SELECT jsonb_object_agg(model, usage_count) FROM model_usage)
+      'total_traces', COALESCE((SELECT total_conversations FROM trace_metrics), 0),
+      'total_messages', COALESCE((SELECT total_messages FROM trace_metrics), 0),
+      'total_handoffs', COALESCE((SELECT total_handoffs FROM trace_metrics), 0),
+      'total_tool_calls', COALESCE((SELECT total_tool_calls FROM trace_metrics), 0),
+      'avg_response_time', COALESCE((SELECT avg_duration FROM trace_metrics), 0),
+      'agent_usage', (
+        SELECT jsonb_object_agg(agent_type, usage_count)
+        FROM agent_counts
+      ),
+      'model_usage', (
+        SELECT jsonb_object_agg(model, usage_count)
+        FROM model_usage
+      )
     ) INTO result;
     
   RETURN result;
@@ -128,7 +128,7 @@ BEGIN
             user_id = user_id_param
         ),
         'message_count', (
-          SELECT SUM(COALESCE((metadata->'trace'->'summary'->>'messageCount')::numeric, 0))
+          SELECT COUNT(*)
           FROM agent_interactions
           WHERE 
             metadata->'trace'->>'runId' = conversation_id AND
@@ -161,7 +161,7 @@ BEGIN
     metadata->'trace'->>'runId' = conversation_id AND
     user_id = user_id_param;
     
-  RETURN result;
+  RETURN COALESCE(result, '{}'::jsonb);
 END;
 $$;
 

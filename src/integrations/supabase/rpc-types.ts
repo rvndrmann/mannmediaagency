@@ -21,14 +21,8 @@ export interface AgentAnalytics {
   total_handoffs: number;
   total_tool_calls: number;
   avg_response_time: number;
-  agent_usage: {
-    agent_name: string;
-    count: number;
-  }[];
-  model_usage: {
-    model_name: string;
-    count: number;
-  }[];
+  agent_usage: Record<string, number>;
+  model_usage: Record<string, number>;
 }
 
 export interface Conversation {

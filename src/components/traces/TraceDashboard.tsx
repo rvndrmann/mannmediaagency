@@ -11,6 +11,7 @@ import {
 import { supabase } from '@/integrations/supabase/client';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { AgentAnalytics } from '@/integrations/supabase/rpc-types';
+import { toast } from 'sonner';
 
 interface TraceDashboardProps {
   userId: string;
@@ -32,19 +33,27 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
         setLoading(true);
         setError(null);
         
-        // Use postgres() method to bypass type checking for RPC functions not in the schema
+        console.log('Fetching analytics for user:', userId);
+        
+        // Use rpc() method with type parameter 
         const { data, error: fetchError } = await supabase
-          .postgres<AgentAnalytics>('SELECT * FROM get_agent_trace_analytics($1)', [userId])
-          .single();
+          .rpc<AgentAnalytics>('get_agent_trace_analytics', { user_id_param: userId });
         
         if (fetchError) {
+          console.error("RPC error:", fetchError);
           throw fetchError;
         }
         
+        if (!data) {
+          throw new Error('No data returned from analytics function');
+        }
+        
+        console.log('Analytics data:', data);
         setAnalytics(data);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching analytics:", err);
         setError('Failed to load analytics data. Please try again later.');
+        toast.error('Failed to load analytics data');
       } finally {
         setLoading(false);
       }
@@ -81,6 +90,18 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
     );
   }
 
+  const formatChartData = (data: Record<string, number> | undefined) => {
+    if (!data) return [];
+    
+    return Object.entries(data).map(([name, count]) => ({
+      name: name || 'Unknown',
+      count
+    }));
+  };
+  
+  const agentUsageData = formatChartData(analytics.agent_usage);
+  const modelUsageData = formatChartData(analytics.model_usage);
+
   const StatsCard = ({ 
     title, 
     value, 
@@ -111,35 +132,35 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
         <StatsCard
           title="Total Traces"
-          value={analytics.total_traces}
+          value={analytics.total_traces || 0}
           icon={BarChartIcon}
           description="Agent conversation sessions"
         />
         
         <StatsCard
           title="Total Messages"
-          value={analytics.total_messages}
+          value={analytics.total_messages || 0}
           icon={MessageSquare}
           description="User and AI interactions"
         />
         
         <StatsCard
           title="Handoffs"
-          value={analytics.total_handoffs}
+          value={analytics.total_handoffs || 0}
           icon={Handshake}
           description="Agent to agent transfers"
         />
         
         <StatsCard
           title="Tool Calls"
-          value={analytics.total_tool_calls}
+          value={analytics.total_tool_calls || 0}
           icon={Wrench}
           description="External tool executions"
         />
         
         <StatsCard
           title="Avg Response Time"
-          value={`${(analytics.avg_response_time / 1000).toFixed(2)}s`}
+          value={`${((analytics.avg_response_time || 0) / 1000).toFixed(2)}s`}
           icon={Timer}
           description="Average agent response time"
         />
@@ -151,17 +172,17 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
             <CardTitle className="text-lg">Agent Usage</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {analytics.agent_usage.length === 0 ? (
+            {agentUsageData.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">No agent usage data available</p>
             ) : (
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={analytics.agent_usage}
+                    data={agentUsageData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                   >
                     <XAxis 
-                      dataKey="agent_name" 
+                      dataKey="name" 
                       angle={-45} 
                       textAnchor="end" 
                       height={60} 
@@ -170,7 +191,7 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]}>
-                      {analytics.agent_usage.map((entry, index) => (
+                      {agentUsageData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
                       ))}
                     </Bar>
@@ -186,17 +207,17 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
             <CardTitle className="text-lg">Model Usage</CardTitle>
           </CardHeader>
           <CardContent className="pt-0">
-            {analytics.model_usage.length === 0 ? (
+            {modelUsageData.length === 0 ? (
               <p className="text-muted-foreground text-sm text-center py-8">No model usage data available</p>
             ) : (
               <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={analytics.model_usage}
+                    data={modelUsageData}
                     margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                   >
                     <XAxis 
-                      dataKey="model_name" 
+                      dataKey="name" 
                       angle={-45} 
                       textAnchor="end" 
                       height={60} 
@@ -205,7 +226,7 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
                     <YAxis />
                     <Tooltip />
                     <Bar dataKey="count" fill="#16a34a" radius={[4, 4, 0, 0]}>
-                      {analytics.model_usage.map((entry, index) => (
+                      {modelUsageData.map((entry, index) => (
                         <Cell key={`cell-${index}`} fill={colors[5 + (index % 5)]} />
                       ))}
                     </Bar>

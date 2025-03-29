@@ -255,14 +255,16 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         }))
       };
       
-      // Update local cache with the latest data
-      setLocalProjectCache(prev => ({
-        ...prev,
+      // Update local cache with the latest data - FIX HERE
+      // Instead of using a function, we'll create a new object
+      const updatedCache = {
+        ...localProjectCache,
         [projectId]: {
           project: formattedProject,
           timestamp: Date.now()
         }
-      }));
+      };
+      setLocalProjectCache(updatedCache);
       
       setProjectDetails(formattedProject);
       setLoadAttempts(0);
@@ -367,7 +369,8 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   useEffect(() => {
     const cleanupCache = () => {
       const now = Date.now();
-      const newCache = { ...localProjectCache };
+      // Create a new cache object instead of modifying in place
+      let newCache = { ...localProjectCache };
       let hasChanges = false;
       
       Object.keys(newCache).forEach(key => {

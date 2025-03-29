@@ -10,13 +10,26 @@ const corsHeaders = {
 
 // Mock implementation of the Model Context Protocol (MCP) server
 serve(async (req) => {
+  console.log("MCP server received request:", req.method, req.url);
+  
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("Handling CORS preflight request");
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    const { operation, toolName, parameters, projectId } = await req.json();
+    console.log("Parsing request body");
+    const requestData = await req.json();
+    console.log("Request data:", JSON.stringify(requestData));
+    
+    const { operation, toolName, parameters, projectId } = requestData;
+    
+    if (!operation) {
+      throw new Error("Operation parameter is required");
+    }
+    
+    console.log(`Processing operation: ${operation}`);
     
     // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -26,6 +39,7 @@ serve(async (req) => {
     // Handle different operations
     switch (operation) {
       case "list_tools": {
+        console.log(`Listing tools for project: ${projectId}`);
         // Return the list of tools this MCP server provides
         const tools = [
           {
@@ -104,6 +118,7 @@ serve(async (req) => {
           }
         ];
         
+        console.log(`Returning ${tools.length} tools`);
         return new Response(
           JSON.stringify({ success: true, tools }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -120,8 +135,10 @@ serve(async (req) => {
         }
         
         const sceneId = parameters.sceneId;
+        console.log(`Calling tool: ${toolName} for scene: ${sceneId}`);
         
         // Get the scene data
+        console.log(`Fetching scene data for scene ID: ${sceneId}`);
         const { data: scene, error: sceneError } = await supabase
           .from("canvas_scenes")
           .select("*")
@@ -129,12 +146,16 @@ serve(async (req) => {
           .single();
           
         if (sceneError) {
+          console.error(`Failed to fetch scene: ${sceneError.message}`);
           throw new Error(`Failed to fetch scene: ${sceneError.message}`);
         }
+        
+        console.log(`Successfully fetched scene: ${scene.id}`);
         
         // Handle different tools
         switch (toolName) {
           case "update_scene_description": {
+            console.log(`Generating scene description for scene: ${sceneId}`);
             // In a real implementation, this would use an AI model to generate a description
             // based on the scene image, script, and other data
             
@@ -145,15 +166,18 @@ Lighting is bright and even, creating a professional look.
 The mood is [appropriate mood based on script content].`;
             
             // Update the scene description
+            console.log(`Updating scene description for scene: ${sceneId}`);
             const { error } = await supabase
               .from("canvas_scenes")
               .update({ description })
               .eq("id", sceneId);
               
             if (error) {
+              console.error(`Failed to update scene description: ${error.message}`);
               throw new Error(`Failed to update scene description: ${error.message}`);
             }
             
+            console.log(`Successfully updated scene description for scene: ${sceneId}`);
             return new Response(
               JSON.stringify({
                 success: true,
@@ -165,6 +189,7 @@ The mood is [appropriate mood based on script content].`;
           }
           
           case "update_image_prompt": {
+            console.log(`Generating image prompt for scene: ${sceneId}`);
             // Generate an image prompt based on the scene description and script
             
             const imagePrompt = `High quality cinematic scene, professional lighting, detailed textures,
@@ -174,15 +199,18 @@ The mood is [appropriate mood based on script content].`;
 high resolution, 4K, ultra detailed, photorealistic`;
             
             // Update the scene image prompt
+            console.log(`Updating image prompt for scene: ${sceneId}`);
             const { error } = await supabase
               .from("canvas_scenes")
               .update({ image_prompt: imagePrompt })
               .eq("id", sceneId);
               
             if (error) {
+              console.error(`Failed to update image prompt: ${error.message}`);
               throw new Error(`Failed to update image prompt: ${error.message}`);
             }
             
+            console.log(`Successfully updated image prompt for scene: ${sceneId}`);
             return new Response(
               JSON.stringify({
                 success: true,
@@ -194,21 +222,25 @@ high resolution, 4K, ultra detailed, photorealistic`;
           }
           
           case "generate_scene_image": {
+            console.log(`Generating scene image for scene: ${sceneId}`);
             // In a real implementation, this would call the product shot service
             // For now, we'll just simulate a successful response
             
             const imageUrl = "https://example.com/placeholder-image.jpg";
             
             // Update the scene image URL
+            console.log(`Updating scene image URL for scene: ${sceneId}`);
             const { error } = await supabase
               .from("canvas_scenes")
               .update({ image_url: imageUrl })
               .eq("id", sceneId);
               
             if (error) {
+              console.error(`Failed to update scene image URL: ${error.message}`);
               throw new Error(`Failed to update scene image URL: ${error.message}`);
             }
             
+            console.log(`Successfully updated scene image URL for scene: ${sceneId}`);
             return new Response(
               JSON.stringify({
                 success: true,
@@ -220,21 +252,25 @@ high resolution, 4K, ultra detailed, photorealistic`;
           }
           
           case "create_scene_video": {
+            console.log(`Generating scene video for scene: ${sceneId}`);
             // In a real implementation, this would call the image-to-video service
             // For now, we'll just simulate a successful response
             
             const videoUrl = "https://example.com/placeholder-video.mp4";
             
             // Update the scene video URL
+            console.log(`Updating scene video URL for scene: ${sceneId}`);
             const { error } = await supabase
               .from("canvas_scenes")
               .update({ video_url: videoUrl })
               .eq("id", sceneId);
               
             if (error) {
+              console.error(`Failed to update scene video URL: ${error.message}`);
               throw new Error(`Failed to update scene video URL: ${error.message}`);
             }
             
+            console.log(`Successfully updated scene video URL for scene: ${sceneId}`);
             return new Response(
               JSON.stringify({
                 success: true,
@@ -246,11 +282,13 @@ high resolution, 4K, ultra detailed, photorealistic`;
           }
           
           default:
+            console.error(`Unknown tool: ${toolName}`);
             throw new Error(`Unknown tool: ${toolName}`);
         }
       }
       
       default:
+        console.error(`Unknown operation: ${operation}`);
         throw new Error(`Unknown operation: ${operation}`);
     }
   } catch (error) {

@@ -48,5 +48,25 @@ export const showToast = {
       ...toastOptions.info, 
       ...options 
     });
+  },
+  
+  // Specifically for MCP-related messages
+  mcp: {
+    success: (message: string, options?: ExternalToast) => {
+      toast.success(`MCP: ${message}`, { ...toastOptions.success, ...options });
+    },
+    
+    error: (message: string, options?: ExternalToast) => {
+      console.error('MCP error:', message);
+      toast.error(`MCP error: ${message}`, { 
+        ...toastOptions.error, 
+        ...options, 
+        duration: 6000 
+      });
+    },
+    
+    info: (message: string, options?: ExternalToast) => {
+      toast.info(`MCP: ${message}`, { ...toastOptions.info, ...options });
+    }
   }
 };

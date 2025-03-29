@@ -1,142 +1,111 @@
 
-import { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
+import { SendHorizontal, PaperclipIcon } from "lucide-react";
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
-import { Progress } from "@/components/ui/progress";
-import { Send, Paperclip, Sparkles } from "lucide-react";
-import { AISettingsDialog } from "@/components/ui/ai-settings-dialog";
-import { FileAttachmentButton } from "@/components/multi-agent/FileAttachmentButton";
-import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
-import { Attachment } from "@/types/message";
 
-interface ChatInputProps {
+export interface ChatInputProps {
   input: string;
-  isLoading: boolean;
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
-  useAssistantsApi?: boolean;
-  setUseAssistantsApi?: (value: boolean) => void;
-  useMcp?: boolean;
-  setUseMcp?: (value: boolean) => void;
-  attachments?: Attachment[];
-  onAttachmentAdd?: (attachments: Attachment[]) => void;
-  onAttachmentRemove?: (id: string) => void;
+  isLoading?: boolean;
+  autoFocus?: boolean;
   showAttachmentButton?: boolean;
+  onAttachmentClick?: () => void;
+  placeholderText?: string; // Add this prop
 }
 
-export const ChatInput = ({ 
-  input, 
-  isLoading, 
-  onInputChange, 
+export function ChatInput({
+  input,
+  onInputChange,
   onSubmit,
-  useAssistantsApi = false,
-  setUseAssistantsApi = () => {},
-  useMcp = false,
-  setUseMcp = () => {},
-  attachments = [],
-  onAttachmentAdd,
-  onAttachmentRemove,
-  showAttachmentButton = false
-}: ChatInputProps) => {
-  const MAX_WORDS = 350;
+  isLoading = false,
+  autoFocus = true,
+  showAttachmentButton = false,
+  onAttachmentClick,
+  placeholderText = "Type a message...", // Add default value
+}: ChatInputProps) {
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const countWords = (text: string) => {
-    return text.trim().split(/\s+/).filter(word => word.length > 0).length;
-  };
-
-  const currentWords = countWords(input);
-  const progress = (currentWords / MAX_WORDS) * 100;
-  const isWordLimitExceeded = currentWords >= MAX_WORDS;
-
-  const handleChange = (value: string) => {
-    const words = countWords(value);
-    if (words <= MAX_WORDS) {
-      onInputChange(value);
+  // Function to resize textarea based on content
+  const autoResizeTextarea = () => {
+    const textarea = textareaRef.current;
+    if (textarea) {
+      textarea.style.height = 'auto';
+      const newHeight = Math.min(textarea.scrollHeight, 150);
+      textarea.style.height = `${newHeight}px`;
     }
   };
 
-  const handleInputKeyPress = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+  // Handle input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    onInputChange(e.target.value);
+  };
+
+  // Handle form submission
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (input.trim() || !isLoading) {
+      onSubmit(e);
+      if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+      }
+    }
+  };
+
+  // Handle keyboard shortcuts
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
-      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
-        onSubmit(e as any);
-      }
+      handleSubmit(e);
     }
   };
 
-  const handleSubmitClick = (e: React.MouseEvent<HTMLButtonElement>) => {
-    // Prevent default behavior to avoid unwanted form submission
-    e.preventDefault();
-    
-    // Only submit if there's input or attachments and not already loading
-    if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
-      // Call the onSubmit handler with the event
-      onSubmit(e as any);
-    }
-  };
+  // Auto resize on input change
+  useEffect(() => {
+    autoResizeTextarea();
+  }, [input]);
 
   return (
-    <form onSubmit={(e) => {
-      e.preventDefault();
-      if (!isLoading && (input.trim() !== '' || (attachments && attachments.length > 0))) {
-        onSubmit(e);
-      }
-    }} className="space-y-1 w-full">
-      {attachments.length > 0 && (
-        <AttachmentPreview
-          attachments={attachments}
-          onRemove={onAttachmentRemove}
-          isRemovable={true}
+    <form onSubmit={handleSubmit} className="relative w-full">
+      <div className="relative flex items-center">
+        <Textarea
+          ref={textareaRef}
+          value={input}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholderText}
+          disabled={isLoading}
+          autoFocus={autoFocus}
+          className="min-h-[40px] w-full resize-none rounded-md border bg-background p-2 pr-12 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
+          rows={1}
         />
-      )}
-      
-      <div className="flex gap-2 items-end w-full">
-        <div className="flex-1 relative">
-          <Textarea
-            value={input}
-            onChange={(e) => handleChange(e.target.value)}
-            onKeyDown={handleInputKeyPress}
-            placeholder="Type your message..."
-            disabled={isLoading}
-            className="min-h-[40px] max-h-[100px] bg-gradient-to-r from-[#262B38] to-[#2D3240] border-none text-white placeholder:text-white/50 resize-none rounded-2xl px-3 py-2 shadow-inner"
-          />
-          <div className="absolute bottom-1 left-3 right-10">
-            <div className="flex justify-between items-center">
-              <span className={`text-xs ${isWordLimitExceeded ? 'text-red-500' : 'text-gray-400'}`}>
-                {currentWords}/{MAX_WORDS}
-              </span>
-              <div className="flex-1 mx-2">
-                <Progress 
-                  value={progress} 
-                  className="h-1" 
-                  indicatorClassName={isWordLimitExceeded ? "bg-red-500" : undefined}
-                />
-              </div>
-            </div>
-          </div>
-        </div>
-        
-        {showAttachmentButton && onAttachmentAdd && (
-          <FileAttachmentButton onAttach={onAttachmentAdd} />
+        {showAttachmentButton && (
+          <Button
+            type="button"
+            size="icon"
+            variant="ghost"
+            className="absolute bottom-1 right-12 h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
+            onClick={onAttachmentClick}
+          >
+            <PaperclipIcon className="h-5 w-5" />
+            <span className="sr-only">Attach file</span>
+          </Button>
         )}
-        
-        <Button 
-          type="button" 
-          onClick={handleSubmitClick}
-          disabled={isLoading || (input.trim() === '' && (!attachments || attachments.length === 0))}
-          variant="gradient"
+        <Button
+          type="submit"
           size="icon"
-          className="rounded-full h-10 w-10 p-0 flex items-center justify-center"
+          disabled={!input.trim() || isLoading}
+          className={`absolute bottom-1 right-1 h-8 w-8 p-0 ${
+            !input.trim() || isLoading
+              ? "opacity-50"
+              : "text-primary hover:bg-primary/10"
+          }`}
         >
-          <span>
-            {isLoading ? (
-              <Sparkles className="h-4 w-4 animate-pulse" />
-            ) : (
-              <Send className="h-4 w-4" />
-            )}
-          </span>
+          <SendHorizontal className="h-5 w-5" />
+          <span className="sr-only">Send message</span>
         </Button>
       </div>
     </form>
   );
-};
+}

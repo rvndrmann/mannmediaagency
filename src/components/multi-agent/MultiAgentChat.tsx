@@ -1,10 +1,9 @@
-
+import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
-import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import { AgentSelector } from "./AgentSelector";
 import { ProjectSelector } from "./ProjectSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
@@ -25,10 +24,10 @@ import { HandoffIndicator } from "./HandoffIndicator";
 import { ChatSessionSelector } from "./ChatSessionSelector";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { Alert, AlertTitle, AlertDescription } from "@/components/ui/alert";
+import { supabase } from "@/integrations/supabase/client";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import type { Message } from "@/types/message";
 
-// Import the CompactAgentSelector component using lazy loading
 const CompactAgentSelector = lazy(() => import('../canvas/CompactAgentSelector').then(module => ({
   default: module.CompactAgentSelector
 })));
@@ -122,26 +121,22 @@ export const MultiAgentChat = ({
     sessionId: localSessionId || undefined
   });
 
-  // Enhanced handleSubmit with error handling and retry capability
   const handleSubmit = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     setConnectionError(null);
     
     try {
       await originalHandleSubmit(e);
-      // Reset retry count on successful submission
       setRetryCount(0);
     } catch (error) {
       console.error("Error in chat submission:", error);
       
-      // Handle response based on retry count
       const errMsg = error instanceof Error ? error.message : "Unknown error";
       
       if (retryCount < 2) {
         setRetryCount(prev => prev + 1);
         toast.error(`Chat submission failed. Retrying (${retryCount + 1}/3)...`);
         
-        // Retry after a short delay with exponential backoff
         setTimeout(() => {
           originalHandleSubmit(e).catch(retryErr => {
             console.error("Retry failed:", retryErr);
@@ -188,26 +183,21 @@ export const MultiAgentChat = ({
     }
   }, [messages]);
 
-  // Set up ping to check for connection issues
   useEffect(() => {
     const pingServer = async () => {
       try {
-        // Simple ping to check if Supabase is reachable
         const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
         if (error) throw error;
         
-        // If we get here, connection is good
         setConnectionError(null);
       } catch (error) {
         console.error("Connection check failed:", error);
-        // Only set error if not already set
         if (!connectionError) {
           setConnectionError("Connection to the server may be unstable. Some features might not work properly.");
         }
       }
     };
     
-    // Run ping immediately and then every 30 seconds
     pingServer();
     const interval = setInterval(pingServer, 30000);
     
@@ -262,7 +252,6 @@ export const MultiAgentChat = ({
     setConnectionError(null);
     setRetryCount(0);
     toast.info("Retrying connection...");
-    // Add a "fake" system message to show the user something is happening
     const systemMessage: Message = {
       id: crypto.randomUUID(),
       role: "system",
@@ -276,10 +265,8 @@ export const MultiAgentChat = ({
       setMessages(prevMessages => [...prevMessages, systemMessage]);
     }
     
-    // Try to ping the server
     supabase.from('canvas_projects').select('count').limit(1)
       .then(() => {
-        // Update the message to show success
         setMessages(prevMessages => 
           prevMessages.map(msg => 
             msg.id === systemMessage.id 
@@ -291,7 +278,6 @@ export const MultiAgentChat = ({
       })
       .catch(err => {
         console.error("Connection retry failed:", err);
-        // Update the message to show failure
         setMessages(prevMessages => 
           prevMessages.map(msg => 
             msg.id === systemMessage.id 
@@ -562,7 +548,7 @@ export const MultiAgentChat = ({
                 onInputChange={setInput}
                 onSubmit={handleSubmit}
                 showAttachmentButton={false}
-                placeholder={
+                placeholderText={
                   connectionError 
                     ? "Connection issues detected. Messages may not be delivered." 
                     : `Ask ${activeAgent} agent a question...`

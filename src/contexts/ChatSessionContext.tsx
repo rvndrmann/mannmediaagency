@@ -13,6 +13,7 @@ interface ChatSessionContextType {
   updateChatSession: (sessionId: string, messages: Message[]) => void;
   deleteChatSession: (sessionId: string) => void;
   syncing: boolean;
+  getState?: () => ChatSessionContextType; // Add this method for compatibility
 }
 
 const ChatSessionContext = createContext<ChatSessionContextType | undefined>(undefined);
@@ -20,17 +21,34 @@ const ChatSessionContext = createContext<ChatSessionContextType | undefined>(und
 export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const chatHistoryStore = useChatHistoryStore();
   
+  // Add getState method to the store
+  const enhancedStore = {
+    ...chatHistoryStore,
+    getState: () => chatHistoryStore
+  };
+  
   return (
-    <ChatSessionContext.Provider value={chatHistoryStore}>
+    <ChatSessionContext.Provider value={enhancedStore}>
       {children}
     </ChatSessionContext.Provider>
   );
 }
 
-export function useChatSession() {
-  const context = useContext(ChatSessionContext);
-  if (context === undefined) {
-    throw new Error("useChatSession must be used within a ChatSessionProvider");
-  }
-  return context;
-}
+// Expose getState on the hook for compatibility
+export const useChatSession = (() => {
+  const useHook = () => {
+    const context = useContext(ChatSessionContext);
+    if (context === undefined) {
+      throw new Error("useChatSession must be used within a ChatSessionProvider");
+    }
+    return context;
+  };
+  
+  // Add a getState static method
+  useHook.getState = () => {
+    const store = useChatHistoryStore.getState();
+    return store;
+  };
+  
+  return useHook;
+})();

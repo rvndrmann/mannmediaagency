@@ -11,9 +11,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
 
 export class AgentRunner {
-  private context: RunnerContext;
+  public context: RunnerContext;
+  public callbacks: RunnerCallbacks;
   private currentAgent: BaseAgentImpl;
-  private callbacks: RunnerCallbacks;
   private agentTurnCount: number = 0;
   private maxTurns: number = 7; // Increased max turns
   private handoffHistory: { from: AgentType, to: AgentType, reason: string }[] = [];
@@ -103,12 +103,12 @@ export class AgentRunner {
       case "scene":
         return new SceneCreatorAgent(options);
       default:
-        console.warn(`Unknown agent type: ${agentType}, falling back to main agent`);
+        console.warn(`Unknown agent type: ${agentType}, falling back to MainAgent`);
         return new MainAgent(options);
     }
   }
 
-  public async run(
+  async run(
     input: string,
     attachments: Attachment[] = [],
     userId: string

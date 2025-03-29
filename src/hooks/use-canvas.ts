@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -12,6 +13,28 @@ export const useCanvas = (projectId?: string) => {
   const [error, setError] = useState<string | null>(null);
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
+  const [lastFetchTime, setLastFetchTime] = useState(0);
+
+  // Check if we need to refresh auth session
+  const refreshAuthSessionIfNeeded = useCallback(async () => {
+    try {
+      // Check if we need to refresh the session (basic check)
+      const { data, error } = await supabase.auth.getSession();
+      
+      if (!data.session) {
+        const refreshResult = await supabase.auth.refreshSession();
+        if (refreshResult.error) {
+          throw new Error("Session expired. Please log in again.");
+        }
+        return true;
+      }
+      
+      return !!data.session;
+    } catch (error) {
+      console.error("Error checking/refreshing auth session:", error);
+      return false;
+    }
+  }, []);
 
   const fetchProjectAndScenes = useCallback(async (retry = false) => {
     if (!projectId) {
@@ -19,10 +42,26 @@ export const useCanvas = (projectId?: string) => {
       return;
     }
 
+    // Prevent multiple rapid fetch attempts - min 1 second interval
+    const now = Date.now();
+    if (now - lastFetchTime < 1000) {
+      console.log("Throttling fetch requests - too many in a short time");
+      return;
+    }
+    setLastFetchTime(now);
+
     try {
       setLoading(true);
       if (retry) {
         setIsRetrying(true);
+      }
+      
+      // Try to refresh auth if this is a retry attempt
+      if (retry && loadAttempts > 1) {
+        const refreshed = await refreshAuthSessionIfNeeded();
+        if (!refreshed) {
+          throw new Error("Session expired. Please log in again.");
+        }
       }
       
       // Fetch project details
@@ -33,7 +72,14 @@ export const useCanvas = (projectId?: string) => {
         .single();
 
       if (projectError) {
+        if (projectError.code === 'PGRST116') {
+          throw new Error(`Project with ID ${projectId} not found. It may have been deleted.`);
+        }
         throw projectError;
+      }
+
+      if (!projectData) {
+        throw new Error(`Project with ID ${projectId} not found.`);
       }
 
       // Fetch scenes for this project
@@ -59,7 +105,7 @@ export const useCanvas = (projectId?: string) => {
         updatedAt: projectData.updated_at
       };
 
-      const transformedScenes: CanvasScene[] = scenesData.map(scene => ({
+      const transformedScenes: CanvasScene[] = (scenesData || []).map(scene => ({
         id: scene.id,
         title: scene.title,
         script: scene.script || "",
@@ -93,25 +139,46 @@ export const useCanvas = (projectId?: string) => {
       const newAttempts = loadAttempts + 1;
       setLoadAttempts(newAttempts);
       
-      if (newAttempts <= 3) {
-        // Only show toast on first error, not on every retry
-        if (!isRetrying) {
-          toast.error("Failed to load project details. Retrying...");
-        }
+      // Handle network errors differently
+      if (err instanceof TypeError && err.message.includes("Failed to fetch")) {
+        setError("Network connection issue. Please check your internet connection.");
         
-        // Auto-retry with exponential backoff
-        setTimeout(() => {
-          fetchProjectAndScenes(true);
-        }, Math.min(1000 * Math.pow(2, newAttempts - 1), 8000)); // Max 8 second delay
+        if (newAttempts <= 3) {
+          // Only show toast on first error, not on every retry
+          if (!isRetrying) {
+            toast.error("Network connection issues. Retrying...");
+          }
+          
+          // Auto-retry with exponential backoff
+          setTimeout(() => {
+            fetchProjectAndScenes(true);
+          }, Math.min(1000 * Math.pow(2, newAttempts - 1), 8000)); // Max 8 second delay
+        } else {
+          setError("Connection issues persist. Please try again later or check your network.");
+          toast.error("Connection issues persist. Please try again later or check your network.");
+        }
       } else {
-        setError(err.message || "Failed to load project after multiple attempts");
-        toast.error("Failed to load project. Please refresh the page or try again later.");
+        // Handle other errors
+        if (newAttempts <= 3) {
+          // Only show toast on first error, not on every retry
+          if (!isRetrying) {
+            toast.error("Failed to load project details. Retrying...");
+          }
+          
+          // Auto-retry with exponential backoff
+          setTimeout(() => {
+            fetchProjectAndScenes(true);
+          }, Math.min(1000 * Math.pow(2, newAttempts - 1), 8000)); // Max 8 second delay
+        } else {
+          setError(err.message || "Failed to load project after multiple attempts");
+          toast.error("Failed to load project. Please refresh the page or try again later.");
+        }
       }
     } finally {
       setLoading(false);
       setIsRetrying(false);
     }
-  }, [projectId, selectedSceneId, loadAttempts, isRetrying]);
+  }, [projectId, selectedSceneId, loadAttempts, isRetrying, lastFetchTime, refreshAuthSessionIfNeeded]);
 
   useEffect(() => {
     fetchProjectAndScenes();
@@ -119,7 +186,7 @@ export const useCanvas = (projectId?: string) => {
 
   const retryLoading = () => {
     setLoadAttempts(0);
-    fetchProjectAndScenes();
+    fetchProjectAndScenes(true);
     toast.info("Retrying project load...");
   };
 

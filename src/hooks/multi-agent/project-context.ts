@@ -20,11 +20,44 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [availableProjects, setAvailableProjects] = useState<{id: string, title: string}[]>([]);
   const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
   const [loadAttempts, setLoadAttempts] = useState(0);
+  const [isOffline, setIsOffline] = useState(false);
+
+  // Check online status
+  useEffect(() => {
+    const handleOnline = () => setIsOffline(false);
+    const handleOffline = () => setIsOffline(true);
+    
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    
+    // Initial check
+    setIsOffline(!navigator.onLine);
+    
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
 
   const fetchAvailableProjects = useCallback(async () => {
+    if (isOffline) {
+      toast.error("You are offline. Please check your internet connection.");
+      return [];
+    }
+
     try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData?.user) return [];
+      setIsLoading(true);
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError) {
+        console.error("Auth error:", userError);
+        toast.error("Authentication error. Please log in again.");
+        return [];
+      }
+      
+      if (!userData?.user) {
+        return [];
+      }
       
       const { data, error } = await supabase
         .from('canvas_projects')
@@ -32,7 +65,11 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         .eq('user_id', userData.user.id)
         .order('updated_at', { ascending: false });
         
-      if (error) throw error;
+      if (error) {
+        console.error("Error fetching projects:", error);
+        toast.error("Failed to load available projects");
+        throw error;
+      }
       
       setAvailableProjects(data || []);
       setHasLoadedProjects(true);
@@ -42,15 +79,43 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       setHasLoadedProjects(true);
       toast.error("Failed to load available projects");
       return [];
+    } finally {
+      setIsLoading(false);
+    }
+  }, [isOffline]);
+
+  const refreshAuthSession = useCallback(async () => {
+    try {
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error) {
+        console.error("Failed to refresh auth session:", error);
+        return false;
+      }
+      return !!data.session;
+    } catch (error) {
+      console.error("Error refreshing auth session:", error);
+      return false;
     }
   }, []);
 
   const fetchProjectDetails = useCallback(async (projectId: string, retry = false) => {
     if (!projectId) return null;
+    if (isOffline) {
+      toast.error("You are offline. Please check your internet connection.");
+      return null;
+    }
     
     try {
       setIsLoading(true);
       setError(null);
+      
+      // Try to refresh auth session on retry attempts
+      if (retry && loadAttempts > 1) {
+        const refreshed = await refreshAuthSession();
+        if (!refreshed) {
+          throw new Error("Session expired. Please log in again.");
+        }
+      }
       
       // Fetch project details
       const { data: projectData, error: projectError } = await supabase
@@ -121,11 +186,30 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     } catch (error) {
       console.error("Error fetching project details:", error);
       
+      // Increment load attempts
       const newAttempts = loadAttempts + 1;
       setLoadAttempts(newAttempts);
       
+      // Handle network errors differently
+      if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
+        setError("Network connection issue. Please check your internet connection.");
+        
+        if (newAttempts <= 3 && !retry) {
+          // Only show one error toast and attempt a retry
+          toast.error("Network connection issue. Retrying...");
+          
+          // Auto-retry with exponential backoff
+          setTimeout(() => {
+            fetchProjectDetails(projectId, true);
+          }, Math.min(1000 * Math.pow(2, newAttempts - 1), 8000)); // Max 8 second delay
+        } else {
+          toast.error("Connection issues persist. Please try again later or check your network.");
+        }
+        return null;
+      }
+      
+      // Handle other errors
       if (newAttempts <= 3 && !retry) {
-        // Only show one error toast and attempt a retry
         toast.error(error instanceof Error ? error.message : "Failed to load project details");
         
         // Auto-retry once after a short delay
@@ -141,7 +225,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadAttempts]);
+  }, [loadAttempts, isOffline, refreshAuthSession]);
 
   useEffect(() => {
     if (activeProjectId) {
@@ -150,6 +234,15 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       setProjectDetails(null);
     }
   }, [activeProjectId, fetchProjectDetails]);
+
+  // Effect to clear error when going online
+  useEffect(() => {
+    if (!isOffline && error && activeProjectId) {
+      // Clear error and retry fetching when going online
+      setError(null);
+      fetchProjectDetails(activeProjectId);
+    }
+  }, [isOffline, error, activeProjectId, fetchProjectDetails]);
 
   const setActiveProject = useCallback((projectId: string | null) => {
     setActiveProjectId(projectId);
@@ -164,6 +257,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     if (activeProjectId) {
       // Reset attempt counter when manually refreshing
       setLoadAttempts(0);
+      setError(null);
       return fetchProjectDetails(activeProjectId);
     }
     return null;
@@ -176,6 +270,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     error,
     availableProjects,
     hasLoadedProjects,
+    isOffline,
     setActiveProject,
     fetchProjectDetails,
     fetchAvailableProjects,

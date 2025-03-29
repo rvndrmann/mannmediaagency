@@ -32,7 +32,8 @@ export default function Canvas() {
     fetchAvailableProjects, 
     availableProjects, 
     hasLoadedProjects,
-    setActiveProject 
+    setActiveProject,
+    isOffline
   } = useProjectContext();
   
   // Get chat session context for shared history
@@ -178,6 +179,25 @@ export default function Canvas() {
     );
   }
 
+  // Show offline warning
+  if (isOffline) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4">
+        <Alert variant="warning" className="mb-4 max-w-md">
+          <AlertCircle className="h-4 w-4" />
+          <AlertTitle>You are offline</AlertTitle>
+          <AlertDescription>Please check your internet connection to load canvas projects.</AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => window.location.reload()}
+          className="mt-4"
+        >
+          Retry Connection
+        </Button>
+      </div>
+    );
+  }
+
   // Show loading state
   if (loading && !error) {
     return (
@@ -211,6 +231,14 @@ export default function Canvas() {
           >
             Return to Home
           </Button>
+          {projectId && (
+            <Button 
+              variant="outline"
+              onClick={() => navigate("/canvas")}
+            >
+              Browse Projects
+            </Button>
+          )}
         </div>
       </div>
     );

@@ -1,4 +1,3 @@
-
 import { useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Conversation, TraceData } from "@/integrations/supabase/rpc-types";
@@ -36,7 +35,6 @@ export default function TraceAnalytics() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    // Get the current user and load conversation data
     async function getUserIdAndConversations() {
       try {
         setLoading(true);
@@ -49,7 +47,6 @@ export default function TraceAnalytics() {
         
         setUserId(user.id);
         
-        // Get conversations for this user
         const { data, error: rpcError } = await supabase
           .rpc<Conversation[]>('get_user_conversations', { 
             user_id_param: user.id 
@@ -103,13 +100,11 @@ export default function TraceAnalytics() {
     }
   };
   
-  // Handle back button click
   const handleBack = () => {
     setSelectedConversation(null);
     setTraceData(null);
   };
   
-  // If no user is logged in
   if (!userId && !loading) {
     return (
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)]">
@@ -121,7 +116,6 @@ export default function TraceAnalytics() {
     );
   }
   
-  // Loading state
   if (loading && !traceData) {
     return (
       <div className="flex items-center justify-center h-[calc(100vh-4rem)]">
@@ -131,7 +125,6 @@ export default function TraceAnalytics() {
     );
   }
   
-  // Error state
   if (error) {
     return (
       <div className="container mx-auto py-8">
@@ -150,7 +143,6 @@ export default function TraceAnalytics() {
     );
   }
   
-  // Show trace details for a specific conversation
   if (selectedConversation && traceData) {
     return (
       <div className="container mx-auto py-8">
@@ -203,22 +195,28 @@ export default function TraceAnalytics() {
                   }`}
                 >
                   <div className="flex justify-between mb-2">
-                    <span className="font-medium">
+                    <span className="font-medium text-black">
                       {message.agent_type || 'User'}
                     </span>
-                    <span className="text-xs text-gray-500">
+                    <span className="text-xs text-gray-700">
                       {new Date(message.timestamp).toLocaleTimeString()}
                     </span>
                   </div>
-                  <p className="whitespace-pre-wrap">{message.assistant_response || message.user_message}</p>
+                  <p className="whitespace-pre-wrap text-black">
+                    {message.assistant_response || message.user_message}
+                  </p>
                   
                   {message.trace && message.trace.events && message.trace.events.length > 0 && (
-                    <div className="mt-2 text-xs text-gray-500">
+                    <div className="mt-2 text-xs text-gray-800">
                       {message.trace.summary.handoffs > 0 && (
-                        <div className="mt-1">Handoffs: {message.trace.summary.handoffs}</div>
+                        <div className="mt-1 text-black">
+                          Handoffs: {message.trace.summary.handoffs}
+                        </div>
                       )}
                       {message.trace.summary.toolCalls > 0 && (
-                        <div className="mt-1">Tool Calls: {message.trace.summary.toolCalls}</div>
+                        <div className="mt-1 text-black">
+                          Tool Calls: {message.trace.summary.toolCalls}
+                        </div>
                       )}
                     </div>
                   )}
@@ -231,7 +229,6 @@ export default function TraceAnalytics() {
     );
   }
   
-  // Default view with conversation list and analytics
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">Agent Trace Analytics</h1>

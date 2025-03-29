@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -75,7 +74,11 @@ const MultiAgentChat = ({
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [forceUpdate, setForceUpdate] = useState(0);
+  const [processingTimeoutRef, setProcessingTimeoutRef] = useState<NodeJS.Timeout | null>(null);
   const scrollAreaRef = useRef<HTMLDivElement & { scrollToBottom: () => void }>(null);
+  const scrollRequested = useRef<boolean>(false);
+  const scrollInProgress = useRef<boolean>(false);
+  const lastMessageCount = useRef<number>(0);
   
   const {
     messages,
@@ -112,7 +115,6 @@ const MultiAgentChat = ({
     createChatSession
   } = useChatSession();
   
-  // Initialize chat session
   useEffect(() => {
     if (projectId) {
       console.log("Initializing chat session for project:", projectId);
@@ -123,22 +125,54 @@ const MultiAgentChat = ({
     }
   }, [projectId, getOrCreateChatSession]);
   
-  // Enhanced scrollToBottom function that uses our improved ScrollArea component
   const scrollToBottom = () => {
-    console.log("Attempting to scroll to bottom via ScrollArea");
+    if (scrollInProgress.current) {
+      scrollRequested.current = true;
+      return;
+    }
+    
+    scrollInProgress.current = true;
+    console.log("Executing scrollToBottom");
+    
     if (scrollAreaRef.current?.scrollToBottom) {
       scrollAreaRef.current.scrollToBottom();
+      
+      setTimeout(() => {
+        scrollInProgress.current = false;
+        
+        if (scrollRequested.current) {
+          scrollRequested.current = false;
+          scrollToBottom();
+        }
+      }, 100);
+    } else {
+      console.warn("ScrollArea ref missing scrollToBottom method");
+      scrollInProgress.current = false;
     }
   };
   
-  // Scroll to bottom whenever messages change or on loading updates
   useEffect(() => {
-    if (messages.length > 0 || isLoading) {
-      setTimeout(scrollToBottom, 100);
+    const newMessageCount = messages.length;
+    const shouldScroll = newMessageCount > lastMessageCount.current || isLoading;
+    lastMessageCount.current = newMessageCount;
+    
+    if (shouldScroll) {
+      console.log("Message count or loading state changed, scrolling to bottom");
+      requestAnimationFrame(() => {
+        scrollToBottom();
+      });
     }
-  }, [messages, forceUpdate, isLoading]);
+  }, [messages, isLoading]);
   
-  // Check connection to server
+  useEffect(() => {
+    if (forceUpdate > 0) {
+      console.log("Force update triggered, scrolling to bottom");
+      setTimeout(() => {
+        scrollToBottom();
+      }, 50);
+    }
+  }, [forceUpdate]);
+  
   useEffect(() => {
     const checkConnection = async () => {
       try {
@@ -177,21 +211,25 @@ const MultiAgentChat = ({
       console.log("Sending message:", input);
       sendMessage(input);
       setInput("");
+      
+      if (processingTimeoutRef.current) {
+        clearTimeout(processingTimeoutRef.current);
+      }
+      
       setTimeout(scrollToBottom, 100);
       
-      // Force update after a short delay to ensure UI updates
-      setTimeout(() => setForceUpdate(prev => prev + 1), 300);
+      processingTimeoutRef.current = setTimeout(() => {
+        setForceUpdate(prev => prev + 1);
+      }, 300) as unknown as number;
     } else {
       console.log("Using agent handle submit");
       agentHandleSubmit(e);
       setInput("");
       
-      // Force update after a short delay to ensure UI updates
       setTimeout(() => setForceUpdate(prev => prev + 1), 300);
     }
   };
   
-  // Force update UI periodically during loading to ensure messages appear
   useEffect(() => {
     let interval: number | undefined;
     
@@ -249,12 +287,11 @@ const MultiAgentChat = ({
           }} 
         />
         
-        {/* Message area with enhanced ScrollArea */}
         <ScrollArea 
           className="flex-1" 
           ref={scrollAreaRef}
         >
-          <div className="p-4 space-y-4">
+          <div className="p-4 space-y-4" id="messages-container">
             {Array.isArray(messages) && messages.length === 0 && (
               <div className="text-center py-10 text-slate-500">
                 <p>Start a conversation with the AI assistant.</p>
@@ -296,12 +333,10 @@ const MultiAgentChat = ({
               />
             )}
             
-            {/* Extra div at the bottom to help with scrolling */}
-            <div id="messages-end" style={{ height: "20px" }} />
+            <div id="messages-end" style={{ height: "40px" }} />
           </div>
         </ScrollArea>
         
-        {/* Attachments preview */}
         {Array.isArray(pendingAttachments) && pendingAttachments.length > 0 && (
           <div className="p-2 border-t">
             <AttachmentPreview
@@ -311,7 +346,6 @@ const MultiAgentChat = ({
           </div>
         )}
         
-        {/* Input area - fixed at the bottom */}
         <div className="border-t p-4 mt-auto">
           <div className="flex items-center justify-between mb-2">
             <div className="flex items-center space-x-2">

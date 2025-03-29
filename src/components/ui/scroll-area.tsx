@@ -22,8 +22,19 @@ const ScrollArea = React.forwardRef<
       if (rootRef.current) {
         const viewport = rootRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
         if (viewport) {
-          console.log("Scrolling to bottom, current height:", viewport.scrollHeight);
-          viewport.scrollTop = viewport.scrollHeight;
+          // Use requestAnimationFrame to ensure the DOM has updated before scrolling
+          requestAnimationFrame(() => {
+            console.log("Scrolling to bottom, current height:", viewport.scrollHeight);
+            viewport.scrollTop = viewport.scrollHeight;
+            
+            // Double-check scroll position after a short delay
+            setTimeout(() => {
+              if (viewport.scrollTop < viewport.scrollHeight - viewport.clientHeight - 10) {
+                console.log("Scroll didn't reach bottom, retrying");
+                viewport.scrollTop = viewport.scrollHeight;
+              }
+            }, 50);
+          });
         }
       }
     },
@@ -31,7 +42,9 @@ const ScrollArea = React.forwardRef<
       if (rootRef.current) {
         const viewport = rootRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
         if (viewport) {
-          viewport.scrollTop = 0;
+          requestAnimationFrame(() => {
+            viewport.scrollTop = 0;
+          });
         }
       }
     },
@@ -39,7 +52,9 @@ const ScrollArea = React.forwardRef<
       if (rootRef.current) {
         const viewport = rootRef.current.querySelector('[data-radix-scroll-area-viewport]') as HTMLDivElement;
         if (viewport) {
-          viewport.scrollTo(options);
+          requestAnimationFrame(() => {
+            viewport.scrollTo(options);
+          });
         }
       }
     }

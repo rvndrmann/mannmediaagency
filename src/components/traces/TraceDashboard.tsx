@@ -37,13 +37,13 @@ export const TraceDashboard: React.FC<TraceDashboardProps> = ({ userId }) => {
         setError(null);
         
         const { data, error: fetchError } = await supabase
-          .rpc('get_agent_trace_analytics', { user_id_param: userId });
+          .rpc('get_agent_trace_analytics', { user_id_param: userId }) as any;
         
         if (fetchError) {
           throw fetchError;
         }
         
-        setAnalytics(data);
+        setAnalytics(data as AgentAnalytics);
       } catch (err) {
         console.error("Error fetching analytics:", err);
         setError('Failed to load analytics data. Please try again later.');

@@ -57,15 +57,15 @@ const TraceAnalytics: React.FC = () => {
           setUserId(user.id);
           
           // Fetch conversations
-          const { data: conversationsData, error: conversationsError } = await supabase
-            .rpc('get_user_conversations', { user_id_param: user.id });
+          const { data, error: conversationsError } = await supabase
+            .rpc('get_user_conversations', { user_id_param: user.id }) as any;
           
           if (conversationsError) {
             throw conversationsError;
           }
           
-          if (conversationsData) {
-            setConversations(conversationsData);
+          if (data) {
+            setConversations(data as Conversation[]);
           }
         }
       } catch (error) {
@@ -91,13 +91,13 @@ const TraceAnalytics: React.FC = () => {
         .rpc('get_conversation_trace', { 
           conversation_id: conversationId, 
           user_id_param: userId 
-        });
+        }) as any;
       
       if (error) {
         throw error;
       }
       
-      setTraceData(data);
+      setTraceData(data as TraceData);
       setSelectedConversationId(conversationId);
     } catch (error) {
       console.error('Error fetching trace data:', error);

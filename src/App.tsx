@@ -1,10 +1,11 @@
+
 import React from "react";
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as SonnerToaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { ProtectedRoute } from "@/components/auth/ProtectedRoute";
-import { AuthCallback } from "@/components/auth/AuthCallback";
+import AuthCallback from "@/components/auth/AuthCallback";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { ChatSessionProvider } from "@/contexts/ChatSessionContext";
 

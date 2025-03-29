@@ -1,82 +1,59 @@
 
-import { useState, useEffect } from "react";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { Button } from "@/components/ui/button";
-import { format, formatDistanceToNow } from "date-fns";
-import { useChatSession } from "@/contexts/ChatSessionContext";
-import { X } from "lucide-react";
+import React from 'react';
+import { Button } from '@/components/ui/button';
+import { useChatSession } from '@/contexts/ChatSessionContext';
+import { formatDistanceToNow } from 'date-fns';
+import { X } from 'lucide-react';
 
-export interface ChatSessionSelectorProps {
-  onSelectSession: (id: string) => void;
+interface ChatSessionSelectorProps {
   onClose: () => void;
+  onSelectSession: (sessionId: string) => void;
 }
 
-export function ChatSessionSelector({ onSelectSession, onClose }: ChatSessionSelectorProps) {
-  const { chatSessions = [], activeChatId } = useChatSession();
-  const [open, setOpen] = useState(true);
-
-  const handleClose = () => {
-    setOpen(false);
-    onClose();
-  };
-
-  const handleSelectSession = (id: string) => {
-    onSelectSession(id);
-    handleClose();
-  };
-
-  // Ensure chatSessions is an array before trying to sort or access it
-  const sortedSessions = Array.isArray(chatSessions) 
-    ? [...chatSessions].sort((a, b) => {
-        return new Date(b.lastUpdated || 0).getTime() - new Date(a.lastUpdated || 0).getTime();
-      })
-    : [];
+export const ChatSessionSelector = ({ onClose, onSelectSession }: ChatSessionSelectorProps) => {
+  const { chatSessions, activeChatId } = useChatSession();
 
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader className="flex justify-between items-center">
-          <DialogTitle>Chat History</DialogTitle>
-          <Button variant="ghost" size="icon" onClick={handleClose}>
-            <X className="h-4 w-4" />
-          </Button>
-        </DialogHeader>
-        
-        <ScrollArea className="h-[400px] pr-4">
-          {sortedSessions.length === 0 ? (
-            <div className="text-center p-4 text-muted-foreground">
-              No chat sessions found
+    <div className="absolute inset-0 z-50 bg-white dark:bg-slate-950 flex flex-col">
+      <div className="p-4 flex justify-between items-center border-b">
+        <h3 className="font-medium">Chat History</h3>
+        <Button size="sm" variant="ghost" onClick={onClose}>
+          <X className="h-4 w-4" />
+        </Button>
+      </div>
+      
+      <div className="p-4 flex-1 overflow-auto">
+        {chatSessions.length === 0 ? (
+          <div className="text-center py-10 text-slate-500">
+            No chat history found
+          </div>
+        ) : (
+          chatSessions.map(session => (
+            <div 
+              key={session.id}
+              className={`p-3 border rounded-md mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900 ${
+                session.id === activeChatId ? 'border-blue-500 bg-blue-50 dark:bg-blue-900/20' : ''
+              }`}
+              onClick={() => {
+                onSelectSession(session.id);
+              }}
+            >
+              <div className="font-medium text-sm">
+                {session.title || 'Untitled Chat'}
+              </div>
+              <div className="text-xs text-slate-500 mt-1">
+                {formatDistanceToNow(new Date(session.lastUpdated), { addSuffix: true })}
+              </div>
+              {session.messages && session.messages.length > 0 && (
+                <div className="text-xs text-slate-500 mt-1 truncate">
+                  {session.messages[session.messages.length - 1]?.content?.substring(0, 50)}
+                  {session.messages[session.messages.length - 1]?.content?.length > 50 ? '...' : ''}
+                </div>
+              )}
             </div>
-          ) : (
-            <div className="space-y-2">
-              {sortedSessions.map((session) => (
-                <Button
-                  key={session.id}
-                  variant={session.id === activeChatId ? "default" : "outline"}
-                  className="w-full justify-start text-left h-auto py-3"
-                  onClick={() => handleSelectSession(session.id)}
-                >
-                  <div className="flex flex-col">
-                    <div className="font-medium">
-                      {session.title || "Chat session"}
-                    </div>
-                    <div className="text-xs text-muted-foreground">
-                      {session.lastUpdated ? formatDistanceToNow(new Date(session.lastUpdated), { addSuffix: true }) : "Unknown date"}
-                    </div>
-                    {session.messages && Array.isArray(session.messages) && session.messages.length > 0 && (
-                      <div className="text-xs mt-1 text-muted-foreground truncate max-w-[300px]">
-                        {session.messages[session.messages.length - 1].content.substring(0, 60)}
-                        {session.messages[session.messages.length - 1].content.length > 60 ? "..." : ""}
-                      </div>
-                    )}
-                  </div>
-                </Button>
-              ))}
-            </div>
-          )}
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
+          ))
+        )}
+      </div>
+    </div>
   );
-}
+};

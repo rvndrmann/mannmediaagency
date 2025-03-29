@@ -1,10 +1,10 @@
 
-import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessage } from "@/components/chat/ChatMessage";
-import { Message, MessageStatus } from "@/types/message";
+import { Message } from "@/types/message";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentSelector } from "./AgentSelector";
 import { HandoffIndicator } from "./HandoffIndicator";
@@ -13,41 +13,45 @@ import { useChatSession } from "@/contexts/ChatSessionContext";
 import { FileAttachmentButton } from "./FileAttachmentButton";
 import { AttachmentPreview } from "./AttachmentPreview";
 import { ProjectSelector } from "./ProjectSelector";
-import { Separator } from "@/components/ui/separator";
-import { ChatSessionSelector } from "./ChatSessionSelector";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { FormEvent } from "react";
 import { getAgentName } from "@/lib/agent-icons";
+import { Button } from "@/components/ui/button";
+import { PlusCircle, History } from "lucide-react";
+import { showToast } from "@/utils/toast-utils";
 
 const ChatHeader = ({ 
   projectContext, 
-  isContextLoaded, 
   onStartNewChat, 
   onShowChatSelector 
 }: { 
   projectContext: any; 
-  isContextLoaded: boolean; 
   onStartNewChat: () => void; 
   onShowChatSelector: () => void; 
 }) => {
   return (
-    <div className="p-2 border-b flex justify-between items-center">
-      <h3 className="font-medium">
+    <div className="p-3 border-b flex justify-between items-center bg-slate-50 dark:bg-slate-900">
+      <h3 className="font-medium text-sm">
         {projectContext?.title ? `Project: ${projectContext.title}` : 'AI Chat'}
       </h3>
       <div className="flex gap-2">
-        <button 
+        <Button 
           onClick={onStartNewChat}
-          className="px-2 py-1 text-xs bg-slate-100 rounded hover:bg-slate-200"
+          variant="ghost"
+          size="sm"
+          className="text-xs flex items-center gap-1"
         >
+          <PlusCircle className="h-3.5 w-3.5" />
           New Chat
-        </button>
-        <button 
+        </Button>
+        <Button 
           onClick={onShowChatSelector}
-          className="px-2 py-1 text-xs bg-slate-100 rounded hover:bg-slate-200"
+          variant="ghost"
+          size="sm"
+          className="text-xs flex items-center gap-1"
         >
+          <History className="h-3.5 w-3.5" />
           History
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -67,10 +71,15 @@ const MultiAgentChat = ({
   compactMode?: boolean;
 }) => {
   const [input, setInput] = useState('');
+  const [showChatSelector, setShowChatSelector] = useState(false);
+  const [connectionError, setConnectionError] = useState<string | null>(null);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  
   const {
     messages,
-    isLoading: sending,
-    handoffInProgress: handoffActive,
+    isLoading,
+    handoffInProgress,
     activeAgent,
     setActiveAgent,
     pendingAttachments,
@@ -79,31 +88,12 @@ const MultiAgentChat = ({
     handleSubmit: agentHandleSubmit,
     sendMessage,
     clearMessages,
-    processHandoff: resetHandoff
+    processHandoff
   } = useMultiAgentChat({
     initialMessages: [],
     projectId,
     sessionId
   });
-  
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const scrollAreaRef = useRef<HTMLDivElement>(null);
-  const [connectionError, setConnectionError] = useState<string | null>(null);
-  const [showChatSelector, setShowChatSelector] = useState(false);
-  const [toolCallInProgress, setToolCallInProgress] = useState<any>(null);
-  const [lastToolCall, setLastToolCall] = useState<any>(null);
-  
-  const handoffInfo = handoffActive ? { 
-    fromAgent: "main", 
-    toAgent: activeAgent
-  } : null;
-  
-  const agents = [
-    { id: "main", name: "Main Assistant", description: "General purpose AI assistant" },
-    { id: "script", name: "Script Writer", description: "Specialized in writing scripts" },
-    { id: "image", name: "Image Generator", description: "Specialized in image generation" },
-    { id: "scene", name: "Scene Creator", description: "Specialized in creating scenes" }
-  ];
   
   const { 
     activeProjectId: projectContextId,
@@ -111,8 +101,6 @@ const MultiAgentChat = ({
     isLoading: isContextLoading,
     setActiveProject: setProjectId,
   } = useProjectContext();
-  
-  const isContextLoaded = !isContextLoading && !!projectContext;
   
   const { 
     chatSessions, 
@@ -123,6 +111,7 @@ const MultiAgentChat = ({
     createChatSession
   } = useChatSession();
   
+  // Initialize chat session
   useEffect(() => {
     if (projectId) {
       getOrCreateChatSession(projectId);
@@ -131,222 +120,221 @@ const MultiAgentChat = ({
     }
   }, [projectId, getOrCreateChatSession]);
   
-  useEffect(() => {
-    if (activeChatId && Array.isArray(messages) && messages.length > 0) {
-      updateChatSession(activeChatId, messages);
-    }
-  }, [messages, activeChatId, updateChatSession]);
-  
-  // Force scroll to bottom on component mount and when messages change
+  // Scroll to bottom whenever messages change
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
   
-  // Scroll to bottom function with a more reliable approach
   const scrollToBottom = () => {
     if (chatEndRef.current) {
-      setTimeout(() => {
-        chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-      }, 100);
+      chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   };
   
+  // Check connection to server
   useEffect(() => {
     const checkConnection = async () => {
-      const { error } = await pingServer();
-      if (error) {
-        setConnectionError("Connection to the server may be unstable. Some features might not work properly.");
-      } else {
-        setConnectionError(null);
+      try {
+        const { error } = await supabase
+          .from('canvas_projects')
+          .select('count')
+          .limit(1);
+        
+        if (error) {
+          setConnectionError("Connection to the server may be unstable.");
+        } else {
+          setConnectionError(null);
+        }
+      } catch (error) {
+        console.error("Connection check failed:", error);
+        setConnectionError("Connection to the server failed.");
       }
     };
     
     checkConnection();
-    
     const interval = setInterval(checkConnection, 30000);
-    
     return () => clearInterval(interval);
   }, []);
-  
-  const pingServer = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('canvas_projects')
-        .select('count')
-        .limit(1)
-        .then(result => result);
-      
-      if (error) throw error;
-      return { data, error: null };
-    } catch (error) {
-      console.error("Connection check failed:", error);
-      return { data: null, error };
-    }
-  };
   
   const startNewChat = () => {
     clearMessages();
     createChatSession(projectId);
+    showToast.info("Started a new chat");
   };
   
-  const handleSendMessage = (e: FormEvent) => {
+  const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim()) return;
+    if (!input.trim() && (!pendingAttachments || pendingAttachments.length === 0)) return;
     
     if (sendMessage) {
       sendMessage(input);
       setInput("");
-      
-      // Force scroll to bottom after sending a message
       setTimeout(scrollToBottom, 100);
     } else {
       agentHandleSubmit(e);
       setInput("");
     }
   };
-
-  // Log messages for debugging
-  useEffect(() => {
-    console.log("Current messages:", messages);
-  }, [messages]);
+  
+  const isContextLoaded = !isContextLoading && !!projectContext;
   
   return (
-    <div className="flex flex-col w-full h-full overflow-hidden">
+    <div className="flex flex-col w-full h-full overflow-hidden bg-white dark:bg-slate-950">
       <ChatHeader 
         projectContext={projectContext} 
-        isContextLoaded={isContextLoaded}
         onStartNewChat={startNewChat}
         onShowChatSelector={() => setShowChatSelector(true)}
       />
       
-      <Suspense fallback={<div className="p-4 text-center">Loading chat...</div>}>
-        {showChatSelector && (
-          <ChatSessionSelector 
-            onClose={() => setShowChatSelector(false)}
-            onSelectSession={(id) => {
-              setActiveChatId(id);
-              setShowChatSelector(false);
-            }}
-          />
-        )}
-        
-        <div className="flex flex-col flex-1 overflow-hidden h-full relative">
-          <ConnectionErrorAlert 
-            errorMessage={connectionError} 
-            onRetry={async () => {
-              const { error } = await pingServer();
+      {showChatSelector && (
+        <div className="absolute inset-0 z-50 bg-white dark:bg-slate-950">
+          {/* We'll implement this later in its own component */}
+          <div className="p-4 flex justify-between items-center border-b">
+            <h3>Chat History</h3>
+            <Button size="sm" variant="ghost" onClick={() => setShowChatSelector(false)}>
+              Close
+            </Button>
+          </div>
+          <div className="p-4">
+            {chatSessions.map(session => (
+              <div 
+                key={session.id}
+                className="p-3 border rounded-md mb-2 cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-900"
+                onClick={() => {
+                  setActiveChatId(session.id);
+                  setShowChatSelector(false);
+                }}
+              >
+                <div className="font-medium text-sm">
+                  {session.title || 'Untitled Chat'}
+                </div>
+                <div className="text-xs text-slate-500">
+                  {new Date(session.lastUpdated).toLocaleString()}
+                </div>
+              </div>
+            ))}
+            {chatSessions.length === 0 && (
+              <div className="text-center py-10 text-slate-500">
+                No chat history found
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+      
+      <div className="flex flex-col flex-1 overflow-hidden h-full relative">
+        <ConnectionErrorAlert 
+          errorMessage={connectionError} 
+          onRetry={async () => {
+            try {
+              const { error } = await supabase
+                .from('canvas_projects')
+                .select('count')
+                .limit(1);
+              
               if (!error) {
                 setConnectionError(null);
               }
-            }} 
-          />
-          
-          {/* Message area with ScrollArea component */}
-          <div className="flex-1 overflow-hidden" ref={scrollAreaRef}>
-            <ScrollArea className="h-[calc(100vh-200px)] min-h-[400px]">
-              <div className="p-4 space-y-4">
-                {Array.isArray(messages) && messages.length === 0 && (
-                  <div className="text-center py-10 text-muted-foreground">
-                    <p>Start a conversation with the AI assistant.</p>
-                  </div>
-                )}
-                
-                {Array.isArray(messages) && messages.map((message, index) => (
-                  <ChatMessage 
-                    key={message.id || index} 
-                    message={message} 
-                    showAgentName={message.role === 'assistant'}
-                    onEditContent={(type, content, sceneId) => {
-                      console.log("Edit content", type, content, sceneId);
-                    }}
-                  />
-                ))}
-                
-                {handoffActive && handoffInfo && (
-                  <HandoffIndicator
-                    fromAgent={handoffInfo.fromAgent}
-                    toAgent={handoffInfo.toAgent}
-                    onCancel={() => resetHandoff(handoffInfo.fromAgent, activeAgent, "User canceled")}
-                    visible={handoffActive}
-                  />
-                )}
-                
-                {sending && (
-                  <ChatMessage
-                    message={{
-                      id: 'sending',
-                      role: 'assistant',
-                      content: '',
-                      createdAt: new Date().toISOString(),
-                      status: "thinking"
-                    }}
-                    showAgentName={true}
-                  />
-                )}
-                
-                {toolCallInProgress && (
-                  <ChatMessage
-                    message={{
-                      id: 'tool-call',
-                      role: 'assistant',
-                      content: `Using tool: ${toolCallInProgress.name}`,
-                      createdAt: new Date().toISOString(),
-                      status: "working"
-                    }}
-                    showAgentName={false}
-                  />
-                )}
-                
-                <div ref={chatEndRef} />
-              </div>
-            </ScrollArea>
-          </div>
-          
-          {Array.isArray(pendingAttachments) && pendingAttachments.length > 0 && (
-            <div className="p-2 border-t">
-              <AttachmentPreview
-                attachments={pendingAttachments}
-                onRemove={removeAttachment}
-              />
-            </div>
-          )}
-          
-          <div className="border-t p-4 mt-auto">
-            <div className="flex items-center justify-between mb-2">
-              <div className="flex items-center space-x-2">
-                <AgentSelector
-                  selectedAgentId={activeAgent}
-                  onSelect={setActiveAgent}
-                />
-                
-                <ProjectSelector 
-                  selectedProjectId={projectContextId}
-                  onProjectSelect={setProjectId}
-                  compact={true}
-                />
-              </div>
+            } catch (error) {
+              console.error("Retry connection check failed:", error);
+            }
+          }} 
+        />
+        
+        {/* Message area */}
+        <div className="flex-1 overflow-hidden" ref={scrollAreaRef}>
+          <ScrollArea className="h-[calc(100vh-200px)] min-h-[400px]">
+            <div className="p-4 space-y-4">
+              {Array.isArray(messages) && messages.length === 0 && (
+                <div className="text-center py-10 text-slate-500">
+                  <p>Start a conversation with the AI assistant.</p>
+                </div>
+              )}
               
-              <FileAttachmentButton
-                onAttach={addAttachments}
-                disabled={sending || handoffActive}
+              {Array.isArray(messages) && messages.map((message, index) => (
+                <ChatMessage 
+                  key={message.id || index} 
+                  message={message} 
+                  showAgentName={message.role === 'assistant'}
+                  onEditContent={(type, content, sceneId) => {
+                    console.log("Edit content", type, content, sceneId);
+                  }}
+                />
+              ))}
+              
+              {handoffInProgress && (
+                <HandoffIndicator
+                  fromAgent="main"
+                  toAgent={activeAgent}
+                  onCancel={() => processHandoff("main", activeAgent, "User canceled")}
+                  visible={handoffInProgress}
+                />
+              )}
+              
+              {isLoading && (
+                <ChatMessage
+                  message={{
+                    id: 'loading',
+                    role: 'assistant',
+                    content: '',
+                    createdAt: new Date().toISOString(),
+                    status: "thinking"
+                  }}
+                  showAgentName={true}
+                />
+              )}
+              
+              <div ref={chatEndRef} />
+            </div>
+          </ScrollArea>
+        </div>
+        
+        {/* Attachments preview */}
+        {Array.isArray(pendingAttachments) && pendingAttachments.length > 0 && (
+          <div className="p-2 border-t">
+            <AttachmentPreview
+              attachments={pendingAttachments}
+              onRemove={removeAttachment}
+            />
+          </div>
+        )}
+        
+        {/* Input area */}
+        <div className="border-t p-4 mt-auto">
+          <div className="flex items-center justify-between mb-2">
+            <div className="flex items-center space-x-2">
+              <AgentSelector
+                selectedAgentId={activeAgent}
+                onSelect={setActiveAgent}
+              />
+              
+              <ProjectSelector 
+                selectedProjectId={projectContextId}
+                onProjectSelect={setProjectId}
+                compact={true}
               />
             </div>
             
-            <ChatInput
-              input={input}
-              onInputChange={setInput}
-              onSubmit={handleSendMessage}
-              disabled={sending || handoffActive}
-              isLoading={sending}
-              placeholder={
-                handoffActive
-                  ? "Handoff in progress..."
-                  : `Message ${getAgentName(activeAgent)} agent...`
-              }
+            <FileAttachmentButton
+              onAttach={addAttachments}
+              disabled={isLoading || handoffInProgress}
             />
           </div>
+          
+          <ChatInput
+            input={input}
+            onInputChange={setInput}
+            onSubmit={handleSendMessage}
+            disabled={isLoading || handoffInProgress}
+            isLoading={isLoading}
+            placeholder={
+              handoffInProgress
+                ? "Handoff in progress..."
+                : `Message ${getAgentName(activeAgent)} agent...`
+            }
+          />
         </div>
-      </Suspense>
+      </div>
     </div>
   );
 };

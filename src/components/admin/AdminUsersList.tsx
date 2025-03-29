@@ -2,6 +2,7 @@
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { User, AdminUser } from "@/types/custom-order";
+import { SupabaseError } from "@/integrations/supabase/rpc-types";
 import {
   Table,
   TableBody,
@@ -120,7 +121,8 @@ export const AdminUsersList = () => {
       );
       
       if (error) {
-        if (error.code === '23505') {
+        const supabaseError = error as SupabaseError;
+        if (supabaseError.code === '23505') {
           toast.error("User is already an admin");
         } else {
           throw error;

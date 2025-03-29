@@ -44,7 +44,6 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
   
-  // Use a ref to track the last submission time to prevent duplicate submissions
   const lastSubmissionTimeRef = useRef<number>(0);
   const processingRef = useRef<boolean>(false);
   
@@ -209,7 +208,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       return;
     }
     
-    await sendMessage(input);
+    await handleSendMessage(input, pendingAttachments);
     setInput("");
     setPendingAttachments([]);
   };
@@ -384,6 +383,12 @@ You can use the canvas tool to save scene descriptions and image prompts directl
           },
           runId,
           groupId,
+          addMessage: (text: string, type: string, msgAttachments?: Attachment[]) => {
+            console.log(`Adding message: ${text.substring(0, 50)}...`);
+          },
+          toolAvailable: (toolName: string) => {
+            return true; // Default implementation - assume all tools are available
+          }
         },
         {
           onMessage: (message: Message) => {
@@ -462,15 +467,12 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     tracingEnabled,
     currentProject,
     options.projectId,
-    options.onAgentSwitch
+    options.onAgentSwitch,
+    setMessages
   ]);
 
   const addAttachment = useCallback((attachment: Attachment) => {
     setPendingAttachments(prev => [...prev, attachment]);
-  }, []);
-
-  const removeAttachment = useCallback((attachmentId: string) => {
-    setPendingAttachments(prev => prev.filter(a => a.id !== attachmentId));
   }, []);
 
   const clearAttachments = useCallback(() => {
@@ -490,11 +492,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     activeAgent,
     setActiveAgent,
     pendingAttachments,
-    addAttachment,
-    removeAttachment,
-    clearAttachments,
-    handleSendMessage,
-    clearMessages,
     userCredits,
     usePerformanceModel,
     setUsePerformanceModel,
@@ -503,6 +500,17 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     tracingEnabled,
     setTracingEnabled,
     handoffInProgress,
+    agentInstructions,
+    handleSubmit,
+    switchAgent,
+    clearChat,
+    addAttachments,
+    removeAttachment,
+    updateAgentInstructions,
+    getAgentInstructions,
+    togglePerformanceMode,
+    toggleDirectToolExecution,
+    toggleTracing,
     setProjectContext: setCurrentProject,
     chatSessionId
   };

@@ -31,46 +31,68 @@ export const AdminUsageStats = () => {
     setLoading(true);
     try {
       // Fetch total users
-      const { count: totalUsers } = await supabase
+      const { data: usersData, error: usersError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true });
+      
+      const totalUsers = usersData?.length || 0;
+      
+      if (usersError) throw usersError;
       
       // Fetch active users (with activity in the last 30 days)
       const thirtyDaysAgo = new Date();
       thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
       
-      const { count: activeUsers } = await supabase
+      const { data: activeUsersData, error: activeUsersError } = await supabase
         .from('profiles')
         .select('*', { count: 'exact', head: true })
         .gt('updated_at', thirtyDaysAgo.toISOString());
       
+      const activeUsers = activeUsersData?.length || 0;
+      
+      if (activeUsersError) throw activeUsersError;
+      
       // Fetch total images
-      const { count: totalImages } = await supabase
+      const { data: imagesData, error: imagesError } = await supabase
         .from('image_generation_jobs')
         .select('*', { count: 'exact', head: true });
       
+      const totalImages = imagesData?.length || 0;
+      
+      if (imagesError) throw imagesError;
+      
       // Fetch total videos
-      const { count: totalVideos } = await supabase
+      const { data: videosData, error: videosError } = await supabase
         .from('video_generation_jobs')
         .select('*', { count: 'exact', head: true });
       
-      // Fetch total custom orders - using raw query for tables not in TypeScript types
-      const { count: totalCustomOrders } = await supabase.rpc(
+      const totalVideos = videosData?.length || 0;
+      
+      if (videosError) throw videosError;
+      
+      // Fetch total custom orders
+      const { data: customOrdersData } = await supabase.rpc(
         'get_table_count',
         { table_name: 'custom_orders' }
       );
       
-      // Fetch pending custom orders - using raw query for tables not in TypeScript types
-      const { count: pendingCustomOrders } = await supabase.rpc(
+      const totalCustomOrders = customOrdersData || 0;
+      
+      // Fetch pending custom orders
+      const { data: pendingCustomOrdersData } = await supabase.rpc(
         'get_pending_custom_orders_count'
       );
       
+      const pendingCustomOrders = pendingCustomOrdersData || 0;
+      
       // Fetch total credits used
-      const { data: creditsData } = await supabase
+      const { data: creditsData, error: creditsError } = await supabase
         .from('credit_update_logs')
         .select('credits_before, credits_after')
         .not('credits_before', 'is', null)
         .not('credits_after', 'is', null);
+      
+      if (creditsError) throw creditsError;
       
       let totalCreditsUsed = 0;
       if (creditsData) {
@@ -81,13 +103,13 @@ export const AdminUsageStats = () => {
       }
       
       setStats({
-        totalUsers: totalUsers || 0,
-        activeUsers: activeUsers || 0,
-        totalImages: totalImages || 0,
-        totalVideos: totalVideos || 0,
-        totalCustomOrders: totalCustomOrders || 0,
-        pendingCustomOrders: pendingCustomOrders || 0,
-        totalCreditsUsed: totalCreditsUsed
+        totalUsers,
+        activeUsers,
+        totalImages,
+        totalVideos,
+        totalCustomOrders,
+        pendingCustomOrders,
+        totalCreditsUsed
       });
     } catch (error) {
       console.error("Error fetching stats:", error);

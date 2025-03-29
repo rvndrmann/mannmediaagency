@@ -47,3 +47,11 @@ export interface TraceData {
     success: boolean;
   };
 }
+
+// Type for Supabase error extension
+export interface SupabaseError extends Error {
+  code?: string;
+  details?: string;
+  hint?: string;
+  message: string;
+}

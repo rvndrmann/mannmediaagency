@@ -9,6 +9,14 @@ interface UseProjectContextOptions {
   initialProjectId?: string;
 }
 
+interface CachedProject {
+  project: CanvasProject;
+  timestamp: number;
+}
+
+// Cache duration in milliseconds (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000;
+
 export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [activeProjectId, setActiveProjectId] = useLocalStorage<string | null>(
     "multiagent-active-project", 
@@ -21,11 +29,23 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
   const [hasLoadedProjects, setHasLoadedProjects] = useState(false);
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [isOffline, setIsOffline] = useState(false);
+  const [localProjectCache, setLocalProjectCache] = useLocalStorage<{[key: string]: CachedProject}>(
+    "canvas-project-cache",
+    {}
+  );
+  const [sessionRefreshed, setSessionRefreshed] = useState(false);
 
   // Check online status
   useEffect(() => {
-    const handleOnline = () => setIsOffline(false);
-    const handleOffline = () => setIsOffline(true);
+    const handleOnline = () => {
+      setIsOffline(false);
+      toast.success("You're back online!");
+    };
+    
+    const handleOffline = () => {
+      setIsOffline(true);
+      toast.error("You're offline. Some features may be limited.");
+    };
     
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
@@ -38,9 +58,35 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       window.removeEventListener('offline', handleOffline);
     };
   }, []);
+  
+  // Preload cached project data immediately if available
+  useEffect(() => {
+    if (activeProjectId && localProjectCache[activeProjectId]) {
+      const cachedData = localProjectCache[activeProjectId];
+      const now = Date.now();
+      
+      // Only use cache if it's not expired
+      if (now - cachedData.timestamp < CACHE_DURATION) {
+        setProjectDetails(cachedData.project);
+      }
+    }
+  }, [activeProjectId, localProjectCache]);
 
   const fetchAvailableProjects = useCallback(async () => {
     if (isOffline) {
+      // In offline mode, try to show cached projects if available
+      const cachedProjects = Object.values(localProjectCache || {}).map(item => ({
+        id: item.project.id,
+        title: item.project.title
+      }));
+      
+      if (cachedProjects.length > 0) {
+        setAvailableProjects(cachedProjects);
+        setHasLoadedProjects(true);
+        toast.info("Showing cached projects while offline");
+        return cachedProjects;
+      }
+      
       toast.error("You are offline. Please check your internet connection.");
       return [];
     }
@@ -51,8 +97,17 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
       
       if (userError) {
         console.error("Auth error:", userError);
-        toast.error("Authentication error. Please log in again.");
-        return [];
+        
+        // Try to refresh the session before giving up
+        const { data: refreshData, error: refreshError } = await supabase.auth.refreshSession();
+        
+        if (refreshError || !refreshData.session) {
+          toast.error("Authentication error. Please log in again.");
+          return [];
+        }
+        
+        // If we successfully refreshed the session, continue with the refreshed user
+        userData.user = refreshData.user;
       }
       
       if (!userData?.user) {
@@ -71,37 +126,57 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         throw error;
       }
       
-      setAvailableProjects(data || []);
+      const projects = data || [];
+      setAvailableProjects(projects);
       setHasLoadedProjects(true);
-      return data || [];
+      return projects;
     } catch (error) {
       console.error("Error fetching available projects:", error);
       setHasLoadedProjects(true);
-      toast.error("Failed to load available projects");
+      
+      // Show different message based on error type
+      if (error instanceof TypeError && error.message.includes("Failed to fetch")) {
+        toast.error("Network error. Please check your connection.");
+      } else {
+        toast.error("Failed to load available projects");
+      }
       return [];
     } finally {
       setIsLoading(false);
     }
-  }, [isOffline]);
+  }, [isOffline, localProjectCache]);
 
   const refreshAuthSession = useCallback(async () => {
     try {
+      if (sessionRefreshed) {
+        return true; // Don't refresh more than once per component lifecycle
+      }
+      
       const { data, error } = await supabase.auth.refreshSession();
       if (error) {
         console.error("Failed to refresh auth session:", error);
         return false;
       }
+      
+      setSessionRefreshed(true);
       return !!data.session;
     } catch (error) {
       console.error("Error refreshing auth session:", error);
       return false;
     }
-  }, []);
+  }, [sessionRefreshed]);
 
   const fetchProjectDetails = useCallback(async (projectId: string, retry = false) => {
     if (!projectId) return null;
+    
+    // Return cached project if offline
     if (isOffline) {
-      toast.error("You are offline. Please check your internet connection.");
+      const cachedProject = localProjectCache[projectId];
+      if (cachedProject) {
+        toast.info("Showing cached project data while offline");
+        return cachedProject.project;
+      }
+      toast.error("You are offline and this project isn't cached. Please reconnect to load it.");
       return null;
     }
     
@@ -180,6 +255,15 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
         }))
       };
       
+      // Update local cache with the latest data
+      setLocalProjectCache(prev => ({
+        ...prev,
+        [projectId]: {
+          project: formattedProject,
+          timestamp: Date.now()
+        }
+      }));
+      
       setProjectDetails(formattedProject);
       setLoadAttempts(0);
       return formattedProject;
@@ -203,6 +287,14 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
             fetchProjectDetails(projectId, true);
           }, Math.min(1000 * Math.pow(2, newAttempts - 1), 8000)); // Max 8 second delay
         } else {
+          // Try to use cached data if available
+          const cachedProject = localProjectCache[projectId];
+          if (cachedProject) {
+            toast.info("Using cached project data while experiencing network issues");
+            setProjectDetails(cachedProject.project);
+            return cachedProject.project;
+          }
+          
           toast.error("Connection issues persist. Please try again later or check your network.");
         }
         return null;
@@ -217,6 +309,14 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
           fetchProjectDetails(projectId, true);
         }, 2000);
       } else {
+        // Try to use cached data as fallback
+        const cachedProject = localProjectCache[projectId];
+        if (cachedProject) {
+          toast.info("Using cached project data");
+          setProjectDetails(cachedProject.project);
+          return cachedProject.project;
+        }
+        
         setError(error instanceof Error ? error.message : "Unknown error fetching project");
         toast.error("Failed to load project details. Please try again later.");
       }
@@ -225,7 +325,7 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     } finally {
       setIsLoading(false);
     }
-  }, [loadAttempts, isOffline, refreshAuthSession]);
+  }, [loadAttempts, isOffline, refreshAuthSession, localProjectCache, setLocalProjectCache]);
 
   useEffect(() => {
     if (activeProjectId) {
@@ -262,6 +362,31 @@ export function useProjectContext(options: UseProjectContextOptions = {}) {
     }
     return null;
   }, [activeProjectId, fetchProjectDetails]);
+
+  // Clear expired cache entries periodically
+  useEffect(() => {
+    const cleanupCache = () => {
+      const now = Date.now();
+      const newCache = { ...localProjectCache };
+      let hasChanges = false;
+      
+      Object.keys(newCache).forEach(key => {
+        if (now - newCache[key].timestamp > CACHE_DURATION) {
+          delete newCache[key];
+          hasChanges = true;
+        }
+      });
+      
+      if (hasChanges) {
+        setLocalProjectCache(newCache);
+      }
+    };
+    
+    cleanupCache();
+    const interval = setInterval(cleanupCache, CACHE_DURATION);
+    
+    return () => clearInterval(interval);
+  }, [localProjectCache, setLocalProjectCache]);
 
   return {
     activeProjectId,

@@ -7,7 +7,7 @@ import { CanvasEmptyState } from "@/components/canvas/CanvasEmptyState";
 import { CanvasChat } from "@/components/canvas/CanvasChat";
 import { ProjectHistory } from "@/components/canvas/ProjectHistory";
 import { useCanvas } from "@/hooks/use-canvas";
-import { Loader2, RefreshCw, AlertCircle } from "lucide-react";
+import { Loader2, RefreshCw, AlertCircle, Wifi, WifiOff } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -26,6 +26,8 @@ export default function Canvas() {
   const [showHistory, setShowHistory] = useState(false);
   const [shouldCreateProject, setShouldCreateProject] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [authLoading, setAuthLoading] = useState(true);
+  const [networkError, setNetworkError] = useState<string | null>(null);
   
   // Get project context
   const { 
@@ -33,7 +35,8 @@ export default function Canvas() {
     availableProjects, 
     hasLoadedProjects,
     setActiveProject,
-    isOffline
+    isOffline,
+    refreshProject
   } = useProjectContext();
   
   // Get chat session context for shared history
@@ -43,10 +46,15 @@ export default function Canvas() {
   useEffect(() => {
     const checkAuth = async () => {
       try {
+        setAuthLoading(true);
         const { data, error } = await supabase.auth.getSession();
         
         if (error) {
-          throw error;
+          if (error.message.includes("Failed to fetch")) {
+            setNetworkError("Network error. Please check your connection and try again.");
+          } else {
+            throw error;
+          }
         }
         
         setIsAuthenticated(!!data.session);
@@ -58,8 +66,16 @@ export default function Canvas() {
         }
       } catch (err: any) {
         console.error("Auth error:", err);
-        setAuthError(err.message || "Authentication error");
+        
+        if (err.message && err.message.includes("Failed to fetch")) {
+          setNetworkError("Network error checking authentication. Please check your connection.");
+        } else {
+          setAuthError(err.message || "Authentication error");
+        }
+        
         setIsAuthenticated(false);
+      } finally {
+        setAuthLoading(false);
       }
     };
     
@@ -69,7 +85,12 @@ export default function Canvas() {
   // Fetch available projects once we know user is authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      fetchAvailableProjects();
+      fetchAvailableProjects().catch(err => {
+        console.error("Error fetching projects:", err);
+        if (err.message && err.message.includes("Failed to fetch")) {
+          setNetworkError("Network error loading projects. Please check your connection.");
+        }
+      });
     }
   }, [isAuthenticated, fetchAvailableProjects]);
   
@@ -150,8 +171,13 @@ export default function Canvas() {
     navigate(`/multi-agent-chat?projectId=${projectId}`);
   };
 
+  // Check if there are network-related errors
+  const hasNetworkError = networkError || 
+    (error && error.includes("Failed to fetch")) || 
+    (authError && authError.includes("Failed to fetch"));
+
   // Show authentication loading state
-  if (isAuthenticated === null) {
+  if (authLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -180,20 +206,34 @@ export default function Canvas() {
   }
 
   // Show offline warning
-  if (isOffline) {
+  if (isOffline || hasNetworkError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen p-4">
         <Alert variant="warning" className="mb-4 max-w-md">
-          <AlertCircle className="h-4 w-4" />
-          <AlertTitle>You are offline</AlertTitle>
-          <AlertDescription>Please check your internet connection to load canvas projects.</AlertDescription>
+          <WifiOff className="h-4 w-4" />
+          <AlertTitle>{isOffline ? "You are offline" : "Network Connection Issues"}</AlertTitle>
+          <AlertDescription>
+            {networkError || "Please check your internet connection to load canvas projects."}
+          </AlertDescription>
         </Alert>
-        <Button 
-          onClick={() => window.location.reload()}
-          className="mt-4"
-        >
-          Retry Connection
-        </Button>
+        <div className="flex gap-2 mt-4">
+          <Button 
+            onClick={() => window.location.reload()}
+            className="flex items-center gap-2"
+          >
+            <RefreshCw className="h-4 w-4" />
+            Retry Connection
+          </Button>
+          {projectId && (
+            <Button 
+              variant="outline"
+              onClick={() => refreshProject()}
+              className="flex items-center gap-2"
+            >
+              Try Using Cached Data
+            </Button>
+          )}
+        </div>
       </div>
     );
   }
@@ -306,6 +346,37 @@ export default function Canvas() {
             onRetryLoading={retryLoading}
           />
         </div>
+        
+        {/* Network status indicator */}
+        {isAuthenticated && (
+          <div className="fixed bottom-4 right-4">
+            <Button 
+              variant="ghost" 
+              size="sm"
+              className="flex items-center gap-2 bg-opacity-70 hover:bg-opacity-100"
+              onClick={() => {
+                if (isOffline) {
+                  toast.error("You are currently offline");
+                } else {
+                  refreshProject();
+                  toast.success("Refreshing project data");
+                }
+              }}
+            >
+              {isOffline ? (
+                <>
+                  <WifiOff className="h-4 w-4 text-red-500" />
+                  <span className="text-red-500">Offline</span>
+                </>
+              ) : (
+                <>
+                  <Wifi className="h-4 w-4 text-green-500" />
+                  <span className="text-green-500">Online</span>
+                </>
+              )}
+            </Button>
+          </div>
+        )}
       </div>
     </TooltipProvider>
   );

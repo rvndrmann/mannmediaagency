@@ -5,6 +5,14 @@ import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject, CanvasScene, SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
 
+interface CachedProject {
+  project: CanvasProject;
+  timestamp: number;
+}
+
+// Cache duration in milliseconds (5 minutes)
+const CACHE_DURATION = 5 * 60 * 1000;
+
 export const useCanvas = (projectId?: string) => {
   const [project, setProject] = useState<CanvasProject | null>(null);
   const [scenes, setScenes] = useState<CanvasScene[]>([]);
@@ -14,6 +22,24 @@ export const useCanvas = (projectId?: string) => {
   const [loadAttempts, setLoadAttempts] = useState(0);
   const [isRetrying, setIsRetrying] = useState(false);
   const [lastFetchTime, setLastFetchTime] = useState(0);
+  const [localCache, setLocalCache] = useState<{[key: string]: CachedProject}>(() => {
+    // Initialize from localStorage if available
+    try {
+      const cached = localStorage.getItem('canvas-projects-cache');
+      return cached ? JSON.parse(cached) : {};
+    } catch (e) {
+      return {};
+    }
+  });
+
+  // Save cache to localStorage whenever it changes
+  useEffect(() => {
+    try {
+      localStorage.setItem('canvas-projects-cache', JSON.stringify(localCache));
+    } catch (e) {
+      console.error("Failed to save cache to localStorage:", e);
+    }
+  }, [localCache]);
 
   // Check if we need to refresh auth session
   const refreshAuthSessionIfNeeded = useCallback(async () => {
@@ -35,6 +61,25 @@ export const useCanvas = (projectId?: string) => {
       return false;
     }
   }, []);
+  
+  // Try to preload from cache immediately
+  useEffect(() => {
+    if (projectId && localCache[projectId]) {
+      const cachedData = localCache[projectId];
+      const now = Date.now();
+      
+      // Only use cache if it's not expired
+      if (now - cachedData.timestamp < CACHE_DURATION) {
+        setProject(cachedData.project);
+        setScenes(cachedData.project.scenes);
+        
+        // If there are scenes, select the first one
+        if (cachedData.project.scenes.length > 0 && !selectedSceneId) {
+          setSelectedSceneId(cachedData.project.scenes[0].id);
+        }
+      }
+    }
+  }, [projectId, localCache, selectedSceneId]);
 
   const fetchProjectAndScenes = useCallback(async (retry = false) => {
     if (!projectId) {
@@ -124,7 +169,17 @@ export const useCanvas = (projectId?: string) => {
         duration: scene.duration
       }));
 
-      setProject(transformedProject);
+      // Update cache with fresh data
+      const updatedProject = {...transformedProject, scenes: transformedScenes};
+      setLocalCache(prev => ({
+        ...prev,
+        [projectId]: {
+          project: updatedProject,
+          timestamp: Date.now()
+        }
+      }));
+      
+      setProject(updatedProject);
       setScenes(transformedScenes);
       setLoadAttempts(0);
       setError(null);
@@ -138,6 +193,28 @@ export const useCanvas = (projectId?: string) => {
       
       const newAttempts = loadAttempts + 1;
       setLoadAttempts(newAttempts);
+      
+      // Try to use cached data if available
+      if (localCache[projectId]) {
+        const cachedData = localCache[projectId];
+        const now = Date.now();
+        
+        // Only use cache if it's not too old
+        if (now - cachedData.timestamp < CACHE_DURATION) {
+          toast.info("Using cached project data while resolving connection issues");
+          setProject(cachedData.project);
+          setScenes(cachedData.project.scenes);
+          
+          // If there are scenes, select the first one if none is selected
+          if (cachedData.project.scenes.length > 0 && !selectedSceneId) {
+            setSelectedSceneId(cachedData.project.scenes[0].id);
+          }
+          
+          // Still set error so user knows there was an issue
+          setError("Using cached data. " + (err instanceof Error ? err.message : "Connection issues detected"));
+          return;
+        }
+      }
       
       // Handle network errors differently
       if (err instanceof TypeError && err.message.includes("Failed to fetch")) {
@@ -178,11 +255,36 @@ export const useCanvas = (projectId?: string) => {
       setLoading(false);
       setIsRetrying(false);
     }
-  }, [projectId, selectedSceneId, loadAttempts, isRetrying, lastFetchTime, refreshAuthSessionIfNeeded]);
+  }, [projectId, selectedSceneId, loadAttempts, isRetrying, lastFetchTime, refreshAuthSessionIfNeeded, localCache]);
 
   useEffect(() => {
     fetchProjectAndScenes();
   }, [fetchProjectAndScenes]);
+
+  // Clear expired cache entries
+  useEffect(() => {
+    const cleanupCache = () => {
+      const now = Date.now();
+      const newCache = { ...localCache };
+      let hasChanges = false;
+      
+      Object.keys(newCache).forEach(key => {
+        if (now - newCache[key].timestamp > CACHE_DURATION) {
+          delete newCache[key];
+          hasChanges = true;
+        }
+      });
+      
+      if (hasChanges) {
+        setLocalCache(newCache);
+      }
+    };
+    
+    cleanupCache();
+    const interval = setInterval(cleanupCache, CACHE_DURATION);
+    
+    return () => clearInterval(interval);
+  }, [localCache]);
 
   const retryLoading = () => {
     setLoadAttempts(0);
@@ -321,7 +423,7 @@ export const useCanvas = (projectId?: string) => {
         throw error;
       }
 
-      // Update local state to reflect the change
+      // Update local state to reflect the change immediately
       setScenes(prev => 
         prev.map(scene => 
           scene.id === sceneId 
@@ -329,6 +431,31 @@ export const useCanvas = (projectId?: string) => {
             : scene
         )
       );
+      
+      // Also update the project's scenes
+      if (project) {
+        const updatedProject = {
+          ...project,
+          scenes: project.scenes.map(scene => 
+            scene.id === sceneId 
+              ? { ...scene, [type]: value }
+              : scene
+          )
+        };
+        
+        setProject(updatedProject);
+        
+        // Update cache with modified data
+        setLocalCache(prev => ({
+          ...prev,
+          [project.id]: {
+            project: updatedProject,
+            timestamp: Date.now()
+          }
+        }));
+      }
+      
+      toast.success(`Scene ${type} updated`);
     } catch (err: any) {
       console.error(`Error updating scene ${type}:`, err);
       toast.error(err.message || `Failed to update scene ${type}`);
@@ -350,7 +477,18 @@ export const useCanvas = (projectId?: string) => {
       }
 
       // Update local state
-      setProject(prev => prev ? { ...prev, fullScript: script } : null);
+      const updatedProject = { ...project, fullScript: script };
+      setProject(updatedProject);
+      
+      // Update cache with modified data
+      setLocalCache(prev => ({
+        ...prev,
+        [project.id]: {
+          project: updatedProject,
+          timestamp: Date.now()
+        }
+      }));
+      
       toast.success("Script saved");
     } catch (err: any) {
       console.error("Error saving script:", err);
@@ -370,6 +508,13 @@ export const useCanvas = (projectId?: string) => {
       }
 
       toast.loading("Processing script...");
+      
+      // Try offline first: check if navigator.onLine is false
+      if (!navigator.onLine) {
+        toast.dismiss();
+        toast.error("You are offline. This operation requires an internet connection.");
+        return;
+      }
       
       // Call the process-script function
       const { data, error } = await supabase.functions.invoke('process-script', {
@@ -392,7 +537,7 @@ export const useCanvas = (projectId?: string) => {
       toast.success("Script divided into scenes");
       
       // Show message about image prompts
-      if (data.imagePrompts) {
+      if (data?.imagePrompts) {
         const { processedScenes, successfulScenes } = data.imagePrompts;
         if (processedScenes > 0) {
           toast.success(`Generated image prompts for ${successfulScenes} out of ${processedScenes} scenes`);
@@ -402,7 +547,13 @@ export const useCanvas = (projectId?: string) => {
     } catch (err: any) {
       console.error("Error dividing script:", err);
       toast.dismiss();
-      toast.error(err.message || "Failed to divide script");
+      
+      // Check for network errors
+      if (err instanceof TypeError && err.message.includes("Failed to fetch")) {
+        toast.error("Network error. Please check your internet connection.");
+      } else {
+        toast.error(err.message || "Failed to divide script");
+      }
     }
   };
 
@@ -420,7 +571,18 @@ export const useCanvas = (projectId?: string) => {
       }
       
       // Update local state
-      setProject(prev => prev ? { ...prev, title } : null);
+      const updatedProject = { ...project, title };
+      setProject(updatedProject);
+      
+      // Update cache
+      setLocalCache(prev => ({
+        ...prev,
+        [project.id]: {
+          project: updatedProject,
+          timestamp: Date.now()
+        }
+      }));
+      
       toast.success("Project title updated");
     } catch (err: any) {
       console.error("Error updating project title:", err);

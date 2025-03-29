@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useQuery } from "@tanstack/react-query";
@@ -25,7 +24,7 @@ export const useAIChat = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [processingRequestId, setProcessingRequestId] = useState<string | null>(null);
   const [useAssistantsApi, setUseAssistantsApi] = useState<boolean>(false);
-  const [useMcp, setUseMcp] = useState<boolean>(false);
+  const [useMcp, setUseMcp] = useState<boolean>(true);
 
   const { data: userCredits, refetch: refetchCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -57,7 +56,6 @@ export const useAIChat = () => {
     }
   }, [messages]);
 
-  // Function to create a proper Message object
   const createMessage = (data: Partial<Message>): Message => {
     return {
       id: data.id || crypto.randomUUID(),
@@ -241,20 +239,15 @@ export const useAIChat = () => {
     let creditsDeducted = false;
 
     try {
-      // 1. Deduct credits first
       await deductChatCredits();
       creditsDeducted = true;
       
-      // 2. Log usage
       await logChatUsage(trimmedInput);
       
-      // 3. Refresh user credits
       refetchCredits();
 
-      // 4. Start processing with AI
       updateTaskStatus(messageIndex, assistantMessage.tasks![0].id, "working");
       
-      // 5. Make call to AI function
       const data = await makeRequestWithRetry('chat-with-langflow', { 
         message: trimmedInput,
         requestId
@@ -268,11 +261,9 @@ export const useAIChat = () => {
       if (data && data.message) {
         updateTaskStatus(messageIndex, assistantMessage.tasks![1].id, "completed");
         
-        // Check if there's a command in the response
         let commandObj = data.command ? data.command : null;
         let selectedTool = null;
         
-        // Extract selected tool information from command if present
         if (commandObj && commandObj.feature) {
           selectedTool = commandObj.feature;
         } else if (commandObj && commandObj.tool) {
@@ -281,7 +272,6 @@ export const useAIChat = () => {
           selectedTool = commandObj.type;
         }
         
-        // 2. Log usage with selected tool information
         await logChatUsage(trimmedInput, selectedTool);
         
         setMessages(prev => {
@@ -298,7 +288,6 @@ export const useAIChat = () => {
           return newMessages;
         });
         
-        // If a media command is detected, display a toast
         if (commandObj && (
             (commandObj.type === 'image' || commandObj.type === 'video') ||
             (commandObj.feature && ['product-shot-v1', 'product-shot-v2', 'image-to-video'].includes(commandObj.feature))

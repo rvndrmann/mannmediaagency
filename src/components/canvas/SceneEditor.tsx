@@ -168,6 +168,9 @@ Format the prompt to get the best results from an AI image generator.`;
               checked={useMcp} 
               onCheckedChange={setUseMcp} 
             />
+            {useMcp && (
+              <span className="text-xs text-green-400 ml-1">(Recommended)</span>
+            )}
           </div>
         </div>
       </div>

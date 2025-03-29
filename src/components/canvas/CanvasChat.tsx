@@ -5,6 +5,7 @@ import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { useEffect, useState } from "react";
+import { useProjectContext } from "@/hooks/multi-agent/project-context";
 
 interface CanvasChatProps {
   projectId?: string;
@@ -12,9 +13,18 @@ interface CanvasChatProps {
 }
 
 export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
-  const { getOrCreateChatSession } = useChatSession();
+  const { getOrCreateChatSession, activeSession } = useChatSession();
+  const { setActiveProject } = useProjectContext();
   const [sessionId, setSessionId] = useState<string | null>(null);
   
+  // Set active project in project context to ensure shared state
+  useEffect(() => {
+    if (projectId) {
+      setActiveProject(projectId);
+    }
+  }, [projectId, setActiveProject]);
+  
+  // Get or create chat session for this project
   useEffect(() => {
     if (projectId) {
       const id = getOrCreateChatSession(projectId, [

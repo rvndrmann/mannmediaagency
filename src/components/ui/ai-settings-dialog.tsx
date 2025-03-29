@@ -122,7 +122,7 @@ export function AISettingsDialog({
                   </TooltipTrigger>
                   <TooltipContent side="right">
                     <p className="max-w-xs">
-                      Use Model Context Protocol (MCP) server. Enables AI to access your data sources and tools directly.
+                      Use Model Context Protocol (MCP) server. Enables AI to access your data sources and tools directly (Recommended).
                     </p>
                   </TooltipContent>
                 </Tooltip>
@@ -137,7 +137,7 @@ export function AISettingsDialog({
           
           <div className="px-3 py-2 border border-yellow-500/20 bg-yellow-500/10 rounded-md">
             <p className="text-sm text-yellow-300">
-              Note: Switching between AI engines may require administrator setup. Consult documentation for required environment variables.
+              Note: MCP is recommended for best Canvas integration. Switching between AI engines may require administrator setup.
             </p>
           </div>
         </div>

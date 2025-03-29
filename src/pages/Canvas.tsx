@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { useChatSession } from "@/contexts/ChatSessionContext";
 
 export default function Canvas() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -28,8 +29,12 @@ export default function Canvas() {
   const { 
     fetchAvailableProjects, 
     availableProjects, 
-    hasLoadedProjects 
+    hasLoadedProjects,
+    setActiveProject 
   } = useProjectContext();
+  
+  // Get chat session context for shared history
+  const { getOrCreateChatSession } = useChatSession();
   
   // Check if user is authenticated
   useEffect(() => {
@@ -52,6 +57,16 @@ export default function Canvas() {
       fetchAvailableProjects();
     }
   }, [isAuthenticated, fetchAvailableProjects]);
+  
+  // Set active project in project context to ensure shared state
+  useEffect(() => {
+    if (projectId) {
+      setActiveProject(projectId);
+      
+      // Also ensure a chat session exists for this project (for history syncing)
+      getOrCreateChatSession(projectId);
+    }
+  }, [projectId, setActiveProject, getOrCreateChatSession]);
   
   // Redirect to latest project if no project ID is specified and we have projects
   useEffect(() => {

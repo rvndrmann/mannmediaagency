@@ -27,6 +27,17 @@ export function useChatHistoryStore() {
     const newSessionId = crypto.randomUUID();
     const title = projectId ? `Project #${projectId}` : `Chat ${chatSessions.length + 1}`;
     
+    // Check if we already have a session with this same projectId
+    const existingSession = projectId 
+      ? chatSessions.find(session => session.projectId === projectId)
+      : null;
+    
+    if (existingSession) {
+      // If we have an existing session, just reuse it
+      setActiveChatId(existingSession.id);
+      return existingSession.id;
+    }
+    
     const newSession: ChatSession = {
       id: newSessionId,
       projectId,
@@ -42,10 +53,18 @@ export function useChatHistoryStore() {
   
   // Get or create chat session for a project
   const getOrCreateChatSession = (projectId: string | null, initialMessages: Message[] = []) => {
+    // First, check for an existing session with this project ID
     const existingSession = chatSessions.find(session => session.projectId === projectId);
     
     if (existingSession) {
       setActiveChatId(existingSession.id);
+      
+      // If there are initial messages and the existing session has no messages,
+      // update the session with the initial messages
+      if (initialMessages.length > 0 && existingSession.messages.length === 0) {
+        updateChatSession(existingSession.id, initialMessages);
+      }
+      
       return existingSession.id;
     }
     

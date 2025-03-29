@@ -37,7 +37,8 @@ export const canvasTool = {
       },
       useMcp: {
         type: "boolean",
-        description: "Whether to use Model Context Protocol for this operation"
+        description: "Whether to use Model Context Protocol for this operation",
+        default: true
       },
       productShotVersion: {
         type: "string",
@@ -55,10 +56,10 @@ export const canvasTool = {
   
   execute: async (params, context) => {
     try {
-      const { action, projectId, sceneId, content, useMcp, productShotVersion, aspectRatio } = params;
+      const { action, projectId, sceneId, content, useMcp = true, productShotVersion, aspectRatio } = params;
       
-      // Handle MCP execution if requested
-      if (useMcp) {
+      // Default to MCP execution (now the default approach)
+      if (useMcp !== false) {
         const mcpServer = new MCPServerService(`https://api.example.com/mcp/${projectId}`);
         await mcpServer.connect();
         

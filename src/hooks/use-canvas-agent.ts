@@ -26,7 +26,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<CanvasAgentType>(null);
-  const [useMcp, setUseMcp] = useState(false);
+  const [useMcp, setUseMcp] = useState(true); // Default to true - MCP enabled by default
   const [mcpServer, setMcpServer] = useState<MCPServerService | null>(null);
 
   // Get or create a chat session for this project
@@ -49,7 +49,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     }
   }, [messages, chatSessionId, updateChatSession]);
 
-  // Initialize MCP server
+  // Initialize MCP server if useMcp is true (which is now the default)
   useEffect(() => {
     if (useMcp && !mcpServer) {
       const server = new MCPServerService(`https://api.example.com/mcp/${projectId}`);

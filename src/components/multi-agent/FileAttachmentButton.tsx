@@ -49,8 +49,7 @@ export function FileAttachmentButton({ onAttach }: FileAttachmentButtonProps) {
           type: isImage ? 'image' : 'file',
           url: publicUrlData.publicUrl,
           name: file.name,
-          size: file.size,
-          contentType: file.type
+          size: file.size
         });
       }
       

@@ -48,14 +48,18 @@ export function TraceDashboard({ userId }: TraceDashboardProps) {
         setLoading(true);
         setError(null);
         
+        // Use type assertion to handle RPC function that isn't in the known list
         const { data, error: fetchError } = await supabase
-          .rpc('get_agent_trace_analytics', { user_id_param: userId }) as any;
+          .rpc('get_agent_trace_analytics', { user_id_param: userId }) as unknown as { 
+            data: AgentAnalytics; 
+            error: Error | null;
+          };
         
         if (fetchError) {
           throw fetchError;
         }
         
-        setAnalytics(data as AgentAnalytics);
+        setAnalytics(data);
       } catch (err) {
         console.error("Error fetching analytics:", err);
         setError('Failed to load analytics data. Please try again later.');

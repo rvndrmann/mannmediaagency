@@ -56,16 +56,19 @@ const TraceAnalytics: React.FC = () => {
         if (user) {
           setUserId(user.id);
           
-          // Fetch conversations
+          // Use type assertion to handle RPC function that isn't in the known list
           const { data, error: conversationsError } = await supabase
-            .rpc('get_user_conversations', { user_id_param: user.id }) as any;
+            .rpc('get_user_conversations', { user_id_param: user.id }) as unknown as {
+              data: Conversation[];
+              error: Error | null;
+            };
           
           if (conversationsError) {
             throw conversationsError;
           }
           
           if (data) {
-            setConversations(data as Conversation[]);
+            setConversations(data);
           }
         }
       } catch (error) {
@@ -87,17 +90,21 @@ const TraceAnalytics: React.FC = () => {
     try {
       setTraceDataLoading(true);
       
+      // Use type assertion to handle RPC function that isn't in the known list
       const { data, error } = await supabase
         .rpc('get_conversation_trace', { 
           conversation_id: conversationId, 
           user_id_param: userId 
-        }) as any;
+        }) as unknown as {
+          data: TraceData;
+          error: Error | null;
+        };
       
       if (error) {
         throw error;
       }
       
-      setTraceData(data as TraceData);
+      setTraceData(data);
       setSelectedConversationId(conversationId);
     } catch (error) {
       console.error('Error fetching trace data:', error);

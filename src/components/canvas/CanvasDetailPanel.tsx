@@ -40,7 +40,7 @@ export function CanvasDetailPanel({
   
   const { 
     isProcessing, 
-    agentMessages, 
+    messages, // Use messages instead of agentMessages
     activeAgent,
     generateSceneScript,
     generateImagePrompt,
@@ -499,7 +499,7 @@ export function CanvasDetailPanel({
           </DialogHeader>
           
           <div className="flex-1 overflow-y-auto my-4 space-y-4 max-h-[60vh]">
-            {agentMessages.map((message, index) => (
+            {messages.map((message, index) => (
               <ChatMessage 
                 key={index} 
                 message={message}
@@ -507,7 +507,7 @@ export function CanvasDetailPanel({
               />
             ))}
             
-            {agentMessages.length === 0 && (
+            {messages.length === 0 && (
               <div className="text-center text-muted-foreground p-4">
                 No messages yet. Generate content to start a conversation with the AI agent.
               </div>

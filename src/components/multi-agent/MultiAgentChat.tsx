@@ -143,6 +143,21 @@ const MultiAgentChat = ({
     }
   }, [messages]);
   
+  // Auto-scroll when sending messages or receiving new ones
+  useEffect(() => {
+    const scrollToBottom = () => {
+      if (chatEndRef.current) {
+        chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
+      }
+    };
+    
+    scrollToBottom();
+    
+    // Schedule another scroll after a short delay to ensure new content is included
+    const timer = setTimeout(scrollToBottom, 100);
+    return () => clearTimeout(timer);
+  }, [sending, messages]);
+  
   useEffect(() => {
     const checkConnection = async () => {
       const { error } = await pingServer();
@@ -232,64 +247,66 @@ const MultiAgentChat = ({
             }} 
           />
           
-          {/* Increased height for the chat area */}
-          <ScrollArea className="flex-1 h-[calc(100vh-250px)] min-h-[500px]">
-            <div className="p-4 space-y-4">
-              {Array.isArray(messages) && messages.length === 0 && (
-                <div className="text-center py-10 text-muted-foreground">
-                  <p>Start a conversation with the AI assistant.</p>
-                </div>
-              )}
-              
-              {Array.isArray(messages) && messages.map((message, index) => (
-                <ChatMessage 
-                  key={message.id || index} 
-                  message={message} 
-                  showAgentName={message.role === 'assistant'}
-                  onEditContent={(type, content, sceneId) => {
-                    console.log("Edit content", type, content, sceneId);
-                  }}
-                />
-              ))}
-              
-              {handoffActive && handoffInfo && (
-                <HandoffIndicator
-                  fromAgent={handoffInfo.fromAgent}
-                  toAgent={handoffInfo.toAgent}
-                  onCancel={() => resetHandoff(handoffInfo.fromAgent, activeAgent, "User canceled")}
-                  visible={handoffActive}
-                />
-              )}
-              
-              {sending && (
-                <ChatMessage
-                  message={{
-                    id: 'sending',
-                    role: 'assistant',
-                    content: '',
-                    createdAt: new Date().toISOString(),
-                    status: "thinking"
-                  }}
-                  showAgentName={true}
-                />
-              )}
-              
-              {toolCallInProgress && (
-                <ChatMessage
-                  message={{
-                    id: 'tool-call',
-                    role: 'assistant',
-                    content: `Using tool: ${toolCallInProgress.name}`,
-                    createdAt: new Date().toISOString(),
-                    status: "working"
-                  }}
-                  showAgentName={false}
-                />
-              )}
-              
-              <div ref={chatEndRef} />
-            </div>
-          </ScrollArea>
+          {/* Message area with ScrollArea component */}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea className="h-[calc(100vh-200px)] min-h-[400px]">
+              <div className="p-4 space-y-4">
+                {Array.isArray(messages) && messages.length === 0 && (
+                  <div className="text-center py-10 text-muted-foreground">
+                    <p>Start a conversation with the AI assistant.</p>
+                  </div>
+                )}
+                
+                {Array.isArray(messages) && messages.map((message, index) => (
+                  <ChatMessage 
+                    key={message.id || index} 
+                    message={message} 
+                    showAgentName={message.role === 'assistant'}
+                    onEditContent={(type, content, sceneId) => {
+                      console.log("Edit content", type, content, sceneId);
+                    }}
+                  />
+                ))}
+                
+                {handoffActive && handoffInfo && (
+                  <HandoffIndicator
+                    fromAgent={handoffInfo.fromAgent}
+                    toAgent={handoffInfo.toAgent}
+                    onCancel={() => resetHandoff(handoffInfo.fromAgent, activeAgent, "User canceled")}
+                    visible={handoffActive}
+                  />
+                )}
+                
+                {sending && (
+                  <ChatMessage
+                    message={{
+                      id: 'sending',
+                      role: 'assistant',
+                      content: '',
+                      createdAt: new Date().toISOString(),
+                      status: "thinking"
+                    }}
+                    showAgentName={true}
+                  />
+                )}
+                
+                {toolCallInProgress && (
+                  <ChatMessage
+                    message={{
+                      id: 'tool-call',
+                      role: 'assistant',
+                      content: `Using tool: ${toolCallInProgress.name}`,
+                      createdAt: new Date().toISOString(),
+                      status: "working"
+                    }}
+                    showAgentName={false}
+                  />
+                )}
+                
+                <div ref={chatEndRef} />
+              </div>
+            </ScrollArea>
+          </div>
           
           {Array.isArray(pendingAttachments) && pendingAttachments.length > 0 && (
             <div className="p-2 border-t">

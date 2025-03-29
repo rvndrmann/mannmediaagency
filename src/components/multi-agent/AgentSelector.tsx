@@ -4,15 +4,15 @@ import { Bot, PenLine, Image, Wrench, FileText, Database } from 'lucide-react';
 import { AgentInfo } from '@/types/message';
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
-import { getAgentIcon } from '@/lib/agent-icons';
 import { type AgentType } from '@/hooks/use-multi-agent-chat';
 
 interface AgentSelectorProps {
   onSelect: (agentId: AgentType) => void;
   selectedAgentId: AgentType;
+  disabled?: boolean;
 }
 
-export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selectedAgentId }) => {
+export function AgentSelector({ onSelect, selectedAgentId, disabled = false }: AgentSelectorProps) {
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   
   // Built-in agent definitions with required type and isBuiltIn properties
@@ -79,6 +79,25 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
     }
   ];
 
+  const getAgentIcon = (agentId: string, className: string = "") => {
+    switch (agentId) {
+      case 'main':
+        return <Bot className={className} />;
+      case 'script':
+        return <PenLine className={className} />;
+      case 'image':
+        return <Image className={className} />;
+      case 'tool':
+        return <Wrench className={className} />;
+      case 'scene':
+        return <FileText className={className} />;
+      case 'data':
+        return <Database className={className} />;
+      default:
+        return <Bot className={className} />;
+    }
+  };
+
   return (
     <div className="rounded-lg border border-white/10 bg-[#21283B]/60 backdrop-blur-sm p-2">
       <div 
@@ -89,11 +108,13 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
           <button
             key={agent.id}
             onClick={() => onSelect(agent.id as AgentType)}
+            disabled={disabled}
             className={cn(
               "flex-shrink-0 flex items-center justify-center flex-col py-2 px-3 rounded-lg transition-colors",
               selectedAgentId === agent.id
                 ? `bg-gradient-to-r ${agent.color} text-white`
-                : 'hover:bg-[#2D3648] text-gray-300'
+                : 'hover:bg-[#2D3648] text-gray-300',
+              disabled && "opacity-50 cursor-not-allowed"
             )}
           >
             <div className={`p-2 rounded-full ${selectedAgentId === agent.id ? 'bg-white/20' : 'bg-[#2A3040]'}`}>
@@ -105,6 +126,6 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
       </div>
     </div>
   );
-};
+}
 
 export default AgentSelector;

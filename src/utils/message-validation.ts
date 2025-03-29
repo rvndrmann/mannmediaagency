@@ -92,3 +92,52 @@ export function handleConnectionError(error: Error | string, setMessages?: (fn: 
     setMessages(prev => [...prev, systemErrorMessage]);
   }
 }
+
+/**
+ * Helper function to create a thinking message
+ */
+export function createThinkingMessage(): Message {
+  return {
+    id: uuidv4(),
+    role: "assistant",
+    content: "",
+    createdAt: new Date().toISOString(),
+    status: "thinking",
+  };
+}
+
+/**
+ * Helper function to create a tool call message
+ */
+export function createToolCallMessage(toolName: string): Message {
+  return {
+    id: uuidv4(),
+    role: "tool",
+    content: `Using tool: ${toolName}`,
+    createdAt: new Date().toISOString(),
+    tool_name: toolName,
+    status: "working"
+  };
+}
+
+/**
+ * Helper function to create a handoff message
+ */
+export function createHandoffMessage(fromAgent: string, toAgent: string, reason: string): Message {
+  return {
+    id: uuidv4(),
+    role: "system",
+    content: `Transferring from ${fromAgent} to ${toAgent}. Reason: ${reason}`,
+    createdAt: new Date().toISOString(),
+    type: "handoff",
+    status: "working",
+    continuityData: {
+      fromAgent,
+      toAgent,
+      reason,
+      timestamp: new Date().toISOString(),
+      preserveHistory: true,
+      additionalContext: {}
+    }
+  };
+}

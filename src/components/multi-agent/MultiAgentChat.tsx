@@ -1,4 +1,3 @@
-
 import { useEffect, useState, useRef, useCallback, lazy, Suspense } from "react";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -66,6 +65,7 @@ const MultiAgentChat = ({
   sessionId?: string;
   compactMode?: boolean;
 }) => {
+  const [input, setInput] = useState('');
   const {
     messages,
     isLoading: sending,
@@ -85,18 +85,15 @@ const MultiAgentChat = ({
     sessionId
   });
   
-  // Define needed state variables that were causing errors
   const chatEndRef = useRef<HTMLDivElement>(null);
   const [connectionError, setConnectionError] = useState<string | null>(null);
   const [showChatSelector, setShowChatSelector] = useState(false);
   const [toolCallInProgress, setToolCallInProgress] = useState<any>(null);
   const [lastToolCall, setLastToolCall] = useState<any>(null);
   
-  // Mock data for missing properties
   const handoffInfo = handoffActive ? { 
     fromAgent: "main", 
-    toAgent: activeAgent, 
-    status: "Specialized handling" 
+    toAgent: activeAgent
   } : null;
   
   const agents = [
@@ -125,30 +122,25 @@ const MultiAgentChat = ({
   } = useChatSession();
   
   useEffect(() => {
-    // Initialize or get chat session when component mounts
     if (projectId) {
       getOrCreateChatSession(projectId);
     } else {
-      // This is a general chat, not tied to a project
       getOrCreateChatSession(null);
     }
   }, [projectId, getOrCreateChatSession]);
   
   useEffect(() => {
-    // Update chat session when messages change
     if (activeChatId && messages.length > 0) {
       updateChatSession(activeChatId, messages);
     }
   }, [messages, activeChatId, updateChatSession]);
   
-  // Scroll to bottom when messages change
   useEffect(() => {
     if (chatEndRef.current) {
       chatEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   }, [messages]);
   
-  // Check connection status periodically
   useEffect(() => {
     const checkConnection = async () => {
       const { error } = await pingServer();
@@ -159,10 +151,8 @@ const MultiAgentChat = ({
       }
     };
     
-    // Check on mount
     checkConnection();
     
-    // Check every 30 seconds
     const interval = setInterval(checkConnection, 30000);
     
     return () => clearInterval(interval);
@@ -192,6 +182,7 @@ const MultiAgentChat = ({
   const handleSendMessage = async (content: string) => {
     if (content.trim() === '') return;
     
+    setInput('');
     await onSendMessage(content);
   };
   
@@ -256,6 +247,7 @@ const MultiAgentChat = ({
                   fromAgent={handoffInfo.fromAgent}
                   toAgent={handoffInfo.toAgent}
                   onCancel={() => resetHandoff(handoffInfo.fromAgent, activeAgent, "User canceled")}
+                  visible={handoffActive}
                 />
               )}
               
@@ -301,9 +293,8 @@ const MultiAgentChat = ({
           <div className="border-t p-4">
             <div className="flex items-center justify-between mb-2">
               <AgentSelector
-                agent={activeAgent}
+                selectedAgentId={activeAgent}
                 onSelect={setActiveAgent}
-                disabled={sending || handoffActive}
               />
               
               <FileAttachmentButton
@@ -313,16 +304,14 @@ const MultiAgentChat = ({
             </div>
             
             <ChatInput
+              input={input}
+              onInputChange={setInput}
               onSubmit={(e: FormEvent) => {
                 e.preventDefault();
-                const form = e.target as HTMLFormElement;
-                const input = form.querySelector('input');
-                if (input) {
-                  handleSendMessage(input.value);
-                  input.value = '';
-                }
+                handleSendMessage(input);
               }}
               disabled={sending || handoffActive}
+              isLoading={sending}
               placeholder={
                 handoffActive
                   ? "Handoff in progress..."

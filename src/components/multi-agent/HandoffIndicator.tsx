@@ -5,7 +5,8 @@ import { FileText, Image, ArrowRight, Wrench, PenSquare, Database } from "lucide
 interface HandoffIndicatorProps {
   fromAgent: AgentType;
   toAgent: AgentType;
-  visible: boolean;
+  onCancel?: () => void;
+  visible?: boolean;
 }
 
 const getAgentIcon = (agentType: AgentType) => {
@@ -19,7 +20,7 @@ const getAgentIcon = (agentType: AgentType) => {
     case "scene":
       return <PenSquare className="w-5 h-5 text-amber-400" />;
     case "data":
-      return <Database className="w-5 h-5 text-cyan-400" />; // Add Data agent icon
+      return <Database className="w-5 h-5 text-cyan-400" />; 
     default:
       return null;
   }
@@ -32,12 +33,12 @@ const getAgentName = (agentType: AgentType): string => {
     case "image": return "Image Generator";
     case "tool": return "Tool Specialist";
     case "scene": return "Scene Creator";
-    case "data": return "Data Agent"; // Add Data agent name
+    case "data": return "Data Agent"; 
     default: return "Assistant";
   }
 };
 
-export function HandoffIndicator({ fromAgent, toAgent, visible }: HandoffIndicatorProps) {
+export function HandoffIndicator({ fromAgent, toAgent, onCancel, visible = true }: HandoffIndicatorProps) {
   if (!visible) return null;
   
   return (
@@ -56,6 +57,15 @@ export function HandoffIndicator({ fromAgent, toAgent, visible }: HandoffIndicat
         </div>
         
         <span className="text-xs text-gray-400 ml-2">Handoff in progress...</span>
+        
+        {onCancel && (
+          <button 
+            onClick={onCancel}
+            className="ml-2 text-xs bg-red-500/20 hover:bg-red-500/30 text-red-400 px-2 py-1 rounded"
+          >
+            Cancel
+          </button>
+        )}
       </div>
     </div>
   );

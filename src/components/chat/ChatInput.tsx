@@ -5,14 +5,15 @@ import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 
 export interface ChatInputProps {
-  input: string;
-  onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
-  isLoading?: boolean;
-  autoFocus?: boolean;
+  disabled?: boolean;
+  placeholder?: string;
   showAttachmentButton?: boolean;
   onAttachmentClick?: () => void;
-  placeholderText?: string;
+  input?: string;
+  onInputChange?: (value: string) => void;
+  isLoading?: boolean;
+  autoFocus?: boolean;
   useAssistantsApi?: boolean;
   setUseAssistantsApi?: (value: boolean) => void;
   useMcp?: boolean;
@@ -20,19 +21,21 @@ export interface ChatInputProps {
 }
 
 export function ChatInput({
-  input,
-  onInputChange,
   onSubmit,
-  isLoading = false,
-  autoFocus = true,
+  disabled = false,
+  placeholder = "Type a message...",
   showAttachmentButton = false,
   onAttachmentClick,
-  placeholderText = "Type a message...",
+  input = "",
+  onInputChange,
+  isLoading = false,
+  autoFocus = true,
   useAssistantsApi,
   setUseAssistantsApi,
   useMcp,
   setUseMcp,
 }: ChatInputProps) {
+  const [localInput, setLocalInput] = useState(input);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
   // Function to resize textarea based on content
@@ -47,14 +50,22 @@ export function ChatInput({
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    onInputChange(e.target.value);
+    const value = e.target.value;
+    setLocalInput(value);
+    if (onInputChange) {
+      onInputChange(value);
+    }
   };
 
   // Handle form submission
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (input.trim() || !isLoading) {
+    if (localInput.trim() || !isLoading) {
       onSubmit(e);
+      if (!onInputChange) {
+        // Only clear local input if not controlled externally
+        setLocalInput("");
+      }
       if (textareaRef.current) {
         textareaRef.current.style.height = 'auto';
       }
@@ -72,18 +83,25 @@ export function ChatInput({
   // Auto resize on input change
   useEffect(() => {
     autoResizeTextarea();
-  }, [input]);
+  }, [localInput]);
+
+  // Update local input when controlled input changes
+  useEffect(() => {
+    if (onInputChange) {
+      setLocalInput(input);
+    }
+  }, [input, onInputChange]);
 
   return (
     <form onSubmit={handleSubmit} className="relative w-full">
       <div className="relative flex items-center">
         <Textarea
           ref={textareaRef}
-          value={input}
+          value={localInput}
           onChange={handleInputChange}
           onKeyDown={handleKeyDown}
-          placeholder={placeholderText}
-          disabled={isLoading}
+          placeholder={placeholder}
+          disabled={disabled || isLoading}
           autoFocus={autoFocus}
           className="min-h-[40px] w-full resize-none rounded-md border bg-background p-2 pr-12 focus-visible:ring-0 focus-visible:ring-offset-0 disabled:opacity-50"
           rows={1}
@@ -95,6 +113,7 @@ export function ChatInput({
             variant="ghost"
             className="absolute bottom-1 right-12 h-8 w-8 p-0 text-muted-foreground hover:text-foreground"
             onClick={onAttachmentClick}
+            disabled={disabled || isLoading}
           >
             <PaperclipIcon className="h-5 w-5" />
             <span className="sr-only">Attach file</span>
@@ -103,9 +122,9 @@ export function ChatInput({
         <Button
           type="submit"
           size="icon"
-          disabled={!input.trim() || isLoading}
+          disabled={!localInput.trim() || disabled || isLoading}
           className={`absolute bottom-1 right-1 h-8 w-8 p-0 ${
-            !input.trim() || isLoading
+            !localInput.trim() || disabled || isLoading
               ? "opacity-50"
               : "text-primary hover:bg-primary/10"
           }`}

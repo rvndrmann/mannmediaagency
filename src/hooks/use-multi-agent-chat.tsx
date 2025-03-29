@@ -41,7 +41,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>({ credits_remaining: 100 });
   const [usePerformanceModel, setUsePerformanceModel] = useState<boolean>(false);
   const [enableDirectToolExecution, setEnableDirectToolExecution] = useState<boolean>(false);
-  const [tracingEnabled, setTracingEnabled] = useState<boolean>(false);
+  const [tracingEnabled, setTracingEnabled] = useState<boolean>(true); // Default to true for fixing issues
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
   
@@ -50,7 +50,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const processingRef = useRef<boolean>(false);
   const processingTimeoutRef = useRef<number | null>(null);
   const submissionIdRef = useRef<string | null>(null);
-  const messageIdsRef = useRef<Set<string>>(new Set()); // Track processed message IDs
+  const messageIdsRef = useRef<Set<string>>(new Set(messages.map(m => m.id))); // Track processed message IDs
   
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
     main: "You are a helpful AI assistant focused on general tasks.",
@@ -195,6 +195,13 @@ You can use the canvas tool to save scripts directly to the project.`,
 You can use the canvas tool to save scene descriptions and image prompts directly to the project.`
           }));
           
+          console.log("Project details loaded:", {
+            id: project.id,
+            title: project.title,
+            hasScript: !!project.fullScript,
+            scenesCount: project.scenes.length
+          });
+          
         } catch (error) {
           console.error("Error fetching project:", error);
         }
@@ -207,7 +214,10 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    if (isLoading) return;
+    if (isLoading) {
+      console.log("Already loading, ignoring submit");
+      return;
+    }
     
     if (!input.trim() && pendingAttachments.length === 0) {
       toast.error("Please enter a message or attach a file");
@@ -240,6 +250,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   
   const clearChat = () => {
     setMessages([]);
+    messageIdsRef.current.clear(); // Clear message IDs tracking
   };
   
   const addAttachments = (newAttachments: Attachment[]) => {
@@ -309,6 +320,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       if (currentProject) {
         additionalContext.projectId = currentProject.id;
         additionalContext.projectTitle = currentProject.title;
+        additionalContext.existingScript = currentProject.fullScript;
       }
       
       const continuityData = {
@@ -329,6 +341,9 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         continuityData
       };
       
+      // Track the handoff message ID
+      messageIdsRef.current.add(handoffMessage.id);
+      
       setMessages(prev => [...prev, handoffMessage]);
       
       switchAgent(toAgent);
@@ -348,7 +363,10 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   // Completely redesigned message handling to prevent duplicates and race conditions
   const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
-    if (isLoading || processingRef.current) return;
+    if (isLoading || processingRef.current) {
+      console.log("Already processing a request - preventing duplicate send");
+      return;
+    }
     
     // Generate a unique message ID and submission ID
     const messageId = uuidv4();
@@ -356,7 +374,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     
     // Check for very recent submissions to prevent double-clicks
     const now = Date.now();
-    if (now - lastSubmissionTimeRef.current < 800) {
+    if (now - lastSubmissionTimeRef.current < 1000) {
       console.log("Preventing duplicate submission - too soon after last submission");
       return;
     }
@@ -374,6 +392,24 @@ You can use the canvas tool to save scene descriptions and image prompts directl
         processingRef.current = false;
         setIsLoading(false);
         submissionIdRef.current = null;
+        
+        // Add error message
+        const timeoutErrorId = uuidv4();
+        messageIdsRef.current.add(timeoutErrorId);
+        
+        setMessages(prev => [
+          ...prev,
+          {
+            id: timeoutErrorId,
+            role: 'system',
+            content: 'The request timed out. Please try again.',
+            createdAt: new Date().toISOString(),
+            type: 'error',
+            status: 'error'
+          }
+        ]);
+        
+        toast.error("Request timed out. Please try again.");
       }
     }, 30000) as unknown as number; // 30 second safety timeout
     
@@ -384,6 +420,21 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     
     try {
       setIsLoading(true);
+      
+      // Check if we already have this exact message (prevent double submits)
+      const duplicateMessage = messages.find(m => 
+        m.role === 'user' && 
+        m.content === messageText &&
+        Date.now() - new Date(m.createdAt).getTime() < 5000
+      );
+      
+      if (duplicateMessage) {
+        console.log("Prevented duplicate message - exact same content found", messageText.substring(0, 20));
+        processingRef.current = false;
+        setIsLoading(false);
+        submissionIdRef.current = null;
+        return;
+      }
       
       // Create user message with the generated ID
       const userMessage: Message = {
@@ -397,14 +448,13 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       // Add the message ID to our tracking set
       messageIdsRef.current.add(messageId);
       
+      console.log("Adding user message with ID:", messageId, "tracking", messageIdsRef.current.size, "messages");
+      
       // Add user message to chat history - only if not already present
       setMessages(prev => {
-        // Check if this exact message is already in the messages array
-        if (prev.some(m => m.id === messageId || 
-                         (m.role === 'user' && 
-                          m.content === messageText && 
-                          Date.now() - new Date(m.createdAt).getTime() < 5000))) {
-          console.log("Prevented duplicate user message");
+        // Final check to ensure we don't add it again
+        if (prev.some(m => m.id === messageId)) {
+          console.log("Prevented adding duplicate user message with ID:", messageId);
           return prev;
         }
         return [...prev, userMessage];
@@ -449,44 +499,72 @@ You can use the canvas tool to save scene descriptions and image prompts directl
           onMessage: (message: Message) => {
             // Only add the message if we're still processing this submission
             // and haven't seen this message ID already
-            if (submissionIdRef.current === submissionId && !messageIdsRef.current.has(message.id)) {
-              // Add the ID to our tracking set
-              messageIdsRef.current.add(message.id);
-              
-              setMessages(prev => {
-                // Double-check again to prevent race conditions
-                if (prev.some(m => m.id === message.id)) {
-                  console.log("Prevented duplicate message:", message.id);
-                  return prev;
-                }
-                return [...prev, message];
-              });
-              
-              // If this is an agent response with a handoff request, update the active agent
-              if (
-                message.role === 'assistant' && 
-                message.handoffRequest && 
-                message.handoffRequest.targetAgent
-              ) {
-                const from = activeAgent;
-                const to = message.handoffRequest.targetAgent as AgentType;
-                
-                console.log(`Handoff from ${from} to ${to}`);
-                setHandoffInProgress(true);
-                
-                // Set the new active agent
-                setActiveAgent(to);
-                
-                // Call the onAgentSwitch callback if provided
-                if (options.onAgentSwitch) {
-                  options.onAgentSwitch(from, to);
-                }
-                
-                // Finished handoff process
-                setTimeout(() => {
-                  setHandoffInProgress(false);
-                }, 500);
+            if (submissionIdRef.current !== submissionId) {
+              console.log("Ignoring message for different submission ID:", message.id);
+              return;
+            }
+            
+            if (messageIdsRef.current.has(message.id)) {
+              console.log("Prevented duplicate message with ID:", message.id);
+              return;
+            }
+            
+            // Add the ID to our tracking set
+            messageIdsRef.current.add(message.id);
+            console.log("Adding message with ID:", message.id, "tracking", messageIdsRef.current.size, "messages");
+            
+            // Look for any almost identical messages that might have been added very recently
+            let isDuplicate = false;
+            setMessages(prev => {
+              // Double-check again to prevent race conditions
+              if (prev.some(m => m.id === message.id)) {
+                console.log("Prevented duplicate message (already in state):", message.id);
+                isDuplicate = true;
+                return prev;
               }
+              
+              // Check for almost identical messages (same role, content, created in last 3 seconds)
+              const similarMessage = prev.find(m => 
+                m.role === message.role && 
+                m.content === message.content &&
+                Date.now() - new Date(m.createdAt).getTime() < 3000
+              );
+              
+              if (similarMessage) {
+                console.log("Prevented duplicate message (similar content):", message.id);
+                isDuplicate = true;
+                return prev;
+              }
+              
+              return [...prev, message];
+            });
+            
+            if (isDuplicate) return;
+            
+            // If this is an agent response with a handoff request, update the active agent
+            if (
+              message.role === 'assistant' && 
+              message.handoffRequest && 
+              message.handoffRequest.targetAgent
+            ) {
+              const from = activeAgent;
+              const to = message.handoffRequest.targetAgent as AgentType;
+              
+              console.log(`Handoff from ${from} to ${to}`);
+              setHandoffInProgress(true);
+              
+              // Set the new active agent
+              setActiveAgent(to);
+              
+              // Call the onAgentSwitch callback if provided
+              if (options.onAgentSwitch) {
+                options.onAgentSwitch(from, to);
+              }
+              
+              // Finished handoff process
+              setTimeout(() => {
+                setHandoffInProgress(false);
+              }, 500);
             }
           },
           onError: (errorMessage: string) => {

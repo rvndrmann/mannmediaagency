@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 
@@ -635,12 +636,19 @@ serve(async (req) => {
         
         // Process the response
         const message = data.choices[0].message;
-        const functionCall = message.function_call;
         
         // Handle function calls
-        if (functionCall) {
-          const functionName = functionCall.name;
-          const functionArgs = JSON.parse(functionCall.arguments);
+        if (message.function_call) {
+          const functionName = message.function_call.name;
+          const functionArguments = message.function_call.arguments;
+          // Parse function arguments safely
+          let functionArgs;
+          try {
+            functionArgs = JSON.parse(functionArguments);
+          } catch (parseError) {
+            logError(`[${requestId}] Error parsing function arguments`, parseError);
+            throw new Error(`Failed to parse function arguments: ${parseError.message}`);
+          }
           
           logInfo(`[${requestId}] Function call detected: ${functionName} `, null);
           

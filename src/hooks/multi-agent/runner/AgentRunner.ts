@@ -19,6 +19,7 @@ export class AgentRunner {
   private handoffHistory: { from: AgentType, to: AgentType, reason: string }[] = [];
   private isProcessing: boolean = false; // Add flag to prevent duplicate requests
   private traceStartTime: number = 0;
+  private processedMessageIds: Set<string> = new Set(); // Track processed message IDs
 
   constructor(
     agentType: AgentType,
@@ -78,6 +79,7 @@ export class AgentRunner {
       console.log(`Running agent with input: ${input.substring(0, 50)}...`);
       this.agentTurnCount = 0;
       this.traceStartTime = Date.now();
+      this.processedMessageIds.clear(); // Reset processed message IDs
       
       // Add user message to conversation history
       const userMessage: Message = {
@@ -87,6 +89,9 @@ export class AgentRunner {
         createdAt: new Date().toISOString(),
         attachments: attachments.length > 0 ? attachments : undefined
       };
+      
+      // Make sure we don't process this message twice
+      this.processedMessageIds.add(userMessage.id);
       
       // Make sure the callbacks onMessage is called for the user message
       this.callbacks.onMessage(userMessage);
@@ -209,6 +214,15 @@ export class AgentRunner {
           } : undefined
         };
         
+        // Check we haven't already processed this message by ID
+        if (this.processedMessageIds.has(assistantMessage.id)) {
+          console.log("Skipping already processed assistant message with ID:", assistantMessage.id);
+          continue;
+        }
+        
+        // Add the message ID to our tracking set
+        this.processedMessageIds.add(assistantMessage.id);
+        
         // Add assistant message to conversation history
         this.context.metadata.conversationHistory.push(assistantMessage);
         
@@ -304,9 +318,6 @@ export class AgentRunner {
           
           console.log(`Tool execution requested: ${toolName}`);
           this.callbacks.onToolExecution(toolName, toolParams);
-          
-          // For now, we end the loop after tool execution
-          // In a more advanced implementation, we could wait for tool results and continue
         }
         
         // If we get here, the agent completed successfully without handoff
@@ -328,6 +339,9 @@ export class AgentRunner {
           type: "error" as MessageType,
           status: "error"
         };
+        
+        // Add to processed messages to avoid duplicates
+        this.processedMessageIds.add(errorMessage.id);
         
         this.context.metadata.conversationHistory.push(errorMessage);
         this.callbacks.onMessage(errorMessage);

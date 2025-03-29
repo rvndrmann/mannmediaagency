@@ -1,5 +1,26 @@
 
-import { toast, ToastOptions } from "sonner";
+import { toast } from "sonner";
+
+// Define our own toast options interface
+interface ToastOptions {
+  duration?: number;
+  id?: string;
+  icon?: React.ReactNode;
+  description?: React.ReactNode;
+  action?: {
+    label: string;
+    onClick: () => void;
+  };
+  cancel?: {
+    label: string;
+    onClick?: () => void;
+  };
+  onDismiss?: () => void;
+  onAutoClose?: () => void;
+  position?: 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right' | 'top-center' | 'bottom-center';
+  className?: string;
+  style?: React.CSSProperties;
+}
 
 // Define toast types for different purposes
 type ToastType = 'success' | 'error' | 'info' | 'warning';

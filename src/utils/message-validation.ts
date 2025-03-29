@@ -1,5 +1,5 @@
 
-import { Message, MessageType } from "@/types/message";
+import { Message, MessageType, MessageStatus } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 
@@ -27,14 +27,14 @@ export function createErrorMessage(error: Error | string): Message {
     content: `Error: ${errorMessage}`,
     createdAt: new Date().toISOString(),
     type: "error" as MessageType,
-    status: "error"
+    status: "error" as MessageStatus
   };
 }
 
 /**
  * Handles creating a system message for various system events
  */
-export function createSystemMessage(content: string, type: MessageType = "system", status?: string): Message {
+export function createSystemMessage(content: string, type: MessageType = "system", status?: MessageStatus): Message {
   return {
     id: uuidv4(),
     role: "system",

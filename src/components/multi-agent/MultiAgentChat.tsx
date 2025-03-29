@@ -188,8 +188,10 @@ export const MultiAgentChat = ({
   useEffect(() => {
     const pingServer = async () => {
       try {
-        const { data, error } = await supabase.from('canvas_projects').select('count').limit(1);
-        if (error) throw error;
+        const { data, error } = await supabase.from('canvas_projects').select('count').limit(1).then(response => {
+          if (response.error) throw response.error;
+          return response;
+        });
         
         setConnectionError(null);
       } catch (error) {

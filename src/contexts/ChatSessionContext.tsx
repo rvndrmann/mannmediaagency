@@ -34,13 +34,15 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   );
 }
 
-// Create a type for the hook with getState
-interface ChatSessionHook extends (() => ChatSessionContextType) {
+// Type definition for our hook function with additional properties
+type ChatSessionHookType = {
+  (): ChatSessionContextType;
   getState: () => ChatSessionContextType;
-}
+};
 
-// Expose getState on the hook for compatibility
-export const useChatSession = (() => {
+// Export the hook with getState capability
+export const useChatSession: ChatSessionHookType = (() => {
+  // Create the base hook function
   const useHook = () => {
     const context = useContext(ChatSessionContext);
     if (context === undefined) {
@@ -49,8 +51,8 @@ export const useChatSession = (() => {
     return context;
   };
   
-  // Add a getState static method
-  (useHook as ChatSessionHook).getState = () => {
+  // Add the getState static method
+  (useHook as any).getState = () => {
     const store = useChatHistoryStore.getState();
     return {
       ...store,
@@ -58,5 +60,5 @@ export const useChatSession = (() => {
     };
   };
   
-  return useHook as ChatSessionHook;
+  return useHook as ChatSessionHookType;
 })();

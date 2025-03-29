@@ -20,6 +20,7 @@ export class AgentRunner {
   private isProcessing: boolean = false; // Add flag to prevent duplicate requests
   private traceStartTime: number = 0;
   private processedMessageIds: Set<string> = new Set(); // Track processed message IDs
+  private traceId: string;
 
   constructor(
     agentType: AgentType,
@@ -39,12 +40,44 @@ export class AgentRunner {
     this.callbacks = callbacks;
     this.currentAgent = this.createAgent(agentType);
     this.traceStartTime = Date.now();
+    this.traceId = uuidv4();
+    
+    // Initialize the trace
+    this.initializeTrace();
+  }
+
+  private initializeTrace() {
+    // If OpenAI tracing is enabled, set up the trace here
+    if (!this.context.tracingDisabled && typeof window !== 'undefined' && window.fetch) {
+      try {
+        const traceDetails = {
+          trace_id: this.traceId,
+          project_id: this.context.projectId || 'default_project',
+          user_id: this.context.userId || 'anonymous',
+          metadata: {
+            agent_type: this.currentAgent.getType(),
+            application: 'multi-agent-chat'
+          }
+        };
+        
+        // Log trace initialization
+        console.log("Initializing trace:", traceDetails);
+        
+        // You could send an initial trace event to OpenAI here
+        // This would require your OpenAI API key with tracing permissions
+      } catch (error) {
+        console.error("Error initializing trace:", error);
+      }
+    }
   }
 
   private createAgent(agentType: AgentType): BaseAgentImpl {
     console.log(`Creating agent of type: ${agentType}`);
     
-    const options = { context: this.context };
+    const options = { 
+      context: this.context,
+      traceId: this.traceId // Pass the traceId to agents
+    };
     
     switch (agentType) {
       case "main":
@@ -103,12 +136,25 @@ export class AgentRunner {
       
       this.context.metadata.conversationHistory.push(userMessage);
       
+      // Record trace event for user input
+      this.recordTraceEvent('user_input', {
+        message_id: userMessage.id,
+        content_length: input.length,
+        has_attachments: attachments.length > 0
+      });
+      
       // Start the agent loop
       await this.runAgentLoop(input, attachments, userId);
       
     } catch (error) {
       console.error("Agent runner error:", error);
       this.callbacks.onError(error instanceof Error ? error.message : "Unknown error");
+      
+      // Record error in trace
+      this.recordTraceEvent('error', {
+        error_message: error instanceof Error ? error.message : "Unknown error",
+        agent_type: this.currentAgent.getType()
+      });
       
       // Log the error in the trace data
       await this.saveTraceData(
@@ -126,6 +172,27 @@ export class AgentRunner {
     }
   }
   
+  private recordTraceEvent(eventType: string, eventData: any) {
+    if (!this.context.tracingDisabled) {
+      try {
+        const event = {
+          trace_id: this.traceId,
+          event_type: eventType,
+          timestamp: new Date().toISOString(),
+          data: eventData
+        };
+        
+        console.log(`Recording trace event: ${eventType}`, event);
+        
+        // Here you would send the event to OpenAI's trace endpoint
+        // This requires your OpenAI API key with tracing permissions
+        // Example endpoint: https://api.openai.com/v1/traces/{traceId}/events
+      } catch (error) {
+        console.error("Error recording trace event:", error);
+      }
+    }
+  }
+  
   private async saveTraceData(
     agent_type: string, 
     user_message: string, 
@@ -140,6 +207,7 @@ export class AgentRunner {
         // Create trace summary
         const traceSummary = {
           runId,
+          traceId: this.traceId,
           duration,
           agentType: agent_type,
           timestamp: new Date().toISOString(),
@@ -161,6 +229,7 @@ export class AgentRunner {
             metadata: {
               trace: {
                 runId,
+                traceId: this.traceId,
                 duration,
                 timestamp: new Date().toISOString(),
                 summary: {
@@ -187,8 +256,23 @@ export class AgentRunner {
       console.log(`Agent turn ${this.agentTurnCount} of ${this.maxTurns} with agent type: ${this.currentAgent.getType()}`);
       
       try {
+        // Record trace event for agent start
+        this.recordTraceEvent('agent_turn_start', {
+          turn: this.agentTurnCount,
+          agent_type: this.currentAgent.getType(),
+          max_turns: this.maxTurns
+        });
+        
         // Execute the current agent
         const agentResult = await this.currentAgent.run(input, attachments);
+        
+        // Record trace event for agent completion
+        this.recordTraceEvent('agent_turn_complete', {
+          turn: this.agentTurnCount,
+          agent_type: this.currentAgent.getType(),
+          has_response: !!agentResult.response,
+          has_handoff: !!agentResult.nextAgent
+        });
         
         // Create assistant message
         const assistantMessage: Message = {
@@ -264,6 +348,14 @@ export class AgentRunner {
           // Track handoff history
           this.handoffHistory.push({ from: fromAgent, to: toAgent, reason: handoffReason });
           
+          // Record trace event for handoff
+          this.recordTraceEvent('handoff', {
+            from: fromAgent,
+            to: toAgent,
+            reason: handoffReason,
+            turn: this.agentTurnCount
+          });
+          
           // Update context for handoff
           this.context.metadata.isHandoffContinuation = true;
           this.context.metadata.previousAgentType = fromAgent;
@@ -318,6 +410,13 @@ export class AgentRunner {
           
           console.log(`Tool execution requested: ${toolName}`);
           this.callbacks.onToolExecution(toolName, toolParams);
+          
+          // Record trace event for tool execution
+          this.recordTraceEvent('tool_execution', {
+            tool_name: toolName,
+            agent_type: this.currentAgent.getType(),
+            turn: this.agentTurnCount
+          });
         }
         
         // If we get here, the agent completed successfully without handoff
@@ -325,6 +424,13 @@ export class AgentRunner {
         
       } catch (error) {
         console.error(`Error in agent turn ${this.agentTurnCount}:`, error);
+        
+        // Record trace event for error
+        this.recordTraceEvent('agent_turn_error', {
+          turn: this.agentTurnCount,
+          agent_type: this.currentAgent.getType(),
+          error: error instanceof Error ? error.message : "Unknown error"
+        });
         
         if (this.agentTurnCount >= this.maxTurns) {
           throw new Error(`Maximum number of agent turns (${this.maxTurns}) exceeded`);

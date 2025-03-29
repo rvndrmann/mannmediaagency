@@ -25,6 +25,7 @@ import {
 import { formatDistanceToNow } from "date-fns";
 import { ArrowLeft, Clock, MessageSquare, Users } from "lucide-react";
 import { Link } from "react-router-dom";
+import { OpenAITraceIntegration } from "@/components/traces/OpenAITraceIntegration";
 
 export default function TraceAnalytics() {
   const [userId, setUserId] = useState<string | null>(null);
@@ -211,7 +212,7 @@ export default function TraceAnalytics() {
                   </div>
                   <p className="whitespace-pre-wrap">{message.assistant_response || message.user_message}</p>
                   
-                  {message.trace && message.trace.summary && (
+                  {message.trace && message.trace.events && message.trace.events.length > 0 && (
                     <div className="mt-2 text-xs text-gray-500">
                       {message.trace.summary.handoffs > 0 && (
                         <div className="mt-1">Handoffs: {message.trace.summary.handoffs}</div>
@@ -234,6 +235,8 @@ export default function TraceAnalytics() {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-2xl font-bold mb-6">Agent Trace Analytics</h1>
+      
+      <OpenAITraceIntegration />
       
       {userId && <TraceDashboard userId={userId} />}
       

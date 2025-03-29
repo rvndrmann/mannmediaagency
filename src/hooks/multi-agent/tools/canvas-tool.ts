@@ -56,13 +56,16 @@ export const canvasTool = {
   },
   
   execute: async (params, context) => {
+    let mcpServer = null;
+    
     try {
       const { action, projectId, sceneId, content, useMcp = true, productShotVersion, aspectRatio } = params;
       
       // Default to MCP execution (now the default approach)
       if (useMcp !== false) {
         console.log(`Executing canvas tool with MCP for project ${projectId}, action: ${action}`);
-        const mcpServer = new MCPServerService(projectId);
+        
+        mcpServer = new MCPServerService(projectId);
         
         try {
           await mcpServer.connect();
@@ -104,8 +107,12 @@ export const canvasTool = {
           }
           
           console.log(`Calling MCP tool: ${toolName} with params:`, toolParams);
+          
           const result = await mcpServer.callTool(toolName, toolParams);
-          await mcpServer.cleanup();
+          
+          if (mcpServer) {
+            await mcpServer.cleanup();
+          }
           
           console.log(`MCP tool result for ${toolName}:`, result);
           return {
@@ -121,6 +128,9 @@ export const canvasTool = {
           if (useMcp === true) {
             console.log("Falling back to legacy implementation after MCP failure");
           } else {
+            if (mcpServer) {
+              await mcpServer.cleanup();
+            }
             throw error; // Re-throw if explicit MCP was requested
           }
         }
@@ -237,6 +247,15 @@ export const canvasTool = {
       }
     } catch (error) {
       console.error("Canvas tool error:", error);
+      
+      if (mcpServer) {
+        try {
+          await mcpServer.cleanup();
+        } catch (cleanupError) {
+          console.error("Error during MCP server cleanup:", cleanupError);
+        }
+      }
+      
       return {
         success: false,
         message: `Canvas operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,

@@ -7,6 +7,9 @@ export class MCPServerService implements MCPServer {
   private serverUrl: string;
   private toolsCache: any[] | null = null;
   private projectId: string;
+  private connectionStatus: 'connected' | 'disconnected' | 'connecting' = 'disconnected';
+  private retryAttempts: number = 0;
+  private maxRetries: number = 3;
   
   constructor(projectId: string) {
     this.projectId = projectId;
@@ -15,11 +18,22 @@ export class MCPServerService implements MCPServer {
   
   async connect(): Promise<void> {
     try {
+      if (this.connectionStatus === 'connecting') {
+        console.log("MCP connection attempt already in progress");
+        return;
+      }
+      
+      this.connectionStatus = 'connecting';
       console.log("Connecting to MCP server for project:", this.projectId);
+      
       // Test connection by listing tools
       await this.listTools();
+      
+      this.connectionStatus = 'connected';
+      this.retryAttempts = 0;
       console.log("Successfully connected to MCP server");
     } catch (error) {
+      this.connectionStatus = 'disconnected';
       console.error("Failed to connect to MCP server:", error);
       showToast.error("Failed to connect to MCP server");
       throw error;
@@ -146,6 +160,10 @@ export class MCPServerService implements MCPServer {
     try {
       console.log(`Calling MCP tool ${name} with parameters:`, parameters);
       
+      if (this.connectionStatus !== 'connected') {
+        await this.connect();
+      }
+      
       const { data, error } = await supabase.functions.invoke('mcp-server', {
         body: {
           operation: "call_tool",
@@ -165,6 +183,21 @@ export class MCPServerService implements MCPServer {
       return data;
     } catch (error) {
       console.error(`Error in callTool (${name}):`, error);
+      
+      // Try to reconnect if the error might be connection-related
+      if (this.retryAttempts < this.maxRetries) {
+        this.retryAttempts++;
+        this.connectionStatus = 'disconnected';
+        console.log(`Attempting reconnection (attempt ${this.retryAttempts}/${this.maxRetries})`);
+        
+        try {
+          await this.connect();
+          // If reconnection successful, try the call again
+          return this.callTool(name, parameters);
+        } catch (reconnectError) {
+          console.error("Reconnection failed:", reconnectError);
+        }
+      }
       
       // Return a fallback mock response for development
       console.warn(`Using fallback mock response for ${name} due to error`);
@@ -203,10 +236,15 @@ export class MCPServerService implements MCPServer {
   async cleanup(): Promise<void> {
     console.log("Cleaning up MCP server connection for project:", this.projectId);
     this.toolsCache = null;
+    this.connectionStatus = 'disconnected';
   }
   
   invalidateToolsCache(): void {
     console.log("Invalidating MCP tools cache for project:", this.projectId);
     this.toolsCache = null;
+  }
+  
+  getConnectionStatus(): string {
+    return this.connectionStatus;
   }
 }

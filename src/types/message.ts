@@ -1,40 +1,29 @@
 
-// MessageType type definition
 export type MessageType = 
-  | "text" 
+  | "chat" 
   | "system" 
-  | "handoff" 
+  | "function" 
   | "tool" 
-  | "command" 
   | "error" 
-  | undefined;
+  | "handoff"
+  | "canvas";
 
-// We need to align these statuses to make them consistent across the app
-export type MessageStatus = "loading" | "done" | "error" | "thinking" | "working" | "completed";
+export type MessageStatus = "pending" | "complete" | "error";
 
-export interface Task {
+export interface Attachment {
   id: string;
-  name: string;
-  status: "pending" | "in-progress" | "completed" | "error";
-  details?: string;
-}
-
-export interface Command {
-  name: string;
-  parameters?: Record<string, any>;
-  args?: Record<string, any>; // Add this to fix tool-executor.ts
-  feature?: string;
-}
-
-export interface AgentInfo {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  color: string;
-  instructions: string;
   type: string;
-  isBuiltIn: boolean;
+  url: string;
+  name: string;
+  size?: number;
+  metadata?: Record<string, any>;
+}
+
+export interface HandoffRequest {
+  targetAgent: string;
+  reason: string;
+  preserveFullHistory?: boolean;
+  additionalContext?: Record<string, any>;
 }
 
 export interface ContinuityData {
@@ -43,42 +32,32 @@ export interface ContinuityData {
   reason: string;
   timestamp: string;
   preserveHistory: boolean;
-  additionalContext?: Record<string, any>;
+  additionalContext: Record<string, any>;
+}
+
+export interface CanvasContentData {
+  sceneId: string;
+  title?: string;
+  script?: string;
+  description?: string;
+  imagePrompt?: string;
+  voiceOverText?: string;
 }
 
 export interface Message {
   id: string;
-  role: "user" | "assistant" | "system" | "tool";
+  role: "user" | "assistant" | "system";
   content: string;
-  createdAt: string;
-  status?: MessageStatus;
-  attachments?: Attachment[];
-  tool_name?: string;
-  tool_arguments?: Record<string, any>;
-  agentType?: string;
   type?: MessageType;
-  tasks?: Task[];
-  command?: Command;
+  createdAt: string;
+  agentType?: string;
+  attachments?: Attachment[];
+  status?: MessageStatus;
+  statusMessage?: string;
   handoffRequest?: HandoffRequest;
-  timestamp?: string;
   continuityData?: ContinuityData;
-  structured_output?: any; // Add this to fix AgentRunner.ts
-  selectedTool?: string; // Add this to fix use-ai-chat.tsx
-}
-
-export interface Attachment {
-  id: string;
-  name: string;
-  type: string;
-  url?: string;
-  content?: string;
-  size?: number;
-  contentType?: string; // Add this to fix FileAttachmentButton.tsx and other errors
-}
-
-export interface HandoffRequest {
-  targetAgent: string;
-  reason: string;
-  preserveFullHistory?: boolean;
-  additionalContext?: Record<string, any>;
+  tool_name?: string;
+  tool_arguments?: Record<string, any> | string;
+  structured_output?: any;
+  canvasContent?: CanvasContentData;
 }

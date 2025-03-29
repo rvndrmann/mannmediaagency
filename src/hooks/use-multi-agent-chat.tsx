@@ -53,15 +53,15 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const messageIdsRef = useRef<Set<string>>(new Set(messages.map(m => m.id))); // Track processed message IDs
   
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
-    main: "You are a helpful AI assistant focused on general tasks.",
+    main: "You are a helpful AI assistant focused on general tasks. You can help users with their Canvas video projects by accessing scene content including scripts, image prompts, scene descriptions, and voice over text.",
     script: options.projectId 
-      ? "You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You can save scripts directly to Canvas projects."
-      : "You specialize in writing scripts and creative content. When asked for a script, you MUST provide one, not just talk about it.",
-    image: "You specialize in creating detailed image prompts.",
-    tool: "You specialize in executing tools and technical tasks.",
+      ? "You specialize in writing scripts for video projects. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it. You can see and edit scripts directly in Canvas projects. You can extract, view, and edit the full script, image prompts, scene descriptions, and voice over text for any scene."
+      : "You specialize in writing scripts and creative content. When asked for a script, you MUST provide one, not just talk about it. You can extract, view, and edit scripts for video projects.",
+    image: "You specialize in creating detailed image prompts. You can see, create, and edit image prompts for scenes in Canvas projects. You can also view the full script, scene descriptions, and voice over text to ensure your image prompts match the overall content.",
+    tool: "You specialize in executing tools and technical tasks. You can use the canvas_content tool to view and edit content in Canvas scenes, including scripts, image prompts, scene descriptions, and voice over text.",
     scene: options.projectId
-      ? "You specialize in creating detailed visual scene descriptions for video projects. You can save scene descriptions and image prompts directly to Canvas projects."
-      : "You specialize in creating detailed visual scene descriptions."
+      ? "You specialize in creating detailed visual scene descriptions for video projects. You can see and edit scene descriptions, image prompts, scripts, and voice over text directly in Canvas projects. When creating scene descriptions, focus on visual details that would be important for image generation."
+      : "You specialize in creating detailed visual scene descriptions. Your descriptions can be used to inform image prompts and video creation. You can extract, view, and edit scene content for video projects."
   });
   
   useEffect(() => {

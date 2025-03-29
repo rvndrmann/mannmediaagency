@@ -55,24 +55,36 @@ export const canvasTool = {
         await mcpServer.connect();
         
         let toolName = "";
-        let toolParams = { sceneId };
+        let toolParams: Record<string, any> = { sceneId };
         
         switch (action) {
           case "updateDescription":
             toolName = "update_scene_description";
-            toolParams = { ...toolParams, imageAnalysis: true };
+            toolParams = { 
+              ...toolParams, 
+              imageAnalysis: true 
+            };
             break;
           case "generateImagePrompt":
             toolName = "update_image_prompt";
-            toolParams = { ...toolParams, useDescription: true };
+            toolParams = { 
+              ...toolParams, 
+              useDescription: true 
+            };
             break;
           case "generateImage":
             toolName = "generate_scene_image";
-            toolParams = { ...toolParams, productShotVersion: productShotVersion || "v2" };
+            toolParams = { 
+              ...toolParams, 
+              productShotVersion: productShotVersion || "v2" 
+            };
             break;
           case "generateVideo":
             toolName = "create_scene_video";
-            toolParams = { ...toolParams, aspectRatio: aspectRatio || "16:9" };
+            toolParams = { 
+              ...toolParams, 
+              aspectRatio: aspectRatio || "16:9" 
+            };
             break;
           default:
             throw new Error(`Unsupported MCP action: ${action}`);
@@ -157,7 +169,7 @@ export const canvasTool = {
               project_id: projectId,
               title: "New Scene",
               script: content || "",
-              order: 999 // Will be reordered by the backend
+              scene_order: 999 // Will be reordered by the backend
             })
             .select("id")
             .single();

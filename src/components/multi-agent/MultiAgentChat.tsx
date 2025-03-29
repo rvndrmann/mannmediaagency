@@ -1,9 +1,10 @@
+
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatMessage } from "@/components/chat/ChatMessage";
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, lazy, Suspense } from "react";
 import { AgentSelector } from "./AgentSelector";
 import { ProjectSelector } from "./ProjectSelector";
 import { FileAttachmentButton } from "./FileAttachmentButton";
@@ -25,6 +26,11 @@ import { ChatSessionSelector } from "./ChatSessionSelector";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message } from "@/types/message";
+
+// Import the CompactAgentSelector component using lazy loading
+const CompactAgentSelector = lazy(() => import('../canvas/CompactAgentSelector').then(module => ({
+  default: module.CompactAgentSelector
+})));
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -344,10 +350,9 @@ export const MultiAgentChat = ({
         
         {compactMode && (
           <div className="compact-agent-selector">
-            {(() => {
-              const CompactAgentSelector = require('../canvas/CompactAgentSelector').CompactAgentSelector;
-              return <CompactAgentSelector selectedAgent={activeAgent} onSelect={switchAgent} />;
-            })()}
+            <Suspense fallback={<div className="p-2 text-center text-xs text-gray-400">Loading agent selector...</div>}>
+              <CompactAgentSelector selectedAgent={activeAgent} onSelect={switchAgent} />
+            </Suspense>
           </div>
         )}
         
@@ -465,3 +470,6 @@ export const MultiAgentChat = ({
     </div>
   );
 };
+
+export default MultiAgentChat;
+

@@ -25,6 +25,7 @@ import { ChatSessionSelector } from "./ChatSessionSelector";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message } from "@/types/message";
+import { CompactAgentSelector } from "@/components/canvas/CompactAgentSelector";
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -344,10 +345,7 @@ export const MultiAgentChat = ({
         
         {compactMode && (
           <div className="compact-agent-selector">
-            {(() => {
-              const CompactAgentSelector = require('../canvas/CompactAgentSelector').CompactAgentSelector;
-              return <CompactAgentSelector selectedAgent={activeAgent} onSelect={switchAgent} />;
-            })()}
+            <CompactAgentSelector selectedAgent={activeAgent} onSelect={switchAgent} />
           </div>
         )}
         

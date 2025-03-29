@@ -1,39 +1,51 @@
 
-import React, { useState, useEffect } from 'react';
-import { supabase } from "@/integrations/supabase/client";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts';
-import { Loader2, BarChart2, PieChart as PieChartIcon, Activity, Zap, Hammer } from "lucide-react";
+import React, { useEffect, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { 
+  BarChart as BarChartIcon, 
+  Handshake, 
+  LayoutGrid, 
+  MessageSquare, 
+  Timer, 
+  Wrench 
+} from 'lucide-react';
+import { supabase } from '@/integrations/supabase/client';
+import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
-export interface TraceDashboardProps {
+interface AgentAnalytics {
+  total_traces: number;
+  total_messages: number;
+  total_handoffs: number;
+  total_tool_calls: number;
+  avg_response_time: number;
+  agent_usage: {
+    agent_name: string;
+    count: number;
+  }[];
+  model_usage: {
+    model_name: string;
+    count: number;
+  }[];
+}
+
+interface TraceDashboardProps {
   userId: string;
 }
 
-interface AgentAnalytics {
-  agent_usage: Record<string, number>;
-  total_interactions: number;
-  total_conversations: number;
-  avg_duration_ms: number;
-  success_rate: number;
-  total_handoffs: number;
-  total_tool_calls: number;
-  total_messages: number;
-  model_usage: Record<string, number>;
-}
-
-const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884d8', '#83a6ed'];
-
-export const TraceDashboard: React.FC<TraceDashboardProps> = ({ userId }) => {
+export function TraceDashboard({ userId }: TraceDashboardProps) {
   const [analytics, setAnalytics] = useState<AgentAnalytics | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+
+  const colors = [
+    '#4f46e5', '#2563eb', '#3b82f6', '#60a5fa', '#93c5fd',
+    '#16a34a', '#22c55e', '#4ade80', '#86efac', '#bbf7d0',
+  ];
 
   useEffect(() => {
     async function fetchAnalytics() {
       try {
-        setIsLoading(true);
+        setLoading(true);
         setError(null);
         
         const { data, error: fetchError } = await supabase
@@ -48,7 +60,7 @@ export const TraceDashboard: React.FC<TraceDashboardProps> = ({ userId }) => {
         console.error("Error fetching analytics:", err);
         setError('Failed to load analytics data. Please try again later.');
       } finally {
-        setIsLoading(false);
+        setLoading(false);
       }
     }
     
@@ -57,230 +69,168 @@ export const TraceDashboard: React.FC<TraceDashboardProps> = ({ userId }) => {
     }
   }, [userId]);
 
-  // Prepare data for charts
-  const prepareAgentUsageData = () => {
-    if (!analytics?.agent_usage) return [];
-    
-    return Object.entries(analytics.agent_usage).map(([agent, count]) => ({
-      name: agent,
-      value: count
-    }));
-  };
-  
-  const prepareModelUsageData = () => {
-    if (!analytics?.model_usage) return [];
-    
-    return Object.entries(analytics.model_usage).map(([model, count]) => ({
-      name: model,
-      value: count
-    }));
-  };
-
-  if (isLoading) {
+  if (loading) {
     return (
-      <div className="flex items-center justify-center h-[400px]">
-        <Loader2 className="h-8 w-8 animate-spin text-primary" />
-        <span className="ml-2">Loading analytics data...</span>
+      <div className="flex items-center justify-center h-64">
+        <div className="animate-spin h-8 w-8 border-4 border-primary border-t-transparent rounded-full"></div>
+        <span className="ml-3">Loading analytics...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <Alert variant="destructive" className="my-4">
-        <AlertDescription>{error}</AlertDescription>
-      </Alert>
+      <div className="text-center p-8 bg-red-50 text-red-500 rounded-lg">
+        <p className="font-medium">Error</p>
+        <p>{error}</p>
+      </div>
     );
   }
 
   if (!analytics) {
     return (
-      <div className="p-4 border rounded-md bg-card">
-        <h2 className="text-xl font-semibold mb-4">No analytics data available</h2>
-        <p className="text-sm text-muted-foreground">
-          Start using the multi-agent chat to generate trace data.
-        </p>
+      <div className="text-center p-8 bg-gray-50 rounded-lg">
+        <p className="text-muted-foreground">No analytics data available</p>
       </div>
     );
   }
 
+  // Stats card component - extracted to make the code more readable
+  const StatsCard = ({ 
+    title, 
+    value, 
+    icon: Icon, 
+    description 
+  }: { 
+    title: string; 
+    value: number | string; 
+    icon: React.ElementType; 
+    description?: string 
+  }) => (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm font-medium flex items-center">
+          <Icon className="h-4 w-4 mr-2 text-muted-foreground" />
+          {title}
+        </CardTitle>
+      </CardHeader>
+      <CardContent>
+        <div className="text-2xl font-bold">{value}</div>
+        {description && <p className="text-xs text-muted-foreground mt-1">{description}</p>}
+      </CardContent>
+    </Card>
+  );
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center">
-              <Activity className="h-4 w-4 text-blue-500 mr-2" />
-              Conversations
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics.total_conversations}</div>
-            <p className="text-xs text-muted-foreground">
-              Total agent conversations
-            </p>
-          </CardContent>
-        </Card>
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+        <StatsCard
+          title="Total Traces"
+          value={analytics.total_traces}
+          icon={BarChartIcon}
+          description="Agent conversation sessions"
+        />
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center">
-              <Zap className="h-4 w-4 text-green-500 mr-2" />
-              Success Rate
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {(analytics.success_rate * 100).toFixed(1)}%
-            </div>
-            <p className="text-xs text-muted-foreground">
-              Successful completions
-            </p>
-          </CardContent>
-        </Card>
+        <StatsCard
+          title="Total Messages"
+          value={analytics.total_messages}
+          icon={MessageSquare}
+          description="User and AI interactions"
+        />
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center">
-              <BarChart2 className="h-4 w-4 text-yellow-500 mr-2" />
-              Handoffs
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics.total_handoffs}</div>
-            <p className="text-xs text-muted-foreground">
-              Agent to agent transfers
-            </p>
-          </CardContent>
-        </Card>
+        <StatsCard
+          title="Handoffs"
+          value={analytics.total_handoffs}
+          icon={Handshake}
+          description="Agent to agent transfers"
+        />
         
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm font-medium flex items-center">
-              <Hammer className="h-4 w-4 text-purple-500 mr-2" />
-              Tool Calls
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{analytics.total_tool_calls}</div>
-            <p className="text-xs text-muted-foreground">
-              Function executions
-            </p>
-          </CardContent>
-        </Card>
+        <StatsCard
+          title="Tool Calls"
+          value={analytics.total_tool_calls}
+          icon={Wrench}
+          description="External tool executions"
+        />
+        
+        <StatsCard
+          title="Avg Response Time"
+          value={`${(analytics.avg_response_time / 1000).toFixed(2)}s`}
+          icon={Timer}
+          description="Average agent response time"
+        />
       </div>
       
-      <Tabs defaultValue="agent-usage">
-        <TabsList className="mb-4">
-          <TabsTrigger value="agent-usage">Agent Usage</TabsTrigger>
-          <TabsTrigger value="model-usage">Model Usage</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="agent-usage">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <PieChartIcon className="h-5 w-5 mr-2" />
-                Agent Type Distribution
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <PieChart>
-                    <Pie
-                      data={prepareAgentUsageData()}
-                      cx="50%"
-                      cy="50%"
-                      labelLine={true}
-                      label={({ name, percent }) => `${name}: ${(percent * 100).toFixed(0)}%`}
-                      outerRadius={80}
-                      fill="#8884d8"
-                      dataKey="value"
-                    >
-                      {prepareAgentUsageData().map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                      ))}
-                    </Pie>
-                    <Tooltip 
-                      formatter={(value, name, props) => [`${value} uses`, props.payload.name]}
-                    />
-                  </PieChart>
-                </ResponsiveContainer>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-        
-        <TabsContent value="model-usage">
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center">
-                <BarChart2 className="h-5 w-5 mr-2" />
-                LLM Model Usage
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="h-[300px]">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Agent Usage</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {analytics.agent_usage.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">No agent usage data available</p>
+            ) : (
+              <div className="h-[300px] w-full">
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart
-                    data={prepareModelUsageData()}
-                    margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                    data={analytics.agent_usage}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
                   >
-                    <CartesianGrid strokeDasharray="3 3" />
-                    <XAxis dataKey="name" />
+                    <XAxis 
+                      dataKey="agent_name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={60} 
+                      tick={{ fontSize: 12 }}
+                    />
                     <YAxis />
                     <Tooltip />
-                    <Legend />
-                    <Bar dataKey="value" name="Usage Count" fill="#8884d8" />
+                    <Bar dataKey="count" fill="#4f46e5" radius={[4, 4, 0, 0]}>
+                      {analytics.agent_usage.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />
+                      ))}
+                    </Bar>
                   </BarChart>
                 </ResponsiveContainer>
               </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
-      
-      <Card>
-        <CardHeader>
-          <CardTitle>Performance Metrics</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Average Duration</h3>
-              <p className="text-2xl font-bold">
-                {(analytics.avg_duration_ms / 1000).toFixed(2)}s
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Average time to complete a request
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Messages</h3>
-              <p className="text-2xl font-bold">
-                {analytics.total_messages}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Total messages processed
-              </p>
-            </div>
-            
-            <div className="space-y-2">
-              <h3 className="text-sm font-medium">Avg. Handoffs per Conversation</h3>
-              <p className="text-2xl font-bold">
-                {analytics.total_conversations > 0 
-                  ? (analytics.total_handoffs / analytics.total_conversations).toFixed(1) 
-                  : '0'}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Agent transfers per conversation
-              </p>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+            )}
+          </CardContent>
+        </Card>
+        
+        <Card className="col-span-1">
+          <CardHeader>
+            <CardTitle className="text-lg">Model Usage</CardTitle>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {analytics.model_usage.length === 0 ? (
+              <p className="text-muted-foreground text-sm text-center py-8">No model usage data available</p>
+            ) : (
+              <div className="h-[300px] w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart
+                    data={analytics.model_usage}
+                    margin={{ top: 20, right: 30, left: 20, bottom: 60 }}
+                  >
+                    <XAxis 
+                      dataKey="model_name" 
+                      angle={-45} 
+                      textAnchor="end" 
+                      height={60} 
+                      tick={{ fontSize: 12 }}
+                    />
+                    <YAxis />
+                    <Tooltip />
+                    <Bar dataKey="count" fill="#16a34a" radius={[4, 4, 0, 0]}>
+                      {analytics.model_usage.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={colors[5 + (index % 5)]} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </CardContent>
+        </Card>
+      </div>
     </div>
   );
-};
+}

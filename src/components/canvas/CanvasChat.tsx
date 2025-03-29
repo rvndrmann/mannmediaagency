@@ -2,7 +2,6 @@
 import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
-import { ScrollArea } from "@/components/ui/scroll-area";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { useEffect, useState } from "react";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
@@ -41,10 +40,10 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
   
   return (
     <div className="flex flex-col h-full overflow-hidden border-r">
-      <div className="p-4 border-b flex justify-between items-center bg-background">
-        <h3 className="font-medium">Canvas Assistant</h3>
-        <Button variant="ghost" size="icon" onClick={onClose}>
-          <X className="h-5 w-5" />
+      <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
+        <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
+        <Button variant="ghost" size="icon" onClick={onClose} className="h-7 w-7 text-gray-300 hover:text-white">
+          <X className="h-4 w-4" />
         </Button>
       </div>
       
@@ -55,6 +54,7 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
             onBack={onClose}
             isEmbedded={true}
             sessionId={sessionId}
+            compactMode={true}
           />
         )}
       </div>

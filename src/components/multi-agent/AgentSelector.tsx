@@ -3,10 +3,13 @@ import React, { useRef } from 'react';
 import { Bot, PenLine, Image, Wrench, FileText, Database } from 'lucide-react';
 import { AgentInfo } from '@/types/message';
 import { Button } from '@/components/ui/button';
+import { cn } from '@/lib/utils';
+import { getAgentIcon } from '@/lib/agent-icons';
+import { type AgentType } from '@/hooks/use-multi-agent-chat';
 
 interface AgentSelectorProps {
-  onSelect: (agentId: string) => void;
-  selectedAgentId: string;
+  onSelect: (agentId: AgentType) => void;
+  selectedAgentId: AgentType;
 }
 
 export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selectedAgentId }) => {
@@ -76,38 +79,27 @@ export const AgentSelector: React.FC<AgentSelectorProps> = ({ onSelect, selected
     }
   ];
 
-  const renderAgentIcon = (iconName: string) => {
-    switch (iconName) {
-      case 'Bot': return <Bot className="h-4 w-4" />;
-      case 'PenLine': return <PenLine className="h-4 w-4" />;
-      case 'Image': return <Image className="h-4 w-4" />;
-      case 'Wrench': return <Wrench className="h-4 w-4" />;
-      case 'FileText': return <FileText className="h-4 w-4" />;
-      case 'Database': return <Database className="h-4 w-4" />;
-      default: return <Bot className="h-4 w-4" />;
-    }
-  };
-
   return (
-    <div className="py-2 overflow-hidden">
+    <div className="rounded-lg border border-white/10 bg-[#21283B]/60 backdrop-blur-sm p-2">
       <div 
         ref={scrollContainerRef} 
-        className="flex space-x-2 px-2 overflow-x-auto pb-2 scrollbar-thin"
+        className="flex space-x-2 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-gray-700"
       >
         {agents.map((agent) => (
           <button
             key={agent.id}
-            onClick={() => onSelect(agent.id)}
-            className={`flex-shrink-0 flex flex-col items-center py-1 px-3 rounded-lg transition-colors ${
+            onClick={() => onSelect(agent.id as AgentType)}
+            className={cn(
+              "flex-shrink-0 flex items-center justify-center flex-col py-2 px-3 rounded-lg transition-colors",
               selectedAgentId === agent.id
                 ? `bg-gradient-to-r ${agent.color} text-white`
-                : 'hover:bg-gray-100 dark:hover:bg-gray-800'
-            }`}
+                : 'hover:bg-[#2D3648] text-gray-300'
+            )}
           >
-            <div className={`p-2 rounded-full bg-white/10 ${selectedAgentId !== agent.id ? 'text-gray-700 dark:text-gray-300' : ''}`}>
-              {renderAgentIcon(agent.icon as string)}
+            <div className={`p-2 rounded-full ${selectedAgentId === agent.id ? 'bg-white/20' : 'bg-[#2A3040]'}`}>
+              {getAgentIcon(agent.id, "h-5 w-5")}
             </div>
-            <div className="font-medium text-xs mt-1">{agent.name}</div>
+            <div className="font-medium text-xs mt-1.5">{agent.name}</div>
           </button>
         ))}
       </div>

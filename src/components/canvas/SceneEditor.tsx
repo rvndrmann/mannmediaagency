@@ -180,8 +180,13 @@ Format the prompt to get the best results from an AI image generator.`;
           <div className="flex items-center space-x-2">
             <span className="text-sm text-muted-foreground">Use MCP</span>
             <Switch 
-              checked={useMcp} 
-              onCheckedChange={setUseMcp} 
+              checked={useMcp}
+              onCheckedChange={(value) => {
+                // Only call setUseMcp if the value is different
+                if (value !== useMcp) {
+                  setUseMcp(value);
+                }
+              }}
             />
             {useMcp && (
               <span className="text-xs text-green-400 ml-1">(Recommended)</span>

@@ -73,7 +73,7 @@ export default function Canvas() {
     }
   }, [projectId, hasProjects]);
 
-  // Initialize chat session when project loads
+  // Initialize chat session when project loads - only once when project changes
   useEffect(() => {
     if (projectId && !chatInitialized && project) {
       try {
@@ -111,7 +111,7 @@ export default function Canvas() {
     setSelectedSceneId(sceneId);
   }, [setSelectedSceneId]);
 
-  const handleSceneCreate = async () => {
+  const handleSceneCreate = useCallback(async () => {
     try {
       await addScene();
       toast.success("Scene created successfully");
@@ -119,7 +119,7 @@ export default function Canvas() {
       console.error("Error creating scene:", error);
       toast.error("Failed to create scene");
     }
-  };
+  }, [addScene]);
 
   const handleToggleChat = useCallback(() => {
     setShowChat(prev => !prev);
@@ -135,17 +135,20 @@ export default function Canvas() {
       return;
     }
     
-    // Use navigate with replace to avoid adding to history stack
-    navigate(`/canvas/${selectedProjectId}`, { replace: true });
-    
-    // Reset states to prevent UI inconsistencies
-    setShowHistory(false);
-    setShowChat(false);
-    setChatInitialized(false);
-    setLoadError(null);
-  }, [navigate]);
+    // Only navigate if different from current
+    if (selectedProjectId !== projectId) {
+      // Use navigate with replace to avoid adding to history stack
+      navigate(`/canvas/${selectedProjectId}`, { replace: true });
+      
+      // Reset states to prevent UI inconsistencies
+      setShowHistory(false);
+      setShowChat(false);
+      setChatInitialized(false);
+      setLoadError(null);
+    }
+  }, [navigate, projectId]);
 
-  const handleUpdateTitle = async (title: string) => {
+  const handleUpdateTitle = useCallback(async (title: string) => {
     if (!project) return;
     try {
       await updateProjectTitle(title);
@@ -154,10 +157,10 @@ export default function Canvas() {
       console.error("Error updating project title:", error);
       toast.error("Failed to update project title");
     }
-  };
+  }, [project, updateProjectTitle]);
 
   // Create a new project with initial scenes
-  const handleCreateNewProject = async (): Promise<void> => {
+  const handleCreateNewProject = useCallback(async (): Promise<void> => {
     try {
       toast.info("Creating new project...");
       
@@ -196,7 +199,7 @@ export default function Canvas() {
       console.error("Error creating new project:", error);
       toast.error("Failed to create new project");
     }
-  };
+  }, [createProject, navigate, updateScene, fetchProjectAndScenes]);
 
   // Check if we're on the root Canvas page with no project ID
   const isRootCanvas = !projectId;

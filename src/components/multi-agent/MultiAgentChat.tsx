@@ -6,7 +6,7 @@ import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatSession } from "@/contexts/ChatSessionContext";
-import { Message } from "@/types/message";
+import { Message, MessageStatus } from "@/types/message";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { AgentSelector } from "@/components/canvas/AgentSelector";
@@ -55,7 +55,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         createdAt: new Date().toISOString(),
       };
       
-      // Add to messages - fix for TypeScript error
+      // Add to messages
       const newMessagesWithUser = [...messages, userMessage];
       setMessages(newMessagesWithUser);
       
@@ -65,11 +65,11 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         role: "assistant",
         content: "",
         createdAt: new Date().toISOString(),
-        status: "thinking",
+        status: "thinking" as MessageStatus,
         agentType: selectedAgent
       };
       
-      // Add thinking message - fix for TypeScript error
+      // Add thinking message
       const newMessagesWithThinking = [...newMessagesWithUser, assistantThinkingMessage];
       setMessages(newMessagesWithThinking);
       
@@ -95,13 +95,13 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         console.error("Error calling unified-agent:", error);
         toast.error("Failed to get response from agent");
         
-        // Update the thinking message to show the error - fix for TypeScript error
+        // Update the thinking message to show the error
         const updatedMessages = newMessagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {
             return {
               ...msg,
               content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
-              status: "error",
+              status: "error" as MessageStatus,
             };
           }
           return msg;
@@ -111,7 +111,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
       } else if (data) {
         console.log("Received response from unified-agent:", data);
         
-        // Replace the thinking message with the actual response - fix for TypeScript error
+        // Replace the thinking message with the actual response
         const updatedMessages = newMessagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {
             return {

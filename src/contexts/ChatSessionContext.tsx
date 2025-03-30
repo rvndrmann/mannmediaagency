@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, ReactNode, useState, useCallback, useMemo } from "react";
+import React, { createContext, useContext, ReactNode, useState, useCallback, useMemo, useEffect } from "react";
 import { useChatHistoryStore, ChatSession } from "@/hooks/use-chat-history-store";
 import { Message } from "@/types/message";
 
@@ -23,14 +23,22 @@ const ChatSessionContext = createContext<ChatSessionContextType | undefined>(und
 
 export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const chatHistoryStore = useChatHistoryStore();
-  const [messages, setMessages] = useState<Message[]>([]);
+  const [messages, setMessagesState] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
+  // Sync local state with store when active session changes
+  useEffect(() => {
+    if (chatHistoryStore.activeSession?.messages) {
+      setMessagesState(chatHistoryStore.activeSession.messages);
+    } else {
+      setMessagesState([]);
+    }
+  }, [chatHistoryStore.activeSession]);
+  
   // Enhanced version of setMessages that also updates the store
-  const updateMessages = useCallback((newMessages: Message[]) => {
-    // Ensure we're always setting an array of messages (not a function)
-    setMessages(newMessages);
+  const setMessages = useCallback((newMessages: Message[]) => {
+    setMessagesState(newMessages);
     
     // Also update the session in the store if we have an active chat ID
     if (chatHistoryStore.activeChatId) {
@@ -44,13 +52,6 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     
     // Make sure the active session is set
     chatHistoryStore.setActiveChatId(sessionId);
-    
-    // Update our local messages state with the session messages
-    if (chatHistoryStore.activeSession?.messages) {
-      setMessages(chatHistoryStore.activeSession.messages);
-    } else {
-      setMessages([]);
-    }
     
     return sessionId;
   }, [chatHistoryStore]);
@@ -71,7 +72,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const contextValue = useMemo(() => ({
     ...chatHistoryStore,
     messages,
-    setMessages: updateMessages,
+    setMessages,
     isLoading,
     status,
     sendMessage,
@@ -79,7 +80,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   }), [
     chatHistoryStore, 
     messages, 
-    updateMessages, 
+    setMessages, 
     isLoading, 
     status, 
     sendMessage, 

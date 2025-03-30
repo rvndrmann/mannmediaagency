@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Message } from "@/types/message";
+import { Message, MessageStatus } from "@/types/message";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -41,7 +41,7 @@ export function useMultiAgentChat(projectId?: string) {
         role: "assistant",
         content: "",
         createdAt: new Date().toISOString(),
-        status: "thinking",
+        status: "thinking" as MessageStatus,
         agentType: selectedAgent
       };
       
@@ -68,7 +68,7 @@ export function useMultiAgentChat(projectId?: string) {
             return {
               ...msg,
               content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
-              status: "error",
+              status: "error" as MessageStatus,
               agentType: selectedAgent
             };
           }

@@ -1,7 +1,7 @@
 
-import React from "react";
+import React, { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { Sparkles, AlertCircle } from "lucide-react";
+import { Sparkles, AlertCircle, RefreshCw } from "lucide-react";
 import { SceneUpdateType } from "@/types/canvas";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { toast } from "sonner";
@@ -27,6 +27,7 @@ export function SceneGenerationPanel({
   sceneId
 }: SceneGenerationPanelProps) {
   const { mcpServers, useMcp, hasConnectionError, reconnectToMcp } = useMCPContext();
+  const [isReconnecting, setIsReconnecting] = useState(false);
   
   if (!onGenerateWithAI) return null;
   
@@ -34,10 +35,18 @@ export function SceneGenerationPanel({
     // If MCP is enabled but not connected, warn the user
     if (useMcp && (mcpServers.length === 0 || hasConnectionError)) {
       // Try to reconnect first
-      const reconnected = await reconnectToMcp();
-      
-      if (!reconnected) {
-        toast.error("MCP connection issue. Try reconnecting or disable MCP to use fallback generation.");
+      setIsReconnecting(true);
+      try {
+        const reconnected = await reconnectToMcp();
+        setIsReconnecting(false);
+        
+        if (!reconnected) {
+          toast.error("MCP connection issue. Try reconnecting or disable MCP to use fallback generation.");
+          return;
+        }
+      } catch (error) {
+        setIsReconnecting(false);
+        toast.error("Failed to reconnect to MCP services");
         return;
       }
     }
@@ -50,8 +59,15 @@ export function SceneGenerationPanel({
     }
   };
   
-  const isDisabled = isGenerating || isProcessing;
+  const isDisabled = isGenerating || isProcessing || isReconnecting;
   const hasMCPIssue = useMcp && (mcpServers.length === 0 || hasConnectionError);
+  
+  const getButtonText = () => {
+    if (isProcessing && activeAgent === fieldType) return "Generating...";
+    if (isReconnecting) return "Reconnecting...";
+    if (hasMCPIssue) return "MCP Disconnected";
+    return "Generate with AI";
+  };
   
   return (
     <TooltipProvider>
@@ -64,20 +80,22 @@ export function SceneGenerationPanel({
             disabled={isDisabled}
             className={hasMCPIssue ? "border-yellow-300" : ""}
           >
-            {hasMCPIssue ? (
+            {isReconnecting ? (
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5 animate-spin" />
+            ) : hasMCPIssue ? (
               <AlertCircle className="h-3.5 w-3.5 mr-1.5 text-yellow-500" />
             ) : (
               <Sparkles className="h-3.5 w-3.5 mr-1.5" />
             )}
-            {isProcessing && activeAgent === fieldType ? 
-              "Generating..." : 
-              hasMCPIssue ? "MCP Disconnected" : "Generate with AI"}
+            {getButtonText()}
           </Button>
         </TooltipTrigger>
         <TooltipContent>
-          {hasMCPIssue ? 
-            "MCP is disconnected. Click to attempt reconnection before generating." : 
-            `Generate ${fieldType} using AI`}
+          {isReconnecting ? 
+            "Reconnecting to MCP services..." :
+            hasMCPIssue ? 
+              "MCP is disconnected. Click to attempt reconnection before generating." : 
+              `Generate ${fieldType} using AI`}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

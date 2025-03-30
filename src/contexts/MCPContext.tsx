@@ -3,7 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { MCPContext as MCPContextType } from "@/types/mcp";
 import { toast } from "sonner";
 import { MCPService } from "@/services/mcp/MCPService";
-import { MCPServer } from "@/services/mcp/types";
+import { MCPServer } from "@/types/mcp";
 
 const defaultMCPContext: MCPContextType = {
   mcpServers: [],
@@ -17,11 +17,21 @@ const defaultMCPContext: MCPContextType = {
 const MCPContext = createContext<MCPContextType>(defaultMCPContext);
 
 export function MCPProvider({ children, projectId }: { children: ReactNode, projectId?: string }) {
-  const [useMcp, setUseMcp] = useState<boolean>(true);
+  const [useMcp, setUseMcp] = useState<boolean>(() => {
+    // Try to load from localStorage for persistence
+    const savedPref = localStorage.getItem('useMcp');
+    return savedPref !== null ? savedPref === 'true' : true; // Default to true
+  });
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
+  const [connectionAttempts, setConnectionAttempts] = useState<number>(0);
   const mcpService = MCPService.getInstance();
+  
+  // Save MCP preference to localStorage
+  useEffect(() => {
+    localStorage.setItem('useMcp', String(useMcp));
+  }, [useMcp]);
   
   // Function to establish MCP connection
   const connectToMcp = async (projectIdentifier?: string): Promise<boolean> => {
@@ -44,6 +54,7 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
         if (newServer && newServer.isConnected()) {
           setMcpServers([newServer]);
           setIsConnecting(false);
+          setConnectionAttempts(0); // Reset connection attempts on success
           return true;
         } else {
           throw new Error("Failed to establish MCP connection");
@@ -59,13 +70,19 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       
       setMcpServers([server]);
       setIsConnecting(false);
+      setConnectionAttempts(0); // Reset connection attempts on success
       return true;
     } catch (error) {
       console.error("Failed to connect to MCP server:", error);
       setMcpServers([]);
       setIsConnecting(false);
       setHasConnectionError(true);
-      toast.error("Failed to connect to MCP services. Some AI features may be limited.");
+      setConnectionAttempts(prev => prev + 1);
+      
+      // Only show toast for first few attempts to avoid spamming
+      if (connectionAttempts < 2) {
+        toast.error("Failed to connect to MCP services. Some AI features may be limited.");
+      }
       return false;
     }
   };
@@ -76,6 +93,8 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       const success = await connectToMcp(projectId);
       if (success) {
         toast.success("Reconnected to MCP services successfully");
+      } else {
+        toast.error("Failed to reconnect to MCP services");
       }
       return success;
     }
@@ -88,6 +107,9 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       connectToMcp(projectId);
     } else {
       setMcpServers([]);
+      if (projectId) {
+        console.log("MCP is disabled for project:", projectId);
+      }
     }
     
     // Cleanup on unmount or when dependencies change

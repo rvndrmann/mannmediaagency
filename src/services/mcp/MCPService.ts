@@ -2,10 +2,11 @@
 import { supabase } from "@/integrations/supabase/client";
 import { MCPConnection, MCPConnectionRecord, MCPServerConfig, MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "./types";
 
-export class MCPConnection implements MCPConnection {
+// Implementation of the MCPConnection interface
+class MCPConnectionImpl implements MCPConnection {
   private serverUrl: string;
   private toolsCache: MCPToolDefinition[] | null = null;
-  private isConnected: boolean = false;
+  private _isConnected: boolean = false;
   private connectionError: Error | null = null;
   private connectionId: string | null = null;
   private projectId: string | null = null;
@@ -39,7 +40,7 @@ export class MCPConnection implements MCPConnection {
         throw new Error("Failed to connect to MCP server");
       }
       
-      this.isConnected = true;
+      this._isConnected = true;
       this.connectionError = null;
       
       // If we have a project ID, record this connection in the database
@@ -52,7 +53,7 @@ export class MCPConnection implements MCPConnection {
       
       console.log("Successfully connected to MCP server");
     } catch (error) {
-      this.isConnected = false;
+      this._isConnected = false;
       this.connectionError = error instanceof Error ? error : new Error(String(error));
       throw this.connectionError;
     }
@@ -386,14 +387,14 @@ export class MCPConnection implements MCPConnection {
         return;
       }
       
-      // Insert the execution record
+      // Insert the execution record - convert to JSON compatible format
       const { error: insertError } = await supabase
         .from('mcp_tool_executions')
         .insert({
           tool_id: tool.id,
           scene_id: parameters.sceneId,
-          parameters,
-          result: result || null,
+          parameters: parameters,
+          result: result ? JSON.parse(JSON.stringify(result)) : null,
           status: result ? 'completed' : 'failed',
           error_message: error ? String(error) : null,
           completed_at: result ? new Date().toISOString() : null
@@ -428,7 +429,7 @@ export class MCPConnection implements MCPConnection {
     }
     
     this.toolsCache = null;
-    this.isConnected = false;
+    this._isConnected = false;
     this.connectionId = null;
   }
   
@@ -441,14 +442,67 @@ export class MCPConnection implements MCPConnection {
   }
 
   isConnected(): boolean {
-    return this.isConnected;
+    return this._isConnected;
+  }
+}
+
+// MCPServer extends MCPConnection to maintain compatibility with the old interface
+export interface MCPServer extends MCPConnection {
+  cleanup(): Promise<void>;
+  invalidateToolsCache(): void;
+  isConnectionActive(): boolean;
+}
+
+// An adapter class that implements MCPServer by wrapping MCPConnectionImpl
+class MCPServerAdapter implements MCPServer {
+  private connection: MCPConnectionImpl;
+  
+  constructor(config: MCPServerConfig) {
+    this.connection = new MCPConnectionImpl(config);
+  }
+  
+  async connect(): Promise<void> {
+    return this.connection.connect();
+  }
+  
+  async disconnect(): Promise<void> {
+    return this.connection.disconnect();
+  }
+  
+  async cleanup(): Promise<void> {
+    return this.connection.disconnect();
+  }
+  
+  isConnected(): boolean {
+    return this.connection.isConnected();
+  }
+  
+  isConnectionActive(): boolean {
+    return this.connection.isConnected();
+  }
+  
+  getConnectionError(): Error | null {
+    return this.connection.getConnectionError();
+  }
+  
+  invalidateToolsCache(): void {
+    return this.connection.invalidateToolsCache();
+  }
+  
+  async listTools(): Promise<MCPToolDefinition[]> {
+    return this.connection.listTools();
+  }
+  
+  async callTool(name: string, parameters: MCPToolExecutionParams): Promise<MCPToolExecutionResult> {
+    return this.connection.callTool(name, parameters);
   }
 }
 
 // Singleton service for managing MCP connections
 export class MCPService {
   private static instance: MCPService;
-  private connections: Map<string, MCPConnection> = new Map();
+  private connections: Map<string, MCPConnectionImpl> = new Map();
+  private serverAdapters: Map<string, MCPServerAdapter> = new Map();
   
   private constructor() {}
   
@@ -479,7 +533,7 @@ export class MCPService {
     }
     
     // Create a new connection
-    const connection = new MCPConnection(config);
+    const connection = new MCPConnectionImpl(config);
     
     try {
       await connection.connect();
@@ -489,6 +543,38 @@ export class MCPService {
     }
     
     return connection;
+  }
+  
+  async getServer(config: MCPServerConfig): Promise<MCPServer> {
+    const connectionKey = `${config.projectId || 'default'}-${config.serverUrl}`;
+    
+    // Check if we already have this server adapter
+    if (this.serverAdapters.has(connectionKey)) {
+      const existingAdapter = this.serverAdapters.get(connectionKey)!;
+      
+      // If it's not connected, try to reconnect
+      if (!existingAdapter.isConnected()) {
+        try {
+          await existingAdapter.connect();
+        } catch (error) {
+          console.error("Error reconnecting to MCP server:", error);
+        }
+      }
+      
+      return existingAdapter;
+    }
+    
+    // Create a new server adapter
+    const serverAdapter = new MCPServerAdapter(config);
+    
+    try {
+      await serverAdapter.connect();
+      this.serverAdapters.set(connectionKey, serverAdapter);
+    } catch (error) {
+      console.error("Error connecting to MCP server:", error);
+    }
+    
+    return serverAdapter;
   }
   
   async getConnectionForProject(projectId: string): Promise<MCPConnection | null> {
@@ -518,6 +604,33 @@ export class MCPService {
     }
   }
   
+  async getServerForProject(projectId: string): Promise<MCPServer | null> {
+    try {
+      // Try to find an existing MCP connection for this project
+      const { data, error } = await supabase
+        .from('mcp_connections')
+        .select('connection_url, project_id')
+        .eq('project_id', projectId)
+        .eq('is_active', true)
+        .order('last_connected_at', { ascending: false })
+        .maybeSingle();
+        
+      if (error || !data) {
+        console.error("Error finding MCP connection for project:", error);
+        return null;
+      }
+      
+      // Use the existing connection URL
+      return this.getServer({
+        serverUrl: data.connection_url,
+        projectId: data.project_id
+      });
+    } catch (error) {
+      console.error("Error getting MCP server for project:", error);
+      return null;
+    }
+  }
+  
   async createDefaultConnection(projectId: string): Promise<MCPConnection | null> {
     const defaultUrl = `https://api.browser-use.com/api/v1/mcp/${projectId}`;
     
@@ -528,6 +641,20 @@ export class MCPService {
       });
     } catch (error) {
       console.error("Error creating default MCP connection:", error);
+      return null;
+    }
+  }
+  
+  async createDefaultServer(projectId: string): Promise<MCPServer | null> {
+    const defaultUrl = `https://api.browser-use.com/api/v1/mcp/${projectId}`;
+    
+    try {
+      return this.getServer({
+        serverUrl: defaultUrl,
+        projectId
+      });
+    } catch (error) {
+      console.error("Error creating default MCP server:", error);
       return null;
     }
   }
@@ -569,6 +696,16 @@ export class MCPService {
       await connection.disconnect();
       this.connections.delete(connectionKey);
     }
+    
+    const serverKey = Array.from(this.serverAdapters.keys()).find(
+      key => key.startsWith(`${projectId}-`)
+    );
+    
+    if (serverKey && this.serverAdapters.has(serverKey)) {
+      const server = this.serverAdapters.get(serverKey)!;
+      await server.cleanup();
+      this.serverAdapters.delete(serverKey);
+    }
   }
   
   async closeAllConnections(): Promise<void> {
@@ -576,5 +713,15 @@ export class MCPService {
       await connection.disconnect();
     }
     this.connections.clear();
+    
+    for (const server of this.serverAdapters.values()) {
+      await server.cleanup();
+    }
+    this.serverAdapters.clear();
   }
 }
+
+export { 
+  MCPConnectionImpl, 
+  MCPServerAdapter 
+};

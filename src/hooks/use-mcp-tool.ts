@@ -19,6 +19,7 @@ export function useMcpTool(toolName: string, options: UseMcpToolOptions = {}) {
   const [lastResult, setLastResult] = useState<any>(null);
   const [error, setError] = useState<Error | null>(null);
   const { useMcp } = useMCPContext();
+  const mcpService = MCPService.getInstance();
   
   const { 
     fallbackFn, 
@@ -105,8 +106,6 @@ export function useMcpTool(toolName: string, options: UseMcpToolOptions = {}) {
       };
       
       // Get MCP service and connection
-      const mcpService = MCPService.getInstance();
-      
       // Try to get connection for this project
       const connection = projectId 
         ? await mcpService.getConnectionForProject(projectId)
@@ -170,7 +169,7 @@ export function useMcpTool(toolName: string, options: UseMcpToolOptions = {}) {
     } finally {
       setIsExecuting(false);
     }
-  }, [toolName, mcpService, useMcp, fallbackFn, showToasts, projectId, sceneId, recordToolUsage]);
+  }, [toolName, useMcp, fallbackFn, showToasts, projectId, sceneId, recordToolUsage, mcpService]);
   
   return {
     executeTool,

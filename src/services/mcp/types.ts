@@ -38,6 +38,7 @@ export interface MCPToolExecutionResult {
   result?: string;
   data?: any;
   error?: string;
+  [key: string]: any; // Add index signature for JSON compatibility
 }
 
 export interface MCPConnection {

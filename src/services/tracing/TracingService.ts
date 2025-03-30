@@ -115,22 +115,31 @@ export class TracingService {
     // Save trace to database
     if (this.userId) {
       try {
+        // Convert events to stringifiable format for Supabase JSON
+        const simplifiedEvents = this.events.map(event => ({
+          eventType: event.eventType,
+          timestamp: event.timestamp,
+          data: JSON.parse(JSON.stringify(event.data))
+        }));
+
+        const metadata = {
+          trace: {
+            runId: this.runId,
+            traceId: this.traceId,
+            duration,
+            timestamp: new Date().toISOString(),
+            events: simplifiedEvents,
+            summary: traceSummary
+          }
+        };
+
         await supabase.from('agent_interactions').insert({
           user_id: this.userId,
           agent_type: this.agentType!,
           user_message: options.userMessage,
           assistant_response: options.assistantResponse,
           has_attachments: options.hasAttachments || false,
-          metadata: {
-            trace: {
-              runId: this.runId,
-              traceId: this.traceId,
-              duration,
-              timestamp: new Date().toISOString(),
-              events: this.events,
-              summary: traceSummary
-            }
-          }
+          metadata: metadata
         });
       } catch (error) {
         console.error("Error saving trace data:", error);

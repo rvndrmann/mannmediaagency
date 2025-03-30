@@ -106,8 +106,16 @@ export default function Canvas() {
   }, []);
 
   const handleSelectProject = useCallback((selectedProjectId: string) => {
+    if (!selectedProjectId) {
+      navigate('/canvas');
+      return;
+    }
+    
     navigate(`/canvas/${selectedProjectId}`);
+    // Reset states to prevent UI inconsistencies
     setShowHistory(false);
+    setShowChat(false);
+    setChatInitialized(false);
   }, [navigate]);
 
   const handleUpdateTitle = async (title: string) => {
@@ -121,7 +129,7 @@ export default function Canvas() {
     }
   };
 
-  // Wrapper for createProject that doesn't return anything
+  // Create a new project with initial scenes
   const handleCreateNewProject = async (): Promise<void> => {
     try {
       // Create a new project with initial scenes
@@ -144,6 +152,7 @@ export default function Canvas() {
       if (newProjectId) {
         navigate(`/canvas/${newProjectId}`);
         setHasProjects(true);
+        setShowHistory(false);
       }
     } catch (error) {
       console.error("Error creating new project:", error);

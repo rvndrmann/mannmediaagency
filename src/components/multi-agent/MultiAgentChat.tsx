@@ -85,8 +85,15 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
   }, [setSelectedAgent]);
   
   const handleProjectSelect = useCallback((newProjectId: string) => {
+    // If we're already using this project, don't re-initialize
+    if (newProjectId === localProjectId) return;
+    
+    // Update the local project ID state
     setLocalProjectId(newProjectId);
-  }, []);
+    
+    // Reset chat state to prevent UI issues
+    setInput("");
+  }, [localProjectId]);
   
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -163,7 +170,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
                 isLoading={isProcessing}
                 onInputChange={setInput}
                 onSubmit={handleSendMessage}
-                placeholder={`Send a message to the ${selectedAgent} agent...`}
+                placeholder={`Send a message to the ${selectedAgent || "AI"} agent...`}
               />
             </form>
           </div>

@@ -16,7 +16,7 @@ interface AgentCanvasIntegrationProps {
  * It synchronizes data and actions between these two features.
  */
 export function AgentCanvasIntegration({ projectId, sceneId }: AgentCanvasIntegrationProps) {
-  const { addMessage, activeAgent, setActiveAgent, messages } = useMultiAgentChat();
+  const { messages, sendMessage, selectedAgent, setSelectedAgent } = useMultiAgentChat();
   const { project, scenes, selectedScene, updateScene } = useCanvas();
   const [isIntegrationEnabled, setIsIntegrationEnabled] = useState(false);
   

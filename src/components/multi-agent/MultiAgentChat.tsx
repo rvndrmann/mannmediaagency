@@ -22,8 +22,8 @@ function MultiAgentContent({ projectId }: MultiAgentContentProps) {
   const {
     messages,
     isProcessing,
-    activeAgent,
-    setActiveAgent,
+    selectedAgent, 
+    setSelectedAgent,
     sendMessage,
     error
   } = useMultiAgent();
@@ -64,16 +64,16 @@ function MultiAgentContent({ projectId }: MultiAgentContentProps) {
       console.log(`Detected handoff to ${targetAgent} agent`);
       
       // Update the selected agent if it's different
-      if (activeAgent !== targetAgent) {
-        setActiveAgent(targetAgent);
+      if (selectedAgent !== targetAgent) {
+        setSelectedAgent(targetAgent);
         toast.info(`Switched to ${targetAgent} agent`);
       }
     }
-  }, [messages, activeAgent, setActiveAgent]);
+  }, [messages, selectedAgent, setSelectedAgent]);
   
   const handleAgentChange = useCallback((agentType: string) => {
-    setActiveAgent(agentType);
-  }, [setActiveAgent]);
+    setSelectedAgent(agentType);
+  }, [setSelectedAgent]);
   
   const handleProjectSelect = useCallback((newProjectId: string) => {
     // If we're already using this project, don't re-initialize
@@ -104,9 +104,9 @@ function MultiAgentContent({ projectId }: MultiAgentContentProps) {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold text-foreground">Multi-Agent Chat</h2>
-                {activeAgent && (
+                {selectedAgent && (
                   <Badge variant="secondary" className="flex items-center">
-                    {activeAgent} agent
+                    {selectedAgent} agent
                   </Badge>
                 )}
               </div>
@@ -119,7 +119,7 @@ function MultiAgentContent({ projectId }: MultiAgentContentProps) {
                 </div>
                 <div className="w-full md:w-[180px]">
                   <AgentSelector 
-                    selectedAgent={activeAgent}
+                    selectedAgent={selectedAgent}
                     onSelectAgent={handleAgentChange}
                     disabled={isProcessing}
                   />
@@ -155,7 +155,7 @@ function MultiAgentContent({ projectId }: MultiAgentContentProps) {
                 isLoading={isProcessing}
                 onInputChange={setInput}
                 onSubmit={handleSendMessage}
-                placeholder={`Send a message to the ${activeAgent || "AI"} agent...`}
+                placeholder={`Send a message to the ${selectedAgent || "AI"} agent...`}
               />
             </form>
           </div>

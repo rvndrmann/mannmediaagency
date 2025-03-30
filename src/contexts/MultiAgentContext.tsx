@@ -8,11 +8,12 @@ interface MultiAgentContextType {
   messages: Message[];
   setMessages: (messages: Message[]) => void;
   isProcessing: boolean;
-  activeAgent: AgentType;
+  selectedAgent: AgentType;
   error: string | null;
-  setActiveAgent: (agent: AgentType) => void;
+  setSelectedAgent: (agent: AgentType) => void;
   sendMessage: (input: string) => Promise<boolean>;
   clearError: () => void;
+  addMessage: (content: string, role?: "system" | "assistant" | "user") => void;
 }
 
 const MultiAgentContext = createContext<MultiAgentContextType | undefined>(undefined);
@@ -26,7 +27,7 @@ export function MultiAgentProvider({
 }) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<AgentType>("main");
+  const [selectedAgent, setSelectedAgent] = useState<AgentType>("main");
   const [error, setError] = useState<string | null>(null);
   
   const processingRef = useRef(false);
@@ -49,6 +50,19 @@ export function MultiAgentProvider({
   const clearError = useCallback(() => {
     setError(null);
   }, []);
+  
+  // Add a utility method to add a message directly (for system messages, etc.)
+  const addMessage = useCallback((content: string, role: "system" | "assistant" | "user" = "system") => {
+    const newMessage: Message = {
+      id: crypto.randomUUID(),
+      role: role,
+      content: content,
+      createdAt: new Date().toISOString(),
+      agentType: role === "assistant" ? selectedAgent : undefined
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+  }, [setMessages, selectedAgent]);
   
   const sendMessage = useCallback(async (input: string): Promise<boolean> => {
     if (!input.trim() || processingRef.current) return false;
@@ -77,7 +91,7 @@ export function MultiAgentProvider({
         content: "",
         createdAt: new Date().toISOString(),
         status: "thinking" as MessageStatus,
-        agentType: activeAgent
+        agentType: selectedAgent
       };
       
       // Create a new array instead of mutating the original
@@ -90,7 +104,7 @@ export function MultiAgentProvider({
       
       console.log("Calling agent-sdk with:", {
         input,
-        agentType: activeAgent,
+        agentType: selectedAgent,
         projectId,
         userId,
         messageHistoryLength: messageHistoryRef.current.length
@@ -101,7 +115,7 @@ export function MultiAgentProvider({
         body: {
           input: input,
           projectId: projectId,
-          agentType: activeAgent,
+          agentType: selectedAgent,
           userId: userId,
           sessionId: crypto.randomUUID(), // Used for tracing
           messageHistory: messageHistoryRef.current
@@ -120,7 +134,7 @@ export function MultiAgentProvider({
               ...msg,
               content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
               status: "error" as MessageStatus,
-              agentType: activeAgent
+              agentType: selectedAgent
             };
           }
           return msg;
@@ -144,7 +158,7 @@ export function MultiAgentProvider({
                 ...msg,
                 content: data.response || "I'm transferring you to a specialized agent.",
                 status: undefined,
-                agentType: activeAgent,
+                agentType: selectedAgent,
                 handoffRequest: {
                   targetAgent: data.handoff.targetAgent,
                   reason: data.handoff.reason,
@@ -158,7 +172,7 @@ export function MultiAgentProvider({
           setMessages(updatedMessages);
           
           // Update the selected agent
-          setActiveAgent(data.handoff.targetAgent);
+          setSelectedAgent(data.handoff.targetAgent);
           
           // Update message history with the new messages
           if (data.messageHistory) {
@@ -175,7 +189,7 @@ export function MultiAgentProvider({
               ...msg,
               content: data.response || "I processed your request but don't have a specific response.",
               status: undefined,
-              agentType: data.agentType || activeAgent,
+              agentType: data.agentType || selectedAgent,
             };
           }
           return msg;
@@ -199,18 +213,19 @@ export function MultiAgentProvider({
     } finally {
       setIsProcessing(false);
     }
-  }, [messages, activeAgent, projectId]);
+  }, [messages, selectedAgent, projectId]);
 
   return (
     <MultiAgentContext.Provider value={{
       messages,
       setMessages,
       isProcessing,
-      activeAgent,
+      selectedAgent,
       error,
-      setActiveAgent,
+      setSelectedAgent,
       sendMessage,
-      clearError
+      clearError,
+      addMessage
     }}>
       {children}
     </MultiAgentContext.Provider>

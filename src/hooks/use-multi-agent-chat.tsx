@@ -192,12 +192,26 @@ export function useMultiAgentChat(options: MultiAgentChatOptions = {}) {
     }
   }, [messages, setMessages, selectedAgent, projectId, onError]);
   
+  // Add a utility method to add a message directly (for system messages, etc.)
+  const addMessage = useCallback((content: string, role: "system" | "assistant" | "user" = "system") => {
+    const newMessage: Message = {
+      id: crypto.randomUUID(),
+      role: role,
+      content: content,
+      createdAt: new Date().toISOString(),
+      agentType: role === "assistant" ? selectedAgent : undefined
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+  }, [setMessages, selectedAgent]);
+  
   return {
     messages,
     isProcessing,
     selectedAgent,
     setSelectedAgent,
     sendMessage,
-    error
+    error,
+    addMessage
   };
 }

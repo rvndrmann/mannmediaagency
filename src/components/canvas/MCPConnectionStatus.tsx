@@ -39,8 +39,8 @@ export function MCPConnectionStatus({
     reconnectToMcp();
   };
   
-  // Fix the type issue by making this function accept either button or div events
-  const handleDisableMcp = (e: React.MouseEvent<HTMLButtonElement | HTMLDivElement>) => {
+  // Fix the type issue by properly typing the event parameter
+  const handleDisableMcp = (e: React.MouseEvent<Element>) => {
     e.preventDefault();
     e.stopPropagation();
     setUseMcp(false);

@@ -2,7 +2,7 @@
 import React from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Server, ServerCrash, ServerOff, Shield, AlertCircle, ChevronDown } from "lucide-react";
+import { RefreshCw, Server, ServerCrash, ServerOff, Shield, AlertCircle, ChevronDown, BanIcon } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -33,12 +33,34 @@ export function MCPConnectionStatus({
     setUseMcp
   } = useMCPContext();
   
+  const handleReconnect = (e: React.MouseEvent<HTMLButtonElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    reconnectToMcp();
+    
+    // Show feedback toast via MCPContext
+  };
+  
+  const handleDisableMcp = (e: React.MouseEvent<HTMLButtonElement> | React.MouseEvent<HTMLDivElement>) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setUseMcp(false);
+  };
+  
   const renderStatus = () => {
     if (!useMcp) {
       return (
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <ServerOff className="h-3.5 w-3.5" />
           <span>MCP Disabled</span>
+          <Button 
+            variant="ghost" 
+            size="sm" 
+            className="h-7 ml-1 text-xs p-0"
+            onClick={handleReconnect}
+          >
+            <RefreshCw className="h-3 w-3" />
+          </Button>
         </div>
       );
     }
@@ -48,6 +70,16 @@ export function MCPConnectionStatus({
         <div className="flex items-center gap-2 text-xs text-yellow-500">
           <RefreshCw className="h-3.5 w-3.5 animate-spin" />
           <span>{compact ? "Connecting..." : "Connecting to MCP..."}</span>
+          {!compact && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              className="h-7 ml-1 text-xs p-0"
+              onClick={handleDisableMcp}
+            >
+              <BanIcon className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       );
     }
@@ -62,11 +94,7 @@ export function MCPConnectionStatus({
                   variant="ghost" 
                   size="sm" 
                   className="h-7 text-xs text-red-500 hover:text-red-600 p-0 gap-1.5"
-                  onClick={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    reconnectToMcp();
-                  }}
+                  onClick={handleReconnect}
                 >
                   <ServerCrash className="h-3.5 w-3.5" />
                   <span>{compact ? "Error" : "Connection Error"}</span>
@@ -87,10 +115,10 @@ export function MCPConnectionStatus({
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="end">
-                <DropdownMenuItem onClick={() => setUseMcp(false)}>
+                <DropdownMenuItem onClick={handleDisableMcp}>
                   Switch to fallback mode
                 </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => reconnectToMcp()}>
+                <DropdownMenuItem onClick={handleReconnect}>
                   Try reconnecting
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -131,7 +159,7 @@ export function MCPConnectionStatus({
                 variant="outline" 
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => reconnectToMcp()}
+                onClick={handleReconnect}
               >
                 Try reconnecting
               </Button>
@@ -140,7 +168,7 @@ export function MCPConnectionStatus({
                 variant="outline" 
                 size="sm"
                 className="h-7 text-xs"
-                onClick={() => setUseMcp(false)}
+                onClick={handleDisableMcp}
               >
                 Use fallback mode
               </Button>

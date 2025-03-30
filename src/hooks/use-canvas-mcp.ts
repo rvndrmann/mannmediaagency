@@ -32,6 +32,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   const [retryCount, setRetryCount] = useState(0);
   const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
+  const [lastError, setLastError] = useState<Error | null>(null);
   
   // Add reference to previous scene ID to detect changes
   const prevSceneIdRef = useRef<string | undefined>(sceneId);
@@ -43,6 +44,13 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     sceneId
   });
   
+  // Clear error when connection status changes
+  useEffect(() => {
+    if (hasConnection && lastError) {
+      setLastError(null);
+    }
+  }, [hasConnection, lastError]);
+  
   // Auto-connect to MCP if enabled
   useEffect(() => {
     // Only attempt auto-connection when projectId changes or on initial load
@@ -50,9 +58,11 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
         (mcpServers.length === 0 || prevProjectIdRef.current !== projectId)) {
       console.log("Auto-connecting to MCP for project:", projectId);
       
-      setIsAutoReconnecting(true);
-      reconnectToMcp()
-        .then(success => {
+      const connectWithBackoff = async () => {
+        setIsAutoReconnecting(true);
+        try {
+          const success = await reconnectToMcp();
+          
           if (success) {
             console.log("Auto-connect succeeded");
             setRetryCount(0);
@@ -65,17 +75,30 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
             console.log("Auto-connect failed after max retries");
             setRetryCount(0);
           }
-        })
-        .catch(err => {
+        } catch (err) {
           console.error("Auto-connect failed:", err);
-        })
-        .finally(() => {
+        } finally {
           setIsAutoReconnecting(false);
-        });
+        }
+      };
+      
+      connectWithBackoff();
     }
     
     prevProjectIdRef.current = projectId;
   }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp, retryCount, maxRetries, retryDelay]);
+  
+  // Reset processing states when recovering from connection errors
+  useEffect(() => {
+    if (hasConnectionError && !isConnecting) {
+      // Reset all generation states when connection is lost
+      setIsGeneratingDescription(false);
+      setIsGeneratingImagePrompt(false);
+      setIsGeneratingImage(false);
+      setIsGeneratingVideo(false);
+      setIsGeneratingScript(false);
+    }
+  }, [hasConnectionError, isConnecting]);
   
   // Handle scene changes - clean up any ongoing operations
   useEffect(() => {
@@ -103,10 +126,12 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     if (!sceneId) return false;
     
     setIsGeneratingDescription(true);
-    let attempts = 0;
-    const maxAttempts = 2; // Try at most twice
+    setLastError(null);
     
     try {
+      let attempts = 0;
+      const maxAttempts = 2; // Try at most twice
+      
       while (attempts < maxAttempts) {
         try {
           const result = await executeTool("update_scene_description", {
@@ -120,6 +145,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
           attempts++;
           
           if (attempts >= maxAttempts) {
+            const finalError = error instanceof Error ? error : new Error(String(error));
+            setLastError(finalError);
             toast.error("Failed to update scene description after multiple attempts");
             return false;
           }
@@ -143,6 +170,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     if (!sceneId) return false;
     
     setIsGeneratingImagePrompt(true);
+    setLastError(null);
+    
     try {
       const result = await executeTool("update_image_prompt", {
         sceneId,
@@ -152,6 +181,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return result.success;
     } catch (error) {
       console.error("Error updating image prompt:", error);
+      const finalError = error instanceof Error ? error : new Error(String(error));
+      setLastError(finalError);
       toast.error("Failed to update image prompt");
       return false;
     } finally {
@@ -166,6 +197,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     if (!sceneId) return false;
     
     setIsGeneratingImage(true);
+    setLastError(null);
+    
     try {
       const result = await executeTool("generate_scene_image", {
         sceneId,
@@ -175,6 +208,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return result.success;
     } catch (error) {
       console.error("Error generating scene image:", error);
+      const finalError = error instanceof Error ? error : new Error(String(error));
+      setLastError(finalError);
       toast.error("Failed to generate scene image");
       return false;
     } finally {
@@ -189,6 +224,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     if (!sceneId) return false;
     
     setIsGeneratingVideo(true);
+    setLastError(null);
+    
     try {
       const result = await executeTool("create_scene_video", {
         sceneId,
@@ -198,6 +235,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return result.success;
     } catch (error) {
       console.error("Error generating scene video:", error);
+      const finalError = error instanceof Error ? error : new Error(String(error));
+      setLastError(finalError);
       toast.error("Failed to generate scene video");
       return false;
     } finally {
@@ -212,6 +251,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     if (!sceneId) return false;
     
     setIsGeneratingScript(true);
+    setLastError(null);
+    
     try {
       const result = await executeTool("generate_scene_script", {
         sceneId,
@@ -221,6 +262,8 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return result.success;
     } catch (error) {
       console.error("Error generating scene script:", error);
+      const finalError = error instanceof Error ? error : new Error(String(error));
+      setLastError(finalError);
       toast.error("Failed to generate scene script");
       return false;
     } finally {
@@ -239,6 +282,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     isGeneratingScript,
     isAutoReconnecting,
     connectionError: hasConnectionError && !isConnecting,
+    lastError,
     
     // Actions
     updateSceneDescription,

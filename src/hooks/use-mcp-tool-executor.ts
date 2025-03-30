@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "@/types/mcp";
 import { toast } from "sonner";
@@ -36,6 +36,7 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
   // Use a ref for the cache to persist between renders without causing re-renders
   const executionCache = useRef<Record<string, CachedExecution>>({});
   const pendingExecutions = useRef<Record<string, Promise<MCPToolExecutionResult>>>({});
+  const cleanupTimerRef = useRef<number | null>(null);
   
   const { 
     projectId, 
@@ -45,6 +46,24 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
     onSuccess,
     onError
   } = options;
+  
+  /**
+   * Clean expired cache entries periodically
+   */
+  useEffect(() => {
+    // Set up a timer to clean the cache periodically
+    const cleanCacheInterval = window.setInterval(() => {
+      cleanCache();
+    }, cacheTime / 2); // Clean at half the cache expiry time
+    
+    cleanupTimerRef.current = cleanCacheInterval;
+    
+    return () => {
+      if (cleanupTimerRef.current !== null) {
+        clearInterval(cleanupTimerRef.current);
+      }
+    };
+  }, [cacheTime]);
   
   /**
    * Clean expired cache entries
@@ -104,20 +123,34 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
       // If there's a connection error, try to reconnect first
       if (hasConnectionError) {
         if (showToasts) {
-          toast.loading("Reconnecting to MCP...");
+          toast.loading("Reconnecting to MCP...", { id: "mcp-reconnect" });
         }
         
-        const reconnected = await reconnectToMcp();
-        
-        if (!reconnected) {
-          const error = new Error("Failed to reconnect to MCP");
-          if (showToasts) {
-            toast.error("Failed to reconnect to MCP. Please try again later.");
+        try {
+          const reconnected = await reconnectToMcp();
+          
+          if (!reconnected) {
+            const error = new Error("Failed to reconnect to MCP");
+            if (showToasts) {
+              toast.error("Failed to reconnect to MCP. Please try again later.", { id: "mcp-reconnect" });
+            }
+            if (onError) onError(error);
+            return { 
+              success: false, 
+              error: "Failed to reconnect to MCP" 
+            };
+          } else if (showToasts) {
+            toast.success("Reconnected to MCP successfully", { id: "mcp-reconnect" });
           }
-          if (onError) onError(error);
-          return { 
-            success: false, 
-            error: "Failed to reconnect to MCP" 
+        } catch (error) {
+          console.error("Error during MCP reconnection:", error);
+          if (showToasts) {
+            toast.error("Error during MCP reconnection", { id: "mcp-reconnect" });
+          }
+          if (onError) onError(error instanceof Error ? error : new Error(String(error)));
+          return {
+            success: false,
+            error: "Error during MCP reconnection"
           };
         }
       }
@@ -161,8 +194,14 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
           // Get the first available MCP server
           const server = mcpServers[0];
           
-          // Execute the tool
-          const result = await server.callTool(toolName, fullParameters);
+          // Execute the tool with timeout handling
+          const executionTimeout = 60000; // 60 seconds timeout for tool execution
+          const executionPromise = server.callTool(toolName, fullParameters);
+          const timeoutPromise = new Promise<never>((_, reject) => {
+            setTimeout(() => reject(new Error(`Tool execution timed out after ${executionTimeout}ms`)), executionTimeout);
+          });
+          
+          const result = await Promise.race([executionPromise, timeoutPromise]);
           
           // Cache the result
           executionCache.current[cacheKey] = {

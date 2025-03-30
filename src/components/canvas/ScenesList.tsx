@@ -12,7 +12,7 @@ import {
   Loader2
 } from "lucide-react";
 import { SceneCard } from "./SceneCard";
-import { useState, useCallback } from "react";
+import { useState, useCallback, memo } from "react";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -36,7 +36,8 @@ interface ScenesListProps {
   onCreateNewProject: () => Promise<string>;
 }
 
-export function ScenesList({
+// Memoize the component to prevent unnecessary rerenders
+export const ScenesList = memo(function ScenesList({
   scenes,
   selectedSceneId,
   onSelectScene,
@@ -51,114 +52,53 @@ export function ScenesList({
   const [pendingOperations, setPendingOperations] = useState<Record<string, boolean>>({});
   const [creatingProject, setCreatingProject] = useState(false);
   
-  // Optimized scene addition
+  // Handle adding a scene with immediate visual feedback
   const handleAddScene = useCallback(async () => {
     if (isAddingScene) return; // Prevent multiple clicks
     
     setIsAddingScene(true);
-    // Show immediate feedback to user
-    toast.loading("Adding new scene...", { id: "add-scene" });
     
     try {
-      // Optimistic UI update - add a temporary scene
-      const tempId = `temp-${Date.now()}`;
-      const tempScene: CanvasScene = {
-        id: tempId,
-        title: `Scene ${scenes.length + 1}`,
-        script: "",
-        imagePrompt: "",
-        description: "",
-        imageUrl: "",
-        videoUrl: "",
-        productImageUrl: "",
-        voiceOverUrl: "",
-        backgroundMusicUrl: "",
-        voiceOverText: "",
-        order: scenes.length + 1,
-        projectId: scenes[0]?.projectId || "",
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        duration: null
-      };
-      
-      // Call the actual function
       await onAddScene();
-      toast.success("Scene added successfully", { id: "add-scene" });
-    } catch (error) {
-      console.error("Error adding scene:", error);
-      toast.error("Failed to add scene", { id: "add-scene" });
+    } catch (err: any) {
+      console.error("Error adding scene:", err);
     } finally {
-      // Minimal loading feedback (200ms) to avoid UI flicker
-      setTimeout(() => {
-        setIsAddingScene(false);
-      }, 200);
+      setIsAddingScene(false);
     }
-  }, [isAddingScene, onAddScene, scenes]);
+  }, [isAddingScene, onAddScene]);
   
   // Optimized scene deletion
   const confirmDeleteScene = useCallback(async () => {
-    if (!sceneToDelete || pendingOperations[sceneToDelete]) return;
-    
-    // Mark this scene as being deleted
-    setPendingOperations(prev => ({ ...prev, [sceneToDelete]: true }));
-    
-    // Show instant feedback
-    toast.loading("Deleting scene...", { id: `delete-${sceneToDelete}` });
+    if (!sceneToDelete) return;
     
     try {
       // Close dialog immediately for better UX
+      const sceneId = sceneToDelete;
       setSceneToDelete(null);
       
       // Perform actual deletion
-      await onDeleteScene(sceneToDelete);
-      toast.success("Scene deleted", { id: `delete-${sceneToDelete}` });
+      await onDeleteScene(sceneId);
     } catch (error) {
       console.error("Error deleting scene:", error);
-      toast.error("Failed to delete scene", { id: `delete-${sceneToDelete}` });
-    } finally {
-      // Remove from pending operations
-      setPendingOperations(prev => {
-        const updated = { ...prev };
-        delete updated[sceneToDelete];
-        return updated;
-      });
     }
-  }, [sceneToDelete, pendingOperations, onDeleteScene]);
+  }, [sceneToDelete, onDeleteScene]);
   
-  // Optimized scene selection 
+  // Handle scene selection with no delay
   const handleSelectScene = useCallback((id: string) => {
-    if (id === selectedSceneId || pendingOperations[id]) return;
-    
-    // Mark this scene as pending selection
-    setPendingOperations(prev => ({ ...prev, [id]: true }));
-    
-    // Show minimal loading feedback
+    if (id === selectedSceneId) return;
     onSelectScene(id);
-    
-    // Clear pending status after a short delay
-    setTimeout(() => {
-      setPendingOperations(prev => {
-        const updated = { ...prev };
-        delete updated[id];
-        return updated;
-      });
-    }, 200);
-  }, [selectedSceneId, pendingOperations, onSelectScene]);
+  }, [selectedSceneId, onSelectScene]);
   
-  // Handle new project creation with optimistic feedback
   const handleCreateNewProject = useCallback(async () => {
     if (creatingProject) return;
     
     setCreatingProject(true);
-    toast.loading("Creating new project...", { id: "create-project" });
     
     try {
       const newProjectId = await onCreateNewProject();
-      toast.success("Project created successfully", { id: "create-project" });
       return newProjectId;
     } catch (error) {
       console.error("Error creating project:", error);
-      toast.error("Failed to create project", { id: "create-project" });
     } finally {
       setCreatingProject(false);
     }
@@ -213,15 +153,14 @@ export function ScenesList({
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-2">
           {scenes.map((scene) => (
-            <div key={scene.id} className="relative">
-              <SceneCard 
-                scene={scene} 
-                isSelected={scene.id === selectedSceneId}
-                onSelect={() => handleSelectScene(scene.id)}
-                onDelete={() => setSceneToDelete(scene.id)}
-                isPending={pendingOperations[scene.id] || false}
-              />
-            </div>
+            <SceneCard 
+              key={scene.id}
+              scene={scene} 
+              isSelected={scene.id === selectedSceneId}
+              onSelect={() => handleSelectScene(scene.id)}
+              onDelete={() => setSceneToDelete(scene.id)}
+              isPending={pendingOperations[scene.id] || false}
+            />
           ))}
           
           <Button 
@@ -255,22 +194,12 @@ export function ScenesList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction 
-              onClick={confirmDeleteScene}
-              disabled={!!sceneToDelete && pendingOperations[sceneToDelete]}
-            >
-              {!!sceneToDelete && pendingOperations[sceneToDelete] ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Deleting...
-                </>
-              ) : (
-                'Delete'
-              )}
+            <AlertDialogAction onClick={confirmDeleteScene}>
+              Delete
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
     </div>
   );
-}
+});

@@ -174,11 +174,12 @@ export const useCanvas = (projectId?: string) => {
         throw error;
       }
 
-      await fetchProjectAndScenes();
       toast.success("New scene added");
+      return newSceneId;
     } catch (err: any) {
       console.error("Error adding scene:", err);
       toast.error(err.message || "Failed to add scene");
+      return null;
     }
   };
 
@@ -221,9 +222,9 @@ export const useCanvas = (projectId?: string) => {
     if (sceneId !== selectedSceneId) {
       setSceneLoading(true);
       setSelectedSceneId(sceneId);
-      setTimeout(() => {
+      requestAnimationFrame(() => {
         setSceneLoading(false);
-      }, 50);
+      });
     }
   };
 

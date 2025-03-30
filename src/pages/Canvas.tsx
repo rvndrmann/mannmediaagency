@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
@@ -33,13 +34,20 @@ export default function Canvas() {
   
   const { getOrCreateChatSession } = useChatSession();
   
+  // Check authentication faster
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-      
-      if (!data.session) {
-        toast.error("Please log in to access the Canvas");
+      try {
+        const { data } = await supabase.auth.getSession();
+        setIsAuthenticated(!!data.session);
+        
+        if (!data.session) {
+          toast.error("Please log in to access the Canvas");
+          navigate("/auth");
+        }
+      } catch (error) {
+        console.error("Auth error:", error);
+        setIsAuthenticated(false);
         navigate("/auth");
       }
     };
@@ -53,6 +61,7 @@ export default function Canvas() {
     }
   }, [isAuthenticated, fetchAvailableProjects]);
   
+  // Handle project activation immediately
   useEffect(() => {
     if (projectId) {
       setActiveProject(projectId);
@@ -60,21 +69,18 @@ export default function Canvas() {
     }
   }, [projectId, setActiveProject, getOrCreateChatSession]);
   
+  // Redirect to first project more efficiently
   useEffect(() => {
     if (
       !projectId && 
       isAuthenticated && 
-      hasLoadedProjects && 
-      availableProjects.length > 0
+      hasLoadedProjects
     ) {
-      navigate(`/canvas?projectId=${availableProjects[0].id}`);
-    } else if (
-      !projectId && 
-      isAuthenticated && 
-      hasLoadedProjects && 
-      availableProjects.length === 0
-    ) {
-      setShouldCreateProject(true);
+      if (availableProjects.length > 0) {
+        navigate(`/canvas?projectId=${availableProjects[0].id}`);
+      } else {
+        setShouldCreateProject(true);
+      }
     }
   }, [projectId, isAuthenticated, hasLoadedProjects, availableProjects, navigate]);
 
@@ -95,7 +101,8 @@ export default function Canvas() {
     sceneLoading,
   } = useCanvas(projectId || undefined);
 
-  const handleCreateNewProject = async (title: string, description?: string) => {
+  // Optimize the project creation function
+  const handleCreateNewProject = useCallback(async (title: string, description?: string) => {
     try {
       const newProjectId = await createProject(title, description);
       if (newProjectId) {
@@ -108,19 +115,19 @@ export default function Canvas() {
       toast.error("Failed to create new project");
       return "";
     }
-  };
+  }, [createProject, navigate]);
 
-  const toggleChat = () => {
-    setShowChat(!showChat);
-  };
+  const toggleChat = useCallback(() => {
+    setShowChat(prev => !prev);
+  }, []);
   
-  const toggleHistory = () => {
-    setShowHistory(!showHistory);
-  };
+  const toggleHistory = useCallback(() => {
+    setShowHistory(prev => !prev);
+  }, []);
   
-  const handleNavigateToChat = () => {
+  const handleNavigateToChat = useCallback(() => {
     navigate(`/multi-agent-chat?projectId=${projectId}`);
-  };
+  }, [navigate, projectId]);
 
   if (loading || isAuthenticated === null) {
     return (

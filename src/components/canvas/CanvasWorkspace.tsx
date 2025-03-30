@@ -1,5 +1,5 @@
 
-import { useState } from "react";
+import { useState, memo } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { ScenesList } from "./ScenesList";
 import { SceneEditor } from "./SceneEditor";
@@ -40,7 +40,8 @@ interface CanvasWorkspaceProps {
   sceneLoading?: boolean;
 }
 
-export function CanvasWorkspace({
+// Memoize the component to prevent unnecessary rerenders
+export const CanvasWorkspace = memo(function CanvasWorkspace({
   project,
   selectedScene,
   selectedSceneId,
@@ -136,4 +137,4 @@ export function CanvasWorkspace({
       </div>
     </div>
   );
-}
+});

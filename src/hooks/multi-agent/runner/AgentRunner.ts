@@ -1,11 +1,10 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { MainAgent } from "./agents/MainAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
-import { BaseAgentImpl } from "./agents/BaseAgentImpl";
+import { BaseAgent } from "./AgentRegistry";
 import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
 import { supabase } from "@/integrations/supabase/client";
@@ -13,7 +12,7 @@ import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
 
 export class AgentRunner {
   private context: RunnerContext;
-  private currentAgent: BaseAgentImpl;
+  private currentAgent: BaseAgent;
   private callbacks: RunnerCallbacks;
   private agentTurnCount: number = 0;
   private maxTurns: number = 7; // Increased max turns
@@ -85,7 +84,7 @@ export class AgentRunner {
     }
   }
 
-  private createAgent(agentType: AgentType): BaseAgentImpl {
+  private createAgent(agentType: AgentType): BaseAgent {
     console.log(`Creating agent of type: ${agentType}`);
     
     // Configure streaming handler if streaming is enabled
@@ -116,7 +115,6 @@ export class AgentRunner {
     }
   }
   
-  // Handle streaming chunks of text
   private handleStreamingChunk(chunk: string) {
     if (!chunk || chunk.trim() === "") return;
     

@@ -2,8 +2,9 @@
 import { AgentResult, AgentType, RunnerContext } from "./types";
 import { Attachment } from "@/types/message";
 import { recordTraceEvent } from "@/utils/openai-traces";
+import { BaseAgent } from "./AgentRegistry";
 
-export abstract class BaseAgentImpl {
+export abstract class BaseAgentImpl implements BaseAgent {
   protected context: RunnerContext;
   protected traceId?: string;
   protected streamingHandler?: (chunk: string) => void;
@@ -48,6 +49,11 @@ export abstract class BaseAgentImpl {
         console.error(`Error recording trace event in ${this.getType()} agent:`, error);
       }
     }
+  }
+  
+  // Implement the setStreamingHandler method defined in the BaseAgent interface
+  public setStreamingHandler(handler: (chunk: string) => void): void {
+    this.streamingHandler = handler;
   }
   
   // Utility methods that all agent implementations need
@@ -108,10 +114,5 @@ export abstract class BaseAgentImpl {
     });
     
     return Promise.resolve();
-  }
-  
-  // Register a streaming handler for this agent
-  public setStreamingHandler(handler: (chunk: string) => void): void {
-    this.streamingHandler = handler;
   }
 }

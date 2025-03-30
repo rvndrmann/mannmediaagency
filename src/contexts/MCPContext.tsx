@@ -10,7 +10,7 @@ const defaultMCPContext: MCPContextType = {
   setUseMcp: () => {},
   isConnecting: false,
   hasConnectionError: false,
-  reconnectToMcp: () => Promise.resolve(),
+  reconnectToMcp: async () => false,
 };
 
 const MCPContext = createContext<MCPContextType>(defaultMCPContext);
@@ -22,10 +22,10 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
   
   // Function to establish MCP connection
-  const connectToMcp = async (projectIdentifier?: string) => {
+  const connectToMcp = async (projectIdentifier?: string): Promise<boolean> => {
     if (!projectIdentifier || !useMcp) {
       setMcpServers([]);
-      return;
+      return false;
     }
     
     setIsConnecting(true);
@@ -41,23 +41,25 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       
       setMcpServers([mcpServer]);
       setIsConnecting(false);
+      return true;
     } catch (error) {
       console.error("Failed to connect to MCP server:", error);
       setMcpServers([]);
       setIsConnecting(false);
       setHasConnectionError(true);
       toast.error("Failed to connect to MCP services. Some AI features may be limited.");
+      return false;
     }
   };
   
   // Function to reconnect to MCP (can be called from UI components)
-  const reconnectToMcp = async () => {
+  const reconnectToMcp = async (): Promise<boolean> => {
     if (projectId) {
-      await connectToMcp(projectId);
-      if (mcpServers.length > 0) {
+      const success = await connectToMcp(projectId);
+      if (success) {
         toast.success("Reconnected to MCP services successfully");
       }
-      return mcpServers.length > 0;
+      return success;
     }
     return false;
   };

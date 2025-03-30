@@ -47,6 +47,70 @@ function generateRequestId(): string {
   return crypto.randomUUID();
 }
 
+// Function to detect if text appears to be a script
+function looksLikeScript(text: string): boolean {
+  // Script markers to check for
+  const scriptMarkers = [
+    /SCENE \d+/i,
+    /\bINT\.\s/i,
+    /\bEXT\.\s/i,
+    /FADE (IN|OUT)/i,
+    /CUT TO:/i,
+    /DISSOLVE TO:/i,
+    /\bV\.O\.\b/i,
+    /\bO\.S\.\b/i,
+    /\(beat\)/i,
+    /\(pause\)/i,
+    /\(CONT'D\)/i,
+    /^\s*[A-Z][A-Z\s]+(\(.*\))?:\s/m, // Character dialogue format
+    /^\s*[A-Z][A-Z\s]+$/m // All caps character names
+  ];
+  
+  // Check how many script markers we find
+  let markerCount = 0;
+  for (const marker of scriptMarkers) {
+    if (marker.test(text)) {
+      markerCount++;
+    }
+    // If we find 2 or more markers, it's likely a script
+    if (markerCount >= 2) {
+      return true;
+    }
+  }
+  
+  // Additional heuristics
+  const hasSceneHeaders = /SCENE \d+|Scene \d+|INT\.|EXT\./.test(text);
+  const hasCharacterDialogue = /^\s*[A-Z][A-Z\s]+:\s/m.test(text);
+  const hasProperFormatting = text.includes('\n\n') && text.length > 300;
+  
+  // If it has scene headers and either character dialogue or proper formatting
+  return hasSceneHeaders && (hasCharacterDialogue || hasProperFormatting);
+}
+
+// Function to extract script content
+function extractScriptContent(text: string): string {
+  // Try to find where the actual script begins
+  const scriptStartMarkers = [
+    "Here's your script:",
+    "Here is the script:",
+    "Here's the script:",
+    "FADE IN:",
+    "SCENE 1",
+    "INT.",
+    "EXT."
+  ];
+  
+  for (const marker of scriptStartMarkers) {
+    const index = text.indexOf(marker);
+    if (index !== -1) {
+      return text.substring(index);
+    }
+  }
+  
+  // If no clear marker, just return the text
+  return text;
+}
+
 // Maximum retries for OpenAI API calls
 const MAX_RETRIES = 2;
 const RETRY_DELAY_MS = 1000;
@@ -130,7 +194,17 @@ serve(async (req) => {
       let systemMessage = "You are a helpful AI assistant.";
       
       if (agentType === "script") {
-        systemMessage = "You are a specialized script writer. When asked to write a script, you MUST provide a complete, properly formatted script, not just talk about it.";
+        systemMessage = `You are a specialized script writer. You MUST create and provide a properly formatted, complete script when asked to write a script.
+
+The following are REQUIRED actions for you:
+1. When asked to write a script, you MUST respond with a fully formed script, not just talk about one
+2. Always format your script with scene headings (like INT. LOCATION - TIME)
+3. Include character names in ALL CAPS before their dialogue
+4. Include proper scene transitions (CUT TO:, FADE IN:, etc.)
+5. Include descriptive action blocks for visuals
+
+DO NOT just offer to help write a script or discuss script-writing techniques - actually WRITE THE COMPLETE SCRIPT in your response.`;
+
         // Add project script context if available
         if (projectDetails?.fullScript) {
           systemMessage += `\n\nThe project already has the following script that you can reference:\n\n${projectDetails.fullScript.substring(0, 1500)}${projectDetails.fullScript.length > 1500 ? '...(script continues)' : ''}`;
@@ -221,23 +295,12 @@ serve(async (req) => {
       lastMessage: lastMessageType
     });
     
-    // Special handling for scene agent
-    if (agentType === "scene" && contextData.isHandoffContinuation) {
-      // Add explicit instructions to make sure the scene agent creates scene descriptions
+    // Special handling for script agent
+    if (agentType === "script" && contextData.isHandoffContinuation) {
+      // Add explicit instructions to make sure the script agent creates scene descriptions
       if (input) {
-        const enhancedInput = `${input}\n\n[IMPORTANT: You are the scene creator. The user is expecting detailed scene descriptions. Write detailed and visual scene descriptions that can be used to generate images.]`;
-        
-        processedMessages.push({
-          role: "user",
-          content: enhancedInput
-        });
-        
-        logInfo(`[${requestId}] Enhanced user message with explicit scene agent instructions `, null);
-      }
-    } else if (agentType === "script" && contextData.isHandoffContinuation) {
-      // Add explicit instructions for script agent
-      if (input) {
-        let enhancedInput = `${input}\n\n[IMPORTANT: You are the script writer. The user is expecting a complete script. Write a properly formatted script now.]`;
+        // Enhanced prompt specifically for script creation
+        let enhancedInput = `${input}\n\n[IMPORTANT INSTRUCTIONS: I need you to write a COMPLETE, PROPERLY FORMATTED SCRIPT. DO NOT just talk about writing a script - you MUST actually create and provide the full script in your response with proper formatting including scene headings (INT./EXT.), character names, dialogue, and action blocks.]`;
         
         // Add project script if available
         if (projectDetails?.fullScript) {
@@ -573,6 +636,11 @@ serve(async (req) => {
               content: {
                 type: "string",
                 description: "The content to save"
+              },
+              isScript: {
+                type: "boolean",
+                description: "Whether this content is a properly formatted script",
+                default: false
               }
             },
             required: ["contentType", "content"]
@@ -587,6 +655,11 @@ serve(async (req) => {
               completion: {
                 type: "string",
                 description: "The response to the user"
+              },
+              isScript: {
+                type: "boolean",
+                description: "Whether this response contains a complete script",
+                default: false
               }
             },
             required: ["completion"]
@@ -673,17 +746,35 @@ serve(async (req) => {
             );
           }
           
-          // Handle save_content_to_project
+          // Handle save_content_to_project - this handles saving scripts and other content
           else if (functionName === 'save_content_to_project') {
-            // Here we would implement project content saving logic
-            // For now, just return success with a message
+            // Extract the script portion from the response if not already clean
+            let contentToSave = functionArgs.content;
+            
+            // For script content, do additional processing to ensure we have a clean script
+            if (functionArgs.contentType === 'script') {
+              // Check if the content looks like a script (use new helper function)
+              const isScript = functionArgs.isScript || looksLikeScript(contentToSave);
+              
+              // If it's a script, try to extract just the script part (no explanations)
+              if (isScript) {
+                contentToSave = extractScriptContent(contentToSave);
+              }
+              
+              logInfo(`[${requestId}] Processing script content for saving`, {
+                contentLength: contentToSave.length,
+                isScript: isScript,
+                projectId: functionArgs.projectId
+              });
+            }
             
             return new Response(
               JSON.stringify({
                 completion: `I've saved your ${functionArgs.contentType.replace('_', ' ')} to your project.`,
                 savedContent: {
                   type: functionArgs.contentType,
-                  content: functionArgs.content
+                  content: contentToSave,
+                  isScript: functionArgs.isScript || looksLikeScript(contentToSave)
                 }
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -711,15 +802,31 @@ serve(async (req) => {
           
           // Handle basic agent responses
           else if (functionName === 'agentResponse') {
+            // For script agent, check if the response is a script
+            let isScript = false;
+            let structured_output = null;
+            
+            if (agentType === 'script') {
+              isScript = functionArgs.isScript || looksLikeScript(functionArgs.completion);
+              if (isScript) {
+                structured_output = {
+                  isScript: true,
+                  scriptText: extractScriptContent(functionArgs.completion)
+                };
+              }
+            }
+            
             logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
               responseLength: functionArgs.completion.length,
               hasHandoff: false,
-              hasStructuredOutput: false
+              hasStructuredOutput: !!structured_output,
+              isScript: isScript
             });
             
             return new Response(
               JSON.stringify({
-                completion: functionArgs.completion
+                completion: functionArgs.completion,
+                structured_output: structured_output
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -728,13 +835,31 @@ serve(async (req) => {
         
         // If no function call, use the content directly
         logInfo(`[${requestId}] Plain text response (no function call) `, null);
+        
+        // For script agent, check if the response is a script (even without function call)
+        let isScript = false;
+        let structured_output = null;
+        
+        if (agentType === 'script') {
+          isScript = looksLikeScript(message.content);
+          
+          if (isScript) {
+            structured_output = {
+              isScript: true,
+              scriptText: extractScriptContent(message.content)
+            };
+          }
+        }
+        
         logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
-          responseLength: message.content.length
+          responseLength: message.content.length,
+          isScript: isScript
         });
         
         return new Response(
           JSON.stringify({
-            completion: message.content
+            completion: message.content,
+            structured_output: structured_output
           }),
           { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );

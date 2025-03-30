@@ -48,20 +48,27 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       console.log(`Canvas project context: projectId=${projectId}, hasDetails=${!!projectDetails}, hasScript=${!!existingScript}`);
       console.log(`Workflow context: isPartOfWorkflow=${isPartOfWorkflow}, stage=${workflowStage}, nextStep=${nextWorkflowStep}`);
       
-      // Enhanced input for script writing task
+      // Enhanced input for script writing task - using more forceful language
       let enhancedInput = input;
       if (isHandoffContinuation && previousAgentType) {
-        // More explicit instruction to actually write a script
+        // Very explicit instruction to actually write a script, with formatting guidelines
         enhancedInput = `[SCRIPT WRITING TASK FROM ${previousAgentType.toUpperCase()} AGENT]
 
 ${input}
 
 Previous context: ${handoffReason}
 
-IMPORTANT: YOU ARE THE SCRIPT WRITER AGENT. YOUR PRIMARY TASK IS TO WRITE A COMPLETE SCRIPT NOW.
+IMPORTANT INSTRUCTIONS:
+YOU ARE THE SCRIPT WRITER AGENT, AND YOU MUST WRITE A COMPLETE SCRIPT NOW.
 
-DO NOT just talk about writing a script or offer to help - ACTUALLY WRITE THE FULL SCRIPT in your response.
-Format it properly with scene headings, character dialogue, and actions where appropriate.
+YOUR TASK:
+- WRITE THE FULL SCRIPT in your response - not just talk about writing it
+- Use proper script formatting with scene headings (INT/EXT), character names, and dialogue
+- Include visual descriptions in action paragraphs
+- Start with FADE IN: or similar standard script opening
+
+DO NOT just offer to help with the script or describe what you would write.
+CREATE AND PROVIDE THE ACTUAL COMPLETE SCRIPT in your response.
 `;
         
         // Add Canvas project context if available
@@ -74,9 +81,9 @@ Format it properly with scene headings, character dialogue, and actions where ap
           enhancedInput += `.\nAfter writing the script, you should save it to the project using the canvas tool.`;
         }
         
-        // Include existing script if available
+        // Include existing script if available - but now with more clear instructions
         if (existingScript) {
-          enhancedInput += `\n\nThe project already has the following script that you should reference or modify:\n\n${existingScript.substring(0, 1000)}${existingScript.length > 1000 ? '\n...(script continues)' : ''}`;
+          enhancedInput += `\n\nThe project already has the following script that you should use as a starting point or modify:\n\n${existingScript.substring(0, 1000)}${existingScript.length > 1000 ? '\n...(script continues)' : ''}`;
         }
         
         // ENHANCEMENT: Add workflow guidance if part of a workflow
@@ -98,6 +105,9 @@ Format it properly with scene headings, character dialogue, and actions where ap
         if (projectDetails.fullScript) {
           enhancedInput += `\n\nExisting script:\n\n${projectDetails.fullScript.substring(0, 1000)}${projectDetails.fullScript.length > 1000 ? '\n...(script continues)' : ''}`;
         }
+        
+        // Add the explicit script instruction
+        enhancedInput += `\n\nIMPORTANT: YOU MUST WRITE A COMPLETE, PROPERLY FORMATTED SCRIPT. DO NOT just discuss writing a script.`;
       }
       
       // Call the Supabase function with enhanced context for the script writer agent
@@ -157,25 +167,31 @@ Format it properly with scene headings, character dialogue, and actions where ap
       
       // Add custom processing for script content
       let scriptSaved = false;
+      let actualScriptContent = '';
+      
       if (data?.completion) {
+        // Check if we got structured output from the edge function or need to detect script ourselves
+        const isScript = data.structured_output?.isScript === true;
+        const scriptText = data.structured_output?.scriptText || data.completion;
+        
         // Check if there are script markers in the content
-        const hasScriptMarkers = data.completion.includes('SCENE') || 
-                               data.completion.includes('INT.') || 
-                               data.completion.includes('EXT.') ||
-                               data.completion.includes('FADE IN:') ||
-                               data.completion.includes('CUT TO:');
-                               
-        if (!hasScriptMarkers && data.structured_output?.isScript !== true) {
+        const hasScriptMarkers = 
+          /SCENE \d+|INT\.|EXT\.|FADE IN:|CUT TO:|^\s*[A-Z][A-Z\s]+:?\s/m.test(scriptText);
+          
+        if (isScript || hasScriptMarkers) {
+          console.log("Script detected in response!");
+          actualScriptContent = scriptText;
+        } else {
           // Add a warning about inappropriate response
           console.warn("Script agent didn't return actual script content!");
           
           // We could enhance the output with a clear message that this is inappropriate
-          data.completion = `${data.completion}\n\n[Note: This response doesn't contain an actual script as requested. Please ask the Script Writer agent specifically to write the script.]`;
+          data.completion = `${data.completion}\n\n[Note: I was unable to generate a properly formatted script as requested. Please ask me again specifically to write the script with proper formatting.]`;
         }
         
         // Extract a title from the script if possible
         let scriptTitle = '';
-        if (hasScriptMarkers && projectId) {
+        if ((isScript || hasScriptMarkers) && projectId) {
           try {
             // Look for a title in the script - check various patterns
             const titlePatterns = [
@@ -188,7 +204,7 @@ Format it properly with scene headings, character dialogue, and actions where ap
             ];
             
             for (const pattern of titlePatterns) {
-              const match = data.completion.match(pattern);
+              const match = actualScriptContent.match(pattern);
               if (match && match[1]) {
                 scriptTitle = match[1].trim();
                 break;
@@ -196,14 +212,20 @@ Format it properly with scene headings, character dialogue, and actions where ap
             }
             
             // If no title was found through patterns but we have a FADE IN or similar marker,
-            // use the first line after these markers as a title
-            if (!scriptTitle && (data.completion.includes('FADE IN:') || data.completion.includes('CUT TO:'))) {
-              const lines = data.completion.split('\n');
-              const fadeInIndex = lines.findIndex(line => line.includes('FADE IN:') || line.includes('CUT TO:'));
-              if (fadeInIndex >= 0 && fadeInIndex < lines.length - 1) {
-                const nextLine = lines[fadeInIndex + 1].trim();
-                if (nextLine && !nextLine.startsWith('INT.') && !nextLine.startsWith('EXT.')) {
-                  scriptTitle = nextLine;
+            // try to extract from the first few lines
+            if (!scriptTitle && actualScriptContent.length > 0) {
+              const lines = actualScriptContent.split('\n');
+              const firstNonEmptyLines = lines.filter(line => line.trim().length > 0).slice(0, 3);
+              
+              // Try to find a reasonable title in the first few lines
+              for (const line of firstNonEmptyLines) {
+                if (line.trim() && 
+                    !line.includes('FADE IN:') && 
+                    !line.includes('INT.') && 
+                    !line.includes('EXT.') &&
+                    !line.match(/^[A-Z][A-Z\s]+:/)) { // Not character dialogue
+                  scriptTitle = line.trim();
+                  break;
                 }
               }
             }
@@ -227,32 +249,28 @@ Format it properly with scene headings, character dialogue, and actions where ap
         }
         
         // If we have project ID and script content but no explicit tool use happened, attempt to save it
-        if (projectId && hasScriptMarkers && !data.toolExecutions?.includes('canvas')) {
+        if (projectId && (isScript || hasScriptMarkers) && !data.savedContent && !data.toolExecutions?.includes('canvas')) {
           try {
             console.log("Auto-saving script to Canvas project", projectId);
             
-            // Extract the script portion from the response
-            let scriptContent = data.completion;
-            if (scriptContent.includes("Here's your script:")) {
-              scriptContent = scriptContent.split("Here's your script:")[1].trim();
-            } else if (scriptContent.includes("Here is the script:")) {
-              scriptContent = scriptContent.split("Here is the script:")[1].trim();
-            }
+            // If we have actual script content, use it; otherwise use the full response
+            const scriptContent = actualScriptContent || data.completion;
             
-            // Use the canvas tool to save the script to the project
-            const { supabase } = this.context;
-            
-            // Try to save as full script first
-            await supabase
+            // Use the Supabase API to save the script to the project
+            const { error: saveError } = await this.context.supabase
               .from('canvas_projects')
               .update({ full_script: scriptContent })
               .eq('id', projectId);
             
-            // Mark script as saved for our workflow
-            scriptSaved = true;
-            
-            // Append a success message to the response
-            data.completion += "\n\n[Script has been automatically saved to your Canvas project]";
+            if (saveError) {
+              console.error("Error saving script to Canvas:", saveError);
+            } else {
+              // Mark script as saved for our workflow
+              scriptSaved = true;
+              
+              // Append a success message to the response
+              data.completion += "\n\n[Script has been automatically saved to your Canvas project]";
+            }
           } catch (saveError) {
             console.error("Failed to auto-save script to Canvas:", saveError);
           }
@@ -276,10 +294,16 @@ Format it properly with scene headings, character dialogue, and actions where ap
           if (projectDetails) {
             additionalContextForNext.projectTitle = projectDetails.title;
           }
+          
+          // If a script was created, include that information
+          if ((data.savedContent?.isScript || scriptSaved) && actualScriptContent) {
+            additionalContextForNext.scriptSaved = true;
+            additionalContextForNext.scriptContent = actualScriptContent;
+          }
         }
       } 
       // ENHANCEMENT: Force handoff to image agent if part of workflow and script was saved
-      else if (isPartOfWorkflow && scriptSaved && projectId) {
+      else if (isPartOfWorkflow && (scriptSaved || data.savedContent?.isScript) && projectId) {
         console.log("Forcing handoff to image agent as part of content creation workflow");
         nextAgent = "image";
         handoffReasonResponse = "Script has been created. Now proceeding to generate image prompts for the scenes.";
@@ -289,12 +313,13 @@ Format it properly with scene headings, character dialogue, and actions where ap
           projectId: projectId,
           projectTitle: projectDetails?.title || "",
           scriptSaved: true,
+          scriptContent: actualScriptContent || data.savedContent?.content,
           workflowInfo: {
             isPartOfWorkflow: true,
             workflowStage: "image_prompt_generation",
             nextSteps: "image_generation",
             previousSteps: ["script_creation"],
-            originalScriptText: data.completion
+            originalScriptText: actualScriptContent || data.savedContent?.content || data.completion
           },
           imageParameters: {
             aspectRatio: "9:16",
@@ -309,11 +334,16 @@ Format it properly with scene headings, character dialogue, and actions where ap
         response: data?.completion || "I processed your request but couldn't generate a script response.",
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
-        structured_output: data?.structured_output || null,
+        structured_output: data?.structured_output || {
+          isScript: scriptSaved || data.savedContent?.isScript,
+          scriptText: actualScriptContent
+        },
         additionalContext: additionalContextForNext || continuityData?.additionalContext || {
           projectId: projectId,
           projectTitle: projectDetails?.title || "",
-          existingScript: existingScript
+          existingScript: existingScript,
+          scriptSaved: scriptSaved,
+          scriptContent: actualScriptContent
         }
       };
     } catch (error) {

@@ -38,6 +38,14 @@ export const productShotV1Tool: ToolDefinition = {
       prompt: {
         type: "string",
         description: "Detailed prompt for image generation"
+      },
+      sceneId: {
+        type: "string",
+        description: "Optional Canvas scene ID to associate this image with"
+      },
+      projectId: {
+        type: "string",
+        description: "Optional Canvas project ID to associate this image with"
       }
     },
     required: ["style"]
@@ -52,6 +60,8 @@ export const productShotV1Tool: ToolDefinition = {
     guidance?: number;
     steps?: number;
     prompt?: string;
+    sceneId?: string;
+    projectId?: string;
   }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
       // Check if we have attachments (we need an image to enhance)
@@ -96,7 +106,9 @@ export const productShotV1Tool: ToolDefinition = {
         aspectRatio,
         guidance,
         steps,
-        imageUrl: imageAttachment.url
+        imageUrl: imageAttachment.url,
+        sceneId: params.sceneId,
+        projectId: params.projectId
       });
       
       // In a real implementation, this would call an API to generate enhanced product shots
@@ -113,6 +125,28 @@ export const productShotV1Tool: ToolDefinition = {
         `https://example.com/product-shots/${resultId}-3.jpg`
       ];
       
+      // If we have a Canvas scene ID, save this image to the scene
+      if (params.sceneId && params.projectId) {
+        try {
+          const { error } = await context.supabase
+            .from('canvas_scenes')
+            .update({ 
+              image_url: mockResults[0],
+              product_image_url: imageAttachment.url
+            })
+            .eq('id', params.sceneId)
+            .eq('project_id', params.projectId);
+            
+          if (error) {
+            console.error("Error saving image to Canvas scene:", error);
+          } else {
+            console.log("Successfully saved image to Canvas scene:", params.sceneId);
+          }
+        } catch (error) {
+          console.error("Failed to save image to Canvas scene:", error);
+        }
+      }
+      
       return {
         success: true,
         data: {
@@ -128,7 +162,7 @@ export const productShotV1Tool: ToolDefinition = {
             prompt: fullPrompt
           }
         },
-        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.`,
+        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.${params.sceneId ? " Image has been automatically saved to your Canvas scene." : ""}`,
         usage: {
           creditsUsed: 1.5
         }

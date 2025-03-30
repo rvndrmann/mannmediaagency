@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";
@@ -48,6 +48,13 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     setDescription(scene.description);
     setImagePrompt(scene.imagePrompt);
   }, [scene]);
+
+  // Memoized MCP toggle handler to prevent infinite updates
+  const handleMcpToggle = useCallback((value: boolean) => {
+    if (value !== useMcp) {
+      setUseMcp(value);
+    }
+  }, [useMcp, setUseMcp]);
   
   const handleSave = async (field: 'script' | 'voiceOverText' | 'description' | 'imagePrompt') => {
     setIsSaving(true);
@@ -181,12 +188,7 @@ Format the prompt to get the best results from an AI image generator.`;
             <span className="text-sm text-muted-foreground">Use MCP</span>
             <Switch 
               checked={useMcp}
-              onCheckedChange={(value) => {
-                // Only call setUseMcp if the value is different
-                if (value !== useMcp) {
-                  setUseMcp(value);
-                }
-              }}
+              onCheckedChange={handleMcpToggle}
             />
             {useMcp && (
               <span className="text-xs text-green-400 ml-1">(Recommended)</span>

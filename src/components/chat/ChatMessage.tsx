@@ -1,128 +1,110 @@
-
+import React from "react";
+import { Message } from "@/types/message";
+import { useUser } from "@/hooks/use-user";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { Message } from "@/types/message";
-import { format } from "date-fns";
-import { ArrowRightLeft, Bot, Loader2, User } from "lucide-react";
-import ReactMarkdown from "react-markdown";
 import { CodeBlock } from "./CodeBlock";
-import { Skeleton } from "../ui/skeleton";
-import { Badge } from "../ui/badge";
+import ReactMarkdown from "react-markdown";
+import { HandoffIndicator } from "../multi-agent/HandoffIndicator";
+import { AttachmentPreview } from "../multi-agent/AttachmentPreview";
 
 interface ChatMessageProps {
   message: Message;
-  isLoading?: boolean;
-  showAgentName?: boolean;
 }
 
-export function ChatMessage({ 
-  message, 
-  isLoading = false, 
-  showAgentName = true 
-}: ChatMessageProps) {
+export function ChatMessage({ message }: ChatMessageProps) {
+  const { user } = useUser();
   const isUser = message.role === "user";
-  const isSystem = message.role === "system";
-  const isThinking = message.status === "thinking";
-  const isError = message.status === "error";
-  const hasHandoff = !!message.handoffRequest;
   
-  if (isLoading) {
-    return <MessageSkeleton isUser={isUser} />;
-  }
-
   return (
     <div
       className={cn(
-        "flex items-start gap-4 p-4 rounded-lg",
-        isUser ? "bg-muted/50" : "bg-background border",
-        isSystem && "bg-slate-900 text-white",
-        isError && "bg-red-500/10 border-red-500/20"
+        "py-2 flex flex-col",
+        isUser ? "items-end" : "items-start"
       )}
     >
-      <Avatar className={cn("h-8 w-8", isUser ? "bg-primary" : "bg-muted")}>
-        {isUser ? (
-          <User className="h-4 w-4 text-white" />
-        ) : (
-          <Bot className="h-4 w-4" />
+      <div className="flex gap-3 max-w-[85%]">
+        {!isUser && (
+          <Avatar className="h-8 w-8">
+            <AvatarImage 
+              src={message.avatarUrl || "/placeholder.svg"} 
+              alt="AI" 
+            />
+            <AvatarFallback>AI</AvatarFallback>
+          </Avatar>
         )}
-        <AvatarFallback>
-          {isUser ? "U" : message.agentType?.charAt(0).toUpperCase() || "A"}
-        </AvatarFallback>
-      </Avatar>
-
-      <div className="flex-1 space-y-2">
-        <div className="flex justify-between items-start">
-          <div className="flex items-center gap-2">
-            <div className="font-medium">
-              {isUser ? "You" : message.agentType && showAgentName
-                ? `${message.agentType.charAt(0).toUpperCase() + message.agentType.slice(1)} Agent` 
-                : "Assistant"}
+        
+        <div className={cn(
+          "rounded-lg px-4 py-2.5 max-w-full",
+          isUser 
+            ? "bg-primary text-primary-foreground" 
+            : "bg-muted"
+        )}>
+          {!isUser && message.agentName && (
+            <div className="text-xs text-muted-foreground mb-1">
+              {message.agentName}
             </div>
-            {message.agentType && !isUser && showAgentName && (
-              <Badge variant="outline" className="text-xs">
-                {message.agentType}
-              </Badge>
-            )}
-            {hasHandoff && (
-              <Badge variant="secondary" className="flex items-center text-xs">
-                <ArrowRightLeft className="h-3 w-3 mr-1" />
-                Handoff to {message.handoffRequest?.targetAgent}
-              </Badge>
-            )}
-          </div>
-          <div className="text-xs text-muted-foreground">
-            {message.createdAt && format(new Date(message.createdAt), "p")}
-          </div>
-        </div>
-
-        <div className="prose prose-sm dark:prose-invert max-w-none">
-          {isThinking ? (
-            <div className="flex items-center gap-2 text-muted-foreground">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              <span>Thinking...</span>
+          )}
+          
+          {message.attachments && message.attachments.length > 0 && (
+            <div className="mb-3">
+              <AttachmentPreview attachments={message.attachments} />
             </div>
-          ) : (
+          )}
+          
+          <div className="prose dark:prose-invert max-w-full text-sm break-words">
             <ReactMarkdown
               components={{
-                code({ node, className, children, ...props }) {
-                  const match = /language-(\w+)/.exec(className || "");
-                  return !props.inline && match ? (
+                pre: ({ node, ...props }) => (
+                  <div className="mb-2 mt-2 overflow-auto w-full">
+                    <pre {...props} />
+                  </div>
+                ),
+                code: ({ node, className, children, ...props }) => {
+                  // Fix: Access inline property correctly from props, not destructuring
+                  if (props.inline) {
+                    return (
+                      <code className={cn("px-1 py-0.5 rounded text-red-500 bg-muted", className)} {...props}>
+                        {children}
+                      </code>
+                    );
+                  }
+                  
+                  return (
                     <CodeBlock
+                      language={(className || "").replace("language-", "")}
                       value={String(children).replace(/\n$/, "")}
-                      language={match[1]}
+                      {...props}
                     />
-                  ) : (
-                    <code className={className} {...props}>
-                      {children}
-                    </code>
                   );
                 },
               }}
             >
-              {message.content}
+              {message.content || ""}
             </ReactMarkdown>
-          )}
-
-          {hasHandoff && (
-            <div className="mt-2 p-2 border rounded-md bg-muted/30">
-              <p className="text-sm font-medium">Transferring to {message.handoffRequest?.targetAgent} agent</p>
-              <p className="text-xs text-muted-foreground">{message.handoffRequest?.reason}</p>
+          </div>
+          
+          {message.handoffRequest && (
+            <div className="mt-3">
+              <HandoffIndicator 
+                targetAgent={message.handoffRequest.targetAgent}
+                reason={message.handoffRequest.reason}
+              />
             </div>
           )}
         </div>
-      </div>
-    </div>
-  );
-}
-
-function MessageSkeleton({ isUser }: { isUser: boolean }) {
-  return (
-    <div className="flex items-start gap-4 p-4 rounded-lg border">
-      <Skeleton className="h-8 w-8 rounded-full" />
-      <div className="space-y-2 flex-1">
-        <Skeleton className="h-4 w-24" />
-        <Skeleton className="h-4 w-full" />
-        <Skeleton className="h-4 w-2/3" />
+        
+        {isUser && (
+          <Avatar className="h-8 w-8">
+            <AvatarImage 
+              src={user?.avatarUrl || "/placeholder.svg"} 
+              alt={user?.username || "User"} 
+            />
+            <AvatarFallback>
+              {user?.username?.charAt(0) || "U"}
+            </AvatarFallback>
+          </Avatar>
+        )}
       </div>
     </div>
   );

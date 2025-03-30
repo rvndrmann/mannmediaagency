@@ -1,3 +1,4 @@
+
 import React from "react";
 import { Message } from "@/types/message";
 import { useUser } from "@/hooks/use-user";
@@ -10,9 +11,10 @@ import { AttachmentPreview } from "../multi-agent/AttachmentPreview";
 
 interface ChatMessageProps {
   message: Message;
+  showAgentName?: boolean;
 }
 
-export function ChatMessage({ message }: ChatMessageProps) {
+export function ChatMessage({ message, showAgentName = true }: ChatMessageProps) {
   const { user } = useUser();
   const isUser = message.role === "user";
   
@@ -27,7 +29,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
         {!isUser && (
           <Avatar className="h-8 w-8">
             <AvatarImage 
-              src={message.avatarUrl || "/placeholder.svg"} 
+              src="/placeholder.svg" 
               alt="AI" 
             />
             <AvatarFallback>AI</AvatarFallback>
@@ -40,7 +42,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
             ? "bg-primary text-primary-foreground" 
             : "bg-muted"
         )}>
-          {!isUser && message.agentName && (
+          {!isUser && showAgentName && message.agentName && (
             <div className="text-xs text-muted-foreground mb-1">
               {message.agentName}
             </div>
@@ -61,8 +63,9 @@ export function ChatMessage({ message }: ChatMessageProps) {
                   </div>
                 ),
                 code: ({ node, className, children, ...props }) => {
-                  // Fix: Access inline property correctly from props, not destructuring
-                  if (props.inline) {
+                  const isInline = props.className === undefined;
+                  
+                  if (isInline) {
                     return (
                       <code className={cn("px-1 py-0.5 rounded text-red-500 bg-muted", className)} {...props}>
                         {children}
@@ -87,7 +90,7 @@ export function ChatMessage({ message }: ChatMessageProps) {
           {message.handoffRequest && (
             <div className="mt-3">
               <HandoffIndicator 
-                targetAgent={message.handoffRequest.targetAgent}
+                agent={message.handoffRequest.targetAgent}
                 reason={message.handoffRequest.reason}
               />
             </div>

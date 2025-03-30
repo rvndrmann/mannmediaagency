@@ -32,6 +32,7 @@ export function useMultiAgentChat(projectId?: string) {
         createdAt: new Date().toISOString(),
       };
       
+      // Create a new array instead of mutating the original
       const newMessages = [...messages, userMessage];
       setMessages(newMessages);
       
@@ -45,6 +46,7 @@ export function useMultiAgentChat(projectId?: string) {
         agentType: selectedAgent
       };
       
+      // Create a new array instead of mutating the original
       const messagesWithThinking = [...newMessages, assistantThinkingMessage];
       setMessages(messagesWithThinking);
       
@@ -62,7 +64,7 @@ export function useMultiAgentChat(projectId?: string) {
         console.error("Error calling unified-agent:", error);
         toast.error("Failed to get response from agent");
         
-        // Update the thinking message to show the error
+        // Update the thinking message to show the error - create a new array
         const updatedMessages = messagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {
             return {
@@ -77,7 +79,7 @@ export function useMultiAgentChat(projectId?: string) {
         
         setMessages(updatedMessages);
       } else if (data) {
-        // Replace the thinking message with the actual response
+        // Replace the thinking message with the actual response - create a new array
         const updatedMessages = messagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {
             return {

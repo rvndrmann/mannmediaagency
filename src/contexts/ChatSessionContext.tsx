@@ -26,15 +26,18 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const [messages, setMessagesState] = useState<Message[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
+  const [syncedWithStore, setSyncedWithStore] = useState(false);
   
   // Sync local state with store when active session changes
   useEffect(() => {
-    if (chatHistoryStore.activeSession?.messages) {
+    if (chatHistoryStore.activeSession?.messages && !syncedWithStore) {
       setMessagesState(chatHistoryStore.activeSession.messages);
-    } else {
+      setSyncedWithStore(true);
+    } else if (!chatHistoryStore.activeSession?.messages && syncedWithStore) {
       setMessagesState([]);
+      setSyncedWithStore(false);
     }
-  }, [chatHistoryStore.activeSession]);
+  }, [chatHistoryStore.activeSession, syncedWithStore]);
   
   // Enhanced version of setMessages that also updates the store
   const setMessages = useCallback((newMessages: Message[]) => {
@@ -53,8 +56,15 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     // Make sure the active session is set
     chatHistoryStore.setActiveChatId(sessionId);
     
+    // Find the session and set its messages to our local state
+    const session = chatHistoryStore.chatSessions.find(s => s.id === sessionId);
+    if (session?.messages && !syncedWithStore) {
+      setMessagesState(session.messages);
+      setSyncedWithStore(true);
+    }
+    
     return sessionId;
-  }, [chatHistoryStore]);
+  }, [chatHistoryStore, syncedWithStore]);
   
   const sendMessage = useCallback(async (params: { content: string; context?: any }) => {
     try {

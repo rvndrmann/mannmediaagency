@@ -29,11 +29,14 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
     processingRef.current = isProcessing;
   }, [isProcessing]);
   
+  // Scroll to bottom when messages update - debounced to prevent too many updates
   useEffect(() => {
-    // Scroll to bottom when messages update
-    if (scrollRef.current) {
-      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
-    }
+    const timer = setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
   }, [messages]);
   
   const handleAgentChange = useCallback((agentType: string) => {
@@ -55,7 +58,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         createdAt: new Date().toISOString(),
       };
       
-      // Add to messages
+      // Create new messages array instead of modifying the existing one
       const newMessagesWithUser = [...messages, userMessage];
       setMessages(newMessagesWithUser);
       
@@ -69,7 +72,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         agentType: selectedAgent
       };
       
-      // Add thinking message
+      // Create new messages array instead of modifying the existing one
       const newMessagesWithThinking = [...newMessagesWithUser, assistantThinkingMessage];
       setMessages(newMessagesWithThinking);
       
@@ -95,7 +98,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         console.error("Error calling unified-agent:", error);
         toast.error("Failed to get response from agent");
         
-        // Update the thinking message to show the error
+        // Update the thinking message to show the error - create new array
         const updatedMessages = newMessagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {
             return {
@@ -111,7 +114,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
       } else if (data) {
         console.log("Received response from unified-agent:", data);
         
-        // Replace the thinking message with the actual response
+        // Replace the thinking message with the actual response - create new array
         const updatedMessages = newMessagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {
             return {
@@ -134,7 +137,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [input, selectedAgent, projectId, sessionId, setMessages, messages]);
+  }, [input, selectedAgent, projectId, sessionId, messages, setMessages]);
   
   return (
     <div className="flex flex-col h-screen bg-background">

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { BarChartBig } from "lucide-react";
 import { toast } from "sonner";
 
-// Create a separate component for the content to use the context hook safely
+// Separate component for the content to use the context hook safely
 function MultiAgentChatContent() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
@@ -80,7 +80,7 @@ function MultiAgentChatContent() {
   );
 }
 
-// Create a wrapper component that provides the ChatSessionContext
+// Wrapper component that provides the ChatSessionContext
 export default function MultiAgentChatPage() {
   return (
     <ChatSessionProvider>

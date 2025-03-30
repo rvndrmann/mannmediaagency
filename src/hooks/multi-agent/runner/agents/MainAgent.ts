@@ -90,15 +90,35 @@ export class MainAgent extends BaseAgentImpl {
               streamResponse: true
             };
             
+            // Get auth token from localStorage
+            let authToken = null;
+            try {
+              // Try to get the JWT token from localStorage
+              const authData = localStorage.getItem('sb-avdwgvjhufslhqrrmxgo-auth-token');
+              if (authData) {
+                const parsedData = JSON.parse(authData);
+                authToken = parsedData?.access_token;
+              }
+            } catch (err) {
+              console.warn('Error retrieving auth token:', err);
+            }
+            
+            console.log("Streaming request to:", funcUrl);
+            console.log("Auth token available:", !!authToken);
+            
             // We use fetch for streaming
             fetch(funcUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+                'Authorization': authToken ? `Bearer ${authToken}` : ''
               },
               body: JSON.stringify(body)
             }).then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error! Status: ${response.status}`);
+              }
+              
               if (!response.body) {
                 reject(new Error("No response body"));
                 return;
@@ -119,6 +139,11 @@ export class MainAgent extends BaseAgentImpl {
                     handoff: handoff ? true : false
                   });
                   
+                  if (!responseText && !handoff) {
+                    // If no response was processed, provide a fallback
+                    responseText = "I apologize, but I couldn't generate a response. Please try again or try a different question.";
+                  }
+                  
                   resolve({
                     response: responseText,
                     nextAgent: handoff?.targetAgent,
@@ -131,6 +156,7 @@ export class MainAgent extends BaseAgentImpl {
                 
                 // Decode chunk
                 const chunk = decoder.decode(value, { stream: true });
+                console.log("Received stream chunk:", chunk);
                 
                 // Process the chunk
                 chunk.split('\n\n').forEach(line => {
@@ -144,6 +170,7 @@ export class MainAgent extends BaseAgentImpl {
                       }
                       
                       const data = JSON.parse(jsonStr);
+                      console.log("Processed stream data:", data);
                       
                       if (data.type === 'chunk') {
                         // Streaming text chunk
@@ -173,7 +200,20 @@ export class MainAgent extends BaseAgentImpl {
                   this.recordTraceEvent("streaming_error", {
                     error: err.message
                   });
-                  reject(err);
+                  
+                  // If we encountered an error during streaming but have some response text,
+                  // resolve with what we have rather than rejecting
+                  if (responseText.length > 0) {
+                    resolve({
+                      response: responseText,
+                      nextAgent: handoff?.targetAgent,
+                      handoffReason: handoff?.reason,
+                      additionalContext: handoff?.additionalContext,
+                      structured_output: structuredOutput
+                    });
+                  } else {
+                    reject(err);
+                  }
                 });
               };
               
@@ -188,12 +228,22 @@ export class MainAgent extends BaseAgentImpl {
               this.recordTraceEvent("streaming_error", {
                 error: err.message
               });
-              reject(err);
+              
+              console.error("Fetch error for streaming:", err);
+              // Provide a fallback response if streaming fails
+              resolve({
+                response: "I apologize, but I couldn't connect to the AI service. Please try again later.",
+                nextAgent: null,
+                handoffReason: null,
+                additionalContext: null,
+                structured_output: null
+              });
             });
           } catch (err) {
             this.recordTraceEvent("streaming_setup_error", {
               error: err.message
             });
+            console.error("Error setting up streaming:", err);
             reject(err);
           }
         });

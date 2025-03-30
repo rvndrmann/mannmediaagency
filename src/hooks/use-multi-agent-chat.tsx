@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -385,10 +384,21 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     });
     
     // Add temporary streaming message that will be updated as chunks arrive
-    setMessages(prev => [...prev, message]);
+    setMessages(prev => {
+      // Check if the message already exists
+      if (prev.some(m => m.id === message.id)) {
+        console.log("Streaming message already exists:", message.id);
+        return prev;
+      }
+      return [...prev, message];
+    });
   }, []);
   
   const handleStreamingChunk = useCallback((chunk: string) => {
+    if (!chunk || chunk.trim() === '') return;
+    
+    console.log("Received streaming chunk:", chunk.substring(0, 50) + (chunk.length > 50 ? "..." : ""));
+    
     setStreamingState(prev => ({
       ...prev,
       content: prev.content + chunk
@@ -411,6 +421,8 @@ You can use the canvas tool to save scene descriptions and image prompts directl
   }, [streamingState]);
   
   const handleStreamingEnd = useCallback(() => {
+    console.log("Streaming completed for message:", streamingState.messageId);
+    
     // Clear streaming state when finished
     setStreamingState({
       isActive: false,

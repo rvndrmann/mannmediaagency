@@ -158,7 +158,7 @@ The mood is [appropriate mood based on script content].`;
               JSON.stringify({
                 success: true,
                 result: "Scene description updated successfully using AI analysis",
-                description
+                description // Return the generated description in the response
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -187,7 +187,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
               JSON.stringify({
                 success: true,
                 result: "Image prompt generated and updated successfully",
-                imagePrompt
+                imagePrompt // Return the generated image prompt in the response
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );

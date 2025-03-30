@@ -95,10 +95,17 @@ ${scene.imageUrl ? "The scene already has an image that you should use as refere
 Describe how the camera should move, how subjects are positioned, lighting, mood, and transitions. 
 Be specific about camera angles, movements, and visual composition.`;
 
-        await generateSceneDescription(scene.id, context);
+        const response = await generateSceneDescription(scene.id, context);
         
-        // Update local state with the generated description
-        setDescription(scene.description);
+        // Check if response has updated description and update local state
+        if (response?.generatedContent) {
+          setDescription(response.generatedContent);
+        } else {
+          // Fallback to get fresh data - the scene object might have been updated
+          const updatedDescription = scene.description;
+          setDescription(updatedDescription);
+        }
+        
         toast.success("Scene description generated and saved");
         
       } else if (type === 'imagePrompt') {
@@ -111,10 +118,18 @@ ${scene.description ? "Scene Description: " + scene.description : ""}
 Create a detailed image prompt that includes visual elements, style, lighting, mood, composition, and quality parameters.
 Format the prompt to get the best results from an AI image generator.`;
 
-        await generateImagePrompt(scene.id, context);
+        const response = await generateImagePrompt(scene.id, context);
         
-        // Update local state with the generated image prompt
-        setImagePrompt(scene.imagePrompt);
+        // Immediately update the local state with the generated image prompt
+        if (response?.generatedContent) {
+          setImagePrompt(response.generatedContent);
+        } else {
+          // If the hook doesn't return the generated content, fetch it from the scene
+          // Typically this works by updating the local state after a successful API call
+          const updatedImagePrompt = scene.imagePrompt;
+          setImagePrompt(updatedImagePrompt);
+        }
+        
         toast.success("Image prompt generated and saved");
       }
       

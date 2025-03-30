@@ -15,6 +15,12 @@ interface UseCanvasAgentProps {
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
 }
 
+interface AgentResult {
+  success: boolean;
+  generatedContent?: string;
+  error?: string;
+}
+
 export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAgentProps) {
   const { 
     getOrCreateChatSession, 
@@ -74,10 +80,10 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     type: CanvasAgentType,
     prompt: string,
     updateType: SceneUpdateType
-  ) => {
+  ): Promise<AgentResult> => {
     if (isProcessing) {
       toast.error("Already processing a request");
-      return;
+      return { success: false, error: "Already processing a request" };
     }
 
     setIsProcessing(true);
@@ -92,6 +98,8 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     };
     
     setMessages(prev => [...prev, userMessage]);
+    
+    let generatedContent = "";
 
     try {
       if (useMcp && mcpServer) {
@@ -125,6 +133,12 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
         
         if (result.success) {
           toast.success(result.result);
+          // Capture the generated content from the result
+          if (updateType === 'description' && result.description) {
+            generatedContent = result.description;
+          } else if (updateType === 'imagePrompt' && result.imagePrompt) {
+            generatedContent = result.imagePrompt;
+          }
         } else {
           throw new Error(result.error || "Failed to process request with MCP");
         }
@@ -158,13 +172,18 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
         setMessages(prev => [...prev, assistantMessage]);
 
         if (data && data.success) {
-          const updatedContent = data.content || data.imagePrompt || '';
-          await updateScene(sceneId, updateType, updatedContent);
+          generatedContent = data.content || data.imagePrompt || '';
+          await updateScene(sceneId, updateType, generatedContent);
           toast.success(`Scene ${updateType} updated successfully`);
         } else {
           throw new Error(data?.error || "Failed to process request");
         }
       }
+
+      return { 
+        success: true, 
+        generatedContent
+      };
     } catch (error) {
       console.error(`Error processing ${type} agent request:`, error);
       
@@ -181,6 +200,11 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
       setMessages(prev => [...prev, errorMessage]);
       
       toast.error(`Failed to process ${type} agent request: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
     } finally {
       setIsProcessing(false);
       setActiveAgent(null);

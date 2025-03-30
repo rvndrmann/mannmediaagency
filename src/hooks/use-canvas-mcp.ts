@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMcpToolExecutor } from "./use-mcp-tool-executor";
 import { useMCPContext } from "@/contexts/MCPContext";
@@ -8,37 +7,74 @@ interface UseCanvasMcpOptions {
   projectId?: string;
   sceneId?: string;
   autoConnect?: boolean;
+  retryDelay?: number;
+  maxRetries?: number;
 }
 
 /**
  * Hook for using MCP tools in the Canvas context
+ * with improved connection handling and error recovery
  */
 export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
-  const { projectId, sceneId, autoConnect = true } = options;
+  const { 
+    projectId, 
+    sceneId, 
+    autoConnect = true,
+    retryDelay = 1500,
+    maxRetries = 3
+  } = options;
+  
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingImagePrompt, setIsGeneratingImagePrompt] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
+  const [retryCount, setRetryCount] = useState(0);
+  const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
   
   // Add reference to previous scene ID to detect changes
   const prevSceneIdRef = useRef<string | undefined>(sceneId);
+  const prevProjectIdRef = useRef<string | undefined>(projectId);
   
-  const { mcpServers, useMcp, reconnectToMcp } = useMCPContext();
-  const { executeTool, isExecuting, hasConnection } = useMcpToolExecutor({
+  const { mcpServers, useMcp, reconnectToMcp, hasConnectionError, isConnecting } = useMCPContext();
+  const { executeTool, isExecuting, hasConnection, clearCache } = useMcpToolExecutor({
     projectId,
     sceneId
   });
   
   // Auto-connect to MCP if enabled
   useEffect(() => {
-    if (autoConnect && projectId && useMcp && mcpServers.length === 0) {
+    // Only attempt auto-connection when projectId changes or on initial load
+    if (autoConnect && projectId && useMcp && 
+        (mcpServers.length === 0 || prevProjectIdRef.current !== projectId)) {
       console.log("Auto-connecting to MCP for project:", projectId);
-      reconnectToMcp().catch(err => {
-        console.error("Auto-connect failed:", err);
-      });
+      
+      setIsAutoReconnecting(true);
+      reconnectToMcp()
+        .then(success => {
+          if (success) {
+            console.log("Auto-connect succeeded");
+            setRetryCount(0);
+          } else if (retryCount < maxRetries) {
+            console.log(`Auto-connect failed, will retry (${retryCount + 1}/${maxRetries})`);
+            // Schedule a retry with exponential backoff
+            const backoffDelay = retryDelay * Math.pow(1.5, retryCount);
+            setTimeout(() => setRetryCount(count => count + 1), backoffDelay);
+          } else {
+            console.log("Auto-connect failed after max retries");
+            setRetryCount(0);
+          }
+        })
+        .catch(err => {
+          console.error("Auto-connect failed:", err);
+        })
+        .finally(() => {
+          setIsAutoReconnecting(false);
+        });
     }
-  }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp]);
+    
+    prevProjectIdRef.current = projectId;
+  }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp, retryCount, maxRetries, retryDelay]);
   
   // Handle scene changes - clean up any ongoing operations
   useEffect(() => {
@@ -51,33 +87,51 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       setIsGeneratingImage(false);
       setIsGeneratingVideo(false);
       setIsGeneratingScript(false);
+      
+      // Clear the execution cache when changing scenes
+      clearCache();
     }
     
     prevSceneIdRef.current = sceneId;
-  }, [sceneId]);
+  }, [sceneId, clearCache]);
   
   /**
-   * Update scene description using MCP
+   * Update scene description using MCP with improved error handling and retry logic
    */
   const updateSceneDescription = useCallback(async (sceneId: string, imageAnalysis: boolean = true): Promise<boolean> => {
     if (!sceneId) return false;
     
     setIsGeneratingDescription(true);
-    try {
-      const result = await executeTool("update_scene_description", {
-        sceneId,
-        imageAnalysis
-      });
-      
-      return result.success;
-    } catch (error) {
-      console.error("Error updating scene description:", error);
-      toast.error("Failed to update scene description");
-      return false;
-    } finally {
-      setIsGeneratingDescription(false);
+    let attempts = 0;
+    const maxAttempts = 2; // Try at most twice
+    
+    while (attempts < maxAttempts) {
+      try {
+        const result = await executeTool("update_scene_description", {
+          sceneId,
+          imageAnalysis
+        });
+        
+        return result.success;
+      } catch (error) {
+        console.error(`Error updating scene description (attempt ${attempts + 1}/${maxAttempts}):`, error);
+        attempts++;
+        
+        if (attempts >= maxAttempts) {
+          toast.error("Failed to update scene description after multiple attempts");
+          return false;
+        }
+        
+        // Wait briefly before retrying
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        toast.info("Retrying scene description update...");
+      }
     }
-  }, [executeTool]);
+    
+    return false;
+  }, [executeTool]).finally(() => {
+    setIsGeneratingDescription(false);
+  });
   
   /**
    * Generate and update image prompt using MCP
@@ -103,7 +157,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   }, [executeTool]);
   
   /**
-   * Generate scene image using MCP
+   * Generate scene image using MCP with improved error handling
    */
   const generateImage = useCallback(async (sceneId: string, productShotVersion: string = "v2"): Promise<boolean> => {
     if (!sceneId) return false;
@@ -174,12 +228,14 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   return {
     // Status
     isConnected: hasConnection,
-    isProcessing: isExecuting,
+    isProcessing: isExecuting || isAutoReconnecting,
     isGeneratingDescription,
     isGeneratingImagePrompt,
     isGeneratingImage,
     isGeneratingVideo,
     isGeneratingScript,
+    isAutoReconnecting,
+    connectionError: hasConnectionError && !isConnecting,
     
     // Actions
     updateSceneDescription,
@@ -189,6 +245,9 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     generateScript,
     
     // Direct tool execution
-    executeTool
+    executeTool,
+    
+    // Cache management
+    clearToolCache: clearCache
   };
 }

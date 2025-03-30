@@ -48,7 +48,11 @@ export function MCPConnectionStatus({
                 variant="ghost" 
                 size="sm" 
                 className="h-7 text-xs text-red-500 hover:text-red-600 p-0 gap-1.5"
-                onClick={() => reconnectToMcp()}
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  reconnectToMcp();
+                }}
               >
                 <ServerCrash className="h-3.5 w-3.5" />
                 <span>{compact ? "Error" : "Connection Error"}</span>

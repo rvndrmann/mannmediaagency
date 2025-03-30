@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
@@ -42,17 +41,14 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     updateScene: onUpdate
   });
   
-  // Load scene data with error handling
   useEffect(() => {
     const loadSceneData = async () => {
       setIsLoading(true);
       setLoadError(null);
       
       try {
-        // Simulating a potential loading delay
         await new Promise(resolve => setTimeout(resolve, 100));
         
-        // Update local state with scene data
         setTitle(scene.title);
         setScript(scene.script);
         setVoiceOverText(scene.voiceOverText);
@@ -110,7 +106,6 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     }
     
     try {
-      // Create context based on current scene data
       let context = "";
       
       if (type === 'script') {
@@ -198,7 +193,6 @@ Format the prompt to get the best results from an AI image generator.`;
     }
   };
   
-  // Show loading state
   if (isLoading) {
     return (
       <div className="p-6 flex flex-col items-center justify-center min-h-[400px]">
@@ -208,7 +202,6 @@ Format the prompt to get the best results from an AI image generator.`;
     );
   }
   
-  // Show error state
   if (loadError) {
     return (
       <div className="p-6">
@@ -221,7 +214,6 @@ Format the prompt to get the best results from an AI image generator.`;
     );
   }
   
-  // Show MCP connection error
   const showMcpConnectionError = useMcp && hasConnectionError && !isConnecting;
   
   return (
@@ -232,7 +224,7 @@ Format the prompt to get the best results from an AI image generator.`;
       </div>
       
       {showMcpConnectionError && (
-        <Alert variant="warning" className="mb-6">
+        <Alert variant="destructive" className="mb-6">
           <AlertCircle className="h-4 w-4 mr-2" />
           <AlertDescription>
             MCP connection error. Some AI features may be limited. 

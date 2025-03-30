@@ -28,11 +28,11 @@ interface ScenesListProps {
   scenes: CanvasScene[];
   selectedSceneId: string | null;
   onSelectScene: (id: string) => void;
-  onAddScene: () => Promise<string | undefined>;
+  onAddScene: () => Promise<void>;
   onDeleteScene: (id: string) => Promise<void>;
   onSwitchView: () => void;
   currentView: "scenes" | "script";
-  onCreateNewProject: () => Promise<void>;
+  onCreateNewProject: () => Promise<string>;
 }
 
 export function ScenesList({
@@ -48,14 +48,12 @@ export function ScenesList({
   const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
   const [isAddingScene, setIsAddingScene] = useState(false);
   const [loadingSceneId, setLoadingSceneId] = useState<string | null>(null);
+  const [isDeletingScene, setIsDeletingScene] = useState(false);
   
   const handleAddScene = async () => {
     setIsAddingScene(true);
     try {
-      const newSceneId = await onAddScene();
-      if (newSceneId) {
-        onSelectScene(newSceneId);
-      }
+      await onAddScene();
     } finally {
       setIsAddingScene(false);
     }
@@ -63,8 +61,13 @@ export function ScenesList({
   
   const confirmDeleteScene = async () => {
     if (sceneToDelete) {
-      await onDeleteScene(sceneToDelete);
-      setSceneToDelete(null);
+      setIsDeletingScene(true);
+      try {
+        await onDeleteScene(sceneToDelete);
+      } finally {
+        setIsDeletingScene(false);
+        setSceneToDelete(null);
+      }
     }
   };
   
@@ -164,8 +167,18 @@ export function ScenesList({
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={confirmDeleteScene}>
-              Delete
+            <AlertDialogAction 
+              onClick={confirmDeleteScene}
+              disabled={isDeletingScene}
+            >
+              {isDeletingScene ? (
+                <>
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  Deleting...
+                </>
+              ) : (
+                'Delete'
+              )}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

@@ -68,7 +68,7 @@ export function CanvasWorkspace({
     );
   }
 
-  // Fix the type mismatch by creating a wrapper function with the correct return type
+  // Create a wrapper function that returns Promise<string> for createNewProject
   const handleCreateNewProject = async () => {
     try {
       const newProjectId = await createNewProject("New Project");

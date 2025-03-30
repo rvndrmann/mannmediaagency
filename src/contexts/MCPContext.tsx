@@ -1,9 +1,8 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { MCPServer, MCPContext as MCPContextType } from "@/types/mcp";
-import { MCPServerService } from "@/services/mcpService";
+import { MCPContext as MCPContextType } from "@/types/mcp";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
+import { MCPConnection, MCPService } from "@/services/mcp/MCPService";
 
 const defaultMCPContext: MCPContextType = {
   mcpServers: [],
@@ -18,14 +17,15 @@ const MCPContext = createContext<MCPContextType>(defaultMCPContext);
 
 export function MCPProvider({ children, projectId }: { children: ReactNode, projectId?: string }) {
   const [useMcp, setUseMcp] = useState<boolean>(true);
-  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
+  const [mcpConnections, setMcpConnections] = useState<MCPConnection[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
   const [hasConnectionError, setHasConnectionError] = useState<boolean>(false);
+  const mcpService = MCPService.getInstance();
   
   // Function to establish MCP connection
   const connectToMcp = async (projectIdentifier?: string): Promise<boolean> => {
     if (!projectIdentifier || !useMcp) {
-      setMcpServers([]);
+      setMcpConnections([]);
       return false;
     }
     
@@ -33,37 +33,35 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     setHasConnectionError(false);
     
     try {
-      // First check if we have a stored connection URL for this project
-      let serverUrl = `https://api.browser-use.com/api/v1/mcp/${projectIdentifier}`;
+      // Try to get an existing connection
+      const connection = await mcpService.getConnectionForProject(projectIdentifier);
       
-      if (projectIdentifier) {
-        const { data, error } = await supabase
-          .from('mcp_connections')
-          .select('connection_url')
-          .eq('project_id', projectIdentifier)
-          .eq('is_active', true)
-          .order('last_connected_at', { ascending: false })
-          .maybeSingle();
-          
-        if (data && !error) {
-          serverUrl = data.connection_url;
+      // If no connection found, create a default one
+      if (!connection) {
+        const newConnection = await mcpService.createDefaultConnection(projectIdentifier);
+        
+        if (newConnection && newConnection.isConnected()) {
+          setMcpConnections([newConnection]);
+          setIsConnecting(false);
+          return true;
+        } else {
+          throw new Error("Failed to establish MCP connection");
         }
+      } else if (!connection.isConnected()) {
+        // Try to connect if not already connected
+        await connection.connect();
       }
       
-      // Create and connect to the MCP server
-      const mcpServer = new MCPServerService(serverUrl, projectIdentifier);
-      await mcpServer.connect();
-      
       // Verify connection by listing tools
-      const tools = await mcpServer.listTools();
+      const tools = await connection.listTools();
       console.log("MCP Connected successfully, found tools:", tools.length);
       
-      setMcpServers([mcpServer]);
+      setMcpConnections([connection]);
       setIsConnecting(false);
       return true;
     } catch (error) {
       console.error("Failed to connect to MCP server:", error);
-      setMcpServers([]);
+      setMcpConnections([]);
       setIsConnecting(false);
       setHasConnectionError(true);
       toast.error("Failed to connect to MCP services. Some AI features may be limited.");
@@ -88,20 +86,20 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     if (projectId && useMcp) {
       connectToMcp(projectId);
     } else {
-      setMcpServers([]);
+      setMcpConnections([]);
     }
     
     // Cleanup on unmount or when dependencies change
     return () => {
-      mcpServers.forEach(server => {
-        server.cleanup().catch(console.error);
-      });
+      if (projectId) {
+        mcpService.closeConnection(projectId).catch(console.error);
+      }
     };
   }, [useMcp, projectId]);
   
   return (
     <MCPContext.Provider value={{ 
-      mcpServers, 
+      mcpServers: mcpConnections, 
       useMcp, 
       setUseMcp, 
       isConnecting, 

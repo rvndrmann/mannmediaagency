@@ -1,14 +1,8 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { MCPServerService } from "@/services/mcpService";
-
-interface MCPToolParams {
-  sceneId: string;
-  imageAnalysis?: boolean;
-  useDescription?: boolean;
-  productShotVersion?: string;
-  aspectRatio?: string;
-}
+import { CanvasService } from "@/services/canvas/CanvasService";
+import { MCPService } from "@/services/mcp/MCPService";
+import { IntegrationService } from "@/services/integration/IntegrationService";
 
 export const canvasTool = {
   name: "canvas",
@@ -58,168 +52,141 @@ export const canvasTool = {
     try {
       const { action, projectId, sceneId, content, useMcp = true, productShotVersion, aspectRatio } = params;
       
-      // Default to MCP execution if not explicitly disabled
-      if (useMcp !== false) {
-        // Create a new MCP server connection
-        const mcpServer = new MCPServerService(`https://api.browser-use.com/api/v1/mcp/${projectId}`, projectId);
-        
-        try {
-          await mcpServer.connect();
-          
-          let toolName = "";
-          let toolParams: MCPToolParams = { sceneId: sceneId as string };
-          
-          switch (action) {
-            case "updateDescription":
-              toolName = "update_scene_description";
-              toolParams = { 
-                ...toolParams, 
-                imageAnalysis: true 
-              };
-              break;
-            case "generateImagePrompt":
-              toolName = "update_image_prompt";
-              toolParams = { 
-                ...toolParams, 
-                useDescription: true 
-              };
-              break;
-            case "generateImage":
-              toolName = "generate_scene_image";
-              toolParams = { 
-                ...toolParams, 
-                productShotVersion: productShotVersion || "v2" 
-              };
-              break;
-            case "generateVideo":
-              toolName = "create_scene_video";
-              toolParams = { 
-                ...toolParams, 
-                aspectRatio: aspectRatio || "16:9" 
-              };
-              break;
-            default:
-              throw new Error(`Unsupported MCP action: ${action}`);
-          }
-          
-          const result = await mcpServer.callTool(toolName, toolParams);
-          await mcpServer.cleanup();
-          
-          return {
-            success: result.success !== false,
-            message: result.result || "Operation completed via MCP",
-            data: result
-          };
-        } catch (error) {
-          console.error(`MCP execution failed, falling back to legacy execution:`, error);
-          // Continue to legacy execution if MCP fails
-        }
+      // Get services
+      const canvasService = CanvasService.getInstance();
+      const integrationService = IntegrationService.getInstance();
+      
+      // Try to initialize MCP for this project if requested
+      if (useMcp) {
+        await integrationService.initMcpForProject(projectId);
       }
       
-      // Legacy execution (without MCP)
+      // Handle different actions using the service layer
       switch (action) {
-        case "updateDescription":
+        case "updateDescription": {
+          if (!sceneId) {
+            throw new Error("sceneId is required for updateDescription action");
+          }
+          
+          // Update scene description
+          const success = await canvasService.updateSceneDescription(sceneId, useMcp);
+          
+          return {
+            success,
+            message: success ? 
+              "Scene description updated successfully" : 
+              "Failed to update scene description",
+            data: { sceneId }
+          };
+        }
+        
         case "generateImagePrompt": {
-          const type = action === "updateDescription" ? "description" : "imagePrompt";
-          const { data, error } = await supabase.functions.invoke("canvas-scene-agent", {
-            body: {
-              sceneId,
-              prompt: content,
-              type,
-              projectId
-            }
-          });
+          if (!sceneId) {
+            throw new Error("sceneId is required for generateImagePrompt action");
+          }
           
-          if (error) throw error;
+          // Update image prompt
+          const success = await canvasService.updateImagePrompt(sceneId, useMcp);
           
           return {
-            success: data.success !== false,
-            message: `Scene ${type} ${data.success ? "updated" : "update failed"}`,
-            data
+            success,
+            message: success ? 
+              "Image prompt generated successfully" : 
+              "Failed to generate image prompt",
+            data: { sceneId }
           };
         }
-          
+        
         case "generateImage": {
-          // Call product shot service
-          const { data, error } = await supabase.functions.invoke("product-shot", {
-            body: {
-              sceneId,
-              prompt: content,
-              projectId,
-              version: productShotVersion || "v2"
-            }
-          });
+          if (!sceneId) {
+            throw new Error("sceneId is required for generateImage action");
+          }
           
-          if (error) throw error;
+          // Generate image
+          const success = await canvasService.generateImage({
+            sceneId,
+            prompt: content,
+            version: productShotVersion
+          }, useMcp);
           
           return {
-            success: data.success !== false,
-            message: `Scene image ${data.success ? "generated" : "generation failed"}`,
-            data
+            success,
+            message: success ? 
+              "Scene image generated successfully" : 
+              "Failed to generate scene image",
+            data: { sceneId }
           };
         }
-          
+        
         case "generateVideo": {
-          // Call image-to-video service
-          const { data, error } = await supabase.functions.invoke("image-to-video", {
-            body: {
-              sceneId,
-              aspectRatio: aspectRatio || "16:9",
-              projectId
-            }
+          if (!sceneId) {
+            throw new Error("sceneId is required for generateVideo action");
+          }
+          
+          // Generate video
+          const success = await canvasService.generateVideo({
+            sceneId,
+            aspectRatio
+          }, useMcp);
+          
+          return {
+            success,
+            message: success ? 
+              "Scene video generated successfully" : 
+              "Failed to generate scene video",
+            data: { sceneId }
+          };
+        }
+        
+        case "createScene": {
+          // Create a new scene
+          const scene = await canvasService.createScene(projectId, {
+            script: content || ""
           });
           
-          if (error) throw error;
-          
           return {
-            success: data.success !== false,
-            message: `Scene video ${data.success ? "generated" : "generation failed"}`,
-            data
+            success: !!scene,
+            message: scene ? "New scene created" : "Failed to create scene",
+            data: scene ? { sceneId: scene.id } : null
           };
         }
-          
-        case "createScene": {
-          const { data, error } = await supabase
-            .from("canvas_scenes")
-            .insert({
-              project_id: projectId,
-              title: "New Scene",
-              script: content || "",
-              scene_order: 999 // Will be reordered by the backend
-            })
-            .select("id")
-            .single();
-          
-          if (error) throw error;
-          
-          return {
-            success: true,
-            message: "New scene created",
-            data: { sceneId: data.id }
-          };
-        }
-          
+        
         case "updateScene": {
           if (!sceneId) {
             throw new Error("sceneId is required for updateScene action");
           }
           
-          const { error } = await supabase
-            .from("canvas_scenes")
-            .update({
-              script: content
-            })
-            .eq("id", sceneId);
+          // Update scene script
+          const success = await canvasService.updateScene(sceneId, {
+            script: content
+          });
           
-          if (error) throw error;
+          // If the content looks like a script, save it as the full script too
+          if (success && content && isScriptContent(content)) {
+            try {
+              await canvasService.updateProject(projectId, { full_script: content });
+              
+              return {
+                success: true,
+                message: "Scene and project script updated",
+                data: { 
+                  sceneId,
+                  scriptSaved: true,
+                  scriptContent: content
+                }
+              };
+            } catch (err) {
+              console.error("Error saving as full script:", err);
+            }
+          }
           
           return {
-            success: true,
-            message: "Scene updated",
+            success,
+            message: success ? "Scene updated" : "Failed to update scene",
             data: { sceneId }
           };
         }
-          
+        
         default:
           throw new Error(`Unsupported action: ${action}`);
       }
@@ -233,3 +200,42 @@ export const canvasTool = {
     }
   }
 };
+
+// Helper function to detect if content looks like a script
+function isScriptContent(content: string): boolean {
+  // Check for script markers
+  const scriptMarkers = [
+    /SCENE \d+/i,
+    /\bINT\.\s/i,
+    /\bEXT\.\s/i,
+    /FADE (IN|OUT)/i,
+    /CUT TO:/i,
+    /TITLE:/i,
+    /CLOSE UP/i,
+    /WIDE SHOT/i,
+    /NARRATOR:/i,
+    /\bVO:/i,
+    /VOICE OVER:/i,
+    /\bV\.O\./i,
+    /\(beat\)/i,
+    /DISSOLVE TO:/i,
+    /FADE TO BLACK/i
+  ];
+  
+  // Check if content matches any script markers
+  for (const marker of scriptMarkers) {
+    if (marker.test(content)) {
+      return true;
+    }
+  }
+  
+  // Check for script-like structure (multiple paragraphs)
+  if (content.includes('\n\n')) {
+    const paragraphs = content.split('\n\n');
+    if (paragraphs.length >= 3) {
+      return true;
+    }
+  }
+  
+  return false;
+}

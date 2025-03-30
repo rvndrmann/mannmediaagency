@@ -1459,6 +1459,139 @@ export type Database = {
         }
         Relationships: []
       }
+      mcp_connections: {
+        Row: {
+          connection_url: string
+          created_at: string
+          id: string
+          is_active: boolean | null
+          last_connected_at: string | null
+          project_id: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          connection_url: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          project_id: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          connection_url?: string
+          created_at?: string
+          id?: string
+          is_active?: boolean | null
+          last_connected_at?: string | null
+          project_id?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_connections_project_id_fkey"
+            columns: ["project_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_projects"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mcp_tool_executions: {
+        Row: {
+          completed_at: string | null
+          created_at: string
+          error_message: string | null
+          id: string
+          parameters: Json | null
+          result: Json | null
+          scene_id: string | null
+          status: string
+          tool_id: string
+          updated_at: string
+        }
+        Insert: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          parameters?: Json | null
+          result?: Json | null
+          scene_id?: string | null
+          status?: string
+          tool_id: string
+          updated_at?: string
+        }
+        Update: {
+          completed_at?: string | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          parameters?: Json | null
+          result?: Json | null
+          scene_id?: string | null
+          status?: string
+          tool_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_tool_executions_scene_id_fkey"
+            columns: ["scene_id"]
+            isOneToOne: false
+            referencedRelation: "canvas_scenes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "mcp_tool_executions_tool_id_fkey"
+            columns: ["tool_id"]
+            isOneToOne: false
+            referencedRelation: "mcp_tools"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      mcp_tools: {
+        Row: {
+          connection_id: string
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          parameters: Json | null
+          updated_at: string
+        }
+        Insert: {
+          connection_id: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          parameters?: Json | null
+          updated_at?: string
+        }
+        Update: {
+          connection_id?: string
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          parameters?: Json | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "mcp_tools_connection_id_fkey"
+            columns: ["connection_id"]
+            isOneToOne: false
+            referencedRelation: "mcp_connections"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       oauth_states: {
         Row: {
           created_at: string

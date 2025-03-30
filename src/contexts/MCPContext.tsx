@@ -3,6 +3,7 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 import { MCPServer, MCPContext as MCPContextType } from "@/types/mcp";
 import { MCPServerService } from "@/services/mcpService";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 const defaultMCPContext: MCPContextType = {
   mcpServers: [],
@@ -32,7 +33,25 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     setHasConnectionError(false);
     
     try {
-      const mcpServer = new MCPServerService(`https://api.example.com/mcp/${projectIdentifier}`);
+      // First check if we have a stored connection URL for this project
+      let serverUrl = `https://api.browser-use.com/mcp/${projectIdentifier}`;
+      
+      if (projectIdentifier) {
+        const { data, error } = await supabase
+          .from('mcp_connections')
+          .select('connection_url')
+          .eq('project_id', projectIdentifier)
+          .eq('is_active', true)
+          .order('last_connected_at', { ascending: false })
+          .maybeSingle();
+          
+        if (data && !error) {
+          serverUrl = data.connection_url;
+        }
+      }
+      
+      // Create and connect to the MCP server
+      const mcpServer = new MCPServerService(serverUrl, projectIdentifier);
       await mcpServer.connect();
       
       // Verify connection by listing tools

@@ -1,19 +1,22 @@
 
 import { MCPServer } from "@/types/mcp";
+import { supabase } from "@/integrations/supabase/client";
 
 export class MCPServerService implements MCPServer {
   private serverUrl: string;
   private toolsCache: any[] | null = null;
   private isConnected: boolean = false;
   private connectionError: Error | null = null;
+  private connectionId: string | null = null;
+  private projectId: string | null = null;
   
-  constructor(serverUrl: string) {
+  constructor(serverUrl: string, projectId?: string) {
     this.serverUrl = serverUrl;
+    this.projectId = projectId || null;
   }
   
   async connect(): Promise<void> {
     try {
-      // In a real implementation, this would establish a connection to the MCP server
       console.log("Connecting to MCP server at", this.serverUrl);
       
       // Simulate checking connection (in real implementation, would make an API call)
@@ -29,12 +32,73 @@ export class MCPServerService implements MCPServer {
       this.isConnected = true;
       this.connectionError = null;
       
+      // If we have a project ID, record this connection in the database
+      if (this.projectId) {
+        await this.recordConnection();
+      }
+      
       // Prefetch tools to validate connection
       await this.listTools();
     } catch (error) {
       this.isConnected = false;
       this.connectionError = error instanceof Error ? error : new Error(String(error));
       throw this.connectionError;
+    }
+  }
+  
+  private async recordConnection(): Promise<void> {
+    if (!this.projectId) return;
+    
+    try {
+      // Check if we already have an active connection for this project
+      const { data: existingConn, error: fetchError } = await supabase
+        .from('mcp_connections')
+        .select('id')
+        .eq('project_id', this.projectId)
+        .eq('is_active', true)
+        .maybeSingle();
+      
+      if (fetchError) {
+        console.error("Error checking existing connections:", fetchError);
+        return;
+      }
+      
+      if (existingConn) {
+        // Update the existing connection
+        const { error } = await supabase
+          .from('mcp_connections')
+          .update({ 
+            connection_url: this.serverUrl,
+            last_connected_at: new Date().toISOString(),
+            is_active: true
+          })
+          .eq('id', existingConn.id);
+          
+        if (error) {
+          console.error("Error updating connection record:", error);
+        } else {
+          this.connectionId = existingConn.id;
+        }
+      } else {
+        // Create a new connection record
+        const { data, error } = await supabase
+          .from('mcp_connections')
+          .insert({
+            project_id: this.projectId,
+            connection_url: this.serverUrl,
+            is_active: true
+          })
+          .select('id')
+          .single();
+          
+        if (error) {
+          console.error("Error creating connection record:", error);
+        } else if (data) {
+          this.connectionId = data.id;
+        }
+      }
+    } catch (error) {
+      console.error("Failed to record connection:", error);
     }
   }
   
@@ -128,10 +192,57 @@ export class MCPServerService implements MCPServer {
       ];
       
       this.toolsCache = canvasTools;
+      
+      // Store tools in the database if we have a connection ID
+      if (this.connectionId) {
+        await this.recordTools(canvasTools);
+      }
+      
       return canvasTools;
     } catch (error) {
       console.error("Error fetching MCP tools:", error);
       throw error;
+    }
+  }
+  
+  private async recordTools(tools: any[]): Promise<void> {
+    if (!this.connectionId) return;
+    
+    try {
+      // First, get existing tools for this connection
+      const { data: existingTools, error: fetchError } = await supabase
+        .from('mcp_tools')
+        .select('name')
+        .eq('connection_id', this.connectionId);
+        
+      if (fetchError) {
+        console.error("Error fetching existing tools:", fetchError);
+        return;
+      }
+      
+      // Create a set of existing tool names for faster lookup
+      const existingToolNames = new Set(existingTools?.map(t => t.name) || []);
+      
+      // Filter to only new tools
+      const newTools = tools.filter(tool => !existingToolNames.has(tool.name));
+      
+      if (newTools.length === 0) return;
+      
+      // Insert new tools
+      const { error } = await supabase
+        .from('mcp_tools')
+        .insert(newTools.map(tool => ({
+          connection_id: this.connectionId,
+          name: tool.name,
+          description: tool.description,
+          parameters: tool.parameters
+        })));
+        
+      if (error) {
+        console.error("Error recording tools:", error);
+      }
+    } catch (error) {
+      console.error("Failed to record tools:", error);
     }
   }
   
@@ -147,42 +258,122 @@ export class MCPServerService implements MCPServer {
       // For now, we'll simulate a response
       await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
       
+      let result: { success: boolean, result: string };
+      
       switch (name) {
         case "update_scene_description":
-          return {
+          result = {
             success: true,
             result: "Scene description updated successfully using AI analysis"
           };
+          break;
         case "update_image_prompt":
-          return {
+          result = {
             success: true,
             result: "Image prompt generated and updated successfully"
           };
+          break;
         case "generate_scene_image":
-          return {
+          result = {
             success: true,
             result: "Scene image generated successfully using " + 
                     (parameters.productShotVersion === "v1" ? "ProductShot V1" : "ProductShot V2")
           };
+          break;
         case "create_scene_video":
-          return {
+          result = {
             success: true,
             result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
           };
+          break;
         default:
           throw new Error(`Unknown tool: ${name}`);
       }
+      
+      // Record the tool execution if we have a connection ID
+      if (this.connectionId) {
+        await this.recordToolExecution(name, parameters, result);
+      }
+      
+      return result;
     } catch (error) {
       console.error(`Error calling MCP tool ${name}:`, error);
+      
+      // Record the failed execution
+      if (this.connectionId) {
+        await this.recordToolExecution(name, parameters, null, error);
+      }
+      
       throw error;
+    }
+  }
+  
+  private async recordToolExecution(
+    toolName: string, 
+    parameters: any, 
+    result: any | null, 
+    error?: any
+  ): Promise<void> {
+    if (!this.connectionId) return;
+    
+    try {
+      // First, get the tool ID
+      const { data: tool, error: fetchError } = await supabase
+        .from('mcp_tools')
+        .select('id')
+        .eq('connection_id', this.connectionId)
+        .eq('name', toolName)
+        .maybeSingle();
+        
+      if (fetchError || !tool) {
+        console.error("Error fetching tool:", fetchError);
+        return;
+      }
+      
+      // Insert the execution record
+      const { error: insertError } = await supabase
+        .from('mcp_tool_executions')
+        .insert({
+          tool_id: tool.id,
+          scene_id: parameters.sceneId,
+          parameters,
+          result: result || null,
+          status: result ? 'completed' : 'failed',
+          error_message: error ? String(error) : null,
+          completed_at: result ? new Date().toISOString() : null
+        });
+        
+      if (insertError) {
+        console.error("Error recording tool execution:", insertError);
+      }
+    } catch (error) {
+      console.error("Failed to record tool execution:", error);
     }
   }
   
   async cleanup(): Promise<void> {
     // In a real implementation, this would clean up the MCP server connection
     console.log("Cleaning up MCP server connection");
+    
+    // Mark the connection as inactive in the database
+    if (this.connectionId) {
+      try {
+        const { error } = await supabase
+          .from('mcp_connections')
+          .update({ is_active: false })
+          .eq('id', this.connectionId);
+          
+        if (error) {
+          console.error("Error marking connection as inactive:", error);
+        }
+      } catch (error) {
+        console.error("Failed to update connection status:", error);
+      }
+    }
+    
     this.toolsCache = null;
     this.isConnected = false;
+    this.connectionId = null;
   }
   
   invalidateToolsCache(): void {

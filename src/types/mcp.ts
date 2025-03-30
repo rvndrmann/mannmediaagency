@@ -5,8 +5,8 @@ export interface MCPServer {
   callTool(name: string, parameters: any): Promise<any>;
   cleanup(): Promise<void>;
   invalidateToolsCache(): void;
-  isConnectionActive?(): boolean;
-  getConnectionError?(): Error | null;
+  isConnectionActive(): boolean;
+  getConnectionError(): Error | null;
 }
 
 export interface MCPContext {
@@ -16,4 +16,18 @@ export interface MCPContext {
   isConnecting: boolean;
   hasConnectionError: boolean;
   reconnectToMcp: () => Promise<boolean>;
+}
+
+export interface MCPToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, {
+      type: string;
+      description: string;
+      enum?: string[];
+    }>;
+    required: string[];
+  };
 }

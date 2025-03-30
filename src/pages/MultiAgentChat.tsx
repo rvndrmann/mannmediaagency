@@ -6,7 +6,6 @@ import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatSessionProvider, useChatSession } from "@/contexts/ChatSessionContext";
 import { Button } from "@/components/ui/button";
 import { BarChartBig } from "lucide-react";
-import { toast } from "sonner";
 
 // Separate component for the content to use the context hook safely
 function MultiAgentChatContent() {
@@ -41,7 +40,7 @@ function MultiAgentChatContent() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);  // Only run this on mount
 
-  // Set page title and active project - ensure this doesn't run in an infinite loop
+  // Set page title and active project
   useEffect(() => {
     // Set page title based on project
     document.title = projectId 

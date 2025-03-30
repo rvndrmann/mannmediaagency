@@ -13,20 +13,8 @@ interface AgentRequest {
   projectId?: string;
   sessionId?: string;
   agentType?: string;
+  userId?: string;
   context?: Record<string, any>;
-}
-
-interface Tool {
-  name: string;
-  description: string;
-  execute: (params: any, context: any) => Promise<any>;
-}
-
-interface Agent {
-  name: string;
-  description: string;
-  tools: Tool[];
-  processInput: (input: string, context: any) => Promise<any>;
 }
 
 serve(async (req) => {
@@ -38,6 +26,12 @@ serve(async (req) => {
   }
   
   try {
+    // Get OpenAI API key from environment
+    const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
+    if (!openAIApiKey) {
+      throw new Error("OPENAI_API_KEY is not configured");
+    }
+    
     // Parse request body
     let requestData: AgentRequest;
     try {
@@ -51,7 +45,14 @@ serve(async (req) => {
       );
     }
     
-    const { input, projectId, sessionId, agentType = 'assistant', context = {} } = requestData;
+    const { 
+      input, 
+      projectId, 
+      sessionId, 
+      agentType = 'main', 
+      userId,
+      context = {} 
+    } = requestData;
     
     if (!input) {
       return new Response(
@@ -64,87 +65,6 @@ serve(async (req) => {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    
-    // Define available tools
-    const tools: Tool[] = [
-      {
-        name: "canvas-script",
-        description: "Generate or update script content for a Canvas scene",
-        execute: async (params, ctx) => {
-          // In a real implementation, this would call a service or OpenAI
-          return {
-            success: true,
-            content: `Generated script based on: ${params.prompt}`,
-          };
-        }
-      },
-      {
-        name: "canvas-description",
-        description: "Generate or update scene description for a Canvas scene",
-        execute: async (params, ctx) => {
-          return {
-            success: true,
-            content: `Generated scene description based on: ${params.prompt}`,
-          };
-        }
-      },
-      {
-        name: "canvas-image-prompt",
-        description: "Generate or update image prompt for a Canvas scene",
-        execute: async (params, ctx) => {
-          return {
-            success: true,
-            content: `Generated image prompt based on: ${params.prompt}`,
-          };
-        }
-      }
-    ];
-    
-    // Create agent instance
-    const agent: Agent = {
-      name: "Canvas Assistant",
-      description: `An AI assistant specialized in ${agentType} tasks for Canvas projects`,
-      tools,
-      processInput: async (input, context) => {
-        // Determine which tool to use based on the input and agent type
-        let toolName: string;
-        
-        switch (agentType) {
-          case 'script':
-            toolName = "canvas-script";
-            break;
-          case 'image':
-            toolName = "canvas-image-prompt";
-            break;
-          case 'scene':
-            toolName = "canvas-description";
-            break;
-          default:
-            // For general assistant, analyze input to determine the right tool
-            if (input.includes("script") || input.includes("dialogue")) {
-              toolName = "canvas-script";
-            } else if (input.includes("image") || input.includes("visual")) {
-              toolName = "canvas-image-prompt";
-            } else if (input.includes("scene") || input.includes("describe")) {
-              toolName = "canvas-description";
-            } else {
-              toolName = "canvas-script"; // Default to script tool
-            }
-        }
-        
-        // Find the selected tool
-        const tool = tools.find(t => t.name === toolName);
-        if (!tool) {
-          return {
-            success: false,
-            error: `Tool ${toolName} not found`,
-          };
-        }
-        
-        // Execute the tool
-        return await tool.execute({ prompt: input }, { ...context, projectId, sessionId });
-      }
-    };
     
     // Fetch project data if projectId is provided
     let projectData = {};
@@ -181,18 +101,89 @@ serve(async (req) => {
         console.error("Error getting project data:", error);
       }
     }
+
+    // Get agent instructions based on agent type
+    const agentInstructions = getAgentInstructions(agentType, projectId ? true : false);
     
-    // Process the input with the agent
-    const result = await agent.processInput(input, { ...context, projectData });
+    // Prepare messages for OpenAI API
+    const messages = [
+      {
+        role: "system",
+        content: agentInstructions
+      },
+      {
+        role: "user",
+        content: input
+      }
+    ];
     
-    console.log(`Agent processed input for ${agentType} agent:`, result);
+    // Add project context if available
+    if (projectId && Object.keys(projectData).length > 0) {
+      const projectContext = `
+Current project context:
+Project ID: ${projectId}
+Project Title: ${projectData.project?.title || "Untitled Project"}
+Number of Scenes: ${projectData.scenes?.length || 0}
+`;
+      // Add project context to the system message
+      messages[0].content += "\n\n" + projectContext;
+    }
+    
+    console.log("Sending to OpenAI with messages:", JSON.stringify(messages));
+    
+    // Make the OpenAI API request
+    const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${openAIApiKey}`
+      },
+      body: JSON.stringify({
+        model: "gpt-4o-mini", // Using a fast and efficient model
+        messages: messages,
+        temperature: 0.7,
+        max_tokens: 1000
+      })
+    });
+    
+    if (!openAIResponse.ok) {
+      const errorText = await openAIResponse.text();
+      console.error("Error from OpenAI API:", openAIResponse.status, errorText);
+      throw new Error(`OpenAI API error: ${openAIResponse.status}`);
+    }
+    
+    const data = await openAIResponse.json();
+    console.log("OpenAI response:", JSON.stringify(data));
+    
+    const generatedContent = data.choices[0].message.content;
+    
+    // Log the interaction to the database if userId is provided
+    if (userId) {
+      try {
+        await supabase
+          .from("agent_interactions")
+          .insert({
+            user_id: userId,
+            agent_type: agentType,
+            user_message: input,
+            assistant_response: generatedContent,
+            project_id: projectId,
+            has_attachments: false,
+            metadata: {
+              project_context: projectId ? true : false,
+              scene_count: projectData.scenes?.length || 0
+            }
+          });
+      } catch (logError) {
+        console.error("Error logging interaction:", logError);
+      }
+    }
     
     // Return the response
     return new Response(
       JSON.stringify({
         success: true,
-        response: result.content || "Task completed successfully",
-        data: result,
+        response: generatedContent,
         agentType
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -212,3 +203,25 @@ serve(async (req) => {
     );
   }
 });
+
+// Function to get instructions based on agent type
+function getAgentInstructions(agentType: string, hasProjectContext: boolean): string {
+  const baseInstructions = {
+    "main": "You are a helpful AI assistant specialized in video creation and content. Respond to user queries with useful information and guidance.",
+    "script": "You are a script writing expert. When asked to write a script, provide a complete, properly formatted script for video production.",
+    "image": "You are an image prompt generator. Create detailed, vivid prompts for AI image generation that would work well for creating visuals for videos.",
+    "scene": "You are a scene creator specialized in describing detailed scene layouts for video production. Focus on visual details that would be important for image generation.",
+    "tool": "You are a technical assistant specializing in helping users understand and use video creation tools effectively.",
+    "data": "You are a data analyst assistant that helps interpret metrics, analytics, and other data-related queries for content creators.",
+  };
+  
+  // Get basic instructions based on agent type, or use main as fallback
+  const instructions = baseInstructions[agentType] || baseInstructions.main;
+  
+  // Add project context enhancements if relevant
+  if (hasProjectContext) {
+    return `${instructions}\n\nYou have access to the current project context. When answering, take this context into account and tailor your responses to be relevant to the specific project the user is working on.`;
+  }
+  
+  return instructions;
+}

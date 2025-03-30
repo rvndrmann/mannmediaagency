@@ -50,13 +50,24 @@ export function useMultiAgentChat(projectId?: string) {
       const messagesWithThinking = [...newMessages, assistantThinkingMessage];
       setMessages(messagesWithThinking);
       
+      // Get current user ID for logging
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData?.user?.id || crypto.randomUUID();
+      
+      console.log("Calling agent-sdk with:", {
+        input,
+        agentType: selectedAgent,
+        projectId,
+        userId
+      });
+      
       // Call the agent SDK function
       const { data, error } = await supabase.functions.invoke('agent-sdk', {
         body: {
           input: input,
           projectId: projectId,
           agentType: selectedAgent,
-          userId: (await supabase.auth.getUser()).data?.user?.id || crypto.randomUUID(),
+          userId: userId,
         }
       });
       
@@ -79,7 +90,11 @@ export function useMultiAgentChat(projectId?: string) {
         
         setMessages(updatedMessages);
         return false;
-      } else if (data) {
+      } 
+      
+      if (data) {
+        console.log("Agent SDK response:", data);
+        
         // Replace the thinking message with the actual response - create a new array
         const updatedMessages = messagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {

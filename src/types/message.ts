@@ -13,7 +13,9 @@ export interface Command {
   action?: string;
   tool?: string;
   type?: string;
+  name?: string;
   parameters?: Record<string, any>;
+  args?: Record<string, any>;
 }
 
 export interface Attachment {
@@ -22,13 +24,20 @@ export interface Attachment {
   url: string;
   name: string;
   size: number;
+  contentType?: string;
 }
 
-export type MessageType = "text" | "image" | "code" | "tool_call" | "tool_result";
+export type MessageType = "text" | "image" | "code" | "tool_call" | "tool_result" | "error";
 
 export interface ContinuityData {
   previousContextId?: string;
   continuityMarkers?: string[];
+  fromAgent?: string;
+  toAgent?: string;
+  reason?: string;
+  timestamp?: string;
+  preserveHistory?: boolean;
+  additionalContext?: Record<string, any>;
 }
 
 export interface AgentInfo {
@@ -38,6 +47,10 @@ export interface AgentInfo {
   instructions: string;
   systemPrompt?: string;
   isEnabled: boolean;
+  icon?: string;
+  color?: string;
+  type?: string;
+  isBuiltIn?: boolean;
 }
 
 export interface Message {

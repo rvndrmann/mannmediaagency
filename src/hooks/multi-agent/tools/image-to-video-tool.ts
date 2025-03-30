@@ -40,7 +40,7 @@ export const imageToVideoTool: ToolDefinition = {
       // Find the first image attachment
       const imageAttachment = context.attachments.find(a => 
         a.type === 'image' || 
-        (a.contentType && a.contentType.startsWith('image/'))
+        a.contentType?.startsWith('image/')
       );
       
       if (!imageAttachment) {

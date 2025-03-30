@@ -423,8 +423,10 @@ export class AgentRunner {
           
           // Enhanced: Add the continuity data to the context
           const continuityData: ContinuityData = {
-            fromAgent,
-            toAgent,
+            previousContextId: this.traceId,
+            continuityMarkers: [fromAgent, toAgent],
+            fromAgent: fromAgent,
+            toAgent: toAgent,
             reason: handoffReason,
             timestamp: new Date().toISOString(),
             preserveHistory: true,

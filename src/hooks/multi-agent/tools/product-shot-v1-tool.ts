@@ -1,4 +1,3 @@
-
 import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { v4 as uuidv4 } from "uuid";
 
@@ -77,7 +76,7 @@ export const productShotV1Tool: ToolDefinition = {
       // Find the first image attachment
       const imageAttachment = context.attachments.find(a => 
         a.type === 'image' || 
-        (a.contentType && a.contentType.startsWith('image/'))
+        a.contentType?.startsWith('image/')
       );
       
       if (!imageAttachment) {
@@ -224,4 +223,3 @@ export const productShotV1Tool: ToolDefinition = {
     }
   }
 };
-

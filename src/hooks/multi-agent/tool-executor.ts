@@ -16,17 +16,26 @@ export const executeCommand = async (
 ): Promise<ExecutionResult> => {
   try {
     // Find the tool with the given name
-    const tool = getTool(commandData.name);
+    const toolName = commandData.name || commandData.tool;
+    
+    if (!toolName) {
+      return {
+        state: CommandExecutionState.FAILED,
+        message: `Tool name not provided in command.`
+      };
+    }
+    
+    const tool = getTool(toolName);
     
     if (!tool) {
       return {
         state: CommandExecutionState.FAILED,
-        message: `Tool "${commandData.name}" not found.`
+        message: `Tool "${toolName}" not found.`
       };
     }
     
     // Enhanced script detection for Canvas tool
-    if (commandData.name === 'canvas' && 
+    if (toolName === 'canvas' && 
         commandData.parameters?.action === 'updateScene' && 
         commandData.parameters?.content) {
       
@@ -104,7 +113,7 @@ export const executeCommand = async (
     ) {
       return {
         state: CommandExecutionState.FAILED,
-        message: `Insufficient credits to execute tool "${commandData.name}". Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining || 0}`
+        message: `Insufficient credits to execute tool "${toolName}". Required: ${tool.requiredCredits}, Available: ${context.creditsRemaining || 0}`
       };
     }
     
@@ -142,4 +151,3 @@ export const executeCommand = async (
     };
   }
 };
-

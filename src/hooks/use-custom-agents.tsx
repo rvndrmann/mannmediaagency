@@ -53,6 +53,7 @@ export function useCustomAgents() {
         isBuiltIn: false,
         color: agent.color,
         instructions: agent.instructions,
+        isEnabled: true // Add the missing isEnabled property
       }));
 
       setCustomAgents(formattedAgents);
@@ -92,11 +93,12 @@ export function useCustomAgents() {
         id: data[0].id,
         name: data[0].name,
         description: data[0].description,
-        type: "custom",
+        type: "custom", // This is allowed now with our updated type
         icon: data[0].icon,
         color: data[0].color,
         instructions: data[0].instructions,
-        isBuiltIn: false
+        isBuiltIn: false,
+        isEnabled: true // Add the missing isEnabled property
       };
 
       setCustomAgents([...customAgents, newAgent]);

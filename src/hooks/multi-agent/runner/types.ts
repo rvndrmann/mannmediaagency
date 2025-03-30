@@ -1,8 +1,9 @@
 
+import { BaseAgentImpl } from "./BaseAgentImpl";
 import { Attachment, Message } from "@/types/message";
 import { SupabaseClient } from "@supabase/supabase-js";
 
-export type AgentType = "main" | "script" | "image" | "tool" | "scene";
+export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data";
 
 export interface AgentResult {
   response?: string;
@@ -10,6 +11,7 @@ export interface AgentResult {
   handoffReason?: string;
   additionalContext?: Record<string, any>;
   structured_output?: any;
+  commandSuggestion?: any; // Added to support this property
 }
 
 export interface RunnerContext {
@@ -20,6 +22,7 @@ export interface RunnerContext {
   usePerformanceModel?: boolean;
   enableDirectToolExecution?: boolean;
   tracingDisabled?: boolean;
+  projectId?: string; // Added to support project context
   metadata: {
     projectId?: string;
     projectDetails?: any;
@@ -42,7 +45,7 @@ export interface RunnerCallbacks {
   onHandoffStart: (from: AgentType, to: AgentType, reason: string) => void;
   onHandoffEnd: (agent: AgentType) => void;
   onToolExecution: (toolName: string, params: any) => void;
-  // New streaming callbacks
+  // Streaming callbacks
   onStreamingStart?: (message: Message) => void;
   onStreamingChunk?: (chunk: string) => void;
   onStreamingEnd?: () => void;
@@ -53,4 +56,11 @@ export interface AgentOptions {
   context: RunnerContext;
   traceId?: string;
   streamingHandler?: (chunk: string) => void;
+}
+
+// Define BaseAgent interface for AgentRegistry
+export interface BaseAgent {
+  getType(): AgentType;
+  run(input: string, attachments?: Attachment[]): Promise<AgentResult>;
+  setStreamingHandler?(handler: (chunk: string) => void): void;
 }

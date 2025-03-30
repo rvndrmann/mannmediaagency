@@ -1,16 +1,14 @@
-
 import { Attachment } from "@/types/message";
-import { ToolContext } from "../../types";
-import { AgentResult, AgentOptions } from "../types";
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { AgentResult, AgentOptions, AgentType } from "../types";
+import { BaseAgentImpl } from "../BaseAgentImpl";
 
 export class AssistantAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
     super(options);
   }
 
-  getType() {
-    return "assistant";
+  getType(): AgentType {
+    return "main";
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
@@ -105,7 +103,7 @@ export class AssistantAgent extends BaseAgentImpl {
       return {
         response: output,
         nextAgent: nextAgent,
-        commandSuggestion: commandSuggestion,
+        handoffReason: data?.handoffRequest?.reason,
         structured_output: data?.structured_output || null
       };
     } catch (error) {

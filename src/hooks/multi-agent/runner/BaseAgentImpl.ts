@@ -1,5 +1,5 @@
 
-import { AgentResult, AgentType, RunnerContext } from "../types";
+import { AgentResult, AgentType, RunnerContext } from "./types";
 import { Attachment } from "@/types/message";
 import { recordTraceEvent } from "@/utils/openai-traces";
 
@@ -73,6 +73,8 @@ export abstract class BaseAgentImpl {
         return "You specialize in executing tools and technical tasks.";
       case "scene":
         return "You specialize in creating detailed visual scene descriptions.";
+      case "data":
+        return "You specialize in extracting and managing data from various sources.";
       default:
         return "You are a helpful AI assistant.";
     }

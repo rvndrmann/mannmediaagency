@@ -1,5 +1,5 @@
 
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { BaseAgentImpl } from "../BaseAgentImpl";
 import { AgentResult, AgentType } from "../types";
 import { Attachment } from "@/types/message";
 import { supabase } from "@/integrations/supabase/client";
@@ -47,8 +47,7 @@ export class MainAgent extends BaseAgentImpl {
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: this.context.enableDirectToolExecution,
           streamResponse: useStream
-        },
-        timeout: 30000 // 30 second timeout
+        }
       });
       
       if (error) {
@@ -69,7 +68,7 @@ export class MainAgent extends BaseAgentImpl {
         return new Promise((resolve, reject) => {
           try {
             // Create an EventSource to handle the streaming response
-            const url = `${supabase.functions.url}/multi-agent-chat`;
+            const funcUrl = supabase.functions.getUrl('multi-agent-chat');
             const body = {
               agentType: this.getType(),
               input,
@@ -90,11 +89,11 @@ export class MainAgent extends BaseAgentImpl {
             };
             
             // We use fetch for streaming
-            fetch(url, {
+            fetch(funcUrl, {
               method: 'POST',
               headers: {
                 'Content-Type': 'application/json',
-                'Authorization': `Bearer ${supabase.auth.getSession()?.access_token}`
+                'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
               },
               body: JSON.stringify(body)
             }).then(response => {

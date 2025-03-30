@@ -1,5 +1,5 @@
 
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { BaseAgentImpl } from "../BaseAgentImpl";
 import { AgentResult, AgentType, RunnerContext } from "../types";
 import { Attachment } from "@/types/message";
 import { getTool } from "../../tools";
@@ -41,7 +41,7 @@ export class DataAgent extends BaseAgentImpl {
       const canvasTool = getTool("canvas");
 
       // Check if project context is available
-      const projectId = this.context.projectId;
+      const projectId = this.context.projectId || this.context.metadata?.projectId;
       if (!projectId) {
         // If no project context, determine if we need to hand back to main
         this.recordTraceEvent("agent_end", {
@@ -101,7 +101,7 @@ ${enhancedInput}
             }
           })),
           context: {
-            projectId: this.context.projectId,
+            projectId: projectId,
             userId: this.context.userId,
             runId: this.context.runId,
             groupId: this.context.groupId,

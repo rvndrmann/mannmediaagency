@@ -8,7 +8,7 @@ import {
   TooltipProvider,
   TooltipTrigger
 } from "@/components/ui/tooltip";
-import type { AgentType } from '@/hooks/use-multi-agent-chat';
+import type { AgentType } from '@/hooks/multi-agent/runner/types';
 
 type AgentOption = {
   id: AgentType;

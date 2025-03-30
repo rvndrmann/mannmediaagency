@@ -1,6 +1,6 @@
 
-import { AgentResult, RunnerContext } from "../types";
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { AgentResult, RunnerContext, AgentType } from "../types";
+import { BaseAgentImpl } from "../BaseAgentImpl";
 import { Attachment } from "@/types/message";
 import { getSceneById, getScenesByProjectId, extractSceneContent } from "@/utils/canvas-data-utils";
 
@@ -9,7 +9,7 @@ export class SceneCreatorAgent extends BaseAgentImpl {
     super(options);
   }
 
-  getType() {
+  getType(): AgentType {
     return "scene";
   }
 

@@ -1,11 +1,15 @@
 
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions } from "../types";
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { AgentResult, AgentOptions, AgentType } from "../types";
+import { BaseAgentImpl } from "../BaseAgentImpl";
 
 export class ToolAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
     super(options);
+  }
+
+  getType(): AgentType {
+    return "tool";
   }
 
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {

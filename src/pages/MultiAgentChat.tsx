@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
-import { useChatSession } from "@/contexts/ChatSessionContext";
+import { ChatSessionProvider, useChatSession } from "@/contexts/ChatSessionContext";
 import { Button } from "@/components/ui/button";
 import { BarChartBig } from "lucide-react";
 import { toast } from "sonner";
 
-export default function MultiAgentChatPage() {
+function MultiAgentChatContent() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   const sessionId = searchParams.get('sessionId');
@@ -72,5 +72,14 @@ export default function MultiAgentChatPage() {
         sessionId={chatSessionId || undefined}
       />
     </>
+  );
+}
+
+// Create a wrapper component that provides the ChatSessionContext
+export default function MultiAgentChatPage() {
+  return (
+    <ChatSessionProvider>
+      <MultiAgentChatContent />
+    </ChatSessionProvider>
   );
 }

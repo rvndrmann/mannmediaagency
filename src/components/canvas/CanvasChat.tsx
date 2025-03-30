@@ -6,17 +6,17 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { Skeleton } from "@/components/ui/skeleton";
 import { X, MessageSquare } from "lucide-react";
-import { useChatSession } from "@/contexts/ChatSessionContext";
+import { useChatSession, ChatSessionProvider } from "@/contexts/ChatSessionContext";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
 import { supabase } from "@/integrations/supabase/client";
 
-interface CanvasChatProps {
+interface CanvasChatContentProps {
   projectId?: string;
   onClose: () => void;
 }
 
-export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
+function CanvasChatContent({ projectId, onClose }: CanvasChatContentProps) {
   const { 
     getOrCreateChatSession,
     messages,
@@ -167,6 +167,14 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
         </form>
       </div>
     </div>
+  );
+}
+
+export function CanvasChat({ projectId, onClose }: CanvasChatContentProps) {
+  return (
+    <ChatSessionProvider>
+      <CanvasChatContent projectId={projectId} onClose={onClose} />
+    </ChatSessionProvider>
   );
 }
 

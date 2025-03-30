@@ -5,6 +5,7 @@ import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { MessageSquare, Image, Video } from "lucide-react";
+import { MCPConnectionStatus } from "./MCPConnectionStatus";
 
 interface SceneControlsProps {
   sceneId: string;
@@ -40,6 +41,8 @@ export function SceneControls({
             <span className="text-xs text-green-400 ml-1">(Recommended)</span>
           )}
         </div>
+        
+        <MCPConnectionStatus />
       </div>
       
       <div className="grid grid-cols-2 gap-4">

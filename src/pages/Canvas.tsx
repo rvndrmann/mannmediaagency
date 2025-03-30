@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { MCPProvider } from "@/contexts/MCPContext";
+import { CanvasErrorBoundary } from "@/components/canvas/CanvasErrorBoundary";
 
 export default function Canvas() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -185,23 +186,27 @@ export default function Canvas() {
           <div className="flex flex-1 overflow-hidden">
             {showChat && project && (
               <div className="w-[450px] flex-shrink-0 border-r">
-                <CanvasChat onClose={toggleChat} projectId={project.id} />
+                <CanvasErrorBoundary>
+                  <CanvasChat onClose={toggleChat} projectId={project.id} />
+                </CanvasErrorBoundary>
               </div>
             )}
             
-            <CanvasWorkspace 
-              project={project}
-              selectedScene={selectedScene}
-              selectedSceneId={selectedSceneId}
-              setSelectedSceneId={setSelectedSceneId}
-              addScene={addScene}
-              deleteScene={deleteScene}
-              updateScene={updateScene}
-              divideScriptToScenes={divideScriptToScenes}
-              saveFullScript={saveFullScript}
-              createNewProject={handleCreateNewProject}
-              updateProjectTitle={updateProjectTitle}
-            />
+            <CanvasErrorBoundary>
+              <CanvasWorkspace 
+                project={project}
+                selectedScene={selectedScene}
+                selectedSceneId={selectedSceneId}
+                setSelectedSceneId={setSelectedSceneId}
+                addScene={addScene}
+                deleteScene={deleteScene}
+                updateScene={updateScene}
+                divideScriptToScenes={divideScriptToScenes}
+                saveFullScript={saveFullScript}
+                createNewProject={handleCreateNewProject}
+                updateProjectTitle={updateProjectTitle}
+              />
+            </CanvasErrorBoundary>
           </div>
         </div>
       </MCPProvider>

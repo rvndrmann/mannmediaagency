@@ -2,8 +2,9 @@
 import { Textarea } from "@/components/ui/textarea";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
-import { Save, Sparkles } from "lucide-react";
+import { Save } from "lucide-react";
 import { SceneUpdateType } from "@/types/canvas";
+import { SceneGenerationPanel } from "./SceneGenerationPanel";
 
 interface SceneContentFormProps {
   label: string;
@@ -52,15 +53,13 @@ export function SceneContentForm({
           </Button>
           
           {onGenerateWithAI && (
-            <Button 
-              variant="default" 
-              size="sm" 
-              onClick={onGenerateWithAI}
-              disabled={isGenerating || isProcessing}
-            >
-              <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-              {isProcessing && activeAgent === fieldType ? "Generating..." : "Generate with AI"}
-            </Button>
+            <SceneGenerationPanel
+              fieldType={fieldType}
+              isGenerating={isGenerating}
+              isProcessing={isProcessing}
+              activeAgent={activeAgent}
+              onGenerateWithAI={onGenerateWithAI}
+            />
           )}
         </div>
       </div>

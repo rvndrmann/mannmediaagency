@@ -19,6 +19,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   const [isGeneratingImagePrompt, setIsGeneratingImagePrompt] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
+  const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
   const { mcpServers, useMcp, reconnectToMcp } = useMCPContext();
   const { executeTool, isExecuting, hasConnection } = useMcpToolExecutor({
@@ -125,6 +126,29 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     }
   }, [executeTool]);
   
+  /**
+   * Generate scene script using MCP
+   */
+  const generateScript = useCallback(async (sceneId: string, contextPrompt: string = ""): Promise<boolean> => {
+    if (!sceneId) return false;
+    
+    setIsGeneratingScript(true);
+    try {
+      const result = await executeTool("generate_scene_script", {
+        sceneId,
+        contextPrompt
+      });
+      
+      return result.success;
+    } catch (error) {
+      console.error("Error generating scene script:", error);
+      toast.error("Failed to generate scene script");
+      return false;
+    } finally {
+      setIsGeneratingScript(false);
+    }
+  }, [executeTool]);
+  
   return {
     // Status
     isConnected: hasConnection,
@@ -133,12 +157,14 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     isGeneratingImagePrompt,
     isGeneratingImage,
     isGeneratingVideo,
+    isGeneratingScript,
     
     // Actions
     updateSceneDescription,
     updateImagePrompt,
     generateImage,
     generateVideo,
+    generateScript,
     
     // Direct tool execution
     executeTool

@@ -4,9 +4,10 @@ import { useCanvasAgentMcp } from "./use-canvas-agent-mcp";
 import { useCanvasMessages } from "./use-canvas-messages";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
+import { SceneUpdateType } from "@/types/canvas";
 
 interface UpdateSceneFunction {
-  (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string): Promise<void>;
+  (sceneId: string, type: SceneUpdateType, value: string): Promise<void>;
 }
 
 interface UseCanvasAgentProps {
@@ -37,6 +38,45 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     sceneId,
     updateScene
   });
+  
+  // Generate scene script with message handling
+  const generateSceneScript = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
+    if (!sceneId) {
+      toast.error("Scene ID is required to generate script");
+      return false;
+    }
+    
+    setIsLoading(true);
+    
+    try {
+      if (context) {
+        addUserMessage(`Generate scene script with context: ${context}`);
+      } else {
+        addUserMessage("Generate scene script");
+      }
+      
+      const success = await agentMcp.generateSceneScript(sceneId, context);
+      
+      if (success) {
+        addAgentMessage(
+          "script", 
+          "Scene script generated successfully.", 
+          sceneId
+        );
+      } else {
+        addSystemMessage("Failed to generate scene script");
+      }
+      
+      return success;
+    } catch (error) {
+      console.error("Error generating scene script:", error);
+      addSystemMessage("Error generating scene script");
+      toast.error("Failed to generate scene script");
+      return false;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [projectId, agentMcp, addAgentMessage, addUserMessage, addSystemMessage]);
   
   // Enhance the MCP methods with message handling
   const generateSceneDescription = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
@@ -226,6 +266,7 @@ export function useCanvasAgent(props: UseCanvasAgentProps) {
     ...agentMcp,
     isLoading,
     messages,
+    generateSceneScript,
     generateSceneDescription,
     generateImagePrompt,
     generateSceneImage,

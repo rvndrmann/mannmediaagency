@@ -80,7 +80,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     }
   };
   
-  const generateWithAI = async (type: 'description' | 'imagePrompt') => {
+  const generateWithAI = async (type: 'script' | 'description' | 'imagePrompt') => {
     if (isProcessing) {
       toast.error("Please wait for the current operation to complete");
       return;
@@ -89,7 +89,21 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     try {
       // Create context based on current scene data
       let context = "";
-      if (type === 'description') {
+      
+      if (type === 'script') {
+        context = `You need to create a script for a video scene.
+Scene Title: ${scene.title}
+${scene.description ? "Scene Description: " + scene.description : ""}
+${scene.voiceOverText ? "Voice Over Text: " + scene.voiceOverText : ""}
+
+Write a creative and engaging script that includes dialogue, action descriptions, and camera directions.
+Be specific about what characters say and do, and how the scene should be shot.`;
+
+        await generateSceneScript(scene.id, context);
+        setScript(scene.script);
+        toast.success("Scene script generated and saved");
+      
+      } else if (type === 'description') {
         context = `You need to create a detailed scene description for a video. 
 Scene Title: ${scene.title}
 Scene Script: ${script}
@@ -172,6 +186,7 @@ Format the prompt to get the best results from an AI image generator.`;
           activeAgent={activeAgent}
           onSave={() => handleSave('script')}
           onChange={setScript}
+          onGenerateWithAI={() => generateWithAI('script')}
         />
         
         <SceneContentForm

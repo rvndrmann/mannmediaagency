@@ -2,6 +2,7 @@
 import React, { createContext, useContext, ReactNode } from "react";
 import { useCanvasAgentMcp } from "@/hooks/use-canvas-agent-mcp";
 import { MCPProvider } from "@/contexts/MCPContext";
+import { SceneUpdateType } from "@/types/canvas";
 
 // Create a context type for Canvas MCP
 interface CanvasMcpContextType {
@@ -13,18 +14,20 @@ interface CanvasMcpContextType {
   isGeneratingImagePrompt: boolean;
   isGeneratingImage: boolean;
   isGeneratingVideo: boolean;
+  isGeneratingScript: boolean;
   toggleMcp: () => void;
   generateSceneDescription: (sceneId: string, context?: string) => Promise<boolean>;
   generateImagePrompt: (sceneId: string, context?: string) => Promise<boolean>;
   generateSceneImage: (sceneId: string, imagePrompt?: string) => Promise<boolean>;
   generateSceneVideo: (sceneId: string, description?: string) => Promise<boolean>;
+  generateSceneScript: (sceneId: string, context?: string) => Promise<boolean>;
 }
 
 // Create the context
 const CanvasMcpContext = createContext<CanvasMcpContextType | undefined>(undefined);
 
 interface UpdateSceneFunction {
-  (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string): Promise<void>;
+  (sceneId: string, type: SceneUpdateType, value: string): Promise<void>;
 }
 
 interface CanvasMcpProviderProps {

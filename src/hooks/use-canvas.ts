@@ -10,6 +10,7 @@ export const useCanvas = (projectId?: string) => {
   const [scenes, setScenes] = useState<CanvasScene[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [sceneLoading, setSceneLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   // Fetch project and scenes
@@ -197,6 +198,18 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Modified setSelectedSceneId to handle loading state
+  const setSceneId = (sceneId: string | null) => {
+    if (sceneId !== selectedSceneId) {
+      setSceneLoading(true);
+      setSelectedSceneId(sceneId);
+      // Reset loading state after a short delay to allow for component updates
+      setTimeout(() => {
+        setSceneLoading(false);
+      }, 300);
+    }
+  };
+
   // Update a scene
   const updateScene = async (sceneId: string, type: SceneUpdateType, value: string) => {
     if (!project) return;
@@ -334,8 +347,9 @@ export const useCanvas = (projectId?: string) => {
     scenes,
     selectedScene,
     selectedSceneId,
-    setSelectedSceneId,
+    setSelectedSceneId: setSceneId,
     loading,
+    sceneLoading,
     error,
     createProject,
     addScene,

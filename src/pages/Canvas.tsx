@@ -57,7 +57,6 @@ export default function Canvas() {
   useEffect(() => {
     if (projectId) {
       setActiveProject(projectId);
-      
       getOrCreateChatSession(projectId);
     }
   }, [projectId, setActiveProject, getOrCreateChatSession]);
@@ -93,7 +92,8 @@ export default function Canvas() {
     updateScene,
     divideScriptToScenes,
     saveFullScript,
-    updateProjectTitle
+    updateProjectTitle,
+    sceneLoading,
   } = useCanvas(projectId || undefined);
 
   const handleCreateNewProject = async (title: string, description?: string) => {
@@ -200,6 +200,7 @@ export default function Canvas() {
             saveFullScript={saveFullScript}
             createNewProject={handleCreateNewProject}
             updateProjectTitle={updateProjectTitle}
+            sceneLoading={sceneLoading}
           />
         </div>
       </div>

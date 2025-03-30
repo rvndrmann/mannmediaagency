@@ -8,7 +8,8 @@ import {
   FileText,
   Layers,
   PlusCircle,
-  Trash2
+  Trash2,
+  Loader2
 } from "lucide-react";
 import { SceneCard } from "./SceneCard";
 import { useState } from "react";
@@ -46,6 +47,7 @@ export function ScenesList({
 }: ScenesListProps) {
   const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
   const [isAddingScene, setIsAddingScene] = useState(false);
+  const [loadingSceneId, setLoadingSceneId] = useState<string | null>(null);
   
   const handleAddScene = async () => {
     setIsAddingScene(true);
@@ -63,6 +65,17 @@ export function ScenesList({
     if (sceneToDelete) {
       await onDeleteScene(sceneToDelete);
       setSceneToDelete(null);
+    }
+  };
+  
+  const handleSelectScene = (id: string) => {
+    if (id !== selectedSceneId) {
+      setLoadingSceneId(id);
+      onSelectScene(id);
+      // Reset loading after a short delay
+      setTimeout(() => {
+        setLoadingSceneId(null);
+      }, 500);
     }
   };
   
@@ -105,13 +118,19 @@ export function ScenesList({
       <ScrollArea className="flex-1">
         <div className="p-4 space-y-2">
           {scenes.map((scene) => (
-            <SceneCard 
-              key={scene.id} 
-              scene={scene} 
-              isSelected={scene.id === selectedSceneId}
-              onSelect={() => onSelectScene(scene.id)}
-              onDelete={() => setSceneToDelete(scene.id)}
-            />
+            <div key={scene.id} className="relative">
+              <SceneCard 
+                scene={scene} 
+                isSelected={scene.id === selectedSceneId}
+                onSelect={() => handleSelectScene(scene.id)}
+                onDelete={() => setSceneToDelete(scene.id)}
+              />
+              {loadingSceneId === scene.id && (
+                <div className="absolute inset-0 bg-background/60 flex items-center justify-center rounded-md">
+                  <Loader2 className="h-4 w-4 animate-spin text-primary" />
+                </div>
+              )}
+            </div>
           ))}
           
           <Button 
@@ -120,8 +139,17 @@ export function ScenesList({
             onClick={handleAddScene}
             disabled={isAddingScene}
           >
-            <Plus className="h-4 w-4 mr-2" />
-            {isAddingScene ? "Adding..." : "Add Scene"}
+            {isAddingScene ? (
+              <>
+                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                Adding...
+              </>
+            ) : (
+              <>
+                <Plus className="h-4 w-4 mr-2" />
+                Add Scene
+              </>
+            )}
           </Button>
         </div>
       </ScrollArea>

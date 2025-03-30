@@ -1,26 +1,26 @@
 
+import { useState } from "react";
 import { CanvasProject, CanvasScene } from "@/types/canvas";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Button } from "@/components/ui/button";
-import { ScrollArea } from "@/components/ui/scroll-area";
-import { PlusCircle } from "lucide-react";
-import { useState, useEffect } from "react";
-import { ProjectScriptEditor } from "./ProjectScriptEditor";
+import { ScenesList } from "./ScenesList";
 import { SceneEditor } from "./SceneEditor";
 import { SceneDetailPanel } from "./SceneDetailPanel";
+import { Empty } from "@/components/ui/empty";
+import { CanvasScriptPanel } from "./CanvasScriptPanel";
+import { Loader2 } from "lucide-react";
 
 interface CanvasWorkspaceProps {
   project: CanvasProject | null;
   selectedScene: CanvasScene | null;
   selectedSceneId: string | null;
-  setSelectedSceneId: (id: string | null) => void;
+  setSelectedSceneId: (id: string) => void;
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (id: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText', value: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
+  divideScriptToScenes: (scenes: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;
+  sceneLoading?: boolean;
 }
 
 export function CanvasWorkspace({
@@ -34,168 +34,78 @@ export function CanvasWorkspace({
   divideScriptToScenes,
   saveFullScript,
   createNewProject,
-  updateProjectTitle
+  updateProjectTitle,
+  sceneLoading = false
 }: CanvasWorkspaceProps) {
-  const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
-  const [activeTab, setActiveTab] = useState("script");
-  
-  useEffect(() => {
-    if (selectedSceneId) {
-      setActiveTab("scenes");
-    }
-  }, [selectedSceneId]);
-
-  const handleCreateNewProject = async () => {
-    await createNewProject("Untitled Project");
-  };
+  const [currentView, setCurrentView] = useState<"scenes" | "script">("scenes");
+  const [showDetailPanel, setShowDetailPanel] = useState(true);
 
   if (!project) {
     return (
       <div className="flex-1 flex items-center justify-center">
-        <div className="p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">No Project Selected</h2>
-          <p className="text-muted-foreground mb-4">
-            Create a new project to get started or select an existing project.
-          </p>
-          <Button 
-            onClick={handleCreateNewProject}
-            size="lg"
-            className="flex items-center gap-2"
-          >
-            <PlusCircle className="h-5 w-5" />
-            Create New Project
-          </Button>
-        </div>
+        <Empty
+          title="No Project Selected"
+          description="Select a project from the sidebar or create a new one"
+        />
       </div>
     );
   }
 
   return (
-    <div className="flex-1 flex flex-col overflow-hidden">
-      <div className="p-4 border-b flex justify-between items-center">
-        <h2 className="text-xl font-semibold">{project.title}</h2>
-        <Button 
-          variant="outline" 
-          size="sm"
-          onClick={handleCreateNewProject}
-          className="flex items-center gap-2"
-        >
-          <PlusCircle className="h-4 w-4" />
-          New Project
-        </Button>
-      </div>
+    <div className="flex-1 flex overflow-hidden">
+      <ScenesList
+        scenes={project.scenes}
+        selectedSceneId={selectedSceneId}
+        onSelectScene={setSelectedSceneId}
+        onAddScene={addScene}
+        onDeleteScene={deleteScene}
+        onSwitchView={() => setCurrentView(currentView === "scenes" ? "script" : "scenes")}
+        currentView={currentView}
+        onCreateNewProject={() => createNewProject("New Project")}
+      />
 
-      <Tabs 
-        value={activeTab} 
-        onValueChange={setActiveTab} 
-        className="flex-1 flex flex-col overflow-hidden"
-      >
-        <TabsList className="mx-4 mt-4 w-auto justify-start">
-          <TabsTrigger value="script">Script</TabsTrigger>
-          <TabsTrigger value="scenes">Scenes</TabsTrigger>
-        </TabsList>
-        
-        <TabsContent value="script" className="flex-1 p-4 overflow-hidden">
-          <ProjectScriptEditor 
-            project={project}
-            saveFullScript={saveFullScript}
-            divideScriptToScenes={divideScriptToScenes}
-            updateProjectTitle={updateProjectTitle}
-          />
-        </TabsContent>
-        
-        <TabsContent value="scenes" className="flex-1 p-0 overflow-hidden flex">
-          <div className="w-64 border-r flex flex-col">
-            <div className="p-4 border-b flex items-center justify-between">
-              <h3 className="font-medium">Scenes</h3>
-              <Button 
-                variant="ghost" 
-                size="icon"
-                onClick={addScene}
-              >
-                <PlusCircle className="h-5 w-5" />
-              </Button>
-            </div>
-            
-            <ScrollArea className="flex-1">
-              <div className="p-4 space-y-2">
-                {project.scenes.map((scene) => (
-                  <div 
-                    key={scene.id}
-                    className={`p-3 border rounded-md cursor-pointer transition-colors ${
-                      scene.id === selectedSceneId 
-                        ? 'bg-primary text-primary-foreground' 
-                        : 'hover:bg-muted'
-                    }`}
-                    onClick={() => setSelectedSceneId(scene.id)}
-                  >
-                    <div className="font-medium">{scene.title}</div>
-                    <div className="text-xs truncate">
-                      {scene.voiceOverText 
-                        ? scene.voiceOverText.substring(0, 60) + (scene.voiceOverText.length > 60 ? '...' : '')
-                        : 'No content'}
-                    </div>
-                    <div className="flex justify-between items-center mt-2 text-xs">
-                      <span>{scene.imagePrompt ? '✓ Image prompt' : '✗ No image prompt'}</span>
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className={`h-6 w-6 ${scene.id === selectedSceneId ? 'text-primary-foreground' : 'text-muted-foreground'}`}
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          if (confirm('Are you sure you want to delete this scene?')) {
-                            deleteScene(scene.id);
-                          }
-                        }}
-                      >
-                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M3 6h18"></path>
-                          <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"></path>
-                          <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"></path>
-                        </svg>
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-                
-                <Button 
-                  variant="outline" 
-                  className="w-full justify-start"
-                  onClick={addScene}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="mr-2">
-                    <path d="M12 5v14M5 12h14"></path>
-                  </svg>
-                  Add Scene
-                </Button>
-              </div>
-            </ScrollArea>
+      <div className="flex-1 overflow-hidden flex relative">
+        {sceneLoading && (
+          <div className="absolute inset-0 bg-background/80 flex items-center justify-center z-50">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+            <span className="ml-2">Loading scene...</span>
           </div>
-          
-          <div className="flex-1 overflow-hidden flex">
-            {selectedScene ? (
-              <div className="flex-1 overflow-auto">
-                <SceneEditor 
-                  scene={selectedScene}
-                  onUpdate={updateScene}
-                />
-              </div>
-            ) : (
-              <div className="flex-1 flex items-center justify-center text-muted-foreground">
-                Select a scene to edit
-              </div>
-            )}
-            
-            <SceneDetailPanel 
+        )}
+        
+        {currentView === "scenes" ? (
+          selectedScene ? (
+            <SceneEditor
               scene={selectedScene}
-              projectId={project.id}
-              updateScene={updateScene}
-              collapsed={detailPanelCollapsed}
-              setCollapsed={setDetailPanelCollapsed}
+              onUpdate={updateScene}
             />
-          </div>
-        </TabsContent>
-      </Tabs>
+          ) : (
+            <div className="flex-1 flex items-center justify-center">
+              <Empty
+                title="No Scene Selected"
+                description="Select a scene from the sidebar or create a new one"
+              />
+            </div>
+          )
+        ) : (
+          <CanvasScriptPanel
+            project={project}
+            scenes={project.scenes}
+            currentScript={project.fullScript}
+            onSaveScript={saveFullScript}
+            onDivideScriptToScenes={divideScriptToScenes}
+          />
+        )}
+
+        {currentView === "scenes" && showDetailPanel && (
+          <SceneDetailPanel
+            scene={selectedScene}
+            projectId={project.id}
+            updateScene={updateScene}
+            collapsed={!showDetailPanel}
+            setCollapsed={(collapsed) => setShowDetailPanel(!collapsed)}
+          />
+        )}
+      </div>
     </div>
   );
 }

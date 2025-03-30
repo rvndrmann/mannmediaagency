@@ -34,6 +34,8 @@ export function HandoffIndicator({ fromAgent, toAgent, reason, visible = true }:
         return <LayoutTemplate className="h-4 w-4" />;
       case "data":
         return <Database className="h-4 w-4" />;
+      case "assistant":
+        return <Sparkles className="h-4 w-4" />;
       default:
         return <Sparkles className="h-4 w-4" />;
     }
@@ -53,6 +55,8 @@ export function HandoffIndicator({ fromAgent, toAgent, reason, visible = true }:
         return "Scene Creator";
       case "data":
         return "Data Agent";
+      case "assistant":
+        return "AI Assistant";
       default:
         return "Assistant";
     }

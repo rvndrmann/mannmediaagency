@@ -8,7 +8,7 @@ export interface CompactAgentSelectorProps {
 }
 
 export function CompactAgentSelector({ selectedAgent, onSelect }: CompactAgentSelectorProps) {
-  const agentTypes: AgentType[] = ["main", "script", "image", "scene", "tool", "data"];
+  const agentTypes: AgentType[] = ["main", "script", "image", "scene", "tool", "data", "assistant"];
   
   const handleSelect = (agentType: AgentType) => {
     if (onSelect) {

@@ -99,7 +99,7 @@ export class DataAgent extends BaseAgentImpl {
       };
     } catch (error) {
       this.recordTraceEvent("agent_run_error", {
-        error: error.message || "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error"
       });
       
       console.error(`${this.getType()} agent error:`, error);

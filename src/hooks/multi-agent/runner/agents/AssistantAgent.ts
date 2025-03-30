@@ -1,6 +1,8 @@
+
 import { Attachment } from "@/types/message";
 import { AgentResult, AgentOptions, AgentType } from "../types";
 import { BaseAgentImpl } from "../BaseAgentImpl";
+import { supabase } from "@/integrations/supabase/client";
 
 export class AssistantAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
@@ -8,109 +10,228 @@ export class AssistantAgent extends BaseAgentImpl {
   }
 
   getType(): AgentType {
-    return "main";
+    return "assistant";
   }
 
-  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
+  async run(input: string, attachments: Attachment[] = []): Promise<AgentResult> {
     try {
-      console.log("Running AssistantAgent with input:", input, "attachments:", attachments);
-      
-      // Get the current user
-      const { data: { user } } = await this.context.supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-      
-      // Apply input guardrails if configured
-      await this.applyInputGuardrails(input);
-      
-      // Get dynamic instructions if needed
-      const instructions = await this.getInstructions(this.context);
-      
-      // Get conversation history from context if available
-      const conversationHistory = this.context.metadata?.conversationHistory || [];
-      
-      // Record trace event for assistant agent start
-      this.recordTraceEvent("assistant_agent_start", {
+      this.recordTraceEvent("agent_run_start", {
         input_length: input.length,
-        has_attachments: attachments && attachments.length > 0,
-        history_length: conversationHistory.length
+        has_attachments: attachments.length > 0
       });
       
-      // Call the Supabase function for the assistant agent
-      const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
+      // Apply input guardrails
+      await this.applyInputGuardrails(input);
+      
+      // Prepare the conversation history
+      const conversationHistory = this.context.metadata?.conversationHistory || [];
+      
+      // Get agent instructions
+      const instructions = await this.getInstructions(this.context);
+      
+      const streamHandler = this.streamingHandler;
+      const useStream = !!streamHandler;
+      
+      // Call the Supabase edge function
+      const { data, error } = await supabase.functions.invoke('multi-agent-chat', {
         body: {
+          agentType: this.getType(),
           input,
+          userId: this.context.userId,
+          runId: this.context.runId,
+          groupId: this.context.groupId,
           attachments,
-          agentType: "main",
-          userId: user.id,
+          contextData: {
+            ...this.context.metadata,
+            instructions: {
+              [this.getType()]: instructions
+            }
+          },
+          conversationHistory,
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: this.context.enableDirectToolExecution,
-          tracingDisabled: this.context.tracingDisabled,
-          contextData: {
-            hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: this.context.metadata?.isHandoffContinuation || false,
-            previousAgentType: this.context.metadata?.previousAgentType || '',
-            handoffReason: this.context.metadata?.handoffReason || '',
-            instructions: instructions
-          },
-          conversationHistory: conversationHistory, // Pass conversation history
-          metadata: {
-            ...this.context.metadata,
-            previousAgentType: 'main'
-          },
-          runId: this.context.runId,
-          groupId: this.context.groupId
+          streamResponse: useStream
         }
       });
       
       if (error) {
-        console.error("Assistant agent error:", error);
-        this.recordTraceEvent("assistant_agent_error", {
-          error: error.message || "Unknown error"
+        this.recordTraceEvent("agent_run_error", {
+          error: error.message
         });
-        throw new Error(`Assistant agent error: ${error.message}`);
+        throw error;
       }
       
-      console.log("Agent response:", data);
-      
-      // Handle handoff if present
-      let nextAgent = null;
-      if (data?.handoffRequest) {
-        console.log("Handoff requested to:", data.handoffRequest.targetAgent);
-        nextAgent = data.handoffRequest.targetAgent;
-        this.recordTraceEvent("assistant_agent_handoff", {
-          target_agent: nextAgent,
-          reason: data.handoffRequest.reason
+      // Handle response based on whether we're streaming or not
+      if (useStream) {
+        // For streaming, process is handled through callback
+        this.recordTraceEvent("agent_streaming_setup", {
+          endpoint: 'multi-agent-chat'
+        });
+        
+        // Return a promise that will be resolved when streaming is complete
+        return new Promise((resolve, reject) => {
+          try {
+            // Create an EventSource to handle the streaming response
+            // Use the full URL for the edge function
+            const funcUrl = `${supabase.functions.url}/multi-agent-chat`;
+            const body = {
+              agentType: this.getType(),
+              input,
+              userId: this.context.userId,
+              runId: this.context.runId,
+              groupId: this.context.groupId,
+              attachments,
+              contextData: {
+                ...this.context.metadata,
+                instructions: {
+                  [this.getType()]: instructions
+                }
+              },
+              conversationHistory,
+              usePerformanceModel: this.context.usePerformanceModel,
+              enableDirectToolExecution: this.context.enableDirectToolExecution,
+              streamResponse: true
+            };
+            
+            // We use fetch for streaming
+            fetch(funcUrl, {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${localStorage.getItem('supabase.auth.token')}`
+              },
+              body: JSON.stringify(body)
+            }).then(response => {
+              if (!response.body) {
+                reject(new Error("No response body"));
+                return;
+              }
+              
+              const reader = response.body.getReader();
+              const decoder = new TextDecoder();
+              let responseText = '';
+              let handoff = null;
+              let structuredOutput = null;
+              
+              // Read the stream
+              const processStream = ({ done, value }: ReadableStreamReadResult<Uint8Array>) => {
+                if (done) {
+                  // When stream is complete, resolve with final result
+                  this.recordTraceEvent("streaming_complete", {
+                    responseLength: responseText.length,
+                    handoff: handoff ? true : false
+                  });
+                  
+                  resolve({
+                    response: responseText,
+                    nextAgent: handoff?.targetAgent,
+                    handoffReason: handoff?.reason,
+                    additionalContext: handoff?.additionalContext,
+                    structured_output: structuredOutput
+                  });
+                  return;
+                }
+                
+                // Decode chunk
+                const chunk = decoder.decode(value, { stream: true });
+                
+                // Process the chunk
+                chunk.split('\n\n').forEach(line => {
+                  if (line.startsWith('data: ')) {
+                    try {
+                      const jsonStr = line.substring(6);
+                      
+                      // Check for the done signal
+                      if (jsonStr === '[DONE]') {
+                        return;
+                      }
+                      
+                      const data = JSON.parse(jsonStr);
+                      
+                      if (data.type === 'chunk') {
+                        // Streaming text chunk
+                        if (streamHandler) {
+                          streamHandler(data.content);
+                        }
+                        responseText += data.content;
+                      } else if (data.type === 'complete') {
+                        // Complete message with metadata
+                        responseText = data.content;
+                        handoff = data.handoff;
+                        structuredOutput = data.structuredOutput;
+                      } else if (data.type === 'error') {
+                        this.recordTraceEvent("streaming_error", {
+                          error: data.content
+                        });
+                        console.error("Streaming error:", data.content);
+                      }
+                    } catch (err) {
+                      console.error("Error parsing SSE line:", err, line);
+                    }
+                  }
+                });
+                
+                // Continue reading
+                reader.read().then(processStream).catch(err => {
+                  this.recordTraceEvent("streaming_error", {
+                    error: err.message
+                  });
+                  reject(err);
+                });
+              };
+              
+              // Start reading the stream
+              reader.read().then(processStream).catch(err => {
+                this.recordTraceEvent("streaming_error", {
+                  error: err.message
+                });
+                reject(err);
+              });
+            }).catch(err => {
+              this.recordTraceEvent("streaming_error", {
+                error: err.message
+              });
+              reject(err);
+            });
+          } catch (err) {
+            this.recordTraceEvent("streaming_setup_error", {
+              error: err instanceof Error ? err.message : String(err)
+            });
+            reject(err);
+          }
         });
       }
       
-      // Extract command suggestion if present
-      const commandSuggestion = data?.commandSuggestion || null;
+      // For non-streaming response
+      if (!data) {
+        throw new Error("No data returned from edge function");
+      }
       
-      // Apply output guardrails if configured
-      const output = data?.completion || "I processed your request but couldn't generate a response.";
-      await this.applyOutputGuardrails(output);
+      const { responseText, handoff, structuredOutput } = data;
       
-      // Record completion event
-      this.recordTraceEvent("assistant_agent_complete", {
-        response_length: output.length,
-        has_handoff: !!nextAgent,
-        has_command_suggestion: !!commandSuggestion
+      // Apply output guardrails
+      await this.applyOutputGuardrails(responseText);
+      
+      this.recordTraceEvent("agent_run_complete", {
+        responseLength: responseText.length,
+        hasHandoff: !!handoff,
+        hasStructuredOutput: !!structuredOutput
       });
       
+      // Return the agent result
       return {
-        response: output,
-        nextAgent: nextAgent,
-        handoffReason: data?.handoffRequest?.reason,
-        structured_output: data?.structured_output || null
+        response: responseText,
+        nextAgent: handoff?.targetAgent,
+        handoffReason: handoff?.reason,
+        additionalContext: handoff?.additionalContext,
+        structured_output: structuredOutput
       };
     } catch (error) {
-      console.error("AssistantAgent run error:", error);
-      this.recordTraceEvent("assistant_agent_error", {
+      this.recordTraceEvent("agent_run_error", {
         error: error instanceof Error ? error.message : "Unknown error"
       });
+      
+      console.error(`${this.getType()} agent error:`, error);
       throw error;
     }
   }

@@ -1,6 +1,5 @@
 
 import { Attachment } from "@/types/message";
-import { supabase } from "@/integrations/supabase/client";
 
 // Use string literal union type for agent types
 export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data" | "assistant";
@@ -27,12 +26,13 @@ export interface RunnerContext {
     conversationHistory?: any[];
     [key: string]: any;
   };
+  supabase?: any; // Add supabase client reference
 }
 
 export interface BaseAgent {
   getType(): AgentType;
   run(input: string, attachments?: Attachment[]): Promise<AgentResult>;
-  setStreamingHandler(handler: (chunk: string) => void): void;
+  setStreamingHandler?(handler: (chunk: string) => void): void;
 }
 
 export interface AgentOptions {

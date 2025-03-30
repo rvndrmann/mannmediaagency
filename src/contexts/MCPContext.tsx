@@ -166,6 +166,38 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     }
   }, [useMcp, mcpService, connectionAttempts]);
   
+  // Function to reconnect to MCP (can be called from UI components)
+  const reconnectToMcp = useCallback(async (): Promise<boolean> => {
+    if (projectId) {
+      // Prevent rapid reconnection attempts
+      const now = Date.now();
+      const timeSinceLastReconnect = now - lastReconnectTime;
+      
+      if (timeSinceLastReconnect < CONNECTION_CONFIG.minReconnectInterval) {
+        console.log(`Ignoring reconnect request, last attempt was ${timeSinceLastReconnect}ms ago`);
+        toast.info("Please wait before trying to reconnect again");
+        return false;
+      }
+      
+      if (isConnecting || reconnectingRef.current) {
+        toast.info("Connection attempt already in progress");
+        return false;
+      }
+      
+      setLastReconnectTime(now);
+      toast.loading("Attempting to connect to MCP services...", { id: "mcp-connect" });
+      const success = await connectToMcp(projectId);
+      
+      if (success) {
+        toast.success("Connected to MCP services successfully", { id: "mcp-connect" });
+      } else {
+        toast.error("Failed to connect to MCP services. Using fallback mode.", { id: "mcp-connect" });
+      }
+      return success;
+    }
+    return false;
+  }, [projectId, connectToMcp, isConnecting, lastReconnectTime]);
+  
   // Set up health check monitoring for servers
   const setupHealthCheck = useCallback((servers: MCPServer[]) => {
     // Clear any existing health check timer
@@ -199,38 +231,6 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       }
     };
   }, [projectId, isConnecting, reconnectToMcp]);
-  
-  // Function to reconnect to MCP (can be called from UI components)
-  const reconnectToMcp = useCallback(async (): Promise<boolean> => {
-    if (projectId) {
-      // Prevent rapid reconnection attempts
-      const now = Date.now();
-      const timeSinceLastReconnect = now - lastReconnectTime;
-      
-      if (timeSinceLastReconnect < CONNECTION_CONFIG.minReconnectInterval) {
-        console.log(`Ignoring reconnect request, last attempt was ${timeSinceLastReconnect}ms ago`);
-        toast.info("Please wait before trying to reconnect again");
-        return false;
-      }
-      
-      if (isConnecting || reconnectingRef.current) {
-        toast.info("Connection attempt already in progress");
-        return false;
-      }
-      
-      setLastReconnectTime(now);
-      toast.loading("Attempting to connect to MCP services...", { id: "mcp-connect" });
-      const success = await connectToMcp(projectId);
-      
-      if (success) {
-        toast.success("Connected to MCP services successfully", { id: "mcp-connect" });
-      } else {
-        toast.error("Failed to connect to MCP services. Using fallback mode.", { id: "mcp-connect" });
-      }
-      return success;
-    }
-    return false;
-  }, [projectId, connectToMcp, isConnecting, lastReconnectTime]);
   
   // Initialize MCP server when enabled and projectId changes
   useEffect(() => {

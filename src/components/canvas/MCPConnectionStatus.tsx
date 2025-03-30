@@ -41,7 +41,8 @@ export function MCPConnectionStatus({
     // Show feedback toast via MCPContext
   };
   
-  const handleDisableMcp = (e: React.MouseEvent<HTMLButtonElement> | React.MouseEvent<HTMLDivElement>) => {
+  // Fix the type issue by making this function accept either button or div events
+  const handleDisableMcp = (e: React.MouseEvent<HTMLButtonElement | HTMLDivElement>) => {
     e.preventDefault();
     e.stopPropagation();
     setUseMcp(false);

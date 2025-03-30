@@ -1,9 +1,10 @@
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { AgentType } from "@/hooks/use-multi-agent-chat";
 
 interface AgentSelectorProps {
-  selectedAgent: string;
-  onSelectAgent: (agentType: string) => void;
+  selectedAgent: AgentType;
+  onSelectAgent: (agentType: AgentType) => void;
   disabled?: boolean;
 }
 

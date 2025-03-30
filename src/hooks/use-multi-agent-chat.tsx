@@ -5,10 +5,12 @@ import { useChatSession } from "@/contexts/ChatSessionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
+export type AgentType = "main" | "script" | "image" | "scene" | string;
+
 export function useMultiAgentChat(projectId?: string) {
   const { messages, setMessages } = useChatSession();
   const [isProcessing, setIsProcessing] = useState(false);
-  const [selectedAgent, setSelectedAgent] = useState<string>("main");
+  const [selectedAgent, setSelectedAgent] = useState<AgentType>("main");
   
   const sendMessage = useCallback(async (input: string) => {
     if (!input.trim() || isProcessing) return;

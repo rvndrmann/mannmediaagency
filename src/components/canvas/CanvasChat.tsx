@@ -30,17 +30,22 @@ function CanvasChatContent({ projectId, onClose }: CanvasChatContentProps) {
   
   useEffect(() => {
     if (projectId) {
-      // Create welcome message
-      const welcomeMessage: Message = {
-        id: "welcome",
-        role: "system",
-        content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
-        createdAt: new Date().toISOString(),
-      };
+      // Initialize chat session for this project
+      getOrCreateChatSession(projectId);
       
-      getOrCreateChatSession(projectId, 'canvas');
+      // If there are no messages, add a welcome message
+      if (messages.length === 0) {
+        const welcomeMessage: Message = {
+          id: "welcome",
+          role: "system",
+          content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
+          createdAt: new Date().toISOString(),
+        };
+        
+        setMessages([welcomeMessage]);
+      }
     }
-  }, [projectId, getOrCreateChatSession]);
+  }, [projectId, getOrCreateChatSession, messages.length, setMessages]);
   
   useEffect(() => {
     if (scrollRef.current) {

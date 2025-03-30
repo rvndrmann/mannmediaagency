@@ -10,6 +10,10 @@ interface ChatInputProps {
   onInputChange: (value: string) => void;
   onSubmit: (e: React.FormEvent) => void;
   placeholder?: string;
+  useAssistantsApi?: boolean;
+  setUseAssistantsApi?: (value: boolean) => void;
+  useMcp?: boolean;
+  setUseMcp?: (value: boolean) => void;
 }
 
 export function ChatInput({ 
@@ -17,7 +21,11 @@ export function ChatInput({
   isLoading = false, 
   onInputChange, 
   onSubmit,
-  placeholder = "Type your message here..."
+  placeholder = "Type your message here...",
+  useAssistantsApi = false,
+  setUseAssistantsApi = () => {},
+  useMcp = false,
+  setUseMcp = () => {}
 }: ChatInputProps) {
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 

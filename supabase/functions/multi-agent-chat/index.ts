@@ -1,3 +1,4 @@
+
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
 import { processFunctionCall, shouldPreventHandoff } from "./handleFunctions.ts";
@@ -112,8 +113,74 @@ function extractScriptContent(text: string): string {
 }
 
 // Maximum retries for OpenAI API calls
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 1000;
+const MAX_RETRIES = 3;
+const INITIAL_RETRY_DELAY_MS = 1000;
+
+// Function to handle OpenAI API calls with retry logic
+async function callOpenAIWithRetry(url: string, options: RequestInit, requestId: string, retryCount = 0): Promise<Response> {
+  try {
+    // Add timeout to fetch request (8 seconds for initial call, 15 seconds for retries)
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), retryCount > 0 ? 15000 : 8000);
+    
+    const fetchOptions = {
+      ...options,
+      signal: controller.signal,
+    };
+    
+    logInfo(`[${requestId}] Calling OpenAI API (attempt ${retryCount + 1}/${MAX_RETRIES + 1})`, {
+      url: url.split('?')[0],
+      method: options.method,
+    });
+    
+    const response = await fetch(url, fetchOptions);
+    clearTimeout(timeoutId);
+    
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      logError(`[${requestId}] OpenAI API error (status ${response.status})`, errorData);
+      
+      // Check for rate limiting (status 429)
+      if (response.status === 429) {
+        const retryAfter = response.headers.get('retry-after');
+        const retryDelayMs = retryAfter ? parseInt(retryAfter) * 1000 : INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+        
+        if (retryCount < MAX_RETRIES) {
+          logInfo(`[${requestId}] Rate limited. Retrying after ${retryDelayMs}ms`);
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          return callOpenAIWithRetry(url, options, requestId, retryCount + 1);
+        }
+      }
+      
+      throw new Error(`API error: ${response.status} ${JSON.stringify(errorData)}`);
+    }
+    
+    return response;
+  } catch (error) {
+    if (error.name === 'AbortError') {
+      logError(`[${requestId}] Request timed out`, error);
+      
+      if (retryCount < MAX_RETRIES) {
+        const retryDelayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+        logInfo(`[${requestId}] Retrying after timeout (${retryDelayMs}ms)`);
+        await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+        return callOpenAIWithRetry(url, options, requestId, retryCount + 1);
+      }
+      
+      throw new Error('Request timed out after multiple retries');
+    }
+    
+    // For other errors, retry if we haven't reached the maximum
+    if (retryCount < MAX_RETRIES) {
+      const retryDelayMs = INITIAL_RETRY_DELAY_MS * Math.pow(2, retryCount);
+      logInfo(`[${requestId}] Error occurred. Retrying after ${retryDelayMs}ms`, { error: error.message });
+      await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+      return callOpenAIWithRetry(url, options, requestId, retryCount + 1);
+    }
+    
+    throw error;
+  }
+}
 
 serve(async (req) => {
   const requestId = generateRequestId();
@@ -481,19 +548,19 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
           }
         },
         {
-          name: "execute_canvas_tool",
-          description: "Execute a Canvas tool to add content to the user's project",
+          name: "save_content_to_project",
+          description: "Save content (script, scene description, image prompt, etc.) to a Canvas project",
           parameters: {
             type: "object",
             properties: {
-              action: {
-                type: "string",
-                enum: ["save_script", "save_scene", "save_image_prompt", "add_scene"],
-                description: "The action to perform on the Canvas project"
-              },
               projectId: {
                 type: "string",
                 description: "The ID of the Canvas project"
+              },
+              contentType: {
+                type: "string",
+                enum: ["script", "scene", "image_prompt", "voice_over"],
+                description: "The type of content being saved"
               },
               sceneId: {
                 type: "string",
@@ -501,94 +568,14 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
               },
               content: {
                 type: "string",
-                description: "The content to save (script, scene description, or image prompt)"
-              },
-              title: {
-                type: "string",
-                description: "The title of the scene (for add_scene action)"
+                description: "The content to save"
               }
             },
-            required: ["action", "content"]
-          }
-        },
-        {
-          name: "analyze_link",
-          description: "Analyze a link provided by the user",
-          parameters: {
-            type: "object",
-            properties: {
-              url: {
-                type: "string",
-                description: "The URL to analyze"
-              }
-            },
-            required: ["url"]
-          }
-        },
-        {
-          name: "generate_image",
-          description: "Generate an image based on the user's prompt",
-          parameters: {
-            type: "object",
-            properties: {
-              prompt: {
-                type: "string",
-                description: "The prompt for image generation"
-              },
-              style: {
-                type: "string",
-                enum: ["photorealistic", "cartoon", "3d", "artistic", "product"],
-                description: "The style of the image"
-              }
-            },
-            required: ["prompt"]
-          }
-        },
-        {
-          name: "search_web",
-          description: "Search the web for information",
-          parameters: {
-            type: "object",
-            properties: {
-              query: {
-                type: "string",
-                description: "The search query"
-              }
-            },
-            required: ["query"]
-          }
-        },
-        {
-          name: "generate_metadata",
-          description: "Generate SEO metadata for content",
-          parameters: {
-            type: "object",
-            properties: {
-              content: {
-                type: "string",
-                description: "The content to generate metadata for"
-              }
-            },
-            required: ["content"]
-          }
-        },
-        {
-          name: "agentResponse",
-          description: "Provide a response to the user without executing a tool",
-          parameters: {
-            type: "object",
-            properties: {
-              completion: {
-                type: "string",
-                description: "The response to the user"
-              }
-            },
-            required: ["completion"]
+            required: ["contentType", "content"]
           }
         }
       ];
-    } else {
-      // For script, image, and scene agents
+    } else if (agentType === "script") {
       functions = [
         {
           name: "transfer_to_main_agent",
@@ -605,14 +592,14 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
           }
         },
         {
-          name: "transfer_to_tool_agent",
-          description: "Transfer the conversation to the tool agent for executing specialized tools",
+          name: "transfer_to_image_agent",
+          description: "Transfer the conversation to the specialized image generation agent",
           parameters: {
             type: "object",
             properties: {
               reason: {
                 type: "string",
-                description: "The reason why this conversation should be handled by the tool agent"
+                description: "The reason why this conversation should be handled by the image agent"
               }
             },
             required: ["reason"]
@@ -620,311 +607,358 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
         },
         {
           name: "save_content_to_project",
-          description: "Save the generated content to the user's project",
+          description: "Save a script to a Canvas project",
           parameters: {
             type: "object",
             properties: {
               projectId: {
                 type: "string",
-                description: "The ID of the project"
+                description: "The ID of the Canvas project"
               },
               contentType: {
                 type: "string",
-                enum: ["script", "scene", "image_prompt"],
-                description: "The type of content to save"
+                enum: ["script"],
+                description: "The type of content being saved (always script for this agent)"
               },
               content: {
                 type: "string",
-                description: "The content to save"
-              },
-              isScript: {
-                type: "boolean",
-                description: "Whether this content is a properly formatted script",
-                default: false
+                description: "The script content to save"
               }
             },
             required: ["contentType", "content"]
           }
-        },
+        }
+      ];
+    } else if (agentType === "image") {
+      functions = [
         {
-          name: "agentResponse",
-          description: "Provide a response to the user without transferring to another agent",
+          name: "transfer_to_main_agent",
+          description: "Transfer the conversation back to the main agent",
           parameters: {
             type: "object",
             properties: {
-              completion: {
+              reason: {
                 type: "string",
-                description: "The response to the user"
-              },
-              isScript: {
-                type: "boolean",
-                description: "Whether this response contains a complete script",
-                default: false
+                description: "The reason why this conversation should be returned to the main agent"
               }
             },
-            required: ["completion"]
+            required: ["reason"]
+          }
+        },
+        {
+          name: "save_content_to_project",
+          description: "Save an image prompt to a Canvas project",
+          parameters: {
+            type: "object",
+            properties: {
+              projectId: {
+                type: "string",
+                description: "The ID of the Canvas project"
+              },
+              sceneId: {
+                type: "string",
+                description: "The ID of the scene"
+              },
+              contentType: {
+                type: "string",
+                enum: ["image_prompt"],
+                description: "The type of content being saved (always image_prompt for this agent)"
+              },
+              content: {
+                type: "string",
+                description: "The image prompt content to save"
+              }
+            },
+            required: ["contentType", "content"]
+          }
+        }
+      ];
+    } else if (agentType === "scene") {
+      functions = [
+        {
+          name: "transfer_to_main_agent",
+          description: "Transfer the conversation back to the main agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be returned to the main agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "transfer_to_image_agent",
+          description: "Transfer the conversation to the specialized image generation agent",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason why this conversation should be handled by the image agent"
+              }
+            },
+            required: ["reason"]
+          }
+        },
+        {
+          name: "save_content_to_project",
+          description: "Save a scene description to a Canvas project",
+          parameters: {
+            type: "object",
+            properties: {
+              projectId: {
+                type: "string",
+                description: "The ID of the Canvas project"
+              },
+              sceneId: {
+                type: "string",
+                description: "The ID of the scene"
+              },
+              contentType: {
+                type: "string",
+                enum: ["scene"],
+                description: "The type of content being saved (always scene for this agent)"
+              },
+              content: {
+                type: "string",
+                description: "The scene description content to save"
+              }
+            },
+            required: ["contentType", "content"]
           }
         }
       ];
     }
     
+    // Check if simple message that shouldn't need a handoff
+    const isSimpleMessage = input && input.length < 30 && /^(hi|hello|hey|what|how|can you)/i.test(input);
+    
+    // If enableDirectToolExecution is true, add canvas tool functions to all agents
+    if (enableDirectToolExecution && agentType !== "tool") {
+      // Find a match for the content save function
+      let canvasFunction = functions.find(f => f.name === "save_content_to_project");
+      
+      // If not found, add it based on agent type
+      if (!canvasFunction) {
+        canvasFunction = {
+          name: "save_content_to_project",
+          description: `Save content to a Canvas project (direct tool execution)`,
+          parameters: {
+            type: "object",
+            properties: {
+              projectId: {
+                type: "string",
+                description: "The ID of the Canvas project"
+              },
+              contentType: {
+                type: "string",
+                enum: ["script", "scene", "image_prompt", "voice_over"],
+                description: "The type of content being saved"
+              },
+              sceneId: {
+                type: "string",
+                description: "The ID of the scene (if applicable)"
+              },
+              content: {
+                type: "string",
+                description: "The content to save"
+              }
+            },
+            required: ["contentType", "content"]
+          }
+        };
+        
+        functions.push(canvasFunction);
+      }
+    }
+
+    // Function to determine if the response should include trace data
+    const shouldIncludeTrace = !tracingDisabled && runId;
+    
+    // Prepare the request payload
+    const apiRequestPayload = {
+      model,
+      messages: processedMessages,
+      temperature: usePerformanceModel ? 0.5 : 0.7,
+      top_p: 1,
+      functions: functions.length > 0 ? functions : undefined,
+      function_call: functionCall,
+    };
+    
     logInfo(`[${requestId}] Calling OpenAI API with ${processedMessages.length} messages`, {
       model,
       agentType,
       functionsCount: functions.length,
-      isHandoffContinuation: contextData.isHandoffContinuation || false,
+      isHandoffContinuation: !!contextData.isHandoffContinuation,
       previousAgent: contextData.previousAgentType || "main",
       handoffReason: contextData.handoffReason || ""
     });
+
+    // Improved timeout handling for OpenAI API call
+    const apiResponse = await callOpenAIWithRetry(
+      "https://api.openai.com/v1/chat/completions",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${OPENAI_API_KEY}`
+        },
+        body: JSON.stringify(apiRequestPayload)
+      },
+      requestId
+    );
     
-    // Implement retry logic for API calls
-    let attempt = 0;
-    let response;
-    let error;
-    const startTime = Date.now();
+    const responseData = await apiResponse.json();
     
-    while (attempt < MAX_RETRIES) {
-      try {
-        response = await fetch('https://api.openai.com/v1/chat/completions', {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${OPENAI_API_KEY}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            model: model,
-            messages: processedMessages,
-            functions: functions,
-            function_call: functionCall,
-            temperature: usePerformanceModel ? 0.7 : 0.5
-          }),
+    // Check for function call in the response
+    const responseMessage = responseData.choices[0].message;
+    
+    let handoffFunction = null;
+    let responseText = responseMessage.content || "";
+    let structuredOutput = null;
+    
+    if (responseMessage.function_call) {
+      const functionName = responseMessage.function_call.name;
+      const functionArgs = JSON.parse(responseMessage.function_call.arguments);
+      
+      logInfo(`[${requestId}] Function call detected: ${functionName} `, null);
+      
+      // Check if this is a simple message that shouldn't trigger a handoff
+      if (isSimpleMessage && functionName.startsWith("transfer_to_") && shouldPreventHandoff(input)) {
+        console.log("Preventing automatic handoff for simple greeting or short message");
+        
+        // Process as a regular response instead of a handoff
+        responseText = "I'm here to help with your Canvas project. What would you like assistance with?";
+        
+        logInfo(`[${requestId}] Generated response for main agent (prevented handoff for simple message)`, {
+          responseLength: responseText.length,
+          originalFunction: functionName,
+          hasStructuredOutput: false
         });
+      } else {
+        // Process the function call
+        const functionResult = await processFunctionCall(
+          functionName,
+          functionArgs,
+          requestId,
+          userId,
+          projectId,
+          agentType
+        );
         
-        if (!response.ok) {
-          const errorData = await response.json();
-          throw new Error(`OpenAI API error: ${response.status} ${JSON.stringify(errorData, null, 4)}`);
-        }
+        responseText = functionResult.responseText;
+        handoffFunction = functionResult.handoff;
+        structuredOutput = functionResult.structuredOutput;
         
-        const data = await response.json();
-        
-        // Process the response
-        const message = data.choices[0].message;
-        
-        // Handle function calls
-        if (message.function_call) {
-          const functionName = message.function_call.name;
-          const functionArguments = message.function_call.arguments;
-          // Parse function arguments safely
-          let functionArgs;
-          try {
-            functionArgs = JSON.parse(functionArguments);
-          } catch (parseError) {
-            logError(`[${requestId}] Error parsing function arguments`, parseError);
-            throw new Error(`Failed to parse function arguments: ${parseError.message}`);
-          }
+        if (functionResult.isScript) {
+          // For script content, extract the actual script part
+          const scriptContent = extractScriptContent(responseText);
+          responseText = scriptContent;
           
-          logInfo(`[${requestId}] Function call detected: ${functionName} `, null);
-          
-          // Process the function call using our helper
-          const handoffResult = processFunctionCall(functionName, functionArgs, contextData);
-          
-          // Handle transfers to other agents
-          if (handoffResult.shouldHandoff && handoffResult.targetAgent) {
-            logInfo(`[${requestId}] Handoff requested to ${handoffResult.targetAgent}`, {
-              reason: handoffResult.reason,
-              additionalContext: handoffResult.additionalContext || {}
-            });
-            
-            return new Response(
-              JSON.stringify({
-                handoffRequest: {
-                  targetAgent: handoffResult.targetAgent,
-                  reason: handoffResult.reason,
-                  additionalContext: handoffResult.additionalContext
-                }
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          // If handoff was prevented due to simple greeting, but using agentResponse
-          // or if it's an explicit agentResponse call
-          if (functionName === 'agentResponse' || (functionName.includes('transfer_to_') && !handoffResult.shouldHandoff)) {
-            let response = functionName === 'agentResponse' 
-              ? functionArgs.completion 
-              : "I'm here to help you with your project. How can I assist you today?";
-            
-            let structured_output = null;
-            
-            if (functionName === 'agentResponse' && agentType === 'script') {
-              const isScript = functionArgs.isScript || looksLikeScript(response);
-              if (isScript) {
-                structured_output = {
-                  isScript: true,
-                  scriptText: extractScriptContent(response)
-                };
-              }
-            }
-            
-            logInfo(`[${requestId}] Generated response for ${agentType} agent (prevented handoff for simple message)`, {
-              responseLength: response.length,
-              originalFunction: functionName,
-              hasStructuredOutput: !!structured_output
-            });
-            
-            return new Response(
-              JSON.stringify({
-                completion: response,
-                structured_output: structured_output
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          // Handle save_content_to_project - this handles saving scripts and other content
-          else if (functionName === 'save_content_to_project') {
-            // Extract the script portion from the response if not already clean
-            let contentToSave = functionArgs.content;
-            
-            // For script content, do additional processing to ensure we have a clean script
-            if (functionArgs.contentType === 'script') {
-              // Check if the content looks like a script (use new helper function)
-              const isScript = functionArgs.isScript || looksLikeScript(contentToSave);
-              
-              // If it's a script, try to extract just the script part (no explanations)
-              if (isScript) {
-                contentToSave = extractScriptContent(contentToSave);
-              }
-              
-              logInfo(`[${requestId}] Processing script content for saving`, {
-                contentLength: contentToSave.length,
-                isScript: isScript,
-                projectId: functionArgs.projectId
-              });
-            }
-            
-            return new Response(
-              JSON.stringify({
-                completion: `I've saved your ${functionArgs.contentType.replace('_', ' ')} to your project.`,
-                savedContent: {
-                  type: functionArgs.contentType,
-                  content: contentToSave,
-                  isScript: functionArgs.isScript || looksLikeScript(contentToSave)
-                }
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          // Handle various tool calls 
-          else if (functionName === 'execute_canvas_tool' || 
-                   functionName === 'analyze_link' || 
-                   functionName === 'generate_image' || 
-                   functionName === 'search_web' || 
-                   functionName === 'generate_metadata') {
-            return new Response(
-              JSON.stringify({
-                completion: `I'm executing the ${functionName} tool with the parameters you provided.`,
-                toolCall: {
-                  name: functionName,
-                  parameters: functionArgs
-                }
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-        }
-        
-        // If no function call, use the content directly
-        logInfo(`[${requestId}] Plain text response (no function call) `, null);
-        
-        // For script agent, check if the response is a script (even without function call)
-        let isScript = false;
-        let structured_output = null;
-        
-        if (agentType === 'script') {
-          isScript = looksLikeScript(message.content);
-          
-          if (isScript) {
-            structured_output = {
-              isScript: true,
-              scriptText: extractScriptContent(message.content)
-            };
-          }
+          logInfo(`[${requestId}] Processing script content for saving`, {
+            contentLength: responseText.length,
+            isScript: true,
+            projectId
+          });
         }
         
         logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
-          responseLength: message.content.length,
-          isScript: isScript
+          responseLength: responseText.length,
+          isScript: functionResult.isScript || looksLikeScript(responseText)
         });
-        
-        return new Response(
-          JSON.stringify({
-            completion: message.content,
-            structured_output: structured_output
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-        
-      } catch (err) {
-        error = err;
-        logError(`[${requestId}] API call error (attempt ${attempt + 1}):`, err);
-        
-        // If this is an OpenAI quota error, no need to retry
-        if (isQuotaExceededError(err)) {
-          logInfo(`[${requestId}] OpenAI quota exceeded, breaking retry loop`, null);
-          break;
-        }
-        
-        attempt++;
-        if (attempt < MAX_RETRIES) {
-          const delay = RETRY_DELAY_MS * attempt;
-          logInfo(`[${requestId}] Retrying in ${delay}ms...`, null);
-          await new Promise(resolve => setTimeout(resolve, delay));
-        }
       }
+    } else {
+      logInfo(`[${requestId}] Plain text response (no function call) `, null);
+      
+      if (looksLikeScript(responseText)) {
+        // For script-like content, extract the actual script part
+        const scriptContent = extractScriptContent(responseText);
+        responseText = scriptContent;
+        
+        logInfo(`[${requestId}] Extracted script-like content`, {
+          contentLength: responseText.length
+        });
+      }
+      
+      logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
+        responseLength: responseText.length,
+        isScript: looksLikeScript(responseText)
+      });
     }
     
-    // If we got here, all retries failed
-    logError(`[${requestId}] All ${MAX_RETRIES} retries failed`, error);
+    // Prepare the response object
+    const result = {
+      message: responseText,
+      agentType,
+      handoff: handoffFunction,
+      structuredOutput,
+      requestId
+    };
     
-    // Check for quota errors specifically
-    if (isQuotaExceededError(error)) {
-      return new Response(
-        JSON.stringify({
-          error: "OpenAI API quota exceeded",
-          completion: "I'm sorry, but the AI service is currently unavailable due to high demand. Please try again later.",
-          user_message: "The service is experiencing high demand. Your request couldn't be completed at this time."
-        }),
-        { 
-          status: 429, 
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
+    // Add trace data if applicable
+    if (shouldIncludeTrace) {
+      result.trace = {
+        runId,
+        requestId,
+        groupId,
+        agentType,
+        timestamp: new Date().toISOString(),
+        duration: Date.now() - new Date(conversationHistory[conversationHistory.length - 1]?.createdAt || Date.now()).getTime(),
+        summary: {
+          modelUsed: model,
+          success: true,
+          messageCount: conversationHistory.length + 1,
+          handoffs: handoffFunction ? 1 : 0,
+          toolCalls: structuredOutput ? 1 : 0
         }
-      );
+      };
     }
     
-    // Generic error response
     return new Response(
-      JSON.stringify({
-        error: "Failed to get response from OpenAI API",
-        completion: "I apologize, but I encountered an issue processing your request. Please try again.",
-        debug_info: error instanceof Error ? error.message : String(error)
-      }),
-      { 
-        status: 500, 
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' } 
-      }
+      JSON.stringify(result),
+      { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
+  } catch (apiError) {
+    logError(`[${requestId}] API call error:`, apiError);
     
-  } catch (error) {
-    logError(`[${requestId}] Error processing request:`, error);
+    // Prepare an error response
+    const errorResponse = {
+      error: apiError instanceof Error ? apiError.message : String(apiError),
+      message: "I apologize, but I'm experiencing technical difficulties. Please try again in a moment.",
+      requestId
+    };
+    
+    // Add trace data for the error if applicable
+    if (!tracingDisabled && runId) {
+      errorResponse.trace = {
+        runId,
+        requestId,
+        groupId: groupId || null,
+        agentType: agentType || "main",
+        timestamp: new Date().toISOString(),
+        duration: 0,
+        summary: {
+          success: false,
+          error: apiError instanceof Error ? apiError.message : String(apiError),
+          errorType: apiError.name || "Unknown"
+        }
+      };
+    }
+    
+    // Check for specific error types
+    if (apiError.name === 'AbortError' || apiError.message?.includes('timed out')) {
+      errorResponse.message = "The request timed out. Please try again with a shorter message or try again shortly.";
+      errorResponse.errorType = "timeout";
+    } else if (isQuotaExceededError(apiError)) {
+      errorResponse.message = "I'm sorry, but the AI service is currently unavailable due to usage limits. Please try again later.";
+      errorResponse.errorType = "quota_exceeded";
+    }
     
     return new Response(
-      JSON.stringify({
-        error: "Error processing request",
-        completion: "I apologize, but I encountered an unexpected error. Please try again.",
-        debug_info: error instanceof Error ? error.message : String(error) 
-      }),
+      JSON.stringify(errorResponse),
       { 
         status: 500, 
         headers: { ...corsHeaders, 'Content-Type': 'application/json' } 

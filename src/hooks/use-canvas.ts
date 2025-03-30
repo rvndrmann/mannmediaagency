@@ -223,7 +223,7 @@ export const useCanvas = (projectId?: string) => {
       setSelectedSceneId(sceneId);
       setTimeout(() => {
         setSceneLoading(false);
-      }, 200);
+      }, 50);
     }
   };
 

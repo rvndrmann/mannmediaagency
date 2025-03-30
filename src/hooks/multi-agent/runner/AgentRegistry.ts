@@ -1,11 +1,18 @@
 
-import { BaseAgent, AgentType, AgentOptions } from "./types";
+import { AgentType, AgentOptions } from "./types";
 import { AssistantAgent } from "./agents/AssistantAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { DataAgent } from "./agents/DataAgent";
+
+// Define the BaseAgent interface in this file to resolve the type errors
+export interface BaseAgent {
+  getType(): AgentType;
+  run(input: string, attachments?: any[]): Promise<any>;
+  setStreamingHandler?(handler: (chunk: string) => void): void;
+}
 
 class AgentRegistryImpl {
   private static instance: AgentRegistryImpl;

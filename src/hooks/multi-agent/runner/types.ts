@@ -1,5 +1,4 @@
 
-import { BaseAgentImpl } from "./BaseAgentImpl";
 import { Attachment, Message } from "@/types/message";
 import { SupabaseClient } from "@supabase/supabase-js";
 
@@ -11,7 +10,7 @@ export interface AgentResult {
   handoffReason?: string;
   additionalContext?: Record<string, any>;
   structured_output?: any;
-  commandSuggestion?: any; // Added to support this property
+  commandSuggestion?: any;
 }
 
 export interface RunnerContext {
@@ -22,7 +21,7 @@ export interface RunnerContext {
   usePerformanceModel?: boolean;
   enableDirectToolExecution?: boolean;
   tracingDisabled?: boolean;
-  projectId?: string; // Added to support project context
+  projectId?: string; 
   metadata: {
     projectId?: string;
     projectDetails?: any;
@@ -58,7 +57,6 @@ export interface AgentOptions {
   streamingHandler?: (chunk: string) => void;
 }
 
-// Define BaseAgent interface for AgentRegistry
 export interface BaseAgent {
   getType(): AgentType;
   run(input: string, attachments?: Attachment[]): Promise<AgentResult>;

@@ -51,34 +51,47 @@ export function ScenesList({
   const [isDeletingScene, setIsDeletingScene] = useState(false);
   
   const handleAddScene = async () => {
+    if (isAddingScene) return; // Prevent multiple clicks
+    
     setIsAddingScene(true);
     try {
       await onAddScene();
+      // We don't need to select the new scene as the parent component will handle it
+    } catch (error) {
+      console.error("Error adding scene:", error);
     } finally {
-      setIsAddingScene(false);
+      // Reduce the minimum loading time to improve perceived performance
+      setTimeout(() => {
+        setIsAddingScene(false);
+      }, 300);
     }
   };
   
   const confirmDeleteScene = async () => {
-    if (sceneToDelete) {
+    if (sceneToDelete && !isDeletingScene) {
       setIsDeletingScene(true);
       try {
         await onDeleteScene(sceneToDelete);
+      } catch (error) {
+        console.error("Error deleting scene:", error);
       } finally {
-        setIsDeletingScene(false);
-        setSceneToDelete(null);
+        // Reduce the minimum loading time to improve perceived performance
+        setTimeout(() => {
+          setIsDeletingScene(false);
+          setSceneToDelete(null);
+        }, 300);
       }
     }
   };
   
   const handleSelectScene = (id: string) => {
-    if (id !== selectedSceneId) {
+    if (id !== selectedSceneId && id !== loadingSceneId) {
       setLoadingSceneId(id);
       onSelectScene(id);
-      // Reset loading after a short delay
+      // Reduce the minimum loading time to improve perceived performance
       setTimeout(() => {
         setLoadingSceneId(null);
-      }, 500);
+      }, 300);
     }
   };
   

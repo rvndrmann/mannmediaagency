@@ -6,20 +6,26 @@ import { SceneEditor } from "./SceneEditor";
 import { SceneDetailPanel } from "./SceneDetailPanel";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CanvasScriptPanel } from "./CanvasScriptPanel";
-import { Loader2 } from "lucide-react";
+import { Loader2, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 // Create a component for the empty state to replace the import
-const Empty = ({ title, description }: { title: string; description: string }) => {
+const Empty = ({ title, description, actionButton = null }: { 
+  title: string; 
+  description: string; 
+  actionButton?: React.ReactNode; 
+}) => {
   return (
     <Card className="w-[450px] shadow-sm">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>{description}</CardDescription>
       </CardHeader>
-      <CardContent className="flex justify-center items-center p-6">
+      <CardContent className="flex flex-col justify-center items-center p-6 space-y-4">
         <div className="rounded-full w-20 h-20 bg-muted flex items-center justify-center">
-          <span className="text-3xl text-muted-foreground">?</span>
+          <AlertTriangle className="h-8 w-8 text-muted-foreground" />
         </div>
+        {actionButton}
       </CardContent>
     </Card>
   );
@@ -58,12 +64,18 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
   const [currentView, setCurrentView] = useState<"scenes" | "script">("scenes");
   const [showDetailPanel, setShowDetailPanel] = useState(true);
 
+  // Handle case when project is null
   if (!project) {
     return (
       <div className="flex-1 flex items-center justify-center">
         <Empty
           title="No Project Selected"
           description="Select a project from the sidebar or create a new one"
+          actionButton={
+            <Button variant="outline" onClick={() => createNewProject("New Project")}>
+              Create New Project
+            </Button>
+          }
         />
       </div>
     );
@@ -112,6 +124,11 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
               <Empty
                 title="No Scene Selected"
                 description="Select a scene from the sidebar or create a new one"
+                actionButton={
+                  <Button onClick={addScene}>
+                    Create New Scene
+                  </Button>
+                }
               />
             </div>
           )
@@ -125,7 +142,7 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
           />
         )}
 
-        {currentView === "scenes" && showDetailPanel && (
+        {currentView === "scenes" && showDetailPanel && selectedScene && (
           <SceneDetailPanel
             scene={selectedScene}
             projectId={project.id}

@@ -81,12 +81,12 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
   
   const handleProjectSelect = (selectedProjectId: string) => {
     if (selectedProjectId === projectId) return;
-    // Close the history panel first to prevent UI issues during navigation
+    
+    // Pass the ID to the parent component first
+    onSelectProject(selectedProjectId);
+    
+    // Close the history panel
     onBack();
-    // Use setTimeout to ensure the history panel is closed before navigation
-    setTimeout(() => {
-      onSelectProject(selectedProjectId);
-    }, 100);
   };
   
   const handleDeleteProject = async () => {
@@ -111,9 +111,7 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
       
       if (projectToDelete === projectId) {
         onBack();
-        setTimeout(() => {
-          onSelectProject('');
-        }, 100);
+        onSelectProject('');
       } else {
         fetchProjects();
       }

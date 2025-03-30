@@ -106,12 +106,16 @@ export default function Canvas() {
   }, []);
 
   const handleSelectProject = useCallback((selectedProjectId: string) => {
+    console.log("Selected project:", selectedProjectId);
+    
     if (!selectedProjectId) {
       navigate('/canvas');
       return;
     }
     
-    navigate(`/canvas/${selectedProjectId}`);
+    // Use navigate with replace to avoid adding to history stack
+    navigate(`/canvas/${selectedProjectId}`, { replace: true });
+    
     // Reset states to prevent UI inconsistencies
     setShowHistory(false);
     setShowChat(false);
@@ -132,27 +136,35 @@ export default function Canvas() {
   // Create a new project with initial scenes
   const handleCreateNewProject = async (): Promise<void> => {
     try {
+      toast.info("Creating new project...");
+      
       // Create a new project with initial scenes
       const newProjectId = await createProject(
         "New Project", 
         "A new Canvas project"
       );
       
-      // Add initial scenes to the project
-      const initialScenes = generateInitialScenes();
-      for (const scene of initialScenes) {
-        await updateScene(scene.id, "script", scene.script);
-        await updateScene(scene.id, "description", scene.description);
-        await updateScene(scene.id, "imagePrompt", scene.imagePrompt);
-      }
-      
       toast.success("New project created successfully");
       
       // Navigate to the new project if created
       if (newProjectId) {
-        navigate(`/canvas/${newProjectId}`);
+        navigate(`/canvas/${newProjectId}`, { replace: true });
         setHasProjects(true);
         setShowHistory(false);
+        
+        // Add initial scenes to the project after navigation
+        setTimeout(async () => {
+          try {
+            const initialScenes = generateInitialScenes();
+            for (const scene of initialScenes) {
+              await updateScene(scene.id, "script", scene.script);
+              await updateScene(scene.id, "description", scene.description);
+              await updateScene(scene.id, "imagePrompt", scene.imagePrompt);
+            }
+          } catch (error) {
+            console.error("Error setting up initial scenes:", error);
+          }
+        }, 500);
       }
     } catch (error) {
       console.error("Error creating new project:", error);
@@ -162,6 +174,9 @@ export default function Canvas() {
 
   // Check if we're on the root Canvas page with no project ID
   const isRootCanvas = !projectId;
+
+  // If we have a project ID but project is not loaded yet, show loading indicator
+  const isLoadingProject = !!projectId && isLoading;
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -207,6 +222,13 @@ export default function Canvas() {
                   View Existing Projects
                 </Button>
               )}
+            </div>
+          </div>
+        ) : isLoadingProject ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4">
+              <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mx-auto"></div>
+              <p className="text-muted-foreground">Loading project...</p>
             </div>
           </div>
         ) : (

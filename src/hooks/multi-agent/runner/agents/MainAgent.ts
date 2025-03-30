@@ -89,30 +89,24 @@ If this is an initial request for content creation, I should:
 
       contextualInput = `${contextualInput}\n\n[WORKFLOW GUIDANCE: ${requirementGatheringPrompt}]`;
       
-      // Check for script writing requests
+      // Check for script writing requests - use more specific patterns and check message length
+      // to prevent immediate handoff for simple greetings or short messages
       const scriptKeywords = ['write a script', 'create a script', 'script for', 'screenplay', 'script about'];
       const lowercaseInput = input.toLowerCase();
-      const isScriptRequest = scriptKeywords.some(keyword => lowercaseInput.includes(keyword));
       
-      if (isScriptRequest) {
-        console.log("Detected script writing request - recommend handoff to script agent");
-      }
+      // IMPROVED LOGIC: Don't trigger script agent for simple greetings or very short messages
+      const isScriptRequest = input.length > 15 && scriptKeywords.some(keyword => lowercaseInput.includes(keyword));
       
       // Check for scene creation requests
       const sceneKeywords = ['scene description', 'visual scene', 'describe the scene', 'scene for', 'image prompt'];
-      const isSceneRequest = sceneKeywords.some(keyword => lowercaseInput.includes(keyword));
-      
-      if (isSceneRequest) {
-        console.log("Detected scene description request - recommend handoff to scene agent");
-      }
+      const isSceneRequest = input.length > 15 && sceneKeywords.some(keyword => lowercaseInput.includes(keyword));
       
       // ENHANCEMENT: Check for comprehensive content creation requests
       const contentCreationKeywords = ['create content', 'full content', 'complete project', 'end-to-end', 'start to finish'];
-      const isContentCreationRequest = contentCreationKeywords.some(keyword => lowercaseInput.includes(keyword));
+      const isContentCreationRequest = input.length > 15 && contentCreationKeywords.some(keyword => lowercaseInput.includes(keyword));
       
-      if (isContentCreationRequest) {
-        console.log("Detected comprehensive content creation request - will recommend structured pipeline");
-      }
+      // Log detection results
+      console.log(`Request analysis: isScriptRequest=${isScriptRequest}, isSceneRequest=${isSceneRequest}, isContentCreationRequest=${isContentCreationRequest}, inputLength=${input.length}`);
       
       // Create a trace event for tracking
       const traceEvent = {
@@ -148,13 +142,15 @@ If this is an initial request for content creation, I should:
             continuityData: continuityData,
             isScriptRequest: isScriptRequest,
             isSceneRequest: isSceneRequest,
-            isContentCreationRequest: isContentCreationRequest, // Add this flag
+            isContentCreationRequest: isContentCreationRequest,
             projectId: projectId,
             hasProjectDetails: !!projectDetails,
             projectTitle: projectDetails?.title || "",
             scenesCount: projectDetails?.scenes?.length || 0,
             hasFullScript: !!projectDetails?.fullScript,
-            scriptExcerpt: projectDetails?.fullScript ? projectDetails.fullScript.substring(0, 500) : null
+            scriptExcerpt: projectDetails?.fullScript ? projectDetails.fullScript.substring(0, 500) : null,
+            // NEW: Add flag to prevent automatic handoff for simple messages
+            preventAutoHandoff: input.length < 20 || isSimpleGreeting(input)
           },
           conversationHistory: conversationHistory,
           metadata: {
@@ -171,7 +167,9 @@ If this is an initial request for content creation, I should:
               nextStepsRecommendation: isScriptRequest ? "script_creation" : 
                                         isSceneRequest ? "scene_description" : 
                                         "requirement_gathering"
-            }
+            },
+            // NEW: Add flag to prevent automatic handoff for simple messages
+            preventAutoHandoff: input.length < 20 || isSimpleGreeting(input)
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -189,7 +187,10 @@ If this is an initial request for content creation, I should:
       let handoffReasonResponse = null;
       let additionalContextForNext = null;
       
-      if (data?.handoffRequest) {
+      // NEW: Skip handoff for simple greetings or very short messages
+      const isSimpleMessage = input.length < 20 || isSimpleGreeting(input);
+      
+      if (data?.handoffRequest && !isSimpleMessage) {
         console.log(`MainAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
         nextAgent = data.handoffRequest.targetAgent;
         handoffReasonResponse = data.handoffRequest.reason;
@@ -246,7 +247,7 @@ If this is an initial request for content creation, I should:
             }
           };
         }
-      } else if (isScriptRequest && data?.completion) {
+      } else if (isScriptRequest && data?.completion && !isSimpleMessage) {
         // If the system detected a script request but didn't handle it, force a handoff
         console.log("Forcing handoff to script agent for script request");
         nextAgent = "script";
@@ -267,7 +268,7 @@ If this is an initial request for content creation, I should:
             shouldUpdateCanvasProject: true
           }
         };
-      } else if (isSceneRequest && data?.completion) {
+      } else if (isSceneRequest && data?.completion && !isSimpleMessage) {
         // Force a handoff for scene creation if needed
         console.log("Forcing handoff to scene agent for scene description request");
         nextAgent = "scene";
@@ -279,7 +280,7 @@ If this is an initial request for content creation, I should:
           sceneCount: projectDetails?.scenes?.length || 0,
           existingScript: projectDetails?.fullScript || null
         };
-      } else if (isContentCreationRequest && data?.completion) {
+      } else if (isContentCreationRequest && data?.completion && !isSimpleMessage) {
         // ENHANCEMENT: Force a handoff for comprehensive content creation
         console.log("Forcing handoff to script agent to begin content creation workflow");
         nextAgent = "script";
@@ -341,4 +342,21 @@ function detectScriptType(input: string): string {
   } else {
     return 'general';
   }
+}
+
+// NEW: Helper function to detect simple greetings
+function isSimpleGreeting(input: string): boolean {
+  const trimmedInput = input.trim().toLowerCase();
+  const simpleGreetings = [
+    'hi', 'hello', 'hey', 'hi there', 'hello there', 'hey there',
+    'greetings', 'good morning', 'good afternoon', 'good evening',
+    'howdy', 'yo', 'hiya', 'what\'s up', 'sup'
+  ];
+  
+  return simpleGreetings.some(greeting => 
+    trimmedInput === greeting || 
+    trimmedInput === greeting + '!' ||
+    trimmedInput === greeting + '.' ||
+    trimmedInput === greeting + '?'
+  );
 }

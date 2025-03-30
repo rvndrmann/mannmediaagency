@@ -1,100 +1,102 @@
 
+import { useState, useEffect, useRef } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { Button } from "@/components/ui/button";
+import { ChatInput } from "@/components/chat/ChatInput";
+import { ChatMessage } from "@/components/chat/ChatMessage";
+import { Skeleton } from "@/components/ui/skeleton";
 import { X } from "lucide-react";
-import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useChatSession } from "@/contexts/ChatSessionContext";
-import { useEffect, useState, useCallback, memo } from "react";
-import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { toast } from "sonner";
 
 interface CanvasChatProps {
   projectId?: string;
   onClose: () => void;
 }
 
-// Use memo to prevent unnecessary re-renders
-export const CanvasChat = memo(function CanvasChat({ projectId, onClose }: CanvasChatProps) {
-  const { getOrCreateChatSession, activeSession } = useChatSession();
-  const { setActiveProject } = useProjectContext();
-  const [sessionId, setSessionId] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
+  const { 
+    getOrCreateChatSession,
+    messages,
+    isLoading,
+    sendMessage,
+    status
+  } = useChatSession();
+  const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
   
-  // Set active project in project context to ensure shared state
   useEffect(() => {
     if (projectId) {
-      setActiveProject(projectId);
+      getOrCreateChatSession(projectId, 'canvas');
     }
-  }, [projectId, setActiveProject]);
-  
-  // Get or create chat session for this project - with improved error handling
-  useEffect(() => {
-    const initSession = async () => {
-      if (!projectId) {
-        setIsLoading(false);
-        return;
-      }
-      
-      try {
-        setIsLoading(true);
-        const id = getOrCreateChatSession(projectId, [
-          {
-            id: "welcome",
-            role: "system",
-            content: `Welcome to Canvas Assistant. I'm here to help with your video project #${projectId}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
-            createdAt: new Date().toISOString(),
-          }
-        ]);
-        setSessionId(id);
-      } catch (error) {
-        console.error("Error initializing chat session:", error);
-      } finally {
-        // Short delay to ensure smooth transition
-        setTimeout(() => {
-          setIsLoading(false);
-        }, 100);
-      }
-    };
-    
-    initSession();
   }, [projectId, getOrCreateChatSession]);
   
-  // Memoize the close handler to prevent unnecessary re-renders
-  const handleClose = useCallback(() => {
-    onClose();
-  }, [onClose]);
+  useEffect(() => {
+    if (scrollRef.current) {
+      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+    }
+  }, [messages]);
+  
+  const handleSendMessage = async (content: string) => {
+    if (!content.trim() || !projectId) return;
+    
+    try {
+      await sendMessage({
+        content,
+        context: {
+          projectId,
+          type: 'canvas'
+        }
+      });
+      setInput("");
+    } catch (error) {
+      console.error("Error sending message:", error);
+      toast.error("Failed to send message");
+    }
+  };
   
   return (
-    <div className="flex flex-col h-full overflow-hidden border-r">
-      <div className="p-2 border-b flex justify-between items-center bg-[#1A1F29]/90 backdrop-blur-sm">
-        <h3 className="font-medium text-sm text-white">Canvas Assistant</h3>
-        <Button 
-          variant="ghost" 
-          size="icon" 
-          onClick={handleClose} 
-          className="h-7 w-7 text-gray-300 hover:text-white"
-        >
+    <div className="flex flex-col h-full bg-background">
+      <div className="p-4 border-b flex justify-between items-center">
+        <h3 className="font-medium">Canvas Assistant</h3>
+        <Button variant="ghost" size="sm" onClick={onClose}>
           <X className="h-4 w-4" />
         </Button>
       </div>
       
-      <div className="flex-1 overflow-hidden">
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="w-6 h-6 border-2 border-t-blue-500 border-blue-200 rounded-full animate-spin"></div>
-          </div>
-        ) : sessionId ? (
-          <MultiAgentChat 
-            projectId={projectId} 
-            onBack={handleClose}
-            isEmbedded={true}
-            sessionId={sessionId}
-            compactMode={true}
-          />
-        ) : (
-          <div className="flex items-center justify-center h-full text-sm text-gray-400">
-            Could not initialize chat session.
-          </div>
-        )}
+      <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+        <div className="space-y-4">
+          {isLoading ? (
+            <div className="space-y-3">
+              <Skeleton className="h-12 w-full" />
+              <Skeleton className="h-20 w-full" />
+              <Skeleton className="h-16 w-full" />
+            </div>
+          ) : messages.length === 0 ? (
+            <div className="text-center text-muted-foreground p-4">
+              Start chatting with the Canvas Assistant to get help with your project.
+            </div>
+          ) : (
+            messages.map((message) => (
+              <ChatMessage key={message.id} message={message} />
+            ))
+          )}
+          
+          {status === 'loading' && (
+            <Skeleton className="h-10 w-3/4 mx-auto" />
+          )}
+        </div>
+      </ScrollArea>
+      
+      <div className="p-4 border-t">
+        <ChatInput
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onSubmit={handleSendMessage}
+          disabled={isLoading || status === 'loading' || !projectId}
+          placeholder="Ask for help with your Canvas project..."
+        />
       </div>
     </div>
   );
-});
+}

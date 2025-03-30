@@ -1,11 +1,14 @@
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Switch } from "@/components/ui/switch";
 import { useMCPContext } from "@/contexts/MCPContext";
-import { MessageSquare, Image, Video } from "lucide-react";
+import { MessageSquare, Image, Video, Zap, ZapOff } from "lucide-react";
 import { MCPConnectionStatus } from "./MCPConnectionStatus";
+import { Separator } from "@/components/ui/separator";
+import { McpToolButton } from "./McpToolButton";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 interface SceneControlsProps {
   sceneId: string;
@@ -26,43 +29,73 @@ export function SceneControls({
   onGenerateImage, 
   onGenerateVideo 
 }: SceneControlsProps) {
-  const { useMcp, setUseMcp } = useMCPContext();
+  const { useMcp, setUseMcp, mcpServers } = useMCPContext();
+  const [isConnected, setIsConnected] = useState(false);
+  
+  useEffect(() => {
+    setIsConnected(useMcp && mcpServers.length > 0 && mcpServers.some(server => server.isConnected()));
+  }, [useMcp, mcpServers]);
 
   return (
     <div className="space-y-6">
       <div className="flex justify-between items-center">
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-muted-foreground">Use MCP</span>
-          <Switch 
-            checked={useMcp} 
-            onCheckedChange={setUseMcp} 
-          />
-          {useMcp && (
-            <span className="text-xs text-green-400 ml-1">(Recommended)</span>
-          )}
-        </div>
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  checked={useMcp} 
+                  onCheckedChange={setUseMcp} 
+                  id="mcp-toggle"
+                />
+                <Label htmlFor="mcp-toggle" className="text-sm cursor-pointer">
+                  {useMcp ? (
+                    <span className="flex items-center gap-1.5">
+                      <Zap className="h-3.5 w-3.5 text-primary" />
+                      <span>MCP Enabled</span>
+                    </span>
+                  ) : (
+                    <span className="flex items-center gap-1.5">
+                      <ZapOff className="h-3.5 w-3.5 text-muted-foreground" />
+                      <span className="text-muted-foreground">MCP Disabled</span>
+                    </span>
+                  )}
+                </Label>
+              </div>
+            </TooltipTrigger>
+            <TooltipContent>
+              {useMcp 
+                ? "Using Model Context Protocol for enhanced AI features" 
+                : "Enable Model Context Protocol for enhanced AI features"}
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
         
-        <MCPConnectionStatus />
+        <MCPConnectionStatus showConnectionDetails />
       </div>
       
+      <Separator />
+      
       <div className="grid grid-cols-2 gap-4">
-        <Button
-          variant="outline"
-          disabled={!imagePrompt.trim() || isProcessing}
+        <McpToolButton
+          label="Generate Scene Image"
+          toolName="generate_scene_image"
+          icon={<Image className="h-4 w-4" />}
+          isProcessing={isProcessing && activeAgent === 'image'}
+          disabled={!imagePrompt.trim()}
           onClick={onGenerateImage}
-        >
-          <Image className="h-4 w-4 mr-2" />
-          {isProcessing && activeAgent === 'image' ? "Generating Image..." : "Generate Scene Image"}
-        </Button>
-        
-        <Button
           variant="outline"
-          disabled={!hasImage || isProcessing}
+        />
+        
+        <McpToolButton
+          label="Generate Scene Video"
+          toolName="create_scene_video"
+          icon={<Video className="h-4 w-4" />}
+          isProcessing={isProcessing && activeAgent === 'video'}
+          disabled={!hasImage}
           onClick={onGenerateVideo}
-        >
-          <Video className="h-4 w-4 mr-2" />
-          {isProcessing && activeAgent === 'video' ? "Generating Video..." : "Generate Scene Video"}
-        </Button>
+          variant="outline"
+        />
       </div>
       
       <div className="pt-4 border-t">

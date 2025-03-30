@@ -71,10 +71,14 @@ async function processAgentRequest(params: any) {
       inputLength: params.input?.length || 0,
       userId: params.userId,
       projectId: params.projectId,
+      sessionId: params.sessionId,
     });
     
+    // Validate agent type
+    const agentType = params.agentType || "main";
+    
     // Prepare system message based on agent type
-    const agentInstructions = getAgentInstructions(params.agentType);
+    const agentInstructions = getAgentInstructions(agentType);
     
     // Prepare messages for OpenAI
     const messages = [
@@ -101,13 +105,23 @@ async function processAgentRequest(params: any) {
       max_tokens: 1000,
     };
     
+    log("Calling OpenAI with parameters", { 
+      model: openAIParams.model,
+      agentType,
+      messageCount: messages.length,
+    });
+    
     const result = await callOpenAI(openAIParams);
+    
+    log("Received response from OpenAI", { 
+      choices: result.choices?.length || 0
+    });
     
     // Process and return the response
     return {
       success: true,
       response: result.choices[0].message.content,
-      agentType: params.agentType
+      agentType: agentType
     };
   } catch (error) {
     log("Error processing agent request", { error: error.message });
@@ -126,6 +140,10 @@ function getAgentInstructions(agentType: string): string {
       return "You are an image prompt generator specializing in creating detailed image prompts for AI image generation. Your prompts should be detailed and specific to generate high-quality images.";
     case "scene":
       return "You are a scene creator specializing in creating detailed scene descriptions for video content. When creating scene descriptions, focus on visual details that would be important for image generation.";
+    case "tool":
+      return "You are a tool assistant specializing in helping users with technical tasks and providing guidance on using various tools and applications.";
+    case "data":
+      return "You are a data agent specializing in helping users analyze and visualize data. You can suggest ways to interpret data and provide insights based on the information provided.";
     default:
       return "You are a helpful AI assistant. Your goal is to provide clear, accurate, and helpful responses to the user's questions.";
   }
@@ -147,8 +165,9 @@ serve(async (req) => {
     let reqBody;
     try {
       reqBody = await req.json();
-    } catch (error) {
-      return createErrorResponse(`Invalid JSON in request body: ${error.message}`, 400);
+      log("Request body structure:", Object.keys(reqBody).join(", "));
+    } catch (parseError) {
+      return createErrorResponse(`Invalid JSON in request body: ${parseError.message}`, 400);
     }
     
     // Basic validation

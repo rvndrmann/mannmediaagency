@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
 import { ProjectHistory } from "@/components/canvas/ProjectHistory";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
+import { supabase } from "@/integrations/supabase/client";
 
 export default function Canvas() {
   const { projectId } = useParams();
@@ -37,12 +38,47 @@ export default function Canvas() {
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
+  const [hasProjects, setHasProjects] = useState<boolean | null>(null);
+
+  // Check if user has any projects
+  useEffect(() => {
+    const checkForProjects = async () => {
+      try {
+        const { data: userData } = await supabase.auth.getUser();
+        if (!userData.user) {
+          setHasProjects(false);
+          return;
+        }
+        
+        const { data, error, count } = await supabase
+          .from("canvas_projects")
+          .select("id", { count: 'exact' })
+          .eq("user_id", userData.user.id)
+          .limit(1);
+          
+        if (error) throw error;
+        
+        setHasProjects(count ? count > 0 : false);
+      } catch (error) {
+        console.error("Error checking for projects:", error);
+        setHasProjects(false);
+      }
+    };
+    
+    if (hasProjects === null && !projectId) {
+      checkForProjects();
+    }
+  }, [projectId, hasProjects]);
 
   // Initialize chat session when project loads
   useEffect(() => {
     if (projectId && !chatInitialized) {
-      getOrCreateChatSession(projectId);
-      setChatInitialized(true);
+      try {
+        getOrCreateChatSession(projectId);
+        setChatInitialized(true);
+      } catch (error) {
+        console.error("Error initializing chat session:", error);
+      }
     }
   }, [projectId, getOrCreateChatSession, chatInitialized]);
 
@@ -107,6 +143,7 @@ export default function Canvas() {
       // Navigate to the new project if created
       if (newProjectId) {
         navigate(`/canvas/${newProjectId}`);
+        setHasProjects(true);
       }
     } catch (error) {
       console.error("Error creating new project:", error);
@@ -152,6 +189,15 @@ export default function Canvas() {
                 <Plus className="h-5 w-5" />
                 Create New Project
               </Button>
+              {hasProjects && (
+                <Button
+                  variant="outline"
+                  onClick={handleToggleHistory}
+                  className="mt-2"
+                >
+                  View Existing Projects
+                </Button>
+              )}
             </div>
           </div>
         ) : (

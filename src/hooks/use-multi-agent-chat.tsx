@@ -1,19 +1,25 @@
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Message } from "@/types/message";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-export type AgentType = "main" | "script" | "image" | "scene" | string;
+export type AgentType = "main" | "script" | "image" | "scene" | "tool" | "data" | string;
 
 export function useMultiAgentChat(projectId?: string) {
   const { messages, setMessages } = useChatSession();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentType>("main");
+  const processingRef = useRef(false);
+  
+  // Update the ref when state changes
+  useEffect(() => {
+    processingRef.current = isProcessing;
+  }, [isProcessing]);
   
   const sendMessage = useCallback(async (input: string) => {
-    if (!input.trim() || isProcessing) return;
+    if (!input.trim() || processingRef.current) return false;
     
     try {
       setIsProcessing(true);
@@ -47,7 +53,7 @@ export function useMultiAgentChat(projectId?: string) {
           input: input,
           projectId: projectId,
           agentType: selectedAgent,
-          userId: crypto.randomUUID(), // Ideally use actual user ID here from auth
+          userId: (await supabase.auth.getUser()).data?.user?.id || crypto.randomUUID(),
         }
       });
       
@@ -65,7 +71,12 @@ export function useMultiAgentChat(projectId?: string) {
           agentType: selectedAgent
         };
         
-        setMessages([...newMessages, errorMessage]);
+        setMessages((prevMessages) => {
+          // Find and replace the thinking message
+          return prevMessages.map(msg => 
+            msg.id === assistantThinkingMessage.id ? errorMessage : msg
+          );
+        });
       } else if (data) {
         // Replace the thinking message with the actual response
         const assistantMessage: Message = {
@@ -76,7 +87,12 @@ export function useMultiAgentChat(projectId?: string) {
           agentType: data.agentType || selectedAgent,
         };
         
-        setMessages([...newMessages, assistantMessage]);
+        setMessages((prevMessages) => {
+          // Find and replace the thinking message
+          return prevMessages.map(msg => 
+            msg.id === assistantThinkingMessage.id ? assistantMessage : msg
+          );
+        });
       }
       
       return true;
@@ -87,7 +103,7 @@ export function useMultiAgentChat(projectId?: string) {
     } finally {
       setIsProcessing(false);
     }
-  }, [messages, setMessages, isProcessing, selectedAgent, projectId]);
+  }, [messages, setMessages, selectedAgent, projectId]);
   
   return {
     messages,

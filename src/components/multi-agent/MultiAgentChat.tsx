@@ -1,5 +1,5 @@
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Card } from "@/components/ui/card";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessage } from "@/components/chat/ChatMessage";
@@ -9,7 +9,7 @@ import { useChatSession } from "@/contexts/ChatSessionContext";
 import { Message } from "@/types/message";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
-import { AgentSelector } from "./AgentSelector";
+import { AgentSelector } from "@/components/canvas/AgentSelector";
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -22,17 +22,27 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<string>("main");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const processingRef = useRef(false);
+  
+  // Update the ref when isProcessing changes
+  useEffect(() => {
+    processingRef.current = isProcessing;
+  }, [isProcessing]);
   
   useEffect(() => {
     // Scroll to bottom when messages update
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = scrollRef.current.scrollHeight;
+      scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
     }
   }, [messages]);
   
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleAgentChange = useCallback((agentType: string) => {
+    setSelectedAgent(agentType);
+  }, []);
+  
+  const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || isProcessing) return;
+    if (!input.trim() || processingRef.current) return;
     
     try {
       setIsProcessing(true);
@@ -45,8 +55,8 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         createdAt: new Date().toISOString(),
       };
       
-      const newMessages = [...messages, userMessage];
-      setMessages(newMessages);
+      // Add to messages
+      setMessages(prev => [...prev, userMessage]);
       
       // Show thinking indicator
       const assistantThinkingMessage: Message = {
@@ -58,7 +68,15 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         agentType: selectedAgent
       };
       
-      setMessages([...newMessages, assistantThinkingMessage]);
+      // Add thinking message
+      setMessages(prev => [...prev, assistantThinkingMessage]);
+      
+      console.log("Calling unified-agent with:", {
+        input,
+        projectId,
+        agentType: selectedAgent,
+        sessionId
+      });
       
       // Call the unified agent edge function
       const { data, error } = await supabase.functions.invoke('unified-agent', {
@@ -66,8 +84,8 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
           input: input,
           projectId: projectId,
           agentType: selectedAgent,
-          userId: crypto.randomUUID(), // Ideally use actual user ID here from auth
-          sessionId: sessionId || projectId,
+          userId: (await supabase.auth.getUser()).data?.user?.id || crypto.randomUUID(),
+          sessionId: sessionId
         }
       });
       
@@ -85,8 +103,12 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
           agentType: selectedAgent
         };
         
-        setMessages([...newMessages, errorMessage]);
+        setMessages(prev => 
+          prev.map(msg => msg.id === assistantThinkingMessage.id ? errorMessage : msg)
+        );
       } else if (data) {
+        console.log("Received response from unified-agent:", data);
+        
         // Replace the thinking message with the actual response
         const assistantMessage: Message = {
           id: assistantThinkingMessage.id,
@@ -96,7 +118,9 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
           agentType: data.agentType || selectedAgent,
         };
         
-        setMessages([...newMessages, assistantMessage]);
+        setMessages(prev => 
+          prev.map(msg => msg.id === assistantThinkingMessage.id ? assistantMessage : msg)
+        );
       }
       
       setInput("");
@@ -106,7 +130,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
     } finally {
       setIsProcessing(false);
     }
-  };
+  }, [input, selectedAgent, projectId, sessionId, setMessages]);
   
   return (
     <div className="flex flex-col h-screen bg-background">
@@ -115,13 +139,12 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
           <div className="p-4 border-b flex justify-between items-center">
             <h2 className="text-xl font-semibold">Multi-Agent Chat</h2>
             <AgentSelector 
-              selectedAgent={selectedAgent}
-              onSelectAgent={setSelectedAgent}
-              disabled={isProcessing}
+              defaultValue={selectedAgent}
+              onChange={handleAgentChange}
             />
           </div>
           
-          <ScrollArea className="flex-1 p-4" ref={scrollRef}>
+          <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
               {isLoading ? (
                 <div className="space-y-3">
@@ -138,6 +161,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
                   <ChatMessage key={message.id} message={message} />
                 ))
               )}
+              <div ref={scrollRef} />
             </div>
           </ScrollArea>
           

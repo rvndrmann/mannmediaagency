@@ -23,14 +23,18 @@ function MultiAgentChatContent() {
   // Initialize chat session if needed
   useEffect(() => {
     if (!chatSessionId) {
-      if (projectId) {
-        // Get or create a session for this project
-        const newSessionId = getOrCreateChatSession(projectId);
-        setChatSessionId(newSessionId);
-      } else {
-        // Create a new general chat session
-        const newSessionId = getOrCreateChatSession(null);
-        setChatSessionId(newSessionId);
+      try {
+        if (projectId) {
+          // Get or create a session for this project
+          const newSessionId = getOrCreateChatSession(projectId);
+          setChatSessionId(newSessionId);
+        } else {
+          // Create a new general chat session
+          const newSessionId = getOrCreateChatSession(null);
+          setChatSessionId(newSessionId);
+        }
+      } catch (error) {
+        console.error("Error initializing chat session:", error);
       }
     }
   }, [projectId, chatSessionId, getOrCreateChatSession]);

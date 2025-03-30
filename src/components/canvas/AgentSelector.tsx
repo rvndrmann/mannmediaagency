@@ -12,16 +12,18 @@ import {
   PenLine, 
   Image as ImageIcon, 
   Wrench, 
-  FileText, 
+  FileText,
+
   Database 
 } from "lucide-react";
+import { memo } from "react";
 
 interface AgentSelectorProps {
   onChange?: (value: string) => void;
   defaultValue?: string;
 }
 
-export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelectorProps) {
+export const AgentSelector = memo(({ onChange, defaultValue = "main" }: AgentSelectorProps) => {
   const handleValueChange = (value: string) => {
     if (onChange) {
       onChange(value);
@@ -78,4 +80,6 @@ export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelector
       </SelectContent>
     </Select>
   );
-}
+});
+
+AgentSelector.displayName = "AgentSelector";

@@ -1,54 +1,74 @@
 
-import { Attachment } from "@/types/message";
+import { Attachment, Message, MessageType } from "@/types/message";
+import { ToolContext, AgentConfig } from "../types";
+import { supabase } from "@/integrations/supabase/client";
 
-// Use string literal union type for agent types
-export type AgentType = "main" | "script" | "image" | "tool" | "scene" | "data" | "assistant";
+export type AgentType = "main" | "script" | "image" | "tool" | "scene" | string;
 
 export interface AgentResult {
-  response: string;
-  nextAgent?: AgentType;
+  response: string | null;
+  nextAgent: string | null;
   handoffReason?: string;
-  additionalContext?: any;
+  commandSuggestion?: any;
   structured_output?: any;
-}
-
-export interface RunnerContext {
-  userId: string;
-  runId: string;
-  groupId: string;
-  usePerformanceModel?: boolean;
-  enableDirectToolExecution?: boolean;
-  enableTracing?: boolean;
-  tracingDisabled?: boolean;
-  projectId?: string;
-  metadata?: {
-    instructions?: Record<string, string>;
-    conversationHistory?: any[];
-    [key: string]: any;
-  };
-  supabase?: any; // Add supabase client reference
-}
-
-export interface BaseAgent {
-  getType(): AgentType;
-  run(input: string, attachments?: Attachment[]): Promise<AgentResult>;
-  setStreamingHandler?(handler: (chunk: string) => void): void;
+  additionalContext?: Record<string, any>;
 }
 
 export interface AgentOptions {
   context: RunnerContext;
-  traceId: string;
-  streamingHandler?: (chunk: string) => void;
+  config?: AgentConfig;
+  traceId?: string;
+}
+
+export interface RunnerContext extends ToolContext {
+  supabase: typeof supabase;
+  groupId: string;
+  runId: string;
+  userId: string;
+  projectId?: string;
+  usePerformanceModel: boolean;
+  enableDirectToolExecution: boolean;
+  tracingDisabled: boolean;
+  metadata: {
+    conversationHistory?: Message[];
+    isHandoffContinuation?: boolean;
+    previousAgentType?: string | null;
+    handoffReason?: string;
+    handoffHistory?: Array<{ from: AgentType, to: AgentType, reason: string }>;
+    continuityData?: any;
+    [key: string]: any;
+  };
+  addMessage: (text: string, type: string, attachments?: Attachment[]) => void;
+  toolAvailable: (toolName: string) => boolean;
 }
 
 export interface RunnerCallbacks {
-  onMessage: (message: any) => void;
+  onMessage: (message: Message) => void;
   onError: (error: string) => void;
-  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
-  onHandoffEnd?: (toAgent: AgentType) => void;
-  onAgentThinking?: (agentType: AgentType) => void;
-  onToolExecution?: (toolName: string, params: any) => void;
-  onStreamingStart?: (message: any) => void;
-  onStreamingChunk?: (chunk: string) => void;
-  onStreamingEnd?: () => void;
+  onHandoffStart: (fromAgent: string, toAgent: string, reason: string) => void;
+  onHandoffEnd: (agentType: string) => void;
+  onToolExecution: (toolName: string, params: any) => void;
+}
+
+export interface BaseAgent {
+  name: string;
+  config: AgentConfig;
+  run(input: string, attachments: Attachment[]): Promise<AgentResult>;
+  clone(configOverrides: Partial<AgentConfig>): BaseAgent;
+  getType?(): AgentType;
+}
+
+export interface AgentHooks {
+  onAgentStart?: (agent: BaseAgent, input: string) => void | Promise<void>;
+  onAgentEnd?: (agent: BaseAgent, result: AgentResult) => void | Promise<void>;
+  onToolStart?: (agent: BaseAgent, toolName: string, params: any) => void | Promise<void>;
+  onToolEnd?: (agent: BaseAgent, toolName: string, result: any) => void | Promise<void>;
+  onHandoff?: (fromAgent: BaseAgent, toAgent: BaseAgent, reason: string) => void | Promise<void>;
+  onError?: (agent: BaseAgent, error: Error) => void | Promise<void>;
+}
+
+export interface AgentRegistry {
+  registerAgent(agent: BaseAgent): void;
+  getAgent(name: string): BaseAgent | undefined;
+  getAllAgents(): BaseAgent[];
 }

@@ -20,5 +20,5 @@ export const USE_ASSISTANTS_API: boolean = Deno.env.get("USE_ASSISTANTS_API") ==
 
 // MCP configuration
 export const USE_MCP: boolean = Deno.env.get("USE_MCP") === "true";
-export const MCP_SERVER_URL: string = Deno.env.get("MCP_SERVER_URL") || `${Deno.env.get("SUPABASE_URL")}/functions/v1/mcp-server`;
+export const MCP_SERVER_URL: string | undefined = Deno.env.get("MCP_SERVER_URL");
 export const MCP_SERVER_TOKEN: string | undefined = Deno.env.get("MCP_SERVER_TOKEN");

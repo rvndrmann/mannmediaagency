@@ -8,11 +8,10 @@ import {
   FileText,
   Layers,
   PlusCircle,
-  Trash2,
-  Loader2
+  Trash2
 } from "lucide-react";
 import { SceneCard } from "./SceneCard";
-import { useState, useCallback, memo } from "react";
+import { useState } from "react";
 import { 
   AlertDialog,
   AlertDialogAction,
@@ -23,21 +22,19 @@ import {
   AlertDialogHeader,
   AlertDialogTitle 
 } from "@/components/ui/alert-dialog";
-import { toast } from "sonner";
 
 interface ScenesListProps {
   scenes: CanvasScene[];
   selectedSceneId: string | null;
   onSelectScene: (id: string) => void;
-  onAddScene: () => Promise<void>;
+  onAddScene: () => Promise<string | undefined>;
   onDeleteScene: (id: string) => Promise<void>;
   onSwitchView: () => void;
   currentView: "scenes" | "script";
-  onCreateNewProject: () => Promise<string>;
+  onCreateNewProject: () => Promise<void>;
 }
 
-// Memoize the component to prevent unnecessary rerenders
-export const ScenesList = memo(function ScenesList({
+export function ScenesList({
   scenes,
   selectedSceneId,
   onSelectScene,
@@ -49,60 +46,25 @@ export const ScenesList = memo(function ScenesList({
 }: ScenesListProps) {
   const [sceneToDelete, setSceneToDelete] = useState<string | null>(null);
   const [isAddingScene, setIsAddingScene] = useState(false);
-  const [pendingOperations, setPendingOperations] = useState<Record<string, boolean>>({});
-  const [creatingProject, setCreatingProject] = useState(false);
   
-  // Handle adding a scene with immediate visual feedback
-  const handleAddScene = useCallback(async () => {
-    if (isAddingScene) return; // Prevent multiple clicks
-    
+  const handleAddScene = async () => {
     setIsAddingScene(true);
-    
     try {
-      await onAddScene();
-    } catch (err: any) {
-      console.error("Error adding scene:", err);
+      const newSceneId = await onAddScene();
+      if (newSceneId) {
+        onSelectScene(newSceneId);
+      }
     } finally {
       setIsAddingScene(false);
     }
-  }, [isAddingScene, onAddScene]);
+  };
   
-  // Optimized scene deletion
-  const confirmDeleteScene = useCallback(async () => {
-    if (!sceneToDelete) return;
-    
-    try {
-      // Close dialog immediately for better UX
-      const sceneId = sceneToDelete;
+  const confirmDeleteScene = async () => {
+    if (sceneToDelete) {
+      await onDeleteScene(sceneToDelete);
       setSceneToDelete(null);
-      
-      // Perform actual deletion
-      await onDeleteScene(sceneId);
-    } catch (error) {
-      console.error("Error deleting scene:", error);
     }
-  }, [sceneToDelete, onDeleteScene]);
-  
-  // Handle scene selection with no delay
-  const handleSelectScene = useCallback((id: string) => {
-    if (id === selectedSceneId) return;
-    onSelectScene(id);
-  }, [selectedSceneId, onSelectScene]);
-  
-  const handleCreateNewProject = useCallback(async () => {
-    if (creatingProject) return;
-    
-    setCreatingProject(true);
-    
-    try {
-      const newProjectId = await onCreateNewProject();
-      return newProjectId;
-    } catch (error) {
-      console.error("Error creating project:", error);
-    } finally {
-      setCreatingProject(false);
-    }
-  }, [creatingProject, onCreateNewProject]);
+  };
   
   return (
     <div className="w-72 border-r bg-background flex flex-col h-full">
@@ -112,20 +74,10 @@ export const ScenesList = memo(function ScenesList({
           <Button 
             variant="outline" 
             size="sm"
-            onClick={handleCreateNewProject}
-            disabled={creatingProject}
+            onClick={onCreateNewProject}
           >
-            {creatingProject ? (
-              <>
-                <Loader2 className="h-3 w-3 mr-1 animate-spin" />
-                Creating...
-              </>
-            ) : (
-              <>
-                <PlusCircle className="h-4 w-4 mr-1" />
-                New
-              </>
-            )}
+            <PlusCircle className="h-4 w-4 mr-1" />
+            New
           </Button>
         </div>
         <div className="flex space-x-1">
@@ -154,12 +106,11 @@ export const ScenesList = memo(function ScenesList({
         <div className="p-4 space-y-2">
           {scenes.map((scene) => (
             <SceneCard 
-              key={scene.id}
+              key={scene.id} 
               scene={scene} 
               isSelected={scene.id === selectedSceneId}
-              onSelect={() => handleSelectScene(scene.id)}
+              onSelect={() => onSelectScene(scene.id)}
               onDelete={() => setSceneToDelete(scene.id)}
-              isPending={pendingOperations[scene.id] || false}
             />
           ))}
           
@@ -169,17 +120,8 @@ export const ScenesList = memo(function ScenesList({
             onClick={handleAddScene}
             disabled={isAddingScene}
           >
-            {isAddingScene ? (
-              <>
-                <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                Adding...
-              </>
-            ) : (
-              <>
-                <Plus className="h-4 w-4 mr-2" />
-                Add Scene
-              </>
-            )}
+            <Plus className="h-4 w-4 mr-2" />
+            {isAddingScene ? "Adding..." : "Add Scene"}
           </Button>
         </div>
       </ScrollArea>
@@ -202,4 +144,4 @@ export const ScenesList = memo(function ScenesList({
       </AlertDialog>
     </div>
   );
-});
+}

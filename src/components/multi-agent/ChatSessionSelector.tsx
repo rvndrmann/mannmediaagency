@@ -25,9 +25,9 @@ export function ChatSessionSelector({
     createChatSession
   } = useChatSession();
 
-  // Sort sessions by updatedAt, most recent first
+  // Sort sessions by lastUpdated, most recent first
   const sortedSessions = [...chatSessions].sort((a, b) => 
-    new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime()
+    new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
   ).slice(0, maxDisplayed);
 
   // Handle creating a new chat
@@ -74,13 +74,13 @@ export function ChatSessionSelector({
                         value={session.id}
                         className="relative px-3 py-1 flex-shrink-0 max-w-[180px] truncate"
                       >
-                        {session.name}
+                        {session.title}
                       </TabsTrigger>
                     </TooltipTrigger>
                     <TooltipContent side="bottom">
-                      <p>{session.name}</p>
+                      <p>{session.title}</p>
                       <p className="text-xs text-muted-foreground">
-                        Last updated {formatDistanceToNow(new Date(session.updatedAt))} ago
+                        Last updated {formatDistanceToNow(new Date(session.lastUpdated))} ago
                       </p>
                       <p className="text-xs text-muted-foreground">
                         {session.messages.length} messages

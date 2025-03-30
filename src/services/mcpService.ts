@@ -1,135 +1,147 @@
 
-import { toast } from "sonner";
-import { MCPServer, MCPToolParameters, MCPToolResponse } from "@/types/mcp";
+import { MCPServer } from "@/types/mcp";
 
+// This is a simplified version of what MCP server integration would look like
+// In a real implementation, this would interact with actual MCP server endpoints
 export class MCPServerService implements MCPServer {
-  private connected = false;
-  private serverUrl = 'https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/mcp-server'; // Updated to use Supabase URL
-
-  constructor(serverUrl?: string) {
-    if (serverUrl) {
-      this.serverUrl = serverUrl;
-    }
+  private serverUrl: string;
+  private toolsCache: any[] | null = null;
+  
+  constructor(serverUrl: string) {
+    this.serverUrl = serverUrl;
   }
-
+  
   async connect(): Promise<void> {
-    try {
-      const response = await fetch(`${this.serverUrl}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ operation: 'ping' })
-      });
-      
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-      
-      const data = await response.json();
-      if (data.success) {
-        this.connected = true;
-        console.log('Connected to MCP server');
-      } else {
-        throw new Error(data.error || 'Server ping failed');
-      }
-    } catch (error) {
-      console.error('Failed to connect to MCP server:', error);
-      this.connected = false;
-      throw new Error(`Failed to connect to MCP server: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
+    // In a real implementation, this would establish a connection to the MCP server
+    console.log("Connecting to MCP server at", this.serverUrl);
   }
-
-  isConnected(): boolean {
-    return this.connected;
-  }
-
-  getServerUrl(): string {
-    return this.serverUrl;
-  }
-
+  
   async listTools(): Promise<any[]> {
-    if (!this.connected) {
-      try {
-        await this.connect();
-      } catch (error) {
-        return [];
-      }
+    if (this.toolsCache) {
+      return this.toolsCache;
     }
-
-    try {
-      const response = await fetch(`${this.serverUrl}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ operation: 'list_tools' })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
+    
+    // In a real implementation, this would fetch tools from the MCP server
+    const canvasTools = [
+      {
+        name: "update_scene_description",
+        description: "Updates the scene description based on the current image and script",
+        parameters: {
+          type: "object",
+          properties: {
+            sceneId: {
+              type: "string",
+              description: "The ID of the scene to update"
+            },
+            imageAnalysis: {
+              type: "boolean",
+              description: "Whether to analyze the existing image for the scene description"
+            }
+          },
+          required: ["sceneId"]
+        }
+      },
+      {
+        name: "update_image_prompt",
+        description: "Generates and updates an image prompt for the scene",
+        parameters: {
+          type: "object",
+          properties: {
+            sceneId: {
+              type: "string",
+              description: "The ID of the scene to update"
+            },
+            useDescription: {
+              type: "boolean",
+              description: "Whether to incorporate the scene description in the image prompt"
+            }
+          },
+          required: ["sceneId"]
+        }
+      },
+      {
+        name: "generate_scene_image",
+        description: "Generate an image for the scene using the image prompt",
+        parameters: {
+          type: "object",
+          properties: {
+            sceneId: {
+              type: "string",
+              description: "The ID of the scene to update"
+            },
+            productShotVersion: {
+              type: "string",
+              enum: ["v1", "v2"],
+              description: "Which product shot version to use"
+            }
+          },
+          required: ["sceneId"]
+        }
+      },
+      {
+        name: "create_scene_video",
+        description: "Convert the scene image to a video",
+        parameters: {
+          type: "object",
+          properties: {
+            sceneId: {
+              type: "string",
+              description: "The ID of the scene to update"
+            },
+            aspectRatio: {
+              type: "string",
+              enum: ["16:9", "9:16", "1:1"],
+              description: "The aspect ratio of the video"
+            }
+          },
+          required: ["sceneId"]
+        }
       }
-
-      const data = await response.json();
-      return data.success ? (data.tools || []) : [];
-    } catch (error) {
-      console.error("Error listing tools:", error);
-      return [];
-    }
+    ];
+    
+    this.toolsCache = canvasTools;
+    return canvasTools;
   }
-
-  async callTool(toolName: string, params: MCPToolParameters): Promise<MCPToolResponse> {
-    if (!this.connected) {
-      try {
-        await this.connect();
-      } catch (error) {
+  
+  async callTool(name: string, parameters: any): Promise<any> {
+    console.log(`Calling MCP tool ${name} with parameters:`, parameters);
+    
+    // In a real implementation, this would call the tool on the MCP server
+    // For now, we'll simulate a response
+    switch (name) {
+      case "update_scene_description":
         return {
-          success: false,
-          error: `Not connected to MCP server: ${error instanceof Error ? error.message : 'Unknown error'}`
+          success: true,
+          result: "Scene description updated successfully using AI analysis"
         };
-      }
-    }
-
-    try {
-      const response = await fetch(`${this.serverUrl}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          operation: 'call_tool',
-          toolName,
-          parameters: params
-        })
-      });
-
-      if (!response.ok) {
-        throw new Error(`Server responded with status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error(`Error calling MCP tool ${toolName}:`, error);
-      return {
-        success: false,
-        error: `Error calling tool ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`
-      };
+      case "update_image_prompt":
+        return {
+          success: true,
+          result: "Image prompt generated and updated successfully"
+        };
+      case "generate_scene_image":
+        return {
+          success: true,
+          result: "Scene image generated successfully using " + 
+                  (parameters.productShotVersion === "v1" ? "ProductShot V1" : "ProductShot V2")
+        };
+      case "create_scene_video":
+        return {
+          success: true,
+          result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
+        };
+      default:
+        throw new Error(`Unknown tool: ${name}`);
     }
   }
-
+  
   async cleanup(): Promise<void> {
-    // Any cleanup logic needed when disconnecting
-    this.connected = false;
-    console.log('Disconnected from MCP server');
+    // In a real implementation, this would clean up the MCP server connection
+    console.log("Cleaning up MCP server connection");
+    this.toolsCache = null;
   }
-
+  
   invalidateToolsCache(): void {
-    // Method to invalidate any cached tools data
-    console.log('Tool cache invalidated');
-  }
-
-  getName(): string {
-    return "Default MCP Server";
+    this.toolsCache = null;
   }
 }

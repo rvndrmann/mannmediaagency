@@ -3,12 +3,12 @@ import { useEffect, useState } from "react";
 import { useSearchParams, Link } from "react-router-dom";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
-import { ChatSessionProvider, useChatSession } from "@/contexts/ChatSessionContext";
+import { useChatSession } from "@/contexts/ChatSessionContext";
 import { Button } from "@/components/ui/button";
 import { BarChartBig } from "lucide-react";
+import { toast } from "sonner";
 
-// Separate component for the content to use the context hook safely
-function MultiAgentChatContent() {
+export default function MultiAgentChatPage() {
   const [searchParams] = useSearchParams();
   const projectId = searchParams.get('projectId');
   const sessionId = searchParams.get('sessionId');
@@ -20,11 +20,9 @@ function MultiAgentChatContent() {
     sessionId || null
   );
   
-  // Initialize chat session if needed - only run this once on mount
+  // Initialize chat session if needed
   useEffect(() => {
-    if (chatSessionId) return;
-    
-    try {
+    if (!chatSessionId) {
       if (projectId) {
         // Get or create a session for this project
         const newSessionId = getOrCreateChatSession(projectId);
@@ -34,32 +32,32 @@ function MultiAgentChatContent() {
         const newSessionId = getOrCreateChatSession(null);
         setChatSessionId(newSessionId);
       }
-    } catch (error) {
-      console.error("Error initializing chat session:", error);
     }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);  // Only run this on mount
+  }, [projectId, chatSessionId, getOrCreateChatSession]);
 
-  // Set page title and active project
   useEffect(() => {
     // Set page title based on project
     document.title = projectId 
       ? `Canvas Project #${projectId} - AI Collaboration` 
       : "Multi-Agent Chat | AI Collaboration";
       
-    // Ensure project is set in context only if we have a project ID
+    // Ensure project is set in context
     if (projectId) {
       setActiveProject(projectId);
     }
   }, [projectId, setActiveProject]);
   
+  const handleViewTraces = () => {
+    toast.success("Navigating to trace analytics");
+  };
+
   return (
     <>
       <div className="absolute top-4 right-4 z-50">
         <Button 
           variant="outline" 
           size="sm" 
-          className="flex items-center gap-1 text-xs bg-background/80 backdrop-blur-sm"
+          className="flex items-center gap-1 text-xs"
           asChild
         >
           <Link to="/trace-analytics">
@@ -74,14 +72,5 @@ function MultiAgentChatContent() {
         sessionId={chatSessionId || undefined}
       />
     </>
-  );
-}
-
-// Wrapper component that provides the ChatSessionContext
-export default function MultiAgentChatPage() {
-  return (
-    <ChatSessionProvider>
-      <MultiAgentChatContent />
-    </ChatSessionProvider>
   );
 }

@@ -4,26 +4,15 @@ import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
-import { BaseAgent } from "./AgentRegistry";
-import { AgentType, RunnerContext } from "./types";
+import { BaseAgentImpl } from "./agents/BaseAgentImpl";
+import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
+import { supabase } from "@/integrations/supabase/client";
 import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
-
-export interface RunnerCallbacks {
-  onMessage: (message: any) => void;
-  onError: (error: string) => void;
-  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
-  onHandoffEnd?: (toAgent: AgentType) => void;
-  onAgentThinking?: (agentType: AgentType) => void;
-  onToolExecution?: (toolName: string, params: any) => void;
-  onStreamingStart?: (message: any) => void;
-  onStreamingChunk?: (chunk: string) => void;
-  onStreamingEnd?: () => void;
-}
 
 export class AgentRunner {
   private context: RunnerContext;
-  private currentAgent: BaseAgent;
+  private currentAgent: BaseAgentImpl;
   private callbacks: RunnerCallbacks;
   private agentTurnCount: number = 0;
   private maxTurns: number = 7; // Increased max turns
@@ -32,7 +21,6 @@ export class AgentRunner {
   private traceStartTime: number = 0;
   private processedMessageIds: Set<string> = new Set(); // Track processed message IDs
   private traceId: string;
-  private streamingEnabled: boolean = true; // Enable streaming by default
 
   constructor(
     agentType: AgentType,
@@ -64,7 +52,7 @@ export class AgentRunner {
       try {
         const traceDetails = {
           trace_id: this.traceId,
-          project_id: this.context.projectId || 'default_project',
+          project_id: this.context.metadata?.projectId || 'default_project',
           user_id: this.context.userId || 'anonymous',
           metadata: {
             agent_type: this.currentAgent.getType(),
@@ -81,7 +69,7 @@ export class AgentRunner {
           conversation_id: this.context.groupId,
           initial_agent: this.currentAgent.getType(),
           application: 'multi-agent-chat',
-          project_id: this.context.projectId || null
+          project_id: this.context.metadata?.projectId || null
         });
         
         if (success) {
@@ -95,18 +83,12 @@ export class AgentRunner {
     }
   }
 
-  private createAgent(agentType: AgentType): BaseAgent {
+  private createAgent(agentType: AgentType): BaseAgentImpl {
     console.log(`Creating agent of type: ${agentType}`);
-    
-    // Configure streaming handler if streaming is enabled
-    const streamingHandler = this.streamingEnabled ? 
-      (chunk: string) => this.handleStreamingChunk(chunk) : 
-      undefined;
     
     const options = { 
       context: this.context,
-      traceId: this.traceId,
-      streamingHandler
+      traceId: this.traceId // Pass the traceId to agents
     };
     
     switch (agentType) {
@@ -123,35 +105,6 @@ export class AgentRunner {
       default:
         console.warn(`Unknown agent type: ${agentType}, falling back to main agent`);
         return new MainAgent(options);
-    }
-  }
-  
-  private handleStreamingChunk(chunk: string) {
-    if (!chunk || chunk.trim() === "") return;
-    
-    // Create or update the streaming message
-    const streamingMessageId = `streaming-${this.currentAgent.getType()}-${Date.now()}`;
-    
-    // Only create a new message if we haven't already
-    if (!this.processedMessageIds.has(streamingMessageId)) {
-      // Create a new streaming message
-      const streamingMessage: Message = {
-        id: streamingMessageId,
-        role: "assistant",
-        content: chunk,
-        createdAt: new Date().toISOString(),
-        agentType: this.currentAgent.getType(),
-        status: "thinking"
-      };
-      
-      // Add to processed IDs to prevent duplicates
-      this.processedMessageIds.add(streamingMessageId);
-      
-      // Notify of new streaming message
-      this.callbacks.onStreamingStart(streamingMessage);
-    } else {
-      // Update existing streaming message with new chunk
-      this.callbacks.onStreamingChunk(chunk);
     }
   }
 
@@ -273,7 +226,7 @@ export class AgentRunner {
     runId: string,
     traceMetadata: any
   ): Promise<void> {
-    if (!this.context.tracingDisabled) {
+    if (!this.context.tracingDisabled && this.context.supabase) {
       try {
         // Calculate total duration
         const duration = Date.now() - this.traceStartTime;
@@ -292,7 +245,32 @@ export class AgentRunner {
           success: traceMetadata.error ? false : true
         };
         
-        console.log("Saving trace data:", traceSummary);
+        // Save to database if user is authenticated
+        if (this.context.supabase && this.context.userId) {
+          await this.context.supabase.from('agent_interactions').insert({
+            user_id: this.context.userId,
+            agent_type,
+            user_message,
+            assistant_response: traceMetadata.response || "",
+            has_attachments: !!traceMetadata.attachments,
+            metadata: {
+              trace: {
+                runId,
+                traceId: this.traceId,
+                duration,
+                timestamp: new Date().toISOString(),
+                summary: {
+                  handoffs: this.handoffHistory.length,
+                  toolCalls: 0,
+                  messageCount: this.context.metadata.conversationHistory?.length || 0,
+                  modelUsed: this.context.usePerformanceModel ? "gpt-3.5-turbo" : "gpt-4o",
+                  success: traceMetadata.error ? false : true
+                },
+                events: traceMetadata.events || []
+              }
+            }
+          });
+        }
       } catch (error) {
         console.error("Error saving trace data:", error);
       }
@@ -312,11 +290,6 @@ export class AgentRunner {
           max_turns: this.maxTurns
         });
         
-        // Notify that an agent is thinking
-        if (this.callbacks.onAgentThinking) {
-          this.callbacks.onAgentThinking(this.currentAgent.getType());
-        }
-        
         // Execute the current agent
         const agentResult = await this.currentAgent.run(input, attachments);
         
@@ -327,11 +300,6 @@ export class AgentRunner {
           has_response: !!agentResult.response,
           has_handoff: !!agentResult.nextAgent
         });
-        
-        // Finish streaming if it was active
-        if (this.callbacks.onStreamingEnd) {
-          this.callbacks.onStreamingEnd();
-        }
         
         // Create assistant message
         const assistantMessage: Message = {
@@ -423,10 +391,8 @@ export class AgentRunner {
           
           // Enhanced: Add the continuity data to the context
           const continuityData: ContinuityData = {
-            previousContextId: this.traceId,
-            continuityMarkers: [fromAgent, toAgent],
-            fromAgent: fromAgent,
-            toAgent: toAgent,
+            fromAgent,
+            toAgent,
             reason: handoffReason,
             timestamp: new Date().toISOString(),
             preserveHistory: true,
@@ -519,12 +485,5 @@ export class AgentRunner {
     }
     
     throw new Error(`Maximum number of agent turns (${this.maxTurns}) exceeded`);
-  }
-  
-  // Public method to enable/disable streaming responses
-  public setStreamingEnabled(enabled: boolean): void {
-    this.streamingEnabled = enabled;
-    // Recreate the agent to update the streaming handler
-    this.currentAgent = this.createAgent(this.currentAgent.getType());
   }
 }

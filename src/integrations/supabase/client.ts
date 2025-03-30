@@ -18,6 +18,3 @@ export const supabase = createClient<Database>(
     }
   }
 );
-
-// Add the functions base URL for reference
-const functionsUrl = `${SUPABASE_URL}/functions/v1`;

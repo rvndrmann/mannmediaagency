@@ -1,19 +1,12 @@
-
-import { AgentType, AgentOptions } from "./types";
+import { BaseAgent } from "./types";
+import { AgentType } from "./types";
+import { AgentOptions } from "./types";
 import { AssistantAgent } from "./agents/AssistantAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
-import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
+import { SceneGeneratorAgent } from "./agents/SceneGeneratorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { DataAgent } from "./agents/DataAgent";
-import { MainAgent } from "./agents/MainAgent";
-
-// Define the BaseAgent interface in this file to resolve the type errors
-export interface BaseAgent {
-  getType(): AgentType;
-  run(input: string, attachments?: any[]): Promise<any>;
-  setStreamingHandler?(handler: (chunk: string) => void): void;
-}
 
 class AgentRegistryImpl {
   private static instance: AgentRegistryImpl;
@@ -21,13 +14,12 @@ class AgentRegistryImpl {
   
   private constructor() {
     // Register default agent classes
-    this.registerAgentClass('main', MainAgent as unknown as new (options: AgentOptions) => BaseAgent);
+    this.registerAgentClass('main', AssistantAgent as unknown as new (options: AgentOptions) => BaseAgent);
     this.registerAgentClass('script', ScriptWriterAgent as unknown as new (options: AgentOptions) => BaseAgent);
     this.registerAgentClass('image', ImageGeneratorAgent as unknown as new (options: AgentOptions) => BaseAgent);
-    this.registerAgentClass('scene', SceneCreatorAgent as unknown as new (options: AgentOptions) => BaseAgent);
+    this.registerAgentClass('scene', SceneGeneratorAgent as unknown as new (options: AgentOptions) => BaseAgent);
     this.registerAgentClass('tool', ToolAgent as unknown as new (options: AgentOptions) => BaseAgent);
     this.registerAgentClass('data', DataAgent as unknown as new (options: AgentOptions) => BaseAgent);
-    this.registerAgentClass('assistant', AssistantAgent as unknown as new (options: AgentOptions) => BaseAgent);
   }
   
   public static getInstance(): AgentRegistryImpl {

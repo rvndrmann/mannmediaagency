@@ -29,7 +29,6 @@ export const parseToolCall = (text: string): Command | null => {
     }
     
     return {
-      tool: toolName,
       name: toolName,
       parameters
     };
@@ -54,10 +53,8 @@ export const parseJsonToolCall = (text: string): Command | null => {
     if (!data.name) return null;
     
     return {
-      tool: data.name,
       name: data.name,
-      parameters: data.parameters || {},
-      args: data.parameters || {}
+      parameters: data.parameters || {}
     };
   } catch (error) {
     console.error('Error parsing JSON tool call:', error);

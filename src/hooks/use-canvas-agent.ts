@@ -1,21 +1,18 @@
 
-import { useState, useCallback, useEffect, useRef } from "react";
-import { Message } from "@/types/multi-agent";
-import { SceneUpdateType } from "@/types/canvas";
+import { useState, useCallback, useEffect } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { Message } from "@/types/message";
+import { CanvasProject, SceneUpdateType } from "@/types/canvas";
 import { toast } from "sonner";
-import { CanvasAgentService, CanvasAgentType } from "@/services/CanvasAgentService";
+import { MCPServerService } from "@/services/mcpService";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+
+type CanvasAgentType = "scene" | "image" | "video" | null;
 
 interface UseCanvasAgentProps {
   projectId: string;
   sceneId: string;
   updateScene: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
-}
-
-interface AgentResult {
-  success: boolean;
-  generatedContent?: string;
-  error?: string;
 }
 
 export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAgentProps) {
@@ -30,10 +27,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<CanvasAgentType>(null);
   const [useMcp, setUseMcp] = useState(true); // Default to true - MCP enabled by default
-  const [mcpConnectionError, setMcpConnectionError] = useState<string | null>(null);
-  
-  // Use ref to maintain service instance across renders
-  const agentServiceRef = useRef<CanvasAgentService | null>(null);
+  const [mcpServer, setMcpServer] = useState<MCPServerService | null>(null);
 
   // Get or create a chat session for this project
   useEffect(() => {
@@ -55,49 +49,35 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     }
   }, [messages, chatSessionId, updateChatSession]);
 
-  // Initialize agent service
+  // Initialize MCP server if useMcp is true (which is now the default)
   useEffect(() => {
-    if (!agentServiceRef.current) {
-      agentServiceRef.current = new CanvasAgentService(projectId, sceneId);
-    }
-
-    // Connect to MCP if enabled
-    if (useMcp) {
-      setMcpConnectionError(null);
-      
-      agentServiceRef.current.connectMcp()
-        .then(success => {
-          if (!success) {
-            setMcpConnectionError("Failed to connect to MCP server");
-            toast.error("Failed to connect to MCP server");
-          }
-        })
-        .catch(error => {
-          console.error("Failed to connect to MCP server:", error);
-          setMcpConnectionError(error instanceof Error ? error.message : 'Unknown error');
-          toast.error(`Failed to connect to MCP server: ${error instanceof Error ? error.message : 'Unknown error'}`);
-        });
+    if (useMcp && !mcpServer) {
+      const server = new MCPServerService(`https://api.example.com/mcp/${projectId}`);
+      server.connect().then(() => {
+        setMcpServer(server);
+      }).catch(error => {
+        console.error("Failed to connect to MCP server:", error);
+        toast.error("Failed to connect to MCP server");
+      });
     }
 
     return () => {
-      // Clean up agent service on unmount
-      if (agentServiceRef.current) {
-        agentServiceRef.current.cleanup()
-          .catch(error => console.error("Error cleaning up agent service:", error));
-        agentServiceRef.current = null;
+      // Clean up MCP server on unmount
+      if (mcpServer) {
+        mcpServer.cleanup().catch(console.error);
       }
     };
-  }, [useMcp, projectId, sceneId]);
+  }, [useMcp, projectId, mcpServer]);
 
   // Process agent request (common function for all agent types)
   const processAgentRequest = useCallback(async (
     type: CanvasAgentType,
     prompt: string,
     updateType: SceneUpdateType
-  ): Promise<AgentResult> => {
-    if (isProcessing || !agentServiceRef.current) {
-      toast.error(isProcessing ? "Already processing a request" : "Agent service not initialized");
-      return { success: false, error: isProcessing ? "Already processing a request" : "Agent service not initialized" };
+  ) => {
+    if (isProcessing) {
+      toast.error("Already processing a request");
+      return;
     }
 
     setIsProcessing(true);
@@ -112,37 +92,81 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     };
     
     setMessages(prev => [...prev, userMessage]);
-    
+
     try {
-      // Process the request using the agent service
-      const result = await agentServiceRef.current.processAgentRequest(type, prompt, updateType);
-      
-      // Add assistant message to the conversation
-      const assistantMessage: Message = {
-        id: crypto.randomUUID(),
-        role: "assistant",
-        content: result.success 
-          ? result.generatedContent || "Successfully processed request" 
-          : result.error || "Failed to process request",
-        createdAt: new Date().toISOString(),
-        agentType: type,
-        status: result.success ? undefined : "error"
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      if (result.success) {
-        if (result.generatedContent) {
-          await updateScene(sceneId, updateType, result.generatedContent);
-          toast.success(`Scene ${updateType} updated successfully`);
+      if (useMcp && mcpServer) {
+        // Use MCP to process the request
+        const toolName = updateType === 'description' 
+          ? 'update_scene_description' 
+          : updateType === 'imagePrompt' 
+            ? 'update_image_prompt' 
+            : updateType === 'image' 
+              ? 'generate_scene_image' 
+              : 'create_scene_video';
+              
+        const result = await mcpServer.callTool(toolName, {
+          sceneId,
+          imageAnalysis: updateType === 'description',
+          useDescription: updateType === 'imagePrompt',
+          productShotVersion: updateType === 'image' ? "v2" : undefined,
+          aspectRatio: updateType === 'video' ? "16:9" : undefined
+        });
+        
+        // Add assistant message to the conversation
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: result.success ? result.result : result.error || "Failed to process request",
+          createdAt: new Date().toISOString(),
+          agentType: type
+        };
+        
+        setMessages(prev => [...prev, assistantMessage]);
+        
+        if (result.success) {
+          toast.success(result.result);
+        } else {
+          throw new Error(result.error || "Failed to process request with MCP");
         }
       } else {
-        toast.error(`Failed to process ${type} agent request: ${result.error}`);
+        // Legacy implementation (without MCP)
+        const { data, error } = await supabase.functions.invoke(
+          type === 'image' ? 'generate-image-prompts' : 'canvas-scene-agent',
+          {
+            body: {
+              sceneId,
+              prompt,
+              type: updateType,
+              projectId
+            }
+          }
+        );
+
+        if (error) {
+          throw error;
+        }
+        
+        // Add assistant message to the conversation
+        const assistantMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "assistant",
+          content: data?.content || data?.imagePrompt || 'Successfully processed request',
+          createdAt: new Date().toISOString(),
+          agentType: type
+        };
+        
+        setMessages(prev => [...prev, assistantMessage]);
+
+        if (data && data.success) {
+          const updatedContent = data.content || data.imagePrompt || '';
+          await updateScene(sceneId, updateType, updatedContent);
+          toast.success(`Scene ${updateType} updated successfully`);
+        } else {
+          throw new Error(data?.error || "Failed to process request");
+        }
       }
-      
-      return result;
     } catch (error) {
-      console.error(`Error in processAgentRequest:`, error);
+      console.error(`Error processing ${type} agent request:`, error);
       
       // Add error message to conversation
       const errorMessage: Message = {
@@ -156,17 +180,12 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
       
       setMessages(prev => [...prev, errorMessage]);
       
-      toast.error(`Failed to process request: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      
-      return { 
-        success: false, 
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      toast.error(`Failed to process ${type} agent request: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsProcessing(false);
       setActiveAgent(null);
     }
-  }, [isProcessing, sceneId, updateScene]);
+  }, [isProcessing, useMcp, mcpServer, sceneId, updateScene, projectId]);
 
   // Generate scene script
   const generateSceneScript = useCallback(async (sceneId: string, context: string) => {
@@ -193,29 +212,6 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     return processAgentRequest('video', context, 'video');
   }, [processAgentRequest]);
 
-  // Handle MCP connection error retry
-  const retryMcpConnection = useCallback(async () => {
-    if (!useMcp || !agentServiceRef.current) return;
-    
-    setMcpConnectionError(null);
-    
-    try {
-      await agentServiceRef.current.cleanup();
-      const success = await agentServiceRef.current.connectMcp();
-      
-      if (success) {
-        toast.success("Successfully reconnected to MCP server");
-      } else {
-        setMcpConnectionError("Failed to connect to MCP server");
-        toast.error("Failed to connect to MCP server");
-      }
-    } catch (error) {
-      console.error("Failed to connect to MCP server:", error);
-      setMcpConnectionError(error instanceof Error ? error.message : 'Unknown error');
-      toast.error(`Failed to connect to MCP server: ${error instanceof Error ? error.message : 'Unknown error'}`);
-    }
-  }, [useMcp]);
-
   return {
     messages,
     setMessages,
@@ -223,14 +219,12 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     activeAgent,
     useMcp,
     setUseMcp,
-    mcpConnectionError,
     generateSceneScript,
     generateSceneDescription,
     generateImagePrompt,
     generateSceneImage,
     generateSceneVideo,
     processAgentRequest,
-    chatSessionId,
-    retryMcpConnection
+    chatSessionId
   };
 }

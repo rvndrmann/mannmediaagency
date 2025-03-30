@@ -1,5 +1,44 @@
 
 project_id = "avdwgvjhufslhqrrmxgo"
-[functions.agent-sdk]
+[functions.chat-with-langflow]
 verify_jwt = false
-
+[functions.initiate-payu-payment]
+verify_jwt = true
+[functions.handle-payu-webhook-v2]
+verify_jwt = false
+[functions.verify-payu-payment]
+verify_jwt = true
+[functions.instagram-auth]
+verify_jwt = true
+[functions.generate-product-image]
+verify_jwt = true
+[functions.generate-product-metadata]
+verify_jwt = true
+[functions.upload-showcase-video]
+verify_jwt = true
+[functions.generate-video-metadata]
+verify_jwt = true
+[functions.generate-video-from-image]
+verify_jwt = true
+[functions.check-video-status]
+verify_jwt = true
+[functions.fetch-video-result]
+verify_jwt = true
+[functions.generate-product-shot]
+verify_jwt = false
+[functions.check-generation-status]
+verify_jwt = false
+[functions.manus-computer-agent]
+verify_jwt = true
+[functions.browser-automation]
+verify_jwt = true
+[functions.browser-automation-ws]
+verify_jwt = true
+[functions.browser-use-api]
+verify_jwt = true
+[functions.capture-website]
+verify_jwt = true
+[functions.browser-tasks-scheduler]
+verify_jwt = false
+[functions.browser-tasks-scheduler-cron]
+verify_jwt = false

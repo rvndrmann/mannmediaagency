@@ -10,55 +10,30 @@ export const useCanvas = (projectId?: string) => {
   const [scenes, setScenes] = useState<CanvasScene[]>([]);
   const [selectedSceneId, setSelectedSceneId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
-  const [sceneLoading, setSceneLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
+  // Fetch project and scenes
   const fetchProjectAndScenes = useCallback(async () => {
     if (!projectId) {
-      setProject(null);
-      setScenes([]);
-      setSelectedSceneId(null);
       setLoading(false);
-      setError(null);
       return;
     }
 
     try {
       setLoading(true);
-      setError(null);
       
-      // Check if user is authenticated
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      if (authError) {
-        throw new Error("Authentication error: Please log in again");
-      }
-      
-      if (!authData.user) {
-        throw new Error("You must be logged in to access projects");
-      }
-      
-      // Fetch project data
+      // Fetch project details
       const { data: projectData, error: projectError } = await supabase
         .from("canvas_projects")
         .select("*")
         .eq("id", projectId)
-        .maybeSingle();
+        .single();
 
       if (projectError) {
         throw projectError;
       }
-      
-      if (!projectData) {
-        throw new Error(`Project with ID ${projectId} not found`);
-      }
 
-      // Verify project ownership
-      if (projectData.user_id !== authData.user.id) {
-        throw new Error("You don't have permission to access this project");
-      }
-
-      // Fetch scenes for the project
+      // Fetch scenes for this project
       const { data: scenesData, error: scenesError } = await supabase
         .from("canvas_scenes")
         .select("*")
@@ -69,6 +44,7 @@ export const useCanvas = (projectId?: string) => {
         throw scenesError;
       }
 
+      // Transform data to match our interfaces
       const transformedProject: CanvasProject = {
         id: projectData.id,
         title: projectData.title,
@@ -80,7 +56,7 @@ export const useCanvas = (projectId?: string) => {
         updatedAt: projectData.updated_at
       };
 
-      const transformedScenes: CanvasScene[] = (scenesData || []).map(scene => ({
+      const transformedScenes: CanvasScene[] = scenesData.map(scene => ({
         id: scene.id,
         title: scene.title,
         script: scene.script || "",
@@ -101,19 +77,14 @@ export const useCanvas = (projectId?: string) => {
 
       setProject(transformedProject);
       setScenes(transformedScenes);
-      setLastFetchTime(Date.now());
       
+      // Select the first scene if there are any and none is currently selected
       if (transformedScenes.length > 0 && !selectedSceneId) {
         setSelectedSceneId(transformedScenes[0].id);
       }
     } catch (err: any) {
       console.error("Error fetching project data:", err);
       setError(err.message || "Failed to load project");
-      toast.error(err.message || "Failed to load project");
-      
-      // Reset state on error
-      setProject(null);
-      setScenes([]);
     } finally {
       setLoading(false);
     }
@@ -123,6 +94,7 @@ export const useCanvas = (projectId?: string) => {
     fetchProjectAndScenes();
   }, [fetchProjectAndScenes]);
 
+  // Create a new project
   const createProject = async (title: string, description?: string): Promise<string> => {
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -145,7 +117,7 @@ export const useCanvas = (projectId?: string) => {
         throw error;
       }
 
-      // Create first scene
+      // Create an initial scene
       const { error: sceneError } = await supabase
         .from("canvas_scenes")
         .insert({
@@ -158,7 +130,7 @@ export const useCanvas = (projectId?: string) => {
         throw sceneError;
       }
 
-      // No need to fetch projects here, as the component will navigate and trigger a fetch
+      await fetchProjectAndScenes();
       return data.id;
     } catch (err: any) {
       console.error("Error creating project:", err);
@@ -166,6 +138,7 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Add a new scene
   const addScene = async () => {
     if (!project) return;
 
@@ -173,28 +146,6 @@ export const useCanvas = (projectId?: string) => {
       const newSceneId = uuidv4();
       const newSceneOrder = scenes.length + 1;
 
-      const newScene: CanvasScene = {
-        id: newSceneId,
-        title: `Scene ${newSceneOrder}`,
-        script: "",
-        imagePrompt: "",
-        description: "",
-        imageUrl: "",
-        videoUrl: "",
-        productImageUrl: "",
-        voiceOverUrl: "",
-        backgroundMusicUrl: "",
-        voiceOverText: "",
-        order: newSceneOrder,
-        projectId: project.id,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        duration: null
-      };
-      
-      setScenes(prev => [...prev, newScene]);
-      setSelectedSceneId(newSceneId);
-      
       const { error } = await supabase
         .from("canvas_scenes")
         .insert({
@@ -205,33 +156,23 @@ export const useCanvas = (projectId?: string) => {
         });
 
       if (error) {
-        setScenes(prev => prev.filter(scene => scene.id !== newSceneId));
         throw error;
       }
 
+      await fetchProjectAndScenes();
+      setSelectedSceneId(newSceneId);
       toast.success("New scene added");
-      return newSceneId;
     } catch (err: any) {
       console.error("Error adding scene:", err);
       toast.error(err.message || "Failed to add scene");
-      return null;
     }
   };
 
+  // Delete a scene
   const deleteScene = async (sceneId: string) => {
     if (!project) return;
 
     try {
-      const sceneToDelete = scenes.find(s => s.id === sceneId);
-      const remainingScenes = scenes.filter(s => s.id !== sceneId);
-      
-      setScenes(remainingScenes);
-      
-      if (selectedSceneId === sceneId) {
-        const otherScene = remainingScenes[0];
-        setSelectedSceneId(otherScene?.id || null);
-      }
-
       const { error } = await supabase
         .from("canvas_scenes")
         .delete()
@@ -239,36 +180,31 @@ export const useCanvas = (projectId?: string) => {
         .eq("project_id", project.id);
 
       if (error) {
-        if (sceneToDelete) {
-          setScenes(prev => [...prev, sceneToDelete]);
-        }
         throw error;
       }
 
+      // If the deleted scene was selected, select another scene
+      if (selectedSceneId === sceneId) {
+        const otherScene = scenes.find(s => s.id !== sceneId);
+        setSelectedSceneId(otherScene?.id || null);
+      }
+
+      await fetchProjectAndScenes();
       toast.success("Scene deleted");
     } catch (err: any) {
       console.error("Error deleting scene:", err);
       toast.error(err.message || "Failed to delete scene");
-      await fetchProjectAndScenes();
     }
   };
 
-  const setSceneId = (sceneId: string | null) => {
-    if (sceneId !== selectedSceneId) {
-      setSceneLoading(true);
-      setSelectedSceneId(sceneId);
-      requestAnimationFrame(() => {
-        setSceneLoading(false);
-      });
-    }
-  };
-
+  // Update a scene
   const updateScene = async (sceneId: string, type: SceneUpdateType, value: string) => {
     if (!project) return;
 
     try {
       const updateData: Record<string, any> = {};
       
+      // Convert camelCase to snake_case for database fields
       const dbFieldMap: Record<string, string> = {
         script: 'script',
         imagePrompt: 'image_prompt',
@@ -293,6 +229,7 @@ export const useCanvas = (projectId?: string) => {
         throw error;
       }
 
+      // Update local state to reflect the change
       setScenes(prev => 
         prev.map(scene => 
           scene.id === sceneId 
@@ -307,6 +244,7 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Save full script
   const saveFullScript = async (script: string) => {
     if (!project) return;
 
@@ -320,6 +258,7 @@ export const useCanvas = (projectId?: string) => {
         throw error;
       }
 
+      // Update local state
       setProject(prev => prev ? { ...prev, fullScript: script } : null);
       toast.success("Script saved");
     } catch (err: any) {
@@ -328,10 +267,12 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Divide script into scenes
   const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
     if (!project) return;
     
     try {
+      // Create an array of update promises to execute in parallel
       const updatePromises = sceneScripts.map(({ id, content, voiceOverText }) => {
         return supabase
           .from("canvas_scenes")
@@ -343,8 +284,10 @@ export const useCanvas = (projectId?: string) => {
           .eq("project_id", project.id);
       });
       
+      // Execute all updates in parallel
       await Promise.all(updatePromises);
       
+      // Refresh the scenes to show the updated content
       await fetchProjectAndScenes();
       
       toast.success("Script divided into scenes successfully");
@@ -354,7 +297,8 @@ export const useCanvas = (projectId?: string) => {
       throw err;
     }
   };
-
+  
+  // Update project title
   const updateProjectTitle = async (title: string) => {
     if (!project) return;
     
@@ -368,6 +312,7 @@ export const useCanvas = (projectId?: string) => {
         throw error;
       }
       
+      // Update local state
       setProject(prev => prev ? { ...prev, title } : null);
       toast.success("Project title updated");
     } catch (err: any) {
@@ -376,8 +321,10 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  // Find selected scene
   const selectedScene = scenes.find(scene => scene.id === selectedSceneId) || null;
 
+  // Add project to scenes
   if (project) {
     project.scenes = scenes;
   }
@@ -387,9 +334,8 @@ export const useCanvas = (projectId?: string) => {
     scenes,
     selectedScene,
     selectedSceneId,
-    setSelectedSceneId: setSceneId,
+    setSelectedSceneId,
     loading,
-    sceneLoading,
     error,
     createProject,
     addScene,
@@ -397,8 +343,6 @@ export const useCanvas = (projectId?: string) => {
     updateScene,
     divideScriptToScenes,
     saveFullScript,
-    updateProjectTitle,
-    fetchProjectAndScenes,
-    lastFetchTime
+    updateProjectTitle
   };
 };

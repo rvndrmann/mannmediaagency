@@ -10,6 +10,7 @@ import { Message } from "@/types/message";
 import { AgentSelector } from "@/components/multi-agent/AgentSelector";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ProjectSelector } from "@/components/multi-agent/ProjectSelector";
+import { toast } from "sonner";
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -19,15 +20,31 @@ interface MultiAgentChatProps {
 export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
   const { messages, isLoading } = useChatSession();
   const [input, setInput] = useState("");
-  const [localProjectId, setLocalProjectId] = useState(projectId);
+  const [localProjectId, setLocalProjectId] = useState<string | undefined>(projectId);
   const scrollRef = useRef<HTMLDivElement>(null);
+  
+  const handleError = useCallback((error: Error) => {
+    toast.error(`Error: ${error.message}`);
+    console.error("Chat error:", error);
+  }, []);
   
   const {
     isProcessing,
     selectedAgent,
     setSelectedAgent,
-    sendMessage
-  } = useMultiAgentChat(localProjectId);
+    sendMessage,
+    error
+  } = useMultiAgentChat({
+    projectId: localProjectId,
+    onError: handleError
+  });
+  
+  // Show error toast when error state changes
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+    }
+  }, [error]);
   
   // Scroll to bottom when messages update
   useEffect(() => {
@@ -63,22 +80,24 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
   return (
     <div className="flex flex-col h-screen bg-background">
       <div className="flex-1 container py-4 max-w-4xl mx-auto">
-        <Card className="w-full h-full flex flex-col overflow-hidden">
+        <Card className="w-full h-full flex flex-col overflow-hidden border rounded-lg shadow-md">
           <div className="p-4 border-b">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-xl font-semibold">Multi-Agent Chat</h2>
+              <h2 className="text-xl font-semibold text-foreground">Multi-Agent Chat</h2>
               <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
-                <div className="w-full md:w-[180px]">
+                <div className="w-full md:w-[220px]">
                   <ProjectSelector 
                     selectedProjectId={localProjectId} 
                     onProjectSelect={handleProjectSelect}
                   />
                 </div>
-                <AgentSelector 
-                  selectedAgent={selectedAgent}
-                  onSelectAgent={handleAgentChange}
-                  disabled={isProcessing}
-                />
+                <div className="w-full md:w-[180px]">
+                  <AgentSelector 
+                    selectedAgent={selectedAgent}
+                    onSelectAgent={handleAgentChange}
+                    disabled={isProcessing}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -93,9 +112,9 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
                 </div>
               ) : messages.length === 0 ? (
                 <div className="text-center text-muted-foreground p-4">
-                  Start chatting with an AI agent to get help with your project.
+                  <p className="mb-2">Start chatting with an AI agent to get help with your project.</p>
                   {localProjectId && (
-                    <p className="mt-2 text-sm">
+                    <p className="text-sm">
                       You are working with Project ID: {localProjectId}
                     </p>
                   )}

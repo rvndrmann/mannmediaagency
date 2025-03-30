@@ -7,19 +7,38 @@ import { toast } from "sonner";
 
 export type AgentType = "main" | "script" | "image" | "scene" | "tool" | "data" | string;
 
-export function useMultiAgentChat(projectId?: string) {
+export interface MultiAgentChatOptions {
+  projectId?: string;
+  onError?: (error: Error) => void;
+}
+
+export function useMultiAgentChat(options: MultiAgentChatOptions = {}) {
+  const { projectId, onError } = options;
   const { messages, setMessages } = useChatSession();
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedAgent, setSelectedAgent] = useState<AgentType>("main");
+  const [error, setError] = useState<string | null>(null);
   const processingRef = useRef(false);
+  const messageHistoryRef = useRef<Array<{role: string, content: string}>>([]);
   
   // Update the ref when state changes to avoid dependency array issues
   useEffect(() => {
     processingRef.current = isProcessing;
   }, [isProcessing]);
   
+  // Update message history ref when messages change
+  useEffect(() => {
+    // Convert chat messages to the format expected by the AI
+    messageHistoryRef.current = messages.map(msg => ({
+      role: msg.role === "user" ? "user" : "assistant",
+      content: msg.content
+    }));
+  }, [messages]);
+  
   const sendMessage = useCallback(async (input: string) => {
     if (!input.trim() || processingRef.current) return false;
+    
+    setError(null);
     
     try {
       setIsProcessing(true);
@@ -58,7 +77,8 @@ export function useMultiAgentChat(projectId?: string) {
         input,
         agentType: selectedAgent,
         projectId,
-        userId
+        userId,
+        messageHistoryLength: messageHistoryRef.current.length
       });
       
       // Call the agent SDK function
@@ -68,11 +88,14 @@ export function useMultiAgentChat(projectId?: string) {
           projectId: projectId,
           agentType: selectedAgent,
           userId: userId,
+          sessionId: crypto.randomUUID(), // Used for tracing
+          messageHistory: messageHistoryRef.current
         }
       });
       
       if (error) {
         console.error("Error calling agent-sdk:", error);
+        setError(error.message || "Failed to get response from agent");
         toast.error("Failed to get response from agent");
         
         // Update the thinking message to show the error - create a new array
@@ -108,6 +131,11 @@ export function useMultiAgentChat(projectId?: string) {
           return msg;
         });
         
+        // Update message history with the new messages
+        if (data.messageHistory) {
+          messageHistoryRef.current = data.messageHistory;
+        }
+        
         setMessages(updatedMessages);
         return true;
       }
@@ -115,18 +143,26 @@ export function useMultiAgentChat(projectId?: string) {
       return false;
     } catch (error) {
       console.error("Error sending message:", error);
+      setError(error instanceof Error ? error.message : "An unknown error occurred");
       toast.error("Failed to send message");
+      
+      // Call the onError callback if provided
+      if (onError && error instanceof Error) {
+        onError(error);
+      }
+      
       return false;
     } finally {
       setIsProcessing(false);
     }
-  }, [messages, setMessages, selectedAgent, projectId]);
+  }, [messages, setMessages, selectedAgent, projectId, onError]);
   
   return {
     messages,
     isProcessing,
     selectedAgent,
     setSelectedAgent,
-    sendMessage
+    sendMessage,
+    error
   };
 }

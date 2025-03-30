@@ -15,6 +15,7 @@ interface AgentRequest {
   agentType?: string;
   userId?: string;
   context?: Record<string, any>;
+  messageHistory?: Array<{role: string, content: string}>;
 }
 
 serve(async (req) => {
@@ -29,6 +30,7 @@ serve(async (req) => {
     // Get OpenAI API key from environment
     const openAIApiKey = Deno.env.get('OPENAI_API_KEY');
     if (!openAIApiKey) {
+      console.error("OPENAI_API_KEY is not configured");
       throw new Error("OPENAI_API_KEY is not configured");
     }
     
@@ -51,7 +53,8 @@ serve(async (req) => {
       sessionId, 
       agentType = 'main', 
       userId,
-      context = {} 
+      context = {},
+      messageHistory = []
     } = requestData;
     
     if (!input) {
@@ -105,17 +108,35 @@ serve(async (req) => {
     // Get agent instructions based on agent type
     const agentInstructions = getAgentInstructions(agentType, projectId ? true : false);
     
-    // Prepare messages for OpenAI API
-    const messages = [
-      {
-        role: "system",
-        content: agentInstructions
-      },
-      {
-        role: "user",
-        content: input
+    // Create conversation history based on provided messages or start fresh
+    let messages = [];
+    
+    if (messageHistory && messageHistory.length > 0) {
+      // Use provided message history
+      messages = [...messageHistory];
+      
+      // Ensure the most recent user message is the input
+      const lastUserMessageIndex = findLastIndex(messages, m => m.role === 'user');
+      if (lastUserMessageIndex !== -1 && messages[lastUserMessageIndex].content !== input) {
+        // Add the new input as a user message
+        messages.push({
+          role: "user",
+          content: input
+        });
       }
-    ];
+    } else {
+      // Start a fresh conversation
+      messages = [
+        {
+          role: "system",
+          content: agentInstructions
+        },
+        {
+          role: "user",
+          content: input
+        }
+      ];
+    }
     
     // Add project context if available
     if (projectId && Object.keys(projectData).length > 0) {
@@ -126,7 +147,14 @@ Project Title: ${projectData.project?.title || "Untitled Project"}
 Number of Scenes: ${projectData.scenes?.length || 0}
 `;
       // Add project context to the system message
-      messages[0].content += "\n\n" + projectContext;
+      if (messages[0]?.role === 'system') {
+        messages[0].content += "\n\n" + projectContext;
+      } else {
+        messages.unshift({
+          role: "system",
+          content: agentInstructions + "\n\n" + projectContext
+        });
+      }
     }
     
     console.log("Sending to OpenAI with messages:", JSON.stringify(messages));
@@ -139,7 +167,7 @@ Number of Scenes: ${projectData.scenes?.length || 0}
         "Authorization": `Bearer ${openAIApiKey}`
       },
       body: JSON.stringify({
-        model: "gpt-4o-mini", // Using a fast and efficient model
+        model: "gpt-4o", // Using the more capable model
         messages: messages,
         temperature: 0.7,
         max_tokens: 1000
@@ -149,13 +177,19 @@ Number of Scenes: ${projectData.scenes?.length || 0}
     if (!openAIResponse.ok) {
       const errorText = await openAIResponse.text();
       console.error("Error from OpenAI API:", openAIResponse.status, errorText);
-      throw new Error(`OpenAI API error: ${openAIResponse.status}`);
+      throw new Error(`OpenAI API error: ${openAIResponse.status} - ${errorText}`);
     }
     
     const data = await openAIResponse.json();
     console.log("OpenAI response:", JSON.stringify(data));
     
     const generatedContent = data.choices[0].message.content;
+    
+    // Update the message history with the assistant's response
+    messages.push({
+      role: "assistant",
+      content: generatedContent
+    });
     
     // Log the interaction to the database if userId is provided
     if (userId) {
@@ -171,7 +205,17 @@ Number of Scenes: ${projectData.scenes?.length || 0}
             has_attachments: false,
             metadata: {
               project_context: projectId ? true : false,
-              scene_count: projectData.scenes?.length || 0
+              scene_count: projectData.scenes?.length || 0,
+              trace: {
+                runId: sessionId || crypto.randomUUID(),
+                timestamp: new Date().toISOString(),
+                duration: data.usage ? data.usage.total_tokens : 0,
+                summary: {
+                  modelUsed: "gpt-4o",
+                  success: true,
+                  messageCount: messages.length
+                }
+              }
             }
           });
       } catch (logError) {
@@ -184,7 +228,8 @@ Number of Scenes: ${projectData.scenes?.length || 0}
       JSON.stringify({
         success: true,
         response: generatedContent,
-        agentType
+        agentType,
+        messageHistory: messages
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -224,4 +269,14 @@ function getAgentInstructions(agentType: string, hasProjectContext: boolean): st
   }
   
   return instructions;
+}
+
+// Helper function to find the last index of an item in an array that matches a condition
+function findLastIndex<T>(array: T[], predicate: (value: T) => boolean): number {
+  for (let i = array.length - 1; i >= 0; i--) {
+    if (predicate(array[i])) {
+      return i;
+    }
+  }
+  return -1;
 }

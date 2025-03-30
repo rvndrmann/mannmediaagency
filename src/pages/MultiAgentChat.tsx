@@ -59,7 +59,7 @@ function MultiAgentChatContent() {
         <Button 
           variant="outline" 
           size="sm" 
-          className="flex items-center gap-1 text-xs"
+          className="flex items-center gap-1 text-xs bg-background/80 backdrop-blur-sm"
           asChild
         >
           <Link to="/trace-analytics">

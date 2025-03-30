@@ -18,8 +18,7 @@ export class MCPServerService implements MCPServer {
       `${SUPABASE_URL}/functions/v1/mcp-server`;
     
     // Use the provided token or try to get it from local storage
-    this.authToken = authToken || 
-      localStorage.getItem('mcpServerToken');
+    this.authToken = authToken || null;
     
     if (name) {
       this.name = name;
@@ -36,6 +35,16 @@ export class MCPServerService implements MCPServer {
       }
       
       console.log(`Connecting to MCP server (${this.name}) at`, this.serverUrl);
+      
+      // Try to get auth token if not already set
+      if (!this.authToken) {
+        try {
+          const { data: { session } } = await supabase.auth.getSession();
+          this.authToken = session?.access_token || null;
+        } catch (error) {
+          console.warn(`Could not retrieve auth token for MCP server (${this.name})`, error);
+        }
+      }
       
       // Test the connection with a simple ping
       const response = await this.makeRequest({
@@ -125,7 +134,7 @@ export class MCPServerService implements MCPServer {
       
       console.log(`Making request to MCP server (${this.name}) at ${this.serverUrl}`);
       
-      // For direct Supabase Edge Function calls
+      // Use supabase.functions.invoke for MCP server requests
       const { data: responseData, error } = await supabase.functions.invoke('mcp-server', {
         body: data,
         headers: this.authToken ? {

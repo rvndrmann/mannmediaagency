@@ -5,7 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 export class MCPServerService implements MCPServer {
   private serverUrl: string;
   private toolsCache: MCPToolDefinition[] | null = null;
-  private isConnected: boolean = false;
+  private connected: boolean = false;
   private connectionError: Error | null = null;
   private connectionId: string | null = null;
   private projectId: string | null = null;
@@ -29,7 +29,7 @@ export class MCPServerService implements MCPServer {
         throw new Error("Failed to connect to MCP server");
       }
       
-      this.isConnected = true;
+      this.connected = true;
       this.connectionError = null;
       
       // If we have a project ID, record this connection in the database
@@ -40,9 +40,29 @@ export class MCPServerService implements MCPServer {
       // Prefetch tools to validate connection
       await this.listTools();
     } catch (error) {
-      this.isConnected = false;
+      this.connected = false;
       this.connectionError = error instanceof Error ? error : new Error(String(error));
       throw this.connectionError;
+    }
+  }
+  
+  async disconnect(): Promise<void> {
+    this.connected = false;
+    
+    // Mark the connection as inactive in the database
+    if (this.connectionId) {
+      try {
+        const { error } = await supabase
+          .from('mcp_connections')
+          .update({ is_active: false })
+          .eq('id', this.connectionId);
+          
+        if (error) {
+          console.error("Error marking connection as inactive:", error);
+        }
+      } catch (error) {
+        console.error("Failed to update connection status:", error);
+      }
     }
   }
   
@@ -119,7 +139,7 @@ export class MCPServerService implements MCPServer {
       return this.toolsCache;
     }
     
-    if (!this.isConnected) {
+    if (!this.isConnected()) {
       throw new Error("MCP server not connected. Call connect() first.");
     }
     
@@ -272,7 +292,7 @@ export class MCPServerService implements MCPServer {
   }
   
   async callTool(name: string, parameters: any): Promise<any> {
-    if (!this.isConnected) {
+    if (!this.isConnected()) {
       throw new Error("MCP server not connected. Call connect() first.");
     }
     
@@ -394,25 +414,9 @@ export class MCPServerService implements MCPServer {
   async cleanup(): Promise<void> {
     // Clean up the MCP server connection
     console.log("Cleaning up MCP server connection");
-    
-    // Mark the connection as inactive in the database
-    if (this.connectionId) {
-      try {
-        const { error } = await supabase
-          .from('mcp_connections')
-          .update({ is_active: false })
-          .eq('id', this.connectionId);
-          
-        if (error) {
-          console.error("Error marking connection as inactive:", error);
-        }
-      } catch (error) {
-        console.error("Failed to update connection status:", error);
-      }
-    }
+    await this.disconnect();
     
     this.toolsCache = null;
-    this.isConnected = false;
     this.connectionId = null;
   }
   
@@ -420,8 +424,12 @@ export class MCPServerService implements MCPServer {
     this.toolsCache = null;
   }
 
+  isConnected(): boolean {
+    return this.connected;
+  }
+
   isConnectionActive(): boolean {
-    return this.isConnected;
+    return this.connected;
   }
 
   getConnectionError(): Error | null {

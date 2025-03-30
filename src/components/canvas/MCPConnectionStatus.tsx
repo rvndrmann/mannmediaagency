@@ -85,7 +85,7 @@ export function MCPConnectionStatus({
       {renderStatus()}
       
       {showAlert && hasConnectionError && (
-        <Alert variant="warning" className="mt-2">
+        <Alert variant="destructive" className="mt-2">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             MCP connection error. Some AI features may be limited. 

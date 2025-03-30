@@ -1,8 +1,7 @@
 
-import { MCPServer } from "@/types/mcp";
+import { MCPServer, MCPConnectionRecord } from "@/types/mcp";
 import { MCPServerService } from "@/services/mcpService";
 import { supabase } from "@/integrations/supabase/client";
-import { MCPConnectionRecord } from "./types";
 import { toast } from "sonner";
 
 /**
@@ -171,7 +170,17 @@ export class MCPService {
         return null;
       }
       
-      return data as MCPConnectionRecord;
+      if (!data) return null;
+      
+      // Convert database record to MCPConnectionRecord
+      return {
+        id: data.id,
+        projectId: data.project_id,
+        userId: data.user_id,
+        connectionUrl: data.connection_url,
+        lastConnectedAt: data.last_connected_at,
+        isActive: data.is_active
+      };
     } catch (error) {
       console.error("Error in getExistingConnection:", error);
       return null;

@@ -33,3 +33,26 @@ export interface MCPToolDefinition {
     required: string[];
   };
 }
+
+export interface MCPConnectionRecord {
+  id: string;
+  projectId: string;
+  userId: string;
+  connectionUrl: string;
+  lastConnectedAt: string;
+  isActive: boolean;
+}
+
+export interface MCPToolExecutionParams {
+  sceneId?: string;
+  projectId?: string;
+  [key: string]: any;
+}
+
+export interface MCPToolExecutionResult {
+  success: boolean;
+  result?: string;
+  data?: any;
+  error?: string;
+  [key: string]: any;
+}

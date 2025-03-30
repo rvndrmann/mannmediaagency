@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { useMcpToolExecutor } from "./use-mcp-tool-executor";
 import { useMCPContext } from "@/contexts/MCPContext";
@@ -105,33 +106,35 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     let attempts = 0;
     const maxAttempts = 2; // Try at most twice
     
-    while (attempts < maxAttempts) {
-      try {
-        const result = await executeTool("update_scene_description", {
-          sceneId,
-          imageAnalysis
-        });
-        
-        return result.success;
-      } catch (error) {
-        console.error(`Error updating scene description (attempt ${attempts + 1}/${maxAttempts}):`, error);
-        attempts++;
-        
-        if (attempts >= maxAttempts) {
-          toast.error("Failed to update scene description after multiple attempts");
-          return false;
+    try {
+      while (attempts < maxAttempts) {
+        try {
+          const result = await executeTool("update_scene_description", {
+            sceneId,
+            imageAnalysis
+          });
+          
+          return result.success;
+        } catch (error) {
+          console.error(`Error updating scene description (attempt ${attempts + 1}/${maxAttempts}):`, error);
+          attempts++;
+          
+          if (attempts >= maxAttempts) {
+            toast.error("Failed to update scene description after multiple attempts");
+            return false;
+          }
+          
+          // Wait briefly before retrying
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          toast.info("Retrying scene description update...");
         }
-        
-        // Wait briefly before retrying
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        toast.info("Retrying scene description update...");
       }
+      
+      return false;
+    } finally {
+      setIsGeneratingDescription(false);
     }
-    
-    return false;
-  }, [executeTool]).finally(() => {
-    setIsGeneratingDescription(false);
-  });
+  }, [executeTool]);
   
   /**
    * Generate and update image prompt using MCP

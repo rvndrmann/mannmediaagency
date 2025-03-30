@@ -22,6 +22,7 @@ const CONNECTION_CONFIG = {
   initialBackoff: 1000, // 1 second
   maxBackoff: 5000, // 5 seconds
   connectionTimeout: 10000, // 10 seconds
+  minReconnectInterval: 2000, // 2 seconds minimum between reconnect attempts
 };
 
 export function MCPProvider({ children, projectId }: { children: ReactNode, projectId?: string }) {
@@ -157,7 +158,7 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       const now = Date.now();
       const timeSinceLastReconnect = now - lastReconnectTime;
       
-      if (timeSinceLastReconnect < 2000) { // 2 seconds minimum between reconnect attempts
+      if (timeSinceLastReconnect < CONNECTION_CONFIG.minReconnectInterval) {
         console.log(`Ignoring reconnect request, last attempt was ${timeSinceLastReconnect}ms ago`);
         toast.info("Please wait before trying to reconnect again");
         return false;
@@ -169,13 +170,13 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       }
       
       setLastReconnectTime(now);
-      toast.loading("Attempting to connect to MCP services...");
+      toast.loading("Attempting to connect to MCP services...", { id: "mcp-connect" });
       const success = await connectToMcp(projectId);
       
       if (success) {
-        toast.success("Connected to MCP services successfully");
+        toast.success("Connected to MCP services successfully", { id: "mcp-connect" });
       } else {
-        toast.error("Failed to connect to MCP services. Using fallback mode.");
+        toast.error("Failed to connect to MCP services. Using fallback mode.", { id: "mcp-connect" });
       }
       return success;
     }
@@ -200,7 +201,30 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
         mcpService.closeConnection(projectId).catch(console.error);
       }
     };
-  }, [useMcp, projectId, connectToMcp]);
+  }, [useMcp, projectId, connectToMcp, mcpService]);
+  
+  // Set up a periodic connection health check
+  useEffect(() => {
+    if (!projectId || !useMcp || !mcpServers.length) return;
+    
+    // Check connection every 30 seconds
+    const healthCheckInterval = setInterval(() => {
+      const server = mcpServers[0];
+      
+      if (server && !server.isConnectionActive()) {
+        console.log("MCP connection health check failed, connection is inactive");
+        setHasConnectionError(true);
+        
+        // Attempt auto-reconnect if we've hit an error
+        if (!reconnectingRef.current && !isConnecting) {
+          console.log("Auto-reconnecting to MCP after detecting inactive connection");
+          reconnectToMcp().catch(console.error);
+        }
+      }
+    }, 30000);
+    
+    return () => clearInterval(healthCheckInterval);
+  }, [projectId, useMcp, mcpServers, reconnectToMcp, isConnecting]);
   
   return (
     <MCPContext.Provider value={{ 

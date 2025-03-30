@@ -2,10 +2,16 @@
 import React from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { Button } from "@/components/ui/button";
-import { RefreshCw, Server, ServerCrash, ServerOff, Shield, AlertCircle } from "lucide-react";
+import { RefreshCw, Server, ServerCrash, ServerOff, Shield, AlertCircle, ChevronDown } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 interface MCPConnectionStatusProps {
   compact?: boolean;
@@ -18,7 +24,14 @@ export function MCPConnectionStatus({
   showConnectionDetails = false,
   showAlert = false
 }: MCPConnectionStatusProps) {
-  const { mcpServers, useMcp, isConnecting, hasConnectionError, reconnectToMcp } = useMCPContext();
+  const { 
+    mcpServers, 
+    useMcp, 
+    isConnecting, 
+    hasConnectionError, 
+    reconnectToMcp,
+    setUseMcp
+  } = useMCPContext();
   
   const renderStatus = () => {
     if (!useMcp) {
@@ -41,29 +54,49 @@ export function MCPConnectionStatus({
     
     if (hasConnectionError || mcpServers.length === 0) {
       return (
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="h-7 text-xs text-red-500 hover:text-red-600 p-0 gap-1.5"
-                onClick={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  reconnectToMcp();
-                }}
-              >
-                <ServerCrash className="h-3.5 w-3.5" />
-                <span>{compact ? "Error" : "Connection Error"}</span>
-                <RefreshCw className="h-3 w-3 ml-1" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>
-              <p>Click to reconnect to MCP services</p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
+        <div className="flex items-center">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm" 
+                  className="h-7 text-xs text-red-500 hover:text-red-600 p-0 gap-1.5"
+                  onClick={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    reconnectToMcp();
+                  }}
+                >
+                  <ServerCrash className="h-3.5 w-3.5" />
+                  <span>{compact ? "Error" : "Connection Error"}</span>
+                  <RefreshCw className="h-3 w-3 ml-1" />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>Click to reconnect to MCP services</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          {!compact && (
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" size="sm" className="h-7 p-0 ml-1">
+                  <ChevronDown className="h-3.5 w-3.5" />
+                </Button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="end">
+                <DropdownMenuItem onClick={() => setUseMcp(false)}>
+                  Switch to fallback mode
+                </DropdownMenuItem>
+                <DropdownMenuItem onClick={() => reconnectToMcp()}>
+                  Try reconnecting
+                </DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          )}
+        </div>
       );
     }
     
@@ -93,13 +126,25 @@ export function MCPConnectionStatus({
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
             MCP connection error. Some AI features may be limited. 
-            <Button 
-              variant="link" 
-              className="p-0 h-auto text-xs ml-1"
-              onClick={() => reconnectToMcp()}
-            >
-              Try reconnecting
-            </Button>
+            <div className="flex space-x-2 mt-1">
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => reconnectToMcp()}
+              >
+                Try reconnecting
+              </Button>
+              
+              <Button 
+                variant="outline" 
+                size="sm"
+                className="h-7 text-xs"
+                onClick={() => setUseMcp(false)}
+              >
+                Use fallback mode
+              </Button>
+            </div>
           </AlertDescription>
         </Alert>
       )}

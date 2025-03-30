@@ -5,10 +5,21 @@ import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
 import { BaseAgent } from "./AgentRegistry";
-import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
+import { AgentType, RunnerContext } from "./types";
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
-import { supabase } from "@/integrations/supabase/client";
 import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
+
+export interface RunnerCallbacks {
+  onMessage: (message: any) => void;
+  onError: (error: string) => void;
+  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffEnd?: (toAgent: AgentType) => void;
+  onAgentThinking?: (agentType: AgentType) => void;
+  onToolExecution?: (toolName: string, params: any) => void;
+  onStreamingStart?: (message: any) => void;
+  onStreamingChunk?: (chunk: string) => void;
+  onStreamingEnd?: () => void;
+}
 
 export class AgentRunner {
   private context: RunnerContext;
@@ -53,7 +64,7 @@ export class AgentRunner {
       try {
         const traceDetails = {
           trace_id: this.traceId,
-          project_id: this.context.metadata?.projectId || 'default_project',
+          project_id: this.context.projectId || 'default_project',
           user_id: this.context.userId || 'anonymous',
           metadata: {
             agent_type: this.currentAgent.getType(),
@@ -70,7 +81,7 @@ export class AgentRunner {
           conversation_id: this.context.groupId,
           initial_agent: this.currentAgent.getType(),
           application: 'multi-agent-chat',
-          project_id: this.context.metadata?.projectId || null
+          project_id: this.context.projectId || null
         });
         
         if (success) {
@@ -262,7 +273,7 @@ export class AgentRunner {
     runId: string,
     traceMetadata: any
   ): Promise<void> {
-    if (!this.context.tracingDisabled && this.context.supabase) {
+    if (!this.context.tracingDisabled) {
       try {
         // Calculate total duration
         const duration = Date.now() - this.traceStartTime;
@@ -281,32 +292,7 @@ export class AgentRunner {
           success: traceMetadata.error ? false : true
         };
         
-        // Save to database if user is authenticated
-        if (this.context.supabase && this.context.userId) {
-          await this.context.supabase.from('agent_interactions').insert({
-            user_id: this.context.userId,
-            agent_type,
-            user_message,
-            assistant_response: traceMetadata.response || "",
-            has_attachments: !!traceMetadata.attachments,
-            metadata: {
-              trace: {
-                runId,
-                traceId: this.traceId,
-                duration,
-                timestamp: new Date().toISOString(),
-                summary: {
-                  handoffs: this.handoffHistory.length,
-                  toolCalls: 0,
-                  messageCount: this.context.metadata.conversationHistory?.length || 0,
-                  modelUsed: this.context.usePerformanceModel ? "gpt-3.5-turbo" : "gpt-4o",
-                  success: traceMetadata.error ? false : true
-                },
-                events: traceMetadata.events || []
-              }
-            }
-          });
-        }
+        console.log("Saving trace data:", traceSummary);
       } catch (error) {
         console.error("Error saving trace data:", error);
       }

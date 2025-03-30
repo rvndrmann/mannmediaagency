@@ -1,117 +1,84 @@
 
-import { AgentResult, AgentType, RunnerContext, BaseAgent } from "./types";
+import { AgentOptions, AgentResult, AgentType, BaseAgent, RunnerContext } from "./types";
 import { Attachment } from "@/types/message";
-import { recordTraceEvent } from "@/utils/openai-traces";
 
 export abstract class BaseAgentImpl implements BaseAgent {
   protected context: RunnerContext;
-  protected traceId?: string;
+  protected traceId: string;
   protected streamingHandler?: (chunk: string) => void;
 
-  constructor(options: { 
-    context: RunnerContext, 
-    traceId?: string,
-    streamingHandler?: (chunk: string) => void 
-  }) {
+  constructor(options: AgentOptions) {
     this.context = options.context;
     this.traceId = options.traceId;
     this.streamingHandler = options.streamingHandler;
   }
 
   abstract getType(): AgentType;
-  
   abstract run(input: string, attachments?: Attachment[]): Promise<AgentResult>;
-  
-  protected recordTraceEvent(eventType: string, eventData: any) {
-    if (this.traceId && !this.context.tracingDisabled) {
-      try {
-        console.log(`Agent ${this.getType()} recording trace event: ${eventType}`, {
-          trace_id: this.traceId,
-          event_type: eventType,
-          agent_type: this.getType(),
-          data: eventData
-        });
-        
-        // Send the event to OpenAI's trace endpoint
-        recordTraceEvent({
-          trace_id: this.traceId,
-          event_type: eventType,
-          timestamp: new Date().toISOString(),
-          data: {
-            agent_type: this.getType(),
-            ...eventData
-          }
-        }).catch(err => {
-          console.error(`Error sending trace event to OpenAI: ${err.message}`);
-        });
-      } catch (error) {
-        console.error(`Error recording trace event in ${this.getType()} agent:`, error);
-      }
-    }
-  }
-  
-  // Implement the setStreamingHandler method defined in the BaseAgent interface
-  public setStreamingHandler(handler: (chunk: string) => void): void {
+
+  setStreamingHandler(handler: (chunk: string) => void): void {
     this.streamingHandler = handler;
   }
-  
-  // Utility methods that all agent implementations need
-  protected async getInstructions(context: RunnerContext): Promise<string> {
-    // Get dynamic instructions from context if available, or use defaults
-    const agentType = this.getType();
-    const instructions = context.metadata?.instructions?.[agentType] || 
-                        this.getDefaultInstructions();
-                        
-    return instructions;
+
+  protected recordTraceEvent(eventType: string, eventData: any): void {
+    if (this.context.tracingDisabled) return;
+    
+    try {
+      console.log(`Agent ${this.getType()} recording trace event: ${eventType}`, {
+        trace_id: this.traceId,
+        event_type: eventType,
+        agent_type: this.getType(),
+        data: eventData
+      });
+    } catch (error) {
+      console.error("Error recording trace event:", error);
+    }
   }
-  
+
+  protected async getInstructions(context: RunnerContext): Promise<string> {
+    // Get instructions for this agent type
+    const defaultInstructions = this.getDefaultInstructions();
+    
+    // Use custom instructions if available
+    const customInstructions = context.metadata?.instructions?.[this.getType()];
+    
+    return customInstructions || defaultInstructions;
+  }
+
   protected getDefaultInstructions(): string {
-    // Default instructions based on agent type
     switch (this.getType()) {
       case "main":
         return "You are a helpful AI assistant focused on general tasks.";
       case "script":
-        return "You specialize in writing scripts and creative content. When asked for a script, you MUST provide one, not just talk about it.";
+        return "You are a script writer specializing in creating scripts for video content.";
       case "image":
-        return "You specialize in creating detailed image prompts.";
+        return "You are an image prompt generator specializing in creating detailed prompts for image generation.";
       case "tool":
-        return "You specialize in executing tools and technical tasks.";
+        return "You are a tool agent specializing in executing tools and technical tasks.";
       case "scene":
-        return "You specialize in creating detailed visual scene descriptions.";
+        return "You are a scene creator specializing in creating detailed scene descriptions for video content.";
       case "data":
-        return "You specialize in extracting and managing data from various sources.";
+        return "You are a data agent specializing in analyzing and working with data.";
+      case "assistant":
+        return "You are a helpful AI assistant.";
       default:
         return "You are a helpful AI assistant.";
     }
   }
-  
+
   protected async applyInputGuardrails(input: string): Promise<void> {
-    // Default implementation - can be extended by subclasses
-    if (!input) {
-      throw new Error("Input cannot be empty");
-    }
-    
-    // Record guardrail event
+    // In the base implementation, we just record that the guardrail was applied
     this.recordTraceEvent("input_guardrail", {
       input_length: input.length,
       passed: true
     });
-    
-    return Promise.resolve();
   }
-  
+
   protected async applyOutputGuardrails(output: string): Promise<void> {
-    // Default implementation - can be extended by subclasses
-    if (!output) {
-      throw new Error("Output cannot be empty");
-    }
-    
-    // Record guardrail event
+    // In the base implementation, we just record that the guardrail was applied
     this.recordTraceEvent("output_guardrail", {
       output_length: output.length,
       passed: true
     });
-    
-    return Promise.resolve();
   }
 }

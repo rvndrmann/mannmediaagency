@@ -558,145 +558,32 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       const groupId = chatSessionId || uuidv4();
       
       // Run the agent with a properly defined toolAvailable function and streaming callbacks
-      const runner = new AgentRunner(
-        activeAgent,
-        {
-          supabase,
-          userId: user.id,
-          usePerformanceModel,
-          enableDirectToolExecution,
-          tracingDisabled: !tracingEnabled,
-          metadata: {
-            projectId: options.projectId,
-            projectDetails: currentProject,
-            groupId: groupId,
-            conversationHistory: [...messages, userMessage]
-          },
-          runId,
-          groupId,
-          addMessage: (text: string, type: string, msgAttachments?: Attachment[]) => {
-            console.log(`Adding message: ${text.substring(0, 50)}...`);
-          },
-          toolAvailable: (toolName: string) => {
-            return true; // All tools are available
-          }
-        },
-        {
-          onMessage: (message: Message) => {
-            // Only add the message if we're still processing this submission
-            // and haven't seen this message ID already
-            if (submissionIdRef.current !== submissionId) {
-              console.log("Ignoring message for different submission ID:", message.id);
-              return;
-            }
-            
-            if (messageIdsRef.current.has(message.id)) {
-              console.log("Prevented duplicate message with ID:", message.id);
-              return;
-            }
-            
-            // Add the ID to our tracking set
-            messageIdsRef.current.add(message.id);
-            console.log("Adding message with ID:", message.id, "tracking", messageIdsRef.current.size, "messages");
-            
-            // Look for any almost identical messages that might have been added very recently
-            let isDuplicate = false;
-            setMessages(prev => {
-              // Double-check again to prevent race conditions
-              if (prev.some(m => m.id === message.id)) {
-                console.log("Prevented duplicate message (already in state):", message.id);
-                isDuplicate = true;
-                return prev;
-              }
-              
-              // Check for almost identical messages (same role, content, created in last 3 seconds)
-              const similarMessage = prev.find(m => 
-                m.role === message.role && 
-                m.content === message.content &&
-                Date.now() - new Date(m.createdAt).getTime() < 3000
-              );
-              
-              if (similarMessage) {
-                console.log("Prevented duplicate message (similar content):", message.id);
-                isDuplicate = true;
-                return prev;
-              }
-              
-              return [...prev, message];
-            });
-            
-            if (isDuplicate) return;
-            
-            // If this is an agent response with a handoff request, update the active agent
-            if (
-              message.role === 'assistant' && 
-              message.handoffRequest && 
-              message.handoffRequest.targetAgent
-            ) {
-              const from = activeAgent;
-              const to = message.handoffRequest.targetAgent as AgentType;
-              
-              console.log(`Handoff from ${from} to ${to}`);
-              setHandoffInProgress(true);
-              
-              // Set the new active agent
-              setActiveAgent(to);
-              
-              // Call the onAgentSwitch callback if provided
-              if (options.onAgentSwitch) {
-                options.onAgentSwitch(from, to);
-              }
-              
-              // Finished handoff process
-              setTimeout(() => {
-                setHandoffInProgress(false);
-              }, 500);
-            }
-          },
-          onError: (errorMessage: string) => {
-            // Only add the error if we're still processing this submission
-            if (submissionIdRef.current === submissionId) {
-              // Generate a unique ID for the error message
-              const errorId = uuidv4();
-              messageIdsRef.current.add(errorId);
-              
-              // Add error message
-              const errorMsg: Message = {
-                id: errorId,
-                role: 'system',
-                content: `Error: ${errorMessage}`,
-                createdAt: new Date().toISOString(),
-                type: 'error',
-                status: 'error'
-              };
-              
-              setMessages(prev => [...prev, errorMsg]);
-              toast.error("Error processing your request");
-            }
-          },
-          onHandoffStart: (from: AgentType, to: AgentType, reason: string) => {
-            if (submissionIdRef.current === submissionId) {
-              console.log(`Handoff starting from ${from} to ${to}: ${reason}`);
-              setHandoffInProgress(true);
-            }
-          },
-          onHandoffEnd: (agent: AgentType) => {
-            if (submissionIdRef.current === submissionId) {
-              console.log(`Handoff completed to ${agent}`);
-              setHandoffInProgress(false);
-            }
-          },
-          onToolExecution: (toolName: string, params: any) => {
-            if (submissionIdRef.current === submissionId) {
-              console.log(`Executing tool: ${toolName}`, params);
-            }
-          },
-          onStreamingStart: handleStreamingStart,
-          onStreamingChunk: handleStreamingChunk,
-          onStreamingEnd: handleStreamingEnd,
-          onAgentThinking: handleAgentThinking
+      const runner = new AgentRunner("main", {
+        userId,
+        runId: groupId,
+        groupId,
+        usePerformanceModel: options.usePerformanceModel,
+        enableDirectToolExecution: options.enableDirectToolExecution,
+        enableTracing: options.enableTracing !== false,
+        tracingDisabled: options.disableTracing === true,
+        projectId: options.projectId,
+        metadata: {
+          conversationHistory: [],
+          instructions: instructions || {},
+          projectId: options.projectId,
+          projectDetails: options.projectDetails,
         }
-      );
+      }, {
+        onMessage,
+        onError,
+        onHandoffStart,
+        onHandoffEnd,
+        onAgentThinking: handleAgentThinking,
+        onToolExecution: handleToolExecution,
+        onStreamingStart: handleStreamingStart,
+        onStreamingChunk: handleStreamingChunk,
+        onStreamingEnd: handleStreamingEnd,
+      });
       
       await runner.run(messageText, attachments, user.id);
       

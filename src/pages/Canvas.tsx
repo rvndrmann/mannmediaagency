@@ -33,7 +33,6 @@ export default function Canvas() {
   
   const { getOrCreateChatSession } = useChatSession();
   
-  // Check authentication faster
   useEffect(() => {
     const checkAuth = async () => {
       try {
@@ -60,7 +59,6 @@ export default function Canvas() {
     }
   }, [isAuthenticated, fetchAvailableProjects]);
   
-  // Handle project activation immediately
   useEffect(() => {
     if (projectId) {
       setActiveProject(projectId);
@@ -68,7 +66,6 @@ export default function Canvas() {
     }
   }, [projectId, setActiveProject, getOrCreateChatSession]);
   
-  // Redirect to first project more efficiently
   useEffect(() => {
     if (
       !projectId && 
@@ -98,9 +95,9 @@ export default function Canvas() {
     saveFullScript,
     updateProjectTitle,
     sceneLoading,
+    onSaveProject
   } = useCanvas(projectId || undefined);
 
-  // Optimize the project creation function
   const handleCreateNewProject = useCallback(async (title: string, description?: string) => {
     try {
       const newProjectId = await createProject(title, description);
@@ -114,6 +111,15 @@ export default function Canvas() {
       return "";
     }
   }, [createProject, navigate]);
+
+  const handleSaveProject = async (): Promise<void> => {
+    try {
+      const saveResult = await onSaveProject();
+      return;
+    } catch (error) {
+      console.error("Error saving project:", error);
+    }
+  };
 
   const toggleChat = useCallback(() => {
     setShowChat(prev => !prev);

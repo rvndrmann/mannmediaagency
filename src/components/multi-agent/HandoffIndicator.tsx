@@ -10,13 +10,16 @@ import {
   ArrowRight
 } from "lucide-react";
 
-interface HandoffIndicatorProps {
+export interface HandoffIndicatorProps {
   fromAgent: AgentType;
   toAgent: AgentType;
   reason?: string;
+  visible?: boolean;
 }
 
-export function HandoffIndicator({ fromAgent, toAgent, reason }: HandoffIndicatorProps) {
+export function HandoffIndicator({ fromAgent, toAgent, reason, visible = true }: HandoffIndicatorProps) {
+  if (!visible) return null;
+  
   const getAgentIcon = (agentType: AgentType) => {
     switch (agentType) {
       case "main":

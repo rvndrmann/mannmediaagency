@@ -2,6 +2,7 @@
 import { MCPServer } from "@/types/mcp";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
+import { SUPABASE_URL } from "@/integrations/supabase/client";
 
 // Implementation of MCP server integration
 export class MCPServerService implements MCPServer {
@@ -14,7 +15,7 @@ export class MCPServerService implements MCPServer {
   constructor(serverUrl?: string, authToken?: string, name?: string) {
     // Use the provided URL or default to the Supabase Edge Function URL
     this.serverUrl = serverUrl || 
-      `${supabase.functions.url}/mcp-server`;
+      `${SUPABASE_URL}/functions/v1/mcp-server`;
     
     // Use the provided token or try to get it from local storage
     this.authToken = authToken || 

@@ -73,9 +73,10 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
   const handleCreateNewProject = async () => {
     try {
       await createNewProject("New Project");
-      return;
+      return "";
     } catch (error) {
       console.error("Error creating new project:", error);
+      return "";
     }
   };
 

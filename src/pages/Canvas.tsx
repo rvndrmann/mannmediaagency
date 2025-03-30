@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
@@ -210,7 +209,6 @@ export default function Canvas() {
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
             createNewProject={async (title: string, description?: string) => {
-              // Convert the Promise<string> to Promise<void>
               await handleCreateNewProject(title, description);
             }}
             updateProjectTitle={updateProjectTitle}

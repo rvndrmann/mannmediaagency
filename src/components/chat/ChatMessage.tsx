@@ -12,9 +12,14 @@ import { Badge } from "../ui/badge";
 interface ChatMessageProps {
   message: Message;
   isLoading?: boolean;
+  showAgentName?: boolean;
 }
 
-export function ChatMessage({ message, isLoading = false }: ChatMessageProps) {
+export function ChatMessage({ 
+  message, 
+  isLoading = false, 
+  showAgentName = true 
+}: ChatMessageProps) {
   const isUser = message.role === "user";
   const isSystem = message.role === "system";
   const isThinking = message.status === "thinking";
@@ -49,11 +54,11 @@ export function ChatMessage({ message, isLoading = false }: ChatMessageProps) {
         <div className="flex justify-between items-start">
           <div className="flex items-center gap-2">
             <div className="font-medium">
-              {isUser ? "You" : message.agentType 
+              {isUser ? "You" : message.agentType && showAgentName
                 ? `${message.agentType.charAt(0).toUpperCase() + message.agentType.slice(1)} Agent` 
                 : "Assistant"}
             </div>
-            {message.agentType && !isUser && (
+            {message.agentType && !isUser && showAgentName && (
               <Badge variant="outline" className="text-xs">
                 {message.agentType}
               </Badge>
@@ -79,13 +84,12 @@ export function ChatMessage({ message, isLoading = false }: ChatMessageProps) {
           ) : (
             <ReactMarkdown
               components={{
-                code({ node, inline, className, children, ...props }) {
+                code({ node, className, children, ...props }) {
                   const match = /language-(\w+)/.exec(className || "");
-                  return !inline && match ? (
+                  return !props.inline && match ? (
                     <CodeBlock
                       value={String(children).replace(/\n$/, "")}
                       language={match[1]}
-                      {...props}
                     />
                   ) : (
                     <code className={className} {...props}>

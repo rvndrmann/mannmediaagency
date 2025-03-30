@@ -1,25 +1,10 @@
 
 import { toast } from "sonner";
+import { MCPServer, MCPToolParameters, MCPToolResponse } from "@/types/mcp";
 
-interface MCPServerResult {
-  success: boolean;
-  result?: string;
-  error?: string;
-  description?: string;
-  imagePrompt?: string;
-}
-
-interface MCPToolParams {
-  sceneId: string;
-  imageAnalysis?: boolean;
-  useDescription?: boolean;
-  productShotVersion?: string;
-  aspectRatio?: string;
-}
-
-export class MCPServerService {
+export class MCPServerService implements MCPServer {
   private connected = false;
-  private serverUrl = 'http://localhost:4000'; // Default MCP server URL
+  private serverUrl = 'https://avdwgvjhufslhqrrmxgo.supabase.co/functions/v1/mcp-server'; // Updated to use Supabase URL
 
   constructor(serverUrl?: string) {
     if (serverUrl) {
@@ -29,16 +14,24 @@ export class MCPServerService {
 
   async connect(): Promise<void> {
     try {
-      const response = await fetch(`${this.serverUrl}/health`);
+      const response = await fetch(`${this.serverUrl}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ operation: 'ping' })
+      });
+      
       if (!response.ok) {
         throw new Error(`Server responded with status: ${response.status}`);
       }
+      
       const data = await response.json();
-      if (data.status === 'ok') {
+      if (data.success) {
         this.connected = true;
         console.log('Connected to MCP server');
       } else {
-        throw new Error('Server health check failed');
+        throw new Error(data.error || 'Server ping failed');
       }
     } catch (error) {
       console.error('Failed to connect to MCP server:', error);
@@ -51,7 +44,41 @@ export class MCPServerService {
     return this.connected;
   }
 
-  async callTool(toolName: string, params: MCPToolParams): Promise<MCPServerResult> {
+  getServerUrl(): string {
+    return this.serverUrl;
+  }
+
+  async listTools(): Promise<any[]> {
+    if (!this.connected) {
+      try {
+        await this.connect();
+      } catch (error) {
+        return [];
+      }
+    }
+
+    try {
+      const response = await fetch(`${this.serverUrl}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ operation: 'list_tools' })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Server responded with status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data.success ? (data.tools || []) : [];
+    } catch (error) {
+      console.error("Error listing tools:", error);
+      return [];
+    }
+  }
+
+  async callTool(toolName: string, params: MCPToolParameters): Promise<MCPToolResponse> {
     if (!this.connected) {
       try {
         await this.connect();
@@ -64,12 +91,16 @@ export class MCPServerService {
     }
 
     try {
-      const response = await fetch(`${this.serverUrl}/tools/${toolName}`, {
+      const response = await fetch(`${this.serverUrl}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(params)
+        body: JSON.stringify({
+          operation: 'call_tool',
+          toolName,
+          parameters: params
+        })
       });
 
       if (!response.ok) {
@@ -91,5 +122,14 @@ export class MCPServerService {
     // Any cleanup logic needed when disconnecting
     this.connected = false;
     console.log('Disconnected from MCP server');
+  }
+
+  invalidateToolsCache(): void {
+    // Method to invalidate any cached tools data
+    console.log('Tool cache invalidated');
+  }
+
+  getName(): string {
+    return "Default MCP Server";
   }
 }

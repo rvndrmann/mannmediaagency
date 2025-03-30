@@ -13,6 +13,7 @@ import { CanvasHeader } from "@/components/canvas/CanvasHeader";
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProvider, useCanvas } from "@/contexts/CanvasContext";
 import { ErrorBoundary } from "@/components/integration/ErrorBoundary";
+import { AgentCanvasIntegration } from "@/components/integration/AgentCanvasIntegration";
 
 function CanvasContent() {
   const { 
@@ -42,6 +43,7 @@ function CanvasContent() {
   const [chatInitialized, setChatInitialized] = useState(false);
   const [hasProjects, setHasProjects] = useState<boolean | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [recoveryMode, setRecoveryMode] = useState(false);
 
   // Check if user has any projects
   useEffect(() => {
@@ -107,6 +109,12 @@ function CanvasContent() {
     }
   }, [projectId, fetchProjectAndScenes]);
 
+  // Enter recovery mode 
+  const enterRecoveryMode = useCallback(() => {
+    setRecoveryMode(true);
+    toast.info("Entered recovery mode - some features may be disabled for stability");
+  }, []);
+
   const handleSceneSelect = useCallback((sceneId: string) => {
     setSelectedSceneId(sceneId);
   }, [setSelectedSceneId]);
@@ -145,6 +153,7 @@ function CanvasContent() {
       setShowChat(false);
       setChatInitialized(false);
       setLoadError(null);
+      setRecoveryMode(false);
     }
   }, [navigate, projectId]);
 
@@ -198,8 +207,12 @@ function CanvasContent() {
     } catch (error) {
       console.error("Error creating new project:", error);
       toast.error("Failed to create new project");
+      
+      if (!recoveryMode) {
+        enterRecoveryMode();
+      }
     }
-  }, [createProject, navigate, updateScene, fetchProjectAndScenes]);
+  }, [createProject, navigate, updateScene, fetchProjectAndScenes, recoveryMode, enterRecoveryMode]);
 
   // Check if we're on the root Canvas page with no project ID
   const isRootCanvas = !projectId;
@@ -262,6 +275,20 @@ function CanvasContent() {
         />
       )}
       
+      {recoveryMode && (
+        <div className="bg-amber-50 border-b border-amber-200 px-4 py-2 text-amber-800 text-sm">
+          Running in recovery mode - some features may be limited for stability.
+          <Button 
+            variant="link" 
+            size="sm" 
+            className="ml-2 text-amber-900" 
+            onClick={() => setRecoveryMode(false)}
+          >
+            Exit Recovery Mode
+          </Button>
+        </div>
+      )}
+      
       <div className="flex-1 flex overflow-hidden">
         {showHistory ? (
           <ProjectHistory 
@@ -309,6 +336,9 @@ function CanvasContent() {
               <p className="text-muted-foreground">{loadError}</p>
               <div className="flex flex-col gap-2">
                 <Button onClick={handleRefreshProject}>Try Again</Button>
+                <Button variant="outline" onClick={enterRecoveryMode}>
+                  Enter Recovery Mode
+                </Button>
                 <Button variant="outline" onClick={() => setShowHistory(true)}>
                   Select Another Project
                 </Button>
@@ -347,6 +377,14 @@ function CanvasContent() {
           <ChatToggleButton onClick={handleToggleChat} />
         )}
       </div>
+      
+      {/* Canvas-MultiAgent integration (invisible component) */}
+      {projectId && selectedSceneId && (
+        <AgentCanvasIntegration 
+          projectId={projectId}
+          sceneId={selectedSceneId}
+        />
+      )}
     </div>
   );
 }
@@ -355,7 +393,15 @@ export default function Canvas() {
   const { projectId } = useParams();
   
   return (
-    <ErrorBoundary>
+    <ErrorBoundary
+      fallback={
+        <div className="p-6 space-y-4">
+          <h2 className="text-xl font-bold text-red-500">Canvas encountered an error</h2>
+          <p>We're sorry, but something went wrong while loading the Canvas editor.</p>
+          <Button onClick={() => window.location.reload()}>Reload Page</Button>
+        </div>
+      }
+    >
       <CanvasProvider projectId={projectId}>
         <CanvasContent />
       </CanvasProvider>

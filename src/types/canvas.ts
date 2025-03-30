@@ -39,3 +39,5 @@ export type SceneUpdateType =
   'voiceOver' | 
   'voiceOverText' | 
   'backgroundMusic';
+
+export type CanvasAgentType = "scene" | "image" | "video" | null;

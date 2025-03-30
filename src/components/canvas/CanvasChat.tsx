@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { Skeleton } from "@/components/ui/skeleton";
-import { X } from "lucide-react";
+import { X, MessageSquare } from "lucide-react";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
@@ -109,5 +109,18 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
         </form>
       </div>
     </div>
+  );
+}
+
+export function ChatToggleButton({ onClick }: { onClick: () => void }) {
+  return (
+    <Button 
+      variant="outline" 
+      size="sm" 
+      className="fixed bottom-4 right-4 z-50 rounded-full w-12 h-12 p-0"
+      onClick={onClick}
+    >
+      <MessageSquare className="h-5 w-5" />
+    </Button>
   );
 }

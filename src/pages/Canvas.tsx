@@ -3,10 +3,12 @@ import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useCanvas } from "@/hooks/use-canvas";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
-import { CanvasChat } from "@/components/canvas/CanvasChat";
+import { CanvasChat, ChatToggleButton } from "@/components/canvas/CanvasChat";
 import { generateInitialScenes } from "@/data/scene-templates";
 import { toast } from "sonner";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Button } from "@/components/ui/button";
+import { Plus } from "lucide-react";
 
 export default function Canvas() {
   const { projectId } = useParams();
@@ -141,30 +143,57 @@ export default function Canvas() {
     setShowChat(!showChat);
   };
 
+  // Check if we're on the root Canvas page with no project ID
+  const isRootCanvas = !projectId;
+
   return (
     <div className="flex h-screen overflow-hidden">
       <div className="flex-1 flex flex-col">
-        <main className="flex-1 overflow-auto">
-          <CanvasWorkspace
-            project={project}
-            selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId}
-            setSelectedSceneId={handleSceneSelect}
-            addScene={handleSceneCreate}
-            deleteScene={deleteScene}
-            updateScene={updateScene}
-            divideScriptToScenes={divideScriptToScenes}
-            saveFullScript={saveFullScript}
-            createNewProject={handleCreateNewProject}
-            updateProjectTitle={updateProjectTitle}
-            sceneLoading={sceneLoading}
-          />
-        </main>
+        {isRootCanvas && !isLoading ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-6 max-w-md p-6">
+              <h1 className="text-3xl font-bold">Welcome to Canvas</h1>
+              <p className="text-muted-foreground">
+                Create, manage, and visualize your video projects with Canvas. Start by creating a new project.
+              </p>
+              <Button 
+                size="lg" 
+                onClick={handleCreateNewProject}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Create New Project
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <main className="flex-1 overflow-auto">
+            <CanvasWorkspace
+              project={project}
+              selectedScene={selectedScene}
+              selectedSceneId={selectedSceneId}
+              setSelectedSceneId={handleSceneSelect}
+              addScene={handleSceneCreate}
+              deleteScene={deleteScene}
+              updateScene={updateScene}
+              divideScriptToScenes={divideScriptToScenes}
+              saveFullScript={saveFullScript}
+              createNewProject={handleCreateNewProject}
+              updateProjectTitle={updateProjectTitle}
+              sceneLoading={sceneLoading}
+            />
+          </main>
+        )}
       </div>
-      {showChat && (
+      
+      {showChat && projectId && (
         <div className="w-96 flex-none overflow-hidden border-l">
           <CanvasChat projectId={project?.id} onClose={toggleChatPanel} />
         </div>
+      )}
+      
+      {!showChat && projectId && (
+        <ChatToggleButton onClick={toggleChatPanel} />
       )}
     </div>
   );

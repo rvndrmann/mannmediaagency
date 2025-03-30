@@ -94,6 +94,7 @@ export default function App() {
                 <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
                 <Route path="/explore" element={<Explore />} />
                 <Route path="/canvas" element={<Canvas />} />
+                <Route path="/canvas/:projectId" element={<Canvas />} />
                 <Route path="/admin" element={
                   <ProtectedRoute>
                     <Admin />

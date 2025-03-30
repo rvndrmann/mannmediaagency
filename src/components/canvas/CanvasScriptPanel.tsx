@@ -1,7 +1,8 @@
+
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Save, Wand2, ImageIcon } from "lucide-react";
+import { X, Save, Wand2, ImageIcon, Loader2 } from "lucide-react";
 import { CanvasProject } from "@/types/canvas";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
@@ -23,6 +24,7 @@ export function CanvasScriptPanel({
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
   const [isGeneratingImagePrompts, setIsGeneratingImagePrompts] = useState(false);
+  const [divideError, setDivideError] = useState<string | null>(null);
   
   const handleSaveScript = async () => {
     setIsSaving(true);
@@ -37,51 +39,78 @@ export function CanvasScriptPanel({
     }
   };
   
-  // Helper function to extract clean voice-over text from script content
-  const extractVoiceOverText = (content: string): string => {
-    // Strip any bracketed direction text [like this]
-    let voiceOverText = content.replace(/\[.*?\]/g, '');
-    
-    // Remove any narrator directions in parentheses (like this)
-    voiceOverText = voiceOverText.replace(/\(.*?\)/g, '');
-    
-    // Remove any lines that start with common direction markers
-    const lines = voiceOverText.split('\n').filter(line => {
-      const trimmedLine = line.trim();
-      return !trimmedLine.startsWith('SCENE') &&
-             !trimmedLine.startsWith('CUT TO:') &&
-             !trimmedLine.startsWith('FADE') &&
-             !trimmedLine.startsWith('INT.') &&
-             !trimmedLine.startsWith('EXT.') &&
-             !trimmedLine.startsWith('TRANSITION');
-    });
-    
-    // Clean up any double spaces or excess whitespace
-    return lines.join('\n').replace(/\s+/g, ' ').trim();
-  };
-  
-  // Helper function to split text at sentence boundaries
-  const splitAtSentenceBoundary = (text: string, maxLength: number): string[] => {
-    if (text.length <= maxLength) return [text];
-    
-    // Look for sentence endings (.!?) within the desired length
-    let splitPoint = text.substring(0, maxLength).lastIndexOf('.');
-    if (splitPoint === -1) splitPoint = text.substring(0, maxLength).lastIndexOf('!');
-    if (splitPoint === -1) splitPoint = text.substring(0, maxLength).lastIndexOf('?');
-    
-    // If no sentence ending found, look for the last complete word
-    if (splitPoint === -1 || splitPoint < maxLength * 0.5) {
-      splitPoint = text.substring(0, maxLength).lastIndexOf(' ');
+  const handleDivideScript = async () => {
+    if (!fullScript.trim()) {
+      toast.error("Please enter a script first");
+      return;
     }
     
-    // If still no good split point, just split at max length
-    if (splitPoint === -1) splitPoint = maxLength;
+    if (project.scenes.length <= 0) {
+      toast.error("Please add at least one scene first");
+      return;
+    }
     
-    // Split and continue with the remainder
-    const firstPart = text.substring(0, splitPoint + 1).trim();
-    const restPart = text.substring(splitPoint + 1).trim();
+    setIsDividing(true);
+    setDivideError(null);
     
-    return [firstPart, ...splitAtSentenceBoundary(restPart, maxLength)];
+    try {
+      // Get the scene IDs
+      const sceneIds = project.scenes.map(scene => scene.id);
+      
+      // Call the process-script function directly with better error handling
+      const toastId = toast.loading("Processing script...");
+      
+      const { data, error } = await supabase.functions.invoke('process-script', {
+        body: { 
+          script: fullScript, 
+          sceneIds,
+          projectId: project.id,
+          generateImagePrompts: true
+        }
+      });
+
+      toast.dismiss(toastId);
+      
+      if (error) {
+        throw new Error(`Function error: ${error.message}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || "Script processing failed");
+      }
+      
+      // Check if we received scene data
+      if (!data.scenes || !Array.isArray(data.scenes) || data.scenes.length === 0) {
+        throw new Error("No scene data returned from processing");
+      }
+      
+      // Convert scenes data for divideScriptToScenes
+      const sceneScripts = data.scenes.map(scene => ({
+        id: scene.id,
+        content: scene.content || "",
+        voiceOverText: scene.voiceOverText || ""
+      }));
+      
+      // Update the scenes with the divided script content
+      await divideScriptToScenes(sceneScripts);
+      
+      toast.success("Script divided into scenes");
+      
+      // Show message about image prompts
+      if (data.imagePrompts) {
+        const { processedScenes, successfulScenes } = data.imagePrompts;
+        if (processedScenes > 0) {
+          toast.success(`Generated image prompts for ${successfulScenes} out of ${processedScenes} scenes`);
+        }
+      }
+    } catch (err: any) {
+      console.error("Error dividing script:", err);
+      const errorMessage = err.message || "Failed to divide script";
+      setDivideError(errorMessage);
+      toast.error(errorMessage);
+    } finally {
+      setIsDividing(false);
+    }
   };
   
   const handleGenerateImagePrompts = async () => {
@@ -136,123 +165,6 @@ export function CanvasScriptPanel({
       setIsGeneratingImagePrompts(false);
     }
   };
-  
-  const handleDivideScript = async () => {
-    if (!fullScript.trim()) {
-      toast.error("Please enter a script first");
-      return;
-    }
-    
-    if (project.scenes.length <= 0) {
-      toast.error("Please add at least one scene first");
-      return;
-    }
-    
-    setIsDividing(true);
-    try {
-      // Process script for division - split by paragraphs or clear scene indicators
-      const paragraphs = fullScript.split(/\n\s*\n/).filter(p => p.trim());
-      
-      // Split by scene markers if they exist
-      const sceneMarkers = paragraphs.join('\n\n').match(/SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g);
-      
-      let segments: string[] = [];
-      
-      if (sceneMarkers && sceneMarkers.length >= 2) {
-        // Script has proper scene markers - split by those
-        let text = paragraphs.join('\n\n');
-        let positions: number[] = [];
-        
-        // Find positions of all scene markers
-        let match;
-        const regex = /SCENE\s+\d+|\bINT\.\s|\bEXT\.\s|\bFADE\s+IN:|\bCUT\s+TO:/g;
-        while ((match = regex.exec(text)) !== null) {
-          positions.push(match.index);
-        }
-        
-        // Split text at scene marker positions
-        for (let i = 0; i < positions.length; i++) {
-          const start = positions[i];
-          const end = i < positions.length - 1 ? positions[i + 1] : text.length;
-          segments.push(text.substring(start, end).trim());
-        }
-      } else {
-        // No clear scene markers - distribute content evenly
-        const CHAR_LIMIT = 1500; // Higher limit for initial division
-        
-        // If we have few paragraphs, check if they need to be further split
-        if (paragraphs.length <= project.scenes.length) {
-          paragraphs.forEach(paragraph => {
-            if (paragraph.length > CHAR_LIMIT) {
-              // Split long paragraphs at sentence boundaries
-              segments.push(...splitAtSentenceBoundary(paragraph, CHAR_LIMIT));
-            } else {
-              segments.push(paragraph);
-            }
-          });
-        } else {
-          segments = paragraphs;
-        }
-        
-        // Group segments if we have too many compared to scenes
-        if (segments.length > project.scenes.length * 2) {
-          const groupedSegments: string[] = [];
-          const segmentsPerScene = Math.ceil(segments.length / project.scenes.length);
-          
-          for (let i = 0; i < segments.length; i += segmentsPerScene) {
-            const group = segments.slice(i, i + segmentsPerScene);
-            groupedSegments.push(group.join('\n\n'));
-          }
-          
-          segments = groupedSegments;
-        }
-      }
-      
-      // If we still have too few segments, duplicate the last one
-      while (segments.length < project.scenes.length) {
-        segments.push(segments[segments.length - 1] || "");
-      }
-      
-      // If we have too many segments, combine extras into the last scene
-      if (segments.length > project.scenes.length) {
-        const extraSegments = segments.slice(project.scenes.length - 1);
-        segments = segments.slice(0, project.scenes.length - 1);
-        segments.push(extraSegments.join('\n\n'));
-      }
-      
-      // Create the scene scripts with voice-over text extraction
-      const sceneScripts = project.scenes.map((scene, index) => {
-        const content = index < segments.length ? segments[index] : "";
-        const voiceOverText = extractVoiceOverText(content);
-        
-        return {
-          id: scene.id,
-          content,
-          voiceOverText
-        };
-      });
-      
-      await divideScriptToScenes(sceneScripts);
-      toast.success("Script divided into scenes");
-      
-      // After division, offer to generate image prompts
-      const hasVoiceOverText = sceneScripts.some(scene => scene.voiceOverText && scene.voiceOverText.trim() !== "");
-      if (hasVoiceOverText) {
-        toast("Voice-over text extracted", {
-          description: "Do you want to generate image prompts based on the voice-over text?",
-          action: {
-            label: "Generate",
-            onClick: () => handleGenerateImagePrompts()
-          }
-        });
-      }
-    } catch (error) {
-      console.error("Error dividing script:", error);
-      toast.error("Failed to divide script");
-    } finally {
-      setIsDividing(false);
-    }
-  };
 
   return (
     <div className="flex-1 flex flex-col">
@@ -265,8 +177,8 @@ export function CanvasScriptPanel({
             onClick={handleDivideScript}
             disabled={isDividing || !fullScript}
           >
-            <Wand2 className="h-4 w-4 mr-1" />
-            {isDividing ? "Dividing..." : "Divide to Scenes"}
+            {isDividing ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Wand2 className="h-4 w-4 mr-1" />}
+            {isDividing ? "Processing..." : "Divide to Scenes"}
           </Button>
           <Button 
             variant="outline" 
@@ -275,7 +187,7 @@ export function CanvasScriptPanel({
             disabled={isGeneratingImagePrompts}
             title="Generate image prompts for scenes with voice-over text"
           >
-            <ImageIcon className="h-4 w-4 mr-1" />
+            {isGeneratingImagePrompts ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <ImageIcon className="h-4 w-4 mr-1" />}
             {isGeneratingImagePrompts ? "Generating..." : "Image Prompts"}
           </Button>
           <Button 
@@ -284,7 +196,7 @@ export function CanvasScriptPanel({
             onClick={handleSaveScript}
             disabled={isSaving}
           >
-            <Save className="h-4 w-4 mr-1" />
+            {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
             {isSaving ? "Saving..." : "Save"}
           </Button>
           <Button 
@@ -297,12 +209,19 @@ export function CanvasScriptPanel({
         </div>
       </div>
       
-      <div className="flex-1 p-4">
+      <div className="flex-1 p-4 flex flex-col">
+        {divideError && (
+          <div className="bg-red-50 text-red-500 p-3 mb-4 rounded-md border border-red-200 text-sm">
+            <p className="font-medium mb-1">Error dividing script:</p>
+            <p>{divideError}</p>
+          </div>
+        )}
+        
         <Textarea
           value={fullScript}
           onChange={(e) => setFullScript(e.target.value)}
           placeholder="Enter your full script here. You can divide it into scenes using the 'Divide to Scenes' button."
-          className="h-full min-h-[300px]"
+          className="h-full min-h-[300px] font-mono"
         />
       </div>
     </div>

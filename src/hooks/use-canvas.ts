@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
@@ -268,51 +267,33 @@ export const useCanvas = (projectId?: string) => {
   };
 
   // Divide script into scenes
-  const divideScriptToScenes = async (script: string) => {
+  const divideScriptToScenes = async (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => {
     if (!project) return;
     
     try {
-      // Get the current scene IDs
-      const sceneIds = scenes.map(scene => scene.id);
-      
-      if (sceneIds.length === 0) {
-        throw new Error("No scenes available");
-      }
-
-      toast.loading("Processing script...");
-      
-      // Call the process-script function
-      const { data, error } = await supabase.functions.invoke('process-script', {
-        body: { 
-          script, 
-          sceneIds,
-          projectId: project.id,
-          generateImagePrompts: true
-        }
+      // Create an array of update promises to execute in parallel
+      const updatePromises = sceneScripts.map(({ id, content, voiceOverText }) => {
+        return supabase
+          .from("canvas_scenes")
+          .update({
+            script: content,
+            voice_over_text: voiceOverText || ""
+          })
+          .eq("id", id)
+          .eq("project_id", project.id);
       });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
+      
+      // Execute all updates in parallel
+      await Promise.all(updatePromises);
+      
       // Refresh the scenes to show the updated content
       await fetchProjectAndScenes();
       
-      toast.dismiss();
-      toast.success("Script divided into scenes");
-      
-      // Show message about image prompts
-      if (data.imagePrompts) {
-        const { processedScenes, successfulScenes } = data.imagePrompts;
-        if (processedScenes > 0) {
-          toast.success(`Generated image prompts for ${successfulScenes} out of ${processedScenes} scenes`);
-        }
-      }
-      
+      toast.success("Script divided into scenes successfully");
     } catch (err: any) {
-      console.error("Error dividing script:", err);
-      toast.dismiss();
-      toast.error(err.message || "Failed to divide script");
+      console.error("Error updating scenes with divided script:", err);
+      toast.error(err.message || "Failed to update scenes with divided script");
+      throw err;
     }
   };
   

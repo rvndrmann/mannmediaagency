@@ -1,10 +1,10 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { getSceneById, getScenesByProjectId } from "@/utils/canvas-data-utils";
+import { getSceneById, getScenesByProjectId, extractSceneContent } from "@/utils/canvas-data-utils";
 
 export const canvasDataTool = {
   name: "canvas_data",
-  description: "Extract and manage media data in Canvas scenes, including images, videos, and other assets",
+  description: "Retrieve and analyze data from Canvas projects and scenes",
   version: "1.0",
   requiredCredits: 0.1,
   parameters: {
@@ -12,8 +12,8 @@ export const canvasDataTool = {
     properties: {
       action: {
         type: "string",
-        enum: ["extract_image", "extract_video", "list_media", "import_media", "get_scene_media"],
-        description: "The action to perform on media data"
+        enum: ["getProject", "getScene", "getScenes", "searchScenes", "analyzeContent"],
+        description: "The action to perform with the Canvas data"
       },
       projectId: {
         type: "string",
@@ -21,16 +21,16 @@ export const canvasDataTool = {
       },
       sceneId: {
         type: "string",
-        description: "The ID of the scene to get media from or import to"
+        description: "The ID of the scene to get or analyze (for scene-specific actions)"
       },
-      mediaType: {
+      query: {
         type: "string",
-        enum: ["scene_image", "product_image", "scene_video", "voice_over", "background_music"],
-        description: "The type of media to extract or import"
+        description: "Search query or analysis prompt"
       },
-      mediaUrl: {
+      contentType: {
         type: "string",
-        description: "The URL of media to import (for import operations)"
+        enum: ["script", "imagePrompt", "description", "voiceOverText", "all"],
+        description: "The type of content to retrieve or analyze"
       }
     },
     required: ["action", "projectId"]
@@ -38,169 +38,38 @@ export const canvasDataTool = {
   
   execute: async (params, context) => {
     try {
-      const { action, projectId, sceneId, mediaType, mediaUrl } = params;
+      const { action, projectId, sceneId, query, contentType = "all" } = params;
       
       switch (action) {
-        case "extract_image": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for extract_image action",
-              data: null
-            };
+        case "getProject": {
+          // Get project data including scenes
+          const { data: project, error: projectError } = await supabase
+            .from("canvas_projects")
+            .select("*")
+            .eq("id", projectId)
+            .single();
+            
+          if (projectError) {
+            throw new Error(`Error fetching project: ${projectError.message}`);
           }
           
-          if (!mediaType || !['scene_image', 'product_image'].includes(mediaType)) {
-            return {
-              success: false,
-              message: "Valid mediaType (scene_image or product_image) is required",
-              data: null
-            };
-          }
-          
-          const scene = await getSceneById(sceneId);
-          if (!scene) {
-            return {
-              success: false,
-              message: `Scene with ID ${sceneId} not found`,
-              data: null
-            };
-          }
-          
-          const imageUrl = mediaType === 'scene_image' ? scene.imageUrl : scene.productImageUrl;
-          
-          return {
-            success: !!imageUrl,
-            message: imageUrl ? `${mediaType} extracted successfully` : `No ${mediaType} found in scene`,
-            data: {
-              sceneId,
-              mediaType,
-              url: imageUrl,
-              title: scene.title
-            }
-          };
-        }
-          
-        case "extract_video": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for extract_video action",
-              data: null
-            };
-          }
-          
-          const scene = await getSceneById(sceneId);
-          if (!scene) {
-            return {
-              success: false,
-              message: `Scene with ID ${sceneId} not found`,
-              data: null
-            };
-          }
-          
-          const videoUrl = scene.videoUrl;
-          
-          return {
-            success: !!videoUrl,
-            message: videoUrl ? "Scene video extracted successfully" : "No video found in scene",
-            data: {
-              sceneId,
-              url: videoUrl,
-              title: scene.title,
-              duration: scene.duration
-            }
-          };
-        }
-          
-        case "list_media": {
           const scenes = await getScenesByProjectId(projectId);
           
-          const mediaList = scenes.map(scene => ({
-            sceneId: scene.id,
-            title: scene.title,
-            hasSceneImage: !!scene.imageUrl,
-            hasProductImage: !!scene.productImageUrl,
-            hasVideo: !!scene.videoUrl,
-            hasVoiceOver: !!scene.voiceOverUrl,
-            hasBackgroundMusic: !!scene.backgroundMusicUrl
-          }));
-          
           return {
             success: true,
-            message: `Found media information for ${scenes.length} scenes`,
-            data: mediaList
-          };
-        }
-          
-        case "import_media": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for import_media action",
-              data: null
-            };
-          }
-          
-          if (!mediaType) {
-            return {
-              success: false,
-              message: "Media type is required for import_media action",
-              data: null
-            };
-          }
-          
-          if (!mediaUrl) {
-            return {
-              success: false,
-              message: "Media URL is required for import_media action",
-              data: null
-            };
-          }
-          
-          const typeMapping = {
-            'scene_image': 'image_url',
-            'product_image': 'product_image_url',
-            'scene_video': 'video_url',
-            'voice_over': 'voice_over_url',
-            'background_music': 'background_music_url'
-          };
-          
-          const dbField = typeMapping[mediaType];
-          if (!dbField) {
-            return {
-              success: false,
-              message: `Invalid media type: ${mediaType}`,
-              data: null
-            };
-          }
-          
-          // Update the scene with the new media URL
-          const { error } = await supabase
-            .from('canvas_scenes')
-            .update({ [dbField]: mediaUrl })
-            .eq('id', sceneId);
-          
-          if (error) {
-            throw new Error(`Error updating scene: ${error.message}`);
-          }
-          
-          return {
-            success: true,
-            message: `${mediaType} imported successfully`,
+            message: "Project data retrieved",
             data: {
-              sceneId,
-              mediaType,
-              url: mediaUrl
+              project,
+              scenes
             }
           };
         }
           
-        case "get_scene_media": {
+        case "getScene": {
           if (!sceneId) {
             return {
               success: false,
-              message: "Scene ID is required for get_scene_media action",
+              message: "Scene ID is required for getScene action",
               data: null
             };
           }
@@ -216,15 +85,78 @@ export const canvasDataTool = {
           
           return {
             success: true,
-            message: "Scene media retrieved successfully",
+            message: "Scene data retrieved",
+            data: scene
+          };
+        }
+          
+        case "getScenes": {
+          const scenes = await getScenesByProjectId(projectId);
+          
+          return {
+            success: true,
+            message: `Retrieved ${scenes.length} scenes for project`,
+            data: scenes
+          };
+        }
+          
+        case "searchScenes": {
+          if (!query) {
+            return {
+              success: false,
+              message: "Search query is required for searchScenes action",
+              data: null
+            };
+          }
+          
+          const scenes = await getScenesByProjectId(projectId);
+          
+          // Simple search implementation - in a real app, this would be more sophisticated
+          const matchingScenes = scenes.filter(scene => {
+            const content = extractSceneContent(scene, contentType as any);
+            return content.toLowerCase().includes(query.toLowerCase());
+          });
+          
+          return {
+            success: true,
+            message: `Found ${matchingScenes.length} scenes matching query: "${query}"`,
+            data: matchingScenes
+          };
+        }
+          
+        case "analyzeContent": {
+          if (!query) {
+            return {
+              success: false,
+              message: "Analysis query is required for analyzeContent action",
+              data: null
+            };
+          }
+          
+          // For an actual implementation, this might call an LLM to analyze the content
+          // For now, we're just returning the content with the query
+          let contentToAnalyze = "";
+          
+          if (sceneId) {
+            const scene = await getSceneById(sceneId);
+            if (scene) {
+              contentToAnalyze = extractSceneContent(scene, contentType as any);
+            }
+          } else {
+            const scenes = await getScenesByProjectId(projectId);
+            contentToAnalyze = scenes.map(scene => 
+              `Scene ${scene.order}: ${scene.title}\n${extractSceneContent(scene, contentType as any)}`
+            ).join("\n\n");
+          }
+          
+          return {
+            success: true,
+            message: `Content analyzed based on query: "${query}"`,
             data: {
-              sceneId: scene.id,
-              title: scene.title,
-              imageUrl: scene.imageUrl,
-              productImageUrl: scene.productImageUrl,
-              videoUrl: scene.videoUrl,
-              voiceOverUrl: scene.voiceOverUrl,
-              backgroundMusicUrl: scene.backgroundMusicUrl
+              query,
+              contentType,
+              content: contentToAnalyze,
+              analysis: `This is where AI analysis of the content would go, based on: "${query}"`
             }
           };
         }

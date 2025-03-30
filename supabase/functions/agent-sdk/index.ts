@@ -16,6 +16,19 @@ interface AgentRequest {
   context?: Record<string, any>;
 }
 
+interface Tool {
+  name: string;
+  description: string;
+  execute: (params: any, context: any) => Promise<any>;
+}
+
+interface Agent {
+  name: string;
+  description: string;
+  tools: Tool[];
+  processInput: (input: string, context: any) => Promise<any>;
+}
+
 serve(async (req) => {
   console.log(`Agent SDK function received request: ${req.method} ${req.url}`);
   
@@ -47,10 +60,91 @@ serve(async (req) => {
       );
     }
     
-    // Get Supabase client for accessing project data if needed
+    // Create Supabase client for data operations
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Define available tools
+    const tools: Tool[] = [
+      {
+        name: "canvas-script",
+        description: "Generate or update script content for a Canvas scene",
+        execute: async (params, ctx) => {
+          // In a real implementation, this would call a service or OpenAI
+          return {
+            success: true,
+            content: `Generated script based on: ${params.prompt}`,
+          };
+        }
+      },
+      {
+        name: "canvas-description",
+        description: "Generate or update scene description for a Canvas scene",
+        execute: async (params, ctx) => {
+          return {
+            success: true,
+            content: `Generated scene description based on: ${params.prompt}`,
+          };
+        }
+      },
+      {
+        name: "canvas-image-prompt",
+        description: "Generate or update image prompt for a Canvas scene",
+        execute: async (params, ctx) => {
+          return {
+            success: true,
+            content: `Generated image prompt based on: ${params.prompt}`,
+          };
+        }
+      }
+    ];
+    
+    // Create agent instance
+    const agent: Agent = {
+      name: "Canvas Assistant",
+      description: `An AI assistant specialized in ${agentType} tasks for Canvas projects`,
+      tools,
+      processInput: async (input, context) => {
+        // Determine which tool to use based on the input and agent type
+        let toolName: string;
+        
+        switch (agentType) {
+          case 'script':
+            toolName = "canvas-script";
+            break;
+          case 'image':
+            toolName = "canvas-image-prompt";
+            break;
+          case 'scene':
+            toolName = "canvas-description";
+            break;
+          default:
+            // For general assistant, analyze input to determine the right tool
+            if (input.includes("script") || input.includes("dialogue")) {
+              toolName = "canvas-script";
+            } else if (input.includes("image") || input.includes("visual")) {
+              toolName = "canvas-image-prompt";
+            } else if (input.includes("scene") || input.includes("describe")) {
+              toolName = "canvas-description";
+            } else {
+              toolName = "canvas-script"; // Default to script tool
+            }
+        }
+        
+        // Find the selected tool
+        const tool = tools.find(t => t.name === toolName);
+        if (!tool) {
+          return {
+            success: false,
+            error: `Tool ${toolName} not found`,
+          };
+        }
+        
+        // Execute the tool
+        return await tool.execute({ prompt: input }, { ...context, projectId, sessionId });
+      }
+    };
     
     // Fetch project data if projectId is provided
     let projectData = {};
@@ -88,19 +182,17 @@ serve(async (req) => {
       }
     }
     
-    // Get agent instructions based on agent type
-    const instructions = getAgentInstructions(agentType);
+    // Process the input with the agent
+    const result = await agent.processInput(input, { ...context, projectData });
     
-    // Process the input and generate a response based on agent type
-    // In a full implementation, this would use OpenAI API or similar
-    let response = generateResponse(input, agentType, projectData);
+    console.log(`Agent processed input for ${agentType} agent:`, result);
     
-    console.log(`Generated response for ${agentType} agent`);
-    
+    // Return the response
     return new Response(
       JSON.stringify({
         success: true,
-        response,
+        response: result.content || "Task completed successfully",
+        data: result,
         agentType
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
@@ -120,64 +212,3 @@ serve(async (req) => {
     );
   }
 });
-
-// Helper function to get agent instructions
-function getAgentInstructions(agentType: string): string {
-  // Define instructions based on agent type
-  switch (agentType) {
-    case 'script':
-      return "You are a script writer specializing in creating scripts for video content.";
-    case 'image':
-      return "You are an image prompt generator specializing in creating detailed prompts for image generation.";
-    case 'scene':
-      return "You are a scene creator specializing in creating detailed scene descriptions for video content.";
-    default:
-      return "You are a helpful Canvas assistant. You help users with their video projects by providing guidance on scripts, scenes, and visual elements.";
-  }
-}
-
-// Simulate response generation
-function generateResponse(input: string, agentType: string, projectData: any): string {
-  // In a real implementation, this would call OpenAI API
-  switch (agentType) {
-    case 'script':
-      return `Here's a script I've generated based on your input: "${input}"\n\n` + 
-        "SCENE 1 - INTRODUCTION\n" +
-        "[Camera slowly pans across the scene]\n" +
-        "NARRATOR: The world as we know it is changing...\n\n" +
-        "SCENE 2 - MAIN CONTENT\n" +
-        "[Close-up shot of the subject]\n" +
-        "NARRATOR: Your message matters now more than ever.";
-      
-    case 'image':
-      return `Based on your request "${input}", here's an image prompt:\n\n` +
-        "A professional cinematic shot with dramatic lighting, shallow depth of field, " +
-        "4K ultra-detailed photograph. The scene shows " + input + " with " +
-        "natural color grading, perfect composition, and award-winning cinematography.";
-      
-    case 'scene':
-      return `Here's a detailed scene description for "${input}":\n\n` +
-        "The scene opens with a wide establishing shot, slowly panning from left to right. " +
-        "The lighting is warm and inviting, creating depth and dimension. " +
-        "The subject is positioned slightly off-center following the rule of thirds. " +
-        "The background is slightly out of focus, creating a natural bokeh effect that " +
-        "draws attention to the main subject. Camera movement is smooth and deliberate.";
-      
-    default:
-      let response = `I'm your Canvas Assistant. I've processed your input: "${input}"\n\n` +
-        "I can help you write scripts, create scene descriptions, or generate image prompts for your Canvas project. " +
-        "What would you like to work on today?";
-        
-      // Add project context if available
-      if (projectData && projectData.project) {
-        response += `\n\nI'm referencing your project "${projectData.project.title}" ` +
-          `which has ${projectData.scenes?.length || 0} scenes.`;
-          
-        if (projectData.project.full_script) {
-          response += " Your project already has a full script that I can help you refine or expand.";
-        }
-      }
-      
-      return response;
-  }
-}

@@ -50,8 +50,8 @@ export function useMultiAgentChat(projectId?: string) {
       const messagesWithThinking = [...newMessages, assistantThinkingMessage];
       setMessages(messagesWithThinking);
       
-      // Call the unified agent edge function
-      const { data, error } = await supabase.functions.invoke('unified-agent', {
+      // Call the agent SDK function
+      const { data, error } = await supabase.functions.invoke('agent-sdk', {
         body: {
           input: input,
           projectId: projectId,
@@ -61,7 +61,7 @@ export function useMultiAgentChat(projectId?: string) {
       });
       
       if (error) {
-        console.error("Error calling unified-agent:", error);
+        console.error("Error calling agent-sdk:", error);
         toast.error("Failed to get response from agent");
         
         // Update the thinking message to show the error - create a new array

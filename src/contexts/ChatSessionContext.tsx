@@ -28,19 +28,14 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   // Enhanced version of setMessages that also updates the store
-  const updateMessages = useCallback((newMessages: Message[] | ((prev: Message[]) => Message[])) => {
-    setMessages(prevMessages => {
-      const updatedMessages = typeof newMessages === 'function' 
-        ? newMessages(prevMessages) 
-        : newMessages;
-      
-      // Also update the session in the store if we have an active chat ID
-      if (chatHistoryStore.activeChatId) {
-        chatHistoryStore.updateChatSession(chatHistoryStore.activeChatId, updatedMessages);
-      }
-      
-      return updatedMessages;
-    });
+  const updateMessages = useCallback((newMessages: Message[]) => {
+    // Ensure we're always setting an array of messages (not a function)
+    setMessages(newMessages);
+    
+    // Also update the session in the store if we have an active chat ID
+    if (chatHistoryStore.activeChatId) {
+      chatHistoryStore.updateChatSession(chatHistoryStore.activeChatId, newMessages);
+    }
   }, [chatHistoryStore]);
   
   // Enhanced getOrCreateChatSession to make sure messages state is updated

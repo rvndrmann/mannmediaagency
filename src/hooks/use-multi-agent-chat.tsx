@@ -45,7 +45,8 @@ export function useMultiAgentChat(projectId?: string) {
         agentType: selectedAgent
       };
       
-      setMessages([...newMessages, assistantThinkingMessage]);
+      const messagesWithThinking = [...newMessages, assistantThinkingMessage];
+      setMessages(messagesWithThinking);
       
       // Call the unified agent edge function
       const { data, error } = await supabase.functions.invoke('unified-agent', {
@@ -62,37 +63,34 @@ export function useMultiAgentChat(projectId?: string) {
         toast.error("Failed to get response from agent");
         
         // Update the thinking message to show the error
-        const errorMessage: Message = {
-          id: assistantThinkingMessage.id,
-          role: "assistant",
-          content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
-          createdAt: new Date().toISOString(),
-          status: "error",
-          agentType: selectedAgent
-        };
-        
-        setMessages((prevMessages) => {
-          // Find and replace the thinking message
-          return prevMessages.map(msg => 
-            msg.id === assistantThinkingMessage.id ? errorMessage : msg
-          );
+        const updatedMessages = messagesWithThinking.map(msg => {
+          if (msg.id === assistantThinkingMessage.id) {
+            return {
+              ...msg,
+              content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
+              status: "error",
+              agentType: selectedAgent
+            };
+          }
+          return msg;
         });
+        
+        setMessages(updatedMessages);
       } else if (data) {
         // Replace the thinking message with the actual response
-        const assistantMessage: Message = {
-          id: assistantThinkingMessage.id,
-          role: "assistant",
-          content: data.response || "I processed your request but don't have a specific response.",
-          createdAt: new Date().toISOString(),
-          agentType: data.agentType || selectedAgent,
-        };
-        
-        setMessages((prevMessages) => {
-          // Find and replace the thinking message
-          return prevMessages.map(msg => 
-            msg.id === assistantThinkingMessage.id ? assistantMessage : msg
-          );
+        const updatedMessages = messagesWithThinking.map(msg => {
+          if (msg.id === assistantThinkingMessage.id) {
+            return {
+              ...msg,
+              content: data.response || "I processed your request but don't have a specific response.",
+              status: undefined,
+              agentType: data.agentType || selectedAgent,
+            };
+          }
+          return msg;
         });
+        
+        setMessages(updatedMessages);
       }
       
       return true;

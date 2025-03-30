@@ -55,8 +55,9 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         createdAt: new Date().toISOString(),
       };
       
-      // Add to messages
-      setMessages(prev => [...prev, userMessage]);
+      // Add to messages - fix for TypeScript error
+      const newMessagesWithUser = [...messages, userMessage];
+      setMessages(newMessagesWithUser);
       
       // Show thinking indicator
       const assistantThinkingMessage: Message = {
@@ -68,8 +69,9 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         agentType: selectedAgent
       };
       
-      // Add thinking message
-      setMessages(prev => [...prev, assistantThinkingMessage]);
+      // Add thinking message - fix for TypeScript error
+      const newMessagesWithThinking = [...newMessagesWithUser, assistantThinkingMessage];
+      setMessages(newMessagesWithThinking);
       
       console.log("Calling unified-agent with:", {
         input,
@@ -93,34 +95,36 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         console.error("Error calling unified-agent:", error);
         toast.error("Failed to get response from agent");
         
-        // Update the thinking message to show the error
-        const errorMessage: Message = {
-          id: assistantThinkingMessage.id,
-          role: "assistant",
-          content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
-          createdAt: new Date().toISOString(),
-          status: "error",
-          agentType: selectedAgent
-        };
+        // Update the thinking message to show the error - fix for TypeScript error
+        const updatedMessages = newMessagesWithThinking.map(msg => {
+          if (msg.id === assistantThinkingMessage.id) {
+            return {
+              ...msg,
+              content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
+              status: "error",
+            };
+          }
+          return msg;
+        });
         
-        setMessages(prev => 
-          prev.map(msg => msg.id === assistantThinkingMessage.id ? errorMessage : msg)
-        );
+        setMessages(updatedMessages);
       } else if (data) {
         console.log("Received response from unified-agent:", data);
         
-        // Replace the thinking message with the actual response
-        const assistantMessage: Message = {
-          id: assistantThinkingMessage.id,
-          role: "assistant",
-          content: data.response || "I processed your request but don't have a specific response.",
-          createdAt: new Date().toISOString(),
-          agentType: data.agentType || selectedAgent,
-        };
+        // Replace the thinking message with the actual response - fix for TypeScript error
+        const updatedMessages = newMessagesWithThinking.map(msg => {
+          if (msg.id === assistantThinkingMessage.id) {
+            return {
+              ...msg,
+              content: data.response || "I processed your request but don't have a specific response.",
+              status: undefined,
+              agentType: data.agentType || selectedAgent,
+            };
+          }
+          return msg;
+        });
         
-        setMessages(prev => 
-          prev.map(msg => msg.id === assistantThinkingMessage.id ? assistantMessage : msg)
-        );
+        setMessages(updatedMessages);
       }
       
       setInput("");
@@ -130,7 +134,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
     } finally {
       setIsProcessing(false);
     }
-  }, [input, selectedAgent, projectId, sessionId, setMessages]);
+  }, [input, selectedAgent, projectId, sessionId, setMessages, messages]);
   
   return (
     <div className="flex flex-col h-screen bg-background">

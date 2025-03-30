@@ -13,7 +13,7 @@ export function useMultiAgentChat(projectId?: string) {
   const [selectedAgent, setSelectedAgent] = useState<AgentType>("main");
   const processingRef = useRef(false);
   
-  // Update the ref when state changes
+  // Update the ref when state changes to avoid dependency array issues
   useEffect(() => {
     processingRef.current = isProcessing;
   }, [isProcessing]);
@@ -78,6 +78,7 @@ export function useMultiAgentChat(projectId?: string) {
         });
         
         setMessages(updatedMessages);
+        return false;
       } else if (data) {
         // Replace the thinking message with the actual response - create a new array
         const updatedMessages = messagesWithThinking.map(msg => {
@@ -93,9 +94,10 @@ export function useMultiAgentChat(projectId?: string) {
         });
         
         setMessages(updatedMessages);
+        return true;
       }
       
-      return true;
+      return false;
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to send message");

@@ -28,12 +28,15 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [syncedWithStore, setSyncedWithStore] = useState(false);
   
-  // Sync local state with store when active session changes
+  // Sync local state with store when active session changes - safely handle this to prevent loops
   useEffect(() => {
-    if (chatHistoryStore.activeSession?.messages && !syncedWithStore) {
-      setMessagesState(chatHistoryStore.activeSession.messages);
+    const activeSessionMessages = chatHistoryStore.activeSession?.messages;
+    
+    // Only update if there's a meaningful change to prevent unnecessary rerenders
+    if (activeSessionMessages && !syncedWithStore) {
+      setMessagesState(activeSessionMessages);
       setSyncedWithStore(true);
-    } else if (!chatHistoryStore.activeSession?.messages && syncedWithStore) {
+    } else if (!activeSessionMessages && syncedWithStore) {
       setMessagesState([]);
       setSyncedWithStore(false);
     }
@@ -49,7 +52,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     }
   }, [chatHistoryStore]);
   
-  // Enhanced getOrCreateChatSession to make sure messages state is updated
+  // Enhanced getOrCreateChatSession to make sure messages state is updated - avoid infinite loops
   const getOrCreateSessionWithMessages = useCallback((projectId: string | null) => {
     const sessionId = chatHistoryStore.getOrCreateChatSession(projectId);
     

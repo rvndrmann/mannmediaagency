@@ -21,41 +21,39 @@ function MultiAgentChatContent() {
     sessionId || null
   );
   
-  // Initialize chat session if needed
+  // Initialize chat session if needed - only run this once on mount
   useEffect(() => {
-    if (!chatSessionId) {
-      try {
-        if (projectId) {
-          // Get or create a session for this project
-          const newSessionId = getOrCreateChatSession(projectId);
-          setChatSessionId(newSessionId);
-        } else {
-          // Create a new general chat session
-          const newSessionId = getOrCreateChatSession(null);
-          setChatSessionId(newSessionId);
-        }
-      } catch (error) {
-        console.error("Error initializing chat session:", error);
+    if (chatSessionId) return;
+    
+    try {
+      if (projectId) {
+        // Get or create a session for this project
+        const newSessionId = getOrCreateChatSession(projectId);
+        setChatSessionId(newSessionId);
+      } else {
+        // Create a new general chat session
+        const newSessionId = getOrCreateChatSession(null);
+        setChatSessionId(newSessionId);
       }
+    } catch (error) {
+      console.error("Error initializing chat session:", error);
     }
-  }, [projectId, chatSessionId, getOrCreateChatSession]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);  // Only run this on mount
 
+  // Set page title and active project - ensure this doesn't run in an infinite loop
   useEffect(() => {
     // Set page title based on project
     document.title = projectId 
       ? `Canvas Project #${projectId} - AI Collaboration` 
       : "Multi-Agent Chat | AI Collaboration";
       
-    // Ensure project is set in context
+    // Ensure project is set in context only if we have a project ID
     if (projectId) {
       setActiveProject(projectId);
     }
   }, [projectId, setActiveProject]);
   
-  const handleViewTraces = () => {
-    toast.success("Navigating to trace analytics");
-  };
-
   return (
     <>
       <div className="absolute top-4 right-4 z-50">

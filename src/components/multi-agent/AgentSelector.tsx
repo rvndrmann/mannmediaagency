@@ -16,10 +16,15 @@ export function AgentSelector({ selectedAgent, onSelectAgent, disabled }: AgentS
     { id: "scene", name: "Scene Creator" }
   ];
   
+  // Use a stable callback to prevent infinite update cycles
+  const handleValueChange = (value: string) => {
+    onSelectAgent(value as AgentType);
+  };
+  
   return (
     <Select
       value={selectedAgent}
-      onValueChange={onSelectAgent}
+      onValueChange={handleValueChange}
       disabled={disabled}
     >
       <SelectTrigger className="w-[180px]">

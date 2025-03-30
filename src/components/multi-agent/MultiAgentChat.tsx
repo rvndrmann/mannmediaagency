@@ -29,11 +29,14 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
   
   // Scroll to bottom when messages update - debounced to prevent too many updates
   useEffect(() => {
+    if (!scrollRef.current) return;
+    
     const timer = setTimeout(() => {
       if (scrollRef.current) {
         scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
       }
     }, 100);
+    
     return () => clearTimeout(timer);
   }, [messages]);
   
@@ -43,10 +46,13 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
   
   const handleSendMessage = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
-    if (await sendMessage(input)) {
+    if (input.trim() === "" || isProcessing) return;
+    
+    const success = await sendMessage(input);
+    if (success) {
       setInput("");
     }
-  }, [input, sendMessage]);
+  }, [input, sendMessage, isProcessing]);
   
   return (
     <div className="flex flex-col h-screen bg-background">

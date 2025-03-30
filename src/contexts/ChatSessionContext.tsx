@@ -14,10 +14,9 @@ export interface ChatSessionContextType {
   sendMessage: (params: { content: string; context?: any }) => Promise<void>;
   setActiveChatId: (id: string | null) => void;
   createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
-  getOrCreateChatSession: (projectId: string | null, type?: string | Message[]) => string;
+  getOrCreateChatSession: (projectId: string | null) => string;
   updateChatSession: (sessionId: string, messages: Message[]) => void;
   deleteChatSession: (sessionId: string) => void;
-  syncing: boolean;
 }
 
 const ChatSessionContext = createContext<ChatSessionContextType | undefined>(undefined);
@@ -28,13 +27,37 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(false);
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
+  // Enhanced version of setMessages that also updates the store
+  const updateMessages = (newMessages: Message[]) => {
+    setMessages(newMessages);
+    
+    // Also update the session in the store if we have an active chat ID
+    if (chatHistoryStore.activeChatId) {
+      chatHistoryStore.updateChatSession(chatHistoryStore.activeChatId, newMessages);
+    }
+  };
+  
+  // Enhanced getOrCreateChatSession to make sure messages state is updated
+  const getOrCreateSessionWithMessages = (projectId: string | null) => {
+    const sessionId = chatHistoryStore.getOrCreateChatSession(projectId);
+    
+    // Make sure the active session is set
+    chatHistoryStore.setActiveChatId(sessionId);
+    
+    // Update our local messages state with the session messages
+    if (chatHistoryStore.activeSession?.messages) {
+      setMessages(chatHistoryStore.activeSession.messages);
+    } else {
+      setMessages([]);
+    }
+    
+    return sessionId;
+  };
+  
   const sendMessage = async (params: { content: string; context?: any }) => {
     try {
       setStatus('loading');
-      
-      // This is just a placeholder for now
-      // The actual message sending happens in the component using the agent-sdk
-      
+      // This is just a placeholder - actual sending happens in the component
       setStatus('success');
     } catch (error) {
       console.error("Error sending message:", error);
@@ -43,39 +66,15 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Enhanced getOrCreateChatSession to support type as string or initial messages
-  const getOrCreateChatSession = (projectId: string | null, typeOrMessages: string | Message[] = 'default') => {
-    let initialMessages: Message[] | undefined;
-    let type = 'default';
-    
-    // Check if the second parameter is a string (type) or array (messages)
-    if (Array.isArray(typeOrMessages)) {
-      initialMessages = typeOrMessages;
-    } else {
-      type = typeOrMessages;
-    }
-    
-    const sessionId = chatHistoryStore.getOrCreateChatSession(projectId, initialMessages);
-    
-    // If we have messages in the session, use those
-    if (chatHistoryStore.activeSession?.messages) {
-      setMessages(chatHistoryStore.activeSession.messages);
-    } else {
-      setMessages(initialMessages || []);
-    }
-    
-    return sessionId;
-  };
-  
   return (
     <ChatSessionContext.Provider value={{
       ...chatHistoryStore,
       messages,
-      setMessages,
+      setMessages: updateMessages,
       isLoading,
       status,
       sendMessage,
-      getOrCreateChatSession
+      getOrCreateChatSession: getOrCreateSessionWithMessages
     }}>
       {children}
     </ChatSessionContext.Provider>

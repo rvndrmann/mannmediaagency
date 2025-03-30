@@ -1,7 +1,7 @@
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useAgentSdk, AgentSdkType } from "./use-agent-sdk";
-import { Message } from "@/types/message";
+import { Message, MessageStatus } from "@/types/message";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 
 interface UseAgentSdkChatOptions {
@@ -13,15 +13,21 @@ interface UseAgentSdkChatOptions {
 export function useAgentSdkChat(options: UseAgentSdkChatOptions = {}) {
   const { messages, setMessages } = useChatSession();
   const [selectedAgent, setSelectedAgent] = useState<AgentSdkType>("assistant");
+  const processingRef = useRef(false);
   
   const { callAgent, isProcessing } = useAgentSdk({
     projectId: options.projectId,
     sessionId: options.sessionId
   });
   
+  // Update the ref when isProcessing changes to prevent dependency array issues
+  useEffect(() => {
+    processingRef.current = isProcessing;
+  }, [isProcessing]);
+  
   // Sends a message to the agent and updates the chat session
   const sendMessage = useCallback(async (input: string) => {
-    if (!input.trim() || isProcessing) return false;
+    if (!input.trim() || processingRef.current) return false;
     
     try {
       // Add user message to the chat
@@ -41,7 +47,7 @@ export function useAgentSdkChat(options: UseAgentSdkChatOptions = {}) {
         role: "assistant",
         content: "",
         createdAt: new Date().toISOString(),
-        status: "thinking",
+        status: "thinking" as MessageStatus,
         agentType: selectedAgent
       };
       
@@ -58,7 +64,7 @@ export function useAgentSdkChat(options: UseAgentSdkChatOptions = {}) {
             return {
               ...msg,
               content: result.error || "I'm sorry, I encountered an error while processing your request.",
-              status: "error",
+              status: "error" as MessageStatus,
               agentType: selectedAgent
             };
           }
@@ -72,7 +78,7 @@ export function useAgentSdkChat(options: UseAgentSdkChatOptions = {}) {
       // Replace the thinking message with the actual response
       const updatedMessages = messagesWithThinking.map(msg => {
         if (msg.id === assistantThinkingMessage.id) {
-          const completedMessage = {
+          const completedMessage: Message = {
             ...msg,
             content: result.response || "I processed your request but don't have a specific response.",
             status: undefined,
@@ -100,7 +106,6 @@ export function useAgentSdkChat(options: UseAgentSdkChatOptions = {}) {
     setMessages, 
     selectedAgent, 
     callAgent, 
-    isProcessing, 
     options.onMessageComplete
   ]);
   

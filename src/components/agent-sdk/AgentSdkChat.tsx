@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -24,6 +24,7 @@ export function AgentSdkChat({
   defaultAgent = "assistant"
 }: AgentSdkChatProps) {
   const [input, setInput] = useState("");
+  const scrollRef = useRef<HTMLDivElement>(null);
   
   const {
     messages,
@@ -36,6 +37,23 @@ export function AgentSdkChat({
     sessionId,
     onMessageComplete
   });
+  
+  // Scroll to bottom when messages update
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (scrollRef.current) {
+        scrollRef.current.scrollIntoView({ behavior: 'smooth', block: 'end' });
+      }
+    }, 100);
+    return () => clearTimeout(timer);
+  }, [messages]);
+  
+  // Set default agent once on component mount
+  useEffect(() => {
+    if (defaultAgent) {
+      setSelectedAgent(defaultAgent as any);
+    }
+  }, [defaultAgent, setSelectedAgent]);
   
   const handleAgentChange = useCallback((agentType: string) => {
     setSelectedAgent(agentType as any);
@@ -72,6 +90,7 @@ export function AgentSdkChat({
               <ChatMessage key={message.id} message={message} />
             ))
           )}
+          <div ref={scrollRef} />
         </div>
       </ScrollArea>
       

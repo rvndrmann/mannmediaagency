@@ -7,7 +7,6 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { Message } from "@/types/message";
-import { toast } from "sonner";
 import { AgentSelector } from "@/components/multi-agent/AgentSelector";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 

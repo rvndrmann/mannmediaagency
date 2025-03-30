@@ -1,169 +1,124 @@
 
-import { Message } from "@/types/message";
-import { Avatar } from "@/components/ui/avatar";
-import { Markdown } from "@/components/ui/markdown";
-import { MessageStatus } from "@/components/chat/MessageStatus";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
-import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
-import { getAgentIcon } from "@/lib/agent-icons";
-import { CanvasContentDisplay } from "./CanvasContentDisplay";
-import { Button } from "../ui/button";
-import { Edit, Pencil } from "lucide-react";
-import { useState, useEffect } from "react";
-
-const agentFullNames = {
-  main: "Main Assistant",
-  script: "Script Writer",
-  image: "Image Generator",
-  tool: "Tool Assistant",
-  scene: "Scene Creator"
-};
+import { Message } from "@/types/message";
+import { format } from "date-fns";
+import { ArrowRightLeft, Bot, Loader2, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { CodeBlock } from "./CodeBlock";
+import { Skeleton } from "../ui/skeleton";
+import { Badge } from "../ui/badge";
 
 interface ChatMessageProps {
   message: Message;
-  showAgentName?: boolean;
-  onEditContent?: (type: string, content: string, sceneId: string) => void;
-  isStreaming?: boolean;
+  isLoading?: boolean;
 }
 
-export function ChatMessage({ message, showAgentName = true, onEditContent, isStreaming = false }: ChatMessageProps) {
-  const [showCanvasContent, setShowCanvasContent] = useState(true);
-  const [cursor, setCursor] = useState(true);
+export function ChatMessage({ message, isLoading = false }: ChatMessageProps) {
+  const isUser = message.role === "user";
+  const isSystem = message.role === "system";
+  const isThinking = message.status === "thinking";
+  const isError = message.status === "error";
+  const hasHandoff = !!message.handoffRequest;
   
-  // Blinking cursor effect for streaming messages
-  useEffect(() => {
-    if (!isStreaming) return;
-    
-    const cursorInterval = setInterval(() => {
-      setCursor(prev => !prev);
-    }, 500);
-    
-    return () => clearInterval(cursorInterval);
-  }, [isStreaming]);
-  
-  const hasCanvasContent = 
-    message.role === "assistant" && 
-    message.canvasContent;
-  
+  if (isLoading) {
+    return <MessageSkeleton isUser={isUser} />;
+  }
+
   return (
     <div
       className={cn(
-        "flex gap-3 group",
-        message.role === "user" ? "flex-row-reverse" : "flex-row"
+        "flex items-start gap-4 p-4 rounded-lg",
+        isUser ? "bg-muted/50" : "bg-background border",
+        isSystem && "bg-slate-900 text-white",
+        isError && "bg-red-500/10 border-red-500/20"
       )}
     >
-      <Avatar className={cn(
-        "rounded-md overflow-hidden mt-1 w-8 h-8 border",
-        message.role === "user" ? "bg-primary" : "bg-secondary",
-        message.agentType === "tool" && "bg-emerald-500",
-        message.agentType === "script" && "bg-blue-500",
-        message.agentType === "image" && "bg-purple-500",
-        message.agentType === "scene" && "bg-amber-500",
-        message.type === "system" && "bg-gray-500",
-        message.type === "error" && "bg-red-500"
-      )}>
-        {message.role === "user" ? (
-          <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-            U
-          </div>
-        ) : message.type === "system" ? (
-          <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-            S
-          </div>
-        ) : message.type === "error" ? (
-          <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-            !
-          </div>
+      <Avatar className={cn("h-8 w-8", isUser ? "bg-primary" : "bg-muted")}>
+        {isUser ? (
+          <User className="h-4 w-4 text-white" />
         ) : (
-          <div className="flex items-center justify-center h-full">
-            {getAgentIcon(message.agentType || "main", "w-4 h-4 text-white")}
-          </div>
+          <Bot className="h-4 w-4" />
         )}
+        <AvatarFallback>
+          {isUser ? "U" : message.agentType?.charAt(0).toUpperCase() || "A"}
+        </AvatarFallback>
       </Avatar>
-      
-      <div className={cn(
-        "flex flex-col max-w-[90%] sm:max-w-[75%]",
-        message.role === "user" ? "items-end" : "items-start"
-      )}>
-        {showAgentName && message.role === "assistant" && message.agentType && (
-          <span className={cn(
-            "text-xs font-medium mb-1",
-            message.agentType === "main" && "text-slate-400",
-            message.agentType === "tool" && "text-emerald-400",
-            message.agentType === "script" && "text-blue-400",
-            message.agentType === "image" && "text-purple-400",
-            message.agentType === "scene" && "text-amber-400"
-          )}>
-            {agentFullNames[message.agentType as keyof typeof agentFullNames] || message.agentType}
-          </span>
-        )}
-        
-        <div className={cn(
-          "p-3 rounded-lg",
-          message.role === "user" 
-            ? "bg-primary text-primary-foreground" 
-            : message.type === "system" 
-              ? "bg-muted text-muted-foreground text-sm" 
-              : message.type === "error"
-                ? "bg-red-500/10 text-red-600 dark:text-red-400 text-sm border border-red-500/20"
-                : (message.status === "thinking" || isStreaming)
-                  ? "bg-blue-500/10 text-blue-400 dark:text-blue-300 text-sm border border-blue-500/20 animate-pulse"
-                  : "bg-muted text-card-foreground"
-        )}>
-          {message.attachments && message.attachments.length > 0 && (
-            <div className="mb-3">
-              <AttachmentPreview 
-                attachments={message.attachments} 
-                isRemovable={false} 
-              />
+
+      <div className="flex-1 space-y-2">
+        <div className="flex justify-between items-start">
+          <div className="flex items-center gap-2">
+            <div className="font-medium">
+              {isUser ? "You" : message.agentType 
+                ? `${message.agentType.charAt(0).toUpperCase() + message.agentType.slice(1)} Agent` 
+                : "Assistant"}
             </div>
+            {message.agentType && !isUser && (
+              <Badge variant="outline" className="text-xs">
+                {message.agentType}
+              </Badge>
+            )}
+            {hasHandoff && (
+              <Badge variant="secondary" className="flex items-center text-xs">
+                <ArrowRightLeft className="h-3 w-3 mr-1" />
+                Handoff to {message.handoffRequest?.targetAgent}
+              </Badge>
+            )}
+          </div>
+          <div className="text-xs text-muted-foreground">
+            {message.createdAt && format(new Date(message.createdAt), "p")}
+          </div>
+        </div>
+
+        <div className="prose prose-sm dark:prose-invert max-w-none">
+          {isThinking ? (
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <span>Thinking...</span>
+            </div>
+          ) : (
+            <ReactMarkdown
+              components={{
+                code({ node, inline, className, children, ...props }) {
+                  const match = /language-(\w+)/.exec(className || "");
+                  return !inline && match ? (
+                    <CodeBlock
+                      value={String(children).replace(/\n$/, "")}
+                      language={match[1]}
+                      {...props}
+                    />
+                  ) : (
+                    <code className={className} {...props}>
+                      {children}
+                    </code>
+                  );
+                },
+              }}
+            >
+              {message.content}
+            </ReactMarkdown>
           )}
-          
-          <Markdown>{message.content}</Markdown>
-          
-          {/* Show cursor when streaming */}
-          {isStreaming && cursor && (
-            <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"></span>
-          )}
-          
-          {message.status && (
-            <div className="mt-2">
-              <MessageStatus status={message.status} message={message.statusMessage} />
+
+          {hasHandoff && (
+            <div className="mt-2 p-2 border rounded-md bg-muted/30">
+              <p className="text-sm font-medium">Transferring to {message.handoffRequest?.targetAgent} agent</p>
+              <p className="text-xs text-muted-foreground">{message.handoffRequest?.reason}</p>
             </div>
           )}
         </div>
-        
-        {/* Canvas Content Display */}
-        {hasCanvasContent && showCanvasContent && (
-          <div className="mt-2 max-w-full w-full">
-            <CanvasContentDisplay
-              title={message.canvasContent?.title || "Scene Content"}
-              sceneId={message.canvasContent?.sceneId || ""}
-              script={message.canvasContent?.script}
-              description={message.canvasContent?.description}
-              imagePrompt={message.canvasContent?.imagePrompt}
-              voiceOverText={message.canvasContent?.voiceOverText}
-              onEditClick={onEditContent}
-            />
-          </div>
-        )}
-        
-        {hasCanvasContent && (
-          <div className="self-end mt-1">
-            <Button 
-              variant="ghost" 
-              size="sm" 
-              onClick={() => setShowCanvasContent(!showCanvasContent)}
-              className="h-6 text-xs text-muted-foreground"
-            >
-              {showCanvasContent ? "Hide Content" : "Show Canvas Content"}
-            </Button>
-          </div>
-        )}
-        
-        <span className="text-[10px] text-muted-foreground mt-1 select-none">
-          {new Date(message.createdAt).toLocaleTimeString()}
-        </span>
+      </div>
+    </div>
+  );
+}
+
+function MessageSkeleton({ isUser }: { isUser: boolean }) {
+  return (
+    <div className="flex items-start gap-4 p-4 rounded-lg border">
+      <Skeleton className="h-8 w-8 rounded-full" />
+      <div className="space-y-2 flex-1">
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-4 w-full" />
+        <Skeleton className="h-4 w-2/3" />
       </div>
     </div>
   );

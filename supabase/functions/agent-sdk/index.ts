@@ -18,6 +18,12 @@ interface AgentRequest {
   messageHistory?: Array<{role: string, content: string}>;
 }
 
+interface HandoffData {
+  targetAgent: string;
+  reason: string;
+  additionalContext?: Record<string, any>;
+}
+
 serve(async (req) => {
   console.log(`Agent SDK function received request: ${req.method} ${req.url}`);
   
@@ -159,6 +165,104 @@ Number of Scenes: ${projectData.scenes?.length || 0}
     
     console.log("Sending to OpenAI with messages:", JSON.stringify(messages));
     
+    // Define functions for tool use and agent handoffs
+    const functions = [
+      {
+        name: "transfer_to_script_agent",
+        description: "Transfer the conversation to a specialist who can write scripts and creative content",
+        parameters: {
+          type: "object",
+          properties: {
+            reason: {
+              type: "string",
+              description: "Why the conversation should be transferred to the script agent"
+            },
+            additionalContext: {
+              type: "object",
+              description: "Additional context to provide to the script agent",
+              properties: {
+                requiresFullScript: {
+                  type: "boolean",
+                  description: "Whether the user needs a complete script"
+                },
+                scriptType: {
+                  type: "string",
+                  description: "The type of script needed (video, film, commercial, etc.)"
+                }
+              }
+            }
+          },
+          required: ["reason"]
+        }
+      },
+      {
+        name: "transfer_to_image_agent",
+        description: "Transfer the conversation to a specialist who can create image generation prompts",
+        parameters: {
+          type: "object",
+          properties: {
+            reason: {
+              type: "string",
+              description: "Why the conversation should be transferred to the image agent"
+            },
+            additionalContext: {
+              type: "object",
+              description: "Additional context to provide to the image agent",
+              properties: {
+                imageStyle: {
+                  type: "string",
+                  description: "The desired style for the image (photo-realistic, cartoon, etc.)"
+                },
+                imageSubject: {
+                  type: "string",
+                  description: "The main subject of the image"
+                }
+              }
+            }
+          },
+          required: ["reason"]
+        }
+      },
+      {
+        name: "transfer_to_scene_agent",
+        description: "Transfer the conversation to a specialist who can create detailed scene descriptions",
+        parameters: {
+          type: "object",
+          properties: {
+            reason: {
+              type: "string",
+              description: "Why the conversation should be transferred to the scene agent"
+            },
+            additionalContext: {
+              type: "object",
+              description: "Additional context to provide to the scene agent",
+              properties: {
+                sceneType: {
+                  type: "string",
+                  description: "The type of scene needed (interior, exterior, action, etc.)"
+                }
+              }
+            }
+          },
+          required: ["reason"]
+        }
+      }
+    ];
+    
+    // Add functions only if agent type is 'main' to enable handoffs
+    const modelParams: any = {
+      model: "gpt-4o", // Using the more capable model
+      messages: messages,
+      temperature: 0.7,
+      max_tokens: 1000
+    };
+    
+    // Add functions for handoff capability only for main agent
+    if (agentType === 'main') {
+      modelParams.functions = functions;
+      modelParams.function_call = 'auto';
+    }
+    
     // Make the OpenAI API request
     const openAIResponse = await fetch("https://api.openai.com/v1/chat/completions", {
       method: "POST",
@@ -166,12 +270,7 @@ Number of Scenes: ${projectData.scenes?.length || 0}
         "Content-Type": "application/json",
         "Authorization": `Bearer ${openAIApiKey}`
       },
-      body: JSON.stringify({
-        model: "gpt-4o", // Using the more capable model
-        messages: messages,
-        temperature: 0.7,
-        max_tokens: 1000
-      })
+      body: JSON.stringify(modelParams)
     });
     
     if (!openAIResponse.ok) {
@@ -183,7 +282,32 @@ Number of Scenes: ${projectData.scenes?.length || 0}
     const data = await openAIResponse.json();
     console.log("OpenAI response:", JSON.stringify(data));
     
-    const generatedContent = data.choices[0].message.content;
+    let generatedContent = data.choices[0].message.content || "";
+    let handoff: HandoffData | null = null;
+    
+    // Handle function calls (for handoffs)
+    if (data.choices[0].message.function_call) {
+      const functionCall = data.choices[0].message.function_call;
+      console.log("Function call detected:", functionCall.name);
+      
+      try {
+        const args = JSON.parse(functionCall.arguments);
+        
+        if (functionCall.name.startsWith('transfer_to_')) {
+          const targetAgent = functionCall.name.replace('transfer_to_', '').replace('_agent', '');
+          handoff = {
+            targetAgent,
+            reason: args.reason,
+            additionalContext: args.additionalContext
+          };
+          
+          // Generate a transition message
+          generatedContent = `I'll transfer you to our ${targetAgent} specialist. ${args.reason}`;
+        }
+      } catch (e) {
+        console.error("Error processing function call:", e);
+      }
+    }
     
     // Update the message history with the assistant's response
     messages.push({
@@ -229,7 +353,8 @@ Number of Scenes: ${projectData.scenes?.length || 0}
         success: true,
         response: generatedContent,
         agentType,
-        messageHistory: messages
+        messageHistory: messages,
+        handoff
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -252,10 +377,10 @@ Number of Scenes: ${projectData.scenes?.length || 0}
 // Function to get instructions based on agent type
 function getAgentInstructions(agentType: string, hasProjectContext: boolean): string {
   const baseInstructions = {
-    "main": "You are a helpful AI assistant specialized in video creation and content. Respond to user queries with useful information and guidance.",
-    "script": "You are a script writing expert. When asked to write a script, provide a complete, properly formatted script for video production.",
-    "image": "You are an image prompt generator. Create detailed, vivid prompts for AI image generation that would work well for creating visuals for videos.",
-    "scene": "You are a scene creator specialized in describing detailed scene layouts for video production. Focus on visual details that would be important for image generation.",
+    "main": "You are a helpful AI assistant specialized in video creation and content. Your job is to help users with their video projects. If a user asks about writing scripts, creating image prompts, or scene descriptions, you should transfer them to the specialized agent for that task. Otherwise, respond to their questions directly.",
+    "script": "You are a script writing expert. When asked to write a script, provide a complete, properly formatted script for video production. Always format your scripts professionally with scene headings, action descriptions, and dialogue.",
+    "image": "You are an image prompt generator. Create detailed, vivid prompts for AI image generation that would work well for creating visuals for videos. Focus on describing the style, composition, lighting, and key visual elements.",
+    "scene": "You are a scene creator specialized in describing detailed scene layouts for video production. Focus on visual details that would be important for image generation including setting, props, and character positions.",
     "tool": "You are a technical assistant specializing in helping users understand and use video creation tools effectively.",
     "data": "You are a data analyst assistant that helps interpret metrics, analytics, and other data-related queries for content creators.",
   };

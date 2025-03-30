@@ -118,6 +118,41 @@ export function useMultiAgentChat(options: MultiAgentChatOptions = {}) {
       if (data) {
         console.log("Agent SDK response:", data);
         
+        // Check if we need to handle a handoff to a different agent
+        if (data.handoff) {
+          console.log("Handling handoff to:", data.handoff.targetAgent);
+          
+          // Replace the thinking message with the handoff message
+          const updatedMessages = messagesWithThinking.map(msg => {
+            if (msg.id === assistantThinkingMessage.id) {
+              return {
+                ...msg,
+                content: data.response || "I'm transferring you to a specialized agent.",
+                status: undefined,
+                agentType: selectedAgent,
+                handoffRequest: {
+                  targetAgent: data.handoff.targetAgent,
+                  reason: data.handoff.reason,
+                  additionalContext: data.handoff.additionalContext
+                }
+              };
+            }
+            return msg;
+          });
+          
+          setMessages(updatedMessages);
+          
+          // Update the selected agent
+          setSelectedAgent(data.handoff.targetAgent);
+          
+          // Update message history with the new messages
+          if (data.messageHistory) {
+            messageHistoryRef.current = data.messageHistory;
+          }
+          
+          return true;
+        }
+        
         // Replace the thinking message with the actual response - create a new array
         const updatedMessages = messagesWithThinking.map(msg => {
           if (msg.id === assistantThinkingMessage.id) {

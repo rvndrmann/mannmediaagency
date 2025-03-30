@@ -11,6 +11,8 @@ import { AgentSelector } from "@/components/multi-agent/AgentSelector";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ProjectSelector } from "@/components/multi-agent/ProjectSelector";
 import { toast } from "sonner";
+import { Badge } from "@/components/ui/badge";
+import { ArrowRightLeft } from "lucide-react";
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -59,6 +61,25 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
     return () => clearTimeout(timer);
   }, [messages]);
   
+  // Update agent based on handoff requests
+  useEffect(() => {
+    // Find the latest message with a handoff request
+    const lastHandoffMessage = [...messages]
+      .reverse()
+      .find(message => message.handoffRequest && message.role === "assistant");
+    
+    if (lastHandoffMessage?.handoffRequest) {
+      const targetAgent = lastHandoffMessage.handoffRequest.targetAgent;
+      console.log(`Detected handoff to ${targetAgent} agent`);
+      
+      // Update the selected agent if it's different
+      if (selectedAgent !== targetAgent) {
+        setSelectedAgent(targetAgent);
+        toast.info(`Switched to ${targetAgent} agent`);
+      }
+    }
+  }, [messages, selectedAgent, setSelectedAgent]);
+  
   const handleAgentChange = useCallback((agentType: string) => {
     setSelectedAgent(agentType);
   }, [setSelectedAgent]);
@@ -83,7 +104,14 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
         <Card className="w-full h-full flex flex-col overflow-hidden border rounded-lg shadow-md">
           <div className="p-4 border-b">
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-              <h2 className="text-xl font-semibold text-foreground">Multi-Agent Chat</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-xl font-semibold text-foreground">Multi-Agent Chat</h2>
+                {selectedAgent && (
+                  <Badge variant="secondary" className="flex items-center">
+                    {selectedAgent} agent
+                  </Badge>
+                )}
+              </div>
               <div className="flex flex-col md:flex-row gap-3 w-full md:w-auto">
                 <div className="w-full md:w-[220px]">
                   <ProjectSelector 

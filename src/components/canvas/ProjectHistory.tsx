@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject } from "@/types/canvas";
-import { ArrowLeft, Video, Calendar, Clock, Trash2, Hash } from "lucide-react";
+import { ArrowLeft, Video, Calendar, Clock, Trash2, Hash, Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { 
@@ -194,8 +194,19 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
               ))
             ) : (
               <div className="col-span-full flex flex-col items-center justify-center py-12">
-                <p className="text-muted-foreground">No project history found</p>
-                <Button className="mt-4" onClick={onBack}>Create New Project</Button>
+                <div className="text-center space-y-4">
+                  <Video className="h-12 w-12 mx-auto text-muted-foreground" />
+                  <h3 className="text-xl font-medium">No Projects Found</h3>
+                  <p className="text-muted-foreground">You don't have any projects yet. Create your first video project to get started.</p>
+                  <Button 
+                    className="mt-2" 
+                    onClick={onBack}
+                    size="lg"
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    Create New Project
+                  </Button>
+                </div>
               </div>
             )}
           </div>

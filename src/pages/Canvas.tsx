@@ -9,6 +9,8 @@ import { toast } from "sonner";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { ProjectHistory } from "@/components/canvas/ProjectHistory";
+import { CanvasHeader } from "@/components/canvas/CanvasHeader";
 
 export default function Canvas() {
   const { projectId } = useParams();
@@ -33,6 +35,7 @@ export default function Canvas() {
   
   const { getOrCreateChatSession } = useChatSession();
   const [showChat, setShowChat] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
 
   // Initialize chat session when project loads
@@ -58,22 +61,27 @@ export default function Canvas() {
     }
   };
 
-  const handleContentSave = async (
-    sceneId: string,
-    contentType: string,
-    content: string
-  ) => {
-    if (!project) {
-      toast.error("No project loaded. Please create or load a project before saving content.");
-      return;
-    }
+  const handleToggleChat = useCallback(() => {
+    setShowChat(prev => !prev);
+  }, []);
 
+  const handleToggleHistory = useCallback(() => {
+    setShowHistory(prev => !prev);
+  }, []);
+
+  const handleSelectProject = useCallback((selectedProjectId: string) => {
+    navigate(`/canvas/${selectedProjectId}`);
+    setShowHistory(false);
+  }, [navigate]);
+
+  const handleUpdateTitle = async (title: string) => {
+    if (!project) return;
     try {
-      await updateScene(sceneId, contentType as any, content);
-      toast.success(`Content saved successfully`);
+      await updateProjectTitle(title);
+      toast.success("Project title updated successfully");
     } catch (error) {
-      console.error("Error saving content:", error);
-      toast.error("Failed to save content");
+      console.error("Error updating project title:", error);
+      toast.error("Failed to update project title");
     }
   };
 
@@ -106,59 +114,30 @@ export default function Canvas() {
     }
   };
 
-  const handleDeleteProject = async () => {
-    if (!project) {
-      toast.error("No project loaded. Please load a project before deleting.");
-      return;
-    }
-
-    try {
-      // The useCanvas hook doesn't have a deleteProject function, so we'll have to implement this
-      // Since we don't have a direct API here, we'll navigate away instead
-      navigate("/canvas");
-      toast.success("Project deleted successfully");
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      toast.error("Failed to delete project");
-    }
-  };
-
-  const handleSaveAsNewProject = async () => {
-    if (!project) {
-      toast.error("No project loaded. Please load a project before saving as new.");
-      return;
-    }
-
-    try {
-      // Create a new project with a copy title
-      const newProjectId = await createProject(
-        `${project.title} (Copy)`, 
-        project.description
-      );
-      
-      if (newProjectId) {
-        // We would need to copy all scenes to the new project
-        // but the API doesn't directly support this in useCanvas
-        navigate(`/canvas/${newProjectId}`);
-        toast.success("Project saved as new successfully");
-      }
-    } catch (error) {
-      console.error("Error saving project as new:", error);
-      toast.error("Failed to save project as new");
-    }
-  };
-
-  const toggleChatPanel = useCallback(() => {
-    setShowChat(prev => !prev);
-  }, []);
-
   // Check if we're on the root Canvas page with no project ID
   const isRootCanvas = !projectId;
 
   return (
-    <div className="flex h-screen overflow-hidden">
-      <div className="flex-1 flex flex-col">
-        {isRootCanvas && !isLoading ? (
+    <div className="flex flex-col h-screen overflow-hidden">
+      {!isRootCanvas && (
+        <CanvasHeader 
+          project={project}
+          onChatToggle={handleToggleChat}
+          showChatButton={!showChat}
+          onFullChatOpen={() => navigate('/multi-agent-chat')}
+          onShowHistory={handleToggleHistory}
+          onUpdateTitle={handleUpdateTitle}
+        />
+      )}
+      
+      <div className="flex-1 flex overflow-hidden">
+        {showHistory ? (
+          <ProjectHistory 
+            projectId={projectId || ''}
+            onBack={() => setShowHistory(false)}
+            onSelectProject={handleSelectProject}
+          />
+        ) : isRootCanvas && !isLoading ? (
           <div className="flex-1 flex items-center justify-center">
             <div className="text-center space-y-6 max-w-md p-6">
               <h1 className="text-3xl font-bold">Welcome to Canvas</h1>
@@ -193,17 +172,17 @@ export default function Canvas() {
             />
           </main>
         )}
+        
+        {showChat && projectId && (
+          <div className="w-96 flex-none overflow-hidden border-l">
+            <CanvasChat projectId={projectId} onClose={handleToggleChat} />
+          </div>
+        )}
+        
+        {!showChat && projectId && !showHistory && (
+          <ChatToggleButton onClick={handleToggleChat} />
+        )}
       </div>
-      
-      {showChat && projectId && (
-        <div className="w-96 flex-none overflow-hidden border-l">
-          <CanvasChat projectId={project?.id} onClose={toggleChatPanel} />
-        </div>
-      )}
-      
-      {!showChat && projectId && (
-        <ChatToggleButton onClick={toggleChatPanel} />
-      )}
     </div>
   );
 }

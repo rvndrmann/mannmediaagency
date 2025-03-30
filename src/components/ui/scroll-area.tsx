@@ -26,23 +26,28 @@ const ScrollBar = React.forwardRef<
   React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>,
   React.ComponentPropsWithoutRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>
 >(({ className, orientation = "vertical", ...props }, ref) => {
-  // Use a stable ref object that won't change between renders
-  const scrollbarRef = React.useRef<React.ElementRef<typeof ScrollAreaPrimitive.ScrollAreaScrollbar>>(null);
+  // Create a stable ref that doesn't change between renders
+  const scrollbarRef = React.useRef<HTMLDivElement | null>(null);
   
-  // Only set up the ref forwarding once
-  React.useEffect(() => {
-    if (ref) {
+  // Forward the ref without causing re-renders
+  const handleRef = React.useCallback(
+    (instance: HTMLDivElement | null) => {
+      // Update our internal ref
+      scrollbarRef.current = instance;
+      
+      // Forward to the external ref if it exists
       if (typeof ref === 'function') {
-        ref(scrollbarRef.current);
-      } else {
-        ref.current = scrollbarRef.current;
+        ref(instance);
+      } else if (ref) {
+        ref.current = instance;
       }
-    }
-  }, [ref]);
+    },
+    [ref]
+  );
   
   return (
     <ScrollAreaPrimitive.ScrollAreaScrollbar
-      ref={scrollbarRef}
+      ref={handleRef}
       orientation={orientation}
       className={cn(
         "flex touch-none select-none transition-colors",

@@ -1,5 +1,5 @@
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { Textarea } from "@/components/ui/textarea";
 import { Input } from "@/components/ui/input";

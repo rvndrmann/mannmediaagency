@@ -3,18 +3,37 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { Message } from "@/types/message";
 import { useEffect, useState } from "react";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChatMessage } from "@/components/chat/ChatMessage";
+import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 
 interface CanvasChatProps {
   projectId?: string;
+  sceneId?: string;
   onClose: () => void;
+  updateScene?: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
 }
 
-export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
+export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasChatProps) {
   const { getOrCreateChatSession, activeSession } = useChatSession();
   const { setActiveProject } = useProjectContext();
   const [sessionId, setSessionId] = useState<string | null>(null);
+  
+  const { 
+    messages, 
+    addUserMessage, 
+    generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo
+  } = useCanvasAgent({
+    projectId,
+    sceneId,
+    updateScene
+  });
   
   // Set active project in project context to ensure shared state
   useEffect(() => {
@@ -37,6 +56,13 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
       setSessionId(id);
     }
   }, [projectId, getOrCreateChatSession]);
+
+  const handleEditContent = (type: string, content: string, sceneId: string) => {
+    if (updateScene && sceneId) {
+      const updateType = type as 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video';
+      updateScene(sceneId, updateType, content);
+    }
+  };
   
   return (
     <div className="flex flex-col h-full overflow-hidden border-r">
@@ -48,7 +74,7 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
       </div>
       
       <div className="flex-1 overflow-hidden">
-        {sessionId && (
+        {sessionId ? (
           <MultiAgentChat 
             projectId={projectId} 
             onBack={onClose}
@@ -56,6 +82,24 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
             sessionId={sessionId}
             compactMode={true}
           />
+        ) : (
+          <ScrollArea className="h-full">
+            <div className="p-4 space-y-4">
+              {messages.map((message) => (
+                <ChatMessage 
+                  key={message.id} 
+                  message={message}
+                  onEditContent={handleEditContent}
+                />
+              ))}
+              
+              {messages.length === 0 && (
+                <div className="text-center text-muted-foreground p-8">
+                  No messages yet. Generate content to start a conversation.
+                </div>
+              )}
+            </div>
+          </ScrollArea>
         )}
       </div>
     </div>

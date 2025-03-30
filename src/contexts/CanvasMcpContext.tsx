@@ -23,11 +23,15 @@ interface CanvasMcpContextType {
 // Create the context
 const CanvasMcpContext = createContext<CanvasMcpContextType | undefined>(undefined);
 
+interface UpdateSceneFunction {
+  (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string): Promise<void>;
+}
+
 interface CanvasMcpProviderProps {
   children: ReactNode;
   projectId: string;
   sceneId?: string;
-  updateScene?: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
+  updateScene?: UpdateSceneFunction;
 }
 
 export function CanvasMcpProvider({ 

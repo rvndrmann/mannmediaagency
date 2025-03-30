@@ -3,25 +3,29 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { X, Save, Wand2, ImageIcon, Loader2, AlertTriangle } from "lucide-react";
-import { CanvasProject } from "@/types/canvas";
+import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface CanvasScriptPanelProps {
   project: CanvasProject;
-  onClose: () => void;
-  saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
+  scenes: CanvasScene[]; // Add this property
+  onClose?: () => void;
+  currentScript: string;
+  onSaveScript: (script: string) => Promise<void>;
+  onDivideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
 }
 
 export function CanvasScriptPanel({
   project,
+  scenes,
   onClose,
-  saveFullScript,
-  divideScriptToScenes
+  currentScript,
+  onSaveScript,
+  onDivideScriptToScenes
 }: CanvasScriptPanelProps) {
-  const [fullScript, setFullScript] = useState(project.fullScript || "");
+  const [fullScript, setFullScript] = useState(currentScript || "");
   const [isSaving, setIsSaving] = useState(false);
   const [isDividing, setIsDividing] = useState(false);
   const [isGeneratingImagePrompts, setIsGeneratingImagePrompts] = useState(false);
@@ -31,7 +35,7 @@ export function CanvasScriptPanel({
   const handleSaveScript = async () => {
     setIsSaving(true);
     try {
-      await saveFullScript(fullScript);
+      await onSaveScript(fullScript);
       toast.success("Script saved successfully");
     } catch (error) {
       console.error("Error saving script:", error);
@@ -202,13 +206,15 @@ export function CanvasScriptPanel({
             {isSaving ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : <Save className="h-4 w-4 mr-1" />}
             {isSaving ? "Saving..." : "Save"}
           </Button>
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            onClick={onClose}
-          >
-            <X className="h-4 w-4" />
-          </Button>
+          {onClose && (
+            <Button 
+              variant="ghost" 
+              size="sm" 
+              onClick={onClose}
+            >
+              <X className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
       

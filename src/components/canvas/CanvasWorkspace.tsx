@@ -15,7 +15,7 @@ interface CanvasWorkspaceProps {
   setSelectedSceneId: (id: string) => void;
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'video', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
   divideScriptToScenes: (scenes: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
@@ -51,6 +51,12 @@ export function CanvasWorkspace({
     );
   }
 
+  // Fix promise mismatch by wrapping the function
+  const handleCreateNewProject = async () => {
+    const newProjectId = await createNewProject("New Project");
+    return newProjectId;
+  };
+
   return (
     <div className="flex-1 flex overflow-hidden">
       <ScenesList
@@ -61,7 +67,7 @@ export function CanvasWorkspace({
         onDeleteScene={deleteScene}
         onSwitchView={() => setCurrentView(currentView === "scenes" ? "script" : "scenes")}
         currentView={currentView}
-        onCreateNewProject={() => createNewProject("New Project")}
+        onCreateNewProject={handleCreateNewProject}
       />
 
       <div className="flex-1 overflow-hidden flex relative">

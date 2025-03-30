@@ -1,10 +1,12 @@
 
 export interface MCPServer {
   connect(): Promise<void>;
+  disconnect(): Promise<void>;
+  cleanup(): Promise<void>;
   listTools(): Promise<any[]>;
   callTool(name: string, parameters: any): Promise<any>;
-  cleanup(): Promise<void>;
   invalidateToolsCache(): void;
+  isConnected(): boolean;
   isConnectionActive(): boolean;
   getConnectionError(): Error | null;
 }

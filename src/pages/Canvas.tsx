@@ -209,7 +209,10 @@ export default function Canvas() {
             updateScene={updateScene}
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
-            createNewProject={handleCreateNewProject}
+            createNewProject={async (title: string, description?: string) => {
+              // Convert the Promise<string> to Promise<void>
+              await handleCreateNewProject(title, description);
+            }}
             updateProjectTitle={updateProjectTitle}
             sceneLoading={sceneLoading}
           />

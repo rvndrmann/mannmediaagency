@@ -35,7 +35,7 @@ interface CanvasWorkspaceProps {
   updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'voiceOverText' | 'backgroundMusic', value: string) => Promise<void>;
   divideScriptToScenes: (scenes: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
-  createNewProject: (title: string, description?: string) => Promise<string>;
+  createNewProject: (title: string, description?: string) => Promise<void>;
   updateProjectTitle: (title: string) => Promise<void>;
   sceneLoading?: boolean;
 }
@@ -69,14 +69,13 @@ export const CanvasWorkspace = memo(function CanvasWorkspace({
     );
   }
 
-  // Create a wrapper function that returns Promise<string> for createNewProject
+  // Create a wrapper function that returns Promise<void> for createNewProject
   const handleCreateNewProject = async () => {
     try {
-      const newProjectId = await createNewProject("New Project");
-      return newProjectId;
+      await createNewProject("New Project");
+      return;
     } catch (error) {
       console.error("Error creating new project:", error);
-      return ""; // Return an empty string in case of error to match the Promise<string> return type
     }
   };
 

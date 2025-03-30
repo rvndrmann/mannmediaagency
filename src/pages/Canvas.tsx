@@ -1,7 +1,6 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { useCanvas } from "@/hooks/use-canvas";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
 import { CanvasChat, ChatToggleButton } from "@/components/canvas/CanvasChat";
 import { generateInitialScenes } from "@/data/scene-templates";
@@ -12,19 +11,18 @@ import { Plus } from "lucide-react";
 import { ProjectHistory } from "@/components/canvas/ProjectHistory";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
 import { supabase } from "@/integrations/supabase/client";
+import { CanvasProvider, useCanvas } from "@/contexts/CanvasContext";
+import { ErrorBoundary } from "@/components/integration/ErrorBoundary";
 
-export default function Canvas() {
-  const { projectId } = useParams();
-  const navigate = useNavigate();
-  
-  const {
-    project,
-    scenes,
-    selectedScene,
-    selectedSceneId,
-    setSelectedSceneId,
-    loading: isLoading,
-    error: canvasError,
+function CanvasContent() {
+  const { 
+    project, 
+    scenes, 
+    selectedScene, 
+    selectedSceneId, 
+    setSelectedSceneId, 
+    loading: isLoading, 
+    error: canvasError, 
     sceneLoading,
     createProject,
     addScene,
@@ -34,8 +32,10 @@ export default function Canvas() {
     saveFullScript,
     updateProjectTitle,
     fetchProjectAndScenes
-  } = useCanvas(projectId);
+  } = useCanvas();
   
+  const navigate = useNavigate();
+  const { projectId } = useParams();
   const { getOrCreateChatSession } = useChatSession();
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
@@ -348,5 +348,17 @@ export default function Canvas() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function Canvas() {
+  const { projectId } = useParams();
+  
+  return (
+    <ErrorBoundary>
+      <CanvasProvider projectId={projectId}>
+        <CanvasContent />
+      </CanvasProvider>
+    </ErrorBoundary>
   );
 }

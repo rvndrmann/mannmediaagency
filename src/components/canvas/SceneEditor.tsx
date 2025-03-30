@@ -7,8 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Save, Sparkles, MessageSquare, Video, Image } from "lucide-react";
-import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 import { Switch } from "@/components/ui/switch";
+import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 
 interface SceneEditorProps {
   scene: CanvasScene;

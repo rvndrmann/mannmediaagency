@@ -5,41 +5,32 @@ import { ChatInput } from "@/components/chat/ChatInput";
 import { ChatMessage } from "@/components/chat/ChatMessage";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useChatSession } from "@/contexts/ChatSessionContext";
-import { Message } from "@/types/message";
+import { Message } from "@/types/multi-agent";
 import { AgentSelector } from "@/components/multi-agent/AgentSelector";
-import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { ProjectSelector } from "@/components/multi-agent/ProjectSelector";
 import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { ArrowRightLeft } from "lucide-react";
+import { MultiAgentProvider, useMultiAgent } from "@/contexts/MultiAgentContext";
+import { ErrorBoundary } from "@/components/integration/ErrorBoundary";
 
-interface MultiAgentChatProps {
+interface MultiAgentContentProps {
   projectId?: string;
-  sessionId?: string;
 }
 
-export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
-  const { messages, isLoading } = useChatSession();
+function MultiAgentContent({ projectId }: MultiAgentContentProps) {
+  const {
+    messages,
+    isProcessing,
+    activeAgent,
+    setActiveAgent,
+    sendMessage,
+    error
+  } = useMultiAgent();
+  
   const [input, setInput] = useState("");
   const [localProjectId, setLocalProjectId] = useState<string | undefined>(projectId);
   const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const handleError = useCallback((error: Error) => {
-    toast.error(`Error: ${error.message}`);
-    console.error("Chat error:", error);
-  }, []);
-  
-  const {
-    isProcessing,
-    selectedAgent,
-    setSelectedAgent,
-    sendMessage,
-    error
-  } = useMultiAgentChat({
-    projectId: localProjectId,
-    onError: handleError
-  });
   
   // Show error toast when error state changes
   useEffect(() => {
@@ -73,16 +64,16 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
       console.log(`Detected handoff to ${targetAgent} agent`);
       
       // Update the selected agent if it's different
-      if (selectedAgent !== targetAgent) {
-        setSelectedAgent(targetAgent);
+      if (activeAgent !== targetAgent) {
+        setActiveAgent(targetAgent);
         toast.info(`Switched to ${targetAgent} agent`);
       }
     }
-  }, [messages, selectedAgent, setSelectedAgent]);
+  }, [messages, activeAgent, setActiveAgent]);
   
   const handleAgentChange = useCallback((agentType: string) => {
-    setSelectedAgent(agentType);
-  }, [setSelectedAgent]);
+    setActiveAgent(agentType);
+  }, [setActiveAgent]);
   
   const handleProjectSelect = useCallback((newProjectId: string) => {
     // If we're already using this project, don't re-initialize
@@ -113,9 +104,9 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
               <div className="flex items-center gap-2">
                 <h2 className="text-xl font-semibold text-foreground">Multi-Agent Chat</h2>
-                {selectedAgent && (
+                {activeAgent && (
                   <Badge variant="secondary" className="flex items-center">
-                    {selectedAgent} agent
+                    {activeAgent} agent
                   </Badge>
                 )}
               </div>
@@ -128,7 +119,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
                 </div>
                 <div className="w-full md:w-[180px]">
                   <AgentSelector 
-                    selectedAgent={selectedAgent}
+                    selectedAgent={activeAgent}
                     onSelectAgent={handleAgentChange}
                     disabled={isProcessing}
                   />
@@ -139,13 +130,7 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
           
           <ScrollArea className="flex-1 p-4">
             <div className="space-y-4">
-              {isLoading ? (
-                <div className="space-y-3">
-                  <Skeleton className="h-12 w-full" />
-                  <Skeleton className="h-20 w-full" />
-                  <Skeleton className="h-16 w-full" />
-                </div>
-              ) : messages.length === 0 ? (
+              {messages.length === 0 ? (
                 <div className="text-center text-muted-foreground p-4">
                   <p className="mb-2">Start chatting with an AI agent to get help with your project.</p>
                   {localProjectId && (
@@ -170,12 +155,27 @@ export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
                 isLoading={isProcessing}
                 onInputChange={setInput}
                 onSubmit={handleSendMessage}
-                placeholder={`Send a message to the ${selectedAgent || "AI"} agent...`}
+                placeholder={`Send a message to the ${activeAgent || "AI"} agent...`}
               />
             </form>
           </div>
         </Card>
       </div>
     </div>
+  );
+}
+
+interface MultiAgentChatProps {
+  projectId?: string;
+  sessionId?: string;
+}
+
+export function MultiAgentChat({ projectId, sessionId }: MultiAgentChatProps) {
+  return (
+    <ErrorBoundary>
+      <MultiAgentProvider projectId={projectId}>
+        <MultiAgentContent projectId={projectId} />
+      </MultiAgentProvider>
+    </ErrorBoundary>
   );
 }

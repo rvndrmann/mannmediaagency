@@ -1,6 +1,7 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { MCPServerService } from "@/services/mcpService";
+import { toast } from "sonner";
 
 interface MCPToolParams {
   sceneId: string;
@@ -101,16 +102,24 @@ export const canvasTool = {
               throw new Error(`Unsupported MCP action: ${action}`);
           }
           
+          console.log(`Calling MCP tool ${toolName} with params:`, toolParams);
+          
           const result = await mcpServer.callTool(toolName, toolParams);
           await mcpServer.cleanup();
           
+          if (!result.success) {
+            console.error("MCP execution failed:", result.error);
+            throw new Error(result.error || `MCP execution failed for ${toolName}`);
+          }
+          
           return {
-            success: result.success !== false,
+            success: true,
             message: result.result || "Operation completed via MCP",
             data: result
           };
         } catch (mcpError) {
           console.error("MCP execution failed, falling back to legacy method:", mcpError);
+          toast.error(`MCP execution failed: ${mcpError instanceof Error ? mcpError.message : 'Unknown error'}`);
           // Intentionally fall through to legacy execution on MCP error
         }
       }

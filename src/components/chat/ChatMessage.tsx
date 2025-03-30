@@ -62,12 +62,12 @@ export function ChatMessage({ message, showAgentName = true }: ChatMessageProps)
                     <pre {...props} />
                   </div>
                 ),
-                code: ({ node, className, children, ...props }) => {
-                  const isInline = props.className === undefined;
+                code: ({ node, children, ...props }) => {
+                  const isInline = !props.className;
                   
                   if (isInline) {
                     return (
-                      <code className={cn("px-1 py-0.5 rounded text-red-500 bg-muted", className)} {...props}>
+                      <code className={cn("px-1 py-0.5 rounded text-red-500 bg-muted")} {...props}>
                         {children}
                       </code>
                     );
@@ -75,7 +75,7 @@ export function ChatMessage({ message, showAgentName = true }: ChatMessageProps)
                   
                   return (
                     <CodeBlock
-                      language={(className || "").replace("language-", "")}
+                      language={(props.className || "").replace("language-", "")}
                       value={String(children).replace(/\n$/, "")}
                       {...props}
                     />

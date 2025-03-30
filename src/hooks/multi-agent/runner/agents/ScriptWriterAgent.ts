@@ -36,10 +36,17 @@ export class ScriptWriterAgent extends BaseAgentImpl {
       const projectDetails = this.context.metadata?.projectDetails || null;
       const existingScript = projectDetails?.fullScript || continuityData?.additionalContext?.existingScript || null;
       
+      // ENHANCEMENT: Check if this is part of a workflow
+      const workflowInfo = continuityData?.additionalContext?.workflowInfo || {};
+      const isPartOfWorkflow = workflowInfo.isPartOfWorkflow || false;
+      const workflowStage = workflowInfo.workflowStage || "";
+      const nextWorkflowStep = workflowInfo.nextSteps || "";
+      
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
       console.log(`Handoff history:`, handoffHistory);
       console.log(`Continuity data:`, continuityData);
       console.log(`Canvas project context: projectId=${projectId}, hasDetails=${!!projectDetails}, hasScript=${!!existingScript}`);
+      console.log(`Workflow context: isPartOfWorkflow=${isPartOfWorkflow}, stage=${workflowStage}, nextStep=${nextWorkflowStep}`);
       
       // Enhanced input for script writing task
       let enhancedInput = input;
@@ -70,6 +77,11 @@ Format it properly with scene headings, character dialogue, and actions where ap
         // Include existing script if available
         if (existingScript) {
           enhancedInput += `\n\nThe project already has the following script that you should reference or modify:\n\n${existingScript.substring(0, 1000)}${existingScript.length > 1000 ? '\n...(script continues)' : ''}`;
+        }
+        
+        // ENHANCEMENT: Add workflow guidance if part of a workflow
+        if (isPartOfWorkflow) {
+          enhancedInput += `\n\n[WORKFLOW CONTEXT: This script writing is part of a content creation workflow. After you write the script, the system will automatically proceed to create image prompts. Make sure your script is detailed with clear visual descriptions for each scene.]`;
         }
         
         // Add additional context if available
@@ -111,8 +123,16 @@ Format it properly with scene headings, character dialogue, and actions where ap
             projectId: projectId, // Pass the project ID if available
             projectDetails: projectDetails,
             existingScript: existingScript,
+            // ENHANCEMENT: Add workflow context
+            workflowInfo: {
+              isPartOfWorkflow: isPartOfWorkflow,
+              workflowStage: workflowStage,
+              nextSteps: nextWorkflowStep,
+              shouldHandoffToImageAgent: isPartOfWorkflow // Indicate that we should handoff to image agent when done
+            },
             toolContext: {
-              canSaveToCanvas: !!projectId // Tell the agent if it can save to Canvas
+              canSaveToCanvas: !!projectId, // Tell the agent if it can save to Canvas
+              mustSaveToCanvas: !!projectId && isPartOfWorkflow // Must save in workflow mode
             }
           },
           conversationHistory: conversationHistory,
@@ -136,6 +156,7 @@ Format it properly with scene headings, character dialogue, and actions where ap
       console.log("Script agent response:", data?.completion?.substring(0, 100) + "...");
       
       // Add custom processing for script content
+      let scriptSaved = false;
       if (data?.completion) {
         // Check if there are script markers in the content
         const hasScriptMarkers = data.completion.includes('SCENE') || 
@@ -227,6 +248,9 @@ Format it properly with scene headings, character dialogue, and actions where ap
               .update({ full_script: scriptContent })
               .eq('id', projectId);
             
+            // Mark script as saved for our workflow
+            scriptSaved = true;
+            
             // Append a success message to the response
             data.completion += "\n\n[Script has been automatically saved to your Canvas project]";
           } catch (saveError) {
@@ -235,7 +259,7 @@ Format it properly with scene headings, character dialogue, and actions where ap
         }
       }
       
-      // Handle handoff if present
+      // Handle handoff if present or force handoff based on workflow
       let nextAgent = null;
       let handoffReasonResponse = null;
       let additionalContextForNext = null;
@@ -253,6 +277,32 @@ Format it properly with scene headings, character dialogue, and actions where ap
             additionalContextForNext.projectTitle = projectDetails.title;
           }
         }
+      } 
+      // ENHANCEMENT: Force handoff to image agent if part of workflow and script was saved
+      else if (isPartOfWorkflow && scriptSaved && projectId) {
+        console.log("Forcing handoff to image agent as part of content creation workflow");
+        nextAgent = "image";
+        handoffReasonResponse = "Script has been created. Now proceeding to generate image prompts for the scenes.";
+        additionalContextForNext = {
+          ...(continuityData?.additionalContext || {}),
+          originalRequest: input,
+          projectId: projectId,
+          projectTitle: projectDetails?.title || "",
+          scriptSaved: true,
+          workflowInfo: {
+            isPartOfWorkflow: true,
+            workflowStage: "image_prompt_generation",
+            nextSteps: "image_generation",
+            previousSteps: ["script_creation"],
+            originalScriptText: data.completion
+          },
+          imageParameters: {
+            aspectRatio: "9:16",
+            guidance: 5.1,
+            steps: 13,
+            requiresProductShot: true
+          }
+        };
       }
       
       return {

@@ -1,6 +1,5 @@
 
 import { Attachment } from "@/types/message";
-import { AgentConfig, ToolContext } from "../../types";
 import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
@@ -9,13 +8,9 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
     super(options);
   }
 
-  getType() {
-    return "image";
-  }
-
   async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
     try {
-      console.log("Running ImageGeneratorAgent with input:", input, "attachments:", attachments);
+      console.log("Running ImageGeneratorAgent with input:", input.substring(0, 50), "attachments:", attachments.length);
       
       // Get the current user
       const { data: { user } } = await this.context.supabase.auth.getUser();
@@ -35,22 +30,74 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       const isHandoffContinuation = this.context.metadata?.isHandoffContinuation || false;
       const previousAgentType = this.context.metadata?.previousAgentType || 'main';
       const handoffReason = this.context.metadata?.handoffReason || '';
+      const handoffHistory = this.context.metadata?.handoffHistory || [];
+      const continuityData = this.context.metadata?.continuityData || {};
+      const projectId = this.context.metadata?.projectId || continuityData?.additionalContext?.projectId || null;
+      const projectDetails = this.context.metadata?.projectDetails || null;
+      
+      // ENHANCEMENT: Extract workflow info and image parameters
+      const workflowInfo = continuityData?.additionalContext?.workflowInfo || {};
+      const isPartOfWorkflow = workflowInfo.isPartOfWorkflow || false;
+      const workflowStage = workflowInfo.workflowStage || "";
+      const nextWorkflowStep = workflowInfo.nextSteps || "";
+      
+      // ENHANCEMENT: Get image parameters from continuity data
+      const imageParameters = continuityData?.additionalContext?.imageParameters || {
+        aspectRatio: "9:16",
+        guidance: 5.1,
+        steps: 13,
+        requiresProductShot: true
+      };
       
       console.log(`Handoff context: continuation=${isHandoffContinuation}, from=${previousAgentType}, reason=${handoffReason}`);
+      console.log(`Workflow info:`, workflowInfo);
+      console.log(`Image parameters:`, imageParameters);
       
-      // Record trace event for image generator agent start
-      this.recordTraceEvent("image_agent_start", {
-        input_length: input.length,
-        has_attachments: attachments && attachments.length > 0,
-        is_handoff_continuation: isHandoffContinuation,
-        from_agent: previousAgentType,
-        history_length: conversationHistory.length
-      });
+      // Enhanced input for image generation
+      let enhancedInput = input;
       
-      // Call the Supabase function
+      if (isHandoffContinuation && previousAgentType) {
+        enhancedInput = `[IMAGE PROMPT TASK FROM ${previousAgentType.toUpperCase()} AGENT]
+
+${input}
+
+Previous context: ${handoffReason}
+
+TASK: Generate detailed image prompts for the scenes in this project. 
+Focus on creating vivid, descriptive prompts that will result in high-quality visuals.
+
+The image prompts should follow these guidelines:
+- Be highly descriptive with visual details
+- Include style, lighting, atmosphere, and composition information
+- Specify camera angles and distances where relevant
+- Include specific image parameters: aspect ratio ${imageParameters.aspectRatio}, guidance ${imageParameters.guidance}, steps ${imageParameters.steps}
+`;
+        
+        // Add project context if available
+        if (projectId && projectDetails) {
+          enhancedInput += `\n\nThis is for Canvas project "${projectDetails.title}" (ID: ${projectId}).`;
+          enhancedInput += `\nThe project has ${projectDetails.scenes?.length || 0} scenes.`;
+          
+          // Add script context
+          if (projectDetails.fullScript) {
+            enhancedInput += `\n\nRelevant script content:\n${projectDetails.fullScript.substring(0, 2000)}${projectDetails.fullScript.length > 2000 ? '\n...(script continues)' : ''}`;
+          }
+        }
+        
+        // ENHANCEMENT: Add workflow-specific instructions 
+        if (isPartOfWorkflow) {
+          enhancedInput += `\n\n[WORKFLOW CONTEXT: This image prompt creation is part of a content creation workflow. After you create image prompts, the tool agent will use them to generate actual images with the following parameters: aspect ratio ${imageParameters.aspectRatio}, guidance ${imageParameters.guidance}, steps ${imageParameters.steps}]`;
+          
+          if (imageParameters.requiresProductShot) {
+            enhancedInput += `\n\nNOTE: The final images should be high-quality product shots. Your prompts should be optimized for product visualization.`;
+          }
+        }
+      }
+      
+      // Call the Supabase function with enhanced context
       const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
         body: {
-          input,
+          input: enhancedInput,
           attachments,
           agentType: "image",
           userId: user.id,
@@ -63,13 +110,26 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
             isHandoffContinuation: isHandoffContinuation,
             previousAgentType: previousAgentType,
             handoffReason: handoffReason,
-            instructions: instructions
+            instructions: instructions,
+            handoffHistory: handoffHistory,
+            continuityData: continuityData,
+            projectId: projectId,
+            projectDetails: projectDetails,
+            // ENHANCEMENT: Add image parameters and workflow info
+            imageParameters: imageParameters,
+            workflowInfo: {
+              isPartOfWorkflow: isPartOfWorkflow,
+              workflowStage: workflowStage,
+              nextSteps: nextWorkflowStep
+            }
           },
           conversationHistory: conversationHistory,
           metadata: {
             ...this.context.metadata,
             previousAgentType: 'image',
-            conversationId: this.context.groupId
+            conversationId: this.context.groupId,
+            projectId: projectId,
+            projectDetails: projectDetails
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -77,43 +137,95 @@ export class ImageGeneratorAgent extends BaseAgentImpl {
       });
       
       if (error) {
-        this.recordTraceEvent("image_agent_error", {
-          error: error.message || "Unknown error"
-        });
-        throw new Error(`Image generator agent error: ${error.message}`);
+        throw new Error(`Image agent error: ${error.message}`);
       }
       
-      console.log("ImageGeneratorAgent response:", data);
+      console.log("Image agent response:", data?.completion?.substring(0, 100) + "...");
+      
+      // ENHANCEMENT: Process image prompts for structured data
+      let structuredImagePrompts = null;
+      if (data?.completion) {
+        // Look for image prompts in the response and extract them
+        const promptRegex = /Image Prompt\s*(?:for Scene \d+)?\s*:\s*(.+?)(?=Image Prompt|$)/gis;
+        const promptMatches = [...data.completion.matchAll(promptRegex)];
+        
+        if (promptMatches.length > 0) {
+          structuredImagePrompts = promptMatches.map((match, index) => ({
+            sceneIndex: index,
+            promptText: match[1].trim(),
+            parameters: imageParameters
+          }));
+          
+          console.log(`Extracted ${structuredImagePrompts.length} structured image prompts`);
+        }
+      }
       
       // Handle handoff if present
       let nextAgent = null;
+      let handoffReasonResponse = null;
+      let additionalContextForNext = null;
+      
       if (data?.handoffRequest) {
-        console.log(`ImageGeneratorAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
+        console.log("Handoff requested to:", data.handoffRequest.targetAgent);
         nextAgent = data.handoffRequest.targetAgent;
-        this.recordTraceEvent("image_agent_handoff", {
-          target_agent: nextAgent,
-          reason: data.handoffRequest.reason
-        });
+        handoffReasonResponse = data.handoffRequest.reason;
+        additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
+        
+        // Make sure to pass along the project ID and image parameters
+        if (projectId && additionalContextForNext) {
+          additionalContextForNext.projectId = projectId;
+          if (projectDetails) {
+            additionalContextForNext.projectTitle = projectDetails.title;
+          }
+          additionalContextForNext.imageParameters = imageParameters;
+          if (structuredImagePrompts) {
+            additionalContextForNext.structuredImagePrompts = structuredImagePrompts;
+          }
+        }
+      }
+      // ENHANCEMENT: Force handoff to tool agent if part of workflow and we have image prompts
+      else if (isPartOfWorkflow && structuredImagePrompts && structuredImagePrompts.length > 0) {
+        console.log("Forcing handoff to tool agent to generate images as part of workflow");
+        nextAgent = "tool";
+        handoffReasonResponse = "Image prompts have been created. Now proceeding to generate actual images.";
+        additionalContextForNext = {
+          ...(continuityData?.additionalContext || {}),
+          projectId: projectId,
+          projectTitle: projectDetails?.title || "",
+          imageParameters: imageParameters,
+          structuredImagePrompts: structuredImagePrompts,
+          workflowInfo: {
+            isPartOfWorkflow: true,
+            workflowStage: "image_generation",
+            previousSteps: ["script_creation", "image_prompt_generation"],
+            requireProductShotTool: imageParameters.requiresProductShot,
+            toolParams: {
+              aspectRatio: imageParameters.aspectRatio,
+              guidance: imageParameters.guidance,
+              steps: imageParameters.steps
+            }
+          }
+        };
       }
       
-      // Record completion event
-      this.recordTraceEvent("image_agent_complete", {
-        response_length: data?.completion?.length || 0,
-        has_handoff: !!nextAgent,
-        has_image_prompts: data?.completion?.includes("prompt:") || false
-      });
-      
       return {
-        response: data?.completion || "I processed your request but couldn't generate an image prompt.",
+        response: data?.completion || "I processed your request but couldn't generate an image response.",
         nextAgent: nextAgent,
-        structured_output: data?.structured_output || null
+        handoffReason: handoffReasonResponse,
+        structured_output: structuredImagePrompts || data?.structured_output || null,
+        additionalContext: additionalContextForNext || {
+          projectId: projectId,
+          projectTitle: projectDetails?.title || "",
+          imageParameters: imageParameters
+        }
       };
     } catch (error) {
       console.error("ImageGeneratorAgent run error:", error);
-      this.recordTraceEvent("image_agent_error", {
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
       throw error;
     }
+  }
+  
+  getType() {
+    return "image";
   }
 }

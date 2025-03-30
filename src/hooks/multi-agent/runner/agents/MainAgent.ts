@@ -77,6 +77,18 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
         }
       }
       
+      // ENHANCEMENT: Add specific requirement gathering to the input
+      const requirementGatheringPrompt = `
+If this is an initial request for content creation, I should:
+1. Gather specific requirements about what the user wants to create
+2. Ask about the purpose, style, tone, and target audience
+3. Determine if we need to create or modify a script
+4. Understand if we need to create visual elements or image prompts
+5. Identify which scenes need attention
+`;
+
+      contextualInput = `${contextualInput}\n\n[WORKFLOW GUIDANCE: ${requirementGatheringPrompt}]`;
+      
       // Check for script writing requests
       const scriptKeywords = ['write a script', 'create a script', 'script for', 'screenplay', 'script about'];
       const lowercaseInput = input.toLowerCase();
@@ -92,6 +104,14 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
       
       if (isSceneRequest) {
         console.log("Detected scene description request - recommend handoff to scene agent");
+      }
+      
+      // ENHANCEMENT: Check for comprehensive content creation requests
+      const contentCreationKeywords = ['create content', 'full content', 'complete project', 'end-to-end', 'start to finish'];
+      const isContentCreationRequest = contentCreationKeywords.some(keyword => lowercaseInput.includes(keyword));
+      
+      if (isContentCreationRequest) {
+        console.log("Detected comprehensive content creation request - will recommend structured pipeline");
       }
       
       // Create a trace event for tracking
@@ -128,6 +148,7 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
             continuityData: continuityData,
             isScriptRequest: isScriptRequest,
             isSceneRequest: isSceneRequest,
+            isContentCreationRequest: isContentCreationRequest, // Add this flag
             projectId: projectId,
             hasProjectDetails: !!projectDetails,
             projectTitle: projectDetails?.title || "",
@@ -142,7 +163,15 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
             conversationId: this.context.groupId,
             projectId: projectId,
             projectDetails: projectDetails,
-            traceEvent
+            traceEvent,
+            // ENHANCEMENT: Add workflow metadata
+            workflowInfo: {
+              isWorkflowJob: isContentCreationRequest,
+              workflowStage: "initial_assessment",
+              nextStepsRecommendation: isScriptRequest ? "script_creation" : 
+                                        isSceneRequest ? "scene_description" : 
+                                        "requirement_gathering"
+            }
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -166,6 +195,13 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
         handoffReasonResponse = data.handoffRequest.reason;
         additionalContextForNext = data.handoffRequest.additionalContext || continuityData?.additionalContext;
         
+        // ENHANCEMENT: For comprehensive content creation, always force to script writing first
+        if (isContentCreationRequest && nextAgent !== "script") {
+          console.log("Overriding handoff target: redirecting to script agent for content creation workflow");
+          nextAgent = "script";
+          handoffReasonResponse = "Starting structured content creation workflow with script writing.";
+        }
+        
         // For script handoffs, provide more specific context
         if (nextAgent === "script") {
           additionalContextForNext = {
@@ -175,7 +211,14 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
             scriptType: isScriptRequest ? detectScriptType(input) : "general",
             projectId: projectId,
             projectTitle: projectDetails?.title || "",
-            existingScript: projectDetails?.fullScript || null
+            existingScript: projectDetails?.fullScript || null,
+            // ENHANCEMENT: Add workflow context
+            workflowInfo: {
+              isPartOfWorkflow: isContentCreationRequest,
+              workflowStage: "script_creation",
+              nextSteps: "image_generation",
+              shouldUpdateCanvasProject: true
+            }
           };
         } else if (nextAgent === "scene") {
           additionalContextForNext = {
@@ -185,6 +228,22 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
             projectTitle: projectDetails?.title || "",
             sceneCount: projectDetails?.scenes?.length || 0,
             existingScript: projectDetails?.fullScript || null
+          };
+        } else if (nextAgent === "image") {
+          additionalContextForNext = {
+            ...(additionalContextForNext || {}),
+            originalRequest: input,
+            projectId: projectId,
+            projectTitle: projectDetails?.title || "",
+            sceneCount: projectDetails?.scenes?.length || 0,
+            existingScript: projectDetails?.fullScript || null,
+            // ENHANCEMENT: Add image parameters
+            imageParameters: {
+              aspectRatio: "9:16",
+              guidance: 5.1,
+              steps: 13,
+              requiresProductShot: true
+            }
           };
         }
       } else if (isScriptRequest && data?.completion) {
@@ -199,7 +258,14 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
           forceScriptGeneration: true,
           projectId: projectId,
           projectTitle: projectDetails?.title || "",
-          existingScript: projectDetails?.fullScript || null
+          existingScript: projectDetails?.fullScript || null,
+          // ENHANCEMENT: Add workflow context
+          workflowInfo: {
+            isPartOfWorkflow: isContentCreationRequest,
+            workflowStage: "script_creation",
+            nextSteps: "image_generation",
+            shouldUpdateCanvasProject: true
+          }
         };
       } else if (isSceneRequest && data?.completion) {
         // Force a handoff for scene creation if needed
@@ -212,6 +278,27 @@ ${scriptExcerpt}${projectDetails.fullScript.length > 300 ? '...(script continues
           projectTitle: projectDetails?.title || "",
           sceneCount: projectDetails?.scenes?.length || 0,
           existingScript: projectDetails?.fullScript || null
+        };
+      } else if (isContentCreationRequest && data?.completion) {
+        // ENHANCEMENT: Force a handoff for comprehensive content creation
+        console.log("Forcing handoff to script agent to begin content creation workflow");
+        nextAgent = "script";
+        handoffReasonResponse = "Starting structured content creation workflow with script writing.";
+        additionalContextForNext = {
+          originalRequest: input,
+          requiresFullScript: true,
+          scriptType: detectScriptType(input),
+          forceScriptGeneration: true,
+          projectId: projectId,
+          projectTitle: projectDetails?.title || "",
+          existingScript: projectDetails?.fullScript || null,
+          // ENHANCEMENT: Add workflow context
+          workflowInfo: {
+            isPartOfWorkflow: true,
+            workflowStage: "script_creation",
+            nextSteps: "image_generation",
+            shouldUpdateCanvasProject: true
+          }
         };
       }
       

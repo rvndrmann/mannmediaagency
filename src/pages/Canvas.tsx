@@ -37,7 +37,8 @@ export default function Canvas() {
   // Initialize chat session when project loads
   useEffect(() => {
     if (projectId) {
-      getOrCreateChatSession(projectId, 'canvas');
+      // Fix: getOrCreateChatSession expects only one argument
+      getOrCreateChatSession(projectId);
     }
   }, [projectId, getOrCreateChatSession]);
 

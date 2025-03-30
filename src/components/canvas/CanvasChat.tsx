@@ -30,7 +30,7 @@ function CanvasChatContent({ projectId, onClose }: CanvasChatContentProps) {
   
   useEffect(() => {
     if (projectId) {
-      // Initialize chat session for this project
+      // Initialize chat session for this project - fix to use only one argument
       getOrCreateChatSession(projectId);
       
       // If there are no messages, add a welcome message

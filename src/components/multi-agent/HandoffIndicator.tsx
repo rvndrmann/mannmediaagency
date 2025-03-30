@@ -1,62 +1,78 @@
 
 import { AgentType } from "@/hooks/multi-agent/runner/types";
-import { FileText, Image, ArrowRight, Wrench, PenSquare, Database } from "lucide-react";
+import { 
+  Sparkles, 
+  FileText, 
+  Image, 
+  Box,
+  LayoutTemplate,
+  Database,
+  ArrowRight
+} from "lucide-react";
 
 interface HandoffIndicatorProps {
   fromAgent: AgentType;
   toAgent: AgentType;
-  visible: boolean;
+  reason?: string;
 }
 
-const getAgentIcon = (agentType: AgentType) => {
-  switch (agentType) {
-    case "script":
-      return <FileText className="w-5 h-5 text-blue-400" />;
-    case "image":
-      return <Image className="w-5 h-5 text-purple-400" />;
-    case "tool":
-      return <Wrench className="w-5 h-5 text-green-400" />;
-    case "scene":
-      return <PenSquare className="w-5 h-5 text-amber-400" />;
-    case "data":
-      return <Database className="w-5 h-5 text-cyan-400" />; 
-    default:
-      return null;
-  }
-};
-
-const getAgentName = (agentType: AgentType): string => {
-  switch (agentType) {
-    case "main": return "Main Assistant";
-    case "script": return "Script Writer";
-    case "image": return "Image Generator";
-    case "tool": return "Tool Specialist";
-    case "scene": return "Scene Creator";
-    case "data": return "Data Agent";
-    default: return "Assistant";
-  }
-};
-
-export function HandoffIndicator({ fromAgent, toAgent, visible }: HandoffIndicatorProps) {
-  if (!visible) return null;
+export function HandoffIndicator({ fromAgent, toAgent, reason }: HandoffIndicatorProps) {
+  const getAgentIcon = (agentType: AgentType) => {
+    switch (agentType) {
+      case "main":
+        return <Sparkles className="h-4 w-4" />;
+      case "script":
+        return <FileText className="h-4 w-4" />;
+      case "image":
+        return <Image className="h-4 w-4" />;
+      case "tool":
+        return <Box className="h-4 w-4" />;
+      case "scene":
+        return <LayoutTemplate className="h-4 w-4" />;
+      case "data":
+        return <Database className="h-4 w-4" />;
+      default:
+        return <Sparkles className="h-4 w-4" />;
+    }
+  };
   
+  const getAgentName = (agentType: AgentType) => {
+    switch (agentType) {
+      case "main":
+        return "Assistant";
+      case "script":
+        return "Script Writer";
+      case "image":
+        return "Image Prompt";
+      case "tool":
+        return "Tool Agent";
+      case "scene":
+        return "Scene Creator";
+      case "data":
+        return "Data Agent";
+      default:
+        return "Assistant";
+    }
+  };
+
   return (
-    <div className="fixed inset-x-0 bottom-4 flex justify-center z-50 pointer-events-none">
-      <div className="bg-[#21283B]/90 backdrop-blur-sm rounded-lg border border-white/10 text-white shadow-lg px-4 py-2 flex items-center gap-2 pointer-events-auto">
-        <div className="flex items-center gap-1">
-          {getAgentIcon(fromAgent) || <div className="w-5 h-5 rounded-full bg-blue-500" />}
-          <span className="text-sm font-medium">{getAgentName(fromAgent)}</span>
+    <div className="flex flex-col gap-1 rounded-md bg-secondary/40 p-2 text-xs mb-2">
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1 bg-secondary/60 py-0.5 px-1.5 rounded-sm">
+          {getAgentIcon(fromAgent)}
+          <span>{getAgentName(fromAgent)}</span>
         </div>
-        
-        <ArrowRight className="text-gray-400 w-4 h-4" />
-        
-        <div className="flex items-center gap-1">
-          {getAgentIcon(toAgent) || <div className="w-5 h-5 rounded-full bg-green-500" />}
-          <span className="text-sm font-medium">{getAgentName(toAgent)}</span>
+        <ArrowRight className="h-3 w-3 text-muted-foreground" />
+        <div className="flex items-center gap-1 bg-primary/10 py-0.5 px-1.5 rounded-sm">
+          {getAgentIcon(toAgent)}
+          <span>{getAgentName(toAgent)}</span>
         </div>
-        
-        <span className="text-xs text-gray-400 ml-2">Handoff in progress...</span>
       </div>
+      {reason && (
+        <p className="text-muted-foreground text-[10px] mt-1 italic">
+          {reason}
+        </p>
+      )}
     </div>
   );
 }

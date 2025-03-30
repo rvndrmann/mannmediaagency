@@ -1,4 +1,3 @@
-
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
@@ -107,9 +106,8 @@ export default function Canvas() {
       const newProjectId = await createProject(title, description);
       if (newProjectId) {
         navigate(`/canvas?projectId=${newProjectId}`);
-        return newProjectId;
       }
-      return "";
+      return newProjectId || "";
     } catch (err) {
       console.error("Failed to create new project:", err);
       toast.error("Failed to create new project");

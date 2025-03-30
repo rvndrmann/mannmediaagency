@@ -68,7 +68,8 @@ export class MainAgent extends BaseAgentImpl {
         return new Promise((resolve, reject) => {
           try {
             // Create an EventSource to handle the streaming response
-            const funcUrl = supabase.functions.getUrl('multi-agent-chat');
+            // Use the full URL for the edge function
+            const funcUrl = `${supabase.functions['url']}/multi-agent-chat`;
             const body = {
               agentType: this.getType(),
               input,

@@ -1,8 +1,7 @@
 
-import { AgentResult, AgentType, RunnerContext } from "./types";
+import { AgentResult, AgentType, RunnerContext, BaseAgent } from "./types";
 import { Attachment } from "@/types/message";
 import { recordTraceEvent } from "@/utils/openai-traces";
-import { BaseAgent } from "./AgentRegistry";
 
 export abstract class BaseAgentImpl implements BaseAgent {
   protected context: RunnerContext;

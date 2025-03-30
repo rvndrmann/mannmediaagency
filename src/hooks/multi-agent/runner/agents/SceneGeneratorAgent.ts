@@ -1,83 +1,87 @@
 
+import { BaseAgentImpl } from "../BaseAgentImpl";
+import { AgentResult, AgentType } from "../types";
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions } from "../types";
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { supabase } from "@/integrations/supabase/client";
 
 export class SceneGeneratorAgent extends BaseAgentImpl {
-  constructor(options: AgentOptions) {
-    super(options);
+  getType(): AgentType {
+    return "scene";
   }
 
-  getType() {
-    return "scene-generator";
-  }
-
-  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
+  async run(input: string, attachments: Attachment[] = []): Promise<AgentResult> {
+    this.recordTraceEvent("agent_run_start", {
+      input_length: input.length,
+      has_attachments: attachments.length > 0
+    });
+    
     try {
-      console.log("Running SceneGeneratorAgent with input:", input, "attachments:", attachments);
+      // Apply input guardrails
+      await this.applyInputGuardrails(input);
       
-      // Get the current user
-      const { data: { user } } = await this.context.supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
+      // Prepare the conversation history
+      const conversationHistory = this.context.metadata?.conversationHistory || [];
       
-      // Get dynamic instructions if needed
+      // Get agent instructions
       const instructions = await this.getInstructions(this.context);
       
-      // Record trace event for scene generator agent start
-      this.recordTraceEvent("scene_generator_agent_start", {
-        input_length: input.length,
-        has_attachments: attachments && attachments.length > 0
-      });
-      
-      // Call the Supabase function for the scene generator agent
-      const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
+      // Call the Supabase edge function
+      const { data, error } = await supabase.functions.invoke('multi-agent-chat', {
         body: {
+          agentType: this.getType(),
           input,
-          attachments,
-          agentType: "scene",
-          userId: user.id,
-          usePerformanceModel: this.context.usePerformanceModel,
-          enableDirectToolExecution: this.context.enableDirectToolExecution,
-          contextData: {
-            hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            instructions: instructions
-          },
+          userId: this.context.userId,
           runId: this.context.runId,
-          groupId: this.context.groupId
+          groupId: this.context.groupId,
+          attachments,
+          contextData: {
+            ...this.context.metadata,
+            instructions: {
+              [this.getType()]: instructions
+            }
+          },
+          conversationHistory,
+          usePerformanceModel: this.context.usePerformanceModel,
+          enableDirectToolExecution: this.context.enableDirectToolExecution
         }
       });
       
       if (error) {
-        console.error("Scene generator agent error:", error);
-        this.recordTraceEvent("scene_generator_agent_error", {
-          error: error.message || "Unknown error"
+        this.recordTraceEvent("agent_run_error", {
+          error: error.message
         });
-        throw new Error(`Scene generator agent error: ${error.message}`);
+        throw error;
       }
       
-      // Extract command suggestion if present
-      const commandSuggestion = data?.commandSuggestion || null;
+      if (!data) {
+        throw new Error("No data returned from edge function");
+      }
       
-      // Record completion event
-      this.recordTraceEvent("scene_generator_agent_complete", {
-        response_length: data?.completion?.length || 0,
-        has_command_suggestion: !!commandSuggestion
+      const { responseText, handoff, structuredOutput } = data;
+      
+      // Apply output guardrails
+      await this.applyOutputGuardrails(responseText);
+      
+      this.recordTraceEvent("agent_run_complete", {
+        responseLength: responseText.length,
+        hasHandoff: !!handoff,
+        hasStructuredOutput: !!structuredOutput
       });
       
+      // Return the agent result
       return {
-        response: data?.completion || "I processed your request but couldn't generate a response.",
-        nextAgent: null,
-        commandSuggestion: commandSuggestion,
-        structured_output: data?.structured_output || null
+        response: responseText,
+        nextAgent: handoff?.targetAgent,
+        handoffReason: handoff?.reason,
+        additionalContext: handoff?.additionalContext,
+        structured_output: structuredOutput
       };
     } catch (error) {
-      console.error("SceneGeneratorAgent run error:", error);
-      this.recordTraceEvent("scene_generator_agent_error", {
-        error: error instanceof Error ? error.message : "Unknown error"
+      this.recordTraceEvent("agent_run_error", {
+        error: error.message || "Unknown error"
       });
+      
+      console.error(`${this.getType()} agent error:`, error);
       throw error;
     }
   }

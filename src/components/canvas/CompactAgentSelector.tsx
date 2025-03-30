@@ -1,106 +1,74 @@
 
-import { Bot, PenLine, Image, Wrench, FileText, Database } from 'lucide-react';
-import { useRef } from 'react';
-import { cn } from '@/lib/utils';
+import { useState } from "react";
+import { Button } from "@/components/ui/button";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { 
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger
-} from "@/components/ui/tooltip";
-import type { AgentType } from '@/hooks/multi-agent/runner/types';
-
-type AgentOption = {
-  id: AgentType;
-  name: string;
-  icon: React.ReactNode;
-  color: string;
-  description: string;
-};
+  Sparkles, 
+  FileText, 
+  Image, 
+  Box,
+  LayoutTemplate,
+  Database
+} from "lucide-react";
 
 interface CompactAgentSelectorProps {
   selectedAgent: AgentType;
-  onSelect: (agentId: AgentType) => void;
+  onSelectAgent: (agent: AgentType) => void;
+  disabled?: boolean;
 }
 
-export function CompactAgentSelector({ selectedAgent, onSelect }: CompactAgentSelectorProps) {
-  const scrollRef = useRef<HTMLDivElement>(null);
-  
-  const agents: AgentOption[] = [
-    {
-      id: 'main',
-      name: 'AI',
-      icon: <Bot className="h-3 w-3" />,
-      color: 'bg-gradient-to-r from-blue-400 to-indigo-500',
-      description: 'General AI assistant'
-    },
-    {
-      id: 'script',
-      name: 'Script',
-      icon: <PenLine className="h-3 w-3" />,
-      color: 'bg-gradient-to-r from-amber-400 to-orange-500',
-      description: 'Creates scripts and narratives'
-    },
-    {
-      id: 'image',
-      name: 'Image',
-      icon: <Image className="h-3 w-3" />,
-      color: 'bg-gradient-to-r from-emerald-400 to-green-500',
-      description: 'Creates AI image prompts'
-    },
-    {
-      id: 'data',
-      name: 'Data',
-      icon: <Database className="h-3 w-3" />,
-      color: 'bg-gradient-to-r from-cyan-400 to-blue-500',
-      description: 'Extracts & manages media data'
-    },
-    {
-      id: 'tool',
-      name: 'Tools',
-      icon: <Wrench className="h-3 w-3" />,
-      color: 'bg-gradient-to-r from-purple-400 to-violet-500',
-      description: 'Guides on using tools'
-    },
-    {
-      id: 'scene',
-      name: 'Scene',
-      icon: <FileText className="h-3 w-3" />,
-      color: 'bg-gradient-to-r from-rose-400 to-pink-500',
-      description: 'Creates detailed scenes'
-    }
+export function CompactAgentSelector({ 
+  selectedAgent, 
+  onSelectAgent, 
+  disabled = false 
+}: CompactAgentSelectorProps) {
+  const [open, setOpen] = useState(false);
+
+  const agents = [
+    { id: "main" as AgentType, name: "Assistant", icon: <Sparkles className="h-4 w-4" /> },
+    { id: "script" as AgentType, name: "Script Writer", icon: <FileText className="h-4 w-4" /> },
+    { id: "image" as AgentType, name: "Image Prompt", icon: <Image className="h-4 w-4" /> },
+    { id: "tool" as AgentType, name: "Tool", icon: <Box className="h-4 w-4" /> },
+    { id: "scene" as AgentType, name: "Scene", icon: <LayoutTemplate className="h-4 w-4" /> },
+    { id: "data" as AgentType, name: "Data Agent", icon: <Database className="h-4 w-4" /> }
   ];
 
+  const selectedAgentData = agents.find(agent => agent.id === selectedAgent) || agents[0];
+
+  const handleSelectAgent = (agent: AgentType) => {
+    onSelectAgent(agent);
+    setOpen(false);
+  };
+
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className="py-1 px-1 overflow-hidden bg-[#21283B]/80 border-b border-white/10">
-        <div 
-          ref={scrollRef}
-          className="flex space-x-1 overflow-x-auto scrollbar-thin scrollbar-thumb-gray-700 pb-1"
-        >
+    <div className="relative">
+      <Button
+        variant="ghost"
+        size="sm"
+        className={`w-full justify-start text-xs gap-1 px-1.5 py-1 h-7 ${disabled ? 'opacity-50 cursor-not-allowed' : ''}`}
+        onClick={() => setOpen(!open)}
+        disabled={disabled}
+      >
+        {selectedAgentData.icon}
+        <span className="truncate">{selectedAgentData.name}</span>
+      </Button>
+
+      {open && (
+        <div className="absolute top-full left-0 z-50 mt-1 w-40 bg-background border rounded-md shadow-md p-1">
           {agents.map((agent) => (
-            <Tooltip key={agent.id}>
-              <TooltipTrigger asChild>
-                <button
-                  onClick={() => onSelect(agent.id)}
-                  className={cn(
-                    "flex-shrink-0 flex items-center py-0.5 px-1.5 rounded-md transition-colors text-xs",
-                    selectedAgent === agent.id
-                      ? `${agent.color} text-white`
-                      : 'bg-[#2D3240]/80 hover:bg-[#3A4256] text-gray-300'
-                  )}
-                >
-                  <span className="mr-1">{agent.icon}</span>
-                  <span className="text-[10px]">{agent.name}</span>
-                </button>
-              </TooltipTrigger>
-              <TooltipContent side="bottom" className="text-xs bg-[#333] border-[#555] text-white">
-                {agent.description}
-              </TooltipContent>
-            </Tooltip>
+            <Button
+              key={agent.id}
+              variant={agent.id === selectedAgent ? "secondary" : "ghost"}
+              size="sm"
+              className="w-full justify-start text-xs py-1.5 my-0.5 px-2"
+              onClick={() => handleSelectAgent(agent.id)}
+            >
+              {agent.icon}
+              <span className="ml-1.5">{agent.name}</span>
+            </Button>
           ))}
         </div>
-      </div>
-    </TooltipProvider>
+      )}
+    </div>
   );
 }

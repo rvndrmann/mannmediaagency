@@ -2,10 +2,11 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { X, Save, Wand2, ImageIcon, Loader2 } from "lucide-react";
+import { X, Save, Wand2, ImageIcon, Loader2, AlertTriangle } from "lucide-react";
 import { CanvasProject } from "@/types/canvas";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface CanvasScriptPanelProps {
   project: CanvasProject;
@@ -25,6 +26,7 @@ export function CanvasScriptPanel({
   const [isDividing, setIsDividing] = useState(false);
   const [isGeneratingImagePrompts, setIsGeneratingImagePrompts] = useState(false);
   const [divideError, setDivideError] = useState<string | null>(null);
+  const [hasAttemptedDivide, setHasAttemptedDivide] = useState(false);
   
   const handleSaveScript = async () => {
     setIsSaving(true);
@@ -52,6 +54,7 @@ export function CanvasScriptPanel({
     
     setIsDividing(true);
     setDivideError(null);
+    setHasAttemptedDivide(true);
     
     try {
       // Get the scene IDs
@@ -211,10 +214,19 @@ export function CanvasScriptPanel({
       
       <div className="flex-1 p-4 flex flex-col">
         {divideError && (
-          <div className="bg-red-50 text-red-500 p-3 mb-4 rounded-md border border-red-200 text-sm">
-            <p className="font-medium mb-1">Error dividing script:</p>
-            <p>{divideError}</p>
-          </div>
+          <Alert variant="destructive" className="mb-4">
+            <AlertTriangle className="h-4 w-4" />
+            <AlertTitle>Error dividing script</AlertTitle>
+            <AlertDescription>{divideError}</AlertDescription>
+          </Alert>
+        )}
+        
+        {hasAttemptedDivide && !divideError && !isDividing && (
+          <Alert className="mb-4">
+            <AlertDescription>
+              Script processed successfully! Check individual scenes to review the content.
+            </AlertDescription>
+          </Alert>
         )}
         
         <Textarea

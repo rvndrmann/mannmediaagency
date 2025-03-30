@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Message } from "@/types/message";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { supabase } from "@/integrations/supabase/client";

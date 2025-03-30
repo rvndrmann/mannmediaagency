@@ -27,26 +27,31 @@ function CanvasChatContent({ projectId, onClose }: CanvasChatContentProps) {
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
   const [isProcessing, setIsProcessing] = useState(false);
+  const [initialized, setInitialized] = useState(false);
   
+  // Initialize chat session for this project
   useEffect(() => {
-    if (projectId) {
-      // Initialize chat session for this project - fix to use only one argument
+    if (projectId && !initialized) {
       getOrCreateChatSession(projectId);
-      
-      // If there are no messages, add a welcome message
-      if (messages.length === 0) {
-        const welcomeMessage: Message = {
-          id: "welcome",
-          role: "system",
-          content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
-          createdAt: new Date().toISOString(),
-        };
-        
-        setMessages([welcomeMessage]);
-      }
+      setInitialized(true);
     }
-  }, [projectId, getOrCreateChatSession, messages.length, setMessages]);
+  }, [projectId, getOrCreateChatSession, initialized]);
   
+  // Add welcome message if needed
+  useEffect(() => {
+    if (initialized && messages.length === 0 && projectId) {
+      const welcomeMessage: Message = {
+        id: "welcome",
+        role: "system",
+        content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
+        createdAt: new Date().toISOString(),
+      };
+      
+      setMessages([welcomeMessage]);
+    }
+  }, [initialized, messages.length, projectId, setMessages]);
+  
+  // Scroll to bottom when messages change
   useEffect(() => {
     if (scrollRef.current) {
       scrollRef.current.scrollTop = scrollRef.current.scrollHeight;

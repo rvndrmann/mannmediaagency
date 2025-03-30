@@ -15,7 +15,6 @@ import {
   FileText, 
   Database 
 } from "lucide-react";
-import { useState } from "react";
 
 interface AgentSelectorProps {
   onChange?: (value: string) => void;
@@ -23,10 +22,7 @@ interface AgentSelectorProps {
 }
 
 export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelectorProps) {
-  const [selectedAgent, setSelectedAgent] = useState(defaultValue);
-  
   const handleValueChange = (value: string) => {
-    setSelectedAgent(value);
     if (onChange) {
       onChange(value);
     }
@@ -34,7 +30,7 @@ export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelector
   
   return (
     <Select 
-      defaultValue={selectedAgent}
+      defaultValue={defaultValue}
       onValueChange={handleValueChange}
     >
       <SelectTrigger>
@@ -42,7 +38,7 @@ export function AgentSelector({ onChange, defaultValue = "main" }: AgentSelector
       </SelectTrigger>
       <SelectContent>
         <SelectGroup>
-          <SelectItem value="main" className="flex items-center">
+          <SelectItem value="main">
             <div className="flex items-center gap-2">
               <Bot className="h-4 w-4 text-primary" />
               <span>Main Assistant</span>

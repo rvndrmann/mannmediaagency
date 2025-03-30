@@ -33,14 +33,15 @@ export default function Canvas() {
   
   const { getOrCreateChatSession } = useChatSession();
   const [showChat, setShowChat] = useState(false);
+  const [chatInitialized, setChatInitialized] = useState(false);
 
   // Initialize chat session when project loads
   useEffect(() => {
-    if (projectId) {
-      // Fix: getOrCreateChatSession expects only one argument
+    if (projectId && !chatInitialized) {
       getOrCreateChatSession(projectId);
+      setChatInitialized(true);
     }
-  }, [projectId, getOrCreateChatSession]);
+  }, [projectId, getOrCreateChatSession, chatInitialized]);
 
   const handleSceneSelect = useCallback((sceneId: string) => {
     console.log("Selected scene:", sceneId);
@@ -147,9 +148,9 @@ export default function Canvas() {
     }
   };
 
-  const toggleChatPanel = () => {
-    setShowChat(!showChat);
-  };
+  const toggleChatPanel = useCallback(() => {
+    setShowChat(prev => !prev);
+  }, []);
 
   // Check if we're on the root Canvas page with no project ID
   const isRootCanvas = !projectId;

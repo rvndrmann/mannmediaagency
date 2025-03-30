@@ -1,5 +1,5 @@
 
-import React, { createContext, useContext, ReactNode, useState } from "react";
+import React, { createContext, useContext, ReactNode, useState, useCallback } from "react";
 import { useChatHistoryStore, ChatSession } from "@/hooks/use-chat-history-store";
 import { Message } from "@/types/message";
 
@@ -28,17 +28,17 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   
   // Enhanced version of setMessages that also updates the store
-  const updateMessages = (newMessages: Message[]) => {
+  const updateMessages = useCallback((newMessages: Message[]) => {
     setMessages(newMessages);
     
     // Also update the session in the store if we have an active chat ID
     if (chatHistoryStore.activeChatId) {
       chatHistoryStore.updateChatSession(chatHistoryStore.activeChatId, newMessages);
     }
-  };
+  }, [chatHistoryStore]);
   
   // Enhanced getOrCreateChatSession to make sure messages state is updated
-  const getOrCreateSessionWithMessages = (projectId: string | null) => {
+  const getOrCreateSessionWithMessages = useCallback((projectId: string | null) => {
     const sessionId = chatHistoryStore.getOrCreateChatSession(projectId);
     
     // Make sure the active session is set
@@ -52,9 +52,9 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     }
     
     return sessionId;
-  };
+  }, [chatHistoryStore]);
   
-  const sendMessage = async (params: { content: string; context?: any }) => {
+  const sendMessage = useCallback(async (params: { content: string; context?: any }) => {
     try {
       setStatus('loading');
       // This is just a placeholder - actual sending happens in the component
@@ -64,18 +64,20 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
       setStatus('error');
       throw error;
     }
+  }, []);
+  
+  const contextValue = {
+    ...chatHistoryStore,
+    messages,
+    setMessages: updateMessages,
+    isLoading,
+    status,
+    sendMessage,
+    getOrCreateChatSession: getOrCreateSessionWithMessages
   };
   
   return (
-    <ChatSessionContext.Provider value={{
-      ...chatHistoryStore,
-      messages,
-      setMessages: updateMessages,
-      isLoading,
-      status,
-      sendMessage,
-      getOrCreateChatSession: getOrCreateSessionWithMessages
-    }}>
+    <ChatSessionContext.Provider value={contextValue}>
       {children}
     </ChatSessionContext.Provider>
   );

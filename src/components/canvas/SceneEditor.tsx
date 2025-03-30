@@ -1,14 +1,11 @@
 
 import { useState, useEffect } from "react";
 import { CanvasScene } from "@/types/canvas";
-import { Textarea } from "@/components/ui/textarea";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
-import { Save, Sparkles, MessageSquare, Video, Image } from "lucide-react";
 import { useCanvasAgent } from "@/hooks/use-canvas-agent";
-import { Switch } from "@/components/ui/switch";
+import { SceneContentForm } from "./SceneContentForm";
+import { SceneControls } from "./SceneControls";
+import { useMCPContext } from "@/contexts/MCPContext";
 
 interface SceneEditorProps {
   scene: CanvasScene;
@@ -24,11 +21,11 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
+  const { setUseMcp } = useMCPContext();
+  
   const { 
     isProcessing,
     activeAgent,
-    useMcp,
-    setUseMcp,
     generateSceneScript,
     generateSceneDescription,
     generateImagePrompt,
@@ -48,6 +45,10 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     setDescription(scene.description);
     setImagePrompt(scene.imagePrompt);
   }, [scene]);
+  
+  useEffect(() => {
+    setIsGenerating(isProcessing);
+  }, [isProcessing]);
   
   const handleSave = async (field: 'script' | 'voiceOverText' | 'description' | 'imagePrompt') => {
     setIsSaving(true);
@@ -80,7 +81,10 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   };
   
   const generateWithAI = async (type: 'description' | 'imagePrompt') => {
-    setIsGenerating(true);
+    if (isProcessing) {
+      toast.error("Please wait for the current operation to complete");
+      return;
+    }
     
     try {
       // Create context based on current scene data
@@ -96,8 +100,6 @@ Describe how the camera should move, how subjects are positioned, lighting, mood
 Be specific about camera angles, movements, and visual composition.`;
 
         await generateSceneDescription(scene.id, context);
-        
-        // Update local state with the generated description
         setDescription(scene.description);
         toast.success("Scene description generated and saved");
         
@@ -112,21 +114,16 @@ Create a detailed image prompt that includes visual elements, style, lighting, m
 Format the prompt to get the best results from an AI image generator.`;
 
         await generateImagePrompt(scene.id, context);
-        
-        // Update local state with the generated image prompt
         setImagePrompt(scene.imagePrompt);
         toast.success("Image prompt generated and saved");
       }
-      
     } catch (error) {
       console.error(`Error generating ${type}:`, error);
       toast.error(`Failed to generate ${type}`);
-    } finally {
-      setIsGenerating(false);
     }
   };
   
-  const generateImage = async () => {
+  const handleGenerateImage = async () => {
     if (!imagePrompt.trim()) {
       toast.error("Please generate or enter an image prompt first");
       return;
@@ -141,7 +138,7 @@ Format the prompt to get the best results from an AI image generator.`;
     }
   };
   
-  const generateVideo = async () => {
+  const handleGenerateVideo = async () => {
     if (!scene.imageUrl) {
       toast.error("Please generate a scene image first");
       return;
@@ -160,175 +157,74 @@ Format the prompt to get the best results from an AI image generator.`;
     <div className="p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold mb-1">{title}</h2>
-        <div className="flex justify-between items-center">
-          <p className="text-muted-foreground">Scene ID: {scene.id}</p>
-          <div className="flex items-center space-x-2">
-            <span className="text-sm text-muted-foreground">Use MCP</span>
-            <Switch 
-              checked={useMcp} 
-              onCheckedChange={setUseMcp} 
-            />
-            {useMcp && (
-              <span className="text-xs text-green-400 ml-1">(Recommended)</span>
-            )}
-          </div>
-        </div>
+        <p className="text-muted-foreground">Scene ID: {scene.id}</p>
       </div>
       
       <div className="space-y-6">
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="scene-script">Scene Script</Label>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleSave('script')} 
-              disabled={isSaving}
-            >
-              <Save className="h-3.5 w-3.5 mr-1.5" />
-              Save Script
-            </Button>
-          </div>
-          <Textarea 
-            id="scene-script" 
-            value={script}
-            onChange={(e) => setScript(e.target.value)}
-            placeholder="Write the script for this scene..."
-            className="min-h-[150px] font-mono"
-          />
-        </div>
+        <SceneContentForm
+          label="Scene Script"
+          value={script}
+          fieldType="script"
+          placeholder="Write the script for this scene..."
+          isSaving={isSaving}
+          isGenerating={isGenerating}
+          isProcessing={isProcessing}
+          activeAgent={activeAgent}
+          onSave={() => handleSave('script')}
+          onChange={setScript}
+        />
         
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="voice-over-text">Voice Over Text</Label>
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={() => handleSave('voiceOverText')} 
-              disabled={isSaving}
-            >
-              <Save className="h-3.5 w-3.5 mr-1.5" />
-              Save Voice Over
-            </Button>
-          </div>
-          <Textarea 
-            id="voice-over-text" 
-            value={voiceOverText}
-            onChange={(e) => setVoiceOverText(e.target.value)}
-            placeholder="Write the voice over text for this scene..."
-            className="min-h-[150px]"
-          />
-        </div>
+        <SceneContentForm
+          label="Voice Over Text"
+          value={voiceOverText}
+          fieldType="voiceOverText"
+          placeholder="Write the voice over text for this scene..."
+          isSaving={isSaving}
+          isGenerating={isGenerating}
+          isProcessing={isProcessing}
+          activeAgent={activeAgent}
+          onSave={() => handleSave('voiceOverText')}
+          onChange={setVoiceOverText}
+        />
         
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="scene-description">Scene Description</Label>
-            <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleSave('description')} 
-                disabled={isSaving || isProcessing}
-              >
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                Save
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={() => generateWithAI('description')}
-                disabled={isGenerating || isProcessing}
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                {isProcessing && activeAgent === 'scene' ? "Generating..." : "Generate with AI"}
-              </Button>
-            </div>
-          </div>
-          <Textarea 
-            id="scene-description" 
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            placeholder="Describe what happens in this scene..."
-            className="min-h-[150px]"
-          />
-          {scene.imageUrl && (
-            <div className="mt-2">
-              <p className="text-xs text-muted-foreground mb-2">AI will use this image as reference when generating descriptions:</p>
-              <img src={scene.imageUrl} alt="Scene reference" className="max-h-40 rounded-md border" />
-            </div>
-          )}
-        </div>
+        <SceneContentForm
+          label="Scene Description"
+          value={description}
+          fieldType="description"
+          placeholder="Describe what happens in this scene..."
+          isSaving={isSaving}
+          isGenerating={isGenerating}
+          isProcessing={isProcessing}
+          activeAgent={activeAgent}
+          onSave={() => handleSave('description')}
+          onChange={setDescription}
+          onGenerateWithAI={() => generateWithAI('description')}
+          imagePreview={scene.imageUrl}
+        />
         
-        <div>
-          <div className="flex justify-between items-center mb-2">
-            <Label htmlFor="image-prompt">Image Prompt</Label>
-            <div className="flex space-x-2">
-              <Button 
-                variant="outline" 
-                size="sm" 
-                onClick={() => handleSave('imagePrompt')} 
-                disabled={isSaving || isProcessing}
-              >
-                <Save className="h-3.5 w-3.5 mr-1.5" />
-                Save
-              </Button>
-              <Button 
-                variant="default" 
-                size="sm" 
-                onClick={() => generateWithAI('imagePrompt')}
-                disabled={isGenerating || isProcessing}
-              >
-                <Sparkles className="h-3.5 w-3.5 mr-1.5" />
-                {isProcessing && activeAgent === 'image' ? "Generating..." : "Generate with AI"}
-              </Button>
-            </div>
-          </div>
-          <Textarea 
-            id="image-prompt" 
-            value={imagePrompt}
-            onChange={(e) => setImagePrompt(e.target.value)}
-            placeholder="Write an image prompt for AI image generation..."
-            className="min-h-[150px]"
-          />
-        </div>
+        <SceneContentForm
+          label="Image Prompt"
+          value={imagePrompt}
+          fieldType="imagePrompt"
+          placeholder="Write an image prompt for AI image generation..."
+          isSaving={isSaving}
+          isGenerating={isGenerating}
+          isProcessing={isProcessing}
+          activeAgent={activeAgent}
+          onSave={() => handleSave('imagePrompt')}
+          onChange={setImagePrompt}
+          onGenerateWithAI={() => generateWithAI('imagePrompt')}
+        />
         
-        <div className="grid grid-cols-2 gap-4">
-          <Button
-            variant="outline"
-            disabled={!imagePrompt.trim() || isProcessing}
-            onClick={generateImage}
-          >
-            <Image className="h-4 w-4 mr-2" />
-            {isProcessing && activeAgent === 'image' ? "Generating Image..." : "Generate Scene Image"}
-          </Button>
-          
-          <Button
-            variant="outline"
-            disabled={!scene.imageUrl || isProcessing}
-            onClick={generateVideo}
-          >
-            <Video className="h-4 w-4 mr-2" />
-            {isProcessing && activeAgent === 'video' ? "Generating Video..." : "Generate Scene Video"}
-          </Button>
-        </div>
-        
-        <div className="pt-4 border-t">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => {
-              const chatUrl = `/multi-agent-chat?projectId=${scene.projectId}&sceneId=${scene.id}`;
-              window.open(chatUrl, '_blank');
-            }}
-          >
-            <MessageSquare className="h-3.5 w-3.5 mr-1.5" />
-            Open Full Multi-Agent Chat
-          </Button>
-          <p className="text-xs text-muted-foreground mt-2">
-            Use the multi-agent chat for more advanced scene creation, image prompts, and detailed directions.
-          </p>
-        </div>
+        <SceneControls
+          sceneId={scene.id}
+          imagePrompt={imagePrompt}
+          hasImage={!!scene.imageUrl}
+          isProcessing={isProcessing}
+          activeAgent={activeAgent}
+          onGenerateImage={handleGenerateImage}
+          onGenerateVideo={handleGenerateVideo}
+        />
       </div>
     </div>
   );

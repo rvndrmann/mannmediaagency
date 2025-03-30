@@ -14,6 +14,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { Button } from "@/components/ui/button";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { MCPProvider } from "@/contexts/MCPContext";
 
 export default function Canvas() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -57,7 +58,6 @@ export default function Canvas() {
   useEffect(() => {
     if (projectId) {
       setActiveProject(projectId);
-      
       getOrCreateChatSession(projectId);
     }
   }, [projectId, setActiveProject, getOrCreateChatSession]);
@@ -171,38 +171,40 @@ export default function Canvas() {
 
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen overflow-hidden">
-        <CanvasHeader 
-          project={project}
-          onChatToggle={toggleChat}
-          showChatButton={true}
-          onFullChatOpen={handleNavigateToChat}
-          onShowHistory={toggleHistory}
-          onUpdateTitle={updateProjectTitle}
-        />
-        
-        <div className="flex flex-1 overflow-hidden">
-          {showChat && project && (
-            <div className="w-[450px] flex-shrink-0 border-r">
-              <CanvasChat onClose={toggleChat} projectId={project.id} />
-            </div>
-          )}
-          
-          <CanvasWorkspace 
+      <MCPProvider projectId={projectId || undefined}>
+        <div className="flex flex-col h-screen overflow-hidden">
+          <CanvasHeader 
             project={project}
-            selectedScene={selectedScene}
-            selectedSceneId={selectedSceneId}
-            setSelectedSceneId={setSelectedSceneId}
-            addScene={addScene}
-            deleteScene={deleteScene}
-            updateScene={updateScene}
-            divideScriptToScenes={divideScriptToScenes}
-            saveFullScript={saveFullScript}
-            createNewProject={handleCreateNewProject}
-            updateProjectTitle={updateProjectTitle}
+            onChatToggle={toggleChat}
+            showChatButton={true}
+            onFullChatOpen={handleNavigateToChat}
+            onShowHistory={toggleHistory}
+            onUpdateTitle={updateProjectTitle}
           />
+          
+          <div className="flex flex-1 overflow-hidden">
+            {showChat && project && (
+              <div className="w-[450px] flex-shrink-0 border-r">
+                <CanvasChat onClose={toggleChat} projectId={project.id} />
+              </div>
+            )}
+            
+            <CanvasWorkspace 
+              project={project}
+              selectedScene={selectedScene}
+              selectedSceneId={selectedSceneId}
+              setSelectedSceneId={setSelectedSceneId}
+              addScene={addScene}
+              deleteScene={deleteScene}
+              updateScene={updateScene}
+              divideScriptToScenes={divideScriptToScenes}
+              saveFullScript={saveFullScript}
+              createNewProject={handleCreateNewProject}
+              updateProjectTitle={updateProjectTitle}
+            />
+          </div>
         </div>
-      </div>
+      </MCPProvider>
     </TooltipProvider>
   );
 }

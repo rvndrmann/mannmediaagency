@@ -1,3 +1,4 @@
+
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -16,7 +17,7 @@ interface CanvasWorkspaceProps {
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
   updateScene: (id: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic' | 'voiceOverText', value: string) => Promise<void>;
-  divideScriptToScenes: (script: string) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
   updateProjectTitle: (title: string) => Promise<void>;

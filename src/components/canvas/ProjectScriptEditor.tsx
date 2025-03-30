@@ -8,11 +8,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent } from "@/components/ui/card";
 import { Save, Sparkles, Edit, Check, X } from "lucide-react";
 import { toast } from "sonner";
+import { supabase } from "@/integrations/supabase/client";
 
 interface ProjectScriptEditorProps {
   project: CanvasProject;
   saveFullScript: (script: string) => Promise<void>;
-  divideScriptToScenes: (script: string) => Promise<void>;
+  divideScriptToScenes: (sceneScripts: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   updateProjectTitle: (title: string) => Promise<void>;
 }
 
@@ -54,10 +55,58 @@ export function ProjectScriptEditor({
     
     setIsProcessing(true);
     try {
-      await divideScriptToScenes(script);
+      // Get the scene IDs
+      const sceneIds = project.scenes.map(scene => scene.id);
+      
+      // Call the process-script function
+      const toastId = toast.loading("Processing script...");
+      
+      const { data, error } = await supabase.functions.invoke('process-script', {
+        body: { 
+          script, 
+          sceneIds,
+          projectId: project.id,
+          generateImagePrompts: true
+        }
+      });
+
+      toast.dismiss(toastId);
+      
+      if (error) {
+        throw new Error(`Function error: ${error.message}`);
+      }
+      
+      if (!data.success) {
+        throw new Error(data.error || "Script processing failed");
+      }
+      
+      // Check if we received scene data
+      if (!data.scenes || !Array.isArray(data.scenes) || data.scenes.length === 0) {
+        throw new Error("No scene data returned from processing");
+      }
+      
+      // Convert scenes data for divideScriptToScenes
+      const sceneScripts = data.scenes.map(scene => ({
+        id: scene.id,
+        content: scene.content || "",
+        voiceOverText: scene.voiceOverText || ""
+      }));
+      
+      // Update the scenes with the divided script content
+      await divideScriptToScenes(sceneScripts);
+      
+      toast.success("Script divided into scenes");
+      
+      // Show message about image prompts
+      if (data.imagePrompts) {
+        const { processedScenes, successfulScenes } = data.imagePrompts;
+        if (processedScenes > 0) {
+          toast.success(`Generated image prompts for ${successfulScenes} out of ${processedScenes} scenes`);
+        }
+      }
     } catch (error) {
       console.error("Error dividing script:", error);
-      toast.error("Failed to process script");
+      toast.error(error.message || "Failed to process script");
     } finally {
       setIsProcessing(false);
     }

@@ -8,15 +8,25 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mock implementation of the Model Context Protocol (MCP) server
+// Implementation of the Model Context Protocol (MCP) server
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
+    console.log("MCP server received request: OPTIONS", req.url);
     return new Response(null, { headers: corsHeaders });
   }
   
   try {
-    const { operation, toolName, parameters, projectId } = await req.json();
+    // Support basic ping endpoint to verify the server is running
+    if (req.url.endsWith('/ping')) {
+      return new Response(
+        JSON.stringify({ success: true, message: "MCP server is running" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const requestBody = await req.json().catch(() => ({}));
+    const { operation, toolName, parameters, projectId } = requestBody;
     
     // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';

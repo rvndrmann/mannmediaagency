@@ -34,7 +34,7 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     
     try {
       // First check if we have a stored connection URL for this project
-      let serverUrl = `https://api.browser-use.com/mcp/${projectIdentifier}`;
+      let serverUrl = `https://api.browser-use.com/api/v1/mcp/${projectIdentifier}`;
       
       if (projectIdentifier) {
         const { data, error } = await supabase
@@ -85,7 +85,11 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
   
   // Initialize MCP server when enabled and projectId changes
   useEffect(() => {
-    connectToMcp(projectId);
+    if (projectId && useMcp) {
+      connectToMcp(projectId);
+    } else {
+      setMcpServers([]);
+    }
     
     // Cleanup on unmount or when dependencies change
     return () => {

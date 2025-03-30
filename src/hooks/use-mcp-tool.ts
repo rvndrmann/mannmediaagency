@@ -28,8 +28,11 @@ export function useMcpTool(toolName: string, options: UseMcpToolOptions = {}) {
     if (!projectId) return;
     
     try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData.user) return;
+      
       await supabase.from('agent_interactions').insert({
-        user_id: (await supabase.auth.getUser()).data.user?.id,
+        user_id: userData.user.id,
         agent_type: 'mcp',
         user_message: `Execute ${toolName}`,
         assistant_response: success ? 

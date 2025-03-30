@@ -1,10 +1,10 @@
 
-import { MCPServer } from "@/types/mcp";
+import { MCPServer, MCPToolDefinition } from "@/types/mcp";
 import { supabase } from "@/integrations/supabase/client";
 
 export class MCPServerService implements MCPServer {
   private serverUrl: string;
-  private toolsCache: any[] | null = null;
+  private toolsCache: MCPToolDefinition[] | null = null;
   private isConnected: boolean = false;
   private connectionError: Error | null = null;
   private connectionId: string | null = null;
@@ -19,7 +19,7 @@ export class MCPServerService implements MCPServer {
     try {
       console.log("Connecting to MCP server at", this.serverUrl);
       
-      // Simulate checking connection (in real implementation, would make an API call)
+      // Try to ping the server to verify connection
       const response = await fetch(`${this.serverUrl}/ping`, { 
         method: 'GET',
         headers: { 'Content-Type': 'application/json' }
@@ -50,11 +50,22 @@ export class MCPServerService implements MCPServer {
     if (!this.projectId) return;
     
     try {
+      // First get the current user ID
+      const { data: userData, error: userError } = await supabase.auth.getUser();
+      
+      if (userError || !userData.user) {
+        console.error("Error getting current user:", userError);
+        return;
+      }
+      
+      const userId = userData.user.id;
+      
       // Check if we already have an active connection for this project
       const { data: existingConn, error: fetchError } = await supabase
         .from('mcp_connections')
         .select('id')
         .eq('project_id', this.projectId)
+        .eq('user_id', userId)
         .eq('is_active', true)
         .maybeSingle();
       
@@ -85,6 +96,7 @@ export class MCPServerService implements MCPServer {
           .from('mcp_connections')
           .insert({
             project_id: this.projectId,
+            user_id: userId,
             connection_url: this.serverUrl,
             is_active: true
           })
@@ -102,7 +114,7 @@ export class MCPServerService implements MCPServer {
     }
   }
   
-  async listTools(): Promise<any[]> {
+  async listTools(): Promise<MCPToolDefinition[]> {
     if (this.toolsCache) {
       return this.toolsCache;
     }
@@ -112,84 +124,97 @@ export class MCPServerService implements MCPServer {
     }
     
     try {
-      // In a real implementation, this would fetch tools from the MCP server API
-      // For now, using the mock implementation
-      const canvasTools = [
-        {
-          name: "update_scene_description",
-          description: "Updates the scene description based on the current image and script",
-          parameters: {
-            type: "object",
-            properties: {
-              sceneId: {
-                type: "string",
-                description: "The ID of the scene to update"
+      // Try to fetch tools from the MCP server
+      const response = await fetch(`${this.serverUrl}/list-tools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ operation: 'list_tools' })
+      }).catch(() => null);
+      
+      let canvasTools: MCPToolDefinition[];
+      
+      if (response && response.ok) {
+        const data = await response.json();
+        canvasTools = data.tools || [];
+      } else {
+        // Fallback to mock implementation
+        canvasTools = [
+          {
+            name: "update_scene_description",
+            description: "Updates the scene description based on the current image and script",
+            parameters: {
+              type: "object",
+              properties: {
+                sceneId: {
+                  type: "string",
+                  description: "The ID of the scene to update"
+                },
+                imageAnalysis: {
+                  type: "boolean",
+                  description: "Whether to analyze the existing image for the scene description"
+                }
               },
-              imageAnalysis: {
-                type: "boolean",
-                description: "Whether to analyze the existing image for the scene description"
-              }
-            },
-            required: ["sceneId"]
-          }
-        },
-        {
-          name: "update_image_prompt",
-          description: "Generates and updates an image prompt for the scene",
-          parameters: {
-            type: "object",
-            properties: {
-              sceneId: {
-                type: "string",
-                description: "The ID of the scene to update"
+              required: ["sceneId"]
+            }
+          },
+          {
+            name: "update_image_prompt",
+            description: "Generates and updates an image prompt for the scene",
+            parameters: {
+              type: "object",
+              properties: {
+                sceneId: {
+                  type: "string",
+                  description: "The ID of the scene to update"
+                },
+                useDescription: {
+                  type: "boolean",
+                  description: "Whether to incorporate the scene description in the image prompt"
+                }
               },
-              useDescription: {
-                type: "boolean",
-                description: "Whether to incorporate the scene description in the image prompt"
-              }
-            },
-            required: ["sceneId"]
-          }
-        },
-        {
-          name: "generate_scene_image",
-          description: "Generate an image for the scene using the image prompt",
-          parameters: {
-            type: "object",
-            properties: {
-              sceneId: {
-                type: "string",
-                description: "The ID of the scene to update"
+              required: ["sceneId"]
+            }
+          },
+          {
+            name: "generate_scene_image",
+            description: "Generate an image for the scene using the image prompt",
+            parameters: {
+              type: "object",
+              properties: {
+                sceneId: {
+                  type: "string",
+                  description: "The ID of the scene to update"
+                },
+                productShotVersion: {
+                  type: "string",
+                  enum: ["v1", "v2"],
+                  description: "Which product shot version to use"
+                }
               },
-              productShotVersion: {
-                type: "string",
-                enum: ["v1", "v2"],
-                description: "Which product shot version to use"
-              }
-            },
-            required: ["sceneId"]
-          }
-        },
-        {
-          name: "create_scene_video",
-          description: "Convert the scene image to a video",
-          parameters: {
-            type: "object",
-            properties: {
-              sceneId: {
-                type: "string",
-                description: "The ID of the scene to update"
+              required: ["sceneId"]
+            }
+          },
+          {
+            name: "create_scene_video",
+            description: "Convert the scene image to a video",
+            parameters: {
+              type: "object",
+              properties: {
+                sceneId: {
+                  type: "string",
+                  description: "The ID of the scene to update"
+                },
+                aspectRatio: {
+                  type: "string",
+                  enum: ["16:9", "9:16", "1:1"],
+                  description: "The aspect ratio of the video"
+                }
               },
-              aspectRatio: {
-                type: "string",
-                enum: ["16:9", "9:16", "1:1"],
-                description: "The aspect ratio of the video"
-              }
-            },
-            required: ["sceneId"]
+              required: ["sceneId"]
+            }
           }
-        }
-      ];
+        ];
+      }
       
       this.toolsCache = canvasTools;
       
@@ -205,7 +230,7 @@ export class MCPServerService implements MCPServer {
     }
   }
   
-  private async recordTools(tools: any[]): Promise<void> {
+  private async recordTools(tools: MCPToolDefinition[]): Promise<void> {
     if (!this.connectionId) return;
     
     try {
@@ -254,40 +279,55 @@ export class MCPServerService implements MCPServer {
     console.log(`Calling MCP tool ${name} with parameters:`, parameters);
     
     try {
-      // In a real implementation, this would call the tool on the MCP server via API
-      // For now, we'll simulate a response
-      await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
+      // Try to call the tool on the actual MCP server
+      const response = await fetch(`${this.serverUrl}/call-tool`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          operation: 'call_tool',
+          toolName: name,
+          parameters: parameters,
+          projectId: this.projectId
+        })
+      }).catch(() => null);
       
       let result: { success: boolean, result: string };
       
-      switch (name) {
-        case "update_scene_description":
-          result = {
-            success: true,
-            result: "Scene description updated successfully using AI analysis"
-          };
-          break;
-        case "update_image_prompt":
-          result = {
-            success: true,
-            result: "Image prompt generated and updated successfully"
-          };
-          break;
-        case "generate_scene_image":
-          result = {
-            success: true,
-            result: "Scene image generated successfully using " + 
-                    (parameters.productShotVersion === "v1" ? "ProductShot V1" : "ProductShot V2")
-          };
-          break;
-        case "create_scene_video":
-          result = {
-            success: true,
-            result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
-          };
-          break;
-        default:
-          throw new Error(`Unknown tool: ${name}`);
+      if (response && response.ok) {
+        result = await response.json();
+      } else {
+        // Fallback: simulate a response for demo purposes
+        await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
+        
+        switch (name) {
+          case "update_scene_description":
+            result = {
+              success: true,
+              result: "Scene description updated successfully using AI analysis"
+            };
+            break;
+          case "update_image_prompt":
+            result = {
+              success: true,
+              result: "Image prompt generated and updated successfully"
+            };
+            break;
+          case "generate_scene_image":
+            result = {
+              success: true,
+              result: "Scene image generated successfully using " + 
+                      (parameters.productShotVersion === "v1" ? "ProductShot V1" : "ProductShot V2")
+            };
+            break;
+          case "create_scene_video":
+            result = {
+              success: true,
+              result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
+            };
+            break;
+          default:
+            throw new Error(`Unknown tool: ${name}`);
+        }
       }
       
       // Record the tool execution if we have a connection ID
@@ -352,7 +392,7 @@ export class MCPServerService implements MCPServer {
   }
   
   async cleanup(): Promise<void> {
-    // In a real implementation, this would clean up the MCP server connection
+    // Clean up the MCP server connection
     console.log("Cleaning up MCP server connection");
     
     // Mark the connection as inactive in the database

@@ -1,6 +1,6 @@
-
 import { serve } from "https://deno.land/std@0.177.0/http/server.ts";
 import "https://deno.land/x/xhr@0.1.0/mod.ts";
+import { processFunctionCall, shouldPreventHandoff } from "./handleFunctions.ts";
 
 // CORS headers for cross-origin requests
 const corsHeaders = {
@@ -725,22 +725,57 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
           
           logInfo(`[${requestId}] Function call detected: ${functionName} `, null);
           
+          // Process the function call using our helper
+          const handoffResult = processFunctionCall(functionName, functionArgs, contextData);
+          
           // Handle transfers to other agents
-          if (functionName.startsWith('transfer_to_')) {
-            const targetAgent = functionName.replace('transfer_to_', '').replace('_agent', '');
-            
-            logInfo(`[${requestId}] Handoff requested to ${targetAgent}`, {
-              reason: functionArgs.reason,
-              additionalContext: functionArgs.additionalContext || {}
+          if (handoffResult.shouldHandoff && handoffResult.targetAgent) {
+            logInfo(`[${requestId}] Handoff requested to ${handoffResult.targetAgent}`, {
+              reason: handoffResult.reason,
+              additionalContext: handoffResult.additionalContext || {}
             });
             
             return new Response(
               JSON.stringify({
                 handoffRequest: {
-                  targetAgent: targetAgent,
-                  reason: functionArgs.reason,
-                  additionalContext: functionArgs.additionalContext
+                  targetAgent: handoffResult.targetAgent,
+                  reason: handoffResult.reason,
+                  additionalContext: handoffResult.additionalContext
                 }
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          // If handoff was prevented due to simple greeting, but using agentResponse
+          // or if it's an explicit agentResponse call
+          if (functionName === 'agentResponse' || (functionName.includes('transfer_to_') && !handoffResult.shouldHandoff)) {
+            let response = functionName === 'agentResponse' 
+              ? functionArgs.completion 
+              : "I'm here to help you with your project. How can I assist you today?";
+            
+            let structured_output = null;
+            
+            if (functionName === 'agentResponse' && agentType === 'script') {
+              const isScript = functionArgs.isScript || looksLikeScript(response);
+              if (isScript) {
+                structured_output = {
+                  isScript: true,
+                  scriptText: extractScriptContent(response)
+                };
+              }
+            }
+            
+            logInfo(`[${requestId}] Generated response for ${agentType} agent (prevented handoff for simple message)`, {
+              responseLength: response.length,
+              originalFunction: functionName,
+              hasStructuredOutput: !!structured_output
+            });
+            
+            return new Response(
+              JSON.stringify({
+                completion: response,
+                structured_output: structured_output
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );
@@ -781,13 +816,12 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
             );
           }
           
-          // Handle various tool calls - simplified for now, would implement actual tool calls
+          // Handle various tool calls 
           else if (functionName === 'execute_canvas_tool' || 
                    functionName === 'analyze_link' || 
                    functionName === 'generate_image' || 
                    functionName === 'search_web' || 
                    functionName === 'generate_metadata') {
-            
             return new Response(
               JSON.stringify({
                 completion: `I'm executing the ${functionName} tool with the parameters you provided.`,
@@ -795,38 +829,6 @@ DO NOT just offer to help write a script or discuss script-writing techniques - 
                   name: functionName,
                   parameters: functionArgs
                 }
-              }),
-              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-            );
-          }
-          
-          // Handle basic agent responses
-          else if (functionName === 'agentResponse') {
-            // For script agent, check if the response is a script
-            let isScript = false;
-            let structured_output = null;
-            
-            if (agentType === 'script') {
-              isScript = functionArgs.isScript || looksLikeScript(functionArgs.completion);
-              if (isScript) {
-                structured_output = {
-                  isScript: true,
-                  scriptText: extractScriptContent(functionArgs.completion)
-                };
-              }
-            }
-            
-            logInfo(`[${requestId}] Generated response for ${agentType} agent`, {
-              responseLength: functionArgs.completion.length,
-              hasHandoff: false,
-              hasStructuredOutput: !!structured_output,
-              isScript: isScript
-            });
-            
-            return new Response(
-              JSON.stringify({
-                completion: functionArgs.completion,
-                structured_output: structured_output
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );

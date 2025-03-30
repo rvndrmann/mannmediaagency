@@ -40,6 +40,10 @@ export class MainAgent extends BaseAgentImpl {
       console.log(`Continuity data:`, continuityData);
       console.log(`Project context: id=${projectId}, hasDetails=${!!projectDetails}, hasScript=${!!projectDetails?.fullScript}`);
       
+      // Check if this is a simple greeting or very short message to prevent immediate handoff
+      const isSimpleMessage = input.length < 20 || isSimpleGreeting(input);
+      console.log(`Message analysis: isSimpleMessage=${isSimpleMessage}, length=${input.length}`);
+      
       // Enhanced input with handoff context if needed
       let enhancedInput = input;
       if (isHandoffContinuation && previousAgentType) {
@@ -117,7 +121,8 @@ If this is an initial request for content creation, I should:
           inputLength: contextualInput.length,
           isHandoffContinuation,
           previousAgentType: previousAgentType,
-          hasAttachments: attachments && attachments.length > 0
+          hasAttachments: attachments && attachments.length > 0,
+          isSimpleMessage: isSimpleMessage
         }
       };
       
@@ -149,8 +154,9 @@ If this is an initial request for content creation, I should:
             scenesCount: projectDetails?.scenes?.length || 0,
             hasFullScript: !!projectDetails?.fullScript,
             scriptExcerpt: projectDetails?.fullScript ? projectDetails.fullScript.substring(0, 500) : null,
-            // NEW: Add flag to prevent automatic handoff for simple messages
-            preventAutoHandoff: input.length < 20 || isSimpleGreeting(input)
+            // Explicitly set flag to prevent automatic handoff for simple messages
+            preventAutoHandoff: isSimpleMessage,
+            input: input // Pass the raw input for the edge function to check
           },
           conversationHistory: conversationHistory,
           metadata: {
@@ -168,8 +174,8 @@ If this is an initial request for content creation, I should:
                                         isSceneRequest ? "scene_description" : 
                                         "requirement_gathering"
             },
-            // NEW: Add flag to prevent automatic handoff for simple messages
-            preventAutoHandoff: input.length < 20 || isSimpleGreeting(input)
+            // Explicitly set flag to prevent automatic handoff for simple messages
+            preventAutoHandoff: isSimpleMessage
           },
           runId: this.context.runId,
           groupId: this.context.groupId
@@ -177,18 +183,16 @@ If this is an initial request for content creation, I should:
       });
       
       if (error) {
+        console.error("Main agent error:", error);
         throw new Error(`Main agent error: ${error.message}`);
       }
       
-      console.log("MainAgent response:", data?.completion?.substring(0, 100) + "...");
+      console.log("MainAgent response:", data?.completion?.substring(0, 100) + "..." || "No completion data");
       
       // Handle handoff if present
       let nextAgent = null;
       let handoffReasonResponse = null;
       let additionalContextForNext = null;
-      
-      // NEW: Skip handoff for simple greetings or very short messages
-      const isSimpleMessage = input.length < 20 || isSimpleGreeting(input);
       
       if (data?.handoffRequest && !isSimpleMessage) {
         console.log(`MainAgent handoff requested to: ${data.handoffRequest.targetAgent}`);
@@ -344,8 +348,10 @@ function detectScriptType(input: string): string {
   }
 }
 
-// NEW: Helper function to detect simple greetings
+// Helper function to detect simple greetings
 function isSimpleGreeting(input: string): boolean {
+  if (!input) return false;
+  
   const trimmedInput = input.trim().toLowerCase();
   const simpleGreetings = [
     'hi', 'hello', 'hey', 'hi there', 'hello there', 'hey there',

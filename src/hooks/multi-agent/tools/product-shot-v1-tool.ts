@@ -46,6 +46,10 @@ export const productShotV1Tool: ToolDefinition = {
       projectId: {
         type: "string",
         description: "Optional Canvas project ID to associate this image with"
+      },
+      scriptContent: {
+        type: "string",
+        description: "Optional script content to include with this product shot"
       }
     },
     required: ["style"]
@@ -62,6 +66,7 @@ export const productShotV1Tool: ToolDefinition = {
     prompt?: string;
     sceneId?: string;
     projectId?: string;
+    scriptContent?: string;
   }, context: ToolContext): Promise<ToolExecutionResult> => {
     try {
       // Check if we have attachments (we need an image to enhance)
@@ -108,8 +113,33 @@ export const productShotV1Tool: ToolDefinition = {
         steps,
         imageUrl: imageAttachment.url,
         sceneId: params.sceneId,
-        projectId: params.projectId
+        projectId: params.projectId,
+        hasScriptContent: !!params.scriptContent,
+        scriptContentLength: params.scriptContent ? params.scriptContent.length : 0
       });
+      
+      // Check if script content was provided
+      if (params.scriptContent && params.projectId) {
+        try {
+          console.log("Saving script content to project", {
+            projectId: params.projectId,
+            contentPreview: params.scriptContent.substring(0, 100) + '...'
+          });
+          
+          const { error } = await context.supabase
+            .from('canvas_projects')
+            .update({ full_script: params.scriptContent })
+            .eq('id', params.projectId);
+            
+          if (error) {
+            console.error("Error saving script to Canvas project:", error);
+          } else {
+            console.log("Successfully saved script to Canvas project");
+          }
+        } catch (error) {
+          console.error("Failed to save script to Canvas project:", error);
+        }
+      }
       
       // In a real implementation, this would call an API to generate enhanced product shots
       // For now, we'll simulate a successful generation
@@ -160,9 +190,10 @@ export const productShotV1Tool: ToolDefinition = {
             guidance: guidance,
             steps: steps,
             prompt: fullPrompt
-          }
+          },
+          scriptSaved: !!params.scriptContent
         },
-        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.${params.sceneId ? " Image has been automatically saved to your Canvas scene." : ""}`,
+        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.${params.sceneId ? " Image has been automatically saved to your Canvas scene." : ""}${params.scriptContent ? " Script has been saved to your Canvas project." : ""}`,
         usage: {
           creditsUsed: 1.5
         }

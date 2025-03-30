@@ -25,20 +25,31 @@ export const executeCommand = async (
       };
     }
     
-    // Special handling for canvas tool when saving scripts
+    // Enhanced script detection for Canvas tool
     if (commandData.name === 'canvas' && 
         commandData.parameters?.action === 'updateScene' && 
         commandData.parameters?.content) {
       
-      // Check if it looks like a script
+      // Improved script detection with more comprehensive markers
       const scriptMarkers = [
         /SCENE \d+/i,
         /\bINT\.\s/i,
         /\bEXT\.\s/i,
         /FADE (IN|OUT)/i,
-        /CUT TO:/i
+        /CUT TO:/i,
+        /TITLE:/i,
+        /CLOSE UP/i,
+        /WIDE SHOT/i,
+        /NARRATOR:/i,
+        /\bVO:/i,
+        /VOICE OVER:/i,
+        /\bV\.O\./i,
+        /\(beat\)/i,
+        /DISSOLVE TO:/i,
+        /FADE TO BLACK/i
       ];
       
+      // Check if content looks like a script
       let isScript = false;
       for (const marker of scriptMarkers) {
         if (marker.test(commandData.parameters.content)) {
@@ -47,16 +58,32 @@ export const executeCommand = async (
         }
       }
       
+      // Additional check for script-like structure (multiple paragraphs or line blocks)
+      if (!isScript && commandData.parameters.content.includes('\n\n')) {
+        const paragraphs = commandData.parameters.content.split('\n\n');
+        if (paragraphs.length >= 3) {
+          isScript = true;
+        }
+      }
+      
       // If it looks like a script, try to save it as a full script too
       if (isScript && commandData.parameters.projectId) {
-        console.log("Content looks like a script, saving as full script too");
+        console.log("Content looks like a script, saving as full script too", {
+          contentLength: commandData.parameters.content.length,
+          previewContent: commandData.parameters.content.substring(0, 100) + '...'
+        });
+        
         try {
-          await context.supabase
+          const { error } = await context.supabase
             .from('canvas_projects')
             .update({ full_script: commandData.parameters.content })
             .eq('id', commandData.parameters.projectId);
             
-          console.log("Successfully saved as full script");
+          if (error) {
+            console.error("Error saving as full script:", error);
+          } else {
+            console.log("Successfully saved as full script");
+          }
         } catch (err) {
           console.error("Error saving as full script:", err);
         }

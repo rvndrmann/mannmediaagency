@@ -167,6 +167,7 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
   }, [useMcp, mcpService, connectionAttempts]);
   
   // Function to reconnect to MCP (can be called from UI components)
+  // IMPORTANT: This must be defined before it's used in setupHealthCheck
   const reconnectToMcp = useCallback(async (): Promise<boolean> => {
     if (projectId) {
       // Prevent rapid reconnection attempts

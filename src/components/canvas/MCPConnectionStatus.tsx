@@ -37,8 +37,6 @@ export function MCPConnectionStatus({
     e.preventDefault();
     e.stopPropagation();
     reconnectToMcp();
-    
-    // Show feedback toast via MCPContext
   };
   
   // Fix the type issue by making this function accept either button or div events

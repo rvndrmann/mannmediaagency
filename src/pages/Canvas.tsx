@@ -34,6 +34,13 @@ export default function Canvas() {
   const { getOrCreateChatSession } = useChatSession();
   const [showChat, setShowChat] = useState(false);
 
+  // Initialize chat session when project loads
+  useEffect(() => {
+    if (projectId) {
+      getOrCreateChatSession(projectId, 'canvas');
+    }
+  }, [projectId, getOrCreateChatSession]);
+
   const handleSceneSelect = useCallback((sceneId: string) => {
     console.log("Selected scene:", sceneId);
     setSelectedSceneId(sceneId);

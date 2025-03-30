@@ -8,6 +8,7 @@ export interface ChatSessionContextType {
   activeChatId: string | null;
   activeSession: ChatSession | null;
   messages: Message[];
+  setMessages: (messages: Message[]) => void;
   isLoading: boolean;
   status: 'idle' | 'loading' | 'success' | 'error';
   sendMessage: (params: { content: string; context?: any }) => Promise<void>;
@@ -30,32 +31,11 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
   const sendMessage = async (params: { content: string; context?: any }) => {
     try {
       setStatus('loading');
-      // Implementation would go here in a real app
-      // For now, we'll just push a mock message
-      const newMessage: Message = {
-        id: crypto.randomUUID(),
-        content: params.content,
-        role: 'user',
-        createdAt: new Date().toISOString()
-      };
       
-      const responseMessage: Message = {
-        id: crypto.randomUUID(),
-        content: `Response to: ${params.content}`,
-        role: 'assistant',
-        createdAt: new Date().toISOString()
-      };
+      // Implementation would go here for an integration with our agent-sdk function
+      // For now, we leave this as a stub since individual components will handle this
       
-      const updatedMessages = [...messages, newMessage, responseMessage];
-      setMessages(updatedMessages);
-      
-      if (chatHistoryStore.activeSession) {
-        chatHistoryStore.updateChatSession(
-          chatHistoryStore.activeSession.id,
-          updatedMessages
-        );
-      }
-      
+      // Just simulate the completion of the operation
       setStatus('success');
     } catch (error) {
       console.error("Error sending message:", error);
@@ -92,6 +72,7 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     <ChatSessionContext.Provider value={{
       ...chatHistoryStore,
       messages,
+      setMessages,
       isLoading,
       status,
       sendMessage,

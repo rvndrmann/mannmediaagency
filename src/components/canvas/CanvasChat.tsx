@@ -9,6 +9,7 @@ import { X, MessageSquare } from "lucide-react";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
+import { supabase } from "@/integrations/supabase/client";
 
 interface CanvasChatProps {
   projectId?: string;
@@ -21,10 +22,12 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
     messages,
     isLoading,
     sendMessage,
-    status
+    status,
+    setMessages
   } = useChatSession();
   const [input, setInput] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
   
   useEffect(() => {
     if (projectId) {
@@ -48,20 +51,76 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
   
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!input.trim() || !projectId) return;
+    if (!input.trim() || !projectId || isProcessing) return;
     
     try {
-      await sendMessage({
+      setIsProcessing(true);
+      
+      // Add user message to the chat
+      const userMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "user",
         content: input,
-        context: {
-          projectId,
-          type: 'canvas'
+        createdAt: new Date().toISOString(),
+      };
+      
+      const newMessages = [...messages, userMessage];
+      setMessages(newMessages);
+      
+      // Show typing indicator
+      const assistantTypingMessage: Message = {
+        id: crypto.randomUUID(),
+        role: "assistant",
+        content: "",
+        createdAt: new Date().toISOString(),
+        status: "thinking",
+      };
+      
+      setMessages([...newMessages, assistantTypingMessage]);
+      
+      // Call the agent-sdk function
+      const { data, error } = await supabase.functions.invoke('agent-sdk', {
+        body: {
+          input: input,
+          projectId: projectId,
+          agentType: 'assistant',
+          sessionId: projectId,
         }
       });
+      
+      if (error) {
+        console.error("Error calling agent-sdk:", error);
+        toast.error("Failed to get response from Canvas Assistant");
+        
+        // Update the typing message to show the error
+        const errorMessage: Message = {
+          id: assistantTypingMessage.id,
+          role: "assistant",
+          content: "I'm sorry, I encountered an error while processing your request. Please try again later.",
+          createdAt: new Date().toISOString(),
+          status: "error",
+        };
+        
+        setMessages([...newMessages, errorMessage]);
+      } else if (data) {
+        // Replace the typing message with the actual response
+        const assistantMessage: Message = {
+          id: assistantTypingMessage.id,
+          role: "assistant",
+          content: data.response || "I processed your request but don't have a specific response.",
+          createdAt: new Date().toISOString(),
+          agentType: data.agentType,
+        };
+        
+        setMessages([...newMessages, assistantMessage]);
+      }
+      
       setInput("");
     } catch (error) {
       console.error("Error sending message:", error);
       toast.error("Failed to send message");
+    } finally {
+      setIsProcessing(false);
     }
   };
   
@@ -102,7 +161,7 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
         <form onSubmit={handleSendMessage}>
           <ChatInput
             input={input}
-            isLoading={status === 'loading'}
+            isLoading={status === 'loading' || isProcessing}
             onInputChange={setInput}
             onSubmit={handleSendMessage}
           />

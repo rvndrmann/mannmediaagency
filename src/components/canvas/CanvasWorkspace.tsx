@@ -1,4 +1,3 @@
-
 import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Button } from "@/components/ui/button";
@@ -39,12 +38,15 @@ export function CanvasWorkspace({
   const [detailPanelCollapsed, setDetailPanelCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState("script");
   
-  // Update active tab to "scenes" when a scene is selected
   useEffect(() => {
     if (selectedSceneId) {
       setActiveTab("scenes");
     }
   }, [selectedSceneId]);
+
+  const handleCreateNewProject = async () => {
+    await createNewProject("Untitled Project");
+  };
 
   if (!project) {
     return (
@@ -55,9 +57,11 @@ export function CanvasWorkspace({
             Create a new project to get started or select an existing project.
           </p>
           <Button 
-            onClick={() => createNewProject("New Project").then(() => {})}
+            onClick={handleCreateNewProject}
             size="lg"
+            className="flex items-center gap-2"
           >
+            <PlusCircle className="h-5 w-5" />
             Create New Project
           </Button>
         </div>
@@ -67,6 +71,19 @@ export function CanvasWorkspace({
 
   return (
     <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="p-4 border-b flex justify-between items-center">
+        <h2 className="text-xl font-semibold">{project.title}</h2>
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={handleCreateNewProject}
+          className="flex items-center gap-2"
+        >
+          <PlusCircle className="h-4 w-4" />
+          New Project
+        </Button>
+      </div>
+
       <Tabs 
         value={activeTab} 
         onValueChange={setActiveTab} 

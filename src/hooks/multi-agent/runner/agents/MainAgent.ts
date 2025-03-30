@@ -69,7 +69,8 @@ export class MainAgent extends BaseAgentImpl {
           try {
             // Create an EventSource to handle the streaming response
             // Use the full URL for the edge function
-            const funcUrl = `${supabase.functions.url}/multi-agent-chat`;
+            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://avdwgvjhufslhqrrmxgo.supabase.co';
+            const funcUrl = `${SUPABASE_URL}/functions/v1/multi-agent-chat`;
             const body = {
               agentType: this.getType(),
               input,

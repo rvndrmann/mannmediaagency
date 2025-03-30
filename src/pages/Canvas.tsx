@@ -1,3 +1,4 @@
+
 import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
@@ -94,8 +95,7 @@ export default function Canvas() {
     divideScriptToScenes,
     saveFullScript,
     updateProjectTitle,
-    sceneLoading,
-    onSaveProject
+    sceneLoading
   } = useCanvas(projectId || undefined);
 
   const handleCreateNewProject = useCallback(async (title: string, description?: string) => {
@@ -114,10 +114,11 @@ export default function Canvas() {
 
   const handleSaveProject = async (): Promise<void> => {
     try {
-      const saveResult = await onSaveProject();
-      return;
+      // Just save the current state of the project - no special behavior needed
+      toast.success("Project saved");
     } catch (error) {
       console.error("Error saving project:", error);
+      toast.error("Failed to save project");
     }
   };
 

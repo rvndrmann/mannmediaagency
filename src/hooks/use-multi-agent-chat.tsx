@@ -1,3 +1,4 @@
+
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -15,6 +16,11 @@ interface UseMultiAgentChatOptions {
   onAgentSwitch?: (from: string, to: string) => void;
   projectId?: string;
   sessionId?: string;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
+  enableTracing?: boolean;
+  disableTracing?: boolean;
+  projectDetails?: any;
 }
 
 interface StreamingState {
@@ -253,6 +259,8 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       case "image": return "Image Generator";
       case "tool": return "Tool Specialist";
       case "scene": return "Scene Creator";
+      case "data": return "Data Agent";
+      case "assistant": return "Assistant";
       default: return "Assistant";
     }
   };
@@ -447,6 +455,13 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   }, [streamingState.isActive]);
   
+  const handleToolExecution = useCallback((toolName: string, params: any) => {
+    // Log tool execution
+    console.log(`Executing tool: ${toolName}`, params);
+    
+    // Could add a message to the chat to show the tool execution
+  }, []);
+  
   const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
     if (isLoading || processingRef.current) {
@@ -557,19 +572,58 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       const runId = uuidv4();
       const groupId = chatSessionId || uuidv4();
       
+      // Define error and message handlers
+      const onError = (error: string) => {
+        console.error("Agent error:", error);
+        const errorId = uuidv4();
+        messageIdsRef.current.add(errorId);
+        
+        setMessages(prev => [
+          ...prev,
+          {
+            id: errorId,
+            role: 'system',
+            content: `Error: ${error}`,
+            createdAt: new Date().toISOString(),
+            type: 'error',
+            status: 'error'
+          }
+        ]);
+        
+        toast.error("An error occurred");
+      };
+      
+      const onMessage = (message: Message) => {
+        // Add message to chat history if not already present
+        if (!messageIdsRef.current.has(message.id)) {
+          messageIdsRef.current.add(message.id);
+          setMessages(prev => [...prev, message]);
+        }
+      };
+      
+      const onHandoffStart = (fromAgent: AgentType, toAgent: AgentType, reason: string) => {
+        console.log(`Handoff from ${fromAgent} to ${toAgent}: ${reason}`);
+        processHandoff(fromAgent, toAgent, reason);
+      };
+      
+      const onHandoffEnd = (toAgent: AgentType) => {
+        console.log(`Handoff completed to ${toAgent}`);
+        setHandoffInProgress(false);
+      };
+      
       // Run the agent with a properly defined toolAvailable function and streaming callbacks
-      const runner = new AgentRunner("main", {
-        userId,
+      const runner = new AgentRunner(activeAgent, {
+        userId: user.id,
         runId: groupId,
         groupId,
-        usePerformanceModel: options.usePerformanceModel,
-        enableDirectToolExecution: options.enableDirectToolExecution,
-        enableTracing: options.enableTracing !== false,
-        tracingDisabled: options.disableTracing === true,
+        usePerformanceModel: usePerformanceModel,
+        enableDirectToolExecution: enableDirectToolExecution,
+        enableTracing: tracingEnabled,
+        tracingDisabled: !tracingEnabled,
         projectId: options.projectId,
         metadata: {
           conversationHistory: [],
-          instructions: instructions || {},
+          instructions: agentInstructions,
           projectId: options.projectId,
           projectDetails: options.projectDetails,
         }
@@ -633,12 +687,15 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     tracingEnabled,
     currentProject,
     options.projectId,
-    options.onAgentSwitch,
+    options.projectDetails,
+    agentInstructions,
     messages,
     handleStreamingStart,
     handleStreamingChunk,
     handleStreamingEnd,
-    handleAgentThinking
+    handleAgentThinking,
+    handleToolExecution,
+    processHandoff
   ]);
 
   const addAttachment = (attachment: Attachment) => {

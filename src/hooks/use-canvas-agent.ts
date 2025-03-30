@@ -34,6 +34,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
   const [activeAgent, setActiveAgent] = useState<CanvasAgentType>(null);
   const [useMcp, setUseMcp] = useState(true); // Default to true - MCP enabled by default
   const [mcpServer, setMcpServer] = useState<MCPServerService | null>(null);
+  const [mcpConnectionError, setMcpConnectionError] = useState<string | null>(null);
 
   // Get or create a chat session for this project
   useEffect(() => {
@@ -58,13 +59,21 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
   // Initialize MCP server if useMcp is true (which is now the default)
   useEffect(() => {
     if (useMcp && !mcpServer) {
-      const server = new MCPServerService(`https://api.example.com/mcp/${projectId}`);
-      server.connect().then(() => {
-        setMcpServer(server);
-      }).catch(error => {
-        console.error("Failed to connect to MCP server:", error);
-        toast.error("Failed to connect to MCP server");
-      });
+      const server = new MCPServerService();
+      
+      setMcpConnectionError(null);
+      
+      server.connect()
+        .then(() => {
+          console.log("Successfully connected to MCP server");
+          setMcpServer(server);
+          setMcpConnectionError(null);
+        })
+        .catch(error => {
+          console.error("Failed to connect to MCP server:", error);
+          setMcpConnectionError(error instanceof Error ? error.message : 'Unknown error');
+          toast.error("Failed to connect to MCP server");
+        });
     }
 
     return () => {
@@ -73,7 +82,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
         mcpServer.cleanup().catch(console.error);
       }
     };
-  }, [useMcp, projectId, mcpServer]);
+  }, [useMcp, projectId]);
 
   // Process agent request (common function for all agent types)
   const processAgentRequest = useCallback(async (
@@ -136,8 +145,10 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
           // Capture the generated content from the result
           if (updateType === 'description' && result.description) {
             generatedContent = result.description;
+            await updateScene(sceneId, updateType, generatedContent);
           } else if (updateType === 'imagePrompt' && result.imagePrompt) {
             generatedContent = result.imagePrompt;
+            await updateScene(sceneId, updateType, generatedContent);
           }
         } else {
           throw new Error(result.error || "Failed to process request with MCP");
@@ -243,6 +254,7 @@ export function useCanvasAgent({ projectId, sceneId, updateScene }: UseCanvasAge
     activeAgent,
     useMcp,
     setUseMcp,
+    mcpConnectionError,
     generateSceneScript,
     generateSceneDescription,
     generateImagePrompt,

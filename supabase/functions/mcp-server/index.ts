@@ -8,7 +8,6 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Mock implementation of the Model Context Protocol (MCP) server
 serve(async (req) => {
   // Handle CORS preflight requests
   if (req.method === 'OPTIONS') {
@@ -16,7 +15,29 @@ serve(async (req) => {
   }
   
   try {
-    const { operation, toolName, parameters, projectId } = await req.json();
+    // Simple ping endpoint for testing connection
+    const url = new URL(req.url);
+    if (url.pathname.endsWith('/ping')) {
+      return new Response(
+        JSON.stringify({ success: true, message: "MCP server is running" }),
+        { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    // Parse request body
+    let requestData;
+    try {
+      requestData = await req.json();
+      console.log("Request data:", JSON.stringify(requestData));
+    } catch (e) {
+      console.error("Error parsing request body:", e);
+      return new Response(
+        JSON.stringify({ success: false, error: "Invalid request format" }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
+    const { operation, toolName, parameters, projectId } = requestData;
     
     // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -25,6 +46,12 @@ serve(async (req) => {
     
     // Handle different operations
     switch (operation) {
+      case "ping":
+        return new Response(
+          JSON.stringify({ success: true, message: "MCP server is running" }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        );
+        
       case "list_tools": {
         // Return the list of tools this MCP server provides
         const tools = [
@@ -129,6 +156,7 @@ serve(async (req) => {
           .single();
           
         if (sceneError) {
+          console.error("Error fetching scene:", sceneError);
           throw new Error(`Failed to fetch scene: ${sceneError.message}`);
         }
         
@@ -151,6 +179,7 @@ The mood is [appropriate mood based on script content].`;
               .eq("id", sceneId);
               
             if (error) {
+              console.error("Error updating scene description:", error);
               throw new Error(`Failed to update scene description: ${error.message}`);
             }
             
@@ -180,6 +209,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
               .eq("id", sceneId);
               
             if (error) {
+              console.error("Error updating image prompt:", error);
               throw new Error(`Failed to update image prompt: ${error.message}`);
             }
             
@@ -206,6 +236,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
               .eq("id", sceneId);
               
             if (error) {
+              console.error("Error updating scene image URL:", error);
               throw new Error(`Failed to update scene image URL: ${error.message}`);
             }
             
@@ -232,6 +263,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
               .eq("id", sceneId);
               
             if (error) {
+              console.error("Error updating scene video URL:", error);
               throw new Error(`Failed to update scene video URL: ${error.message}`);
             }
             
@@ -259,7 +291,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
     return new Response(
       JSON.stringify({
         success: false,
-        error: error.message
+        error: error instanceof Error ? error.message : 'Unknown error'
       }),
       { 
         status: 400,

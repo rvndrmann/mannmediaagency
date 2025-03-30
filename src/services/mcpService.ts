@@ -1,19 +1,44 @@
 
 import { MCPServer } from "@/types/mcp";
+import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 
-// This is a simplified version of what MCP server integration would look like
-// In a real implementation, this would interact with actual MCP server endpoints
+// Implementation of MCP server integration
 export class MCPServerService implements MCPServer {
   private serverUrl: string;
+  private authToken: string | null = null;
   private toolsCache: any[] | null = null;
   
-  constructor(serverUrl: string) {
-    this.serverUrl = serverUrl;
+  constructor(serverUrl?: string, authToken?: string) {
+    // Use the provided URL or default to the Supabase Edge Function URL
+    this.serverUrl = serverUrl || 
+      `${supabase.functions.url}/mcp-server`;
+    
+    // Use the provided token or try to get it from local storage
+    this.authToken = authToken || 
+      localStorage.getItem('mcpServerToken');
+    
+    console.log("MCPServerService initialized with URL:", this.serverUrl);
   }
   
   async connect(): Promise<void> {
-    // In a real implementation, this would establish a connection to the MCP server
-    console.log("Connecting to MCP server at", this.serverUrl);
+    try {
+      console.log("Connecting to MCP server at", this.serverUrl);
+      
+      // Test the connection with a simple ping
+      const response = await this.makeRequest({
+        operation: "ping"
+      });
+      
+      if (response && response.success) {
+        console.log("Successfully connected to MCP server");
+      } else {
+        throw new Error("Failed to connect to MCP server");
+      }
+    } catch (error) {
+      console.error("MCP server connection error:", error);
+      throw new Error(`Failed to connect to MCP server: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
   
   async listTools(): Promise<any[]> {
@@ -21,127 +46,69 @@ export class MCPServerService implements MCPServer {
       return this.toolsCache;
     }
     
-    // In a real implementation, this would fetch tools from the MCP server
-    const canvasTools = [
-      {
-        name: "update_scene_description",
-        description: "Updates the scene description based on the current image and script",
-        parameters: {
-          type: "object",
-          properties: {
-            sceneId: {
-              type: "string",
-              description: "The ID of the scene to update"
-            },
-            imageAnalysis: {
-              type: "boolean",
-              description: "Whether to analyze the existing image for the scene description"
-            }
-          },
-          required: ["sceneId"]
-        }
-      },
-      {
-        name: "update_image_prompt",
-        description: "Generates and updates an image prompt for the scene",
-        parameters: {
-          type: "object",
-          properties: {
-            sceneId: {
-              type: "string",
-              description: "The ID of the scene to update"
-            },
-            useDescription: {
-              type: "boolean",
-              description: "Whether to incorporate the scene description in the image prompt"
-            }
-          },
-          required: ["sceneId"]
-        }
-      },
-      {
-        name: "generate_scene_image",
-        description: "Generate an image for the scene using the image prompt",
-        parameters: {
-          type: "object",
-          properties: {
-            sceneId: {
-              type: "string",
-              description: "The ID of the scene to update"
-            },
-            productShotVersion: {
-              type: "string",
-              enum: ["v1", "v2"],
-              description: "Which product shot version to use"
-            }
-          },
-          required: ["sceneId"]
-        }
-      },
-      {
-        name: "create_scene_video",
-        description: "Convert the scene image to a video",
-        parameters: {
-          type: "object",
-          properties: {
-            sceneId: {
-              type: "string",
-              description: "The ID of the scene to update"
-            },
-            aspectRatio: {
-              type: "string",
-              enum: ["16:9", "9:16", "1:1"],
-              description: "The aspect ratio of the video"
-            }
-          },
-          required: ["sceneId"]
-        }
+    try {
+      const response = await this.makeRequest({
+        operation: "list_tools"
+      });
+      
+      if (response && response.success && Array.isArray(response.tools)) {
+        this.toolsCache = response.tools;
+        return response.tools;
+      } else {
+        throw new Error("Failed to fetch tools from MCP server");
       }
-    ];
-    
-    this.toolsCache = canvasTools;
-    return canvasTools;
+    } catch (error) {
+      console.error("Error listing MCP tools:", error);
+      throw error;
+    }
   }
   
   async callTool(name: string, parameters: any): Promise<any> {
-    console.log(`Calling MCP tool ${name} with parameters:`, parameters);
-    
-    // In a real implementation, this would call the tool on the MCP server
-    // For now, we'll simulate a response
-    switch (name) {
-      case "update_scene_description":
-        return {
-          success: true,
-          result: "Scene description updated successfully using AI analysis"
-        };
-      case "update_image_prompt":
-        return {
-          success: true,
-          result: "Image prompt generated and updated successfully"
-        };
-      case "generate_scene_image":
-        return {
-          success: true,
-          result: "Scene image generated successfully using " + 
-                  (parameters.productShotVersion === "v1" ? "ProductShot V1" : "ProductShot V2")
-        };
-      case "create_scene_video":
-        return {
-          success: true,
-          result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
-        };
-      default:
-        throw new Error(`Unknown tool: ${name}`);
+    try {
+      console.log(`Calling MCP tool ${name} with parameters:`, parameters);
+      
+      const response = await this.makeRequest({
+        operation: "call_tool",
+        toolName: name,
+        parameters: parameters
+      });
+      
+      if (response && response.success) {
+        return response;
+      } else {
+        throw new Error(response?.error || `Failed to call tool: ${name}`);
+      }
+    } catch (error) {
+      console.error(`Error calling MCP tool ${name}:`, error);
+      throw error;
     }
   }
   
   async cleanup(): Promise<void> {
-    // In a real implementation, this would clean up the MCP server connection
     console.log("Cleaning up MCP server connection");
     this.toolsCache = null;
   }
   
   invalidateToolsCache(): void {
     this.toolsCache = null;
+  }
+  
+  private async makeRequest(data: any): Promise<any> {
+    try {
+      // For direct Supabase Edge Function calls
+      const { data: responseData, error } = await supabase.functions.invoke('mcp-server', {
+        body: data
+      });
+      
+      if (error) {
+        console.error("MCP Server request error:", error);
+        throw error;
+      }
+      
+      return responseData;
+    } catch (error) {
+      console.error("Error making MCP server request:", error);
+      throw error;
+    }
   }
 }

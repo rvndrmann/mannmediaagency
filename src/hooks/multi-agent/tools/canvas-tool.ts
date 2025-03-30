@@ -60,56 +60,62 @@ export const canvasTool = {
       
       // Default to MCP execution (now the default approach)
       if (useMcp !== false) {
-        const mcpServer = new MCPServerService(`https://api.example.com/mcp/${projectId}`);
-        await mcpServer.connect();
+        const mcpServer = new MCPServerService();
         
-        let toolName = "";
-        let toolParams: MCPToolParams = { sceneId: sceneId as string };
-        
-        switch (action) {
-          case "updateDescription":
-            toolName = "update_scene_description";
-            toolParams = { 
-              ...toolParams, 
-              imageAnalysis: true 
-            };
-            break;
-          case "generateImagePrompt":
-            toolName = "update_image_prompt";
-            toolParams = { 
-              ...toolParams, 
-              useDescription: true 
-            };
-            break;
-          case "generateImage":
-            toolName = "generate_scene_image";
-            toolParams = { 
-              ...toolParams, 
-              productShotVersion: productShotVersion || "v2" 
-            };
-            break;
-          case "generateVideo":
-            toolName = "create_scene_video";
-            toolParams = { 
-              ...toolParams, 
-              aspectRatio: aspectRatio || "16:9" 
-            };
-            break;
-          default:
-            throw new Error(`Unsupported MCP action: ${action}`);
+        try {
+          await mcpServer.connect();
+          
+          let toolName = "";
+          let toolParams: MCPToolParams = { sceneId: sceneId as string };
+          
+          switch (action) {
+            case "updateDescription":
+              toolName = "update_scene_description";
+              toolParams = { 
+                ...toolParams, 
+                imageAnalysis: true 
+              };
+              break;
+            case "generateImagePrompt":
+              toolName = "update_image_prompt";
+              toolParams = { 
+                ...toolParams, 
+                useDescription: true 
+              };
+              break;
+            case "generateImage":
+              toolName = "generate_scene_image";
+              toolParams = { 
+                ...toolParams, 
+                productShotVersion: productShotVersion || "v2" 
+              };
+              break;
+            case "generateVideo":
+              toolName = "create_scene_video";
+              toolParams = { 
+                ...toolParams, 
+                aspectRatio: aspectRatio || "16:9" 
+              };
+              break;
+            default:
+              throw new Error(`Unsupported MCP action: ${action}`);
+          }
+          
+          const result = await mcpServer.callTool(toolName, toolParams);
+          await mcpServer.cleanup();
+          
+          return {
+            success: result.success !== false,
+            message: result.result || "Operation completed via MCP",
+            data: result
+          };
+        } catch (mcpError) {
+          console.error("MCP execution failed, falling back to legacy method:", mcpError);
+          // Intentionally fall through to legacy execution on MCP error
         }
-        
-        const result = await mcpServer.callTool(toolName, toolParams);
-        await mcpServer.cleanup();
-        
-        return {
-          success: result.success !== false,
-          message: result.result || "Operation completed via MCP",
-          data: result
-        };
       }
       
-      // Legacy execution (without MCP)
+      // Legacy execution (without MCP or if MCP fails)
       switch (action) {
         case "updateDescription":
         case "generateImagePrompt": {

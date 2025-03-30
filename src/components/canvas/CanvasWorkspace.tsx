@@ -4,9 +4,26 @@ import { CanvasProject, CanvasScene } from "@/types/canvas";
 import { ScenesList } from "./ScenesList";
 import { SceneEditor } from "./SceneEditor";
 import { SceneDetailPanel } from "./SceneDetailPanel";
-import { Empty } from "@/components/ui/empty";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { CanvasScriptPanel } from "./CanvasScriptPanel";
 import { Loader2 } from "lucide-react";
+
+// Create a component for the empty state to replace the import
+const Empty = ({ title, description }: { title: string; description: string }) => {
+  return (
+    <Card className="w-[450px] shadow-sm">
+      <CardHeader>
+        <CardTitle>{title}</CardTitle>
+        <CardDescription>{description}</CardDescription>
+      </CardHeader>
+      <CardContent className="flex justify-center items-center p-6">
+        <div className="rounded-full w-20 h-20 bg-muted flex items-center justify-center">
+          <span className="text-3xl text-muted-foreground">?</span>
+        </div>
+      </CardContent>
+    </Card>
+  );
+};
 
 interface CanvasWorkspaceProps {
   project: CanvasProject | null;
@@ -15,7 +32,7 @@ interface CanvasWorkspaceProps {
   setSelectedSceneId: (id: string) => void;
   addScene: () => Promise<void>;
   deleteScene: (id: string) => Promise<void>;
-  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'voiceOverText' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'backgroundMusic', value: string) => Promise<void>;
+  updateScene: (sceneId: string, type: 'script' | 'imagePrompt' | 'description' | 'image' | 'productImage' | 'video' | 'voiceOver' | 'voiceOverText' | 'backgroundMusic', value: string) => Promise<void>;
   divideScriptToScenes: (scenes: Array<{ id: string; content: string; voiceOverText?: string }>) => Promise<void>;
   saveFullScript: (script: string) => Promise<void>;
   createNewProject: (title: string, description?: string) => Promise<string>;
@@ -51,10 +68,15 @@ export function CanvasWorkspace({
     );
   }
 
-  // Fix promise mismatch by wrapping the function
+  // Fix the type mismatch by creating a wrapper function with the correct return type
   const handleCreateNewProject = async () => {
-    const newProjectId = await createNewProject("New Project");
-    return newProjectId;
+    try {
+      const newProjectId = await createNewProject("New Project");
+      return newProjectId;
+    } catch (error) {
+      console.error("Error creating new project:", error);
+      return ""; // Return an empty string in case of error to match the Promise<string> return type
+    }
   };
 
   return (

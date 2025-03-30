@@ -1,4 +1,3 @@
-
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,7 +9,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 
 interface CanvasScriptPanelProps {
   project: CanvasProject;
-  scenes: CanvasScene[]; // Add this property
+  scenes: CanvasScene[]; 
   onClose?: () => void;
   currentScript: string;
   onSaveScript: (script: string) => Promise<void>;
@@ -91,7 +90,7 @@ export function CanvasScriptPanel({
         throw new Error("No scene data returned from processing");
       }
       
-      // Convert scenes data for divideScriptToScenes
+      // Convert scenes data for onDivideScriptToScenes (fixed from divideScriptToScenes)
       const sceneScripts = data.scenes.map(scene => ({
         id: scene.id,
         content: scene.content || "",
@@ -99,7 +98,7 @@ export function CanvasScriptPanel({
       }));
       
       // Update the scenes with the divided script content
-      await divideScriptToScenes(sceneScripts);
+      await onDivideScriptToScenes(sceneScripts);
       
       toast.success("Script divided into scenes");
       

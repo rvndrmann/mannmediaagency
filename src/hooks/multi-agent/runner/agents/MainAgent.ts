@@ -1,3 +1,4 @@
+
 import { BaseAgentImpl } from "../BaseAgentImpl";
 import { AgentResult, AgentType } from "../types";
 import { Attachment } from "@/types/message";
@@ -66,8 +67,7 @@ export class MainAgent extends BaseAgentImpl {
         // Return a promise that will be resolved when streaming is complete
         return new Promise((resolve, reject) => {
           try {
-            // Create an EventSource to handle the streaming response
-            // Use the full URL for the edge function
+            // Get the full URL for the edge function
             const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || 'https://avdwgvjhufslhqrrmxgo.supabase.co';
             const funcUrl = `${SUPABASE_URL}/functions/v1/multi-agent-chat`;
             const body = {
@@ -89,13 +89,12 @@ export class MainAgent extends BaseAgentImpl {
               streamResponse: true
             };
             
-            // Get auth token - moved inside an async function
+            // Get auth token
             const getAuthToken = async () => {
-              let authToken = null;
               try {
                 // Get the JWT token directly from supabase.auth
                 const { data: { session } } = await supabase.auth.getSession();
-                authToken = session?.access_token;
+                let authToken = session?.access_token;
                 
                 if (!authToken) {
                   // Fallback to localStorage if needed
@@ -114,9 +113,9 @@ export class MainAgent extends BaseAgentImpl {
               }
             };
             
-            // Use the async function
+            // Use the async function to get token
             getAuthToken().then(authToken => {
-              console.log("Streaming request to:", funcUrl);
+              console.log("[MainAgent] Streaming request to:", funcUrl);
               
               // We use fetch for streaming
               fetch(funcUrl, {
@@ -168,7 +167,7 @@ export class MainAgent extends BaseAgentImpl {
                   
                   // Process chunk
                   const chunk = decoder.decode(value, { stream: true });
-                  console.log("Received stream chunk:", chunk);
+                  console.log("[MainAgent] Received stream chunk:", chunk);
                   
                   try {
                     // Process the chunk
@@ -185,7 +184,7 @@ export class MainAgent extends BaseAgentImpl {
                           }
                           
                           const data = JSON.parse(jsonStr);
-                          console.log("Processed stream data:", data);
+                          console.log("[MainAgent] Processed stream data:", data);
                           
                           if (data.type === 'chunk') {
                             // Streaming text chunk
@@ -202,7 +201,7 @@ export class MainAgent extends BaseAgentImpl {
                             this.recordTraceEvent("streaming_error", {
                               error: data.content
                             });
-                            console.error("Streaming error:", data.content);
+                            console.error("[MainAgent] Streaming error:", data.content);
                           } else if (data.responseText) {
                             // Handle direct responseText format
                             responseText = data.responseText;
@@ -210,7 +209,7 @@ export class MainAgent extends BaseAgentImpl {
                             structuredOutput = data.structuredOutput;
                           }
                         } catch (err) {
-                          console.error("Error parsing SSE line:", err, line);
+                          console.error("[MainAgent] Error parsing SSE line:", err, line);
                         }
                       } else {
                         // Try to parse non-standard format responses
@@ -227,7 +226,7 @@ export class MainAgent extends BaseAgentImpl {
                       }
                     });
                   } catch (err) {
-                    console.error("Error processing stream chunk:", err);
+                    console.error("[MainAgent] Error processing stream chunk:", err);
                   }
                   
                   // Continue reading
@@ -264,7 +263,7 @@ export class MainAgent extends BaseAgentImpl {
                   error: err.message
                 });
                 
-                console.error("Fetch error for streaming:", err);
+                console.error("[MainAgent] Fetch error for streaming:", err);
                 // Provide a fallback response if streaming fails
                 resolve({
                   response: "I apologize, but I couldn't connect to the AI service. Please try again later.",
@@ -277,9 +276,9 @@ export class MainAgent extends BaseAgentImpl {
             });
           } catch (err) {
             this.recordTraceEvent("streaming_setup_error", {
-              error: err.message
+              error: err instanceof Error ? err.message : String(err)
             });
-            console.error("Error setting up streaming:", err);
+            console.error("[MainAgent] Error setting up streaming:", err);
             reject(err);
           }
         });
@@ -311,7 +310,7 @@ export class MainAgent extends BaseAgentImpl {
       };
     } catch (error) {
       this.recordTraceEvent("agent_run_error", {
-        error: error.message || "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error"
       });
       
       console.error(`${this.getType()} agent error:`, error);

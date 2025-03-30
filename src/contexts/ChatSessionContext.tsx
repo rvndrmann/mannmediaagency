@@ -13,7 +13,7 @@ export interface ChatSessionContextType {
   sendMessage: (params: { content: string; context?: any }) => Promise<void>;
   setActiveChatId: (id: string | null) => void;
   createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
-  getOrCreateChatSession: (projectId: string | null, type?: string) => string;
+  getOrCreateChatSession: (projectId: string | null, type?: string | Message[]) => string;
   updateChatSession: (sessionId: string, messages: Message[]) => void;
   deleteChatSession: (sessionId: string) => void;
   syncing: boolean;
@@ -64,15 +64,25 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     }
   };
   
-  // Enhanced getOrCreateChatSession to support type
-  const getOrCreateChatSession = (projectId: string | null, type = 'default') => {
-    const sessionId = chatHistoryStore.getOrCreateChatSession(projectId);
+  // Enhanced getOrCreateChatSession to support type as string or initial messages
+  const getOrCreateChatSession = (projectId: string | null, typeOrMessages: string | Message[] = 'default') => {
+    let initialMessages: Message[] | undefined;
+    let type = 'default';
+    
+    // Check if the second parameter is a string (type) or array (messages)
+    if (Array.isArray(typeOrMessages)) {
+      initialMessages = typeOrMessages;
+    } else {
+      type = typeOrMessages;
+    }
+    
+    const sessionId = chatHistoryStore.getOrCreateChatSession(projectId, initialMessages);
     
     // If we have messages in the session, use those
     if (chatHistoryStore.activeSession?.messages) {
       setMessages(chatHistoryStore.activeSession.messages);
     } else {
-      setMessages([]);
+      setMessages(initialMessages || []);
     }
     
     return sessionId;

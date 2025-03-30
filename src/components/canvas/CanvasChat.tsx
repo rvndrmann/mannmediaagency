@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { X } from "lucide-react";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { toast } from "sonner";
+import { Message } from "@/types/message";
 
 interface CanvasChatProps {
   projectId?: string;
@@ -27,6 +28,14 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
   
   useEffect(() => {
     if (projectId) {
+      // Create welcome message
+      const welcomeMessage: Message = {
+        id: "welcome",
+        role: "system",
+        content: `Welcome to Canvas Assistant. I'm here to help with your video project${projectId ? " #" + projectId : ""}. Ask me to write scripts, create scene descriptions, or generate image prompts for your scenes.`,
+        createdAt: new Date().toISOString(),
+      };
+      
       getOrCreateChatSession(projectId, 'canvas');
     }
   }, [projectId, getOrCreateChatSession]);

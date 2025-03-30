@@ -21,7 +21,6 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
     getOrCreateChatSession,
     messages,
     isLoading,
-    sendMessage,
     status,
     setMessages
   } = useChatSession();

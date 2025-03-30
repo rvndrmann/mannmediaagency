@@ -8,23 +8,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-// Define types for the Agent SDK
 interface AgentRequest {
   input: string;
   projectId?: string;
-  userId?: string;
   sessionId?: string;
-  attachments?: any[];
   agentType?: string;
-  instructions?: string;
-  streaming?: boolean;
-}
-
-interface AgentResponse {
-  success: boolean;
-  message?: string;
-  response?: string;
-  error?: string;
+  context?: Record<string, any>;
 }
 
 serve(async (req) => {
@@ -49,7 +38,7 @@ serve(async (req) => {
       );
     }
     
-    const { input, projectId, userId, sessionId, attachments, agentType, instructions, streaming } = requestData;
+    const { input, projectId, sessionId, agentType = 'assistant', context = {} } = requestData;
     
     if (!input) {
       return new Response(
@@ -58,13 +47,14 @@ serve(async (req) => {
       );
     }
     
-    // Get Supabase client for accessing data if needed
+    // Get Supabase client for accessing project data if needed
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseAnonKey = Deno.env.get('SUPABASE_ANON_KEY') || '';
     const supabase = createClient(supabaseUrl, supabaseAnonKey);
     
-    // If projectId is provided, get project context
-    let projectContext = {};
+    // Fetch project data if projectId is provided
+    let projectData = {};
+    
     if (projectId) {
       try {
         // Get project details
@@ -77,80 +67,41 @@ serve(async (req) => {
         if (projectError) {
           console.warn(`Error fetching project: ${projectError.message}`);
         } else if (project) {
-          // Get scenes for the project if available
+          // Get scenes for the project
           const { data: scenes, error: scenesError } = await supabase
             .from("canvas_scenes")
             .select("*")
-            .eq("project_id", projectId);
+            .eq("project_id", projectId)
+            .order("scene_order", { ascending: true });
             
           if (scenesError) {
             console.warn(`Error fetching scenes: ${scenesError.message}`);
           }
           
-          projectContext = {
+          projectData = {
             project,
             scenes: scenes || []
           };
         }
       } catch (error) {
-        console.error("Error getting project context:", error);
+        console.error("Error getting project data:", error);
       }
     }
     
-    // For this implementation, we'll simulate a response
-    // In a real implementation, this would call the OpenAI API or similar
+    // Get agent instructions based on agent type
+    const instructions = getAgentInstructions(agentType);
     
-    // Determine which agent type is being used
-    const agentInstructions = getAgentInstructions(agentType || 'assistant', instructions);
+    // Process the input and generate a response based on agent type
+    // In a full implementation, this would use OpenAI API or similar
+    let response = generateResponse(input, agentType, projectData);
     
-    // Generate response based on agent type
-    let response = "";
-    
-    // In a real implementation, this would call an LLM API
-    // For now, we'll simulate responses based on agent type
-    switch (agentType) {
-      case 'script':
-        response = `Here's a script I've generated based on your input: "${input}"\n\n` + 
-          "SCENE 1 - INTRODUCTION\n" +
-          "[Camera slowly pans across the scene]\n" +
-          "NARRATOR: The world as we know it is changing...\n\n" +
-          "SCENE 2 - MAIN CONTENT\n" +
-          "[Close-up shot of the subject]\n" +
-          "NARRATOR: Your message matters now more than ever.";
-        break;
-      case 'image':
-        response = `Based on your request "${input}", here's an image prompt:\n\n` +
-          "A professional cinematic shot with dramatic lighting, shallow depth of field, " +
-          "4K ultra-detailed photograph. The scene shows " + input + " with " +
-          "natural color grading, perfect composition, and award-winning cinematography.";
-        break;
-      case 'scene':
-        response = `Here's a detailed scene description for "${input}":\n\n` +
-          "The scene opens with a wide establishing shot, slowly panning from left to right. " +
-          "The lighting is warm and inviting, creating depth and dimension. " +
-          "The subject is positioned slightly off-center following the rule of thirds. " +
-          "The background is slightly out of focus, creating a natural bokeh effect that " +
-          "draws attention to the main subject. Camera movement is smooth and deliberate.";
-        break;
-      default:
-        response = `I'm your Canvas Assistant. I've processed your input: "${input}"\n\n` +
-          "I can help you write scripts, create scene descriptions, or generate image prompts for your Canvas project. " +
-          "What would you like to work on today?";
-    }
-    
-    // Add project context if available
-    if (projectId && Object.keys(projectContext).length > 0) {
-      response += `\n\nI'm referencing your project ${(projectContext as any).project?.title || projectId} ` +
-        `which has ${(projectContext as any).scenes?.length || 0} scenes.`;
-    }
-    
-    console.log(`Generated response for ${agentType || 'default'} agent`);
+    console.log(`Generated response for ${agentType} agent`);
     
     return new Response(
       JSON.stringify({
         success: true,
         response,
-        agentType: agentType || 'assistant'
+        agentType
       }),
       { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
@@ -171,12 +122,8 @@ serve(async (req) => {
 });
 
 // Helper function to get agent instructions
-function getAgentInstructions(agentType: string, customInstructions?: string): string {
-  if (customInstructions) {
-    return customInstructions;
-  }
-  
-  // Default instructions based on agent type
+function getAgentInstructions(agentType: string): string {
+  // Define instructions based on agent type
   switch (agentType) {
     case 'script':
       return "You are a script writer specializing in creating scripts for video content.";
@@ -186,5 +133,51 @@ function getAgentInstructions(agentType: string, customInstructions?: string): s
       return "You are a scene creator specializing in creating detailed scene descriptions for video content.";
     default:
       return "You are a helpful Canvas assistant. You help users with their video projects by providing guidance on scripts, scenes, and visual elements.";
+  }
+}
+
+// Simulate response generation
+function generateResponse(input: string, agentType: string, projectData: any): string {
+  // In a real implementation, this would call OpenAI API
+  switch (agentType) {
+    case 'script':
+      return `Here's a script I've generated based on your input: "${input}"\n\n` + 
+        "SCENE 1 - INTRODUCTION\n" +
+        "[Camera slowly pans across the scene]\n" +
+        "NARRATOR: The world as we know it is changing...\n\n" +
+        "SCENE 2 - MAIN CONTENT\n" +
+        "[Close-up shot of the subject]\n" +
+        "NARRATOR: Your message matters now more than ever.";
+      
+    case 'image':
+      return `Based on your request "${input}", here's an image prompt:\n\n` +
+        "A professional cinematic shot with dramatic lighting, shallow depth of field, " +
+        "4K ultra-detailed photograph. The scene shows " + input + " with " +
+        "natural color grading, perfect composition, and award-winning cinematography.";
+      
+    case 'scene':
+      return `Here's a detailed scene description for "${input}":\n\n` +
+        "The scene opens with a wide establishing shot, slowly panning from left to right. " +
+        "The lighting is warm and inviting, creating depth and dimension. " +
+        "The subject is positioned slightly off-center following the rule of thirds. " +
+        "The background is slightly out of focus, creating a natural bokeh effect that " +
+        "draws attention to the main subject. Camera movement is smooth and deliberate.";
+      
+    default:
+      let response = `I'm your Canvas Assistant. I've processed your input: "${input}"\n\n` +
+        "I can help you write scripts, create scene descriptions, or generate image prompts for your Canvas project. " +
+        "What would you like to work on today?";
+        
+      // Add project context if available
+      if (projectData && projectData.project) {
+        response += `\n\nI'm referencing your project "${projectData.project.title}" ` +
+          `which has ${projectData.scenes?.length || 0} scenes.`;
+          
+        if (projectData.project.full_script) {
+          response += " Your project already has a full script that I can help you refine or expand.";
+        }
+      }
+      
+      return response;
   }
 }

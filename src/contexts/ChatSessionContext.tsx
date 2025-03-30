@@ -32,10 +32,9 @@ export function ChatSessionProvider({ children }: { children: ReactNode }) {
     try {
       setStatus('loading');
       
-      // Implementation would go here for an integration with our agent-sdk function
-      // For now, we leave this as a stub since individual components will handle this
+      // This is just a placeholder for now
+      // The actual message sending happens in the component using the agent-sdk
       
-      // Just simulate the completion of the operation
       setStatus('success');
     } catch (error) {
       console.error("Error sending message:", error);

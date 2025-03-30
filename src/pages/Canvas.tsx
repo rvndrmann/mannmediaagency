@@ -66,7 +66,8 @@ export default function Canvas() {
     }
   };
 
-  const handleCreateNewProject = async (): Promise<string | undefined> => {
+  // Wrapper for createProject that doesn't return anything
+  const handleCreateNewProject = async (): Promise<void> => {
     try {
       // Create a new project with initial scenes
       const newProjectId = await createProject(
@@ -83,11 +84,14 @@ export default function Canvas() {
       }
       
       toast.success("New project created successfully");
-      return newProjectId;
+      
+      // Navigate to the new project if created
+      if (newProjectId) {
+        navigate(`/canvas/${newProjectId}`);
+      }
     } catch (error) {
       console.error("Error creating new project:", error);
       toast.error("Failed to create new project");
-      return undefined;
     }
   };
 
@@ -151,7 +155,7 @@ export default function Canvas() {
             updateScene={updateScene}
             divideScriptToScenes={divideScriptToScenes}
             saveFullScript={saveFullScript}
-            createNewProject={createProject}
+            createNewProject={handleCreateNewProject}
             updateProjectTitle={updateProjectTitle}
             sceneLoading={sceneLoading}
           />

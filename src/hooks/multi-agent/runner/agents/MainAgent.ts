@@ -1,4 +1,3 @@
-
 import { BaseAgentImpl } from "../BaseAgentImpl";
 import { AgentResult, AgentType } from "../types";
 import { Attachment } from "@/types/message";
@@ -90,150 +89,73 @@ export class MainAgent extends BaseAgentImpl {
               streamResponse: true
             };
             
-            // Get auth token from localStorage
-            let authToken = null;
-            try {
-              // Get the JWT token directly from supabase.auth
-              const { data: { session } } = await supabase.auth.getSession();
-              authToken = session?.access_token;
-              
-              if (!authToken) {
-                // Fallback to localStorage if needed
-                const authData = localStorage.getItem('sb-avdwgvjhufslhqrrmxgo-auth-token');
-                if (authData) {
-                  const parsedData = JSON.parse(authData);
-                  authToken = parsedData?.access_token;
-                }
-              }
-              
-              console.log("Auth token available:", !!authToken);
-            } catch (err) {
-              console.warn('Error retrieving auth token:', err);
-            }
-            
-            console.log("Streaming request to:", funcUrl);
-            
-            // We use fetch for streaming
-            fetch(funcUrl, {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': authToken ? `Bearer ${authToken}` : ''
-              },
-              body: JSON.stringify(body)
-            }).then(response => {
-              if (!response.ok) {
-                throw new Error(`HTTP error! Status: ${response.status}`);
-              }
-              
-              if (!response.body) {
-                reject(new Error("No response body"));
-                return;
-              }
-              
-              const reader = response.body.getReader();
-              const decoder = new TextDecoder();
-              let responseText = '';
-              let handoff = null;
-              let structuredOutput = null;
-              
-              // Read the stream
-              const processStream = ({ done, value }: ReadableStreamReadResult<Uint8Array>) => {
-                if (done) {
-                  // When stream is complete, resolve with final result
-                  this.recordTraceEvent("streaming_complete", {
-                    responseLength: responseText.length,
-                    handoff: handoff ? true : false
-                  });
-                  
-                  if (!responseText && !handoff) {
-                    // If no response was processed, provide a fallback
-                    responseText = "I apologize, but I couldn't generate a response. Please try again or try a different question.";
+            // Get auth token - moved inside an async function
+            const getAuthToken = async () => {
+              let authToken = null;
+              try {
+                // Get the JWT token directly from supabase.auth
+                const { data: { session } } = await supabase.auth.getSession();
+                authToken = session?.access_token;
+                
+                if (!authToken) {
+                  // Fallback to localStorage if needed
+                  const authData = localStorage.getItem('sb-avdwgvjhufslhqrrmxgo-auth-token');
+                  if (authData) {
+                    const parsedData = JSON.parse(authData);
+                    authToken = parsedData?.access_token;
                   }
-                  
-                  resolve({
-                    response: responseText,
-                    nextAgent: handoff?.targetAgent,
-                    handoffReason: handoff?.reason,
-                    additionalContext: handoff?.additionalContext,
-                    structured_output: structuredOutput
-                  });
+                }
+                
+                console.log("Auth token available:", !!authToken);
+                return authToken;
+              } catch (err) {
+                console.warn('Error retrieving auth token:', err);
+                return null;
+              }
+            };
+            
+            // Use the async function
+            getAuthToken().then(authToken => {
+              console.log("Streaming request to:", funcUrl);
+              
+              // We use fetch for streaming
+              fetch(funcUrl, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': authToken ? `Bearer ${authToken}` : ''
+                },
+                body: JSON.stringify(body)
+              }).then(response => {
+                if (!response.ok) {
+                  throw new Error(`HTTP error! Status: ${response.status}`);
+                }
+                
+                if (!response.body) {
+                  reject(new Error("No response body"));
                   return;
                 }
                 
-                // Decode chunk
-                const chunk = decoder.decode(value, { stream: true });
-                console.log("Received stream chunk:", chunk);
+                const reader = response.body.getReader();
+                const decoder = new TextDecoder();
+                let responseText = '';
+                let handoff = null;
+                let structuredOutput = null;
                 
-                try {
-                  // Process the chunk - improved handling for various response formats
-                  chunk.split('\n\n').forEach(line => {
-                    if (!line || line.trim() === '') return;
+                // Read the stream
+                const processStream = ({ done, value }: ReadableStreamReadResult<Uint8Array>) => {
+                  if (done) {
+                    // When stream is complete, resolve with final result
+                    this.recordTraceEvent("streaming_complete", {
+                      responseLength: responseText.length,
+                      handoff: handoff ? true : false
+                    });
                     
-                    if (line.startsWith('data: ')) {
-                      try {
-                        const jsonStr = line.substring(6).trim();
-                        
-                        // Check for the done signal
-                        if (jsonStr === '[DONE]') {
-                          return;
-                        }
-                        
-                        const data = JSON.parse(jsonStr);
-                        console.log("Processed stream data:", data);
-                        
-                        if (data.type === 'chunk') {
-                          // Streaming text chunk
-                          if (streamHandler) {
-                            streamHandler(data.content);
-                          }
-                          responseText += data.content;
-                        } else if (data.type === 'complete') {
-                          // Complete message with metadata
-                          responseText = data.content || responseText;
-                          handoff = data.handoff;
-                          structuredOutput = data.structuredOutput;
-                        } else if (data.type === 'error') {
-                          this.recordTraceEvent("streaming_error", {
-                            error: data.content
-                          });
-                          console.error("Streaming error:", data.content);
-                        } else if (data.responseText) {
-                          // Handle direct responseText format
-                          responseText = data.responseText;
-                          handoff = data.handoff;
-                          structuredOutput = data.structuredOutput;
-                        }
-                      } catch (err) {
-                        console.error("Error parsing SSE line:", err, line);
-                      }
-                    } else {
-                      // Try to parse non-standard format responses
-                      try {
-                        const data = JSON.parse(line);
-                        if (data.responseText) {
-                          responseText = data.responseText;
-                          handoff = data.handoff;
-                          structuredOutput = data.structuredOutput;
-                        }
-                      } catch (err) {
-                        // Not JSON, ignore
-                      }
+                    if (!responseText && !handoff) {
+                      // If no response was processed, provide a fallback
+                      responseText = "I apologize, but I couldn't generate a response. Please try again or try a different question.";
                     }
-                  });
-                } catch (err) {
-                  console.error("Error processing stream chunk:", err);
-                }
-                
-                // Continue reading
-                reader.read().then(processStream).catch(err => {
-                  this.recordTraceEvent("streaming_error", {
-                    error: err.message
-                  });
-                  
-                  // If we encountered an error during streaming but have some response text,
-                  // resolve with what we have rather than rejecting
-                  if (responseText.length > 0) {
+                    
                     resolve({
                       response: responseText,
                       nextAgent: handoff?.targetAgent,
@@ -241,32 +163,116 @@ export class MainAgent extends BaseAgentImpl {
                       additionalContext: handoff?.additionalContext,
                       structured_output: structuredOutput
                     });
-                  } else {
-                    reject(err);
+                    return;
                   }
+                  
+                  // Process chunk
+                  const chunk = decoder.decode(value, { stream: true });
+                  console.log("Received stream chunk:", chunk);
+                  
+                  try {
+                    // Process the chunk
+                    chunk.split('\n\n').forEach(line => {
+                      if (!line || line.trim() === '') return;
+                      
+                      if (line.startsWith('data: ')) {
+                        try {
+                          const jsonStr = line.substring(6).trim();
+                          
+                          // Check for the done signal
+                          if (jsonStr === '[DONE]') {
+                            return;
+                          }
+                          
+                          const data = JSON.parse(jsonStr);
+                          console.log("Processed stream data:", data);
+                          
+                          if (data.type === 'chunk') {
+                            // Streaming text chunk
+                            if (streamHandler) {
+                              streamHandler(data.content);
+                            }
+                            responseText += data.content;
+                          } else if (data.type === 'complete') {
+                            // Complete message with metadata
+                            responseText = data.content || responseText;
+                            handoff = data.handoff;
+                            structuredOutput = data.structuredOutput;
+                          } else if (data.type === 'error') {
+                            this.recordTraceEvent("streaming_error", {
+                              error: data.content
+                            });
+                            console.error("Streaming error:", data.content);
+                          } else if (data.responseText) {
+                            // Handle direct responseText format
+                            responseText = data.responseText;
+                            handoff = data.handoff;
+                            structuredOutput = data.structuredOutput;
+                          }
+                        } catch (err) {
+                          console.error("Error parsing SSE line:", err, line);
+                        }
+                      } else {
+                        // Try to parse non-standard format responses
+                        try {
+                          const data = JSON.parse(line);
+                          if (data.responseText) {
+                            responseText = data.responseText;
+                            handoff = data.handoff;
+                            structuredOutput = data.structuredOutput;
+                          }
+                        } catch (err) {
+                          // Not JSON, ignore
+                        }
+                      }
+                    });
+                  } catch (err) {
+                    console.error("Error processing stream chunk:", err);
+                  }
+                  
+                  // Continue reading
+                  reader.read().then(processStream).catch(err => {
+                    this.recordTraceEvent("streaming_error", {
+                      error: err.message
+                    });
+                    
+                    // If we encountered an error during streaming but have some response text,
+                    // resolve with what we have rather than rejecting
+                    if (responseText.length > 0) {
+                      resolve({
+                        response: responseText,
+                        nextAgent: handoff?.targetAgent,
+                        handoffReason: handoff?.reason,
+                        additionalContext: handoff?.additionalContext,
+                        structured_output: structuredOutput
+                      });
+                    } else {
+                      reject(err);
+                    }
+                  });
+                };
+                
+                // Start reading the stream
+                reader.read().then(processStream).catch(err => {
+                  this.recordTraceEvent("streaming_error", {
+                    error: err.message
+                  });
+                  reject(err);
                 });
-              };
-              
-              // Start reading the stream
-              reader.read().then(processStream).catch(err => {
+              }).catch(err => {
                 this.recordTraceEvent("streaming_error", {
                   error: err.message
                 });
-                reject(err);
-              });
-            }).catch(err => {
-              this.recordTraceEvent("streaming_error", {
-                error: err.message
-              });
-              
-              console.error("Fetch error for streaming:", err);
-              // Provide a fallback response if streaming fails
-              resolve({
-                response: "I apologize, but I couldn't connect to the AI service. Please try again later.",
-                nextAgent: null,
-                handoffReason: null,
-                additionalContext: null,
-                structured_output: null
+                
+                console.error("Fetch error for streaming:", err);
+                // Provide a fallback response if streaming fails
+                resolve({
+                  response: "I apologize, but I couldn't connect to the AI service. Please try again later.",
+                  nextAgent: null,
+                  handoffReason: null,
+                  additionalContext: null,
+                  structured_output: null
+                });
               });
             });
           } catch (err) {

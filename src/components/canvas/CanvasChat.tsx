@@ -37,12 +37,13 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
     }
   }, [messages]);
   
-  const handleSendMessage = async (content: string) => {
-    if (!content.trim() || !projectId) return;
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!input.trim() || !projectId) return;
     
     try {
       await sendMessage({
-        content,
+        content: input,
         context: {
           projectId,
           type: 'canvas'
@@ -89,13 +90,14 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
       </ScrollArea>
       
       <div className="p-4 border-t">
-        <ChatInput
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          onSubmit={handleSendMessage}
-          disabled={isLoading || status === 'loading' || !projectId}
-          placeholder="Ask for help with your Canvas project..."
-        />
+        <form onSubmit={handleSendMessage}>
+          <ChatInput
+            input={input}
+            isLoading={status === 'loading'}
+            onInputChange={setInput}
+            onSubmit={handleSendMessage}
+          />
+        </form>
       </div>
     </div>
   );

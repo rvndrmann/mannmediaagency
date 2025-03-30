@@ -83,6 +83,11 @@ export const executeCommand = async (
             console.error("Error saving as full script:", error);
           } else {
             console.log("Successfully saved as full script");
+            // Add a system message to indicate script was saved
+            context.addMessage(
+              `📝 Script saved to Canvas project. Content:\n\n${commandData.parameters.content.substring(0, 200)}${commandData.parameters.content.length > 200 ? '...' : ''}`,
+              'system'
+            );
           }
         } catch (err) {
           console.error("Error saving as full script:", err);
@@ -115,6 +120,15 @@ export const executeCommand = async (
       };
     }
     
+    // Special handling for script-related responses
+    if (result.data?.scriptSaved && result.data?.scriptContent) {
+      // Add an additional message to show the script content in the chat
+      context.addMessage(
+        `📝 Script content:\n\n${result.data.scriptContent.substring(0, 500)}${result.data.scriptContent.length > 500 ? '...' : ''}`,
+        'tool'
+      );
+    }
+    
     return {
       state: CommandExecutionState.COMPLETED,
       message: result.message || "Tool execution completed successfully",
@@ -128,3 +142,4 @@ export const executeCommand = async (
     };
   }
 };
+

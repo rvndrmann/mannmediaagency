@@ -118,6 +118,9 @@ export const productShotV1Tool: ToolDefinition = {
         scriptContentLength: params.scriptContent ? params.scriptContent.length : 0
       });
       
+      let savedScriptContent = params.scriptContent || '';
+      let scriptSaved = false;
+      
       // Check if script content was provided
       if (params.scriptContent && params.projectId) {
         try {
@@ -126,6 +129,12 @@ export const productShotV1Tool: ToolDefinition = {
             contentPreview: params.scriptContent.substring(0, 100) + '...'
           });
           
+          // Display script content in chat before saving
+          context.addMessage(
+            `📝 Script content received:\n\n${params.scriptContent.substring(0, 500)}${params.scriptContent.length > 500 ? '...' : ''}`,
+            'tool'
+          );
+          
           const { error } = await context.supabase
             .from('canvas_projects')
             .update({ full_script: params.scriptContent })
@@ -133,11 +142,18 @@ export const productShotV1Tool: ToolDefinition = {
             
           if (error) {
             console.error("Error saving script to Canvas project:", error);
+            context.addMessage("Failed to save script content to project.", "error");
           } else {
             console.log("Successfully saved script to Canvas project");
+            scriptSaved = true;
+            savedScriptContent = params.scriptContent;
+            
+            // Add success message to chat
+            context.addMessage("✓ Script content saved to Canvas project successfully.", "tool");
           }
         } catch (error) {
           console.error("Failed to save script to Canvas project:", error);
+          context.addMessage("Failed to save script content to project due to an error.", "error");
         }
       }
       
@@ -191,9 +207,10 @@ export const productShotV1Tool: ToolDefinition = {
             steps: steps,
             prompt: fullPrompt
           },
-          scriptSaved: !!params.scriptContent
+          scriptSaved: scriptSaved,
+          scriptContent: savedScriptContent
         },
-        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.${params.sceneId ? " Image has been automatically saved to your Canvas scene." : ""}${params.scriptContent ? " Script has been saved to your Canvas project." : ""}`,
+        message: `Generated ${mockResults.length} product shots with aspect ratio ${aspectRatio}, guidance ${guidance}, and ${steps} steps.${params.sceneId ? " Image has been automatically saved to your Canvas scene." : ""}${scriptSaved ? " Script has been saved to your Canvas project." : ""}`,
         usage: {
           creditsUsed: 1.5
         }
@@ -207,3 +224,4 @@ export const productShotV1Tool: ToolDefinition = {
     }
   }
 };
+

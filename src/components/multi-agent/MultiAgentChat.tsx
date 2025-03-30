@@ -87,6 +87,7 @@ export const MultiAgentChat = ({
     tracingEnabled,
     handoffInProgress,
     agentInstructions,
+    streamingState,
     handleSubmit, 
     switchAgent, 
     clearChat,
@@ -179,6 +180,8 @@ export const MultiAgentChat = ({
   const handleViewTraces = useCallback(() => {
     navigate('/trace-analytics');
   }, [navigate]);
+
+  const hasStreamingMessage = streamingState && streamingState.isActive;
 
   return (
     <div className={`flex flex-col ${isEmbedded ? 'h-full' : 'h-screen'} bg-gradient-to-b from-[#1A1F29] to-[#121827]`}>
@@ -361,13 +364,18 @@ export const MultiAgentChat = ({
           {messages && messages.length > 0 ? (
             <ScrollArea ref={scrollAreaRef} className="flex-1">
               <div className="p-4 space-y-6">
-                {messages.map((message, index) => (
-                  <ChatMessage 
-                    key={message.id} 
-                    message={message} 
-                    showAgentName={message.role === "assistant" && message.agentType !== undefined}
-                  />
-                ))}
+                {messages.map((message, index) => {
+                  const isStreamingMessage = hasStreamingMessage && message.id === streamingState.messageId;
+                  
+                  return (
+                    <ChatMessage 
+                      key={message.id} 
+                      message={message} 
+                      showAgentName={message.role === "assistant" && message.agentType !== undefined}
+                      isStreaming={isStreamingMessage}
+                    />
+                  );
+                })}
                 <div ref={lastMessageRef} className="h-px" />
               </div>
             </ScrollArea>
@@ -414,7 +422,7 @@ export const MultiAgentChat = ({
             <div className="flex-1">
               <ChatInput
                 input={input}
-                isLoading={isLoading}
+                isLoading={isLoading || hasStreamingMessage}
                 onInputChange={setInput}
                 onSubmit={handleSubmit}
                 showAttachmentButton={false}

@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect, useRef } from "react";
 import { Message, Attachment, HandoffRequest, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
@@ -16,6 +15,12 @@ interface UseMultiAgentChatOptions {
   onAgentSwitch?: (from: string, to: string) => void;
   projectId?: string;
   sessionId?: string;
+}
+
+interface StreamingState {
+  isActive: boolean;
+  messageId: string | null;
+  content: string;
 }
 
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
@@ -44,8 +49,12 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [tracingEnabled, setTracingEnabled] = useState<boolean>(true); // Default to true for fixing issues
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
   const [currentProject, setCurrentProject] = useState<CanvasProject | null>(null);
+  const [streamingState, setStreamingState] = useState<StreamingState>({
+    isActive: false,
+    messageId: null,
+    content: ""
+  });
   
-  // Enhanced refs for handling debouncing and preventing duplicate submissions
   const lastSubmissionTimeRef = useRef<number>(0);
   const processingRef = useRef<boolean>(false);
   const processingTimeoutRef = useRef<number | null>(null);
@@ -360,7 +369,84 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     }
   };
   
-  // Completely redesigned message handling to prevent duplicates and race conditions
+  const handleStreamingStart = useCallback((message: Message) => {
+    setStreamingState({
+      isActive: true,
+      messageId: message.id,
+      content: message.content || ""
+    });
+    
+    // Add temporary streaming message that will be updated as chunks arrive
+    setMessages(prev => [...prev, message]);
+  }, []);
+  
+  const handleStreamingChunk = useCallback((chunk: string) => {
+    setStreamingState(prev => ({
+      ...prev,
+      content: prev.content + chunk
+    }));
+    
+    // Update the content of the streaming message
+    setMessages(prev => {
+      const lastMessage = prev[prev.length - 1];
+      if (lastMessage && lastMessage.id === streamingState.messageId) {
+        return [
+          ...prev.slice(0, -1),
+          {
+            ...lastMessage,
+            content: streamingState.content + chunk
+          }
+        ];
+      }
+      return prev;
+    });
+  }, [streamingState]);
+  
+  const handleStreamingEnd = useCallback(() => {
+    // Clear streaming state when finished
+    setStreamingState({
+      isActive: false,
+      messageId: null,
+      content: ""
+    });
+    
+    // Update the status of the streaming message
+    setMessages(prev => {
+      const lastMessage = prev[prev.length - 1];
+      if (lastMessage && streamingState.messageId && lastMessage.id === streamingState.messageId) {
+        return [
+          ...prev.slice(0, -1),
+          {
+            ...lastMessage,
+            status: "completed"
+          }
+        ];
+      }
+      return prev;
+    });
+  }, [streamingState]);
+  
+  const handleAgentThinking = useCallback((agentType: AgentType) => {
+    // Add a temporary thinking message
+    const thinkingMessageId = `thinking-${agentType}-${Date.now()}`;
+    
+    // Only add if we're not currently streaming
+    if (!streamingState.isActive) {
+      const thinkingMessage: Message = {
+        id: thinkingMessageId,
+        role: "assistant",
+        content: "Thinking...",
+        createdAt: new Date().toISOString(),
+        agentType: agentType,
+        status: "thinking"
+      };
+      
+      setMessages(prev => [...prev, thinkingMessage]);
+      
+      // This message will be replaced when the real response comes in
+    }
+  }, [streamingState.isActive]);
+  
   const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
     if (isLoading || processingRef.current) {
@@ -471,7 +557,7 @@ You can use the canvas tool to save scene descriptions and image prompts directl
       const runId = uuidv4();
       const groupId = chatSessionId || uuidv4();
       
-      // Run the agent with a properly defined toolAvailable function
+      // Run the agent with a properly defined toolAvailable function and streaming callbacks
       const runner = new AgentRunner(
         activeAgent,
         {
@@ -604,7 +690,11 @@ You can use the canvas tool to save scene descriptions and image prompts directl
             if (submissionIdRef.current === submissionId) {
               console.log(`Executing tool: ${toolName}`, params);
             }
-          }
+          },
+          onStreamingStart: handleStreamingStart,
+          onStreamingChunk: handleStreamingChunk,
+          onStreamingEnd: handleStreamingEnd,
+          onAgentThinking: handleAgentThinking
         }
       );
       
@@ -657,7 +747,11 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     currentProject,
     options.projectId,
     options.onAgentSwitch,
-    messages
+    messages,
+    handleStreamingStart,
+    handleStreamingChunk,
+    handleStreamingEnd,
+    handleAgentThinking
   ]);
 
   const addAttachment = (attachment: Attachment) => {
@@ -674,7 +768,6 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     messageIdsRef.current.clear();
   };
 
-  // Clean up timeout on unmount
   useEffect(() => {
     return () => {
       if (processingTimeoutRef.current) {
@@ -716,6 +809,11 @@ You can use the canvas tool to save scene descriptions and image prompts directl
     processHandoff,
     addAttachment,
     clearAttachments,
-    clearMessages
+    clearMessages,
+    streamingState,
+    handleStreamingStart,
+    handleStreamingChunk,
+    handleStreamingEnd,
+    handleAgentThinking
   };
 }

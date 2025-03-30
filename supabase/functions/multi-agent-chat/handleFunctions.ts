@@ -227,3 +227,73 @@ export async function processFunctionCall(
     isScript
   };
 }
+
+// Special function for streaming responses
+export function streamFunctionCall(
+  functionCallStream: ReadableStream,
+  requestId: string
+) {
+  let responseText = '';
+  let handoff = null;
+  let structuredOutput = null;
+  let isScript = false;
+  
+  const transformer = new TransformStream({
+    async transform(chunk, controller) {
+      try {
+        if (chunk) {
+          const text = new TextDecoder().decode(chunk);
+          // Process streamed function call as it comes in
+          // This will be less complete compared to the non-streaming version
+          // but allows immediate client feedback
+          
+          // Send the raw text for now
+          const event = `data: ${JSON.stringify({ 
+            type: 'chunk', 
+            content: text,
+            requestId
+          })}\n\n`;
+          
+          controller.enqueue(new TextEncoder().encode(event));
+          
+          // Accumulate the full response text
+          responseText += text;
+          
+          // Simple check for script content
+          if (!isScript && (text.includes('FADE IN:') || text.includes('INT.') || text.includes('EXT.'))) {
+            isScript = true;
+          }
+        }
+      } catch (error) {
+        console.error(`[${requestId}] Error in stream transform:`, error);
+        controller.enqueue(new TextEncoder().encode(
+          `data: ${JSON.stringify({ 
+            type: 'error', 
+            content: `Error processing stream: ${error.message}`,
+            requestId
+          })}\n\n`
+        ));
+      }
+    },
+    
+    async flush(controller) {
+      // Once the stream is fully processed, send the complete result
+      // This allows the client to have the complete data for processing
+      controller.enqueue(new TextEncoder().encode(
+        `data: ${JSON.stringify({ 
+          type: 'complete', 
+          content: responseText,
+          isScript,
+          handoff,
+          structuredOutput,
+          requestId
+        })}\n\n`
+      ));
+      
+      // Signal the end of the stream
+      controller.enqueue(new TextEncoder().encode(`data: [DONE]\n\n`));
+    }
+  });
+  
+  return functionCallStream.pipeThrough(transformer);
+}

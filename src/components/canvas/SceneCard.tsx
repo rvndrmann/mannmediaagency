@@ -2,6 +2,7 @@
 import { CanvasScene } from "@/types/canvas";
 import { Check, Trash2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { memo } from "react";
 
 interface SceneCardProps {
   scene: CanvasScene;
@@ -11,7 +12,8 @@ interface SceneCardProps {
   isPending?: boolean;
 }
 
-export function SceneCard({ 
+// Use memo to prevent unnecessary re-renders
+export const SceneCard = memo(function SceneCard({ 
   scene, 
   isSelected, 
   onSelect, 
@@ -74,4 +76,4 @@ export function SceneCard({
       </div>
     </div>
   );
-}
+});

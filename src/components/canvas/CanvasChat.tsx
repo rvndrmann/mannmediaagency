@@ -3,7 +3,7 @@ import { Button } from "@/components/ui/button";
 import { X } from "lucide-react";
 import { MultiAgentChat } from "@/components/multi-agent/MultiAgentChat";
 import { useChatSession } from "@/contexts/ChatSessionContext";
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, memo } from "react";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 
 interface CanvasChatProps {
@@ -11,7 +11,8 @@ interface CanvasChatProps {
   onClose: () => void;
 }
 
-export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
+// Use memo to prevent unnecessary re-renders
+export const CanvasChat = memo(function CanvasChat({ projectId, onClose }: CanvasChatProps) {
   const { getOrCreateChatSession, activeSession } = useChatSession();
   const { setActiveProject } = useProjectContext();
   const [sessionId, setSessionId] = useState<string | null>(null);
@@ -96,4 +97,4 @@ export function CanvasChat({ projectId, onClose }: CanvasChatProps) {
       </div>
     </div>
   );
-}
+});

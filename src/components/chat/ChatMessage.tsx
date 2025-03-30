@@ -9,7 +9,7 @@ import { getAgentIcon } from "@/lib/agent-icons";
 import { CanvasContentDisplay } from "./CanvasContentDisplay";
 import { Button } from "../ui/button";
 import { Edit, Pencil } from "lucide-react";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const agentFullNames = {
   main: "Main Assistant",
@@ -23,10 +23,23 @@ interface ChatMessageProps {
   message: Message;
   showAgentName?: boolean;
   onEditContent?: (type: string, content: string, sceneId: string) => void;
+  isStreaming?: boolean;
 }
 
-export function ChatMessage({ message, showAgentName = true, onEditContent }: ChatMessageProps) {
+export function ChatMessage({ message, showAgentName = true, onEditContent, isStreaming = false }: ChatMessageProps) {
   const [showCanvasContent, setShowCanvasContent] = useState(true);
+  const [cursor, setCursor] = useState(true);
+  
+  // Blinking cursor effect for streaming messages
+  useEffect(() => {
+    if (!isStreaming) return;
+    
+    const cursorInterval = setInterval(() => {
+      setCursor(prev => !prev);
+    }, 500);
+    
+    return () => clearInterval(cursorInterval);
+  }, [isStreaming]);
   
   const hasCanvasContent = 
     message.role === "assistant" && 
@@ -93,7 +106,9 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
               ? "bg-muted text-muted-foreground text-sm" 
               : message.type === "error"
                 ? "bg-red-500/10 text-red-600 dark:text-red-400 text-sm border border-red-500/20"
-                : "bg-muted text-card-foreground"
+                : (message.status === "thinking" || isStreaming)
+                  ? "bg-blue-500/10 text-blue-400 dark:text-blue-300 text-sm border border-blue-500/20 animate-pulse"
+                  : "bg-muted text-card-foreground"
         )}>
           {message.attachments && message.attachments.length > 0 && (
             <div className="mb-3">
@@ -105,6 +120,11 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
           )}
           
           <Markdown>{message.content}</Markdown>
+          
+          {/* Show cursor when streaming */}
+          {isStreaming && cursor && (
+            <span className="inline-block w-2 h-4 bg-blue-400 ml-1 animate-pulse"></span>
+          )}
           
           {message.status && (
             <div className="mt-2">

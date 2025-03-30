@@ -1,5 +1,5 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "@/types/mcp";
 import { toast } from "sonner";
@@ -12,13 +12,26 @@ interface UseMcpToolExecutorOptions {
   onError?: (error: Error) => void;
 }
 
+// Cache for recently executed tools to prevent duplicate calls
+interface CachedExecution {
+  result: MCPToolExecutionResult;
+  timestamp: number;
+  params: string; // Stringified parameters for comparison
+}
+
+const CACHE_EXPIRY = 30000; // 30 seconds
+
 /**
  * A hook that provides easy access to MCP tools with proper connection handling
  */
 export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
   const [isExecuting, setIsExecuting] = useState(false);
   const [executionResults, setExecutionResults] = useState<Record<string, MCPToolExecutionResult>>({});
+  const [availableTools, setAvailableTools] = useState<MCPToolDefinition[]>([]);
   const { mcpServers, useMcp, reconnectToMcp, hasConnectionError } = useMCPContext();
+  
+  // Use a ref for the cache to persist between renders without causing re-renders
+  const executionCache = useRef<Record<string, CachedExecution>>({});
   
   const { 
     projectId, 
@@ -28,11 +41,37 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
     onError
   } = options;
   
+  /**
+   * Clean expired cache entries
+   */
+  const cleanCache = useCallback(() => {
+    const now = Date.now();
+    const newCache: Record<string, CachedExecution> = {};
+    
+    Object.entries(executionCache.current).forEach(([key, value]) => {
+      if (now - value.timestamp < CACHE_EXPIRY) {
+        newCache[key] = value;
+      }
+    });
+    
+    executionCache.current = newCache;
+  }, []);
+  
+  /**
+   * Execute an MCP tool with caching and error handling
+   */
   const executeTool = useCallback(async (
     toolName: string, 
     parameters: MCPToolExecutionParams = {}
   ): Promise<MCPToolExecutionResult> => {
+    if (isExecuting) {
+      console.warn("Another tool execution is already in progress");
+    }
+    
     setIsExecuting(true);
+    
+    // Clean expired cache entries
+    cleanCache();
     
     try {
       // Check if MCP is enabled and connected
@@ -69,9 +108,6 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
         }
       }
       
-      // Get the first available MCP server
-      const server = mcpServers[0];
-      
       // Merge provided parameters with default ones
       const fullParameters = {
         ...parameters,
@@ -79,16 +115,35 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
         sceneId: parameters.sceneId || sceneId
       };
       
+      // Generate a cache key based on tool name and parameters
+      const cacheKey = `${toolName}-${JSON.stringify(fullParameters)}`;
+      
+      // Check if we have a cached result
+      if (executionCache.current[cacheKey]) {
+        console.log(`Using cached result for ${toolName}`);
+        return executionCache.current[cacheKey].result;
+      }
+      
       // Show loading toast if enabled
       let toastId;
       if (showToasts) {
         toastId = toast.loading(`Executing ${toolName}...`);
       }
       
+      // Get the first available MCP server
+      const server = mcpServers[0];
+      
       // Execute the tool
       const result = await server.callTool(toolName, fullParameters);
       
-      // Store the result
+      // Cache the result
+      executionCache.current[cacheKey] = {
+        result,
+        timestamp: Date.now(),
+        params: JSON.stringify(fullParameters)
+      };
+      
+      // Store the result in state
       setExecutionResults(prev => ({
         ...prev,
         [toolName]: result
@@ -123,7 +178,19 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
     } finally {
       setIsExecuting(false);
     }
-  }, [mcpServers, useMcp, reconnectToMcp, hasConnectionError, projectId, sceneId, showToasts, onSuccess, onError]);
+  }, [
+    mcpServers, 
+    useMcp, 
+    reconnectToMcp, 
+    hasConnectionError, 
+    projectId, 
+    sceneId, 
+    showToasts, 
+    onSuccess, 
+    onError, 
+    isExecuting, 
+    cleanCache
+  ]);
   
   /**
    * Get available tools from connected MCP servers
@@ -135,7 +202,9 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
       }
       
       const server = mcpServers[0];
-      return await server.listTools();
+      const tools = await server.listTools();
+      setAvailableTools(tools);
+      return tools;
     } catch (error) {
       console.error("Error fetching available MCP tools:", error);
       return [];
@@ -145,8 +214,12 @@ export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
   return {
     executeTool,
     getAvailableTools,
+    availableTools,
     isExecuting,
     executionResults,
-    hasConnection: useMcp && mcpServers.length > 0 && !hasConnectionError
+    hasConnection: useMcp && mcpServers.length > 0 && !hasConnectionError,
+    clearCache: () => {
+      executionCache.current = {};
+    }
   };
 }

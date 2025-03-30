@@ -1,5 +1,5 @@
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { useMcpToolExecutor } from "./use-mcp-tool-executor";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { toast } from "sonner";
@@ -21,6 +21,9 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
+  // Add reference to previous scene ID to detect changes
+  const prevSceneIdRef = useRef<string | undefined>(sceneId);
+  
   const { mcpServers, useMcp, reconnectToMcp } = useMCPContext();
   const { executeTool, isExecuting, hasConnection } = useMcpToolExecutor({
     projectId,
@@ -30,9 +33,28 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   // Auto-connect to MCP if enabled
   useEffect(() => {
     if (autoConnect && projectId && useMcp && mcpServers.length === 0) {
-      reconnectToMcp();
+      console.log("Auto-connecting to MCP for project:", projectId);
+      reconnectToMcp().catch(err => {
+        console.error("Auto-connect failed:", err);
+      });
     }
   }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp]);
+  
+  // Handle scene changes - clean up any ongoing operations
+  useEffect(() => {
+    if (prevSceneIdRef.current !== sceneId && prevSceneIdRef.current !== undefined) {
+      console.log(`Scene changed from ${prevSceneIdRef.current} to ${sceneId}`);
+      
+      // Reset all generation states when scene changes
+      setIsGeneratingDescription(false);
+      setIsGeneratingImagePrompt(false);
+      setIsGeneratingImage(false);
+      setIsGeneratingVideo(false);
+      setIsGeneratingScript(false);
+    }
+    
+    prevSceneIdRef.current = sceneId;
+  }, [sceneId]);
   
   /**
    * Update scene description using MCP

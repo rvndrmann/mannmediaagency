@@ -9,6 +9,7 @@ export class MCPServerService implements MCPServer {
   private connectionError: Error | null = null;
   private connectionId: string | null = null;
   private projectId: string | null = null;
+  private connectionTimeout: number = 8000; // 8 seconds timeout
   
   constructor(serverUrl: string, projectId?: string) {
     this.serverUrl = serverUrl;
@@ -19,11 +20,22 @@ export class MCPServerService implements MCPServer {
     try {
       console.log("Connecting to MCP server at", this.serverUrl);
       
-      // Try to ping the server to verify connection
+      // Try to ping the server to verify connection with timeout
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), this.connectionTimeout);
+      
       const response = await fetch(`${this.serverUrl}/ping`, { 
         method: 'GET',
-        headers: { 'Content-Type': 'application/json' }
-      }).catch(() => null);
+        headers: { 'Content-Type': 'application/json' },
+        signal: abortController.signal
+      }).catch((error) => {
+        if (error.name === 'AbortError') {
+          throw new Error(`Connection timed out after ${this.connectionTimeout}ms`);
+        }
+        throw error;
+      });
+      
+      clearTimeout(timeoutId);
       
       if (!response || !response.ok) {
         throw new Error("Failed to connect to MCP server");
@@ -42,6 +54,7 @@ export class MCPServerService implements MCPServer {
     } catch (error) {
       this.connected = false;
       this.connectionError = error instanceof Error ? error : new Error(String(error));
+      console.error("Connection error details:", this.connectionError);
       throw this.connectionError;
     }
   }
@@ -144,12 +157,23 @@ export class MCPServerService implements MCPServer {
     }
     
     try {
-      // Try to fetch tools from the MCP server
+      // Try to fetch tools from the MCP server with timeout
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), this.connectionTimeout);
+      
       const response = await fetch(`${this.serverUrl}/list-tools`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ operation: 'list_tools' })
-      }).catch(() => null);
+        body: JSON.stringify({ operation: 'list_tools' }),
+        signal: abortController.signal
+      }).catch((error) => {
+        if (error.name === 'AbortError') {
+          throw new Error(`Request timed out after ${this.connectionTimeout}ms`);
+        }
+        return null;
+      });
+      
+      clearTimeout(timeoutId);
       
       let canvasTools: MCPToolDefinition[];
       
@@ -158,6 +182,7 @@ export class MCPServerService implements MCPServer {
         canvasTools = data.tools || [];
       } else {
         // Fallback to mock implementation
+        console.warn("Using fallback mock tools implementation");
         canvasTools = [
           {
             name: "update_scene_description",
@@ -232,6 +257,24 @@ export class MCPServerService implements MCPServer {
               },
               required: ["sceneId"]
             }
+          },
+          {
+            name: "generate_scene_script",
+            description: "Generate a script for the scene",
+            parameters: {
+              type: "object",
+              properties: {
+                sceneId: {
+                  type: "string",
+                  description: "The ID of the scene to update"
+                },
+                contextPrompt: {
+                  type: "string",
+                  description: "Additional context or instructions for script generation"
+                }
+              },
+              required: ["sceneId"]
+            }
           }
         ];
       }
@@ -299,7 +342,10 @@ export class MCPServerService implements MCPServer {
     console.log(`Calling MCP tool ${name} with parameters:`, parameters);
     
     try {
-      // Try to call the tool on the actual MCP server
+      // Try to call the tool on the actual MCP server with timeout
+      const abortController = new AbortController();
+      const timeoutId = setTimeout(() => abortController.abort(), this.connectionTimeout);
+      
       const response = await fetch(`${this.serverUrl}/call-tool`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -308,8 +354,16 @@ export class MCPServerService implements MCPServer {
           toolName: name,
           parameters: parameters,
           projectId: this.projectId
-        })
-      }).catch(() => null);
+        }),
+        signal: abortController.signal
+      }).catch((error) => {
+        if (error.name === 'AbortError') {
+          throw new Error(`Tool execution timed out after ${this.connectionTimeout}ms`);
+        }
+        return null;
+      });
+      
+      clearTimeout(timeoutId);
       
       let result: { success: boolean, result: string };
       
@@ -317,6 +371,7 @@ export class MCPServerService implements MCPServer {
         result = await response.json();
       } else {
         // Fallback: simulate a response for demo purposes
+        console.warn(`Using fallback implementation for tool: ${name}`);
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
         
         switch (name) {
@@ -343,6 +398,13 @@ export class MCPServerService implements MCPServer {
             result = {
               success: true,
               result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
+            };
+            break;
+          case "generate_scene_script":
+            result = {
+              success: true,
+              result: "Scene script generated successfully with context: " + 
+                      (parameters.contextPrompt || "default context")
             };
             break;
           default:

@@ -19,14 +19,17 @@ serve(async (req) => {
   try {
     // Support basic ping endpoint to verify the server is running
     if (req.url.endsWith('/ping')) {
+      console.log("MCP server received ping request");
       return new Response(
-        JSON.stringify({ success: true, message: "MCP server is running" }),
+        JSON.stringify({ success: true, message: "MCP server is running", timestamp: new Date().toISOString() }),
         { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
       );
     }
     
     const requestBody = await req.json().catch(() => ({}));
     const { operation, toolName, parameters, projectId } = requestBody;
+    
+    console.log(`MCP server received ${operation} request:`, JSON.stringify(requestBody, null, 2));
     
     // Get Supabase client
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
@@ -111,8 +114,28 @@ serve(async (req) => {
               },
               required: ["sceneId"]
             }
+          },
+          {
+            name: "generate_scene_script",
+            description: "Generate a script for the scene",
+            parameters: {
+              type: "object",
+              properties: {
+                sceneId: {
+                  type: "string",
+                  description: "The ID of the scene to update"
+                },
+                contextPrompt: {
+                  type: "string",
+                  description: "Additional context or instructions for script generation"
+                }
+              },
+              required: ["sceneId"]
+            }
           }
         ];
+        
+        console.log("MCP server returning tools list:", tools.length);
         
         return new Response(
           JSON.stringify({ success: true, tools }),
@@ -130,6 +153,7 @@ serve(async (req) => {
         }
         
         const sceneId = parameters.sceneId;
+        console.log(`MCP server executing tool ${toolName} for scene ${sceneId}`);
         
         // Get the scene data
         const { data: scene, error: sceneError } = await supabase
@@ -147,6 +171,7 @@ serve(async (req) => {
           case "update_scene_description": {
             // In a real implementation, this would use an AI model to generate a description
             // based on the scene image, script, and other data
+            console.log("Generating scene description");
             
             const description = `Detailed scene description generated using AI vision analysis of the scene image.
 Camera moves smoothly from left to right, capturing the entire scene.
@@ -176,6 +201,7 @@ The mood is [appropriate mood based on script content].`;
           
           case "update_image_prompt": {
             // Generate an image prompt based on the scene description and script
+            console.log("Generating image prompt");
             
             const imagePrompt = `High quality cinematic scene, professional lighting, detailed textures,
 [visual elements based on script content],
@@ -206,6 +232,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
           case "generate_scene_image": {
             // In a real implementation, this would call the product shot service
             // For now, we'll just simulate a successful response
+            console.log("Generating scene image");
             
             const imageUrl = "https://example.com/placeholder-image.jpg";
             
@@ -232,6 +259,7 @@ high resolution, 4K, ultra detailed, photorealistic`;
           case "create_scene_video": {
             // In a real implementation, this would call the image-to-video service
             // For now, we'll just simulate a successful response
+            console.log("Creating scene video");
             
             const videoUrl = "https://example.com/placeholder-video.mp4";
             
@@ -250,6 +278,48 @@ high resolution, 4K, ultra detailed, photorealistic`;
                 success: true,
                 result: `Scene video created successfully with aspect ratio ${parameters.aspectRatio || "16:9"}`,
                 videoUrl
+              }),
+              { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+            );
+          }
+          
+          case "generate_scene_script": {
+            // In a real implementation, this would use an AI model to generate a script
+            // For now, we'll just simulate a successful response
+            console.log("Generating scene script with context:", parameters.contextPrompt || "default context");
+            
+            const script = `SCENE ${scene.title || "UNTITLED"} - INTERIOR/DAY
+
+[Character 1] enters the room, looking around hesitantly.
+
+CHARACTER 1
+(nervously)
+Hello? Is anyone here?
+
+[Character 2] emerges from the shadows, smiling.
+
+CHARACTER 2
+I've been waiting for you.
+
+They approach each other cautiously.
+
+CAMERA: Start with a wide shot, then gradually move in to a medium close-up as the characters meet.`;
+            
+            // Update the scene script
+            const { error } = await supabase
+              .from("canvas_scenes")
+              .update({ script })
+              .eq("id", sceneId);
+              
+            if (error) {
+              throw new Error(`Failed to update scene script: ${error.message}`);
+            }
+            
+            return new Response(
+              JSON.stringify({
+                success: true,
+                result: "Scene script generated successfully",
+                script
               }),
               { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
             );

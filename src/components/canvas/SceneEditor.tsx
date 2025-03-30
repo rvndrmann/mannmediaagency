@@ -1,11 +1,14 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { CanvasScene } from "@/types/canvas";
 import { toast } from "sonner";
 import { useCanvasAgent } from "@/hooks/use-canvas-agent";
 import { SceneContentForm } from "./SceneContentForm";
 import { SceneControls } from "./SceneControls";
 import { useMCPContext } from "@/contexts/MCPContext";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { AlertCircle, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface SceneEditorProps {
   scene: CanvasScene;
@@ -20,8 +23,10 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
   const [imagePrompt, setImagePrompt] = useState(scene.imagePrompt);
   const [isSaving, setIsSaving] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   
-  const { setUseMcp } = useMCPContext();
+  const { useMcp, isConnecting, hasConnectionError, reconnectToMcp } = useMCPContext();
   
   const { 
     isProcessing,
@@ -37,13 +42,31 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     updateScene: onUpdate
   });
   
-  // Update local state when scene changes
+  // Load scene data with error handling
   useEffect(() => {
-    setTitle(scene.title);
-    setScript(scene.script);
-    setVoiceOverText(scene.voiceOverText);
-    setDescription(scene.description);
-    setImagePrompt(scene.imagePrompt);
+    const loadSceneData = async () => {
+      setIsLoading(true);
+      setLoadError(null);
+      
+      try {
+        // Simulating a potential loading delay
+        await new Promise(resolve => setTimeout(resolve, 100));
+        
+        // Update local state with scene data
+        setTitle(scene.title);
+        setScript(scene.script);
+        setVoiceOverText(scene.voiceOverText);
+        setDescription(scene.description);
+        setImagePrompt(scene.imagePrompt);
+      } catch (error) {
+        console.error("Error loading scene data:", error);
+        setLoadError("Failed to load scene data. Please try refreshing the page.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    loadSceneData();
   }, [scene]);
   
   useEffect(() => {
@@ -80,7 +103,7 @@ export function SceneEditor({ scene, onUpdate }: SceneEditorProps) {
     }
   };
   
-  const generateWithAI = async (type: 'script' | 'description' | 'imagePrompt') => {
+  const generateWithAI = useCallback(async (type: 'script' | 'description' | 'imagePrompt') => {
     if (isProcessing) {
       toast.error("Please wait for the current operation to complete");
       return;
@@ -135,7 +158,15 @@ Format the prompt to get the best results from an AI image generator.`;
       console.error(`Error generating ${type}:`, error);
       toast.error(`Failed to generate ${type}`);
     }
-  };
+  }, [
+    scene, 
+    script, 
+    voiceOverText, 
+    isProcessing, 
+    generateSceneScript, 
+    generateSceneDescription, 
+    generateImagePrompt
+  ]);
   
   const handleGenerateImage = async () => {
     if (!imagePrompt.trim()) {
@@ -167,12 +198,54 @@ Format the prompt to get the best results from an AI image generator.`;
     }
   };
   
+  // Show loading state
+  if (isLoading) {
+    return (
+      <div className="p-6 flex flex-col items-center justify-center min-h-[400px]">
+        <Loader2 className="h-8 w-8 animate-spin text-primary mb-4" />
+        <p className="text-muted-foreground">Loading scene data...</p>
+      </div>
+    );
+  }
+  
+  // Show error state
+  if (loadError) {
+    return (
+      <div className="p-6">
+        <Alert variant="destructive" className="mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>{loadError}</AlertDescription>
+        </Alert>
+        <Button onClick={() => window.location.reload()}>Refresh Page</Button>
+      </div>
+    );
+  }
+  
+  // Show MCP connection error
+  const showMcpConnectionError = useMcp && hasConnectionError && !isConnecting;
+  
   return (
     <div className="p-6">
       <div className="mb-6">
         <h2 className="text-2xl font-semibold mb-1">{title}</h2>
         <p className="text-muted-foreground">Scene ID: {scene.id}</p>
       </div>
+      
+      {showMcpConnectionError && (
+        <Alert variant="warning" className="mb-6">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertDescription>
+            MCP connection error. Some AI features may be limited. 
+            <Button 
+              variant="link" 
+              className="p-0 h-auto text-xs ml-1"
+              onClick={() => reconnectToMcp()}
+            >
+              Try reconnecting
+            </Button>
+          </AlertDescription>
+        </Alert>
+      )}
       
       <div className="space-y-6">
         <SceneContentForm

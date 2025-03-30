@@ -12,6 +12,7 @@ export const useCanvas = (projectId?: string) => {
   const [loading, setLoading] = useState(true);
   const [sceneLoading, setSceneLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [lastFetchTime, setLastFetchTime] = useState<number>(0);
 
   const fetchProjectAndScenes = useCallback(async () => {
     if (!projectId) {
@@ -19,6 +20,7 @@ export const useCanvas = (projectId?: string) => {
       setScenes([]);
       setSelectedSceneId(null);
       setLoading(false);
+      setError(null);
       return;
     }
 
@@ -26,11 +28,22 @@ export const useCanvas = (projectId?: string) => {
       setLoading(true);
       setError(null);
       
+      // Check if user is authenticated
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      if (authError) {
+        throw new Error("Authentication error: Please log in again");
+      }
+      
+      if (!authData.user) {
+        throw new Error("You must be logged in to access projects");
+      }
+      
+      // Fetch project data
       const { data: projectData, error: projectError } = await supabase
         .from("canvas_projects")
         .select("*")
         .eq("id", projectId)
-        .maybeSingle(); // Use maybeSingle instead of single to prevent errors
+        .maybeSingle();
 
       if (projectError) {
         throw projectError;
@@ -40,6 +53,12 @@ export const useCanvas = (projectId?: string) => {
         throw new Error(`Project with ID ${projectId} not found`);
       }
 
+      // Verify project ownership
+      if (projectData.user_id !== authData.user.id) {
+        throw new Error("You don't have permission to access this project");
+      }
+
+      // Fetch scenes for the project
       const { data: scenesData, error: scenesError } = await supabase
         .from("canvas_scenes")
         .select("*")
@@ -82,6 +101,7 @@ export const useCanvas = (projectId?: string) => {
 
       setProject(transformedProject);
       setScenes(transformedScenes);
+      setLastFetchTime(Date.now());
       
       if (transformedScenes.length > 0 && !selectedSceneId) {
         setSelectedSceneId(transformedScenes[0].id);
@@ -356,6 +376,93 @@ export const useCanvas = (projectId?: string) => {
     }
   };
 
+  const addScene = async () => {
+    if (!project) return;
+
+    try {
+      const newSceneId = uuidv4();
+      const newSceneOrder = scenes.length + 1;
+
+      const newScene: CanvasScene = {
+        id: newSceneId,
+        title: `Scene ${newSceneOrder}`,
+        script: "",
+        imagePrompt: "",
+        description: "",
+        imageUrl: "",
+        videoUrl: "",
+        productImageUrl: "",
+        voiceOverUrl: "",
+        backgroundMusicUrl: "",
+        voiceOverText: "",
+        order: newSceneOrder,
+        projectId: project.id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        duration: null
+      };
+      
+      setScenes(prev => [...prev, newScene]);
+      setSelectedSceneId(newSceneId);
+      
+      const { error } = await supabase
+        .from("canvas_scenes")
+        .insert({
+          id: newSceneId,
+          project_id: project.id,
+          title: `Scene ${newSceneOrder}`,
+          scene_order: newSceneOrder,
+        });
+
+      if (error) {
+        setScenes(prev => prev.filter(scene => scene.id !== newSceneId));
+        throw error;
+      }
+
+      toast.success("New scene added");
+      return newSceneId;
+    } catch (err: any) {
+      console.error("Error adding scene:", err);
+      toast.error(err.message || "Failed to add scene");
+      return null;
+    }
+  };
+
+  const deleteScene = async (sceneId: string) => {
+    if (!project) return;
+
+    try {
+      const sceneToDelete = scenes.find(s => s.id === sceneId);
+      const remainingScenes = scenes.filter(s => s.id !== sceneId);
+      
+      setScenes(remainingScenes);
+      
+      if (selectedSceneId === sceneId) {
+        const otherScene = remainingScenes[0];
+        setSelectedSceneId(otherScene?.id || null);
+      }
+
+      const { error } = await supabase
+        .from("canvas_scenes")
+        .delete()
+        .eq("id", sceneId)
+        .eq("project_id", project.id);
+
+      if (error) {
+        if (sceneToDelete) {
+          setScenes(prev => [...prev, sceneToDelete]);
+        }
+        throw error;
+      }
+
+      toast.success("Scene deleted");
+    } catch (err: any) {
+      console.error("Error deleting scene:", err);
+      toast.error(err.message || "Failed to delete scene");
+      await fetchProjectAndScenes();
+    }
+  };
+
   const selectedScene = scenes.find(scene => scene.id === selectedSceneId) || null;
 
   if (project) {
@@ -377,6 +484,8 @@ export const useCanvas = (projectId?: string) => {
     updateScene,
     divideScriptToScenes,
     saveFullScript,
-    updateProjectTitle
+    updateProjectTitle,
+    fetchProjectAndScenes,
+    lastFetchTime
   };
 };

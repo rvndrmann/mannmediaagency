@@ -13,7 +13,7 @@ export interface Command {
   action?: string;
   tool?: string;
   type?: string;
-  name?: string;
+  name: string;
   parameters?: Record<string, any>;
   args?: Record<string, any>;
 }

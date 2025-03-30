@@ -24,6 +24,7 @@ export default function Canvas() {
     selectedSceneId,
     setSelectedSceneId,
     loading: isLoading,
+    error: canvasError,
     sceneLoading,
     createProject,
     addScene,
@@ -31,7 +32,8 @@ export default function Canvas() {
     updateScene,
     divideScriptToScenes,
     saveFullScript,
-    updateProjectTitle
+    updateProjectTitle,
+    fetchProjectAndScenes
   } = useCanvas(projectId);
   
   const { getOrCreateChatSession } = useChatSession();
@@ -39,6 +41,7 @@ export default function Canvas() {
   const [showHistory, setShowHistory] = useState(false);
   const [chatInitialized, setChatInitialized] = useState(false);
   const [hasProjects, setHasProjects] = useState<boolean | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   // Check if user has any projects
   useEffect(() => {
@@ -72,7 +75,7 @@ export default function Canvas() {
 
   // Initialize chat session when project loads
   useEffect(() => {
-    if (projectId && !chatInitialized) {
+    if (projectId && !chatInitialized && project) {
       try {
         getOrCreateChatSession(projectId);
         setChatInitialized(true);
@@ -80,10 +83,31 @@ export default function Canvas() {
         console.error("Error initializing chat session:", error);
       }
     }
-  }, [projectId, getOrCreateChatSession, chatInitialized]);
+  }, [projectId, getOrCreateChatSession, chatInitialized, project]);
+
+  // Effect to handle errors and project loading
+  useEffect(() => {
+    if (canvasError) {
+      setLoadError(canvasError);
+      toast.error(`Error: ${canvasError}`);
+    } else {
+      setLoadError(null);
+    }
+    
+    // If projectId changes, ensure we reset the chat session
+    if (projectId) {
+      setChatInitialized(false);
+    }
+  }, [projectId, canvasError]);
+
+  // Manual refresh function for when we need to force reload the project data
+  const handleRefreshProject = useCallback(() => {
+    if (projectId) {
+      fetchProjectAndScenes();
+    }
+  }, [projectId, fetchProjectAndScenes]);
 
   const handleSceneSelect = useCallback((sceneId: string) => {
-    console.log("Selected scene:", sceneId);
     setSelectedSceneId(sceneId);
   }, [setSelectedSceneId]);
 
@@ -106,8 +130,6 @@ export default function Canvas() {
   }, []);
 
   const handleSelectProject = useCallback((selectedProjectId: string) => {
-    console.log("Selected project:", selectedProjectId);
-    
     if (!selectedProjectId) {
       navigate('/canvas');
       return;
@@ -120,6 +142,7 @@ export default function Canvas() {
     setShowHistory(false);
     setShowChat(false);
     setChatInitialized(false);
+    setLoadError(null);
   }, [navigate]);
 
   const handleUpdateTitle = async (title: string) => {
@@ -161,8 +184,11 @@ export default function Canvas() {
               await updateScene(scene.id, "description", scene.description);
               await updateScene(scene.id, "imagePrompt", scene.imagePrompt);
             }
+            // Refetch project data after adding scenes
+            fetchProjectAndScenes();
           } catch (error) {
             console.error("Error setting up initial scenes:", error);
+            toast.error("Could not set up initial scenes");
           }
         }, 500);
       }
@@ -177,6 +203,48 @@ export default function Canvas() {
 
   // If we have a project ID but project is not loaded yet, show loading indicator
   const isLoadingProject = !!projectId && isLoading;
+
+  // Improved error handling for project not found
+  const projectNotFound = !!projectId && !isLoading && !project && !canvasError;
+  
+  if (projectNotFound) {
+    return (
+      <div className="flex flex-col h-screen overflow-hidden">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="text-center space-y-6 max-w-md p-6">
+            <h1 className="text-3xl font-bold">Project Not Found</h1>
+            <p className="text-muted-foreground">
+              The project you're looking for doesn't exist or may have been deleted.
+            </p>
+            <div className="flex flex-col gap-2">
+              <Button 
+                size="lg" 
+                onClick={handleCreateNewProject}
+                className="flex items-center gap-2"
+              >
+                <Plus className="h-5 w-5" />
+                Create New Project
+              </Button>
+              {hasProjects && (
+                <Button
+                  variant="outline"
+                  onClick={handleToggleHistory}
+                >
+                  View Existing Projects
+                </Button>
+              )}
+              <Button
+                variant="link"
+                onClick={() => navigate('/canvas')}
+              >
+                Go to Canvas Home
+              </Button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col h-screen overflow-hidden">
@@ -231,6 +299,22 @@ export default function Canvas() {
               <p className="text-muted-foreground">Loading project...</p>
             </div>
           </div>
+        ) : loadError ? (
+          <div className="flex-1 flex items-center justify-center">
+            <div className="text-center space-y-4 max-w-md p-6">
+              <h2 className="text-2xl font-bold text-red-500">Error Loading Project</h2>
+              <p className="text-muted-foreground">{loadError}</p>
+              <div className="flex flex-col gap-2">
+                <Button onClick={handleRefreshProject}>Try Again</Button>
+                <Button variant="outline" onClick={() => setShowHistory(true)}>
+                  Select Another Project
+                </Button>
+                <Button variant="link" onClick={() => navigate('/canvas')}>
+                  Go to Canvas Home
+                </Button>
+              </div>
+            </div>
+          </div>
         ) : (
           <main className="flex-1 overflow-auto">
             <CanvasWorkspace
@@ -256,7 +340,7 @@ export default function Canvas() {
           </div>
         )}
         
-        {!showChat && projectId && !showHistory && (
+        {!showChat && projectId && !showHistory && project && (
           <ChatToggleButton onClick={handleToggleChat} />
         )}
       </div>

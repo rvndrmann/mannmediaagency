@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject } from "@/types/canvas";
-import { ArrowLeft, Video, Calendar, Clock, Trash2, Hash, Plus } from "lucide-react";
+import { ArrowLeft, Video, Calendar, Clock, Trash2, Hash, Plus, RefreshCw } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { 
@@ -27,14 +27,25 @@ interface ProjectHistoryProps {
 export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHistoryProps) {
   const [projects, setProjects] = useState<CanvasProject[]>([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
   
   const fetchProjects = async () => {
     try {
       setLoading(true);
+      setError(null);
+      
       const { data: userData, error: userError } = await supabase.auth.getUser();
       
-      if (userError) throw userError;
+      if (userError) {
+        setError("Authentication error: Please log in again");
+        throw userError;
+      }
+      
+      if (!userData.user) {
+        setError("You must be logged in to access projects");
+        return;
+      }
       
       const { data, error } = await supabase
         .from("canvas_projects")
@@ -42,7 +53,10 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
         .eq("user_id", userData.user?.id)
         .order("created_at", { ascending: false });
         
-      if (error) throw error;
+      if (error) {
+        setError("Could not load your projects. Please try again.");
+        throw error;
+      }
       
       const formattedProjects = data.map(project => ({
         id: project.id,
@@ -84,15 +98,15 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
     
     // Pass the ID to the parent component first
     onSelectProject(selectedProjectId);
-    
-    // Close the history panel
-    onBack();
   };
   
   const handleDeleteProject = async () => {
     if (!projectToDelete) return;
     
     try {
+      // First check if this is the current project
+      const isCurrentProject = projectToDelete === projectId;
+      
       const { error: scenesError } = await supabase
         .from('canvas_scenes')
         .delete()
@@ -109,11 +123,14 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
       
       toast.success("Project deleted successfully");
       
-      if (projectToDelete === projectId) {
+      // Remove the deleted project from the list
+      setProjects(prev => prev.filter(p => p.id !== projectToDelete));
+      
+      if (isCurrentProject) {
+        // If we deleted the current project, we should navigate away
+        // We'll let the parent component handle this
         onBack();
         onSelectProject('');
-      } else {
-        fetchProjects();
       }
     } catch (error) {
       console.error("Error deleting project:", error);
@@ -133,10 +150,27 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
           </Button>
           <h2 className="text-xl font-semibold">Project History</h2>
         </div>
+        <Button variant="ghost" onClick={fetchProjects} size="sm" disabled={loading}>
+          <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+          <span className="sr-only">Refresh</span>
+        </Button>
       </div>
       
       <div className="flex-1 p-4 overflow-auto">
-        {loading ? (
+        {error ? (
+          <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4 mb-4">
+            <h3 className="text-red-800 dark:text-red-300 font-medium">Error</h3>
+            <p className="text-red-700 dark:text-red-400">{error}</p>
+            <Button 
+              variant="outline" 
+              size="sm" 
+              className="mt-2 text-red-600 dark:text-red-400 border-red-300 dark:border-red-800"
+              onClick={fetchProjects}
+            >
+              Try Again
+            </Button>
+          </div>
+        ) : loading ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {[1, 2, 3, 4, 5, 6].map((i) => (
               <Card key={i} className="overflow-hidden">
@@ -160,13 +194,13 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
                   onClick={() => handleProjectSelect(project.id)}
                 >
                   <CardHeader className="pb-2 relative">
-                    <CardTitle className="text-base flex items-center">
-                      <Video className="h-4 w-4 mr-2 text-primary" />
-                      {project.title} ({project.id.substring(0, 8)})
+                    <CardTitle className="text-base flex items-center truncate">
+                      <Video className="h-4 w-4 mr-2 text-primary flex-shrink-0" />
+                      <span className="truncate">{project.title}</span>
                     </CardTitle>
-                    <div className="flex items-center text-xs text-muted-foreground mt-1">
-                      <Hash className="h-3.5 w-3.5 mr-1" />
-                      ID: {project.id}
+                    <div className="flex items-center text-xs text-muted-foreground mt-1 truncate">
+                      <Hash className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+                      <span className="truncate">ID: {project.id}</span>
                     </div>
                     {project.id !== projectId && (
                       <Button 
@@ -184,13 +218,13 @@ export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHi
                     )}
                   </CardHeader>
                   <CardContent className="text-sm">
-                    <div className="flex items-center text-muted-foreground mb-1">
-                      <Calendar className="h-3.5 w-3.5 mr-1" />
-                      Created: {formatDate(project.createdAt)}
+                    <div className="flex items-center text-muted-foreground mb-1 truncate">
+                      <Calendar className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+                      <span className="truncate">Created: {formatDate(project.createdAt)}</span>
                     </div>
-                    <div className="flex items-center text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5 mr-1" />
-                      Last updated: {formatDate(project.updatedAt || project.createdAt)}
+                    <div className="flex items-center text-muted-foreground truncate">
+                      <Clock className="h-3.5 w-3.5 mr-1 flex-shrink-0" />
+                      <span className="truncate">Last updated: {formatDate(project.updatedAt || project.createdAt)}</span>
                     </div>
                     {project.id === projectId && (
                       <p className="text-xs mt-2 text-primary font-medium">Current project</p>

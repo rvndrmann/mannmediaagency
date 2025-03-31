@@ -6,17 +6,17 @@ import { SceneUpdateType } from "@/types/canvas";
 import { Message } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 
-interface UseCanvasAgentProps {
+interface UseCanvasAgentMcpProps {
   projectId?: string;
   sceneId?: string;
   updateScene?: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
 }
 
-export const useCanvasAgent = ({
+export const useCanvasAgentMcp = ({
   projectId,
   sceneId,
   updateScene
-}: UseCanvasAgentProps) => {
+}: UseCanvasAgentMcpProps) => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
@@ -35,13 +35,14 @@ export const useCanvasAgent = ({
     return newMessage;
   }, []);
   
-  const addAssistantMessage = useCallback((content: string, metadata?: any) => {
+  const addAssistantMessage = useCallback((content: string, metadataInfo?: any) => {
     const newMessage: Message = {
       id: uuidv4(),
       role: "assistant",
       content,
       createdAt: new Date().toISOString(),
-      metadata
+      // Only add metadata if it exists and convert it to the right format
+      ...(metadataInfo ? { metadata: metadataInfo } : {})
     };
     
     setMessages(prev => [...prev, newMessage]);
@@ -240,3 +241,6 @@ export const useCanvasAgent = ({
     generateSceneScript
   };
 };
+
+// Export as both the original name and the one needed by other files
+export { useCanvasAgentMcp as useCanvasAgent };

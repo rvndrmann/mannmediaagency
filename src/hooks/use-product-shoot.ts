@@ -193,12 +193,44 @@ export function useProductShoot() {
     }
   };
 
-  const handleRetryImageCheck = async (jobId: string) => {
+  const fetchHistoryData = async () => {
+    try {
+      const historyData = await getHistory();
+      // Make sure to map each item to the correct GeneratedImage format
+      const formattedHistory = historyData.map(item => ({
+        id: item.id,
+        url: item.url || item.result_url || '',
+        status: item.status || 'completed',
+        prompt: item.prompt || '',
+        createdAt: new Date(item.created_at || new Date()),
+        content_type: item.content_type || 'image/jpeg',
+        result_url: item.result_url || item.url || '',
+        source_image_url: item.source_image_url || '',
+        settings: item.settings || {}
+      }));
+      
+      setGeneratedImages(formattedHistory);
+    } catch (error) {
+      console.error("Error fetching history:", error);
+    }
+  };
+
+  const handleRetryImageCheck = async (imageId: string) => {
+    // Make sure we create a GeneratedImage object with all required fields
+    const image: GeneratedImage = {
+      id: imageId,
+      url: "",
+      status: "processing",
+      createdAt: new Date(),
+      content_type: "image/jpeg",
+      prompt: ""
+    };
+    
     setIsGenerating(true);
     try {
       const { data, error } = await supabase.functions.invoke('retry-image-generation', {
         body: { 
-          jobId,
+          jobId: imageId,
           source: 'bria' // Explicitly set the source for product shots
         }
       });

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasScene, CanvasProject, SceneUpdateType } from "@/types/canvas";
 
@@ -177,3 +176,35 @@ export async function updateSceneField(
     return false;
   }
 }
+
+/**
+ * Update a single scene field
+ */
+export const updateSceneData = (scene: CanvasScene, type: SceneUpdateType, value: string): CanvasScene => {
+  const updatedScene = { ...scene };
+
+  // Map the update type to the appropriate field
+  const updateMap: Record<SceneUpdateType, keyof CanvasScene> = {
+    script: 'script',
+    imagePrompt: 'imagePrompt',
+    description: 'description',
+    voiceOverText: 'voiceOverText',
+    image: 'productImageUrl', // This maps to productImageUrl in the schema
+    productImage: 'productImageUrl',
+    video: 'videoUrl',
+    voiceOver: 'voiceOverUrl',
+    backgroundMusic: 'backgroundMusicUrl',
+    imageUrl: 'imageUrl',
+    videoUrl: 'videoUrl'
+  };
+
+  // Update the appropriate field
+  const fieldToUpdate = updateMap[type];
+  if (fieldToUpdate) {
+    (updatedScene as any)[fieldToUpdate] = value;
+  } else {
+    console.error(`Unknown update type: ${type}`);
+  }
+
+  return updatedScene;
+};

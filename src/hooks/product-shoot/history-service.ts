@@ -45,13 +45,17 @@ export const getHistory = async (): Promise<GeneratedImage[]> => {
       return [];
     }
 
+    // Map to GeneratedImage type with all required properties
     return data.map((item) => ({
       id: item.id,
       url: item.result_url,
       content_type: "image/jpeg",
       status: "completed",
       prompt: item.scene_description,
-      createdAt: new Date(item.created_at)
+      createdAt: new Date(item.created_at),
+      result_url: item.result_url,
+      source_image_url: item.source_image_url,
+      settings: item.settings
     })) as GeneratedImage[];
   } catch (err) {
     console.error("Exception in getHistory:", err);

@@ -29,11 +29,13 @@ export interface CanvasProject {
   updated_at?: string;
   user_id: string;
   full_script?: string;
-  fullScript?: string; // Alias for full_script for compatibility
-  createdAt?: string; // Alias for created_at for compatibility
-  updatedAt?: string; // Alias for updated_at for compatibility
-  userId?: string; // Alias for user_id for compatibility
-  scenes?: CanvasScene[]; // For accessing child scenes
+  
+  // Aliases for compatibility
+  fullScript?: string; 
+  createdAt?: string; 
+  updatedAt?: string; 
+  userId?: string;
+  scenes?: CanvasScene[]; 
 }
 
 export interface CanvasScene {
@@ -103,7 +105,7 @@ export type UpdateSceneFunction = (
   value: string
 ) => Promise<void>;
 
-// Add workflow types that were missing
+// Add workflow types
 export interface WorkflowState {
   projectId: string;
   status: 'pending' | 'in_progress' | 'completed' | 'failed';
@@ -111,12 +113,11 @@ export interface WorkflowState {
   stageResults?: Record<string, any>;
   createdAt?: string;
   updatedAt?: string;
+  completedStages?: string[];
+  errorMessage?: string;
+  startedAt?: string;
+  completedAt?: string;
+  sceneStatuses?: Record<string, any>;
 }
 
-export interface WorkflowStage {
-  id: string;
-  name: string;
-  description: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'failed';
-  data?: any;
-}
+export type WorkflowStage = string;

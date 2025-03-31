@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -270,6 +271,7 @@ export const useMCP = () => {
 
 export const useMCPContext = useMCP;
 
+// Export directly from the hook instead of creating a separate function
 export const reconnectToMcp = async () => {
   const context = useMCP();
   if (context.reconnectToMcp) {

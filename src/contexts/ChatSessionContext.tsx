@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
 import { v4 as uuidv4 } from "uuid";
 import { Message } from "@/types/message";
@@ -135,7 +134,8 @@ export const ChatSessionProvider: React.FC<{ children: React.ReactNode }> = ({
         ? {
             ...session,
             messages,
-            lastUpdatedAt: new Date().toISOString()
+            lastUpdatedAt: new Date().toISOString(),
+            lastUpdated: new Date().toISOString() // Add compatibility alias
           }
         : session
     ));

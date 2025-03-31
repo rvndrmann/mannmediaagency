@@ -26,11 +26,13 @@ export interface AgentResult {
     reason: string;
     additionalContext?: Record<string, any>;
   };
+  // Additional properties for compatibility
   response?: string;
   nextAgent?: AgentType;
   handoffReason?: string;
   additionalContext?: Record<string, any>;
   structured_output?: any;
+  commandSuggestion?: string;
 }
 
 export interface RunnerContext {

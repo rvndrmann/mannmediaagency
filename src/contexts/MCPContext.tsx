@@ -206,5 +206,5 @@ export const useMCPContext = useMCP;
 // Export the reconnect function directly
 export const reconnectToMcp = () => {
   const context = useMCP();
-  return context.connectToMCP;
+  return context.reconnectToMcp || context.connectToMCP;
 };

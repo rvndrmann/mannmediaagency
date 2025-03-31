@@ -1,286 +1,301 @@
-import { useState, useCallback, useEffect } from 'react';
-import { supabase } from '@/integrations/supabase/client';
-import { toast } from 'sonner';
-import { GeneratedImage } from '@/types/product-shoot';
-import { saveToHistory } from '@/hooks/product-shoot/history-service';
+
+// Import necessary dependencies and types
+import { useState, useEffect, useCallback } from "react";
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "./use-toast";
+import { Json } from "@/integrations/supabase/types";
+import { historyService } from "./product-shoot/history-service";
+
+// Define types
+export interface GeneratedImage {
+  id: string;
+  url: string;
+  prompt: string;
+  createdAt: string;
+  status?: string;
+}
+
+export interface ProductShootSettings {
+  prompt: string;
+  outputFormat: string;
+  imageWidth: number;
+  imageHeight: number;
+  quality: number;
+  seed?: number;
+  scale?: number;
+}
 
 export function useProductShoot() {
   const [isGenerating, setIsGenerating] = useState(false);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+  const [savedImages, setSavedImages] = useState<GeneratedImage[]>([]);
+  const [defaultImages, setDefaultImages] = useState<GeneratedImage[]>([]);
+  const [settings, setSettings] = useState<ProductShootSettings>({
+    prompt: "",
+    outputFormat: "png",
+    imageWidth: 1024,
+    imageHeight: 1024,
+    quality: 80,
+    seed: undefined,
+    scale: undefined,
+  });
+  const { toast } = useToast();
 
-  const createGeneratedImage = (data: any): GeneratedImage => {
-    return {
-      id: data.id,
-      url: data.url,
-      prompt: data.prompt,
-      status: data.status,
-      createdAt: new Date(),
-    };
-  };
+  // Load saved images on component mount
+  useEffect(() => {
+    fetchSavedImages();
+    fetchDefaultImages();
+  }, []);
 
-  const handleGenerate = useCallback(async (formData: any) => {
-    if (!formData.sourceFile) {
-      toast.error("Please upload a product image");
-      return;
-    }
-
-    setIsSubmitting(true);
-
+  // Fetch saved images from database
+  const fetchSavedImages = async () => {
     try {
-      // Upload image
-      const { sourceUrl } = await uploadSourceImage(formData);
-      
-      // Generate product shot
-      const { data, error } = await supabase.functions.invoke('generate-product-shot', {
-        body: {
-          image_url: sourceUrl,
-          scene_description: formData.sceneDescription,
-          ref_image_url: formData.referenceImageUrl,
-          optimize_description: formData.optimizeDescription,
-          num_results: formData.numResults,
-          fast: formData.fastMode,
-          placement_type: formData.placementType,
-          original_quality: formData.originalQuality,
-          shot_size: [formData.shotWidth, formData.shotHeight],
-          manual_placement_selection: formData.manualPlacement,
-          padding_values: [
-            formData.padding.top,
-            formData.padding.right,
-            formData.padding.bottom,
-            formData.padding.left
-          ]
-        }
-      });
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+
+      const { data, error } = await supabase
+        .from("product_shots")
+        .select("*")
+        .eq("user_id", userData.user.id)
+        .eq("visibility", "saved")
+        .order("created_at", { ascending: false });
 
       if (error) {
         throw error;
       }
 
-      console.log('Generation result:', data);
-      
-      // Create database record
-      const { error: dbError } = await supabase
-        .from('image_generation_jobs')
-        .insert({
-          prompt: formData.sceneDescription,
-          request_id: data.requestId,
-          status: 'in_queue',
-          source_image_url: sourceUrl,
-          settings: {
-            ...formData,
-            sourceUrl,
-            shotSize: [formData.shotWidth, formData.shotHeight],
-            placement_type: formData.placementType,
-            aspectRatio: formData.aspectRatio // Save aspect ratio setting
-          },
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          visibility: formData.visibility || 'private' // Add visibility setting
-        });
-
-      if (dbError) {
-        console.error('Database error:', dbError);
-        toast.error('Error saving generation: ' + dbError.message);
+      if (data) {
+        const formattedImages: GeneratedImage[] = data.map((item) => ({
+          id: item.id,
+          url: item.result_url,
+          prompt: item.prompt,
+          createdAt: item.created_at,
+          status: item.status
+        }));
+        setSavedImages(formattedImages);
       }
-
-      // Start polling for status
-      toast.success("Image generation started");
-      setIsGenerating(true);
-
-      // Reset form and update UI
-      loadRecentGenerations();
-    } catch (err) {
-      console.error('Error during generation:', err);
-      toast.error('Error generating image: ' + (err instanceof Error ? err.message : String(err)));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }, []);
-
-  const uploadSourceImage = async (formData: any) => {
-    const file = formData.sourceFile;
-    if (!file) {
-      throw new Error("No source image provided");
-    }
-
-    const userId = (await supabase.auth.getUser()).data.user?.id;
-    if (!userId) {
-      throw new Error("User not authenticated");
-    }
-
-    const timestamp = new Date().getTime();
-    const imageName = `${userId}_${timestamp}_${file.name}`;
-    const imagePath = `product-shots/${imageName}`;
-
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from('images')
-      .upload(imagePath, file, {
-        cacheControl: '3600',
-        upsert: false
+    } catch (error) {
+      console.error("Error fetching saved images:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load saved images",
+        variant: "destructive",
       });
-
-    if (uploadError) {
-      console.error('Storage error:', uploadError);
-      throw new Error('Failed to upload image: ' + uploadError.message);
-    }
-
-    // Fix the URL construction to use the public URL method instead
-    const { data: publicUrlData } = supabase.storage
-      .from('images')
-      .getPublicUrl(imagePath);
-    
-    const sourceUrl = publicUrlData.publicUrl;
-    console.log('Uploaded image URL:', sourceUrl);
-    
-    return { sourceUrl };
-  };
-
-  const loadRecentGenerations = async () => {
-    try {
-      const { data, error } = await supabase
-        .from('image_generation_jobs')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(10);
-
-      if (error) throw error;
-      
-      // Map the database status enum to the UI status strings
-      const mappedData = data.map(job => ({
-        ...job,
-        status: 
-          job.status === 'in_queue' ? 'processing' :
-          job.status === 'completed' ? 'completed' :
-          job.status === 'failed' ? 'failed' : 'processing'
-      }));
-      
-      setGeneratedImages(mappedData);
-    } catch (err) {
-      console.error('Error loading generations:', err);
-      toast.error('Error loading recent generations');
     }
   };
 
-  // Function to save a completed image generation to product_shot_history
-  const saveToProductHistory = async (image: any) => {
-    if (image.status !== 'completed' || !image.result_url) {
-      return false;
-    }
-
+  // Fetch default images
+  const fetchDefaultImages = async () => {
     try {
-      // Save to history table
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+
       const { data, error } = await supabase
-        .from('product_shot_history')
-        .insert({
-          user_id: (await supabase.auth.getUser()).data.user?.id,
-          source_image_url: image.source_image_url,
-          result_url: image.result_url,
-          scene_description: image.prompt,
-          settings: image.settings,
-          visibility: 'private'
-        });
+        .from("product_shots")
+        .select("*")
+        .eq("user_id", userData.user.id)
+        .eq("visibility", "default")
+        .order("created_at", { ascending: false });
 
       if (error) {
-        console.error('Error saving to history:', error);
-        return false;
+        throw error;
       }
 
-      toast.success('Image saved to your history');
-      return true;
-    } catch (err) {
-      console.error('Error saving image to history:', err);
-      return false;
-    }
-  };
-
-  const fetchHistoryData = async () => {
-    try {
-      const historyData = await getHistory();
-      // Make sure to map each item to the correct GeneratedImage format
-      const formattedHistory = historyData.map(item => ({
-        id: item.id,
-        url: item.url || item.result_url || '',
-        status: item.status || 'completed',
-        prompt: item.prompt || '',
-        createdAt: new Date(item.created_at || new Date()),
-        content_type: item.content_type || 'image/jpeg',
-        result_url: item.result_url || item.url || '',
-        source_image_url: item.source_image_url || '',
-        settings: item.settings || {}
-      }));
-      
-      setGeneratedImages(formattedHistory);
+      if (data) {
+        const formattedImages: GeneratedImage[] = data.map((item) => ({
+          id: item.id,
+          url: item.result_url,
+          prompt: item.prompt,
+          createdAt: item.created_at,
+          status: item.status
+        }));
+        setDefaultImages(formattedImages);
+      }
     } catch (error) {
-      console.error("Error fetching history:", error);
+      console.error("Error fetching default images:", error);
+      toast({
+        title: "Error",
+        description: "Failed to load default images",
+        variant: "destructive",
+      });
     }
   };
 
-  const handleRetryImageCheck = async (imageId: string) => {
-    // Make sure we create a GeneratedImage object with all required fields
-    const image: GeneratedImage = {
-      id: imageId,
-      url: "",
-      status: "processing",
-      createdAt: new Date(),
-      content_type: "image/jpeg",
-      prompt: ""
-    };
-    
-    setIsGenerating(true);
+  // Generate image function
+  const generateImage = async (customSettings?: Partial<ProductShootSettings>) => {
     try {
-      const { data, error } = await supabase.functions.invoke('retry-image-generation', {
-        body: { 
-          jobId: imageId,
-          source: 'bria' // Explicitly set the source for product shots
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) {
+        toast({
+          title: "Authentication required",
+          description: "Please log in to generate images",
+          variant: "destructive",
+        });
+        return;
+      }
+
+      setIsGenerating(true);
+      const currentSettings = { ...settings, ...customSettings };
+
+      // If prompt is empty, show error
+      if (!currentSettings.prompt.trim()) {
+        toast({
+          title: "Prompt required",
+          description: "Please enter a prompt for the image",
+          variant: "destructive",
+        });
+        setIsGenerating(false);
+        return;
+      }
+
+      // Call function to generate image
+      const { data, error } = await supabase.functions.invoke(
+        "generate-product-shot",
+        {
+          body: {
+            prompt: currentSettings.prompt,
+            outputFormat: currentSettings.outputFormat,
+            width: currentSettings.imageWidth,
+            height: currentSettings.imageHeight,
+            quality: currentSettings.quality,
+            seed: currentSettings.seed,
+            scale: currentSettings.scale,
+          },
         }
-      });
+      );
 
       if (error) throw error;
-      if (!data.success) throw new Error(data.error || 'Unknown error during retry');
-      
-      toast.success('Generation retry initiated');
-      await loadRecentGenerations();
-    } catch (err) {
-      console.error('Error retrying generation:', err);
-      toast.error('Failed to retry generation: ' + (err instanceof Error ? err.message : String(err)));
+
+      if (data && data.id) {
+        // Add to generated images
+        const newImage: GeneratedImage = {
+          id: data.id,
+          url: data.url,
+          content_type: data.content_type,
+          status: "completed",
+          prompt: currentSettings.prompt,
+          createdAt: new Date().toISOString()
+        };
+
+        setGeneratedImages((prev) => [newImage, ...prev]);
+
+        // Show success message
+        toast({
+          title: "Success",
+          description: "Image generated successfully",
+        });
+
+        // Refresh history
+        await historyService.getHistory();
+      }
+    } catch (error) {
+      console.error("Error generating image:", error);
+      toast({
+        title: "Error",
+        description:
+          "Failed to generate image. Please try again later.",
+        variant: "destructive",
+      });
     } finally {
       setIsGenerating(false);
     }
   };
 
-  // Auto-save completed generations to product shot history
-  useEffect(() => {
-    if (generatedImages && generatedImages.length > 0) {
-      generatedImages.forEach(async (image) => {
-        if (image.status === 'completed' && image.result_url) {
-          try {
-            await saveToHistory({
-              id: image.id,
-              url: image.result_url,
-              content_type: 'image/jpeg',
-              status: 'completed',
-              prompt: image.prompt
-            }, image.source_image_url, image.settings);
-          } catch (err) {
-            console.error('Error auto-saving to history:', err);
-          }
-        }
+  // Save image to collection
+  const saveImage = async (imageId: string) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+
+      const { error } = await supabase
+        .from("product_shots")
+        .update({ visibility: "saved" })
+        .eq("id", imageId)
+        .eq("user_id", userData.user.id);
+
+      if (error) throw error;
+
+      // Update the local state
+      const imageToSave = generatedImages.find((img) => img.id === imageId);
+      if (imageToSave) {
+        setSavedImages((prev) => [imageToSave, ...prev]);
+      }
+
+      toast({
+        title: "Success",
+        description: "Image saved to your collection",
+      });
+    } catch (error) {
+      console.error("Error saving image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to save image",
+        variant: "destructive",
       });
     }
-  }, [generatedImages]);
+  };
 
-  // Load generations on mount
-  useEffect(() => {
-    loadRecentGenerations();
-  }, []);
+  // Set image as default
+  const setAsDefault = async (imageId: string) => {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      if (!userData?.user) return;
+
+      // First update existing default to saved
+      const { error: updateError } = await supabase
+        .from("product_shots")
+        .update({ visibility: "saved" })
+        .eq("visibility", "default")
+        .eq("user_id", userData.user.id);
+
+      if (updateError) throw updateError;
+
+      // Then set the new default
+      const { error } = await supabase
+        .from("product_shots")
+        .update({ visibility: "default" })
+        .eq("id", imageId)
+        .eq("user_id", userData.user.id);
+
+      if (error) throw error;
+
+      // Update local state
+      const newDefault = [...savedImages, ...generatedImages].find(
+        (img) => img.id === imageId
+      );
+
+      if (newDefault) {
+        // Move old defaults to saved
+        setSavedImages((prev) => [...prev, ...defaultImages]);
+        // Set new default
+        setDefaultImages([newDefault]);
+      }
+
+      toast({
+        title: "Success",
+        description: "Image set as default",
+      });
+    } catch (error) {
+      console.error("Error setting default image:", error);
+      toast({
+        title: "Error",
+        description: "Failed to set default image",
+        variant: "destructive",
+      });
+    }
+  };
 
   return {
+    settings,
+    setSettings,
     isGenerating,
-    isSubmitting,
+    generateImage,
     generatedImages,
-    handleGenerate,
-    handleRetryImageCheck,
-    loadRecentGenerations,
-    saveToProductHistory
+    savedImages,
+    defaultImages,
+    saveImage,
+    setAsDefault,
+    fetchSavedImages,
+    fetchDefaultImages,
   };
 }

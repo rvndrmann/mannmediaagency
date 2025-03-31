@@ -1,71 +1,45 @@
 
-import { useState, useEffect } from 'react';
+import React, { useCallback } from "react";
 import { ProductShotGenerator } from "@/components/product-shoot/ProductShotGenerator";
-import { ProductShotResults } from "@/components/product-shoot/ProductShotResults";
 import { useProductShoot } from "@/hooks/use-product-shoot";
-import { useQuery } from "@tanstack/react-query";
-import { supabase } from "@/integrations/supabase/client";
-import { ProductShotResult } from "@/types/product-shoot";
 
-export default function ProductShot() {
-  const { isGenerating, generatedImages, handleRetryImageCheck } = useProductShoot();
-  const [productShotResults, setProductShotResults] = useState<ProductShotResult[]>([]);
+const ProductShot: React.FC = () => {
+  const {
+    settings,
+    setSettings,
+    isGenerating,
+    generateImage,
+    generatedImages,
+    savedImages,
+    defaultImages,
+    saveImage,
+    setAsDefault
+  } = useProductShoot();
 
-  const { data: userCredits } = useQuery({
-    queryKey: ["userCredits"],
-    queryFn: async () => {
-      const { data, error } = await supabase
-        .from("user_credits")
-        .select("credits_remaining")
-        .maybeSingle();
+  const handleSaveImage = useCallback((id: string) => {
+    saveImage(id);
+  }, [saveImage]);
 
-      if (error) throw error;
-      return data;
-    },
-  });
-
-  useEffect(() => {
-    if (generatedImages && generatedImages.length > 0) {
-      const results: ProductShotResult[] = generatedImages.map(img => ({
-        id: img.id,
-        url: img.url,
-        resultUrl: img.url,
-        inputUrl: img.prompt || '',
-        placementType: 'automatic',
-        description: img.prompt,
-        status: img.status,
-        createdAt: img.createdAt,
-        metadata: {
-          processingTime: Date.now(),
-          model: 'product-shot-v2',
-          size: '1024x1024'
-        }
-      }));
-      setProductShotResults(results);
-    }
-  }, [generatedImages]);
-
-  const handleRetry = (id: string) => {
-    handleRetryImageCheck(id);
-  };
+  const handleSetAsDefault = useCallback((id: string) => {
+    setAsDefault(id);
+  }, [setAsDefault]);
 
   return (
-    <div className="container mx-auto py-8">
-      <h1 className="text-3xl font-bold mb-8 text-white">Product Shot Generator</h1>
-      
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <div>
-          <ProductShotGenerator />
-        </div>
-        
-        <div>
-          <ProductShotResults 
-            results={productShotResults}
-            isGenerating={isGenerating}
-            onRetry={handleRetry}
-          />
-        </div>
-      </div>
+    <div className="container mx-auto px-4 py-6">
+      <h1 className="text-3xl font-bold mb-6">Product Shot Generator</h1>
+      <ProductShotGenerator
+        settings={settings}
+        setSettings={setSettings}
+        isGenerating={isGenerating}
+        onGenerate={generateImage}
+        generatedImages={generatedImages}
+        savedImages={savedImages}
+        defaultImages={defaultImages}
+        onSaveImage={handleSaveImage}
+        onSetAsDefault={handleSetAsDefault}
+      />
     </div>
   );
-}
+};
+
+export default ProductShot;

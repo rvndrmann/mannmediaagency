@@ -12,9 +12,15 @@ import {
 
 interface MCPConnectionStatusProps {
   className?: string;
+  showConnectionDetails?: boolean;
+  showAlert?: boolean;
 }
 
-export function MCPConnectionStatus({ className }: MCPConnectionStatusProps) {
+export function MCPConnectionStatus({ 
+  className,
+  showConnectionDetails = false,
+  showAlert = false
+}: MCPConnectionStatusProps) {
   const { 
     connectionStatus, 
     reconnectToMcp, 
@@ -58,7 +64,9 @@ export function MCPConnectionStatus({ className }: MCPConnectionStatusProps) {
           <div className={`flex items-center gap-1.5 ${className}`}>
             <span className={`flex items-center gap-1 text-xs ${getStatusColor()}`}>
               {getStatusIcon()}
-              <span className="hidden sm:inline">{getStatusText()}</span>
+              <span className={showConnectionDetails ? "inline" : "hidden sm:inline"}>
+                {getStatusText()}
+              </span>
             </span>
             {(connectionStatus === 'disconnected' || connectionStatus === 'error' || hasConnectionError) && (
               <Button 

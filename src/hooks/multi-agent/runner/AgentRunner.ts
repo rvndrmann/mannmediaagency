@@ -1,6 +1,7 @@
 
 import { v4 as uuidv4 } from "uuid";
-import { AgentType, RunnerContext, AgentResult, BaseAgent } from "./types";
+import { AgentType, RunnerContext, AgentResult, BaseAgent, BaseAgentImpl } from "./types";
+import { supabase } from '@/integrations/supabase/client';
 
 interface RunnerCallbacks {
   onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
@@ -42,7 +43,7 @@ export class AgentRunner {
     try {
       // Dynamically import to avoid circular dependencies
       const { SDKAgentRunner } = await import("../sdk/SDKAgentRunner");
-      this.sdkRunner = new SDKAgentRunner("main", {}, {});
+      this.sdkRunner = new SDKAgentRunner("main", { supabase }, {});
       
       if (this.callbacks) {
         this.sdkRunner.setCallbacks(this.callbacks);

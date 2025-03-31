@@ -18,7 +18,7 @@ interface CanvasChatProps {
 }
 
 export function CanvasChat({ projectId, sceneId, onClose, updateScene }: CanvasChatProps) {
-  const { getOrCreateChatSession, activeSession } = useChatSession();
+  const { getOrCreateChatSession, sessions } = useChatSession();
   const { setActiveProject } = useProjectContext();
   const [sessionId, setSessionId] = useState<string | null>(null);
   

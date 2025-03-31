@@ -14,10 +14,14 @@ interface ChatSession {
 interface ChatSessionContextType {
   sessions: Record<string, ChatSession>;
   activeChatId: string | null;
+  activeSession?: ChatSession | null;
+  chatSessions?: ChatSession[];
   setActiveChatId: (id: string | null) => void;
   updateChatSession: (sessionId: string, messages: Message[]) => void;
   getOrCreateChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
   deleteSession: (sessionId: string) => void;
+  deleteChatSession: (sessionId: string) => void;
+  createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
 }
 
 const ChatSessionContext = createContext<ChatSessionContextType>({
@@ -26,7 +30,9 @@ const ChatSessionContext = createContext<ChatSessionContextType>({
   setActiveChatId: () => {},
   updateChatSession: () => {},
   getOrCreateChatSession: () => "",
-  deleteSession: () => {}
+  deleteSession: () => {},
+  deleteChatSession: () => {},
+  createChatSession: () => ""
 });
 
 export const useChatSession = () => useContext(ChatSessionContext);
@@ -114,6 +120,10 @@ export const ChatSessionProvider: React.FC<{children: React.ReactNode}> = ({ chi
     }
     
     // Create a new session
+    return createChatSession(projectId, initialMessages);
+  };
+
+  const createChatSession = (projectId: string | null, initialMessages: Message[] = []) => {
     const newSessionId = uuidv4();
     
     setSessions(prev => ({
@@ -131,6 +141,10 @@ export const ChatSessionProvider: React.FC<{children: React.ReactNode}> = ({ chi
   };
   
   const deleteSession = (sessionId: string) => {
+    deleteChatSession(sessionId);
+  };
+
+  const deleteChatSession = (sessionId: string) => {
     setSessions(prev => {
       const newSessions = { ...prev };
       delete newSessions[sessionId];
@@ -141,16 +155,26 @@ export const ChatSessionProvider: React.FC<{children: React.ReactNode}> = ({ chi
       setActiveChatId(null);
     }
   };
+
+  // Add activeSession getter for use in components
+  const activeSession = activeChatId ? sessions[activeChatId] : null;
+  
+  // Get all sessions as an array for ChatSessionSelector
+  const chatSessions = Object.values(sessions);
   
   return (
     <ChatSessionContext.Provider
       value={{
         sessions,
         activeChatId,
+        activeSession,
+        chatSessions,
         setActiveChatId,
         updateChatSession,
         getOrCreateChatSession,
-        deleteSession
+        deleteSession,
+        deleteChatSession,
+        createChatSession
       }}
     >
       {children}

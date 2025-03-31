@@ -69,13 +69,16 @@ export interface ToolExecutionResult {
   usage?: {
     creditsUsed: number;
   };
+  state?: CommandExecutionState;
 }
 
 export enum CommandExecutionState {
   PENDING = "pending",
   EXECUTING = "executing",
+  RUNNING = "running",
   COMPLETED = "completed",
-  ERROR = "error"
+  ERROR = "error",
+  FAILED = "failed"
 }
 
 export interface AgentOptions {
@@ -131,6 +134,20 @@ export abstract class BaseAgentImpl {
 
   protected isTracingEnabled(): boolean {
     return this.context.tracingEnabled !== false;
+  }
+
+  protected recordTraceEvent(name: string, data: string | Record<string, any>): void {
+    if (!this.isTracingEnabled()) return;
+    
+    try {
+      if (this.context.addMessage) {
+        // Convert object to string if needed
+        const message = typeof data === 'object' ? JSON.stringify(data) : data;
+        this.context.addMessage(`[TRACE:${name}] ${message}`, 'trace');
+      }
+    } catch (error) {
+      console.warn('Error recording trace event:', error);
+    }
   }
 }
 

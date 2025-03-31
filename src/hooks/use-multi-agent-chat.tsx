@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Message, Attachment } from "@/types/message";
+import { Message, Attachment, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
@@ -61,16 +61,16 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       );
       
       if (!hasProjectContextMessage) {
-        setMessages(prev => [
-          ...prev,
-          {
-            id: uuidv4(),
-            role: "system",
-            content: `Project context: ${projectDetails.title || options.projectId}\n\n${projectContent}`,
-            createdAt: new Date().toISOString(),
-            type: "context"
-          }
-        ]);
+        // Create a properly typed message with "context" as MessageType
+        const contextMessage: Message = {
+          id: uuidv4(),
+          role: "system",
+          content: `Project context: ${projectDetails.title || options.projectId}\n\n${projectContent}`,
+          createdAt: new Date().toISOString(),
+          type: "context" as MessageType
+        };
+        
+        setMessages(prev => [...prev, contextMessage]);
       }
       
       setActiveProjectContext(options.projectId);
@@ -217,7 +217,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           role: "system",
           content: `Project context: ${projectDetails.title || projectId}\n\n${projectContent}`,
           createdAt: new Date().toISOString(),
-          type: "context"
+          type: "context" as MessageType
         };
         
         setMessages(prev => [...prev, contextMessage]);
@@ -250,7 +250,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         role: "system",
         content: `Conversation transferred from ${getAgentName(fromAgent)} to ${getAgentName(toAgent)}. Reason: ${reason}`,
         createdAt: new Date().toISOString(),
-        type: "handoff",
+        type: "handoff" as MessageType,
         continuityData
       };
       
@@ -314,7 +314,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             role: 'system',
             content: 'The request timed out. Please try again.',
             createdAt: new Date().toISOString(),
-            type: 'error',
+            type: 'error' as MessageType,
             status: 'error'
           }
         ]);
@@ -417,7 +417,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             ? `Error: ${error.message}` 
             : "An unknown error occurred while processing your request.",
           createdAt: new Date().toISOString(),
-          type: "error",
+          type: "error" as MessageType,
           status: "error"
         };
         

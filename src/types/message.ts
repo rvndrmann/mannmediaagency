@@ -1,3 +1,4 @@
+
 export type MessageType = 
   | "chat" 
   | "system" 
@@ -6,7 +7,8 @@ export type MessageType =
   | "error" 
   | "handoff"
   | "canvas"
-  | "text";
+  | "text"
+  | "context";  // Added context as a valid message type
 
 export type MessageStatus = "pending" | "complete" | "error" | "thinking" | "working" | "completed" | "in-progress";
 

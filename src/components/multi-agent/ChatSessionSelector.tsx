@@ -1,121 +1,91 @@
 
-import React from "react";
-import { useChatSession } from "@/contexts/ChatSessionContext";
+import React from 'react';
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, X } from "lucide-react";
-import { formatDistanceToNow } from "date-fns";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  PlusCircle,
+  Trash2,
+  MessageSquare,
+} from "lucide-react";
+import { useChatSession } from '@/contexts/ChatSessionContext';
+import { formatDistanceToNow } from 'date-fns';
 
 interface ChatSessionSelectorProps {
-  onCreateNew?: () => void;
-  maxDisplayed?: number;
+  onSelectSession: (sessionId: string) => void;
+  currentSessionId: string | null;
 }
 
-export function ChatSessionSelector({ 
-  onCreateNew,
-  maxDisplayed = 5
-}: ChatSessionSelectorProps) {
+export function ChatSessionSelector({ onSelectSession, currentSessionId }: ChatSessionSelectorProps) {
   const { 
-    chatSessions,
-    activeChatId,
-    setActiveChatId,
+    chatSessions = [],
     deleteChatSession,
     createChatSession
   } = useChatSession();
 
-  // Sort sessions by lastUpdated, most recent first
-  const sortedSessions = [...chatSessions].sort((a, b) => 
-    new Date(b.lastUpdated).getTime() - new Date(a.lastUpdated).getTime()
-  ).slice(0, maxDisplayed);
-
-  // Handle creating a new chat
-  const handleCreateNew = () => {
-    if (onCreateNew) {
-      onCreateNew();
-    } else {
-      createChatSession(null);
-    }
+  const handleNewSession = () => {
+    const newSessionId = createChatSession(null);
+    onSelectSession(newSessionId);
   };
 
-  // For empty state
-  if (chatSessions.length === 0) {
-    return (
-      <div className="flex items-center justify-center h-10 px-2">
-        <Button 
-          variant="ghost" 
-          size="sm" 
-          onClick={handleCreateNew}
-          className="flex items-center gap-1"
-        >
-          <PlusCircle className="h-4 w-4" />
-          <span>Start New Chat</span>
-        </Button>
-      </div>
-    );
-  }
-
   return (
-    <TooltipProvider>
-      <div className="flex items-center gap-2">
-        <Tabs 
-          value={activeChatId || undefined} 
-          onValueChange={(value) => setActiveChatId(value)}
-          className="w-full"
+    <div className="w-full p-2">
+      <div className="flex items-center justify-between mb-2">
+        <h3 className="font-semibold text-sm">Conversations</h3>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleNewSession}
+          className="h-8 px-2"
         >
-          <ScrollArea className="w-full px-1 max-w-[600px]">
-            <TabsList className="flex w-full h-10 overflow-x-auto">
-              {sortedSessions.map(session => (
-                <div key={session.id} className="flex items-center">
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <TabsTrigger 
-                        value={session.id}
-                        className="relative px-3 py-1 flex-shrink-0 max-w-[180px] truncate"
-                      >
-                        {session.title}
-                      </TabsTrigger>
-                    </TooltipTrigger>
-                    <TooltipContent side="bottom">
-                      <p>{session.title}</p>
-                      <p className="text-xs text-muted-foreground">
-                        Last updated {formatDistanceToNow(new Date(session.lastUpdated))} ago
-                      </p>
-                      <p className="text-xs text-muted-foreground">
-                        {session.messages.length} messages
-                      </p>
-                    </TooltipContent>
-                  </Tooltip>
-                  
-                  {session.id === activeChatId && (
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-5 w-5 ml-1"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        deleteChatSession(session.id);
-                      }}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </TabsList>
-          </ScrollArea>
-        </Tabs>
-        
-        <Button 
-          variant="outline" 
-          size="icon" 
-          onClick={handleCreateNew}
-          className="flex-shrink-0"
-        >
-          <PlusCircle className="h-4 w-4" />
+          <PlusCircle className="h-4 w-4 mr-1" />
+          New
         </Button>
       </div>
-    </TooltipProvider>
+
+      <ScrollArea className="h-[calc(100vh-200px)]">
+        <div className="space-y-1">
+          {chatSessions.length === 0 ? (
+            <div className="text-center text-sm text-muted-foreground p-4">
+              No conversations yet
+            </div>
+          ) : (
+            chatSessions
+              .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+              .map((session) => (
+                <div
+                  key={session.id}
+                  className={`flex items-center justify-between p-2 rounded-md hover:bg-accent/50 cursor-pointer ${
+                    currentSessionId === session.id ? "bg-accent" : ""
+                  }`}
+                  onClick={() => onSelectSession(session.id)}
+                >
+                  <div className="flex items-center">
+                    <MessageSquare className="h-4 w-4 mr-2 text-muted-foreground" />
+                    <div className="flex-1 truncate">
+                      <div className="text-sm font-medium">
+                        {session.projectId ? `Project ${session.projectId.substring(0, 8)}...` : "General Chat"}
+                      </div>
+                      <div className="text-xs text-muted-foreground">
+                        {formatDistanceToNow(new Date(session.updatedAt), { addSuffix: true })}
+                      </div>
+                    </div>
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      deleteChatSession(session.id);
+                    }}
+                    className="h-7 w-7 p-0 opacity-50 hover:opacity-100"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" />
+                  </Button>
+                </div>
+              ))
+          )}
+        </div>
+      </ScrollArea>
+    </div>
   );
 }

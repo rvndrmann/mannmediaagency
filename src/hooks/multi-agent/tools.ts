@@ -1,15 +1,47 @@
 
-import { ToolDefinition } from "./types";
-import * as ToolsModule from "./tools/index";
+import { CommandExecutionState, ToolContext } from "./types";
+import { availableTools, getAvailableTools, initializeToolSystem, executeTool } from "./tools/index";
 
-export function getAvailableTools(): ToolDefinition[] {
-  return ToolsModule.getAvailableTools();
-}
+export const executeCommand = async (
+  commandName: string,
+  parameters: any,
+  context: ToolContext
+): Promise<{
+  state: CommandExecutionState;
+  message: string;
+  data?: any;
+}> => {
+  try {
+    // Call the centralized tool executor
+    const result = await executeTool(commandName, parameters, context);
+    
+    return {
+      state: result.state || CommandExecutionState.COMPLETED,
+      message: result.message,
+      data: result.data
+    };
+  } catch (error) {
+    console.error(`Error executing command ${commandName}:`, error);
+    return {
+      state: CommandExecutionState.ERROR,
+      message: error instanceof Error ? error.message : `Unknown error executing ${commandName}`
+    };
+  }
+};
 
-export function getTool(name: string): ToolDefinition | undefined {
-  const allTools = getAvailableTools();
-  return allTools.find(tool => tool.name === name);
-}
+// Initialize the tool system
+export const initializeTools = async () => {
+  try {
+    await initializeToolSystem();
+    console.log("Tool system initialized with", availableTools.length, "tools");
+    return true;
+  } catch (error) {
+    console.error("Error initializing tool system:", error);
+    return false;
+  }
+};
 
-// Export initializeToolSystem from the tools/index.ts module
-export const initializeToolSystem = ToolsModule.initializeToolSystem;
+// Get all available tools
+export const getAllTools = () => {
+  return getAvailableTools();
+};

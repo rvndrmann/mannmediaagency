@@ -45,3 +45,10 @@ export const closeConnections = async (): Promise<void> => {
   // Clear the clients array
   mcpClients = [];
 };
+
+// Export for backward compatibility
+export const MCPService = {
+  getMcpClients,
+  initConnections,
+  closeConnections
+};

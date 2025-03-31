@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasScene, CanvasProject, SceneUpdateType } from "@/types/canvas";
 
@@ -109,6 +110,13 @@ export function extractSceneContent(scene: CanvasScene, contentType: SceneUpdate
     case 'description': return scene.description || '';
     case 'imagePrompt': return scene.imagePrompt || '';
     case 'voiceOverText': return scene.voiceOverText || '';
+    case 'imageUrl': return scene.imageUrl || '';
+    case 'videoUrl': return scene.videoUrl || '';
+    case 'image': return scene.productImageUrl || '';
+    case 'productImage': return scene.productImageUrl || '';
+    case 'video': return scene.videoUrl || '';
+    case 'voiceOver': return scene.voiceOverUrl || '';
+    case 'backgroundMusic': return scene.backgroundMusicUrl || '';
     default: return '';
   }
 }
@@ -151,11 +159,13 @@ export async function updateSceneField(
       description: 'description',
       imagePrompt: 'image_prompt',
       voiceOverText: 'voice_over_text',
-      image: 'image_url',
+      image: 'product_image_url',
       productImage: 'product_image_url',
       video: 'video_url',
       voiceOver: 'voice_over_url',
-      backgroundMusic: 'background_music_url'
+      backgroundMusic: 'background_music_url',
+      imageUrl: 'image_url',
+      videoUrl: 'video_url'
     };
     
     const field = fieldMappings[fieldType];
@@ -178,7 +188,7 @@ export async function updateSceneField(
 }
 
 /**
- * Update a single scene field
+ * Update scene data in memory
  */
 export const updateSceneData = (scene: CanvasScene, type: SceneUpdateType, value: string): CanvasScene => {
   const updatedScene = { ...scene };
@@ -189,7 +199,7 @@ export const updateSceneData = (scene: CanvasScene, type: SceneUpdateType, value
     imagePrompt: 'imagePrompt',
     description: 'description',
     voiceOverText: 'voiceOverText',
-    image: 'productImageUrl', // This maps to productImageUrl in the schema
+    image: 'productImageUrl',
     productImage: 'productImageUrl',
     video: 'videoUrl',
     voiceOver: 'voiceOverUrl',

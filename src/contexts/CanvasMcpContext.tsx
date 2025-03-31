@@ -1,11 +1,14 @@
 
 import React, { createContext, useContext, ReactNode } from "react";
-import { useCanvasAgentMcp } from "@/hooks/use-canvas-agent-mcp";
+import { useCanvasMcp } from "@/hooks/use-canvas-mcp";
 import { MCPProvider } from "@/contexts/MCPContext";
 import { SceneUpdateType } from "@/types/canvas";
 
 // Create a context type for Canvas MCP
 interface CanvasMcpContextType {
+  messages: any[];
+  addUserMessage: (content: string) => any;
+  addAssistantMessage: (content: string, metadataInfo?: any) => any;
   activeAgent: string | null;
   isProcessing: boolean;
   isMcpEnabled: boolean;
@@ -43,8 +46,8 @@ export function CanvasMcpProvider({
   sceneId,
   updateScene 
 }: CanvasMcpProviderProps) {
-  // Use the Canvas agent MCP hook
-  const canvasAgentMcp = useCanvasAgentMcp({
+  // Use the Canvas MCP hook
+  const canvasMcp = useCanvasMcp({
     projectId,
     sceneId,
     updateScene
@@ -52,7 +55,7 @@ export function CanvasMcpProvider({
   
   return (
     <MCPProvider projectId={projectId}>
-      <CanvasMcpContext.Provider value={canvasAgentMcp}>
+      <CanvasMcpContext.Provider value={canvasMcp}>
         {children}
       </CanvasMcpContext.Provider>
     </MCPProvider>

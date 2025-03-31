@@ -7,7 +7,7 @@ import {
 } from "react-router-dom";
 import { Layout } from "@/components/Layout";
 import { MCPProvider } from "./contexts/MCPContext";
-import { ProjectProvider } from "@/hooks/multi-agent/project-context";
+import { ProjectProvider } from "./hooks/multi-agent/project-context.tsx";
 
 // Import pages
 import Index from "./pages/Index";

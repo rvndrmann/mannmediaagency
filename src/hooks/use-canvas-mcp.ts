@@ -271,3 +271,6 @@ export const useCanvasMcp = ({
     generateSceneScript
   };
 };
+
+// Export with a different name for backward compatibility
+export { useCanvasMcp as useCanvasAgent };

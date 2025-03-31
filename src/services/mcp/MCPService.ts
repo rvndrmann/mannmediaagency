@@ -1,10 +1,15 @@
 
 import { MCPClient } from "./MCPClient";
 
+// Use browser-compatible environment variable access
+const MCP_SERVER_URL = import.meta.env.VITE_MCP_SERVER_URL || 
+                        (typeof window !== 'undefined' && window.__env?.MCP_SERVER_URL) || 
+                        "ws://localhost:8000";
+
 const servers = [
   {
     id: "mcp-server-01",
-    url: process.env.NEXT_PUBLIC_MCP_SERVER_URL || "ws://localhost:8000",
+    url: MCP_SERVER_URL,
     updateInterval: 30000,
   },
 ];

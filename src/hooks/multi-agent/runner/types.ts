@@ -81,15 +81,21 @@ export enum CommandExecutionState {
 export interface AgentOptions {
   context: RunnerContext;
   traceId?: string;
+  model?: string;
+  config?: any;
 }
 
 export abstract class BaseAgentImpl {
   protected traceId: string;
   protected context: RunnerContext;
+  protected model?: string;
+  protected config?: any;
 
   constructor(options: AgentOptions) {
     this.traceId = options.traceId || "no-trace";
     this.context = options.context;
+    this.model = options.model;
+    this.config = options.config;
   }
 
   abstract process(input: string, context: RunnerContext): Promise<AgentResult>;

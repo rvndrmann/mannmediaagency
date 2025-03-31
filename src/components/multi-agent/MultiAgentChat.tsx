@@ -1,4 +1,3 @@
-
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -22,10 +21,9 @@ import {
 import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
-import { ChatSessionSelector } from "./ChatSessionSelector";
-import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message } from "@/types/message";
 import { CompactAgentSelector } from "@/components/canvas/CompactAgentSelector";
+import { useChatSession } from "@/contexts/ChatSessionContext";
 
 interface MultiAgentChatProps {
   projectId?: string;
@@ -50,7 +48,7 @@ export const MultiAgentChat = ({
     setActiveProject
   } = useProjectContext({ initialProjectId: projectId });
   
-  const { activeChatId, getOrCreateChatSession } = useChatSession();
+  const { activeChatId, getOrCreateChatSession, updateChatSession } = useChatSession();
   
   const [localSessionId, setLocalSessionId] = useState<string | null>(
     sessionId || activeChatId
@@ -105,9 +103,9 @@ export const MultiAgentChat = ({
   
   const [showInstructions, setShowInstructions] = useState(false);
   const [editInstructionsOpen, setEditInstructionsOpen] = useState(false);
-  const [selectedAgentForEdit, setSelectedAgentForEdit] = useState<AgentType>("main");
-  const [fromAgent, setFromAgent] = useState<AgentType>("main");
-  const [toAgent, setToAgent] = useState<AgentType>("main");
+  const [selectedAgentForEdit, setSelectedAgentForEdit] = useState<string>("main");
+  const [fromAgent, setFromAgent] = useState<string>("main");
+  const [toAgent, setToAgent] = useState<string>("main");
   
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const lastMessageRef = useRef<HTMLDivElement>(null);
@@ -130,22 +128,46 @@ export const MultiAgentChat = ({
     if (messages.length > 0) {
       const lastMessage = messages[messages.length - 1];
       if (lastMessage.handoffRequest && lastMessage.agentType) {
-        setFromAgent(lastMessage.agentType as AgentType);
-        setToAgent(lastMessage.handoffRequest.targetAgent as AgentType);
+        setFromAgent(lastMessage.agentType);
+        setToAgent(lastMessage.handoffRequest.targetAgent);
       }
     }
   }, [messages]);
+
+  useEffect(() => {
+    if (projectId && setProjectContext) {
+      setProjectContext(projectId);
+      
+      if (projectDetails) {
+        const systemMessage: Message = {
+          id: crypto.randomUUID(),
+          role: "system",
+          content: `Setting project context: ${projectDetails.title || projectId}`,
+          createdAt: new Date().toISOString(),
+          type: "system"
+        };
+        
+        setMessages(prev => {
+          const hasContextMessage = prev.some(msg => 
+            msg.role === 'system' && 
+            msg.content.includes('Setting project context')
+          );
+          return hasContextMessage ? prev : [...prev, systemMessage];
+        });
+      }
+    }
+  }, [projectId, projectDetails, setProjectContext, setMessages]);
 
   const toggleInstructions = () => {
     setShowInstructions(!showInstructions);
   };
   
-  const openEditInstructions = (agentType: AgentType) => {
+  const openEditInstructions = (agentType: string) => {
     setSelectedAgentForEdit(agentType);
     setEditInstructionsOpen(true);
   };
   
-  const handleSaveInstructions = (agentType: AgentType, instructions: string) => {
+  const handleSaveInstructions = (agentType: string, instructions: string) => {
     updateAgentInstructions(agentType, instructions);
   };
   

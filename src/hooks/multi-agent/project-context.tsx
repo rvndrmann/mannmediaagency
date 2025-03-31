@@ -1,228 +1,171 @@
 
-import React, { createContext, useContext, useState, useEffect, useCallback, ReactNode } from "react";
-import { supabase } from "@/integrations/supabase/client";
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { CanvasProject } from '@/types/canvas';
+import { getScenesByProjectId, formatProjectData } from '@/utils/canvas-data-utils';
 
-interface ProjectDetails {
-  id: string;
-  title: string;
-  description: string | null;
-  created_at: string;
-  updated_at: string | null;
-  user_id: string;
-}
-
-interface ProjectSummary {
-  id: string;
-  title: string;
-  created_at: string;
-}
-
-interface ProjectContextType {
+interface ProjectContextState {
   activeProjectId: string | null;
-  projectDetails: ProjectDetails | null;
+  projectDetails: CanvasProject | null;
+  availableProjects: CanvasProject[];
   isLoading: boolean;
   error: string | null;
-  availableProjects: ProjectSummary[];
-  hasLoadedProjects: boolean;
   setActiveProject: (projectId: string) => void;
-  createProject: (title: string, description?: string) => Promise<string | null>;
   fetchAvailableProjects: () => Promise<void>;
-  fetchProjectDetails: (projectId: string) => Promise<ProjectDetails | null>;
+  projectScenesData: Record<string, any[]>;
+  projectContent: string;
 }
 
-// Create context with default values
-const ProjectContext = createContext<ProjectContextType | undefined>(undefined);
+const ProjectContext = createContext<ProjectContextState>({
+  activeProjectId: null,
+  projectDetails: null,
+  availableProjects: [],
+  isLoading: false,
+  error: null,
+  setActiveProject: () => {},
+  fetchAvailableProjects: async () => {},
+  projectScenesData: {},
+  projectContent: '',
+});
 
-// Create provider component
-export const ProjectProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
+export const ProjectProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
   const [activeProjectId, setActiveProjectId] = useState<string | null>(null);
-  const [projectDetails, setProjectDetails] = useState<ProjectDetails | null>(null);
+  const [projectDetails, setProjectDetails] = useState<CanvasProject | null>(null);
+  const [availableProjects, setAvailableProjects] = useState<CanvasProject[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
-  const [availableProjects, setAvailableProjects] = useState<ProjectSummary[]>([]);
   const [hasLoadedProjects, setHasLoadedProjects] = useState<boolean>(false);
+  const [projectScenesData, setProjectScenesData] = useState<Record<string, any[]>>({});
+  const [projectContent, setProjectContent] = useState<string>('');
 
-  // Set active project
-  const setActiveProject = useCallback((projectId: string) => {
-    setActiveProjectId(projectId);
-  }, []);
-
-  // Fetch project details
-  const fetchProjectDetails = useCallback(async (projectId: string): Promise<ProjectDetails | null> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data, error } = await supabase
-        .from("canvas_projects")
-        .select("*")
-        .eq("id", projectId)
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      return data as ProjectDetails;
-    } catch (err: any) {
-      console.error("Error fetching project details:", err);
-      setError(err.message || "Failed to fetch project details");
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Create new project
-  const createProject = useCallback(async (title: string, description?: string): Promise<string | null> => {
-    try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data: userData } = await supabase.auth.getUser();
-      
-      if (!userData.user) {
-        throw new Error("User not authenticated");
-      }
-
-      const { data, error } = await supabase
-        .from("canvas_projects")
-        .insert({
-          title,
-          description: description || "",
-          user_id: userData.user.id,
-        })
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      // Create an initial scene
-      const { error: sceneError } = await supabase
-        .from("canvas_scenes")
-        .insert({
-          project_id: data.id,
-          title: "Scene 1",
-          scene_order: 1,
-        });
-
-      if (sceneError) {
-        throw sceneError;
-      }
-
-      // Refresh available projects
-      await fetchAvailableProjects();
-      
-      return data.id;
-    } catch (err: any) {
-      console.error("Error creating project:", err);
-      setError(err.message || "Failed to create project");
-      return null;
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Fetch all available projects
+  // Fetch available projects
   const fetchAvailableProjects = useCallback(async () => {
+    setIsLoading(true);
+    setError(null);
+    
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data: userData } = await supabase.auth.getUser();
+      const { data, error } = await supabase
+        .from('canvas_projects')
+        .select('*')
+        .order('created_at', { ascending: false });
       
-      if (!userData.user) {
-        setAvailableProjects([]);
+      if (error) throw error;
+      
+      const projects = data.map((project: any) => ({
+        id: project.id,
+        title: project.title || `Project ${project.id.substring(0, 8)}`,
+        userId: project.user_id,
+        user_id: project.user_id, // include both formats for compatibility
+        description: project.description || '',
+        fullScript: project.full_script || '',
+        createdAt: project.created_at,
+        updatedAt: project.updated_at,
+        scenes: []
+      }));
+      
+      setAvailableProjects(projects);
+      setHasLoadedProjects(true);
+    } catch (err) {
+      console.error('Error fetching projects:', err);
+      setError('Failed to load projects');
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Fetch project details when active project changes
+  useEffect(() => {
+    const fetchProjectDetails = async () => {
+      if (!activeProjectId) {
+        setProjectDetails(null);
+        setProjectContent('');
         return;
       }
-
-      const { data, error } = await supabase
-        .from("canvas_projects")
-        .select("id, title, created_at")
-        .eq("user_id", userData.user.id)
-        .order("created_at", { ascending: false });
-
-      if (error) {
-        throw error;
-      }
-
-      setAvailableProjects(data as ProjectSummary[]);
-      setHasLoadedProjects(true);
-    } catch (err: any) {
-      console.error("Error fetching available projects:", err);
-      setError(err.message || "Failed to fetch projects");
-      setAvailableProjects([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
-  // Load project details when activeProjectId changes
-  useEffect(() => {
-    if (activeProjectId) {
-      (async () => {
-        try {
-          const details = await fetchProjectDetails(activeProjectId);
-          if (details) {
-            setProjectDetails(details);
-          }
-        } catch (err) {
-          console.error("Error loading project details:", err);
+      
+      setIsLoading(true);
+      setError(null);
+      
+      try {
+        const { data, error } = await supabase
+          .from('canvas_projects')
+          .select('*')
+          .eq('id', activeProjectId)
+          .single();
+        
+        if (error) throw error;
+        
+        if (data) {
+          // Fetch project scenes
+          const scenes = await getScenesByProjectId(activeProjectId);
+          
+          const projectWithScenes: CanvasProject = {
+            id: data.id,
+            title: data.title || `Project ${data.id.substring(0, 8)}`,
+            userId: data.user_id,
+            user_id: data.user_id, // include both formats for compatibility
+            description: data.description || '',
+            fullScript: data.full_script || '',
+            createdAt: data.created_at,
+            updatedAt: data.updated_at,
+            scenes: scenes
+          };
+          
+          setProjectDetails(projectWithScenes);
+          
+          // Format project data as content for AI
+          const formattedContent = formatProjectData(projectWithScenes);
+          setProjectContent(formattedContent);
+          
+          // Update scenes data
+          setProjectScenesData(prevScenes => ({
+            ...prevScenes,
+            [activeProjectId]: scenes
+          }));
         }
-      })();
-    } else {
-      setProjectDetails(null);
-    }
-  }, [activeProjectId, fetchProjectDetails]);
+      } catch (err) {
+        console.error('Error fetching project details:', err);
+        setError('Failed to load project details');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchProjectDetails();
+  }, [activeProjectId]);
 
-  // Context value
-  const value: ProjectContextType = {
-    activeProjectId,
-    projectDetails,
-    isLoading,
-    error,
-    availableProjects,
-    hasLoadedProjects,
-    setActiveProject,
-    createProject,
-    fetchAvailableProjects,
-    fetchProjectDetails
-  };
-
+  // Provide context
   return (
-    <ProjectContext.Provider value={value}>
+    <ProjectContext.Provider 
+      value={{
+        activeProjectId,
+        projectDetails,
+        availableProjects,
+        isLoading,
+        error,
+        setActiveProject: setActiveProjectId,
+        fetchAvailableProjects,
+        projectScenesData,
+        projectContent
+      }}
+    >
       {children}
     </ProjectContext.Provider>
   );
 };
 
-// Custom hook to use the context
-export const useProjectContext = (options?: { initialProjectId?: string }) => {
+interface UseProjectContextOptions {
+  initialProjectId?: string;
+}
+
+export const useProjectContext = (options: UseProjectContextOptions = {}) => {
   const context = useContext(ProjectContext);
-  
-  if (context === undefined) {
-    throw new Error("useProjectContext must be used within a ProjectProvider");
-  }
   
   // Set initial project ID if provided
   useEffect(() => {
-    if (options?.initialProjectId && context.activeProjectId !== options.initialProjectId) {
+    if (options.initialProjectId && context.activeProjectId !== options.initialProjectId) {
       context.setActiveProject(options.initialProjectId);
     }
-  }, [options?.initialProjectId]);
-  
-  return context;
-};
-
-// Export consumer hook for compatibility
-export const useProjectContextConsumer = () => {
-  const context = useContext(ProjectContext);
-  
-  if (context === undefined) {
-    throw new Error("useProjectContextConsumer must be used within a ProjectProvider");
-  }
+  }, [options.initialProjectId, context]);
   
   return context;
 };

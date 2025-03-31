@@ -5,8 +5,9 @@ import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { supabase } from "@/integrations/supabase/client";
-import { sendChatMessage, ChatResponse } from "@/hooks/multi-agent/api-client";
+import { sendChatMessage } from "@/hooks/multi-agent/api-client";
 import { useChatSession } from "@/contexts/ChatSessionContext";
+import { useProjectContext } from "@/hooks/multi-agent/project-context";
 
 export type { AgentType } from "@/hooks/multi-agent/runner/types";
 
@@ -19,6 +20,7 @@ interface UseMultiAgentChatOptions {
 
 export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const { updateChatSession } = useChatSession();
+  const { projectDetails, projectContent } = useProjectContext({ initialProjectId: options.projectId });
   
   const [messages, setMessages] = useState<Message[]>(
     options.initialMessages || []
@@ -33,6 +35,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [enableDirectToolExecution, setEnableDirectToolExecution] = useState<boolean>(false);
   const [tracingEnabled, setTracingEnabled] = useState<boolean>(true);
   const [handoffInProgress, setHandoffInProgress] = useState<boolean>(false);
+  const [activeProjectContext, setActiveProjectContext] = useState<string | null>(null);
   const [agentInstructions, setAgentInstructions] = useState<Record<string, string>>({
     main: "You are a helpful AI assistant focused on general tasks.",
     script: "You specialize in writing scripts and creative content.",
@@ -47,6 +50,32 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const processingRef = useRef<boolean>(false);
   const processingTimeoutRef = useRef<number | null>(null);
   const submissionIdRef = useRef<string | null>(null);
+
+  // Initialize with project context if available
+  useEffect(() => {
+    if (projectDetails && projectContent && options.projectId) {
+      // Add a system message about the project if it doesn't exist
+      const hasProjectContextMessage = messages.some(msg => 
+        msg.role === 'system' && 
+        msg.content.includes(`Project context: ${projectDetails.title || options.projectId}`)
+      );
+      
+      if (!hasProjectContextMessage) {
+        setMessages(prev => [
+          ...prev,
+          {
+            id: uuidv4(),
+            role: "system",
+            content: `Project context: ${projectDetails.title || options.projectId}\n\n${projectContent}`,
+            createdAt: new Date().toISOString(),
+            type: "context"
+          }
+        ]);
+      }
+      
+      setActiveProjectContext(options.projectId);
+    }
+  }, [projectDetails, projectContent, options.projectId, messages]);
 
   useEffect(() => {
     const fetchCredits = async () => {
@@ -121,7 +150,12 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   };
   
   const clearChat = () => {
-    setMessages([]);
+    // Preserve any system context messages about the project
+    const systemMessages = messages.filter(msg => 
+      msg.role === 'system' && (msg.type === 'context' || msg.content.includes('Project context'))
+    );
+    
+    setMessages(systemMessages);
   };
   
   const addAttachments = (newAttachments: Attachment[]) => {
@@ -168,9 +202,27 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   };
   
   const setProjectContext = (projectId: string, context?: any) => {
-    // This function allows setting project-specific context 
-    console.log(`Setting project context for project ${projectId}`, context);
-    // Implementation would depend on project requirements
+    setActiveProjectContext(projectId);
+    
+    if (projectDetails && projectContent) {
+      // Add a system message with project context if it doesn't exist
+      const hasProjectContextMessage = messages.some(msg => 
+        msg.role === 'system' && 
+        msg.content.includes(`Project context: ${projectDetails.title || projectId}`)
+      );
+      
+      if (!hasProjectContextMessage) {
+        const contextMessage: Message = {
+          id: uuidv4(),
+          role: "system",
+          content: `Project context: ${projectDetails.title || projectId}\n\n${projectContent}`,
+          createdAt: new Date().toISOString(),
+          type: "context"
+        };
+        
+        setMessages(prev => [...prev, contextMessage]);
+      }
+    }
   };
   
   // Handle a handoff between agents
@@ -301,6 +353,19 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       const groupId = options.sessionId || uuidv4();
       
       try {
+        // Add project context to the request if available
+        const contextData: Record<string, any> = {
+          projectId: options.projectId
+        };
+        
+        if (projectDetails) {
+          contextData.projectTitle = projectDetails.title;
+          contextData.projectDescription = projectDetails.description;
+          contextData.projectContent = projectContent;
+          contextData.hasFullScript = !!projectDetails.fullScript;
+          contextData.scenesCount = projectDetails.scenes ? projectDetails.scenes.length : 0;
+        }
+        
         // Call the edge function using the api-client
         const response = await sendChatMessage({
           input: messageText,
@@ -311,9 +376,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           runId,
           groupId,
           projectId: options.projectId,
-          contextData: {
-            projectId: options.projectId
-          }
+          contextData
         });
         
         // Handle the response
@@ -376,7 +439,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         processingTimeoutRef.current = null;
       }
     }
-  }, [activeAgent, isLoading, messages, options.projectId, options.sessionId, updateChatSession, usePerformanceModel]);
+  }, [activeAgent, isLoading, messages, options.projectId, options.sessionId, projectContent, projectDetails, updateChatSession, usePerformanceModel]);
 
   return {
     messages,

@@ -1,186 +1,159 @@
-import React, { createContext, useContext, useState, useCallback, useEffect } from "react";
-import { v4 as uuidv4 } from "uuid";
-import { Message } from "@/types/message";
+
+import React, { createContext, useContext, useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { Message } from '@/types/message';
+import { v4 as uuidv4 } from 'uuid';
 
 interface ChatSession {
   id: string;
   projectId: string | null;
-  title: string;
-  createdAt: string;
-  lastUpdatedAt: string;
-  lastUpdated?: string; // Added for compatibility
   messages: Message[];
+  updatedAt: string;
 }
 
 interface ChatSessionContextType {
-  sessions: ChatSession[];
+  sessions: Record<string, ChatSession>;
   activeChatId: string | null;
-  activeSession: ChatSession | null;
-  setActiveChatId: (id: string) => void;
-  getOrCreateChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  setActiveChatId: (id: string | null) => void;
   updateChatSession: (sessionId: string, messages: Message[]) => void;
-  deleteChatSession: (sessionId: string) => void;
-  renameSession: (sessionId: string, newTitle: string) => void;
-  createChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
-  chatSessions: ChatSession[]; // Alias for sessions to maintain compatibility
+  getOrCreateChatSession: (projectId: string | null, initialMessages?: Message[]) => string;
+  deleteSession: (sessionId: string) => void;
 }
 
-const defaultContext: ChatSessionContextType = {
-  sessions: [],
-  chatSessions: [], // Add chatSessions as alias
+const ChatSessionContext = createContext<ChatSessionContextType>({
+  sessions: {},
   activeChatId: null,
-  activeSession: null,
   setActiveChatId: () => {},
-  getOrCreateChatSession: () => "",
   updateChatSession: () => {},
-  deleteChatSession: () => {},
-  renameSession: () => {},
-  createChatSession: () => ""
-};
+  getOrCreateChatSession: () => "",
+  deleteSession: () => {}
+});
 
-const ChatSessionContext = createContext<ChatSessionContextType>(defaultContext);
+export const useChatSession = () => useContext(ChatSessionContext);
 
-// Session storage key
-const STORAGE_KEY = "chat_sessions";
-const ACTIVE_SESSION_KEY = "active_chat_session";
-
-export const ChatSessionProvider: React.FC<{ children: React.ReactNode }> = ({ 
-  children 
-}) => {
-  const [sessions, setSessions] = useState<ChatSession[]>([]);
+export const ChatSessionProvider: React.FC<{children: React.ReactNode}> = ({ children }) => {
+  const [sessions, setSessions] = useState<Record<string, ChatSession>>({});
   const [activeChatId, setActiveChatId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   
-  // Load sessions from storage on mount
+  // Load user ID on mount
   useEffect(() => {
+    const getUserId = async () => {
+      const { data } = await supabase.auth.getUser();
+      setUserId(data.user?.id || null);
+    };
+    
+    getUserId();
+  }, []);
+  
+  // Load sessions from localStorage on mount
+  useEffect(() => {
+    if (!userId) return;
+    
     try {
-      const savedSessions = localStorage.getItem(STORAGE_KEY);
+      const savedSessions = localStorage.getItem(`chat_sessions_${userId}`);
       if (savedSessions) {
         setSessions(JSON.parse(savedSessions));
       }
       
-      const savedActiveSession = localStorage.getItem(ACTIVE_SESSION_KEY);
-      if (savedActiveSession) {
-        setActiveChatId(savedActiveSession);
+      const lastActiveSession = localStorage.getItem(`active_chat_session_${userId}`);
+      if (lastActiveSession) {
+        setActiveChatId(lastActiveSession);
       }
-    } catch (error) {
-      console.error("Error loading chat sessions from localStorage:", error);
+    } catch (e) {
+      console.error('Error loading chat sessions from localStorage', e);
     }
-  }, []);
+  }, [userId]);
   
-  // Save sessions to storage whenever they change
+  // Save sessions to localStorage when they change
   useEffect(() => {
+    if (!userId) return;
+    
     try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(sessions));
-    } catch (error) {
-      console.error("Error saving chat sessions to localStorage:", error);
+      localStorage.setItem(`chat_sessions_${userId}`, JSON.stringify(sessions));
+    } catch (e) {
+      console.error('Error saving chat sessions to localStorage', e);
     }
-  }, [sessions]);
+  }, [sessions, userId]);
   
-  // Save active session ID whenever it changes
+  // Save active session ID to localStorage when it changes
   useEffect(() => {
+    if (!userId) return;
+    
     try {
       if (activeChatId) {
-        localStorage.setItem(ACTIVE_SESSION_KEY, activeChatId);
+        localStorage.setItem(`active_chat_session_${userId}`, activeChatId);
+      } else {
+        localStorage.removeItem(`active_chat_session_${userId}`);
       }
-    } catch (error) {
-      console.error("Error saving active chat session to localStorage:", error);
+    } catch (e) {
+      console.error('Error saving active chat session to localStorage', e);
     }
-  }, [activeChatId]);
+  }, [activeChatId, userId]);
   
-  // Get the active session object
-  const activeSession = activeChatId 
-    ? sessions.find(session => session.id === activeChatId) || null
-    : null;
-  
-  // Create a new chat session (added for compatibility)
-  const createChatSession = useCallback((projectId: string | null, initialMessages: Message[] = []): string => {
-    const newSessionId = uuidv4();
-    const now = new Date().toISOString();
-    
-    const newSession: ChatSession = {
-      id: newSessionId,
-      projectId,
-      title: projectId ? `Project ${projectId.substring(0, 8)}` : `Chat ${new Date().toLocaleString()}`,
-      createdAt: now,
-      lastUpdatedAt: now,
-      messages: initialMessages
-    };
-    
-    setSessions(prev => [...prev, newSession]);
-    setActiveChatId(newSessionId);
-    
-    return newSessionId;
-  }, []);
-  
-  // Get or create a chat session for a project
-  const getOrCreateChatSession = useCallback((projectId: string | null, initialMessages: Message[] = []): string => {
-    // First, try to find an existing session for this project
-    if (projectId) {
-      const existingSession = sessions.find(session => session.projectId === projectId);
-      if (existingSession) {
-        setActiveChatId(existingSession.id);
-        return existingSession.id;
+  const updateChatSession = (sessionId: string, messages: Message[]) => {
+    setSessions(prev => ({
+      ...prev,
+      [sessionId]: {
+        ...prev[sessionId],
+        messages,
+        updatedAt: new Date().toISOString()
       }
+    }));
+  };
+  
+  const getOrCreateChatSession = (projectId: string | null, initialMessages: Message[] = []) => {
+    // Look for an existing session for this project
+    const existingSessionId = Object.entries(sessions).find(
+      ([_, session]) => session.projectId === projectId
+    )?.[0];
+    
+    if (existingSessionId) {
+      setActiveChatId(existingSessionId);
+      return existingSessionId;
     }
     
     // Create a new session
-    return createChatSession(projectId, initialMessages);
-  }, [sessions, createChatSession]);
-  
-  // Update a chat session's messages
-  const updateChatSession = useCallback((sessionId: string, messages: Message[]) => {
-    setSessions(prev => prev.map(session => 
-      session.id === sessionId 
-        ? {
-            ...session,
-            messages,
-            lastUpdatedAt: new Date().toISOString(),
-            lastUpdated: new Date().toISOString() // Add compatibility alias
-          }
-        : session
-    ));
-  }, []);
-  
-  // Delete a chat session
-  const deleteChatSession = useCallback((sessionId: string) => {
-    setSessions(prev => prev.filter(session => session.id !== sessionId));
+    const newSessionId = uuidv4();
     
-    // If we're deleting the active session, set active to null
+    setSessions(prev => ({
+      ...prev,
+      [newSessionId]: {
+        id: newSessionId,
+        projectId,
+        messages: initialMessages,
+        updatedAt: new Date().toISOString()
+      }
+    }));
+    
+    setActiveChatId(newSessionId);
+    return newSessionId;
+  };
+  
+  const deleteSession = (sessionId: string) => {
+    setSessions(prev => {
+      const newSessions = { ...prev };
+      delete newSessions[sessionId];
+      return newSessions;
+    });
+    
     if (activeChatId === sessionId) {
       setActiveChatId(null);
     }
-  }, [activeChatId]);
-  
-  // Rename a session
-  const renameSession = useCallback((sessionId: string, newTitle: string) => {
-    setSessions(prev => prev.map(session => 
-      session.id === sessionId 
-        ? {
-            ...session,
-            title: newTitle
-          }
-        : session
-    ));
-  }, []);
-  
-  const contextValue: ChatSessionContextType = {
-    sessions,
-    chatSessions: sessions, // Add chatSessions as alias
-    activeChatId,
-    activeSession,
-    setActiveChatId,
-    getOrCreateChatSession,
-    updateChatSession,
-    deleteChatSession,
-    renameSession,
-    createChatSession
   };
   
   return (
-    <ChatSessionContext.Provider value={contextValue}>
+    <ChatSessionContext.Provider
+      value={{
+        sessions,
+        activeChatId,
+        setActiveChatId,
+        updateChatSession,
+        getOrCreateChatSession,
+        deleteSession
+      }}
+    >
       {children}
     </ChatSessionContext.Provider>
   );
 };
-
-export const useChatSession = () => useContext(ChatSessionContext);

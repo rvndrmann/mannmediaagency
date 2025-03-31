@@ -1,5 +1,5 @@
 
-import { EventEmitter } from 'events';
+import { BrowserEventEmitter } from '@/utils/browser-event-emitter';
 
 export class MCPClient {
   id: string;
@@ -12,14 +12,14 @@ export class MCPClient {
   maxReconnectAttempts: number = 5;
   reconnectInterval: number = 5000;
   heartbeatTimer: number | null = null;
-  eventEmitter: EventEmitter;
+  eventEmitter: BrowserEventEmitter;
 
   constructor(id: string, url: string, projectId: string, updateInterval: number = 30000) {
     this.id = id;
     this.url = url;
     this.projectId = projectId;
     this.updateInterval = updateInterval;
-    this.eventEmitter = new EventEmitter();
+    this.eventEmitter = new BrowserEventEmitter();
   }
 
   // Connect to the MCP server
@@ -198,6 +198,9 @@ export class MCPClient {
     }
     
     this.connected = false;
+    
+    // Clean up event listeners
+    this.eventEmitter.removeAllListeners();
   }
 
   // Subscribe to events

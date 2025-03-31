@@ -164,7 +164,12 @@ export const canvasTool = {
           // If the content looks like a script, save it as the full script too
           if (success && content && isScriptContent(content)) {
             try {
-              await canvasService.updateProject(projectId, { full_script: content });
+              // Since this is just a custom function and not part of our core functionality,
+              // we'll use Supabase directly for this update
+              await supabase
+                .from('canvas_projects')
+                .update({ full_script: content })
+                .eq('id', projectId);
               
               return {
                 success: true,

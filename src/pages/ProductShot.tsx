@@ -1,44 +1,54 @@
 
-import React, { useCallback } from "react";
-import { ProductShotGenerator } from "@/components/product-shoot/ProductShotGenerator";
-import { useProductShoot } from "@/hooks/use-product-shoot";
+import React, { useState } from 'react';
+import { Layout } from '@/components/Layout';
+import { useProductShoot } from '@/hooks/use-product-shoot';
+import { InputPanel } from '@/components/product-shoot/InputPanel';
+import { GalleryPanel } from '@/components/product-shoot/GalleryPanel';
+import { MobilePanelToggle } from '@/components/product-shoot/MobilePanelToggle';
 
 const ProductShot: React.FC = () => {
-  const {
-    settings,
-    setSettings,
-    isGenerating,
-    generateImage,
-    generatedImages,
-    savedImages,
-    defaultImages,
-    saveImage,
-    setAsDefault
-  } = useProductShoot();
-
-  const handleSaveImage = useCallback((id: string) => {
-    saveImage(id);
-  }, [saveImage]);
-
-  const handleSetAsDefault = useCallback((id: string) => {
-    setAsDefault(id);
-  }, [setAsDefault]);
-
+  const [activePanel, setActivePanel] = useState<'input' | 'gallery'>('input');
+  
+  const productShoot = useProductShoot();
+  
   return (
-    <div className="container mx-auto px-4 py-6">
-      <h1 className="text-3xl font-bold mb-6">Product Shot Generator</h1>
-      <ProductShotGenerator
-        settings={settings}
-        setSettings={setSettings}
-        isGenerating={isGenerating}
-        onGenerate={generateImage}
-        generatedImages={generatedImages}
-        savedImages={savedImages}
-        defaultImages={defaultImages}
-        onSaveImage={handleSaveImage}
-        onSetAsDefault={handleSetAsDefault}
-      />
-    </div>
+    <Layout>
+      <div className="flex flex-col md:flex-row h-[calc(100vh-4rem)] overflow-hidden">
+        <div className="md:hidden">
+          <MobilePanelToggle activePanel={activePanel} setActivePanel={setActivePanel} />
+        </div>
+        
+        <div className={`flex-1 md:w-1/2 md:block ${activePanel === 'input' ? 'block' : 'hidden'}`}>
+          <InputPanel 
+            prompt={productShoot.settings.prompt}
+            onPromptChange={(prompt) => productShoot.setSettings({...productShoot.settings, prompt})}
+            outputFormat={productShoot.settings.outputFormat}
+            onOutputFormatChange={(format) => productShoot.setSettings({...productShoot.settings, outputFormat: format})}
+            imageWidth={productShoot.settings.imageWidth}
+            imageHeight={productShoot.settings.imageHeight}
+            onDimensionsChange={(width, height) => productShoot.setSettings({...productShoot.settings, imageWidth: width, imageHeight: height})}
+            quality={productShoot.settings.quality}
+            onQualityChange={(quality) => productShoot.setSettings({...productShoot.settings, quality})}
+            seed={productShoot.settings.seed}
+            onSeedChange={(seed) => productShoot.setSettings({...productShoot.settings, seed})}
+            scale={productShoot.settings.scale}
+            onScaleChange={(scale) => productShoot.setSettings({...productShoot.settings, scale})}
+            isGenerating={productShoot.isGenerating}
+            onGenerate={() => productShoot.generateImage()}
+          />
+        </div>
+        
+        <div className={`flex-1 md:w-1/2 md:block ${activePanel === 'gallery' ? 'block' : 'hidden'}`}>
+          <GalleryPanel 
+            generatedImages={productShoot.generatedImages}
+            savedImages={productShoot.savedImages}
+            defaultImages={productShoot.defaultImages}
+            onSaveImage={productShoot.saveImage}
+            onSetAsDefault={productShoot.setAsDefault}
+          />
+        </div>
+      </div>
+    </Layout>
   );
 };
 

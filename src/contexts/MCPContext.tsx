@@ -1,10 +1,11 @@
 
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { MCPContext, MCPServer, CONNECTION_CONFIG, MCPProviderProps } from '@/types/mcp';
+import { MCPService } from '@/services/mcp/MCPService';
 
 const defaultMCPContext: MCPContext = {
   mcpServers: [],
-  useMcp: false,
+  useMcp: true, // Default to true to auto-connect
   setUseMcp: () => {},
   isConnecting: false,
   hasConnectionError: false,
@@ -24,7 +25,7 @@ export const useMCPContext = () => useContext(MCPContextInstance);
 
 export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId }) => {
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
-  const [useMcp, setUseMcp] = useState(false);
+  const [useMcp, setUseMcp] = useState(true); // Default to enabled
   const [isConnecting, setIsConnecting] = useState(false);
   const [hasConnectionError, setHasConnectionError] = useState(false);
   const [lastReconnectAttempt, setLastReconnectAttempt] = useState(0);
@@ -34,32 +35,67 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     failureCount: 0,
     averageConnectTime: 0,
   });
-
-  const reconnectToMcp = useCallback(async (): Promise<boolean> => {
-    const now = Date.now();
-    if (now - lastReconnectAttempt < CONNECTION_CONFIG.minReconnectInterval) {
-      console.log("Reconnect attempt too soon, skipping");
-      return false;
+  
+  // Initialize connection when projectId changes or useMcp is toggled
+  useEffect(() => {
+    if (projectId && useMcp && !isConnecting) {
+      connectToMcp();
     }
+    
+    // Cleanup connections when component unmounts or projectId changes
+    return () => {
+      MCPService.closeConnections();
+    };
+  }, [projectId, useMcp]);
+  
+  // Check connection status periodically
+  useEffect(() => {
+    if (!useMcp) return;
+    
+    const checkConnectionStatus = () => {
+      const isConnected = MCPService.isAnyClientConnected();
+      if (isConnected && connectionStatus !== 'connected') {
+        setConnectionStatus('connected');
+        setHasConnectionError(false);
+      } else if (!isConnected && connectionStatus === 'connected') {
+        setConnectionStatus('disconnected');
+        // Try to reconnect automatically if we were previously connected
+        reconnectToMcp();
+      }
+    };
+    
+    // Check immediately and then set up interval
+    checkConnectionStatus();
+    const interval = setInterval(checkConnectionStatus, 10000);
+    
+    return () => clearInterval(interval);
+  }, [useMcp, connectionStatus]);
 
-    setLastReconnectAttempt(now);
+  const connectToMcp = async () => {
+    if (!projectId) return false;
+    
     setIsConnecting(true);
     setConnectionStatus('connecting');
-
+    
+    const startTime = Date.now();
+    
     try {
-      // Placeholder for actual reconnection logic
-      // This would be implemented with your actual MCP reconnection code
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      const success = await MCPService.initConnections(projectId);
       
-      setConnectionStatus('connected');
-      setHasConnectionError(false);
-      setConnectionMetrics(prev => ({
-        ...prev,
-        successCount: prev.successCount + 1,
-      }));
-      return true;
+      if (success) {
+        setConnectionStatus('connected');
+        setHasConnectionError(false);
+        setConnectionMetrics(prev => ({
+          ...prev,
+          successCount: prev.successCount + 1,
+          averageConnectTime: (prev.averageConnectTime * prev.successCount + (Date.now() - startTime)) / (prev.successCount + 1)
+        }));
+        return true;
+      } else {
+        throw new Error("Failed to initialize MCP connections");
+      }
     } catch (error) {
-      console.error("Failed to reconnect to MCP:", error);
+      console.error("Failed to connect to MCP:", error);
       setHasConnectionError(true);
       setConnectionStatus('error');
       setConnectionMetrics(prev => ({
@@ -70,17 +106,18 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     } finally {
       setIsConnecting(false);
     }
-  }, [lastReconnectAttempt]);
+  };
 
-  // Auto reconnect on useMcp change
-  useEffect(() => {
-    if (useMcp) {
-      reconnectToMcp();
-    } else {
-      // Disconnect logic would go here
-      setConnectionStatus('disconnected');
+  const reconnectToMcp = useCallback(async (): Promise<boolean> => {
+    const now = Date.now();
+    if (now - lastReconnectAttempt < CONNECTION_CONFIG.minReconnectInterval) {
+      console.log("Reconnect attempt too soon, skipping");
+      return false;
     }
-  }, [useMcp, reconnectToMcp]);
+
+    setLastReconnectAttempt(now);
+    return connectToMcp();
+  }, [lastReconnectAttempt, projectId]);
 
   return (
     <MCPContextInstance.Provider

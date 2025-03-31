@@ -1,5 +1,5 @@
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { CanvasWorkspace } from "@/components/canvas/CanvasWorkspace";
 import { CanvasHeader } from "@/components/canvas/CanvasHeader";
@@ -16,6 +16,8 @@ import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { useChatSession } from "@/contexts/ChatSessionContext";
 import { MCPProvider } from "@/contexts/MCPContext";
 import { CanvasErrorBoundary } from "@/components/canvas/CanvasErrorBoundary";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { AlertCircle } from "lucide-react";
 
 export default function Canvas() {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -26,6 +28,7 @@ export default function Canvas() {
   const [showChat, setShowChat] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
   const [shouldCreateProject, setShouldCreateProject] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
   
   const { 
     fetchAvailableProjects, 
@@ -36,33 +39,59 @@ export default function Canvas() {
   
   const { getOrCreateChatSession } = useChatSession();
   
+  // Check authentication status
   useEffect(() => {
     const checkAuth = async () => {
-      const { data } = await supabase.auth.getSession();
-      setIsAuthenticated(!!data.session);
-      
-      if (!data.session) {
-        toast.error("Please log in to access the Canvas");
-        navigate("/auth");
+      try {
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          throw error;
+        }
+        
+        setIsAuthenticated(!!data.session);
+        
+        if (!data.session) {
+          setAuthError("Please log in to access the Canvas");
+          toast.error("Please log in to access the Canvas");
+        }
+      } catch (err) {
+        console.error("Auth check error:", err);
+        setAuthError("Authentication error. Please try refreshing the page.");
+        setIsAuthenticated(false);
       }
     };
     
     checkAuth();
   }, [navigate]);
   
+  // Fetch projects when authenticated
   useEffect(() => {
     if (isAuthenticated) {
-      fetchAvailableProjects();
+      try {
+        fetchAvailableProjects();
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+        toast.error("Failed to load your projects");
+      }
     }
   }, [isAuthenticated, fetchAvailableProjects]);
   
+  // Set active project when projectId changes
   useEffect(() => {
     if (projectId) {
       setActiveProject(projectId);
-      getOrCreateChatSession(projectId);
+      
+      // Create or get chat session for this project
+      try {
+        getOrCreateChatSession(projectId);
+      } catch (error) {
+        console.error("Error setting up chat session:", error);
+      }
     }
   }, [projectId, setActiveProject, getOrCreateChatSession]);
   
+  // Handle project selection logic
   useEffect(() => {
     if (
       !projectId && 
@@ -70,6 +99,7 @@ export default function Canvas() {
       hasLoadedProjects && 
       availableProjects.length > 0
     ) {
+      // Navigate to first project if no project is selected
       navigate(`/canvas?projectId=${availableProjects[0].id}`);
     } else if (
       !projectId && 
@@ -83,8 +113,8 @@ export default function Canvas() {
 
   const {
     project,
-    loading,
-    error,
+    loading: canvasLoading,
+    error: canvasError,
     selectedScene,
     selectedSceneId,
     setSelectedSceneId,
@@ -97,7 +127,7 @@ export default function Canvas() {
     updateProjectTitle
   } = useCanvas(projectId || undefined);
 
-  const handleCreateNewProject = async (title: string, description?: string) => {
+  const handleCreateNewProject = useCallback(async (title: string, description?: string) => {
     try {
       const newProjectId = await createProject(title, description);
       if (newProjectId) {
@@ -110,21 +140,22 @@ export default function Canvas() {
       toast.error("Failed to create new project");
       return "";
     }
-  };
+  }, [createProject, navigate]);
 
-  const toggleChat = () => {
+  const toggleChat = useCallback(() => {
     setShowChat(!showChat);
-  };
+  }, [showChat]);
   
-  const toggleHistory = () => {
+  const toggleHistory = useCallback(() => {
     setShowHistory(!showHistory);
-  };
+  }, [showHistory]);
   
-  const handleNavigateToChat = () => {
+  const handleNavigateToChat = useCallback(() => {
     navigate(`/multi-agent-chat?projectId=${projectId}`);
-  };
+  }, [navigate, projectId]);
 
-  if (loading || isAuthenticated === null) {
+  // Show loading state
+  if (canvasLoading || isAuthenticated === null) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Loader2 className="w-8 h-8 animate-spin text-primary" />
@@ -133,10 +164,40 @@ export default function Canvas() {
     );
   }
 
-  if (error) {
+  // Show authentication error
+  if (authError) {
     return (
       <div className="flex flex-col items-center justify-center min-h-screen">
-        <p className="text-xl text-red-500 mb-4">{error}</p>
+        <Alert variant="destructive" className="max-w-md mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertTitle>Authentication Error</AlertTitle>
+          <AlertDescription>{authError}</AlertDescription>
+        </Alert>
+        <Button 
+          onClick={() => navigate("/auth/login")}
+          className="mr-2"
+        >
+          Log In
+        </Button>
+        <Button 
+          variant="outline"
+          onClick={() => navigate("/")}
+        >
+          Return to Home
+        </Button>
+      </div>
+    );
+  }
+
+  // Show canvas error
+  if (canvasError) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <Alert variant="destructive" className="max-w-md mb-4">
+          <AlertCircle className="h-4 w-4 mr-2" />
+          <AlertTitle>Canvas Error</AlertTitle>
+          <AlertDescription>{canvasError}</AlertDescription>
+        </Alert>
         <Button 
           onClick={() => navigate("/")}
         >
@@ -146,6 +207,7 @@ export default function Canvas() {
     );
   }
 
+  // Show empty state or project history
   if (shouldCreateProject && !project && isAuthenticated) {
     return <CanvasEmptyState onCreateProject={handleCreateNewProject} />;
   }
@@ -170,6 +232,7 @@ export default function Canvas() {
     );
   }
 
+  // Main canvas view
   return (
     <TooltipProvider>
       <MCPProvider projectId={projectId || undefined}>

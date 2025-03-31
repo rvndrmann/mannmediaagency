@@ -1,262 +1,238 @@
 
-import { useState, useCallback } from "react";
-import { useMCPContext } from "@/contexts/MCPContext";
-import { toast } from "sonner";
-import { SceneUpdateType } from "@/types/canvas";
-import { Message } from "@/types/message";
-import { v4 as uuidv4 } from "uuid";
+import { useState, useEffect, useCallback } from 'react';
+import { v4 as uuidv4 } from 'uuid';
+import { useMCPContext } from '@/contexts/MCPContext';
+import { toast } from 'sonner';
+import { SceneUpdateType } from '@/types/canvas';
 
-interface UseCanvasMcpProps {
+interface UseCanvasMcpOptions {
   projectId?: string;
   sceneId?: string;
   updateScene?: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
+}
+
+interface MessageMetadata {
+  type?: string;
+  sceneId?: string;
+  generated?: {
+    type: string;
+    content: string;
+  };
+}
+
+export interface CanvasMcpMessage {
+  id: string;
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+  createdAt: string;
+  metadata?: MessageMetadata;
+  agentType?: string;
 }
 
 export const useCanvasMcp = ({
   projectId,
   sceneId,
   updateScene
-}: UseCanvasMcpProps) => {
-  const [messages, setMessages] = useState<Message[]>([]);
+}: UseCanvasMcpOptions) => {
+  const [messages, setMessages] = useState<CanvasMcpMessage[]>([]);
+  const [activeAgent, setActiveAgent] = useState<string | null>('main');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<string | null>(null);
-  const [isMcpEnabled, setIsMcpEnabled] = useState(true);
+  
+  // Specific generation states
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingImagePrompt, setIsGeneratingImagePrompt] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
   
-  const { useMcp, mcpServers, isConnecting } = useMCPContext();
+  const { 
+    useMcp,
+    setUseMcp,
+    isConnecting,
+    hasConnectionError,
+    reconnectToMcp,
+    connectionStatus
+  } = useMCPContext();
   
-  const isMcpConnected = mcpServers.length > 0 && !isConnecting;
+  const isMcpConnected = connectionStatus === 'connected';
   
+  // Initialize with a system message
+  useEffect(() => {
+    if (projectId && messages.length === 0) {
+      const welcomeMessage: CanvasMcpMessage = {
+        id: uuidv4(),
+        role: 'system',
+        content: `Welcome to Canvas AI Assistant. I can help you create content for your video project.`,
+        createdAt: new Date().toISOString()
+      };
+      
+      setMessages([welcomeMessage]);
+    }
+  }, [projectId, messages.length]);
+  
+  // Toggle MCP connection
   const toggleMcp = useCallback(() => {
-    setIsMcpEnabled(!isMcpEnabled);
-  }, [isMcpEnabled]);
+    setUseMcp(!useMcp);
+  }, [useMcp, setUseMcp]);
   
+  // Add user message
   const addUserMessage = useCallback((content: string) => {
-    const newMessage: Message = {
+    const message: CanvasMcpMessage = {
       id: uuidv4(),
-      role: "user",
+      role: 'user',
       content,
       createdAt: new Date().toISOString()
     };
     
-    setMessages(prev => [...prev, newMessage]);
-    return newMessage;
+    setMessages(prev => [...prev, message]);
+    return message;
   }, []);
   
-  const addAssistantMessage = useCallback((content: string, metadataInfo?: any) => {
-    const newMessage: Message = {
+  // Add assistant message
+  const addAssistantMessage = useCallback((content: string, metadataInfo?: MessageMetadata) => {
+    const message: CanvasMcpMessage = {
       id: uuidv4(),
-      role: "assistant",
+      role: 'assistant',
       content,
       createdAt: new Date().toISOString(),
-      // Only add metadata if it exists and convert it to the right format
-      ...(metadataInfo ? { metadata: metadataInfo } : {})
+      metadata: metadataInfo,
+      agentType: activeAgent || 'main'
     };
     
-    setMessages(prev => [...prev, newMessage]);
-    return newMessage;
-  }, []);
-  
-  const generateSceneDescription = async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!useMcp || !mcpServers.length) {
-      toast.error("MCP is not enabled or connected");
+    setMessages(prev => [...prev, message]);
+    return message;
+  }, [activeAgent]);
+
+  // Generic function to handle MCP tool execution
+  const executeMcpTool = useCallback(async (
+    toolId: string, 
+    params: any, 
+    setLoadingState: (state: boolean) => void,
+    successMessage: string,
+    errorMessage: string
+  ) => {
+    if (!projectId) {
+      toast.error("No project selected");
       return false;
     }
-
+    
+    if (isProcessing) {
+      toast.error("Another operation is in progress. Please wait.");
+      return false;
+    }
+    
+    setIsProcessing(true);
+    setLoadingState(true);
+    
     try {
-      setIsProcessing(true);
-      setIsGeneratingDescription(true);
-      setActiveAgent("scene-description-generator");
-      
-      addUserMessage(`Generate a description for scene ${sceneId}`);
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const description = "This scene takes place in a modern office setting with large windows " +
-        "overlooking a city skyline. The lighting is bright and natural, creating a positive atmosphere. " +
-        "The camera starts with a wide shot showing the entire space before slowly tracking in towards " +
-        "the main subject who is working at their desk.";
-      
-      if (updateScene) {
-        await updateScene(sceneId, 'description', description);
+      if (!isMcpConnected) {
+        const reconnected = await reconnectToMcp();
+        if (!reconnected) {
+          throw new Error("Failed to connect to MCP server");
+        }
       }
       
-      addAssistantMessage("I've generated a detailed scene description that includes lighting, camera movement, and setting details.");
+      // Call the MCP tool
+      // This is a mock implementation - replace with actual MCP client call
+      console.log(`Executing MCP tool: ${toolId} with params:`, params);
       
-      return true;
-    } catch (error) {
-      console.error("Error generating scene description:", error);
-      addAssistantMessage("I couldn't generate the scene description. Please try again.");
-      return false;
-    } finally {
-      setIsProcessing(false);
-      setIsGeneratingDescription(false);
-      setActiveAgent(null);
-    }
-  };
-  
-  const generateImagePrompt = async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!useMcp || !mcpServers.length) {
-      toast.error("MCP is not enabled or connected");
-      return false;
-    }
-
-    try {
-      setIsProcessing(true);
-      setIsGeneratingImagePrompt(true);
-      setActiveAgent("image-prompt-generator");
-      
-      addUserMessage(`Generate an image prompt for scene ${sceneId}`);
-      
-      await new Promise(resolve => setTimeout(resolve, 1500));
-      
-      const imagePrompt = "Modern office interior, bright natural lighting, wide angle, " +
-        "large windows with city skyline view, minimalist design, soft shadows, 8k, detailed, " +
-        "photorealistic, cinematic composition, shallow depth of field";
-      
-      if (updateScene) {
-        await updateScene(sceneId, 'imagePrompt', imagePrompt);
-      }
-      
-      addAssistantMessage("I've created an optimized image prompt with style details and quality parameters.");
-      
-      return true;
-    } catch (error) {
-      console.error("Error generating image prompt:", error);
-      addAssistantMessage("I couldn't generate the image prompt. Please try again.");
-      return false;
-    } finally {
-      setIsProcessing(false);
-      setIsGeneratingImagePrompt(false);
-      setActiveAgent(null);
-    }
-  };
-  
-  const generateSceneImage = async (sceneId: string, imagePrompt?: string): Promise<boolean> => {
-    if (!useMcp || !mcpServers.length) {
-      toast.error("MCP is not enabled or connected");
-      return false;
-    }
-
-    try {
-      setIsProcessing(true);
-      setIsGeneratingImage(true);
-      setActiveAgent("scene-image-generator");
-      
-      addUserMessage(`Generate an image for scene ${sceneId}`);
-      
-      await new Promise(resolve => setTimeout(resolve, 2500));
-      
-      const imageUrl = "https://placehold.co/1024x576/667788/ffffff?text=Generated+Scene+Image";
-      
-      if (updateScene) {
-        await updateScene(sceneId, 'imageUrl', imageUrl);
-      }
-      
-      addAssistantMessage("I've generated an image for your scene based on the prompt.", {
-        imageUrl
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error generating scene image:", error);
-      addAssistantMessage("I couldn't generate the scene image. Please try again.");
-      return false;
-    } finally {
-      setIsProcessing(false);
-      setIsGeneratingImage(false);
-      setActiveAgent(null);
-    }
-  };
-  
-  const generateSceneVideo = async (sceneId: string, description?: string): Promise<boolean> => {
-    if (!useMcp || !mcpServers.length) {
-      toast.error("MCP is not enabled or connected");
-      return false;
-    }
-
-    try {
-      setIsProcessing(true);
-      setIsGeneratingVideo(true);
-      setActiveAgent("scene-video-generator");
-      
-      addUserMessage(`Generate a video for scene ${sceneId}`);
-      
-      await new Promise(resolve => setTimeout(resolve, 3500));
-      
-      const videoUrl = "https://placehold.co/1024x576/445566/ffffff?text=Generated+Scene+Video";
-      
-      if (updateScene) {
-        await updateScene(sceneId, 'videoUrl', videoUrl);
-      }
-      
-      addAssistantMessage("I've generated a video for your scene based on the description and image.", {
-        videoUrl
-      });
-      
-      return true;
-    } catch (error) {
-      console.error("Error generating scene video:", error);
-      addAssistantMessage("I couldn't generate the scene video. Please try again.");
-      return false;
-    } finally {
-      setIsProcessing(false);
-      setIsGeneratingVideo(false);
-      setActiveAgent(null);
-    }
-  };
-  
-  const generateSceneScript = async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!useMcp || !mcpServers.length) {
-      toast.error("MCP is not enabled or connected");
-      return false;
-    }
-
-    try {
-      setIsProcessing(true);
-      setIsGeneratingScript(true);
-      setActiveAgent("scene-script-generator");
-      
-      addUserMessage(`Generate a script for scene ${sceneId}`);
-      
+      // Simulate success after 2 seconds for testing
       await new Promise(resolve => setTimeout(resolve, 2000));
       
-      const script = "INT. MODERN OFFICE - DAY\n\n" +
-        "CAMERA starts wide, revealing a sleek, minimalist office space. Large windows showcase a stunning city skyline.\n\n" +
-        "TRACK IN slowly toward ALEX (30s), focused intensely on their computer screen.\n\n" +
-        "ALEX\n(to self)\nJust one more line of code...\n\n" +
-        "Alex types rapidly, then sits back with satisfaction.\n\n" +
-        "ALEX\nThere. Perfect.";
+      // Simulate a response
+      const result = {
+        success: true,
+        data: { content: `Generated content for ${toolId}` }
+      };
       
-      if (updateScene) {
-        await updateScene(sceneId, 'script', script);
+      if (result.success) {
+        toast.success(successMessage);
+        return true;
+      } else {
+        throw new Error(result.data?.content || "Tool execution failed");
       }
-      
-      addAssistantMessage("I've written a script for your scene with camera directions, dialogue, and action descriptions.");
-      
-      return true;
     } catch (error) {
-      console.error("Error generating scene script:", error);
-      addAssistantMessage("I couldn't generate the scene script. Please try again.");
+      console.error(`Error executing ${toolId}:`, error);
+      toast.error(errorMessage);
       return false;
     } finally {
       setIsProcessing(false);
-      setIsGeneratingScript(false);
-      setActiveAgent(null);
+      setLoadingState(false);
     }
-  };
+  }, [projectId, isProcessing, isMcpConnected, reconnectToMcp]);
+  
+  // Generate scene description
+  const generateSceneDescription = useCallback(async (sceneId: string, context?: string) => {
+    if (!updateScene) return false;
+    
+    return executeMcpTool(
+      'generate_scene_description',
+      { projectId, sceneId, context },
+      setIsGeneratingDescription,
+      "Scene description generated",
+      "Failed to generate scene description"
+    );
+  }, [projectId, executeMcpTool, updateScene]);
+  
+  // Generate image prompt
+  const generateImagePrompt = useCallback(async (sceneId: string, context?: string) => {
+    if (!updateScene) return false;
+    
+    return executeMcpTool(
+      'generate_image_prompt',
+      { projectId, sceneId, context },
+      setIsGeneratingImagePrompt,
+      "Image prompt generated",
+      "Failed to generate image prompt"
+    );
+  }, [projectId, executeMcpTool, updateScene]);
+  
+  // Generate scene image
+  const generateSceneImage = useCallback(async (sceneId: string, imagePrompt?: string) => {
+    if (!updateScene) return false;
+    
+    return executeMcpTool(
+      'generate_scene_image',
+      { projectId, sceneId, imagePrompt },
+      setIsGeneratingImage,
+      "Scene image generated",
+      "Failed to generate scene image"
+    );
+  }, [projectId, executeMcpTool, updateScene]);
+  
+  // Generate scene video
+  const generateSceneVideo = useCallback(async (sceneId: string, description?: string) => {
+    if (!updateScene) return false;
+    
+    return executeMcpTool(
+      'generate_scene_video',
+      { projectId, sceneId, description },
+      setIsGeneratingVideo,
+      "Scene video generated",
+      "Failed to generate scene video"
+    );
+  }, [projectId, executeMcpTool, updateScene]);
+  
+  // Generate scene script
+  const generateSceneScript = useCallback(async (sceneId: string, context?: string) => {
+    if (!updateScene) return false;
+    
+    return executeMcpTool(
+      'generate_scene_script',
+      { projectId, sceneId, context },
+      setIsGeneratingScript,
+      "Scene script generated",
+      "Failed to generate scene script"
+    );
+  }, [projectId, executeMcpTool, updateScene]);
   
   return {
     messages,
     addUserMessage,
     addAssistantMessage,
-    isProcessing,
     activeAgent,
-    isMcpEnabled,
+    isProcessing,
+    isMcpEnabled: useMcp,
     isMcpConnected,
     isGeneratingDescription,
     isGeneratingImagePrompt,
@@ -271,6 +247,3 @@ export const useCanvasMcp = ({
     generateSceneScript
   };
 };
-
-// Export with a different name for backward compatibility
-export { useCanvasMcp as useCanvasAgent };

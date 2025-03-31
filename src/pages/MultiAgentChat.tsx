@@ -6,26 +6,48 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Bot, Send, User } from "lucide-react";
+import { Bot, Send, User, Zap, Trash2, Hammer, BarChartBig } from "lucide-react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { v4 as uuidv4 } from "uuid";
-import { sendChatMessage } from "@/hooks/multi-agent/api-client";
+import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { toast } from "sonner";
 import { Message } from "@/types/message";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
+import { 
+  Tooltip, 
+  TooltipContent, 
+  TooltipProvider, 
+  TooltipTrigger 
+} from "@/components/ui/tooltip";
 
 const MultiAgentChat = () => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: "1",
-      role: "system",
-      content: "Welcome to Multi-Agent Chat. How can I help you today?",
-      createdAt: new Date().toISOString()
-    }
-  ]);
-  const [inputMessage, setInputMessage] = useState("");
-  const [isLoading, setIsLoading] = useState(false);
-  const [activeAgent, setActiveAgent] = useState<AgentType>("main");
+  const {
+    messages,
+    input,
+    setInput,
+    isLoading,
+    activeAgent,
+    userCredits,
+    pendingAttachments,
+    usePerformanceModel,
+    enableDirectToolExecution,
+    tracingEnabled,
+    handleSubmit,
+    switchAgent,
+    clearChat,
+    togglePerformanceMode,
+    toggleDirectToolExecution,
+    toggleTracing
+  } = useMultiAgentChat({
+    initialMessages: [
+      {
+        id: "1",
+        role: "system",
+        content: "Welcome to Multi-Agent Chat. How can I help you today?",
+        createdAt: new Date().toISOString()
+      }
+    ]
+  });
   
   const { connectionStatus, reconnectToMcp } = useMCPContext();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
@@ -50,83 +72,10 @@ const MultiAgentChat = () => {
     }
   }, [connectionStatus, reconnectToMcp]);
 
-  const handleSendMessage = async () => {
-    if (inputMessage.trim() === "") return;
-    
-    // Add user message
-    const userMessage: Message = {
-      id: uuidv4(),
-      role: "user",
-      content: inputMessage,
-      createdAt: new Date().toISOString()
-    };
-    
-    setMessages(prev => [...prev, userMessage]);
-    setInputMessage("");
-    setIsLoading(true);
-    
-    try {
-      // Call the edge function
-      const response = await sendChatMessage({
-        input: inputMessage,
-        agentType: activeAgent,
-        conversationHistory: [...messages, userMessage],
-        usePerformanceModel: false,
-        runId: uuidv4(),
-        groupId: uuidv4()
-      });
-      
-      // Create assistant message from response
-      const assistantMessage: Message = {
-        id: uuidv4(),
-        role: "assistant",
-        content: response.content,
-        createdAt: new Date().toISOString(),
-        agentType: response.agentType as AgentType
-      };
-      
-      setMessages(prev => [...prev, assistantMessage]);
-      
-      // Check if there's a handoff request
-      if (response.handoffRequest) {
-        const targetAgent = response.handoffRequest.targetAgent as AgentType;
-        setActiveAgent(targetAgent);
-        
-        // Add a system message about the handoff
-        const handoffMessage: Message = {
-          id: uuidv4(),
-          role: "system",
-          content: `Conversation transferred to ${getAgentName(targetAgent)}. Reason: ${response.handoffRequest.reason}`,
-          createdAt: new Date().toISOString(),
-          type: "handoff"
-        };
-        
-        setMessages(prev => [...prev, handoffMessage]);
-        toast.info(`Switched to ${getAgentName(targetAgent)}`);
-      }
-    } catch (error) {
-      console.error("Error sending message:", error);
-      
-      // Add error message
-      const errorMessage: Message = {
-        id: uuidv4(),
-        role: "system",
-        content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
-        createdAt: new Date().toISOString(),
-        type: "error"
-      };
-      
-      setMessages(prev => [...prev, errorMessage]);
-      toast.error("Failed to get a response");
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
-      handleSendMessage();
+      handleSubmit();
     }
   };
   
@@ -137,6 +86,7 @@ const MultiAgentChat = () => {
       case "image": return "Image Generator";
       case "tool": return "Tool Specialist";
       case "scene": return "Scene Creator";
+      case "data": return "Data Agent";
       default: return "Assistant";
     }
   };
@@ -174,6 +124,99 @@ const MultiAgentChat = () => {
             </div>
           </CardContent>
         </Card>
+        
+        <div className="flex flex-wrap gap-2 mb-4">
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={usePerformanceModel ? "outline" : "default"} 
+                  size="sm"
+                  onClick={togglePerformanceMode}
+                  className={`flex items-center gap-1 ${
+                    usePerformanceModel 
+                      ? "border-yellow-600 bg-yellow-800/20 text-yellow-500 hover:bg-yellow-800/30" 
+                      : "bg-gradient-to-r from-blue-600 to-indigo-600"
+                  }`}
+                >
+                  <Zap className="h-4 w-4" />
+                  {usePerformanceModel ? "Performance Mode" : "High Quality Mode"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{usePerformanceModel ? "Faster responses with GPT-4o-mini" : "Higher quality responses with GPT-4o"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={enableDirectToolExecution ? "default" : "outline"} 
+                  size="sm"
+                  onClick={toggleDirectToolExecution}
+                  className={`flex items-center gap-1 ${
+                    enableDirectToolExecution 
+                      ? "bg-gradient-to-r from-green-600 to-teal-600" 
+                      : "border-teal-600 bg-teal-800/20 text-teal-500 hover:bg-teal-800/30"
+                  }`}
+                >
+                  <Hammer className="h-4 w-4" />
+                  {enableDirectToolExecution ? "Direct Tools" : "Tool Agent"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{enableDirectToolExecution ? "Any agent can use tools directly" : "Tools require handoff to tool agent"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant={tracingEnabled ? "default" : "outline"} 
+                  size="sm"
+                  onClick={toggleTracing}
+                  className={`flex items-center gap-1 ${
+                    tracingEnabled 
+                      ? "bg-gradient-to-r from-purple-600 to-pink-600" 
+                      : "border-purple-600 bg-purple-800/20 text-purple-500 hover:bg-purple-800/30"
+                  }`}
+                >
+                  <BarChartBig className="h-4 w-4" />
+                  {tracingEnabled ? "Tracing On" : "Tracing Off"}
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">{tracingEnabled ? "Detailed interaction tracing is enabled" : "Interaction tracing is disabled"}</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  onClick={() => {
+                    clearChat();
+                    toast.success("Chat history cleared");
+                  }}
+                  className="bg-red-900/50 hover:bg-red-800"
+                >
+                  <Trash2 className="h-4 w-4 mr-1" />
+                  Clear Chat
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p className="text-xs">Clear chat history</p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+        </div>
 
         <Card className="h-[600px] flex flex-col">
           <CardHeader className="pb-3">
@@ -183,13 +226,14 @@ const MultiAgentChat = () => {
                 <select 
                   className="bg-background text-foreground px-3 py-1 rounded-md border"
                   value={activeAgent}
-                  onChange={(e) => setActiveAgent(e.target.value as AgentType)}
+                  onChange={(e) => switchAgent(e.target.value as AgentType)}
                 >
                   <option value="main">Main Assistant</option>
                   <option value="script">Script Writer</option>
                   <option value="image">Image Generator</option>
                   <option value="tool">Tool Specialist</option>
                   <option value="scene">Scene Creator</option>
+                  <option value="data">Data Agent</option>
                 </select>
               </div>
             </div>
@@ -222,7 +266,7 @@ const MultiAgentChat = () => {
                         <span className="text-xs opacity-70">
                           {message.role === 'user' ? 'You' : 
                           message.role === 'system' ? 'System' :
-                          message.agentType ? getAgentName(message.agentType) : 'Assistant'}
+                          message.agentType ? getAgentName(message.agentType as AgentType) : 'Assistant'}
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
@@ -254,8 +298,8 @@ const MultiAgentChat = () => {
             <div className="relative">
               <Input
                 placeholder="Type your message..."
-                value={inputMessage}
-                onChange={(e) => setInputMessage(e.target.value)}
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="pr-12"
                 disabled={isLoading}
@@ -263,11 +307,28 @@ const MultiAgentChat = () => {
               <Button 
                 size="icon" 
                 className="absolute right-1 top-1 h-8 w-8" 
-                onClick={handleSendMessage}
-                disabled={inputMessage.trim() === "" || isLoading}
+                onClick={() => handleSubmit()}
+                disabled={input.trim() === "" || isLoading}
               >
                 <Send className="h-4 w-4" />
               </Button>
+            </div>
+            
+            <div className="mt-1 text-[10px] text-gray-500 flex justify-between">
+              <div>
+                Credits: {userCredits?.credits_remaining.toFixed(2) || "0.00"} (0.07 per message)
+              </div>
+              <div className="flex justify-end gap-2">
+                <div>
+                  Model: {usePerformanceModel ? "GPT-4o-mini (faster)" : "GPT-4o (higher quality)"}
+                </div>
+                <div>
+                  Tool Access: {enableDirectToolExecution ? "Direct (any agent)" : "Via Tool Agent"}
+                </div>
+                <div>
+                  Tracing: {tracingEnabled ? "Enabled" : "Disabled"}
+                </div>
+              </div>
             </div>
           </CardContent>
         </Card>

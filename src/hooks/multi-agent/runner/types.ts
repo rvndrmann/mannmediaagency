@@ -10,6 +10,7 @@ export type AgentType =
   | "image" 
   | "tool" 
   | "scene" 
+  | "scene-generator"
   | "data";
 
 // Tool execution result states

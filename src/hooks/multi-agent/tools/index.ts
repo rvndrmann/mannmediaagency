@@ -1,4 +1,3 @@
-
 import { ToolContext, ToolDefinition, ToolExecutionResult } from "../types";
 import { CommandExecutionState } from "../runner/types";
 import { canvasTool } from "./canvas-tool";
@@ -25,14 +24,57 @@ export const initializeToolSystem = async (): Promise<boolean> => {
       toolMap.set(tool.name, tool);
     }
     
-    // Add SDK tools - make sure it conforms to ToolDefinition interface
-    if (sdkCanvasDataTool && 
-        typeof sdkCanvasDataTool.name === 'string' && 
-        typeof sdkCanvasDataTool.description === 'string' && 
-        sdkCanvasDataTool.parameters && 
-        typeof sdkCanvasDataTool.parameters.type === 'string' &&
-        typeof sdkCanvasDataTool.parameters.properties === 'object') {
-      toolMap.set(sdkCanvasDataTool.name, sdkCanvasDataTool as ToolDefinition);
+    // Add SDK tools if they conform to our interface or can be adapted
+    if (sdkCanvasDataTool) {
+      // Check if it's already in the proper format
+      if (typeof sdkCanvasDataTool.name === 'string' && 
+          typeof sdkCanvasDataTool.description === 'string' && 
+          sdkCanvasDataTool.parameters && 
+          typeof sdkCanvasDataTool.parameters.type === 'string' &&
+          typeof sdkCanvasDataTool.parameters.properties === 'object') {
+        toolMap.set(sdkCanvasDataTool.name, sdkCanvasDataTool as ToolDefinition);
+      } 
+      // Otherwise, adapt it to our format
+      else if (typeof sdkCanvasDataTool.name === 'string') {
+        // Create an adapter that conforms to our ToolDefinition interface
+        const adaptedTool: ToolDefinition = {
+          name: sdkCanvasDataTool.name,
+          description: sdkCanvasDataTool.description || `SDK Tool: ${sdkCanvasDataTool.name}`,
+          parameters: {
+            type: 'object',
+            properties: sdkCanvasDataTool.parameters || {}
+          },
+          execute: async (parameters, context) => {
+            try {
+              // Call the SDK tool's execute method
+              if (typeof sdkCanvasDataTool.execute === 'function') {
+                const result = await sdkCanvasDataTool.execute(parameters, context);
+                return {
+                  success: result.success || false,
+                  message: result.message || 'SDK tool execution complete',
+                  state: result.state || (result.success ? CommandExecutionState.COMPLETED : CommandExecutionState.FAILED),
+                  data: result.data
+                };
+              } else {
+                return {
+                  success: false,
+                  message: 'SDK tool has no execute method',
+                  state: CommandExecutionState.ERROR
+                };
+              }
+            } catch (error) {
+              console.error(`Error executing SDK tool "${sdkCanvasDataTool.name}":`, error);
+              return {
+                success: false,
+                message: error instanceof Error ? error.message : `Unknown error executing SDK tool "${sdkCanvasDataTool.name}"`,
+                state: CommandExecutionState.ERROR
+              };
+            }
+          }
+        };
+        
+        toolMap.set(adaptedTool.name, adaptedTool);
+      }
     }
     
     console.log(`Tool system initialized with ${toolMap.size} tools`);

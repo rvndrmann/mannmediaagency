@@ -5,13 +5,19 @@ import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
  * Base implementation of an agent with common functionality
  */
 export abstract class BaseAgentImpl {
+  protected name: string;
+  protected instructions: string;
+  protected tools?: any[];
   protected context: RunnerContext;
   protected traceId: string;
   protected model: string;
   protected config: any;
   
   constructor(options: AgentOptions) {
-    this.context = options.context;
+    this.name = options.name || 'DefaultAgent';
+    this.instructions = options.instructions || '';
+    this.tools = options.tools || [];
+    this.context = options.context || {} as RunnerContext;
     this.traceId = options.traceId || `agent-${Date.now()}`;
     this.model = options.model || "gpt-3.5-turbo";
     this.config = options.config || {};
@@ -67,9 +73,12 @@ export abstract class BaseAgentImpl {
   /**
    * Record a trace event for debugging purposes
    */
-  protected recordTraceEvent(event: Record<string, any>): void {
-    if (this.context.tracingEnabled && this.context.addMessage) {
-      this.context.addMessage(JSON.stringify(event), "trace");
+  protected recordTraceEvent(eventType: string, details: Record<string, any> | string): void {
+    if (this.context?.tracingEnabled && this.context.addMessage) {
+      const message = typeof details === 'string' 
+        ? details 
+        : JSON.stringify(details);
+      this.context.addMessage(message, eventType);
     }
   }
   

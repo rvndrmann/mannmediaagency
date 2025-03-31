@@ -1,4 +1,3 @@
-
 import { Command } from "@/types/message";
 
 // Parse a tool call from a text response
@@ -45,7 +44,9 @@ export const parseJsonToolCall = (text: string): Command | null => {
       try {
         const jsonObj = JSON.parse(jsonStr);
         
-        // Check if this is a tool call format
+        // Check various tool call formats
+        
+        // Format 1: { tool: "toolName", parameters: {...} }
         if (jsonObj.tool && jsonObj.parameters) {
           return {
             name: jsonObj.tool,
@@ -53,12 +54,27 @@ export const parseJsonToolCall = (text: string): Command | null => {
           };
         }
         
-        // Alternative format
+        // Format 2: { name: "toolName", arguments/parameters: {...} }
         if (jsonObj.name && (jsonObj.arguments || jsonObj.parameters)) {
           return {
             name: jsonObj.name,
             parameters: jsonObj.arguments || jsonObj.parameters
           };
+        }
+        
+        // Format 3: { function: "toolName", args/parameters: {...} }
+        if (jsonObj.function && (jsonObj.args || jsonObj.parameters)) {
+          return {
+            name: jsonObj.function,
+            parameters: jsonObj.args || jsonObj.parameters
+          };
+        }
+        
+        // Format 4: Directly parse JSON if it has a 'name' property that seems like a tool
+        if (jsonObj.name && typeof jsonObj.name === 'string' && 
+            !/^\s*[A-Za-z]/.test(jsonObj.name) && Object.keys(jsonObj).length > 1) {
+          const { name, ...parameters } = jsonObj;
+          return { name, parameters };
         }
       } catch (e) {
         // Continue to next potential match
@@ -88,10 +104,30 @@ const parseJsonParameters = (text: string): Record<string, any> => {
       const keyValueMatch = line.match(/(\w+):\s*(.*)/);
       if (keyValueMatch) {
         const [_, key, value] = keyValueMatch;
-        parameters[key.trim()] = value.trim();
+        
+        // Try to intelligently parse the values
+        const trimmedValue = value.trim();
+        if (/^-?\d+$/.test(trimmedValue)) {
+          // Parse as integer
+          parameters[key.trim()] = parseInt(trimmedValue, 10);
+        } else if (/^-?\d+\.\d+$/.test(trimmedValue)) {
+          // Parse as float
+          parameters[key.trim()] = parseFloat(trimmedValue);
+        } else if (/^(true|false)$/i.test(trimmedValue)) {
+          // Parse as boolean
+          parameters[key.trim()] = trimmedValue.toLowerCase() === 'true';
+        } else {
+          // Keep as string
+          parameters[key.trim()] = trimmedValue;
+        }
       }
     }
     
     return parameters;
   }
+};
+
+// Unified parser that tries all methods
+export const parseToolCallFromText = (text: string): Command | null => {
+  return parseJsonToolCall(text) || parseToolCall(text);
 };

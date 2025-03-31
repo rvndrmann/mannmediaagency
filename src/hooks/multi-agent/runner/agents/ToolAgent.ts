@@ -1,17 +1,23 @@
 
 import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions, AgentType } from "../types";
+import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
 
 export class ToolAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
     super({
+      name: options.name || "Tool Agent",
+      instructions: options.instructions || "You are a specialized tool agent that helps execute various tools.",
       context: options.context,
       traceId: options.traceId
     });
   }
 
-  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
+  getType(): AgentType {
+    return "tool";
+  }
+
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
       this.recordTraceEvent("tool_agent_run", `Processing input: ${input.substring(0, 50)}...`);
       
@@ -23,6 +29,9 @@ export class ToolAgent extends BaseAgentImpl {
       
       // Get conversation history from context if available
       const conversationHistory = this.context.metadata?.conversationHistory || [];
+      
+      // Handle attachments if they exist in metadata
+      const attachments = this.context.metadata?.attachments || [];
       
       this.recordTraceEvent("tool_agent_invoke", 
         `Invoking Tool Agent with ${conversationHistory.length} historical messages`
@@ -37,10 +46,10 @@ export class ToolAgent extends BaseAgentImpl {
           userId: user.id,
           usePerformanceModel: this.context.usePerformanceModel,
           enableDirectToolExecution: true, // Always enable for tool agent
-          tracingDisabled: this.context.tracingDisabled,
+          tracingEnabled: !this.context.tracingEnabled,
           contextData: {
             hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
+            attachmentTypes: attachments.map((att: Attachment) => att.type.startsWith('image') ? 'image' : 'file'),
           },
           conversationHistory,
           metadata: {
@@ -61,6 +70,7 @@ export class ToolAgent extends BaseAgentImpl {
       );
       
       return {
+        response: data?.completion || "I processed your request but couldn't generate a tool agent response.",
         output: data?.completion || "I processed your request but couldn't generate a tool agent response.",
         nextAgent: null,
         handoffReason: null,
@@ -72,9 +82,5 @@ export class ToolAgent extends BaseAgentImpl {
       console.error("ToolAgent run error:", error);
       throw error;
     }
-  }
-  
-  getType(): AgentType {
-    return "tool";
   }
 }

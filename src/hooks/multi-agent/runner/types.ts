@@ -58,6 +58,7 @@ export interface AgentResult {
   additionalContext?: any;
   output?: string;
   structured_output?: any;
+  commandSuggestion?: any; // Added for SceneGeneratorAgent
   handoff?: {
     targetAgent: AgentType;
     reason: string;
@@ -93,8 +94,8 @@ export abstract class BaseAgentImpl implements BaseAgent {
   protected config?: any;
 
   constructor(options: AgentOptions) {
-    this.name = options.name;
-    this.instructions = options.instructions;
+    this.name = options.name || 'DefaultAgent';
+    this.instructions = options.instructions || '';
     this.tools = options.tools || [];
     this.context = options.context || {} as RunnerContext;
     this.traceId = options.traceId;

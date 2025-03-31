@@ -1,3 +1,4 @@
+
 import { ToolContext, ToolDefinition, ToolExecutionResult } from "../types";
 import { CommandExecutionState } from "../runner/types";
 import { canvasTool } from "./canvas-tool";
@@ -24,8 +25,15 @@ export const initializeToolSystem = async (): Promise<boolean> => {
       toolMap.set(tool.name, tool);
     }
     
-    // Add SDK tools
-    toolMap.set(sdkCanvasDataTool.name, sdkCanvasDataTool);
+    // Add SDK tools - make sure it conforms to ToolDefinition interface
+    if (sdkCanvasDataTool && 
+        typeof sdkCanvasDataTool.name === 'string' && 
+        typeof sdkCanvasDataTool.description === 'string' && 
+        sdkCanvasDataTool.parameters && 
+        typeof sdkCanvasDataTool.parameters.type === 'string' &&
+        typeof sdkCanvasDataTool.parameters.properties === 'object') {
+      toolMap.set(sdkCanvasDataTool.name, sdkCanvasDataTool as ToolDefinition);
+    }
     
     console.log(`Tool system initialized with ${toolMap.size} tools`);
     return true;

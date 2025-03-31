@@ -45,7 +45,7 @@ export class SDKAgentRunner {
 
   private async initializeTrace() {
     // If OpenAI tracing is enabled, set up the trace
-    if (!this.context.tracingDisabled && typeof window !== 'undefined' && window.fetch) {
+    if (!this.context.tracingEnabled && typeof window !== 'undefined' && window.fetch) {
       try {
         const traceDetails = {
           trace_id: this.traceId,
@@ -91,7 +91,8 @@ export class SDKAgentRunner {
     if (this.isProcessing) {
       console.warn("Already processing a request, ignoring new input");
       return {
-        output: "I'm still processing your previous request, please wait a moment."
+        response: "I'm still processing your previous request, please wait a moment.",
+        nextAgent: null
       };
     }
 
@@ -138,7 +139,8 @@ export class SDKAgentRunner {
     } catch (error) {
       console.error("Error in SDKAgentRunner.processInput:", error);
       return {
-        output: "I encountered an error while processing your request. Please try again."
+        response: "I encountered an error while processing your request. Please try again.",
+        nextAgent: null
       };
     } finally {
       this.isProcessing = false;
@@ -196,7 +198,7 @@ export class SDKAgentRunner {
           const args = JSON.parse(toolCall.function.arguments || "{}");
           
           result = {
-            output: `I'll transfer you to our ${this.getAgentName(targetAgent)} who can better assist with this. ${args.reason || ""}`,
+            response: `I'll transfer you to our ${this.getAgentName(targetAgent)} who can better assist with this. ${args.reason || ""}`,
             handoff: {
               targetAgent,
               reason: args.reason || `Transferring to ${targetAgent} agent for specialized assistance`,
@@ -210,25 +212,24 @@ export class SDKAgentRunner {
         } else {
           // Handle other tool calls in the future
           result = {
-            output: data.choices[0].message.content || "I need to use a tool to help with your request."
+            response: data.choices[0].message.content || "I need to use a tool to help with your request.",
+            nextAgent: null
           };
         }
       } else {
         // Regular text response
         result = {
-          output: data.choices[0].message.content || "I'm not sure how to respond to that."
+          response: data.choices[0].message.content || "I'm not sure how to respond to that.",
+          nextAgent: null
         };
       }
-      
-      // Add response field for compatibility
-      result.response = result.output;
       
       return result;
     } catch (error) {
       console.error("Error in callAgentAPI:", error);
       return {
-        output: "I encountered an error while processing your request. Please try again.",
-        response: "I encountered an error while processing your request. Please try again."
+        response: "I encountered an error while processing your request. Please try again.",
+        nextAgent: null
       };
     }
   }
@@ -393,5 +394,26 @@ export class SDKAgentRunner {
       case "data": return "Data Agent";
       default: return "Specialist";
     }
+  }
+  
+  /**
+   * Get the current agent type
+   */
+  getCurrentAgent(): AgentType {
+    return this.currentAgentType;
+  }
+  
+  /**
+   * Get the trace ID
+   */
+  getTraceId(): string {
+    return this.traceId;
+  }
+  
+  /**
+   * Set callbacks for the runner
+   */
+  setCallbacks(callbacks: RunnerCallbacks): void {
+    this.callbacks = callbacks;
   }
 }

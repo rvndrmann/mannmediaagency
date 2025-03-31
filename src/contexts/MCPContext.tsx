@@ -199,3 +199,12 @@ export const useMCP = () => {
   }
   return context;
 };
+
+// Add an alias export for useMCPContext that points to useMCP
+export const useMCPContext = useMCP;
+
+// Export the reconnect function directly
+export const reconnectToMcp = () => {
+  const context = useMCP();
+  return context.connectToMCP;
+};

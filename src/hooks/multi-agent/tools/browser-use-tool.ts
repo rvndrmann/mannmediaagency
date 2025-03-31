@@ -37,7 +37,8 @@ export const browserUseTool: ToolDefinition = {
         return {
           success: false,
           message: "Browser-use API token not configured",
-          error: "Missing API token"
+          error: "Missing API token",
+          data: null
         };
       }
       
@@ -46,7 +47,8 @@ export const browserUseTool: ToolDefinition = {
         return {
           success: false,
           message: "Task description is required",
-          error: "Missing task description"
+          error: "Missing task description",
+          data: null
         };
       }
       
@@ -65,7 +67,8 @@ export const browserUseTool: ToolDefinition = {
         return {
           success: false,
           message: `Failed to execute browser task: ${error.message}`,
-          error: error.message
+          error: error.message,
+          data: null
         };
       }
       
@@ -87,7 +90,8 @@ export const browserUseTool: ToolDefinition = {
       return {
         success: false,
         message: `An error occurred during browser automation: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        error: error instanceof Error ? error.message : 'Unknown error',
+        data: null
       };
     }
   }

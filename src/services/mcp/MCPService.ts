@@ -5,14 +5,17 @@ const servers = [
   {
     id: "mcp-server-01",
     url: process.env.NEXT_PUBLIC_MCP_SERVER_URL || "ws://localhost:8000",
-    updateInterval: 30000, // Using a number instead of a string
+    updateInterval: 30000,
   },
 ];
 
+// Connection pool management
 let mcpClients: MCPClient[] = [];
 let isInitializing = false;
 let lastInitTime = 0;
 const MIN_RECONNECT_INTERVAL = 5000; // 5 seconds between reconnect attempts
+const MAX_RECONNECT_ATTEMPTS = 3;
+const CONNECTION_TIMEOUT = 10000; // 10 seconds timeout
 
 class MCPServiceClass {
   getMcpClients() {
@@ -42,15 +45,19 @@ class MCPServiceClass {
       
       console.log(`Initializing MCP connections for project ${currentProjectId}`);
       
-      mcpClients = servers.map((server) => {
+      // Connection timeout promise
+      const timeoutPromise = new Promise<boolean>((_, reject) => {
+        setTimeout(() => reject(new Error("Connection timeout")), CONNECTION_TIMEOUT);
+      });
+      
+      // Create clients with proper connection tracking
+      const clientPromises = servers.map(async (server) => {
         const client = new MCPClient(
           server.id,
           server.url,
           currentProjectId,
           server.updateInterval
         );
-        // Start connection with proper error handling
-        client.connect();
         
         // Add event listeners for better monitoring
         client.on('connected', (data) => {
@@ -65,10 +72,54 @@ class MCPServiceClass {
           console.error(`MCP client ${data.clientId} encountered an error:`, data.error);
         });
         
-        return client;
+        // Connect with proper connection tracking
+        const connectPromise = new Promise<boolean>((resolve) => {
+          client.on('connected', () => resolve(true));
+          client.on('error', () => resolve(false));
+          client.connect();
+        });
+        
+        // Wait for connection with timeout
+        try {
+          const connected = await Promise.race([connectPromise, timeoutPromise]);
+          if (connected) {
+            mcpClients.push(client);
+            return true;
+          }
+          return false;
+        } catch (error) {
+          console.error(`Connection timeout for client ${client.id}`);
+          client.close();
+          return false;
+        }
       });
       
-      return true;
+      // Wait for all clients to connect with exponential backoff retry
+      let attempt = 0;
+      while (attempt < MAX_RECONNECT_ATTEMPTS) {
+        try {
+          const results = await Promise.all(clientPromises);
+          const success = results.some(result => result === true);
+          
+          if (success) {
+            console.log('Successfully connected to at least one MCP server');
+            return true;
+          }
+          
+          attempt++;
+          if (attempt < MAX_RECONNECT_ATTEMPTS) {
+            const backoffTime = Math.pow(2, attempt) * 1000;
+            console.log(`Retrying connection attempt ${attempt+1}/${MAX_RECONNECT_ATTEMPTS} after ${backoffTime}ms`);
+            await new Promise(resolve => setTimeout(resolve, backoffTime));
+          }
+        } catch (error) {
+          console.error('Error during connection attempt:', error);
+          attempt++;
+        }
+      }
+      
+      console.error(`Failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts`);
+      return false;
     } catch (error) {
       console.error("Error initializing MCP connections:", error);
       return false;
@@ -95,6 +146,15 @@ class MCPServiceClass {
     return mcpClients.some(client => client.isConnected());
   }
   
+  // Get connection statistics
+  getConnectionStats() {
+    return {
+      totalClients: mcpClients.length,
+      connectedClients: mcpClients.filter(client => client.isConnected()).length,
+      lastConnectionAttempt: lastInitTime,
+    };
+  }
+  
   // Singleton instance
   private static instance: MCPServiceClass;
   
@@ -115,6 +175,7 @@ export const MCPService = {
   initConnections: (currentProjectId: string) => mcpServiceInstance.initConnections(currentProjectId),
   closeConnections: () => mcpServiceInstance.closeConnections(),
   isAnyClientConnected: () => mcpServiceInstance.isAnyClientConnected(),
+  getConnectionStats: () => mcpServiceInstance.getConnectionStats(),
   getInstance: () => mcpServiceInstance
 };
 

@@ -9,23 +9,27 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import { Badge } from "@/components/ui/badge";
 
 interface MCPConnectionStatusProps {
   className?: string;
   showConnectionDetails?: boolean;
   showAlert?: boolean;
+  showStats?: boolean;
 }
 
 export function MCPConnectionStatus({ 
   className,
   showConnectionDetails = false,
-  showAlert = false
+  showAlert = false,
+  showStats = false
 }: MCPConnectionStatusProps) {
   const { 
     connectionStatus, 
     reconnectToMcp, 
     isConnecting,
-    hasConnectionError
+    hasConnectionError,
+    connectionStats
   } = useMCPContext();
 
   // Connection indicator color based on status
@@ -52,6 +56,23 @@ export function MCPConnectionStatus({
     return "Disconnected";
   };
 
+  // Get detailed connection info
+  const getConnectionInfo = () => {
+    const { totalClients, connectedClients, lastConnectionAttempt } = connectionStats;
+    const timeSinceLastAttempt = lastConnectionAttempt > 0 
+      ? Math.round((Date.now() - lastConnectionAttempt) / 1000) 
+      : 0;
+    
+    return (
+      <div className="text-xs">
+        <div>Clients: {connectedClients}/{totalClients} connected</div>
+        {lastConnectionAttempt > 0 && (
+          <div>Last attempt: {timeSinceLastAttempt}s ago</div>
+        )}
+      </div>
+    );
+  };
+
   // Reconnect handler
   const handleReconnect = async () => {
     await reconnectToMcp();
@@ -67,6 +88,11 @@ export function MCPConnectionStatus({
               <span className={showConnectionDetails ? "inline" : "hidden sm:inline"}>
                 {getStatusText()}
               </span>
+              {showStats && connectionStatus === 'connected' && (
+                <Badge variant="outline" className="ml-1 text-[10px] py-0 h-4">
+                  {connectionStats.connectedClients}/{connectionStats.totalClients}
+                </Badge>
+              )}
             </span>
             {(connectionStatus === 'disconnected' || connectionStatus === 'error' || hasConnectionError) && (
               <Button 
@@ -88,6 +114,7 @@ export function MCPConnectionStatus({
             {connectionStatus === 'error' && "Error connecting to MCP server. Click to retry."}
             {connectionStatus === 'disconnected' && "Not connected to MCP server. Click to connect."}
           </p>
+          {showStats && getConnectionInfo()}
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>

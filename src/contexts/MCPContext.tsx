@@ -16,6 +16,11 @@ const defaultMCPContext: MCPContext = {
     successCount: 0,
     failureCount: 0,
     averageConnectTime: 0,
+  },
+  connectionStats: {
+    totalClients: 0,
+    connectedClients: 0,
+    lastConnectionAttempt: 0
   }
 };
 
@@ -35,38 +40,49 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     failureCount: 0,
     averageConnectTime: 0,
   });
+  const [connectionStats, setConnectionStats] = useState({
+    totalClients: 0,
+    connectedClients: 0,
+    lastConnectionAttempt: 0
+  });
   
-  // Initialize connection when projectId changes or useMcp is toggled
+  // Lazy loading - only connect when needed and projectId is available
   useEffect(() => {
-    if (projectId && useMcp && !isConnecting) {
+    // Only initialize if we have a project ID and MCP is enabled
+    if (projectId && useMcp && !isConnecting && connectionStatus !== 'connected') {
       connectToMcp();
     }
     
-    // Cleanup connections when component unmounts or projectId changes
+    // Handle cleanup on unmount or projectId change
     return () => {
       MCPService.closeConnections();
     };
   }, [projectId, useMcp]);
   
-  // Check connection status periodically
+  // Periodically update connection statistics
   useEffect(() => {
     if (!useMcp) return;
     
-    const checkConnectionStatus = () => {
+    const updateConnectionStats = () => {
+      const stats = MCPService.getConnectionStats();
+      setConnectionStats(stats);
+      
       const isConnected = MCPService.isAnyClientConnected();
       if (isConnected && connectionStatus !== 'connected') {
         setConnectionStatus('connected');
         setHasConnectionError(false);
       } else if (!isConnected && connectionStatus === 'connected') {
         setConnectionStatus('disconnected');
-        // Try to reconnect automatically if we were previously connected
-        reconnectToMcp();
+        // Only try to reconnect if we were previously connected
+        if (stats.lastConnectionAttempt > 0) {
+          reconnectToMcp();
+        }
       }
     };
     
-    // Check immediately and then set up interval
-    checkConnectionStatus();
-    const interval = setInterval(checkConnectionStatus, 10000);
+    // Update immediately and then set up interval
+    updateConnectionStats();
+    const interval = setInterval(updateConnectionStats, 5000);
     
     return () => clearInterval(interval);
   }, [useMcp, connectionStatus]);
@@ -131,6 +147,7 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
         lastReconnectAttempt,
         connectionStatus,
         connectionMetrics,
+        connectionStats
       }}
     >
       {children}

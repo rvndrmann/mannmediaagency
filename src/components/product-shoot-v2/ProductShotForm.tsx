@@ -1,220 +1,250 @@
 
-import { Card } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Switch } from "@/components/ui/switch";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { ImageUploader } from "@/components/product-shoot/ImageUploader";
-import { useProductShotForm } from "./hooks/useProductShotForm";
-import { GenerateButton } from "./components/GenerateButton";
-import { AspectRatio } from "@/types/product-shoot";
-import { useEffect } from "react";
-import { UseAIResponseButton } from "@/components/ai-agent/features/UseAIResponseButton";
-import { Message } from "@/types/message";
-import { ensureGlobalMessages } from "@/utils/messageTypeAdapter";
+import React, { ChangeEvent, useState } from 'react';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AspectRatio, ProductShotFormData } from '@/types/product-shoot';
+import { ProductShotFormProps } from './types';
 
-export interface ProductShotFormProps {
-  onSubmit: (formData: any) => Promise<void>;
-  isGenerating: boolean;
-  isSubmitting: boolean;
-  availableCredits: number | undefined;
-  initialSceneDescription?: string;
-  messages: any[]; // Allow any message type
-}
+export function ProductShotForm({ formData, isLoading, onSubmit, onCancel }: ProductShotFormProps) {
+  const [form, setForm] = useState<ProductShotFormData>(formData);
+  const [sourceFilePreview, setSourceFilePreview] = useState<string | null>(null);
+  const [referenceFilePreview, setReferenceFilePreview] = useState<string | null>(null);
 
-export function ProductShotForm({ 
-  onSubmit, 
-  isGenerating, 
-  isSubmitting, 
-  availableCredits = 0, 
-  initialSceneDescription,
-  messages 
-}: ProductShotFormProps) {
-  const {
-    sourcePreview,
-    referencePreview,
-    sceneDescription,
-    generationType,
-    placementType,
-    manualPlacement,
-    optimizeDescription,
-    fastMode,
-    originalQuality,
-    aspectRatio,
-    handleSourceFileSelect,
-    handleReferenceFileSelect,
-    handleClearSource,
-    handleClearReference,
-    handleSubmit,
-    setSceneDescription,
-    setGenerationType,
-    setPlacementType,
-    setManualPlacement,
-    setOptimizeDescription,
-    setFastMode,
-    setOriginalQuality,
-    handleAspectRatioChange
-  } = useProductShotForm(onSubmit, isGenerating, isSubmitting, availableCredits);
+  const handleChange = (name: keyof ProductShotFormData, value: any) => {
+    setForm(prev => ({
+      ...prev,
+      [name]: value
+    }));
+  };
 
-  useEffect(() => {
-    if (initialSceneDescription) {
-      setSceneDescription(initialSceneDescription);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await onSubmit(form);
+  };
+
+  const handleSourceFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      handleChange('sourceFile', file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setSourceFilePreview(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
     }
-  }, [initialSceneDescription, setSceneDescription]);
+  };
 
-  // Use global message adapter
-  const formattedMessages = ensureGlobalMessages(messages);
+  const handleReferenceFileChange = (e: ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files;
+    if (files && files.length > 0) {
+      const file = files[0];
+      handleChange('referenceFile', file);
+      
+      // Create preview
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        if (e.target?.result) {
+          setReferenceFilePreview(e.target.result as string);
+        }
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   return (
-    <form onSubmit={handleSubmit}>
-      <div className="space-y-6">
-        <Card className="p-4 bg-gray-900 border-gray-800">
-          <div className="space-y-4">
-            <ImageUploader
-              previewUrl={sourcePreview}
-              onFileSelect={handleSourceFileSelect}
-              onClear={handleClearSource}
-            />
-            
-            {generationType === "reference" && (
-              <div className="mt-4">
-                <Label className="text-white">Reference Image</Label>
-                <ImageUploader
-                  previewUrl={referencePreview}
-                  onFileSelect={handleReferenceFileSelect}
-                  onClear={handleClearReference}
+    <Card>
+      <CardContent className="p-6">
+        <form onSubmit={handleSubmit}>
+          <div className="space-y-6">
+            <div>
+              <Label htmlFor="sourceFile">Product Image</Label>
+              <div className="mt-2">
+                <Input
+                  id="sourceFile"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleSourceFileChange}
+                  disabled={isLoading}
                 />
               </div>
-            )}
-
-            <div className="mt-4">
-              <Label htmlFor="sceneDescription" className="text-white">Scene Description</Label>
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Textarea
-                    id="sceneDescription"
-                    placeholder="A futuristic product shot with neon lights"
-                    value={sceneDescription}
-                    onChange={(e) => setSceneDescription(e.target.value)}
-                    disabled={generationType !== "description"}
+              {sourceFilePreview && (
+                <div className="mt-2 relative aspect-video w-full max-w-[200px] overflow-hidden rounded-md border">
+                  <img
+                    src={sourceFilePreview}
+                    alt="Product preview"
+                    className="object-cover w-full h-full"
                   />
                 </div>
-                <UseAIResponseButton
-                  messages={formattedMessages}
-                  onUseResponse={setSceneDescription}
-                  variant="compact"
-                  className="shrink-0"
+              )}
+            </div>
+
+            <div>
+              <Label>Generation Type</Label>
+              <RadioGroup 
+                value={form.generationType} 
+                onValueChange={(value) => handleChange('generationType', value)}
+                className="flex flex-col space-y-3 mt-2"
+                disabled={isLoading}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="description" id="description" />
+                  <Label htmlFor="description" className="cursor-pointer">Use description</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="reference" id="reference" />
+                  <Label htmlFor="reference" className="cursor-pointer">Use reference image</Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            {form.generationType === 'description' ? (
+              <div>
+                <Label htmlFor="sceneDescription">Scene Description</Label>
+                <Textarea
+                  id="sceneDescription"
+                  placeholder="Describe the scene where your product should be placed..."
+                  value={form.sceneDescription}
+                  onChange={(e) => handleChange('sceneDescription', e.target.value)}
+                  className="mt-2"
+                  rows={4}
+                  disabled={isLoading}
                 />
               </div>
-            </div>
-
-            <div className="mt-4">
-              <Label htmlFor="aspectRatio" className="text-white">Aspect Ratio</Label>
-              <Select value={aspectRatio} onValueChange={(value: AspectRatio) => handleAspectRatioChange(value)}>
-                <SelectTrigger id="aspectRatio">
-                  <SelectValue placeholder="Select aspect ratio" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
-                  <SelectItem value="9:16">9:16 (Reels/Stories)</SelectItem>
-                  <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                </SelectContent>
-              </Select>
-              <p className="text-sm text-gray-400 mt-1">
-                {aspectRatio === "16:9" && "1920×1080 - Best for landscape videos"}
-                {aspectRatio === "9:16" && "1080×1920 - Best for reels and stories"}
-                {aspectRatio === "1:1" && "1024×1024 - Perfect square format"}
-              </p>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+            ) : (
               <div>
-                <Label htmlFor="generationType" className="text-white">Generation Type</Label>
-                <select
-                  id="generationType"
-                  className="w-full bg-gray-800 text-white rounded-md p-2"
-                  value={generationType}
-                  onChange={(e) => setGenerationType(e.target.value as "description" | "reference")}
-                >
-                  <option value="description">Description</option>
-                  <option value="reference">Reference Image</option>
-                </select>
+                <Label htmlFor="referenceFile">Reference Image</Label>
+                <div className="mt-2">
+                  <Input
+                    id="referenceFile"
+                    type="file"
+                    accept="image/*"
+                    onChange={handleReferenceFileChange}
+                    disabled={isLoading}
+                  />
+                </div>
+                {referenceFilePreview && (
+                  <div className="mt-2 relative aspect-video w-full max-w-[200px] overflow-hidden rounded-md border">
+                    <img
+                      src={referenceFilePreview}
+                      alt="Reference preview"
+                      className="object-cover w-full h-full"
+                    />
+                  </div>
+                )}
               </div>
+            )}
 
-              <div>
-                <Label htmlFor="placementType" className="text-white">Placement Type</Label>
-                <select
-                  id="placementType"
-                  className="w-full bg-gray-800 text-white rounded-md p-2"
-                  value={placementType}
-                  onChange={(e) => setPlacementType(e.target.value as "original" | "automatic" | "manual_placement" | "manual_padding")}
-                >
-                  <option value="original">Original</option>
-                  <option value="automatic">Automatic</option>
-                  <option value="manual_placement">Manual Placement</option>
-                  <option value="manual_padding">Manual Padding</option>
-                </select>
-              </div>
+            <div>
+              <Label>Placement Type</Label>
+              <RadioGroup 
+                value={form.placementType} 
+                onValueChange={(value) => handleChange('placementType', value)}
+                className="flex flex-col space-y-3 mt-2"
+                disabled={isLoading}
+              >
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="original" id="original" />
+                  <Label htmlFor="original" className="cursor-pointer">Keep original background</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="automatic" id="automatic" />
+                  <Label htmlFor="automatic" className="cursor-pointer">Automatic placement</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="manual_placement" id="manual_placement" />
+                  <Label htmlFor="manual_placement" className="cursor-pointer">Manual placement</Label>
+                </div>
+                <div className="flex items-center space-x-2">
+                  <RadioGroupItem value="manual_padding" id="manual_padding" />
+                  <Label htmlFor="manual_padding" className="cursor-pointer">Manual padding</Label>
+                </div>
+              </RadioGroup>
             </div>
 
-            {placementType === "manual_placement" && (
-              <div className="mt-4">
-                <Label htmlFor="manualPlacement" className="text-white">Manual Placement</Label>
-                <Input
-                  type="text"
+            {(form.placementType === 'manual_placement' || form.placementType === 'manual_padding') && (
+              <div>
+                <Label htmlFor="manualPlacement">Position Instructions</Label>
+                <Textarea
                   id="manualPlacement"
-                  placeholder="X, Y coordinates"
-                  value={manualPlacement}
-                  onChange={(e) => setManualPlacement(e.target.value)}
+                  placeholder="Describe how the product should be positioned..."
+                  value={form.manualPlacement}
+                  onChange={(e) => handleChange('manualPlacement', e.target.value)}
+                  className="mt-2"
+                  rows={2}
+                  disabled={isLoading}
                 />
               </div>
             )}
 
-            <div className="flex items-center justify-between mt-4">
-              <Label htmlFor="optimizeDescription" className="text-white">Optimize Description</Label>
-              <Switch
-                id="optimizeDescription"
-                checked={optimizeDescription}
-                onCheckedChange={setOptimizeDescription}
-              />
+            <div>
+              <Label>Aspect Ratio</Label>
+              <Tabs 
+                defaultValue={form.aspectRatio} 
+                className="mt-2"
+                onValueChange={(value) => handleChange('aspectRatio', value as AspectRatio)}
+              >
+                <TabsList className="grid w-full grid-cols-3">
+                  <TabsTrigger value="1:1">Square (1:1)</TabsTrigger>
+                  <TabsTrigger value="16:9">Landscape (16:9)</TabsTrigger>
+                  <TabsTrigger value="9:16">Portrait (9:16)</TabsTrigger>
+                </TabsList>
+              </Tabs>
             </div>
 
-            <div className="flex items-center justify-between mt-4">
-              <Label htmlFor="fastMode" className="text-white">Fast Mode</Label>
-              <Switch
-                id="fastMode"
-                checked={fastMode}
-                onCheckedChange={setFastMode}
-              />
+            <div className="space-y-4">
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="optimizeDescription" 
+                  checked={form.optimizeDescription}
+                  onCheckedChange={(checked) => handleChange('optimizeDescription', checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="optimizeDescription">Optimize description with AI</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="fastMode" 
+                  checked={form.fastMode}
+                  onCheckedChange={(checked) => handleChange('fastMode', checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="fastMode">Fast mode (lower quality)</Label>
+              </div>
+              
+              <div className="flex items-center space-x-2">
+                <Switch 
+                  id="originalQuality" 
+                  checked={form.originalQuality}
+                  onCheckedChange={(checked) => handleChange('originalQuality', checked)}
+                  disabled={isLoading}
+                />
+                <Label htmlFor="originalQuality">Original quality</Label>
+              </div>
             </div>
 
-            <div className="flex items-center justify-between mt-4">
-              <Label htmlFor="originalQuality" className="text-white">Original Quality</Label>
-              <Switch
-                id="originalQuality"
-                checked={originalQuality}
-                onCheckedChange={setOriginalQuality}
-              />
-            </div>
-
-            <div className="pt-6">
-              <GenerateButton
-                numResults={1}
-                availableCredits={availableCredits}
-                isGenerating={isGenerating}
-                isSubmitting={isSubmitting}
-              />
+            <div className="flex justify-end space-x-2 pt-4">
+              <Button variant="outline" onClick={onCancel} disabled={isLoading}>
+                Cancel
+              </Button>
+              <Button type="submit" disabled={isLoading || !form.sourceFile}>
+                {isLoading ? 'Generating...' : 'Generate Product Shot'}
+              </Button>
             </div>
           </div>
-        </Card>
-      </div>
-    </form>
+        </form>
+      </CardContent>
+    </Card>
   );
 }

@@ -54,6 +54,7 @@ export interface MCPConnectionRecord {
   id?: string; // Added to support existing implementations
   connectionUrl?: string; // Added to support existing implementations
   userId?: string; // Added to support existing implementations
+  lastConnectedAt?: number; // Added to fix type error
 }
 
 export interface MCPServer {

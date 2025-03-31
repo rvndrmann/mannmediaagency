@@ -1,3 +1,4 @@
+
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { MCPContext, MCPServer, CONNECTION_CONFIG } from '@/types/mcp';
 
@@ -21,7 +22,11 @@ const MCPContextInstance = createContext<MCPContext>(defaultMCPContext);
 
 export const useMCPContext = () => useContext(MCPContextInstance);
 
-export const MCPProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+interface MCPProviderProps {
+  children: React.ReactNode;
+}
+
+export const MCPProvider: React.FC<MCPProviderProps> = ({ children }) => {
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [useMcp, setUseMcp] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);

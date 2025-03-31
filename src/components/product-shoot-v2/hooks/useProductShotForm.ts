@@ -1,52 +1,58 @@
 
-import { useState } from "react";
+import { useState, ChangeEvent, FormEvent } from "react";
+import { ProductShotFormData, AspectRatio } from "@/types/product-shoot";
 import { toast } from "sonner";
-import { AspectRatio } from "@/types/product-shoot";
 
 export function useProductShotForm(
-  onSubmit: (formData: any) => Promise<void>, 
-  isGenerating: boolean, 
+  onSubmit: (data: ProductShotFormData) => Promise<void>,
+  isGenerating: boolean,
   isSubmitting: boolean,
   availableCredits: number = 0
 ) {
-  const [sourcePreview, setSourcePreview] = useState<string | null>(null);
-  const [referencePreview, setReferencePreview] = useState<string | null>(null);
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
-  const [sceneDescription, setSceneDescription] = useState<string>("");
+  const [sourcePreview, setSourcePreview] = useState<string | null>(null);
+  const [referencePreview, setReferencePreview] = useState<string | null>(null);
+  const [sceneDescription, setSceneDescription] = useState("");
   const [generationType, setGenerationType] = useState<"description" | "reference">("description");
   const [placementType, setPlacementType] = useState<"original" | "automatic" | "manual_placement" | "manual_padding">("original");
-  const [manualPlacement, setManualPlacement] = useState<string>("");
-  const [optimizeDescription, setOptimizeDescription] = useState<boolean>(true);
-  const [fastMode, setFastMode] = useState<boolean>(false);
-  const [originalQuality, setOriginalQuality] = useState<boolean>(true);
+  const [manualPlacement, setManualPlacement] = useState("");
+  const [optimizeDescription, setOptimizeDescription] = useState(true);
+  const [fastMode, setFastMode] = useState(false);
+  const [originalQuality, setOriginalQuality] = useState(true);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
 
-  const handleSourceFileSelect = (file: File) => {
+  const handleSourceFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
     setSourceFile(file);
-    const url = URL.createObjectURL(file);
-    setSourcePreview(url);
+    const imageUrl = URL.createObjectURL(file);
+    setSourcePreview(imageUrl);
   };
 
-  const handleReferenceFileSelect = (file: File) => {
+  const handleReferenceFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    
     setReferenceFile(file);
-    const url = URL.createObjectURL(file);
-    setReferencePreview(url);
+    const imageUrl = URL.createObjectURL(file);
+    setReferencePreview(imageUrl);
   };
 
   const handleClearSource = () => {
+    setSourceFile(null);
     if (sourcePreview) {
       URL.revokeObjectURL(sourcePreview);
     }
-    setSourceFile(null);
     setSourcePreview(null);
   };
 
   const handleClearReference = () => {
+    setReferenceFile(null);
     if (referencePreview) {
       URL.revokeObjectURL(referencePreview);
     }
-    setReferenceFile(null);
     setReferencePreview(null);
   };
 
@@ -54,56 +60,48 @@ export function useProductShotForm(
     setAspectRatio(value);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
-    
-    if (isGenerating || isSubmitting) {
-      toast.warning("A generation is already in progress.");
+
+    if (!sourceFile) {
+      toast.error("Please upload a source image");
       return;
     }
 
-    if (!sourceFile && !sourcePreview) {
-      toast.error("Please upload a source image.");
-      return;
-    }
-
-    if (generationType === "reference" && !referenceFile && !referencePreview) {
-      toast.error("Please upload a reference image.");
+    if (generationType === "reference" && !referenceFile) {
+      toast.error("Please upload a reference image");
       return;
     }
 
     if (generationType === "description" && !sceneDescription.trim()) {
-      toast.error("Please provide a scene description.");
+      toast.error("Please enter a scene description");
       return;
     }
 
     if (availableCredits < 1) {
-      toast.error("Insufficient credits for product shot generation.");
+      toast.error("You don't have enough credits");
       return;
     }
 
-    const formData = {
+    const formData: ProductShotFormData = {
       sourceFile,
-      referenceFile,
-      sceneDescription,
+      referenceFile: generationType === "reference" ? referenceFile : null,
+      sceneDescription: generationType === "description" ? sceneDescription : undefined,
       generationType,
       placementType,
-      manualPlacement,
+      manualPlacement: placementType === "manual_placement" || placementType === "manual_padding" ? manualPlacement : undefined,
       optimizeDescription,
       fastMode,
       originalQuality,
       aspectRatio
     };
 
-    try {
-      await onSubmit(formData);
-    } catch (error) {
-      console.error("Error submitting form:", error);
-      toast.error("Failed to generate product shot.");
-    }
+    await onSubmit(formData);
   };
 
   return {
+    sourceFile,
+    referenceFile,
     sourcePreview,
     referencePreview,
     sceneDescription,

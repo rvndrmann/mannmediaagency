@@ -25,3 +25,19 @@ export interface ProductShotResult {
     size?: string;
   };
 }
+
+// Add missing GeneratedImage type
+export interface GeneratedImage {
+  id: string;
+  url: string;
+  content_type: string;
+  status: 'processing' | 'completed' | 'failed';
+  prompt?: string;
+}
+
+// Add missing GenerationResult type
+export interface GenerationResult {
+  status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
+  images?: GeneratedImage[];
+  error?: string;
+}

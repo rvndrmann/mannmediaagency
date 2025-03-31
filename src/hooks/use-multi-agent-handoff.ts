@@ -1,4 +1,3 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { useLocalStorage } from '@/hooks/use-local-storage';
 import { supabase } from '@/integrations/supabase/client';
@@ -33,7 +32,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
   const [currentHandoff, setCurrentHandoff] = useState<HandoffRequest | null>(null);
   const [isProcessingHandoff, setIsProcessingHandoff] = useState(false);
   
-  // Add a handoff request to the queue
   const requestHandoff = useCallback((
     fromAgent: AgentType,
     targetAgent: AgentType,
@@ -61,7 +59,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     return handoffRequest;
   }, [setHandoffs]);
   
-  // Process a handoff from the queue
   const processHandoff = useCallback(async (
     handoffId: string,
     messages: Message[]
@@ -73,7 +70,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       return null;
     }
     
-    // Update status to processing
     setHandoffs(prev => ({
       ...prev,
       [handoffId]: {
@@ -88,10 +84,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     try {
       console.log(`Processing handoff ${handoffId}: ${handoff.fromAgent} -> ${handoff.targetAgent}`);
       
-      // This is a simplified handoff process - in a real app, this would make a server request
-      // or use an edge function to handle the handoff between agents
-      
-      // Record the handoff in the database if we're authenticated and have session ID
       if (sessionId) {
         const { error } = await supabase.functions.invoke('multi-agent-chat', {
           body: {
@@ -103,7 +95,7 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
             targetAgent: handoff.targetAgent,
             reason: handoff.reason,
             additionalContext: handoff.additionalContext,
-            messages: messages.slice(-10) // Only send the last 10 messages to reduce payload
+            messages: messages.slice(-10)
           },
         });
         
@@ -112,7 +104,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
         }
       }
       
-      // Update handoff status to complete
       setHandoffs(prev => ({
         ...prev,
         [handoffId]: {
@@ -121,12 +112,10 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
         }
       }));
       
-      // Call the callback if provided
       if (onHandoffComplete) {
         onHandoffComplete(handoffId, handoff.fromAgent, handoff.targetAgent);
       }
       
-      // Short delay for UI purposes
       await new Promise(resolve => setTimeout(resolve, 500));
       
       return {
@@ -138,7 +127,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     } catch (error) {
       console.error(`Handoff processing error:`, error);
       
-      // Update handoff status to failed
       setHandoffs(prev => ({
         ...prev,
         [handoffId]: {
@@ -147,7 +135,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
         }
       }));
       
-      // Call the failure callback if provided
       if (onHandoffFailed && error instanceof Error) {
         onHandoffFailed(handoffId, error);
       }
@@ -164,17 +151,14 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     }
   }, [handoffs, setHandoffs, projectId, sessionId, onHandoffComplete, onHandoffFailed]);
   
-  // Get all handoffs for the current session
   const getHandoffs = useCallback(() => {
     return Object.values(handoffs);
   }, [handoffs]);
   
-  // Get a specific handoff by ID
   const getHandoff = useCallback((handoffId: string) => {
     return handoffs[handoffId] || null;
   }, [handoffs]);
   
-  // Clear completed handoffs older than a specific time
   useEffect(() => {
     const clearOldHandoffs = () => {
       const now = new Date();
@@ -196,11 +180,9 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       });
     };
     
-    // Clear old handoffs on mount
     clearOldHandoffs();
     
-    // Set up interval to clear old handoffs
-    const interval = setInterval(clearOldHandoffs, 1000 * 60 * 60); // Every hour
+    const interval = setInterval(clearOldHandoffs, 1000 * 60 * 60);
     
     return () => clearInterval(interval);
   }, [setHandoffs]);

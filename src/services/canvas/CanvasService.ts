@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { CanvasProject, CanvasScene, ImageGenerationParams, SceneData, SceneUpdateParams, VideoGenerationParams } from "./types";
 import { MCPService } from "../mcp/MCPService";
@@ -219,7 +218,7 @@ export class CanvasService {
         
         if (connection) {
           // Call the MCP tool
-          const result = await connection.callTool("update_scene_description", {
+          const result = await connection.executeTool("update_scene_description", {
             sceneId,
             imageAnalysis: true
           });
@@ -264,7 +263,7 @@ export class CanvasService {
         
         if (connection) {
           // Call the MCP tool
-          const result = await connection.callTool("update_image_prompt", {
+          const result = await connection.executeTool("update_image_prompt", {
             sceneId,
             useDescription: true
           });
@@ -309,7 +308,7 @@ export class CanvasService {
         
         if (connection) {
           // Call the MCP tool
-          const result = await connection.callTool("generate_scene_image", {
+          const result = await connection.executeTool("generate_scene_image", {
             sceneId: params.sceneId,
             productShotVersion: params.version || "v2"
           });
@@ -355,7 +354,7 @@ export class CanvasService {
         
         if (connection) {
           // Call the MCP tool
-          const result = await connection.callTool("create_scene_video", {
+          const result = await connection.executeTool("create_scene_video", {
             sceneId: params.sceneId,
             aspectRatio: params.aspectRatio || "16:9"
           });

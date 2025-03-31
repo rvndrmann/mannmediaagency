@@ -1,3 +1,4 @@
+
 import { MCPServer, MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "@/types/mcp";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -7,7 +8,7 @@ export class MCPServerService implements MCPServer {
   private connected: boolean = false;
   private connectionError: Error | null = null;
   private connectionId: string | null = null;
-  private projectId: string | null = null;
+  private _projectId: string | null = null;
   private connectionTimeout: number = 8000; // 8 seconds timeout
   
   id: string;
@@ -17,7 +18,7 @@ export class MCPServerService implements MCPServer {
   constructor(serverUrl: string, projectId?: string) {
     this.serverUrl = serverUrl;
     this.url = serverUrl;
-    this.projectId = projectId || null;
+    this._projectId = projectId || null;
     this.id = crypto.randomUUID(); // Generate a unique ID for this server instance
   }
   
@@ -52,7 +53,7 @@ export class MCPServerService implements MCPServer {
       this.status = 'connected';
       
       // If we have a project ID, record this connection in the database
-      if (this.projectId) {
+      if (this._projectId) {
         await this.recordConnection();
       }
       
@@ -95,7 +96,7 @@ export class MCPServerService implements MCPServer {
   }
   
   private async recordConnection(): Promise<void> {
-    if (!this.projectId) return;
+    if (!this._projectId) return;
     
     try {
       // First get the current user ID
@@ -112,7 +113,7 @@ export class MCPServerService implements MCPServer {
       const { data: existingConn, error: fetchError } = await supabase
         .from('mcp_connections')
         .select('id')
-        .eq('project_id', this.projectId)
+        .eq('project_id', this._projectId)
         .eq('user_id', userId)
         .eq('is_active', true)
         .maybeSingle();
@@ -143,7 +144,7 @@ export class MCPServerService implements MCPServer {
         const { data, error } = await supabase
           .from('mcp_connections')
           .insert({
-            project_id: this.projectId,
+            project_id: this._projectId,
             user_id: userId,
             connection_url: this.serverUrl,
             is_active: true
@@ -368,7 +369,7 @@ export class MCPServerService implements MCPServer {
           operation: 'call_tool',
           toolName: toolName,
           parameters: parameters,
-          projectId: this.projectId
+          projectId: this._projectId
         }),
         signal: abortController.signal
       }).catch((error) => {

@@ -1,59 +1,51 @@
 
-import React from "react";
-import { AgentType } from "@/hooks/multi-agent/runner/types";
-import { Bot, FileText, Image, Hammer, Camera, BarChart, Zap } from "lucide-react";
-import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import React from 'react';
+import { MessageCircle, User, FileText, ImageIcon, Tools, Layout, Database, FlaskConical } from 'lucide-react';
+import { AgentType } from '@/hooks/multi-agent/runner/types';
 
 interface HandoffIndicatorProps {
-  fromAgent: AgentType;
-  toAgent: AgentType;
+  sourceAgent: AgentType;
+  targetAgent: AgentType;
   reason?: string;
 }
 
-export function HandoffIndicator({ fromAgent, toAgent, reason }: HandoffIndicatorProps) {
-  const agentNames: Record<AgentType, string> = {
-    main: "Assistant",
-    assistant: "Assistant",
-    script: "Script Writer",
-    image: "Image Generator",
-    tool: "Tool Specialist",
-    scene: "Scene Creator",
-    data: "Data Analyst"
+export function HandoffIndicator({ sourceAgent, targetAgent, reason }: HandoffIndicatorProps) {
+  const agentLabels: Record<AgentType, string> = {
+    'main': 'Main Agent',
+    'assistant': 'Assistant',
+    'script': 'Script Writer',
+    'image': 'Image Generator',
+    'tool': 'Tool Agent',
+    'scene': 'Scene Creator',
+    'scene-generator': 'Scene Generator',
+    'data': 'Data Agent'
   };
 
   const agentIcons: Record<AgentType, React.ReactNode> = {
-    main: <Bot className="h-4 w-4" />,
-    assistant: <Bot className="h-4 w-4" />,
-    script: <FileText className="h-4 w-4" />,
-    image: <Image className="h-4 w-4" />,
-    tool: <Hammer className="h-4 w-4" />,
-    scene: <Camera className="h-4 w-4" />,
-    data: <BarChart className="h-4 w-4" />
+    'main': <MessageCircle className="h-5 w-5 text-blue-500" />,
+    'assistant': <User className="h-5 w-5 text-purple-500" />,
+    'script': <FileText className="h-5 w-5 text-green-500" />,
+    'image': <ImageIcon className="h-5 w-5 text-pink-500" />,
+    'tool': <Tools className="h-5 w-5 text-orange-500" />,
+    'scene': <Layout className="h-5 w-5 text-indigo-500" />,
+    'scene-generator': <FlaskConical className="h-5 w-5 text-teal-500" />,
+    'data': <Database className="h-5 w-5 text-gray-500" />
   };
 
   return (
-    <div className="my-2 p-2 rounded-md bg-muted/50 border border-border text-xs">
-      <div className="flex items-center justify-between mb-1">
-        <div className="font-medium">Handoff Detected</div>
-        <Tabs defaultValue={toAgent} className="h-6">
-          <TabsList className="h-6 p-0">
-            <TabsTrigger value={fromAgent} className="h-6 px-2 text-xs">
-              {agentIcons[fromAgent]}
-              <span className="ml-1">{agentNames[fromAgent]}</span>
-            </TabsTrigger>
-            <div className="flex items-center px-1">
-              <Zap className="h-3 w-3 text-muted-foreground" />
-            </div>
-            <TabsTrigger value={toAgent} className="h-6 px-2 text-xs">
-              {agentIcons[toAgent]}
-              <span className="ml-1">{agentNames[toAgent]}</span>
-            </TabsTrigger>
-          </TabsList>
-        </Tabs>
+    <div className="flex items-center gap-2 py-2 px-3 mb-2 rounded-md bg-muted/50 text-sm">
+      <div className="flex items-center gap-1">
+        {agentIcons[sourceAgent]}
+        <span className="font-medium">{agentLabels[sourceAgent]}</span>
+      </div>
+      <div className="mx-1">→</div>
+      <div className="flex items-center gap-1">
+        {agentIcons[targetAgent]}
+        <span className="font-medium">{agentLabels[targetAgent]}</span>
       </div>
       {reason && (
-        <div className="text-muted-foreground">
-          <span className="font-medium">Reason:</span> {reason}
+        <div className="ml-auto text-muted-foreground text-xs">
+          Reason: {reason}
         </div>
       )}
     </div>

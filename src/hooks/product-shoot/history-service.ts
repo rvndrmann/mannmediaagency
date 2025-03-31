@@ -1,70 +1,91 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { GeneratedImage } from "@/types/product-shoot";
+import { PostgrestSingleResponse } from "@supabase/supabase-js";
 
-export const saveToHistory = async (
-  image: GeneratedImage,
-  sourceImageUrl: string,
-  settings: any
-): Promise<boolean> => {
-  try {
-    console.log("Saving image to history:", image.id);
-    
-    // Call the edge function to save the product shot
-    const { data, error } = await supabase.functions.invoke("save-product-shot", {
-      body: {
-        imageUrl: image.url,
-        sourceImageUrl,
-        prompt: image.prompt,
-        settings
+/**
+ * Service to handle product shot history
+ */
+export class ProductShotHistoryService {
+  /**
+   * Fetch product shot history for a user
+   */
+  static async fetchHistory(limit: number = 20): Promise<GeneratedImage[]> {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData.user) {
+        throw new Error("User not authenticated");
       }
-    });
-
-    if (error) {
-      console.error("Error saving to history:", error);
-      return false;
-    }
-
-    console.log("Successfully saved to history:", data);
-    return true;
-  } catch (err) {
-    console.error("Exception in saveToHistory:", err);
-    return false;
-  }
-};
-
-export const getHistory = async (): Promise<GeneratedImage[]> => {
-  try {
-    const { data, error } = await supabase
-      .from("product_shot_history")
-      .select("*")
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      console.error("Error fetching history:", error);
+      
+      const { data, error } = await supabase
+        .from('product_shot_history')
+        .select('*')
+        .eq('user_id', userData.user.id)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+      
+      if (error) {
+        console.error("Error fetching product shot history:", error);
+        throw error;
+      }
+      
+      return data.map(item => ({
+        id: item.id,
+        prompt: item.scene_description || "",
+        status: "completed",
+        createdAt: typeof item.created_at === 'string' ? item.created_at : item.created_at.toISOString(),
+        resultUrl: item.result_url,
+        inputUrl: item.source_image_url,
+        url: item.result_url,
+        source_image_url: item.source_image_url,
+        content_type: item.content_type || "image/jpeg",
+        settings: item.settings
+      }));
+    } catch (error) {
+      console.error("Error in ProductShotHistoryService.fetchHistory:", error);
       return [];
     }
-
-    // Map to GeneratedImage type with all required properties
-    return data.map((item) => ({
-      id: item.id,
-      url: item.result_url,
-      content_type: "image/jpeg",
-      status: "completed",
-      prompt: item.scene_description,
-      createdAt: new Date(item.created_at),
-      result_url: item.result_url,
-      source_image_url: item.source_image_url,
-      settings: item.settings
-    })) as GeneratedImage[];
-  } catch (err) {
-    console.error("Exception in getHistory:", err);
-    return [];
   }
-};
-
-// Create a historyService object that includes all the functions
-export const historyService = {
-  saveToHistory,
-  getHistory
-};
+  
+  /**
+   * Save a generated image to history
+   */
+  static async saveToHistory(imageData: Partial<GeneratedImage>): Promise<{ success: boolean, id?: string }> {
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      
+      if (!userData.user) {
+        throw new Error("User not authenticated");
+      }
+      
+      const { data, error } = await supabase
+        .from('product_shot_history')
+        .insert([
+          {
+            user_id: userData.user.id,
+            scene_description: imageData.prompt,
+            result_url: imageData.resultUrl,
+            source_image_url: imageData.inputUrl || imageData.source_image_url,
+            settings: imageData.settings || {},
+            visibility: 'private'
+          }
+        ])
+        .select()
+        .single();
+      
+      if (error) {
+        console.error("Error saving to product shot history:", error);
+        throw error;
+      }
+      
+      return {
+        success: true,
+        id: data.id
+      };
+    } catch (error) {
+      console.error("Error in ProductShotHistoryService.saveToHistory:", error);
+      return { success: false };
+    }
+  }
+}

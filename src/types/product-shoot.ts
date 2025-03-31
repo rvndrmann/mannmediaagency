@@ -6,6 +6,12 @@ export interface ProductShootSettings {
   version?: string;
   placement?: string;
   background?: string;
+  outputFormat?: string;
+  imageWidth?: number;
+  imageHeight?: number;
+  quality?: string;
+  seed?: string;
+  scale?: number;
 }
 
 export interface ProductShotResult {
@@ -35,6 +41,15 @@ export interface GeneratedImage {
   inputUrl?: string;
   settings?: Record<string, any>;
   content_type?: string;
+  source_image_url?: string;
+}
+
+export interface GenerationResult {
+  id: string;
+  status: "completed" | "failed" | "processing" | "pending";
+  resultUrl?: string;
+  message?: string;
+  error?: string;
 }
 
 // Additional types needed for product shot forms

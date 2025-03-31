@@ -78,7 +78,9 @@ export class SceneGeneratorAgent extends BaseAgentImpl {
       
       return {
         response: data?.completion || "I processed your request but couldn't generate a response.",
+        output: data?.completion || "I processed your request but couldn't generate a response.",
         nextAgent: null,
+        handoffReason: null,
         commandSuggestion: commandSuggestion,
         structured_output: data?.structured_output || null
       };

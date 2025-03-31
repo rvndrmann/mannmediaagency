@@ -1,166 +1,174 @@
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/integrations/supabase/client';
-import { GeneratedImage, GenerationResult } from '@/types/product-shoot';
+import { GeneratedImage, GenerationStatus } from '@/types/product-shoot';
 
-export const useGenerationQueue = () => {
-  const [queuedItems, setQueuedItems] = useState<GeneratedImage[]>([]);
-  const [processing, setProcessing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+interface UseGenerationQueueOptions {
+  onImageReady?: (imageData: GeneratedImage) => void;
+  onError?: (error: string) => void;
+  autoCheckInterval?: number;
+}
 
+/**
+ * Hook to manage generation queue for product shots
+ */
+export function useGenerationQueue(options: UseGenerationQueueOptions = {}) {
+  const [pendingImageIds, setPendingImageIds] = useState<string[]>([]);
+  const [isPolling, setIsPolling] = useState<boolean>(false);
+  const [checkInterval, setCheckInterval] = useState<number>(options.autoCheckInterval || 3000);
+  const [processingId, setProcessingId] = useState<string | null>(null);
+
+  // Function to check status of pending images
+  const checkPendingImages = useCallback(async () => {
+    if (pendingImageIds.length === 0 || processingId) return;
+
+    const nextId = pendingImageIds[0];
+    setProcessingId(nextId);
+
+    try {
+      // Get the image info from database
+      const { data, error } = await supabase
+        .from('product_shot_history')
+        .select('*')
+        .eq('id', nextId)
+        .single();
+
+      if (error) {
+        console.error("Error checking image status:", error);
+        // Remove from queue if there's an error
+        setPendingImageIds(prev => prev.filter(id => id !== nextId));
+        setProcessingId(null);
+        return;
+      }
+
+      // Check if image is complete
+      if (data) {
+        // Convert database status to GenerationStatus
+        let status: GenerationStatus;
+        if (data.status === 'in_queue') {
+          status = 'processing'; // Map in_queue to processing
+        } else if (data.status === 'completed' || data.status === 'failed') {
+          status = data.status as 'completed' | 'failed';
+        } else {
+          status = 'pending';
+        }
+
+        // If image is complete, notify and remove from queue
+        if (status === 'completed' || status === 'failed') {
+          // Convert to GeneratedImage format
+          const generatedImage: GeneratedImage = {
+            id: data.id,
+            prompt: data.scene_description || '',
+            status,
+            createdAt: data.created_at,
+            resultUrl: data.result_url,
+            inputUrl: data.source_image_url,
+            url: data.result_url,
+            source_image_url: data.source_image_url,
+            settings: typeof data.settings === 'string' 
+              ? JSON.parse(data.settings) 
+              : (data.settings as Record<string, any>)
+          };
+
+          if (status === 'completed' && options.onImageReady) {
+            options.onImageReady(generatedImage);
+          } else if (status === 'failed' && options.onError) {
+            options.onError(`Image generation failed: ${nextId}`);
+          }
+
+          // Remove from queue
+          setPendingImageIds(prev => prev.filter(id => id !== nextId));
+        }
+      }
+    } catch (error) {
+      console.error('Error checking pending images:', error);
+    } finally {
+      setProcessingId(null);
+    }
+  }, [pendingImageIds, processingId, options]);
+
+  // Set up polling
   useEffect(() => {
-    // Set up realtime subscription for job status updates
-    const channel = supabase
-      .channel('image-generation-updates')
-      .on('postgres_changes', {
-        event: 'UPDATE',
-        schema: 'public',
-        table: 'image_generation_jobs',
-      }, (payload) => {
-        updateJobStatus(payload.new);
-      })
-      .subscribe();
+    let timerId: NodeJS.Timeout | undefined;
+
+    if (pendingImageIds.length > 0 && !processingId) {
+      setIsPolling(true);
+      timerId = setInterval(checkPendingImages, checkInterval);
+    } else if (pendingImageIds.length === 0) {
+      setIsPolling(false);
+      if (timerId) clearInterval(timerId);
+    }
 
     return () => {
-      supabase.removeChannel(channel);
+      if (timerId) clearInterval(timerId);
     };
+  }, [pendingImageIds, processingId, checkPendingImages, checkInterval]);
+
+  // Add an image to the queue
+  const addToQueue = useCallback((imageId: string) => {
+    setPendingImageIds(prev => [...prev, imageId]);
   }, []);
 
-  const updateJobStatus = (jobData: any) => {
-    setQueuedItems((prev) => {
-      return prev.map(item => {
-        if (item.id === jobData.id) {
-          return {
-            ...item,
-            status: jobData.status,
-            resultUrl: jobData.result_url || item.resultUrl,
-          };
-        }
-        return item;
-      });
-    });
-  };
+  // Clear all pending images
+  const clearQueue = useCallback(() => {
+    setPendingImageIds([]);
+  }, []);
 
-  const checkStatus = async (jobId: string): Promise<GenerationResult> => {
+  // Check a specific image status
+  const checkImageStatus = useCallback(async (imageId: string): Promise<GeneratedImage | null> => {
     try {
       const { data, error } = await supabase
-        .from('image_generation_jobs')
+        .from('product_shot_history')
         .select('*')
-        .eq('id', jobId)
+        .eq('id', imageId)
         .single();
 
       if (error) {
-        throw error;
+        console.error("Error checking image status:", error);
+        return null;
       }
 
-      return {
-        id: data.id,
-        status: data.status,
-        resultUrl: data.result_url,
-      };
-    } catch (error) {
-      console.error('Error checking job status:', error);
-      return {
-        id: jobId,
-        status: 'failed',
-        error: 'Failed to check status',
-      };
-    }
-  };
-
-  const addToQueue = async (
-    prompt: string,
-    imageUrl: string,
-    settings: Record<string, any> = {}
-  ): Promise<{ jobId: string; success: boolean }> => {
-    try {
-      setProcessing(true);
-      setError(null);
-
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) {
-        throw new Error('User not authenticated');
-      }
-
-      // Create a job entry
-      const { data, error } = await supabase
-        .from('image_generation_jobs')
-        .insert([
-          {
-            prompt,
-            settings: settings,
-            user_id: userData.user.id,
-          },
-        ])
-        .select()
-        .single();
-
-      if (error) {
-        throw error;
-      }
-
-      // Add to local queue
-      const newQueueItem: GeneratedImage = {
-        id: data.id,
-        prompt: data.prompt,
-        status: data.status,
-        createdAt: typeof data.created_at === 'string' ? data.created_at : new Date().toISOString(),
-        inputUrl: imageUrl,
-        source_image_url: imageUrl,
-        settings: data.settings,
-      };
-
-      setQueuedItems((prev) => [...prev, newQueueItem]);
-
-      // Call the edge function to start generation
-      const { error: fnError } = await supabase.functions.invoke(
-        'generate-product-image',
-        {
-          body: {
-            jobId: data.id,
-            prompt: prompt,
-            imageUrl: imageUrl,
-            settings: settings,
-          },
+      if (data) {
+        // Convert database status to GenerationStatus
+        let status: GenerationStatus;
+        if (data.status === 'in_queue') {
+          status = 'processing'; // Map in_queue to processing
+        } else if (data.status === 'completed' || data.status === 'failed') {
+          status = data.status as 'completed' | 'failed';
+        } else {
+          status = 'pending';
         }
-      );
 
-      if (fnError) {
-        throw fnError;
+        // Convert to GeneratedImage format
+        return {
+          id: data.id,
+          prompt: data.scene_description || '',
+          status,
+          createdAt: data.created_at,
+          resultUrl: data.result_url,
+          inputUrl: data.source_image_url,
+          url: data.result_url,
+          source_image_url: data.source_image_url,
+          settings: typeof data.settings === 'string' 
+            ? JSON.parse(data.settings) 
+            : (data.settings as Record<string, any>)
+        };
       }
-
-      return { jobId: data.id, success: true };
-    } catch (error: any) {
-      setError(error.message || 'Failed to add job to queue');
-      console.error('Error adding to queue:', error);
-      return { jobId: '', success: false };
-    } finally {
-      setProcessing(false);
+      return null;
+    } catch (error) {
+      console.error('Error checking image status:', error);
+      return null;
     }
-  };
-
-  const clearItem = (jobId: string) => {
-    setQueuedItems((prev) => prev.filter((item) => item.id !== jobId));
-  };
-
-  const clearCompleted = () => {
-    setQueuedItems((prev) =>
-      prev.filter((item) => item.status !== 'completed' && item.status !== 'failed')
-    );
-  };
-
-  const clearAll = () => {
-    setQueuedItems([]);
-  };
+  }, []);
 
   return {
-    queuedItems,
-    processing,
-    error,
+    pendingImageIds,
+    isPolling,
     addToQueue,
-    checkStatus,
-    clearItem,
-    clearCompleted,
-    clearAll,
+    clearQueue,
+    checkInterval,
+    setCheckInterval,
+    checkImageStatus,
+    checkPendingImages
   };
-};
+}

@@ -40,13 +40,15 @@ export interface GeneratedImage {
   resultUrl?: string;
   inputUrl?: string;
   settings?: Record<string, any>;
-  content_type?: string;
   source_image_url?: string;
+  content_type?: string; // Added content_type
 }
+
+export type GenerationStatus = "completed" | "failed" | "processing" | "pending";
 
 export interface GenerationResult {
   id: string;
-  status: "completed" | "failed" | "processing" | "pending";
+  status: GenerationStatus;
   resultUrl?: string;
   message?: string;
   error?: string;

@@ -1,6 +1,6 @@
 
 import React from 'react';
-import { MessageCircle, User, FileText, ImageIcon, Tools, Layout, Database, FlaskConical } from 'lucide-react';
+import { MessageCircle, User, FileText, ImageIcon, Wrench, Layout, Database, FlaskConical } from 'lucide-react';
 import { AgentType } from '@/hooks/multi-agent/runner/types';
 
 interface HandoffIndicatorProps {
@@ -26,7 +26,7 @@ export function HandoffIndicator({ sourceAgent, targetAgent, reason }: HandoffIn
     'assistant': <User className="h-5 w-5 text-purple-500" />,
     'script': <FileText className="h-5 w-5 text-green-500" />,
     'image': <ImageIcon className="h-5 w-5 text-pink-500" />,
-    'tool': <Tools className="h-5 w-5 text-orange-500" />,
+    'tool': <Wrench className="h-5 w-5 text-orange-500" />, // Changed from Tools to Wrench
     'scene': <Layout className="h-5 w-5 text-indigo-500" />,
     'scene-generator': <FlaskConical className="h-5 w-5 text-teal-500" />,
     'data': <Database className="h-5 w-5 text-gray-500" />

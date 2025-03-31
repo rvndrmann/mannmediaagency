@@ -1,16 +1,17 @@
 
-import { Attachment } from "@/types/message";
-import { AgentResult, AgentOptions, AgentType, RunnerContext } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
-import { supabase } from "@/integrations/supabase/client";
+import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
+import { Attachment } from "@/types/message";
+import { v4 as uuidv4 } from "uuid";
 
 export class SceneCreatorAgent extends BaseAgentImpl {
   constructor(options: AgentOptions) {
     super({
       name: options.name || "Scene Creator Agent",
-      instructions: options.instructions || "You are an AI agent specialized in creating scenes for video content.",
+      instructions: options.instructions || "You are an AI agent specialized in creating visual scenes.",
       context: options.context,
-      traceId: options.traceId || `scene-creator-${Date.now()}`
+      traceId: options.traceId,
+      ...options
     });
   }
 
@@ -20,156 +21,108 @@ export class SceneCreatorAgent extends BaseAgentImpl {
 
   async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      console.log("Processing with SceneCreatorAgent");
+      console.log("Processing request with SceneCreatorAgent", input.substring(0, 50));
+      
+      // Extract attachments from context metadata if available
+      const attachments = context.metadata?.attachments || [];
+      
+      // Record trace event for scene creator agent start
+      this.recordTraceEvent("scene_creator_agent_start", {
+        input_length: input.length,
+        has_attachments: attachments && attachments.length > 0
+      });
+      
+      // Get dynamic instructions
+      const instructions = this.getInstructions();
+      
+      // Create context data for the Supabase function
+      const contextData = {
+        hasAttachments: attachments && attachments.length > 0,
+        attachmentTypes: attachments.map((att: any) => 
+          att.type && att.type.startsWith('image') ? 'image' : 'file'
+        )
+      };
+      
+      if (context.metadata?.projectId) {
+        // Add project ID to context data using spread operator properly
+        Object.assign(contextData, { projectId: context.metadata.projectId });
+      }
       
       // Get the current user
-      const { data: { user } } = await this.context.supabase.auth.getUser();
+      const { data: { user } } = await context.supabase.auth.getUser();
       if (!user) {
         throw new Error("User not authenticated");
       }
       
-      // Extract project ID and other metadata from context
-      const projectId = this.context.metadata?.projectId;
-      const attachments = this.context.metadata?.attachments || [];
-      
-      this.recordTraceEvent("scene_creator_start", `Starting scene creation for project: ${projectId}`); 
-      
-      // If we have a project ID, add it to the context
-      let contextData = {
-        hasAttachments: attachments && attachments.length > 0,
-        attachmentTypes: attachments.map((att: Attachment) => att.type.startsWith('image') ? 'image' : 'file')
-      };
-      
-      if (projectId) {
-        contextData = {
-          ...contextData,
-          projectId
-        };
-      }
-      
-      // Invoke the multi-agent chat function with the scene type
-      const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
+      // Call the Supabase function for the scene creator agent
+      const { data, error } = await context.supabase.functions.invoke('multi-agent-chat', {
         body: {
           input,
+          attachments,
           agentType: "scene",
           userId: user.id,
-          usePerformanceModel: this.context.usePerformanceModel,
-          enableDirectToolExecution: true,
+          usePerformanceModel: context.usePerformanceModel,
+          enableDirectToolExecution: context.enableDirectToolExecution,
           contextData,
-          tracingEnabled: !this.context.tracingEnabled,
-          runId: this.context.runId,
-          groupId: this.context.groupId,
-          metadata: {
-            projectId,
-            conversationId: this.context.groupId
-          }
+          runId: context.runId,
+          groupId: context.groupId
         }
       });
       
       if (error) {
-        this.recordTraceEvent("scene_creator_error", `Error: ${error.message}`);
+        console.error("Scene creator agent error:", error);
+        this.recordTraceEvent("scene_creator_agent_error", {
+          error: error.message || "Unknown error"
+        });
         throw new Error(`Scene creator agent error: ${error.message}`);
       }
       
-      // Process different response types
-      if (data?.completion) {
-        this.recordTraceEvent("scene_creator_completion", `Received completion of ${data.completion.length} chars`);
+      // Extract handoff information if present
+      let nextAgent = null;
+      let handoffReason = null;
+      let additionalContext = null;
+      
+      if (data?.handoff) {
+        nextAgent = data.handoff.targetAgent;
+        handoffReason = data.handoff.reason;
+        additionalContext = data.handoff.additionalContext;
         
-        return {
-          response: data.completion,
-          output: data.completion,
-          nextAgent: null,
-          handoffReason: null,
-          structured_output: data?.structured_output,
-          additionalContext: null
-        };
-      } else if (data?.error) {
-        this.recordTraceEvent("scene_creator_error", `Agent returned error: ${data.error}`);
-        throw new Error(`Scene creator agent returned error: ${data.error}`);
+        this.recordTraceEvent("scene_creator_handoff", {
+          target_agent: nextAgent,
+          reason: handoffReason
+        });
       }
       
-      return {
-        response: "I couldn't generate a scene response at this time.",
-        output: "I couldn't generate a scene response at this time.",
-        nextAgent: null,
-        handoffReason: null,
-        structured_output: null,
-        additionalContext: null
-      };
-    } catch (error) {
-      this.recordTraceEvent("scene_creator_exception", `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      console.error("Error in SceneCreatorAgent:", error);
-      throw error;
-    }
-  }
-  
-  private async generateScene(input: string, projectId: string): Promise<AgentResult> {
-    try {
-      this.recordTraceEvent("scene_generation_start", `Starting scene generation for project: ${projectId}`);
+      // Extract structured output if present
+      const structuredOutput = data?.structured_output || null;
       
-      // Get the current user
-      const { data: { user } } = await this.context.supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-      
-      // Call the canvas_scene_generation function
-      const { data, error } = await this.context.supabase.functions.invoke('canvas-scene-generation', {
-        body: {
-          projectId,
-          input,
-          userId: user.id
-        }
+      // Record completion event
+      this.recordTraceEvent("scene_creator_agent_complete", {
+        response_length: data?.completion?.length || 0,
+        has_handoff: !!nextAgent,
+        has_structured_output: !!structuredOutput
       });
       
-      if (error) {
-        this.recordTraceEvent("scene_generation_error", `Error: ${error.message}`);
-        throw new Error(`Scene generation error: ${error.message}`);
-      }
-      
-      this.recordTraceEvent("scene_generation_complete", `Scene generation complete: ${data?.sceneId}`);
-      
+      // Build the result
       return {
-        response: `Created a new scene: ${data?.title}`,
-        output: `Created a new scene: ${data?.title}`,
-        nextAgent: null,
-        handoffReason: null,
-        structured_output: data,
-        additionalContext: null
+        response: data?.completion || "I've analyzed your request but couldn't generate a proper response.",
+        output: data?.completion || "I've analyzed your request but couldn't generate a proper response.",
+        nextAgent,
+        handoffReason,
+        structured_output: structuredOutput,
+        additionalContext
       };
     } catch (error) {
-      this.recordTraceEvent("scene_generation_exception", `Exception: ${error instanceof Error ? error.message : 'Unknown error'}`);
-      console.error("Scene generation error:", error);
-      throw error;
-    }
-  }
-  
-  private async updateSceneScript(sceneId: string, script: string): Promise<AgentResult> {
-    try {
-      // Call canvas service to update the scene script
-      const { data, error } = await this.context.supabase.functions.invoke('canvas-update-scene', {
-        body: {
-          sceneId,
-          updateType: 'script',
-          content: script
-        }
+      console.error("Error in SceneCreatorAgent.process:", error);
+      this.recordTraceEvent("scene_creator_agent_error", {
+        error: error instanceof Error ? error.message : "Unknown error"
       });
-      
-      if (error) {
-        throw new Error(`Failed to update scene script: ${error.message}`);
-      }
-      
       return {
-        response: `Updated script for scene ${sceneId}`,
-        output: `Updated script for scene ${sceneId}`,
+        response: "An error occurred while processing your request. Please try again.",
+        output: "An error occurred while processing your request. Please try again.",
         nextAgent: null,
-        handoffReason: null,
-        structured_output: data,
-        additionalContext: null
+        handoffReason: null
       };
-    } catch (error) {
-      console.error("Error updating scene script:", error);
-      throw error;
     }
   }
 }

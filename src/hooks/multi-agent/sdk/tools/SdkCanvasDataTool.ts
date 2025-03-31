@@ -1,5 +1,5 @@
 
-import { ToolDefinition } from "../../types";
+import { ToolDefinition, ToolExecutionResult } from "../../types";
 import { CommandExecutionState } from "../../runner/types";
 
 export const sdkCanvasDataTool: ToolDefinition = {
@@ -24,7 +24,7 @@ export const sdkCanvasDataTool: ToolDefinition = {
     },
     required: ["projectId", "dataType"]
   },
-  execute: async (parameters, context) => {
+  execute: async (parameters, context): Promise<ToolExecutionResult> => {
     try {
       const { projectId, sceneId, dataType } = parameters;
       
@@ -132,7 +132,7 @@ export const sdkCanvasDataTool: ToolDefinition = {
       return {
         success: false,
         message: `Error executing tool: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        state: CommandExecutionState.ERROR
+        state: CommandExecutionState.FAILED
       };
     }
   }

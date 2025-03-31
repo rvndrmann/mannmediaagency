@@ -59,7 +59,7 @@ export const initializeToolSystem = async (): Promise<boolean> => {
                 return {
                   success: false,
                   message: 'SDK tool has no execute method',
-                  state: CommandExecutionState.ERROR
+                  state: CommandExecutionState.FAILED
                 };
               }
             } catch (error) {
@@ -67,7 +67,7 @@ export const initializeToolSystem = async (): Promise<boolean> => {
               return {
                 success: false,
                 message: error instanceof Error ? error.message : `Unknown error executing SDK tool "${sdkCanvasDataTool.name}"`,
-                state: CommandExecutionState.ERROR
+                state: CommandExecutionState.FAILED
               };
             }
           }
@@ -103,7 +103,7 @@ export const executeTool = async (
       return {
         success: false,
         message: `Tool "${toolName}" not found`,
-        state: CommandExecutionState.ERROR
+        state: CommandExecutionState.FAILED
       };
     }
     
@@ -112,7 +112,7 @@ export const executeTool = async (
       return {
         success: false,
         message: `Insufficient credits to use this tool. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`,
-        state: CommandExecutionState.ERROR
+        state: CommandExecutionState.FAILED
       };
     }
     
@@ -131,7 +131,7 @@ export const executeTool = async (
     return {
       success: false,
       message: error instanceof Error ? error.message : `Unknown error executing tool "${toolName}"`,
-      state: CommandExecutionState.ERROR
+      state: CommandExecutionState.FAILED
     };
   }
 };

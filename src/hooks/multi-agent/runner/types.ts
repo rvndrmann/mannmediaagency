@@ -21,6 +21,7 @@ export interface RunnerContext {
   metadata?: Record<string, any>;
   groupId?: string;
   runId?: string;
+  userId?: string; // Add userId to fix errors
   addMessage?: (message: string, type: string) => void;
 }
 
@@ -36,27 +37,34 @@ export interface AgentOptions {
 
 export interface AgentResult {
   response: string;
-  output: string;
+  output: string; // Add the required 'output' property
   nextAgent: AgentType | null;
   handoffReason?: string | null;
   structured_output?: any;
   additionalContext?: any;
   commandSuggestion?: string;
+  handoff?: { // Add handoff property for SDK agent compatibility
+    targetAgent: AgentType;
+    reason: string;
+    additionalContext?: any;
+  };
 }
 
 export enum CommandExecutionState {
   PENDING = "pending",
+  RUNNING = "running",
   COMPLETED = "completed",
   FAILED = "failed",
-  CANCELLED = "cancelled"
+  CANCELLED = "cancelled",
+  ERROR = "error" // Add ERROR state to fix missing ERROR property
 }
 
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
   data?: any;
-  state: CommandExecutionState;
-  error?: Error;
+  state: CommandExecutionState | string; // Make state more flexible
+  error?: Error | string; // Allow string errors
 }
 
 export interface ToolContext {
@@ -91,4 +99,19 @@ export interface SDKTool {
   description: string;
   parameters: Record<string, any>;
   function: (params: any) => Promise<any>;
+}
+
+// Add BaseAgent interface to fix imports
+export interface BaseAgent {
+  run(input: string, context: RunnerContext): Promise<AgentResult>;
+  getType(): AgentType;
+  process(input: string, context: RunnerContext): Promise<AgentResult>;
+}
+
+// Add RunnerCallbacks interface needed by SDKAgentRunner
+export interface RunnerCallbacks {
+  onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffEnd?: (fromAgent: AgentType, toAgent: AgentType, result: AgentResult) => void;
+  onError?: (error: Error) => void;
 }

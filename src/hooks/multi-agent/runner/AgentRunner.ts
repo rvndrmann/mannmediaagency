@@ -1,14 +1,7 @@
 
 import { v4 as uuidv4 } from "uuid";
-import { AgentType, RunnerContext, AgentResult, BaseAgent, BaseAgentImpl } from "./types";
+import { AgentType, RunnerContext, AgentResult, RunnerCallbacks, BaseAgent } from "./types";
 import { supabase } from '@/integrations/supabase/client';
-
-interface RunnerCallbacks {
-  onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
-  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
-  onHandoffEnd?: (fromAgent: AgentType, toAgent: AgentType, result: AgentResult) => void;
-  onError?: (error: Error) => void;
-}
 
 interface AgentRunnerOptions {
   callbacks?: RunnerCallbacks;
@@ -149,6 +142,7 @@ export class AgentRunner {
       
       return {
         response: `The ${this.getAgentName(agentType)} encountered an error. Please try again or ask a different question.`,
+        output: `The ${this.getAgentName(agentType)} encountered an error. Please try again or ask a different question.`,
         nextAgent: null
       };
     }
@@ -224,6 +218,7 @@ class MockAgent implements BaseAgent {
   async process(input: string, context: RunnerContext): Promise<AgentResult> {
     return {
       response: "This is a mock response while all agents are being implemented.",
+      output: "This is a mock response while all agents are being implemented.",
       nextAgent: null
     };
   }

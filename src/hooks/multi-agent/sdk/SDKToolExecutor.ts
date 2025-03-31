@@ -1,5 +1,5 @@
 
-import { RunnerContext, ToolExecutionResult } from "../runner/types";
+import { RunnerContext, ToolExecutionResult, CommandExecutionState } from "../runner/types";
 
 export class SDKToolExecutor {
   private context: RunnerContext;
@@ -20,14 +20,16 @@ export class SDKToolExecutor {
       return {
         success: true,
         message: `Tool ${toolName} executed successfully (mock)`,
-        data: { result: "Mock tool execution result" }
+        data: { result: "Mock tool execution result" },
+        state: CommandExecutionState.COMPLETED // Add state property
       };
     } catch (error) {
       console.error(`[SDKToolExecutor] Error executing tool ${toolName}:`, error);
       return {
         success: false,
         message: `Failed to execute tool ${toolName}`,
-        error: String(error)
+        error: error instanceof Error ? error : new Error(String(error)),
+        state: CommandExecutionState.FAILED // Add state property
       };
     }
   }

@@ -1,7 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 import { GeneratedImage } from "@/types/product-shoot";
-import { PostgrestSingleResponse } from "@supabase/supabase-js";
 
 /**
  * Service to handle product shot history
@@ -34,13 +33,13 @@ export class ProductShotHistoryService {
         id: item.id,
         prompt: item.scene_description || "",
         status: "completed",
-        createdAt: typeof item.created_at === 'string' ? item.created_at : item.created_at.toISOString(),
+        createdAt: item.created_at,
         resultUrl: item.result_url,
         inputUrl: item.source_image_url,
         url: item.result_url,
         source_image_url: item.source_image_url,
-        content_type: item.content_type || "image/jpeg",
-        settings: item.settings
+        // Type coercion to ensure compatibility with GeneratedImage type
+        settings: (typeof item.settings === 'string' ? JSON.parse(item.settings) : item.settings) as Record<string, any>
       }));
     } catch (error) {
       console.error("Error in ProductShotHistoryService.fetchHistory:", error);
@@ -68,7 +67,8 @@ export class ProductShotHistoryService {
             result_url: imageData.resultUrl,
             source_image_url: imageData.inputUrl || imageData.source_image_url,
             settings: imageData.settings || {},
-            visibility: 'private'
+            visibility: 'private',
+            content_type: imageData.content_type || 'image/jpeg'
           }
         ])
         .select()
@@ -89,3 +89,6 @@ export class ProductShotHistoryService {
     }
   }
 }
+
+// Export as a named export for compatibility
+export const historyService = ProductShotHistoryService;

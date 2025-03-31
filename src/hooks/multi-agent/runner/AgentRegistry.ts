@@ -1,66 +1,71 @@
 
-import { AgentType, RunnerContext, AgentResult } from "./types";
+import { AgentType, RunnerContext, AgentResult, AgentOptions, BaseAgent } from "./types";
 
 // Define a simplified base agent interface that matches what AgentRegistry needs
-interface BaseAgent {
-  run(input: string, context: RunnerContext): Promise<AgentResult>;
-  getType(): AgentType;
-}
-
-// Define AgentOptions interface to match how it's used
-interface AgentOptions {
-  context: RunnerContext;
-  traceId?: string;
-}
-
-// Import the agent implementations
-// These will be implemented in their respective files
 class AssistantAgent implements BaseAgent {
   constructor(options: AgentOptions) {}
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Assistant response", nextAgent: null };
+    return { response: "Assistant response", output: "Assistant response", nextAgent: null };
   }
   getType(): AgentType { return "main"; }
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return { response: "Assistant response", output: "Assistant response", nextAgent: null };
+  }
 }
 
 class ScriptWriterAgent implements BaseAgent {
   constructor(options: AgentOptions) {}
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Script writer response", nextAgent: null };
+    return { response: "Script writer response", output: "Script writer response", nextAgent: null };
   }
   getType(): AgentType { return "script"; }
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return { response: "Script writer response", output: "Script writer response", nextAgent: null };
+  }
 }
 
 class ImageGeneratorAgent implements BaseAgent {
   constructor(options: AgentOptions) {}
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Image generator response", nextAgent: null };
+    return { response: "Image generator response", output: "Image generator response", nextAgent: null };
   }
   getType(): AgentType { return "image"; }
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return { response: "Image generator response", output: "Image generator response", nextAgent: null };
+  }
 }
 
 class SceneGeneratorAgent implements BaseAgent {
   constructor(options: AgentOptions) {}
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Scene generator response", nextAgent: null };
+    return { response: "Scene generator response", output: "Scene generator response", nextAgent: null };
   }
-  getType(): AgentType { return "scene"; }
+  getType(): AgentType { return "scene-generator"; }
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return { response: "Scene generator response", output: "Scene generator response", nextAgent: null };
+  }
 }
 
 class ToolAgent implements BaseAgent {
   constructor(options: AgentOptions) {}
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Tool agent response", nextAgent: null };
+    return { response: "Tool agent response", output: "Tool agent response", nextAgent: null };
   }
   getType(): AgentType { return "tool"; }
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return { response: "Tool agent response", output: "Tool agent response", nextAgent: null };
+  }
 }
 
 class DataAgent implements BaseAgent {
   constructor(options: AgentOptions) {}
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
-    return { response: "Data agent response", nextAgent: null };
+    return { response: "Data agent response", output: "Data agent response", nextAgent: null };
   }
   getType(): AgentType { return "data"; }
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return { response: "Data agent response", output: "Data agent response", nextAgent: null };
+  }
 }
 
 class AgentRegistryImpl {

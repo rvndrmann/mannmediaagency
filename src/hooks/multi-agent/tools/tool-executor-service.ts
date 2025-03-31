@@ -1,102 +1,53 @@
+import { ToolDefinition } from "../types";
 
-import { RunnerContext, ToolDefinition } from "../runner/types";
-import { CommandExecutionState } from "../types";
-import ToolRegistry from "./tool-registry";
-
-export interface ToolExecutionResult {
-  state: CommandExecutionState;
-  message: string;
-  data?: any;
-  error?: string;
-  usage?: {
-    creditsUsed: number;
-  };
-}
-
-export class ToolExecutorService {
-  private static instance: ToolExecutorService;
-  private registry: ToolRegistry;
-
-  private constructor() {
-    this.registry = ToolRegistry.getInstance();
+export const executeTool = async (toolName: string, parameters: any, context: any): Promise<any> => {
+  // Check if the tool exists
+  const tool = getTool(toolName);
+  if (!tool) {
+    console.warn(`Tool ${toolName} not found`);
+    return {
+      state: "FAILED",
+      message: `Tool ${toolName} not found`
+    };
   }
 
-  public static getInstance(): ToolExecutorService {
-    if (!ToolExecutorService.instance) {
-      ToolExecutorService.instance = new ToolExecutorService();
-    }
-    return ToolExecutorService.instance;
+  // Check if the tool requires credits and if the user has enough credits
+  if (tool.requiredCredits && context.userCredits !== undefined && context.userCredits < tool.requiredCredits) {
+    return {
+      state: "FAILED",
+      message: `Insufficient credits to use tool ${toolName}. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`
+    };
   }
 
-  public async executeTool(
-    toolName: string,
-    parameters: Record<string, any>,
-    context: RunnerContext
-  ): Promise<ToolExecutionResult> {
-    try {
-      const tool = this.registry.getTool(toolName);
-      
-      if (!tool) {
-        return {
-          state: CommandExecutionState.FAILED,
-          message: `Tool "${toolName}" not found.`,
-          error: `Unknown tool: ${toolName}`
-        };
-      }
+  // Execute the tool
+  try {
+    const result = await tool.execute(parameters, context);
 
-      // Check if there are enough credits
-      if (
-        typeof tool.requiredCredits === 'number' && 
-        tool.requiredCredits > 0 &&
-        context.credits !== undefined &&
-        context.credits < tool.requiredCredits
-      ) {
-        return {
-          state: CommandExecutionState.FAILED,
-          message: `Insufficient credits to execute tool "${toolName}". Required: ${tool.requiredCredits}, Available: ${context.credits || 0}`,
-          error: 'Insufficient credits'
-        };
-      }
-
-      // Execute the tool with the provided parameters and context
-      const result = await tool.execute(parameters, context);
-
-      // Check if the execution was successful
-      if (!result.success) {
-        return {
-          state: CommandExecutionState.FAILED,
-          message: `Tool execution failed: ${result.message || result.error || "Unknown error"}`,
-          error: result.error || 'Execution failed',
-          data: result.data
-        };
-      }
-
-      // Return the successful result
+    // Check if the tool execution was successful
+    if (result.success) {
       return {
-        state: CommandExecutionState.COMPLETED,
-        message: result.message || "Tool execution completed successfully",
-        data: result.data,
-        usage: result.usage
+        state: "COMPLETED",
+        message: result.message || `Tool ${toolName} executed successfully`,
+        data: result.data
       };
-    } catch (error) {
-      console.error(`Error executing tool ${toolName}:`, error);
+    } else {
       return {
-        state: CommandExecutionState.FAILED,
-        message: `Tool execution error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        error: error instanceof Error ? error.message : 'Unknown error'
+        state: "FAILED",
+        message: result.message || `Tool ${toolName} execution failed`,
+        data: result.data
       };
     }
+  } catch (error: any) {
+    console.error(`Error executing tool ${toolName}:`, error);
+    return {
+      state: "FAILED",
+      message: `Error executing tool ${toolName}: ${error.message || error}`
+    };
   }
+};
 
-  public getAvailableTools(): ToolDefinition[] {
-    return this.registry.getTools();
-  }
-
-  public registerTool(tool: ToolDefinition): void {
-    this.registry.registerTool(tool);
-  }
-
-  public registerTools(tools: ToolDefinition[]): void {
-    this.registry.registerTools(tools);
-  }
-}
+// Mock getTool function (replace with your actual implementation)
+const getTool = (toolName: string): ToolDefinition | undefined => {
+  // Replace this with your actual tool retrieval logic
+  return undefined;
+};

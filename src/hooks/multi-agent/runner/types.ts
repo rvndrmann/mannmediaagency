@@ -15,12 +15,14 @@ export interface RunnerContext {
   addMessage?: (message: string, type: string) => void;
   attachments?: any[];
   credits?: number;
+  history?: any[];
 }
 
 export interface AgentOptions {
   context?: RunnerContext;
   traceId?: string;
   config?: any;
+  model?: string;
 }
 
 export interface AgentResult {
@@ -29,6 +31,13 @@ export interface AgentResult {
   handoffReason?: string;
   structured_output?: any;
   additionalContext?: any;
+  // Added properties to fix type errors
+  response?: string;
+  handoff?: {
+    targetAgent: AgentType;
+    reason: string;
+    additionalContext?: any;
+  };
 }
 
 export interface RunnerCallbacks {
@@ -47,4 +56,12 @@ export interface SDKRunner {
   getCurrentAgent(): AgentType;
   getTraceId(): string;
   setCallbacks(callbacks: RunnerCallbacks): void;
+}
+
+// Add BaseAgent interface to fix import errors
+export interface BaseAgent {
+  processInput(input: string, context: RunnerContext): Promise<AgentResult>;
+  getType(): AgentType;
+  getName(): string;
+  getDescription(): string;
 }

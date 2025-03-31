@@ -1,5 +1,6 @@
-
-import { SDKTool, ToolDefinition } from "../runner/types";
+import { RunnerContext } from "../runner/types";
+import { SDKTool } from "./types";
+import { ToolDefinition } from "../types";
 
 export class ToolConverter {
   /**

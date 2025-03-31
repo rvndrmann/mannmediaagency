@@ -54,4 +54,14 @@ export interface ProductShotFormData {
   stylePreset: string;
   background: string;
   placement: string;
+  // Fields used in the form implementation but missing in type
+  sourceFile?: File | null;
+  referenceFile?: File | null;
+  sceneDescription?: string;
+  generationType?: 'description' | 'reference'; 
+  placementType?: 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
+  manualPlacement?: string;
+  optimizeDescription?: boolean;
+  fastMode?: boolean;
+  originalQuality?: boolean;
 }

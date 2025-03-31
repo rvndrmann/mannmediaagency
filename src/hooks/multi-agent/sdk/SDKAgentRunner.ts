@@ -1,15 +1,7 @@
-import { BaseAgentImpl } from "../runner/agents/BaseAgentImpl";
-import { AgentConfig, AgentOptions, AgentResult, AgentStreamEvent, AgentType, RunnerCallbacks, RunnerContext, SDKAgentDefinition, SDKAgentOptions, SDKRunner, SDKTool } from "../runner/types";
-import { AssistantAgent } from "../runner/agents/AssistantAgent";
-import { DataAgent } from "../runner/agents/DataAgent";
-import { ImageGeneratorAgent } from "../runner/agents/ImageGeneratorAgent";
-import { MainAgent } from "../runner/agents/MainAgent";
-import { SceneCreatorAgent } from "../runner/agents/SceneCreatorAgent";
-import { SceneGeneratorAgent } from "../runner/agents/SceneGeneratorAgent";
-import { ScriptWriterAgent } from "../runner/agents/ScriptWriterAgent";
-import { ToolAgent } from "../runner/agents/ToolAgent";
-import { ToolConverter } from "./ToolConverter";
-import { SDKToolExecutor } from "./SDKToolExecutor";
+import { AgentType, RunnerContext, AgentOptions, AgentResult, RunnerCallbacks } from "../runner/types";
+import { AgentConfig, AgentStreamEvent, SDKAgentDefinition, SDKAgentOptions, SDKTool } from "./types";
+import { v4 as uuidv4 } from "uuid";
+import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
 
 export class SDKAgentRunner implements SDKRunner {
   private agentDefinitions: SDKAgentDefinition[];

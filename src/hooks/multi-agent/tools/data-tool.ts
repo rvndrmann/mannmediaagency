@@ -1,4 +1,5 @@
 
+// Fix import
 import { ToolContext, ToolExecutionResult } from "../types";
 
 export const dataTool = {

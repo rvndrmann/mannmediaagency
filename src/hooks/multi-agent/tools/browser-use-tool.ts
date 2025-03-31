@@ -1,5 +1,4 @@
-
-import { ToolDefinition, ToolExecutionResult } from "../types";
+import { ToolContext, ToolExecutionResult } from "../types";
 
 export const browserUseTool: ToolDefinition = {
   name: "browser-use",
@@ -40,7 +39,7 @@ export const browserUseTool: ToolDefinition = {
     }
   },
 
-  async execute(params: any, context: any): Promise<ToolExecutionResult> {
+  async execute(params: any, context: ToolContext): Promise<ToolExecutionResult> {
     try {
       console.log("Executing Browser-Use Tool with params:", params);
       

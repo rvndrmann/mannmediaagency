@@ -1,5 +1,4 @@
-
-import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { ToolContext, ToolExecutionResult } from "../types";
 import { v4 as uuidv4 } from "uuid";
 
 export const imageToVideoTool: ToolDefinition = {

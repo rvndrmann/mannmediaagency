@@ -1,6 +1,5 @@
-import { BaseAgent } from "./types";
-import { AgentType } from "./types";
-import { AgentOptions } from "./types";
+
+import { BaseAgent, AgentType, AgentOptions } from "./types";
 import { AssistantAgent } from "./agents/AssistantAgent";
 import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";

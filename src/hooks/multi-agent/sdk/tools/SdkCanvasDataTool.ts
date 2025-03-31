@@ -1,5 +1,5 @@
-
-import { SDKTool } from "../../runner/types";
+import { RunnerContext } from "../../runner/types";
+import { SDKTool } from "../types";
 
 /**
  * SDK version of the Canvas Data Tool for analyzing Canvas project data

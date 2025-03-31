@@ -1,5 +1,5 @@
-
-import { RunnerContext, SDKTool } from "../runner/types";
+import { RunnerContext } from "../runner/types";
+import { SDKTool } from "./types";
 
 export class SDKToolExecutor {
   /**

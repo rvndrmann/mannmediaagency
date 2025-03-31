@@ -4,7 +4,7 @@ import { toast } from 'sonner';
 import { AspectRatio, ProductShotFormData } from '@/types/product-shoot';
 
 export const useProductShotForm = (
-  onSubmit: (formData: any) => Promise<void>,
+  onSubmit: (formData: ProductShotFormData) => Promise<void>,
   isGenerating: boolean,
   isSubmitting: boolean,
   availableCredits: number = 0
@@ -78,8 +78,11 @@ export const useProductShotForm = (
     }
 
     const formData: ProductShotFormData = {
+      sourceImage: sourceFile,
       sourceFile,
-      referenceFile: referenceFile || undefined,
+      referenceFile,
+      sourceImageUrl: sourcePreview || '',
+      prompt: sceneDescription,
       sceneDescription,
       generationType,
       placementType,
@@ -87,13 +90,18 @@ export const useProductShotForm = (
       optimizeDescription,
       fastMode,
       originalQuality,
-      aspectRatio
+      aspectRatio,
+      placement: placementType === 'original' ? 'original' : 
+                placementType === 'automatic' ? 'auto' : 'manual',
+      background: 'default',
+      stylePreset: 'product'
     };
 
     onSubmit(formData);
   }, [
     sourceFile,
     referenceFile,
+    sourcePreview,
     sceneDescription,
     generationType,
     placementType,

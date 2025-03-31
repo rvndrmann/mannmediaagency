@@ -6,10 +6,14 @@ import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
-import { GeneratedImage } from "@/types/product-shoot";
 
 export default function ProductShootV2() {
-  const { isGenerating, isSubmitting, generatedImages, handleGenerate, handleRetryImageCheck } = useProductShoot();
+  const { 
+    isGenerating, 
+    generatedImages, 
+    generateProductShot,  // This will serve as handleGenerate
+    handleCheckImage,     // This will serve as handleRetryImageCheck
+  } = useProductShoot();
 
   const { data: userCredits } = useQuery({
     queryKey: ["userCredits"],
@@ -23,6 +27,14 @@ export default function ProductShootV2() {
       return data;
     },
   });
+
+  // Create an isSubmitting state that mirrors isGenerating for consistency with form requirements
+  const isSubmitting = isGenerating;
+
+  // Create handleGenerate wrapper to match expected form interface
+  const handleGenerate = async (formData: any) => {
+    await generateProductShot(formData.prompt, formData.sourceImageUrl, formData);
+  };
 
   return (
     <ProductShootLayout>
@@ -43,7 +55,7 @@ export default function ProductShootV2() {
           <GeneratedImagesPanel 
             images={generatedImages}
             isGenerating={isGenerating}
-            onRetry={handleRetryImageCheck}
+            onRetry={handleCheckImage}
           />
 
           <div className="bg-gray-900 rounded-lg border border-gray-800">

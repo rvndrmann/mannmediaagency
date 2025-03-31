@@ -46,3 +46,16 @@ export interface ExecutorContext {
   runId?: string;
   groupId?: string;
 }
+
+// Add missing types referenced in tools
+export interface ToolResult {
+  success: boolean;
+  message: string;
+  data?: any;
+}
+
+export interface ToolExecutionResult {
+  success: boolean;
+  message: string;
+  data?: any;
+}

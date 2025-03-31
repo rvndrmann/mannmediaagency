@@ -1,5 +1,4 @@
-
-import { ToolDefinition } from "../../runner/types";
+import { ToolDefinition } from "../../types";
 import { canvasTool } from "./canvas-tool";
 
 // Import other default tools here as they are created

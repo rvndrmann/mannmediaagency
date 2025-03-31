@@ -34,7 +34,9 @@ class ToolRegistry {
   }
 
   public getToolsByCategory(category: string): ToolDefinition[] {
-    return this.getTools().filter(tool => tool.category === category);
+    return this.getTools().filter(tool => 
+      tool.metadata && tool.metadata.category === category
+    );
   }
 
   public unregisterTool(name: string): boolean {

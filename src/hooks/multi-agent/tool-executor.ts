@@ -3,7 +3,7 @@ import { Command } from "@/types/message";
 import { getTool } from "./tools";
 import { CommandExecutionState, ToolContext } from "./types";
 import { toast } from "sonner";
-import { executeTool } from "./tools"; // Import the new tool executor
+import { executeTool } from "./tools/index"; // Import the correct function
 
 export const executeCommand = async (
   commandData: Command,

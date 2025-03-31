@@ -1,11 +1,11 @@
 
 import { ToolDefinition } from "./types";
-import { availableTools } from "./tools/index";
-
-export function getTool(name: string): ToolDefinition | undefined {
-  return availableTools.find(tool => tool.name === name);
-}
+import { getAvailableTools, getTool } from "./tools/index";
 
 export function getAvailableTools(): ToolDefinition[] {
-  return availableTools;
+  return getAvailableTools();
+}
+
+export function getTool(name: string): ToolDefinition | undefined {
+  return getTool(name);
 }

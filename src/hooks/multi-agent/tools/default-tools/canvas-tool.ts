@@ -1,382 +1,349 @@
-import { supabase } from "@/integrations/supabase/client";
-import { ToolDefinition, RunnerContext } from "../../runner/types";
+
+import { ToolDefinition } from "../../runner/types";
 import { CanvasService } from "@/services/canvas/CanvasService";
+import { toast } from "sonner";
+
+// Create a new instance of the Canvas Service
+const canvasService = new CanvasService();
 
 export const canvasTool: ToolDefinition = {
-  name: "canvas",
-  description: "Manage Canvas projects and scenes for video creation",
+  name: "canvas_tool",
+  description: "Tool for interacting with Canvas projects and scenes",
   parameters: {
     type: "object",
     properties: {
       action: {
         type: "string",
-        description: "The action to perform on Canvas projects",
-        enum: ["listProjects", "getProject", "createProject", "updateProject", "listScenes", "getScene", "createScene", "updateScene", "generateImage", "generateVideo"]
+        enum: [
+          "list_projects",
+          "get_project",
+          "create_project",
+          "update_project",
+          "delete_project",
+          "list_scenes",
+          "get_scene",
+          "create_scene",
+          "update_scene",
+          "delete_scene",
+          "update_scene_script",
+          "update_scene_description",
+          "update_project_script",
+        ],
+        description: "The action to perform on Canvas projects or scenes"
       },
       projectId: {
         type: "string",
-        description: "The ID of the project to operate on"
+        description: "The ID of the project (required for most actions except create_project and list_projects)"
       },
       sceneId: {
         type: "string",
-        description: "The ID of the scene to operate on"
+        description: "The ID of the scene (required for scene-specific actions)"
       },
       title: {
         type: "string",
-        description: "Title for a project or scene"
+        description: "The title for a project or scene"
       },
       description: {
         type: "string",
-        description: "Description for a project or scene"
+        description: "The description for a project or scene"
       },
-      content: {
+      script: {
         type: "string",
-        description: "Content for a scene (script, image prompt, etc.)"
+        description: "The script for a scene or project"
       },
-      contentType: {
+      imagePrompt: {
         type: "string",
-        description: "Type of content being updated (script, imagePrompt, description)",
-        enum: ["script", "imagePrompt", "description", "voiceOverText"]
+        description: "The image prompt for a scene"
       }
     },
     required: ["action"]
   },
+  metadata: {
+    category: "canvas",
+    requiredPermissions: ["canvas:read", "canvas:write"],
+    version: "1.0.0"
+  },
   requiredCredits: 0,
-  execute: async (params, context: RunnerContext) => {
+  execute: async (params, context) => {
     try {
-      const canvasService = CanvasService.getInstance();
       const { action } = params;
       
+      // Validate context and user
+      if (!context || !context.userId) {
+        return {
+          success: false,
+          message: "User authentication required for canvas operations",
+          error: "Missing user context"
+        };
+      }
+
+      // Execute the requested action
       switch (action) {
-        case "listProjects": {
+        case "list_projects":
           const projects = await canvasService.getProjects();
           return {
             success: true,
-            message: `Found ${projects.length} projects`,
-            data: { projects }
+            message: `Retrieved ${projects.length} projects`,
+            data: projects
           };
-        }
-        
-        case "getProject": {
-          const { projectId } = params;
-          if (!projectId) {
-            return {
-              success: false,
-              message: "Project ID is required",
-              error: "Missing projectId parameter"
+          
+        case "get_project":
+          if (!params.projectId) {
+            return { 
+              success: false, 
+              message: "Project ID is required", 
+              error: "Missing projectId parameter" 
             };
           }
           
-          const project = await canvasService.getProject(projectId);
+          const project = await canvasService.getProject(params.projectId);
           if (!project) {
             return {
               success: false,
-              message: `Project ${projectId} not found`,
+              message: `Project with ID ${params.projectId} not found`,
               error: "Project not found"
             };
           }
           
           return {
             success: true,
-            message: `Retrieved project ${project.title}`,
-            data: { project }
+            message: `Retrieved project: ${project.title}`,
+            data: project
           };
-        }
-        
-        case "createProject": {
-          const { title, description = "" } = params;
-          if (!title) {
-            return {
-              success: false,
-              message: "Title is required to create a project",
-              error: "Missing title parameter"
+          
+        case "create_project":
+          if (!params.title) {
+            return { 
+              success: false, 
+              message: "Project title is required", 
+              error: "Missing title parameter" 
             };
           }
           
-          const project = await canvasService.createProject(title, description);
-          if (!project) {
-            return {
-              success: false,
-              message: "Failed to create project",
-              error: "Project creation failed"
-            };
-          }
+          const newProject = await canvasService.createProject({
+            title: params.title,
+            description: params.description || "",
+            userId: context.userId,
+            fullScript: params.script || ""
+          });
           
           return {
             success: true,
-            message: `Created project "${title}"`,
-            data: { project }
+            message: `Created new project: ${newProject.title}`,
+            data: newProject
           };
-        }
-        
-        case "updateProject": {
-          const { projectId, title, description, content } = params;
-          if (!projectId) {
-            return {
-              success: false,
-              message: "Project ID is required",
-              error: "Missing projectId parameter"
+          
+        case "update_project":
+          if (!params.projectId) {
+            return { 
+              success: false, 
+              message: "Project ID is required", 
+              error: "Missing projectId parameter" 
             };
           }
           
-          // If content is provided, it's a full script update
-          if (content) {
-            const updated = await canvasService.updateProjectScript(projectId, content);
-            if (!updated) {
-              return {
-                success: false,
-                message: "Failed to update project script",
-                error: "Script update failed"
-              };
-            }
+          const updatedProject = await canvasService.updateProject(params.projectId, {
+            title: params.title,
+            description: params.description,
+            fullScript: params.script
+          });
+          
+          return {
+            success: true,
+            message: `Updated project: ${updatedProject.title}`,
+            data: updatedProject
+          };
+          
+        case "update_project_script":
+          if (!params.projectId || !params.script) {
+            return { 
+              success: false, 
+              message: "Project ID and script are required", 
+              error: "Missing required parameters" 
+            };
+          }
+          
+          const scriptUpdatedProject = await canvasService.updateProject(params.projectId, {
+            fullScript: params.script
+          });
+          
+          return {
+            success: true,
+            message: `Updated project script for: ${scriptUpdatedProject.title}`,
+            data: scriptUpdatedProject
+          };
+          
+        case "delete_project":
+          if (!params.projectId) {
+            return { 
+              success: false, 
+              message: "Project ID is required", 
+              error: "Missing projectId parameter" 
+            };
+          }
+          
+          await canvasService.deleteProject(params.projectId);
+          return {
+            success: true,
+            message: `Deleted project with ID: ${params.projectId}`
+          };
+          
+        case "list_scenes":
+          if (!params.projectId) {
+            return { 
+              success: false, 
+              message: "Project ID is required", 
+              error: "Missing projectId parameter" 
+            };
+          }
+          
+          const scenes = await canvasService.getScenes(params.projectId);
+          return {
+            success: true,
+            message: `Retrieved ${scenes.length} scenes for project`,
+            data: scenes
+          };
+          
+        case "get_scene":
+          if (!params.projectId || !params.sceneId) {
+            return { 
+              success: false, 
+              message: "Project ID and Scene ID are required", 
+              error: "Missing required parameters" 
+            };
+          }
+          
+          const scene = await canvasService.getScenes(params.projectId)
+            .then(scenes => scenes.find(s => s.id === params.sceneId));
             
-            return {
-              success: true,
-              message: "Updated project script",
-              data: { projectId, scriptSaved: true, scriptContent: content }
-            };
-          }
-          
-          // Otherwise update basic project details
-          const updateData: any = {};
-          if (title) updateData.title = title;
-          if (description) updateData.description = description;
-          
-          if (Object.keys(updateData).length === 0) {
-            return {
-              success: false,
-              message: "No update parameters provided",
-              error: "Missing update parameters"
-            };
-          }
-          
-          const updated = await canvasService.updateProject(projectId, updateData);
-          if (!updated) {
-            return {
-              success: false,
-              message: "Failed to update project",
-              error: "Project update failed"
-            };
-          }
-          
-          return {
-            success: true,
-            message: "Project updated successfully",
-            data: { projectId, updated: true }
-          };
-        }
-        
-        case "listScenes": {
-          const { projectId } = params;
-          if (!projectId) {
-            return {
-              success: false,
-              message: "Project ID is required",
-              error: "Missing projectId parameter"
-            };
-          }
-          
-          const scenes = await canvasService.getScenes(projectId);
-          return {
-            success: true,
-            message: `Found ${scenes.length} scenes`,
-            data: { scenes }
-          };
-        }
-        
-        case "getScene": {
-          const { sceneId } = params;
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required",
-              error: "Missing sceneId parameter"
-            };
-          }
-          
-          const scene = await canvasService.getScene(sceneId);
           if (!scene) {
             return {
               success: false,
-              message: `Scene ${sceneId} not found`,
+              message: `Scene with ID ${params.sceneId} not found`,
               error: "Scene not found"
             };
           }
           
           return {
             success: true,
-            message: `Retrieved scene ${scene.title || scene.id}`,
-            data: { scene }
-          };
-        }
-        
-        case "createScene": {
-          const { projectId, title, content } = params;
-          if (!projectId) {
-            return {
-              success: false,
-              message: "Project ID is required",
-              error: "Missing projectId parameter"
-            };
-          }
-          
-          if (!title) {
-            return {
-              success: false,
-              message: "Title is required to create a scene",
-              error: "Missing title parameter"
-            };
-          }
-          
-          const sceneData = {
-            title,
-            script: content || ""
+            message: `Retrieved scene: ${scene.id}`,
+            data: scene
           };
           
-          const scene = await canvasService.createScene(projectId, sceneData);
-          if (!scene) {
-            return {
-              success: false,
-              message: "Failed to create scene",
-              error: "Scene creation failed"
+        case "create_scene":
+          if (!params.projectId || !params.title) {
+            return { 
+              success: false, 
+              message: "Project ID and title are required", 
+              error: "Missing required parameters" 
             };
           }
           
-          return {
-            success: true,
-            message: `Created scene "${title}"`,
-            data: { scene }
-          };
-        }
-        
-        case "updateScene": {
-          const { sceneId, content, contentType = "script" } = params;
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required",
-              error: "Missing sceneId parameter"
-            };
-          }
-          
-          if (!content) {
-            return {
-              success: false,
-              message: "Content is required to update a scene",
-              error: "Missing content parameter"
-            };
-          }
-          
-          let updated = false;
-          switch (contentType) {
-            case "script":
-              updated = await canvasService.updateSceneScript(sceneId, content);
-              break;
-            case "imagePrompt":
-              updated = await canvasService.updateImagePrompt(sceneId, content);
-              break;
-            case "description":
-              updated = await canvasService.updateSceneDescription(sceneId, content);
-              break;
-            case "voiceOverText":
-              updated = await canvasService.updateScene(sceneId, { voiceOverText: content });
-              break;
-            default:
-              return {
-                success: false,
-                message: `Invalid contentType "${contentType}"`,
-                error: "Invalid contentType"
-              };
-          }
-          
-          if (!updated) {
-            return {
-              success: false,
-              message: `Failed to update scene ${contentType}`,
-              error: "Scene update failed"
-            };
-          }
-          
-          return {
-            success: true,
-            message: `Updated scene ${contentType}`,
-            data: { sceneId, contentType, updated: true }
-          };
-        }
-        
-        case "generateImage": {
-          const { sceneId, prompt } = params;
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required",
-              error: "Missing sceneId parameter"
-            };
-          }
-          
-          const result = await canvasService.generateImage({
-            sceneId,
-            prompt: prompt
+          const newScene = await canvasService.createScene(params.projectId, {
+            title: params.title,
+            description: params.description || "",
+            script: params.script || ""
           });
           
-          if (!result) {
-            return {
-              success: false,
-              message: "Failed to generate image",
-              error: "Image generation failed"
-            };
-          }
-          
           return {
             success: true,
-            message: "Image generation started",
-            data: { sceneId, imageGenerationStarted: true }
+            message: `Created new scene: ${newScene.title}`,
+            data: newScene
           };
-        }
-        
-        case "generateVideo": {
-          const { sceneId, aspectRatio = "16:9" } = params;
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required",
-              error: "Missing sceneId parameter"
+          
+        case "update_scene":
+          if (!params.projectId || !params.sceneId) {
+            return { 
+              success: false, 
+              message: "Project ID and Scene ID are required", 
+              error: "Missing required parameters" 
             };
           }
           
-          const result = await canvasService.generateVideo({
-            sceneId,
-            aspectRatio
+          const updatedScene = await canvasService.updateScene(params.projectId, params.sceneId, {
+            title: params.title,
+            description: params.description,
+            script: params.script,
+            imagePrompt: params.imagePrompt
           });
           
-          if (!result) {
-            return {
-              success: false,
-              message: "Failed to generate video",
-              error: "Video generation failed"
+          return {
+            success: true,
+            message: `Updated scene: ${updatedScene.title || updatedScene.id}`,
+            data: updatedScene
+          };
+          
+        case "update_scene_script":
+          if (!params.projectId || !params.sceneId || !params.script) {
+            return { 
+              success: false, 
+              message: "Project ID, Scene ID, and script are required", 
+              error: "Missing required parameters" 
             };
           }
           
+          const scriptUpdatedScene = await canvasService.updateScene(params.projectId, params.sceneId, {
+            script: params.script
+          });
+          
           return {
             success: true,
-            message: "Video generation started",
-            data: { sceneId, videoGenerationStarted: true }
+            message: `Updated script for scene: ${scriptUpdatedScene.title || scriptUpdatedScene.id}`,
+            data: scriptUpdatedScene
           };
-        }
-        
+          
+        case "update_scene_description":
+          if (!params.projectId || !params.sceneId || !params.description) {
+            return { 
+              success: false, 
+              message: "Project ID, Scene ID, and description are required", 
+              error: "Missing required parameters" 
+            };
+          }
+          
+          const descriptionUpdatedScene = await canvasService.updateScene(params.projectId, params.sceneId, {
+            description: params.description
+          });
+          
+          return {
+            success: true,
+            message: `Updated description for scene: ${descriptionUpdatedScene.title || descriptionUpdatedScene.id}`,
+            data: descriptionUpdatedScene
+          };
+          
+        case "delete_scene":
+          if (!params.projectId || !params.sceneId) {
+            return { 
+              success: false, 
+              message: "Project ID and Scene ID are required", 
+              error: "Missing required parameters" 
+            };
+          }
+          
+          await canvasService.deleteScene(params.projectId, params.sceneId);
+          return {
+            success: true,
+            message: `Deleted scene with ID: ${params.sceneId}`
+          };
+          
         default:
           return {
             success: false,
-            message: `Unknown action "${action}"`,
+            message: `Unknown action: ${action}`,
             error: "Invalid action"
           };
       }
+      
     } catch (error) {
-      console.error("Error in Canvas tool:", error);
+      console.error("Canvas tool error:", error);
+      
+      // Show toast notification for user feedback
+      toast.error(`Canvas operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      
       return {
         success: false,
-        message: `Error: ${error instanceof Error ? error.message : "Unknown error"}`,
-        error: error instanceof Error ? error.message : "Unknown error"
+        message: `Canvas operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

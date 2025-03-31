@@ -1,5 +1,5 @@
 
-import React, { useEffect, useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { Layout } from "@/components/Layout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,13 +8,11 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Bot, Send, User } from "lucide-react";
 import { useMCPContext } from "@/contexts/MCPContext";
-
-interface Message {
-  id: string;
-  role: 'user' | 'assistant' | 'system';
-  content: string;
-  timestamp: Date;
-}
+import { v4 as uuidv4 } from "uuid";
+import { sendChatMessage } from "@/hooks/multi-agent/api-client";
+import { toast } from "sonner";
+import { Message } from "@/types/message";
+import { AgentType } from "@/hooks/multi-agent/runner/types";
 
 const MultiAgentChat = () => {
   const [messages, setMessages] = useState<Message[]>([
@@ -22,39 +20,107 @@ const MultiAgentChat = () => {
       id: "1",
       role: "system",
       content: "Welcome to Multi-Agent Chat. How can I help you today?",
-      timestamp: new Date()
+      createdAt: new Date().toISOString()
     }
   ]);
   const [inputMessage, setInputMessage] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [activeAgent, setActiveAgent] = useState<AgentType>("main");
+  
   const { connectionStatus, reconnectToMcp } = useMCPContext();
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = () => {
+  const scrollToBottom = () => {
+    if (scrollAreaRef.current) {
+      const scrollContainer = scrollAreaRef.current.querySelector('[data-radix-scroll-area-viewport]');
+      if (scrollContainer) {
+        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+      }
+    }
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  useEffect(() => {
+    // Attempt to connect to MCP when component mounts
+    if (connectionStatus !== 'connected') {
+      reconnectToMcp();
+    }
+  }, [connectionStatus, reconnectToMcp]);
+
+  const handleSendMessage = async () => {
     if (inputMessage.trim() === "") return;
     
     // Add user message
     const userMessage: Message = {
-      id: Date.now().toString(),
+      id: uuidv4(),
       role: "user",
       content: inputMessage,
-      timestamp: new Date()
+      createdAt: new Date().toISOString()
     };
     
     setMessages(prev => [...prev, userMessage]);
     setInputMessage("");
     setIsLoading(true);
     
-    // Simulate agent response
-    setTimeout(() => {
+    try {
+      // Call the edge function
+      const response = await sendChatMessage({
+        input: inputMessage,
+        agentType: activeAgent,
+        conversationHistory: [...messages, userMessage],
+        usePerformanceModel: false,
+        runId: uuidv4(),
+        groupId: uuidv4()
+      });
+      
+      // Create assistant message from response
       const assistantMessage: Message = {
-        id: (Date.now() + 1).toString(),
+        id: uuidv4(),
         role: "assistant",
-        content: "This is a placeholder response. The multi-agent chat system is still in development.",
-        timestamp: new Date()
+        content: response.content,
+        createdAt: new Date().toISOString(),
+        agentType: response.agentType as AgentType
       };
+      
       setMessages(prev => [...prev, assistantMessage]);
+      
+      // Check if there's a handoff request
+      if (response.handoffRequest) {
+        const targetAgent = response.handoffRequest.targetAgent as AgentType;
+        setActiveAgent(targetAgent);
+        
+        // Add a system message about the handoff
+        const handoffMessage: Message = {
+          id: uuidv4(),
+          role: "system",
+          content: `Conversation transferred to ${getAgentName(targetAgent)}. Reason: ${response.handoffRequest.reason}`,
+          createdAt: new Date().toISOString(),
+          type: "handoff"
+        };
+        
+        setMessages(prev => [...prev, handoffMessage]);
+        toast.info(`Switched to ${getAgentName(targetAgent)}`);
+      }
+    } catch (error) {
+      console.error("Error sending message:", error);
+      
+      // Add error message
+      const errorMessage: Message = {
+        id: uuidv4(),
+        role: "system",
+        content: `Error: ${error instanceof Error ? error.message : "Something went wrong"}`,
+        createdAt: new Date().toISOString(),
+        type: "error"
+      };
+      
+      setMessages(prev => [...prev, errorMessage]);
+      toast.error("Failed to get a response");
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
@@ -63,13 +129,17 @@ const MultiAgentChat = () => {
       handleSendMessage();
     }
   };
-
-  useEffect(() => {
-    // Attempt to connect to MCP when component mounts
-    if (connectionStatus !== 'connected') {
-      reconnectToMcp();
+  
+  const getAgentName = (agentType: AgentType): string => {
+    switch (agentType) {
+      case "main": return "Main Assistant";
+      case "script": return "Script Writer";
+      case "image": return "Image Generator";
+      case "tool": return "Tool Specialist";
+      case "scene": return "Scene Creator";
+      default: return "Assistant";
     }
-  }, [connectionStatus, reconnectToMcp]);
+  };
 
   return (
     <Layout>
@@ -107,10 +177,25 @@ const MultiAgentChat = () => {
 
         <Card className="h-[600px] flex flex-col">
           <CardHeader className="pb-3">
-            <CardTitle>Chat</CardTitle>
+            <div className="flex justify-between items-center">
+              <CardTitle>Chat</CardTitle>
+              <div className="flex space-x-2">
+                <select 
+                  className="bg-background text-foreground px-3 py-1 rounded-md border"
+                  value={activeAgent}
+                  onChange={(e) => setActiveAgent(e.target.value as AgentType)}
+                >
+                  <option value="main">Main Assistant</option>
+                  <option value="script">Script Writer</option>
+                  <option value="image">Image Generator</option>
+                  <option value="tool">Tool Specialist</option>
+                  <option value="scene">Scene Creator</option>
+                </select>
+              </div>
+            </div>
           </CardHeader>
           <CardContent className="flex-1 flex flex-col">
-            <ScrollArea className="flex-1 pr-4 mb-4">
+            <ScrollArea className="flex-1 pr-4 mb-4" ref={scrollAreaRef}>
               <div className="space-y-4">
                 {messages.map((message) => (
                   <div 
@@ -135,12 +220,14 @@ const MultiAgentChat = () => {
                           <Bot className="h-4 w-4" />
                         )}
                         <span className="text-xs opacity-70">
-                          {message.role === 'user' ? 'You' : 'Assistant'}
+                          {message.role === 'user' ? 'You' : 
+                          message.role === 'system' ? 'System' :
+                          message.agentType ? getAgentName(message.agentType) : 'Assistant'}
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
                       <div className="text-xs opacity-50 mt-1 text-right">
-                        {message.timestamp.toLocaleTimeString()}
+                        {new Date(message.createdAt).toLocaleTimeString()}
                       </div>
                     </div>
                   </div>
@@ -171,6 +258,7 @@ const MultiAgentChat = () => {
                 onChange={(e) => setInputMessage(e.target.value)}
                 onKeyDown={handleKeyDown}
                 className="pr-12"
+                disabled={isLoading}
               />
               <Button 
                 size="icon" 

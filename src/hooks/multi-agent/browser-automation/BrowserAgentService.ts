@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import type { BrowserAutomationTask, BrowserConfig, BrowserTaskOptions, BrowserTaskResult, BrowserTaskStatus } from "@/types/browser-automation";
@@ -120,7 +121,7 @@ export class BrowserAgentService {
         return { 
           status: taskData.status,
           output: taskData.output || null,
-          error: taskData.error_message || null
+          error: taskData.error || null  // Changed from error_message to error to match the type
         };
       }
       
@@ -141,7 +142,7 @@ export class BrowserAgentService {
       const responseData = await response.json();
       
       // Map the API status to our status
-      let status = 'running';
+      let status = 'running' as 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'pending' | 'expired';
       if (responseData.status === 'finished') {
         status = 'completed';
       } else if (responseData.status === 'failed') {
@@ -158,7 +159,7 @@ export class BrowserAgentService {
         .update({ 
           status: status,
           output: responseData.output || null,
-          error_message: responseData.error || null,
+          error: responseData.error || null,  // Changed from error_message to error
           current_url: responseData.current_url || null,
           browser_data: responseData.browser_data || null,
           updated_at: new Date().toISOString(),

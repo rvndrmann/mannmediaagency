@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Bot, Send, User, Zap, Trash2, Hammer, BarChartBig } from "lucide-react";
+import { Bot, Send, User, Zap, Trash2, Hammer, BarChartBig, Paperclip } from "lucide-react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { v4 as uuidv4 } from "uuid";
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { toast } from "sonner";
-import { Message } from "@/types/message";
+import { Message, Attachment } from "@/types/message";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
 import { 
   Tooltip, 
@@ -19,6 +19,9 @@ import {
   TooltipProvider, 
   TooltipTrigger 
 } from "@/components/ui/tooltip";
+import { ProjectSelector } from "@/components/multi-agent/ProjectSelector";
+import { AttachmentButton } from "@/components/multi-agent/AttachmentButton";
+import { AttachmentPreview } from "@/components/multi-agent/AttachmentPreview";
 
 const MultiAgentChat = () => {
   const {
@@ -29,6 +32,7 @@ const MultiAgentChat = () => {
     activeAgent,
     userCredits,
     pendingAttachments,
+    setPendingAttachments,
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
@@ -37,7 +41,9 @@ const MultiAgentChat = () => {
     clearChat,
     togglePerformanceMode,
     toggleDirectToolExecution,
-    toggleTracing
+    toggleTracing,
+    addAttachments,
+    removeAttachment
   } = useMultiAgentChat({
     initialMessages: [
       {
@@ -51,6 +57,7 @@ const MultiAgentChat = () => {
   
   const { connectionStatus, reconnectToMcp } = useMCPContext();
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const [selectedProjectId, setSelectedProjectId] = useState<string | undefined>(undefined);
 
   const scrollToBottom = () => {
     if (scrollAreaRef.current) {
@@ -91,10 +98,27 @@ const MultiAgentChat = () => {
     }
   };
 
+  const handleProjectSelect = (projectId: string) => {
+    setSelectedProjectId(projectId);
+    toast.success(`Selected project: ${projectId}`);
+  };
+
+  const handleAttachmentAdd = (newAttachments: Attachment[]) => {
+    addAttachments(newAttachments);
+  };
+
   return (
     <Layout>
       <div className="container mx-auto p-4 max-w-4xl">
         <h1 className="text-3xl font-bold mb-6">Multi-Agent Chat</h1>
+        
+        <div className="mb-4">
+          <ProjectSelector 
+            selectedProjectId={selectedProjectId}
+            onProjectSelect={handleProjectSelect}
+            allowCreateNew={true}
+          />
+        </div>
         
         <Card className="mb-4">
           <CardHeader className="pb-3">
@@ -270,6 +294,16 @@ const MultiAgentChat = () => {
                         </span>
                       </div>
                       <p className="text-sm whitespace-pre-wrap">{message.content}</p>
+                      
+                      {message.attachments && message.attachments.length > 0 && (
+                        <div className="mt-2">
+                          <AttachmentPreview 
+                            attachments={message.attachments} 
+                            isRemovable={false}
+                          />
+                        </div>
+                      )}
+                      
                       <div className="text-xs opacity-50 mt-1 text-right">
                         {new Date(message.createdAt).toLocaleTimeString()}
                       </div>
@@ -293,6 +327,16 @@ const MultiAgentChat = () => {
               </div>
             </ScrollArea>
             
+            {pendingAttachments.length > 0 && (
+              <div className="mb-2">
+                <AttachmentPreview 
+                  attachments={pendingAttachments} 
+                  onRemove={removeAttachment}
+                  isRemovable={true}
+                />
+              </div>
+            )}
+            
             <Separator className="my-2" />
             
             <div className="relative">
@@ -301,17 +345,25 @@ const MultiAgentChat = () => {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="pr-12"
+                className="pr-24"
                 disabled={isLoading}
               />
-              <Button 
-                size="icon" 
-                className="absolute right-1 top-1 h-8 w-8" 
-                onClick={() => handleSubmit()}
-                disabled={input.trim() === "" || isLoading}
-              >
-                <Send className="h-4 w-4" />
-              </Button>
+              <div className="absolute right-1 top-1 flex space-x-1">
+                <AttachmentButton 
+                  onAttach={handleAttachmentAdd}
+                  isDisabled={isLoading}
+                  size="icon"
+                  variant="ghost"
+                />
+                <Button 
+                  size="icon" 
+                  className="h-8 w-8" 
+                  onClick={() => handleSubmit()}
+                  disabled={input.trim() === "" && pendingAttachments.length === 0 || isLoading}
+                >
+                  <Send className="h-4 w-4" />
+                </Button>
+              </div>
             </div>
             
             <div className="mt-1 text-[10px] text-gray-500 flex justify-between">

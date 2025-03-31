@@ -331,42 +331,38 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           const targetAgent = response.handoffRequest.targetAgent;
           await processHandoff(
             activeAgent,
-            targetAgent,
+            targetAgent as AgentType,
             response.handoffRequest.reason,
             true,
             response.handoffRequest.additionalContext
           );
         }
       } catch (error) {
-        console.error("Error in sendChatMessage:", error);
+        console.error("Error in chat processing:", error);
         
         // Add error message to chat
         const errorMessage: Message = {
           id: uuidv4(),
-          role: 'system',
-          content: `Error: ${error instanceof Error ? error.message : "An unknown error occurred"}`,
+          role: "system",
+          content: error instanceof Error 
+            ? `Error: ${error.message}` 
+            : "An unknown error occurred while processing your request.",
           createdAt: new Date().toISOString(),
-          type: 'error',
-          status: 'error'
+          type: "error",
+          status: "error"
         };
         
         setMessages(prev => [...prev, errorMessage]);
-        
-        // Update chat session if we have one
-        if (options.sessionId) {
-          updateChatSession(options.sessionId, [...messages, userMessage, errorMessage]);
-        }
-        
-        toast.error("Failed to get a response");
+        toast.error("Failed to process message");
       }
     } catch (error) {
-      console.error("Error in handleSendMessage:", error);
+      console.error("Error in chat processing:", error);
       toast.error("Failed to process message");
     } finally {
-      setIsLoading(false);
-      setPendingAttachments([]);
+      // Reset state after processing
       processingRef.current = false;
       submissionIdRef.current = null;
+      setIsLoading(false);
       
       // Clear the safety timeout
       if (processingTimeoutRef.current) {
@@ -376,43 +372,28 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     }
   }, [activeAgent, isLoading, messages, options.projectId, options.sessionId, updateChatSession, usePerformanceModel]);
 
-  // Clean up timeout on unmount
-  useEffect(() => {
-    return () => {
-      if (processingTimeoutRef.current) {
-        window.clearTimeout(processingTimeoutRef.current);
-      }
-    };
-  }, []);
-
   return {
     messages,
-    setMessages,
     input,
     setInput,
     isLoading,
     activeAgent,
     userCredits,
     pendingAttachments,
+    setPendingAttachments,
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
-    handoffInProgress,
-    agentInstructions,
     handleSubmit,
     switchAgent,
     clearChat,
+    togglePerformanceMode,
+    toggleDirectToolExecution,
+    toggleTracing,
     addAttachments,
     removeAttachment,
     updateAgentInstructions,
     getAgentInstructions,
-    togglePerformanceMode,
-    toggleDirectToolExecution,
-    toggleTracing,
-    // Add this function for project context setting
-    setProjectContext: (projectId: string) => {
-      // This is a stub function that will be implemented in Phase 3
-      console.log("Setting project context for", projectId);
-    }
+    processHandoff
   };
 }

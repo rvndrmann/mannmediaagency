@@ -40,3 +40,20 @@ export interface BrowserConfig {
   extraHeaders?: Record<string, string>;
   extraParams?: Record<string, any>;
 }
+
+export interface BrowserTaskOptions {
+  saveSessionData?: boolean;
+  environment?: string;
+  applicationConfig?: any;
+}
+
+export interface BrowserTaskResult {
+  taskId: string;
+  liveUrl?: string;
+}
+
+export interface BrowserTaskStatus {
+  status: string;
+  output?: any;
+  error?: string;
+}

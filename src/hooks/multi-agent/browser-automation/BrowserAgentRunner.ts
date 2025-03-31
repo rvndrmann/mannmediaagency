@@ -1,12 +1,12 @@
 
 import { v4 as uuidv4 } from "uuid";
 import { BrowserAgentService } from "./BrowserAgentService";
-import { BrowserAutomationTask } from "@/types/browser-automation";
+import type { BrowserAutomationTask, BrowserTaskOptions } from "@/types/browser-automation";
 import { RunnerContext } from "../runner/types";
 
 export interface BrowserAgentRunnerOptions {
   apiKey?: string;
-  save_browser_data?: boolean;
+  saveSessionData?: boolean;
   headless?: boolean;
   timeout?: number;
   onStatusChange?: (status: string) => void;
@@ -24,7 +24,7 @@ export class BrowserAgentRunner {
   constructor(options: BrowserAgentRunnerOptions = {}) {
     this.service = BrowserAgentService.getInstance();
     this.options = {
-      save_browser_data: true,
+      saveSessionData: true,
       headless: false,
       timeout: 60000,
       ...options
@@ -35,12 +35,17 @@ export class BrowserAgentRunner {
   /**
    * Run a browser agent task
    */
-  async runTask(task: string, context?: RunnerContext): Promise<string> {
+  async runTask(task: string, userId: string, context?: RunnerContext): Promise<string> {
     try {
       // Start the task
-      const result = await this.service.startBrowserTask(task, {
-        save_browser_data: this.options.save_browser_data
-      });
+      const result = await this.service.startBrowserTask(
+        task,
+        userId,
+        {
+          saveSessionData: this.options.saveSessionData,
+          environment: 'browser'
+        }
+      );
       
       if (!result) {
         throw new Error("Failed to start browser task");

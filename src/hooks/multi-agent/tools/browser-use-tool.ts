@@ -66,9 +66,12 @@ export const browserUseTool: ToolDefinition = {
         context.addMessage(`Starting browser automation task: ${params.task}`, "tool_start");
       }
       
+      // Prepare task with URL if provided
+      const taskWithUrl = params.url ? `Navigate to ${params.url} and then ${params.task}` : params.task;
+      
       // Start the browser task
       const result = await browserService.startBrowserTask(
-        params.task,
+        taskWithUrl,
         context.userId,
         {
           saveSessionData: params.saveSession ?? true,

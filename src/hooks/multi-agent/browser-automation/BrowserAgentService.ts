@@ -1,7 +1,6 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
-import { BrowserAutomationTask, BrowserConfig } from "@/types/browser-automation";
+import type { BrowserAutomationTask, BrowserConfig, BrowserTaskOptions, BrowserTaskResult, BrowserTaskStatus } from "@/types/browser-automation";
 
 export { BrowserAutomationTask };
 
@@ -22,12 +21,8 @@ export class BrowserAgentService {
   public async startBrowserTask(
     taskInput: string,
     userId: string,
-    options: {
-      environment?: string;
-      applicationConfig?: any;
-      saveSessionData?: boolean;
-    } = {}
-  ): Promise<{ taskId: string; liveUrl?: string } | null> {
+    options: BrowserTaskOptions = {}
+  ): Promise<BrowserTaskResult | null> {
     try {
       const taskId = uuidv4();
       const { environment = 'browser', applicationConfig, saveSessionData = true } = options;
@@ -99,7 +94,7 @@ export class BrowserAgentService {
     }
   }
   
-  public async checkTaskStatus(taskId: string): Promise<{ status: string; output?: any; error?: string }> {
+  public async checkTaskStatus(taskId: string): Promise<BrowserTaskStatus> {
     try {
       // First get the task from our database
       const { data: taskData, error: taskError } = await supabase

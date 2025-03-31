@@ -1,62 +1,99 @@
 
-import { AgentType } from "@/hooks/use-multi-agent-chat";
-import { FileText, Image, ArrowRight, Wrench, PenSquare, Database } from "lucide-react";
+import React, { memo } from 'react';
+import { ArrowRightCircle, Loader2 } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
+import type { AgentType } from '@/hooks/use-multi-agent-chat';
 
 interface HandoffIndicatorProps {
   fromAgent: AgentType;
   toAgent: AgentType;
-  visible: boolean;
+  handoffReason?: string;
+  isInProgress: boolean;
+  handoffId?: string;
 }
 
-const getAgentIcon = (agentType: AgentType) => {
-  switch (agentType) {
-    case "script":
-      return <FileText className="w-5 h-5 text-blue-400" />;
-    case "image":
-      return <Image className="w-5 h-5 text-purple-400" />;
-    case "tool":
-      return <Wrench className="w-5 h-5 text-green-400" />;
-    case "scene":
-      return <PenSquare className="w-5 h-5 text-amber-400" />;
-    case "data":
-      return <Database className="w-5 h-5 text-cyan-400" />; // Add Data agent icon
-    default:
-      return null;
-  }
-};
+export const HandoffIndicator = memo(function HandoffIndicator({
+  fromAgent,
+  toAgent,
+  handoffReason,
+  isInProgress,
+  handoffId
+}: HandoffIndicatorProps) {
+  // Format agent name for display
+  const formatAgentName = (agent: AgentType) => {
+    return agent.charAt(0).toUpperCase() + agent.slice(1) + ' Agent';
+  };
 
-const getAgentName = (agentType: AgentType): string => {
-  switch (agentType) {
-    case "main": return "Main Assistant";
-    case "script": return "Script Writer";
-    case "image": return "Image Generator";
-    case "tool": return "Tool Specialist";
-    case "scene": return "Scene Creator";
-    case "data": return "Data Agent"; // Add Data agent name
-    default: return "Assistant";
-  }
-};
+  // Color mappings for different agents
+  const getAgentColor = (agent: AgentType): string => {
+    const colorMap: Record<AgentType, string> = {
+      main: 'bg-blue-600 hover:bg-blue-700',
+      image: 'bg-purple-600 hover:bg-purple-700',
+      script: 'bg-green-600 hover:bg-green-700',
+      scene: 'bg-orange-600 hover:bg-orange-700',
+      tool: 'bg-teal-600 hover:bg-teal-700',
+      data: 'bg-amber-600 hover:bg-amber-700',
+    };
+    
+    return colorMap[agent] || 'bg-gray-600 hover:bg-gray-700';
+  };
 
-export function HandoffIndicator({ fromAgent, toAgent, visible }: HandoffIndicatorProps) {
-  if (!visible) return null;
-  
   return (
-    <div className="fixed inset-x-0 bottom-4 flex justify-center z-50 pointer-events-none">
-      <div className="bg-[#21283B]/90 backdrop-blur-sm rounded-lg border border-white/10 text-white shadow-lg px-4 py-2 flex items-center gap-2 pointer-events-auto">
-        <div className="flex items-center gap-1">
-          {getAgentIcon(fromAgent) || <div className="w-5 h-5 rounded-full bg-blue-500" />}
-          <span className="text-sm font-medium">{getAgentName(fromAgent)}</span>
+    <div className="my-3 px-2" aria-live="polite" role="status">
+      <Alert className="bg-gray-800/50 border border-gray-700">
+        <AlertDescription className="flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className={`${getAgentColor(fromAgent)} text-xs cursor-help`}>
+                    {formatAgentName(fromAgent)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="bg-gray-800 text-white border-gray-700">
+                  <p>Handing off from {formatAgentName(fromAgent)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+            
+            <div className="flex items-center">
+              {isInProgress ? (
+                <Loader2 className="h-4 w-4 text-gray-400 animate-spin mx-2" />
+              ) : (
+                <ArrowRightCircle className="h-4 w-4 text-gray-400 mx-2" />
+              )}
+            </div>
+            
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge className={`${getAgentColor(toAgent)} text-xs cursor-help`}>
+                    {formatAgentName(toAgent)}
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent className="bg-gray-800 text-white border-gray-700">
+                  <p>Handing off to {formatAgentName(toAgent)}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          </div>
+          
+          {handoffReason && (
+            <div className="text-xs text-gray-400 max-w-[70%] truncate" title={handoffReason}>
+              {isInProgress ? "Handoff in progress: " : "Reason: "}
+              {handoffReason}
+            </div>
+          )}
+        </AlertDescription>
+      </Alert>
+      
+      {handoffId && (
+        <div className="text-[10px] text-gray-500 mt-1 text-right">
+          Handoff ID: {handoffId.slice(0, 8)}
         </div>
-        
-        <ArrowRight className="text-gray-400 w-4 h-4" />
-        
-        <div className="flex items-center gap-1">
-          {getAgentIcon(toAgent) || <div className="w-5 h-5 rounded-full bg-green-500" />}
-          <span className="text-sm font-medium">{getAgentName(toAgent)}</span>
-        </div>
-        
-        <span className="text-xs text-gray-400 ml-2">Handoff in progress...</span>
-      </div>
+      )}
     </div>
   );
-}
+});

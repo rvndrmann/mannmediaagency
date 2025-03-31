@@ -1,222 +1,181 @@
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
+import { MCPToolExecutionResult } from "@/types/mcp";
 import { toast } from "sonner";
-import { supabase } from "@/integrations/supabase/client";
-import { MCPService } from "@/services/mcp/MCPService";
-import { TracingService } from "@/services/tracing/TracingService";
 
 interface UseMcpToolOptions {
-  fallbackFn?: (params: any) => Promise<any>;
-  showToasts?: boolean;
   projectId?: string;
   sceneId?: string;
-  recordAnalytics?: boolean;
-  retryCount?: number;
+  toolName: string;
+  autoRetry?: boolean;
+  maxRetries?: number;
+  retryDelay?: number;
+  onSuccess?: (result: MCPToolExecutionResult) => void;
+  onError?: (error: Error) => void;
 }
 
-export function useMcpTool(toolName: string, options: UseMcpToolOptions = {}) {
+/**
+ * A specialized hook for managing a single MCP tool execution with 
+ * optimized status tracking and debounced requests
+ */
+export function useMcpTool({
+  projectId,
+  sceneId,
+  toolName,
+  autoRetry = true,
+  maxRetries = 2,
+  retryDelay = 1000,
+  onSuccess,
+  onError
+}: UseMcpToolOptions) {
+  const { mcpServers, useMcp } = useMCPContext();
   const [isExecuting, setIsExecuting] = useState(false);
-  const [lastResult, setLastResult] = useState<any>(null);
-  const [error, setError] = useState<Error | null>(null);
-  const { useMcp, reconnectToMcp } = useMCPContext();
-  const mcpService = MCPService.getInstance();
+  const [lastResult, setLastResult] = useState<MCPToolExecutionResult | null>(null);
+  const [lastError, setLastError] = useState<Error | null>(null);
   
-  const { 
-    fallbackFn, 
-    showToasts = true, 
-    projectId, 
-    sceneId, 
-    recordAnalytics = true,
-    retryCount = 1
-  } = options;
+  // Refs for debouncing
+  const executionInProgressRef = useRef(false);
+  const lastExecutionTimeRef = useRef(0);
+  const debounceTimeoutRef = useRef<number | null>(null);
   
-  // Function to record tool usage in analytics
-  const recordToolUsage = useCallback(async (
-    success: boolean, 
-    result?: any, 
-    errorMessage?: string
-  ) => {
-    if (!recordAnalytics || !projectId) return;
-    
-    try {
-      const { data: userData } = await supabase.auth.getUser();
-      if (!userData.user) return;
-      
-      // Use the tracing service to record the tool usage
-      const tracingService = TracingService.getInstance();
-      
-      if (!tracingService.isActive()) {
-        tracingService.startTrace({
-          userId: userData.user.id,
-          agentType: 'tool',
-          projectId
-        });
+  // Check if we have a connection to MCP
+  const hasConnection = useCallback(() => {
+    return useMcp && mcpServers.length > 0 && mcpServers[0]?.isConnected();
+  }, [useMcp, mcpServers]);
+  
+  // Debounced execution to prevent multiple rapid requests
+  const debouncedExecute = useCallback((
+    params: any = {},
+    debounceMs: number = 300
+  ): Promise<MCPToolExecutionResult> => {
+    return new Promise((resolve, reject) => {
+      // Clear any existing timeout
+      if (debounceTimeoutRef.current !== null) {
+        window.clearTimeout(debounceTimeoutRef.current);
+        debounceTimeoutRef.current = null;
       }
       
-      tracingService.addEvent('tool_execution', {
-        toolName,
-        projectId,
-        sceneId,
-        success,
-        errorMessage
-      });
-      
-      await tracingService.endTrace({
-        success,
-        userMessage: `Execute ${toolName}`,
-        assistantResponse: success ? 
-          `Successfully executed ${toolName}` : 
-          `Failed to execute ${toolName}: ${errorMessage}`,
-        toolCalls: 1
-      });
-      
-    } catch (err) {
-      console.error("Failed to record tool usage:", err);
-    }
-  }, [toolName, projectId, sceneId, recordAnalytics]);
+      // Set a new timeout
+      debounceTimeoutRef.current = window.setTimeout(() => {
+        execute(params).then(resolve).catch(reject);
+      }, debounceMs);
+    });
+  }, []);
   
-  const executeTool = useCallback(async (params: any, currentRetry = 0) => {
-    setIsExecuting(true);
-    setError(null);
-    
-    try {
-      // If MCP is disabled, use fallback
-      if (!useMcp) {
-        if (!fallbackFn) {
-          throw new Error(`MCP is disabled and no fallback function provided for ${toolName}`);
-        }
-        
-        if (showToasts) {
-          toast.info("Using fallback method (MCP unavailable)");
-        }
-        
-        const result = await fallbackFn(params);
-        setLastResult(result);
-        
-        // Record the fallback usage
-        await recordToolUsage(true, result);
-        
-        return result;
-      }
-      
-      // Add projectId and sceneId to params if provided in options but not in params
-      const finalParams = {
-        ...params,
-        projectId: params.projectId || projectId,
-        sceneId: params.sceneId || sceneId
+  // Execute the MCP tool
+  const execute = useCallback(async (
+    params: any = {}
+  ): Promise<MCPToolExecutionResult> => {
+    // Prevent multiple simultaneous executions
+    if (executionInProgressRef.current) {
+      console.log(`Tool execution already in progress for ${toolName}, skipping...`);
+      return {
+        success: false,
+        error: "Tool execution already in progress"
       };
-      
+    }
+    
+    // Check if we're trying to execute too frequently
+    const now = Date.now();
+    const timeSinceLastExecution = now - lastExecutionTimeRef.current;
+    if (timeSinceLastExecution < 200) { // Simple rate limiting
+      console.log(`Rate limiting tool execution for ${toolName}, called too frequently`);
+      return {
+        success: false,
+        error: "Rate limiting applied"
+      };
+    }
+    
+    // Merge the default params with the provided ones
+    const finalParams = {
+      ...params,
+      projectId: params.projectId || projectId,
+      sceneId: params.sceneId || sceneId
+    };
+    
+    // Mark execution as in progress
+    executionInProgressRef.current = true;
+    setIsExecuting(true);
+    lastExecutionTimeRef.current = now;
+    
+    let attempts = 0;
+    let lastAttemptError: Error | null = null;
+    
+    while (attempts <= maxRetries) {
       try {
-        // Get server for this project
-        const server = projectId 
-          ? await mcpService.getServerForProject(projectId)
-          : null;
-          
-        if (!server) {
-          if (projectId) {
-            // Try to create a new server
-            const newServer = await mcpService.createDefaultServer(projectId);
-            
-            if (!newServer) {
-              throw new Error("Failed to establish MCP connection");
-            }
-            
-            // Call the tool through the connection
-            const result = await newServer.callTool(toolName, finalParams);
-            setLastResult(result);
-            
-            // Record the successful tool usage
-            await recordToolUsage(true, result);
-            
-            return result;
-          } else if (fallbackFn) {
-            // No project ID and no connection, but we have a fallback
-            if (showToasts) {
-              toast.info("Using fallback method (No MCP connection)");
-            }
-            
-            const result = await fallbackFn(finalParams);
-            setLastResult(result);
-            
-            // Record the fallback usage
-            await recordToolUsage(true, result);
-            
-            return result;
-          } else {
-            throw new Error("No MCP connection available and no fallback provided");
-          }
+        // Check for MCP connection
+        if (!hasConnection()) {
+          throw new Error("MCP is not connected");
         }
         
-        // Call the tool through the established connection
-        const result = await server.callTool(toolName, finalParams);
-        setLastResult(result);
+        const server = mcpServers[0];
+        console.log(`Executing MCP tool ${toolName} (attempt ${attempts + 1}/${maxRetries + 1})`, finalParams);
         
-        // Record the successful tool usage
-        await recordToolUsage(true, result);
+        // Use non-blocking execution with a timeout for early failure detection
+        const abortController = new AbortController();
+        const timeoutId = setTimeout(() => abortController.abort(), 10000); // 10 second timeout
+        
+        const result = await server.executeTool(toolName, finalParams);
+        clearTimeout(timeoutId);
+        
+        // Process successful result
+        setLastResult(result);
+        setLastError(null);
+        setIsExecuting(false);
+        executionInProgressRef.current = false;
+        
+        // Call success callback if provided
+        if (onSuccess && result.success) {
+          onSuccess(result);
+        }
         
         return result;
-      } catch (connectionErr) {
-        // Handle connection errors with retry logic
-        if (currentRetry < retryCount) {
-          if (showToasts) {
-            toast.warning(`Connection issue. Retrying (${currentRetry + 1}/${retryCount})...`);
-          }
-          
-          // Try reconnecting to MCP
-          await reconnectToMcp();
-          
-          // Recursive retry
-          return executeTool(params, currentRetry + 1);
-        }
+      } catch (error) {
+        lastAttemptError = error instanceof Error ? error : new Error(String(error));
+        console.error(`Error executing tool ${toolName} (attempt ${attempts + 1}):`, lastAttemptError);
         
-        // If we've exhausted retries, try fallback or throw
-        if (fallbackFn) {
-          if (showToasts) {
-            toast.info("Connection failed. Using fallback method.");
-          }
-          
-          const result = await fallbackFn(finalParams);
-          setLastResult(result);
-          await recordToolUsage(true, result);
-          return result;
-        }
+        attempts += 1;
         
-        throw connectionErr;
+        // If we still have retries left, and auto retry is enabled, wait and try again
+        if (autoRetry && attempts <= maxRetries) {
+          await new Promise(resolve => setTimeout(resolve, retryDelay * attempts));
+        } else {
+          break;
+        }
       }
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error(String(err));
-      setError(error);
-      
-      if (showToasts) {
-        toast.error(`Error executing ${toolName}: ${error.message}`);
-      }
-      
-      // Record the failed tool usage
-      await recordToolUsage(false, null, error.message);
-      
-      throw error;
-    } finally {
-      setIsExecuting(false);
     }
-  }, [
-    toolName, 
-    useMcp, 
-    fallbackFn, 
-    showToasts, 
-    projectId, 
-    sceneId, 
-    recordToolUsage, 
-    mcpService, 
-    reconnectToMcp, 
-    retryCount
-  ]);
+    
+    // All attempts failed
+    const errorMessage = `Failed to execute tool ${toolName} after ${attempts} attempts`;
+    console.error(errorMessage, lastAttemptError);
+    
+    // Set the final error
+    setLastError(lastAttemptError);
+    setIsExecuting(false);
+    executionInProgressRef.current = false;
+    
+    // Call error callback if provided
+    if (onError && lastAttemptError) {
+      onError(lastAttemptError);
+    }
+    
+    // Show error toast
+    toast.error(`Failed to execute ${toolName.replace(/_/g, ' ')}`);
+    
+    return {
+      success: false,
+      error: lastAttemptError?.message || errorMessage
+    };
+  }, [hasConnection, mcpServers, toolName, projectId, sceneId, autoRetry, maxRetries, retryDelay, onSuccess, onError]);
   
+  // Return the API
   return {
-    executeTool,
+    execute,
+    debouncedExecute,
     isExecuting,
     lastResult,
-    error,
-    resetError: () => setError(null)
+    lastError,
+    hasConnection: hasConnection()
   };
 }

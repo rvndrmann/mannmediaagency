@@ -36,13 +36,13 @@ export const MCPConnectionStatus = memo(function MCPConnectionStatus({
   } = useMCPContext();
   
   // Memoize event handlers to prevent unnecessary re-renders
-  const handleReconnect = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
+  const handleReconnect = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     reconnectToMcp();
   }, [reconnectToMcp]);
   
-  const handleDisableMcp = useCallback((e: React.MouseEvent<Element>) => {
+  const handleDisableMcp = useCallback((e: React.MouseEvent) => {
     e.preventDefault();
     e.stopPropagation();
     setUseMcp(false);

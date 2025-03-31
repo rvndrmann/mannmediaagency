@@ -8,8 +8,9 @@ export interface MCPServer {
   disconnect: () => Promise<boolean>;
   isConnected: () => boolean;
   isConnectionActive: () => boolean;
-  listTools: () => Promise<any[]>;
-  executeTool: (toolName: string, parameters: any) => Promise<any>;
+  cleanup: () => Promise<void>;
+  listTools: () => Promise<MCPToolDefinition[]>;
+  executeTool: (toolName: string, parameters: MCPToolExecutionParams) => Promise<MCPToolExecutionResult>;
 }
 
 export interface MCPContext {
@@ -33,4 +34,33 @@ export interface MCPToolExecutionResult {
   error?: string;
   data?: any;
   metadata?: any;
+}
+
+export interface MCPToolExecutionParams {
+  sceneId?: string;
+  projectId?: string;
+  [key: string]: any;
+}
+
+export interface MCPToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, {
+      type: string;
+      description: string;
+      enum?: string[];
+    }>;
+    required: string[];
+  };
+}
+
+export interface MCPConnectionRecord {
+  id: string;
+  projectId: string;
+  userId: string;
+  connectionUrl: string;
+  lastConnectedAt: string;
+  isActive: boolean;
 }

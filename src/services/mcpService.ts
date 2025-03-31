@@ -1,5 +1,4 @@
-
-import { MCPServer, MCPToolDefinition } from "@/types/mcp";
+import { MCPServer, MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "@/types/mcp";
 import { supabase } from "@/integrations/supabase/client";
 
 export class MCPServerService implements MCPServer {
@@ -11,14 +10,21 @@ export class MCPServerService implements MCPServer {
   private projectId: string | null = null;
   private connectionTimeout: number = 8000; // 8 seconds timeout
   
+  id: string;
+  status: string = 'disconnected';
+  url: string;
+  
   constructor(serverUrl: string, projectId?: string) {
     this.serverUrl = serverUrl;
+    this.url = serverUrl;
     this.projectId = projectId || null;
+    this.id = crypto.randomUUID(); // Generate a unique ID for this server instance
   }
   
-  async connect(): Promise<void> {
+  async connect(): Promise<boolean> {
     try {
       console.log("Connecting to MCP server at", this.serverUrl);
+      this.status = 'connecting';
       
       // Try to ping the server to verify connection with timeout
       const abortController = new AbortController();
@@ -43,6 +49,7 @@ export class MCPServerService implements MCPServer {
       
       this.connected = true;
       this.connectionError = null;
+      this.status = 'connected';
       
       // If we have a project ID, record this connection in the database
       if (this.projectId) {
@@ -51,16 +58,20 @@ export class MCPServerService implements MCPServer {
       
       // Prefetch tools to validate connection
       await this.listTools();
+      
+      return true;
     } catch (error) {
       this.connected = false;
       this.connectionError = error instanceof Error ? error : new Error(String(error));
+      this.status = 'error';
       console.error("Connection error details:", this.connectionError);
       throw this.connectionError;
     }
   }
   
-  async disconnect(): Promise<void> {
+  async disconnect(): Promise<boolean> {
     this.connected = false;
+    this.status = 'disconnected';
     
     // Mark the connection as inactive in the database
     if (this.connectionId) {
@@ -72,11 +83,15 @@ export class MCPServerService implements MCPServer {
           
         if (error) {
           console.error("Error marking connection as inactive:", error);
+          return false;
         }
+        return true;
       } catch (error) {
         console.error("Failed to update connection status:", error);
+        return false;
       }
     }
+    return true;
   }
   
   private async recordConnection(): Promise<void> {
@@ -334,12 +349,12 @@ export class MCPServerService implements MCPServer {
     }
   }
   
-  async callTool(name: string, parameters: any): Promise<any> {
+  async executeTool(toolName: string, parameters: MCPToolExecutionParams): Promise<MCPToolExecutionResult> {
     if (!this.isConnected()) {
       throw new Error("MCP server not connected. Call connect() first.");
     }
     
-    console.log(`Calling MCP tool ${name} with parameters:`, parameters);
+    console.log(`Executing MCP tool ${toolName} with parameters:`, parameters);
     
     try {
       // Try to call the tool on the actual MCP server with timeout
@@ -351,7 +366,7 @@ export class MCPServerService implements MCPServer {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           operation: 'call_tool',
-          toolName: name,
+          toolName: toolName,
           parameters: parameters,
           projectId: this.projectId
         }),
@@ -365,68 +380,45 @@ export class MCPServerService implements MCPServer {
       
       clearTimeout(timeoutId);
       
-      let result: { success: boolean, result: string };
+      let result: MCPToolExecutionResult;
       
       if (response && response.ok) {
-        result = await response.json();
+        const responseData = await response.json();
+        result = {
+          success: responseData.success,
+          data: responseData.result || responseData.data,
+          metadata: responseData.metadata
+        };
       } else {
         // Fallback: simulate a response for demo purposes
-        console.warn(`Using fallback implementation for tool: ${name}`);
+        console.warn(`Using fallback implementation for tool: ${toolName}`);
         await new Promise(resolve => setTimeout(resolve, 500)); // Simulate network latency
         
-        switch (name) {
-          case "update_scene_description":
-            result = {
-              success: true,
-              result: "Scene description updated successfully using AI analysis"
-            };
-            break;
-          case "update_image_prompt":
-            result = {
-              success: true,
-              result: "Image prompt generated and updated successfully"
-            };
-            break;
-          case "generate_scene_image":
-            result = {
-              success: true,
-              result: "Scene image generated successfully using " + 
-                      (parameters.productShotVersion === "v1" ? "ProductShot V1" : "ProductShot V2")
-            };
-            break;
-          case "create_scene_video":
-            result = {
-              success: true,
-              result: "Scene video created successfully with aspect ratio " + parameters.aspectRatio
-            };
-            break;
-          case "generate_scene_script":
-            result = {
-              success: true,
-              result: "Scene script generated successfully with context: " + 
-                      (parameters.contextPrompt || "default context")
-            };
-            break;
-          default:
-            throw new Error(`Unknown tool: ${name}`);
-        }
+        result = {
+          success: true,
+          data: `Simulated response for tool: ${toolName}`,
+          metadata: { simulated: true, parameters }
+        };
       }
       
       // Record the tool execution if we have a connection ID
       if (this.connectionId) {
-        await this.recordToolExecution(name, parameters, result);
+        await this.recordToolExecution(toolName, parameters, result);
       }
       
       return result;
     } catch (error) {
-      console.error(`Error calling MCP tool ${name}:`, error);
+      console.error(`Error calling MCP tool ${toolName}:`, error);
       
       // Record the failed execution
       if (this.connectionId) {
-        await this.recordToolExecution(name, parameters, null, error);
+        await this.recordToolExecution(toolName, parameters, null, error);
       }
       
-      throw error;
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
   }
   

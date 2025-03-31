@@ -76,13 +76,16 @@ export class MCPService {
    */
   public async createDefaultServer(projectId: string): Promise<MCPServer | null> {
     try {
-      const server = new MCPServerService(this.defaultServerUrl, projectId);
-      await server.connect();
+      const serverService = new MCPServerService(this.defaultServerUrl, projectId);
+      const connected = await serverService.connect();
       
-      // Store in connection pool
-      this.connectionPool.set(projectId, server);
-      
-      return server;
+      if (connected) {
+        // Store in connection pool
+        this.connectionPool.set(projectId, serverService);
+        return serverService;
+      } else {
+        throw new Error("Failed to establish MCP connection");
+      }
     } catch (error) {
       console.error("Failed to create default MCP server:", error);
       return null;

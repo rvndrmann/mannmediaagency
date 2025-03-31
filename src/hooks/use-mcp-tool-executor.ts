@@ -1,328 +1,183 @@
 
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useMemo, useRef } from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "@/types/mcp";
 import { toast } from "sonner";
 
-interface UseMcpToolExecutorOptions {
+// Interface for tool executor options
+interface ToolExecutorOptions {
   projectId?: string;
   sceneId?: string;
-  showToasts?: boolean;
-  cacheTime?: number; // Time in ms to cache results
-  onSuccess?: (result: MCPToolExecutionResult) => void;
-  onError?: (error: Error) => void;
+  cacheResults?: boolean;
+  autoRetry?: boolean;
+  maxRetries?: number;
+  retryDelay?: number;
 }
 
-// Cache for recently executed tools to prevent duplicate calls
-interface CachedExecution {
-  result: MCPToolExecutionResult;
-  timestamp: number;
-  params: string; // Stringified parameters for comparison
+// Interface for execution result
+interface ToolExecutionState {
+  isExecuting: boolean;
+  lastResult: MCPToolExecutionResult | null;
+  error: Error | null;
+  toolName: string | null;
 }
 
-// Default cache expiry time
-const DEFAULT_CACHE_EXPIRY = 30000; // 30 seconds
+// Define a type for the cache
+type ToolResultCache = Map<string, MCPToolExecutionResult>;
 
 /**
- * A hook that provides easy access to MCP tools with proper connection handling
- * and result caching for better performance
+ * Hook for executing MCP tools with caching, retry logic, and error handling
  */
-export function useMcpToolExecutor(options: UseMcpToolExecutorOptions = {}) {
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [executionResults, setExecutionResults] = useState<Record<string, MCPToolExecutionResult>>({});
-  const [availableTools, setAvailableTools] = useState<MCPToolDefinition[]>([]);
-  const { mcpServers, useMcp, reconnectToMcp, hasConnectionError } = useMCPContext();
-  
-  // Use a ref for the cache to persist between renders without causing re-renders
-  const executionCache = useRef<Record<string, CachedExecution>>({});
-  const pendingExecutions = useRef<Record<string, Promise<MCPToolExecutionResult>>>({});
-  const cleanupTimerRef = useRef<number | null>(null);
-  
-  const { 
-    projectId, 
-    sceneId, 
-    showToasts = true,
-    cacheTime = DEFAULT_CACHE_EXPIRY,
-    onSuccess,
-    onError
+export function useMcpToolExecutor(options: ToolExecutorOptions = {}) {
+  const {
+    projectId,
+    sceneId,
+    cacheResults = true,
+    autoRetry = true,
+    maxRetries = 2,
+    retryDelay = 1000
   } = options;
+
+  const { mcpServers, useMcp } = useMCPContext();
+  const [executionState, setExecutionState] = useState<ToolExecutionState>({
+    isExecuting: false,
+    lastResult: null,
+    error: null,
+    toolName: null
+  });
+
+  // Cache for storing execution results
+  const resultsCacheRef = useRef<ToolResultCache>(new Map());
   
-  /**
-   * Clean expired cache entries periodically
-   */
-  useEffect(() => {
-    // Set up a timer to clean the cache periodically
-    const cleanCacheInterval = window.setInterval(() => {
-      cleanCache();
-    }, cacheTime / 2); // Clean at half the cache expiry time
-    
-    cleanupTimerRef.current = cleanCacheInterval;
-    
-    return () => {
-      if (cleanupTimerRef.current !== null) {
-        clearInterval(cleanupTimerRef.current);
-      }
-    };
-  }, [cacheTime]);
-  
-  /**
-   * Clean expired cache entries
-   */
-  const cleanCache = useCallback(() => {
-    const now = Date.now();
-    const newCache: Record<string, CachedExecution> = {};
-    
-    Object.entries(executionCache.current).forEach(([key, value]) => {
-      if (now - value.timestamp < cacheTime) {
-        newCache[key] = value;
-      }
-    });
-    
-    executionCache.current = newCache;
-  }, [cacheTime]);
-  
-  /**
-   * Clear the cache - useful when changing scenes or projects
-   */
+  // Track connection state
+  const hasConnection = useMemo(() => {
+    return useMcp && mcpServers.length > 0 && mcpServers[0].isConnected();
+  }, [useMcp, mcpServers]);
+
+  // Clear the cache
   const clearCache = useCallback(() => {
-    console.log("Clearing MCP tool execution cache");
-    executionCache.current = {};
+    resultsCacheRef.current.clear();
   }, []);
-  
-  /**
-   * Execute an MCP tool with caching, deduplication, and error handling
-   */
-  const executeTool = useCallback(async (
-    toolName: string, 
-    parameters: MCPToolExecutionParams = {}
-  ): Promise<MCPToolExecutionResult> => {
-    // Only show warning if another execution is in progress for the same tool
-    if (isExecuting && pendingExecutions.current[toolName]) {
-      console.warn(`Another execution of ${toolName} is already in progress`);
-    }
-    
-    setIsExecuting(true);
-    
-    // Clean expired cache entries
-    cleanCache();
-    
-    try {
-      // Check if MCP is enabled and connected
-      if (!useMcp || mcpServers.length === 0) {
-        const error = new Error("MCP is disabled or not connected");
-        if (showToasts) {
-          toast.error("MCP is not available. Please enable MCP in settings.");
-        }
-        if (onError) onError(error);
-        return { 
-          success: false, 
-          error: "MCP is disabled or not connected" 
-        };
-      }
-      
-      // If there's a connection error, try to reconnect first
-      if (hasConnectionError) {
-        if (showToasts) {
-          toast.loading("Reconnecting to MCP...", { id: "mcp-reconnect" });
-        }
-        
-        try {
-          const reconnected = await reconnectToMcp();
-          
-          if (!reconnected) {
-            const error = new Error("Failed to reconnect to MCP");
-            if (showToasts) {
-              toast.error("Failed to reconnect to MCP. Please try again later.", { id: "mcp-reconnect" });
-            }
-            if (onError) onError(error);
-            return { 
-              success: false, 
-              error: "Failed to reconnect to MCP" 
-            };
-          } else if (showToasts) {
-            toast.success("Reconnected to MCP successfully", { id: "mcp-reconnect" });
-          }
-        } catch (error) {
-          console.error("Error during MCP reconnection:", error);
-          if (showToasts) {
-            toast.error("Error during MCP reconnection", { id: "mcp-reconnect" });
-          }
-          if (onError) onError(error instanceof Error ? error : new Error(String(error)));
-          return {
-            success: false,
-            error: "Error during MCP reconnection"
-          };
-        }
-      }
-      
-      // Merge provided parameters with default ones
-      const fullParameters = {
-        ...parameters,
-        projectId: parameters.projectId || projectId,
-        sceneId: parameters.sceneId || sceneId
+
+  // Generate a cache key for a tool execution
+  const getCacheKey = useCallback((toolName: string, params: MCPToolExecutionParams) => {
+    return `${toolName}-${JSON.stringify(params)}`;
+  }, []);
+
+  // Execute an MCP tool with caching and retry logic
+  const executeTool = useCallback(
+    async (
+      toolName: string,
+      params: MCPToolExecutionParams = {}
+    ): Promise<MCPToolExecutionResult> => {
+      // Merge the default params with the provided ones
+      const finalParams: MCPToolExecutionParams = {
+        ...params,
+        projectId: params.projectId || projectId,
+        sceneId: params.sceneId || sceneId
       };
-      
-      // Generate a cache key based on tool name and parameters
-      const cacheKey = `${toolName}-${JSON.stringify(fullParameters)}`;
-      
+
       // Check if we have a cached result
-      if (executionCache.current[cacheKey]) {
-        console.log(`Using cached result for ${toolName}`);
-        const cachedResult = executionCache.current[cacheKey].result;
-        
-        // Still call the success callback with cached results
-        if (onSuccess) onSuccess(cachedResult);
-        
+      const cacheKey = getCacheKey(toolName, finalParams);
+      if (cacheResults && resultsCacheRef.current.has(cacheKey)) {
+        const cachedResult = resultsCacheRef.current.get(cacheKey)!;
+        console.log(`Using cached result for tool ${toolName}`, cachedResult);
         return cachedResult;
       }
-      
-      // Check if we already have a pending execution for this exact request
-      if (pendingExecutions.current[cacheKey]) {
-        console.log(`Reusing pending execution for ${toolName}`);
-        return pendingExecutions.current[cacheKey];
-      }
-      
-      // Show loading toast if enabled
-      let toastId;
-      if (showToasts) {
-        toastId = toast.loading(`Executing ${toolName}...`);
-      }
-      
-      // Create a new execution promise and store it
-      const executionPromise = (async () => {
+
+      // Update state to indicate execution is in progress
+      setExecutionState({
+        isExecuting: true,
+        lastResult: null,
+        error: null,
+        toolName
+      });
+
+      let attempts = 0;
+      let lastError: Error | null = null;
+
+      while (attempts <= maxRetries) {
         try {
-          // Get the first available MCP server
-          const server = mcpServers[0];
-          
-          // Execute the tool with timeout handling
-          const executionTimeout = 60000; // 60 seconds timeout for tool execution
-          const executionPromise = server.callTool(toolName, fullParameters);
-          const timeoutPromise = new Promise<never>((_, reject) => {
-            setTimeout(() => reject(new Error(`Tool execution timed out after ${executionTimeout}ms`)), executionTimeout);
-          });
-          
-          const result = await Promise.race([executionPromise, timeoutPromise]);
-          
-          // Cache the result
-          executionCache.current[cacheKey] = {
-            result,
-            timestamp: Date.now(),
-            params: JSON.stringify(fullParameters)
-          };
-          
-          // Store the result in state
-          setExecutionResults(prev => ({
-            ...prev,
-            [toolName]: result
-          }));
-          
-          // Show success toast if enabled
-          if (showToasts && toastId) {
-            toast.success(`${toolName} executed successfully`, {
-              id: toastId
-            });
+          if (!useMcp || mcpServers.length === 0) {
+            throw new Error("MCP is not enabled or no servers available");
           }
-          
-          // Call success callback if provided
-          if (onSuccess) onSuccess(result);
-          
+
+          const server = mcpServers[0];
+          console.log(`Executing MCP tool ${toolName} (attempt ${attempts + 1}/${maxRetries + 1})`, finalParams);
+
+          const result = await server.executeTool(toolName, finalParams);
+
+          // Cache the successful result
+          if (cacheResults && result.success) {
+            resultsCacheRef.current.set(cacheKey, result);
+          }
+
+          // Update state
+          setExecutionState({
+            isExecuting: false,
+            lastResult: result,
+            error: null,
+            toolName
+          });
+
           return result;
         } catch (error) {
-          console.error(`Error executing MCP tool ${toolName}:`, error);
+          lastError = error instanceof Error ? error : new Error(String(error));
+          console.error(`Error executing tool ${toolName} (attempt ${attempts + 1}):`, lastError);
           
-          // Show error toast if enabled
-          if (showToasts && toastId) {
-            toast.error(`Error executing ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`, {
-              id: toastId
-            });
-          } else if (showToasts) {
-            toast.error(`Error executing ${toolName}: ${error instanceof Error ? error.message : 'Unknown error'}`);
-          }
+          attempts += 1;
           
-          // Call error callback if provided
-          if (onError) onError(error instanceof Error ? error : new Error(String(error)));
-          
-          return {
-            success: false,
-            error: error instanceof Error ? error.message : 'Unknown error'
-          };
-        } finally {
-          // Remove from pending executions
-          delete pendingExecutions.current[cacheKey];
-          
-          // Only set isExecuting to false if no other executions are pending
-          if (Object.keys(pendingExecutions.current).length === 0) {
-            setIsExecuting(false);
+          // If we still have retries left, and auto retry is enabled, wait and try again
+          if (autoRetry && attempts <= maxRetries) {
+            await new Promise(resolve => setTimeout(resolve, retryDelay * attempts));
+          } else {
+            break;
           }
         }
-      })();
-      
-      // Store the promise so we can reuse it
-      pendingExecutions.current[cacheKey] = executionPromise;
-      
-      return executionPromise;
-    } catch (error) {
-      console.error(`Error setting up MCP tool execution for ${toolName}:`, error);
-      setIsExecuting(false);
-      
-      // Show error toast if enabled
-      if (showToasts) {
-        toast.error(`Failed to set up tool execution: ${error instanceof Error ? error.message : 'Unknown error'}`);
       }
+
+      // All attempts failed
+      const errorMessage = `Failed to execute tool ${toolName} after ${attempts} attempts`;
+      console.error(errorMessage, lastError);
       
-      // Call error callback if provided
-      if (onError) onError(error instanceof Error ? error : new Error(String(error)));
-      
-      return {
+      // Show error toast if we're exhausted all retries
+      toast.error(`Failed to execute ${toolName.replace(/_/g, ' ')}`);
+
+      const errorResult: MCPToolExecutionResult = {
         success: false,
-        error: "Failed to set up tool execution"
+        error: lastError?.message || errorMessage
       };
-    }
-  }, [
-    mcpServers, 
-    useMcp, 
-    reconnectToMcp, 
-    hasConnectionError, 
-    projectId, 
-    sceneId, 
-    showToasts, 
-    onSuccess, 
-    onError, 
-    isExecuting, 
-    cleanCache
-  ]);
-  
-  /**
-   * Get available tools from connected MCP servers with caching
-   */
-  const getAvailableTools = useCallback(async (): Promise<MCPToolDefinition[]> => {
-    try {
-      if (!useMcp || mcpServers.length === 0) {
-        return [];
-      }
-      
-      // If we already have tools cached in state, return them
-      if (availableTools.length > 0) {
-        return availableTools;
-      }
-      
-      const server = mcpServers[0];
-      const tools = await server.listTools();
-      setAvailableTools(tools);
-      return tools;
-    } catch (error) {
-      console.error("Error fetching available MCP tools:", error);
-      return [];
-    }
-  }, [mcpServers, useMcp, availableTools]);
-  
+
+      // Update state
+      setExecutionState({
+        isExecuting: false,
+        lastResult: errorResult,
+        error: lastError,
+        toolName
+      });
+
+      return errorResult;
+    },
+    [
+      projectId,
+      sceneId,
+      useMcp,
+      mcpServers,
+      cacheResults,
+      autoRetry,
+      maxRetries,
+      retryDelay,
+      getCacheKey
+    ]
+  );
+
   return {
     executeTool,
-    getAvailableTools,
-    availableTools,
-    isExecuting,
-    executionResults,
-    hasConnection: useMcp && mcpServers.length > 0 && !hasConnectionError,
+    isExecuting: executionState.isExecuting,
+    lastResult: executionState.lastResult,
+    currentTool: executionState.toolName,
+    error: executionState.error,
+    hasConnection,
     clearCache
   };
 }

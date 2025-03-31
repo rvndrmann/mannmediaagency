@@ -6,13 +6,15 @@ import { HistoryPanel } from "@/components/product-shoot-v2/HistoryPanel";
 import { useProductShoot } from "@/hooks/use-product-shoot";
 import { useQuery } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
+import { useState } from "react";
+import { ProductShotFormData } from "@/types/product-shoot";
 
 export default function ProductShootV2() {
   const { 
     isGenerating, 
     generatedImages, 
-    generateProductShot,  // This will serve as handleGenerate
-    handleCheckImage,     // This will serve as handleRetryImageCheck
+    generateImage,
+    checkImageStatus
   } = useProductShoot();
 
   const { data: userCredits } = useQuery({
@@ -32,8 +34,17 @@ export default function ProductShootV2() {
   const isSubmitting = isGenerating;
 
   // Create handleGenerate wrapper to match expected form interface
-  const handleGenerate = async (formData: any) => {
-    await generateProductShot(formData.prompt, formData.sourceImageUrl, formData);
+  const handleGenerate = async (formData: ProductShotFormData) => {
+    if (formData.sourceFile) {
+      await generateImage(formData.prompt, "", formData);
+    } else if (formData.sourceImageUrl) {
+      await generateImage(formData.prompt, formData.sourceImageUrl, formData);
+    }
+  };
+
+  // Create handle retry function for checking image status
+  const handleRetryImageCheck = async (imageId: string) => {
+    await checkImageStatus(imageId);
   };
 
   return (
@@ -46,7 +57,7 @@ export default function ProductShootV2() {
             onSubmit={handleGenerate}
             isGenerating={isGenerating}
             isSubmitting={isSubmitting}
-            availableCredits={userCredits?.credits_remaining}
+            availableCredits={userCredits?.credits_remaining || 0}
             messages={[]} // Add empty array as default messages
           />
         </div>
@@ -55,7 +66,7 @@ export default function ProductShootV2() {
           <GeneratedImagesPanel 
             images={generatedImages}
             isGenerating={isGenerating}
-            onRetry={handleCheckImage}
+            onRetry={handleRetryImageCheck}
           />
 
           <div className="bg-gray-900 rounded-lg border border-gray-800">

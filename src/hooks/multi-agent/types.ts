@@ -11,6 +11,7 @@ export enum CommandExecutionState {
 export interface ToolContext extends RunnerContext {
   toolAvailable: boolean;
   userCredits?: number;
+  creditsRemaining?: number;
 }
 
 export interface ToolMetadata {
@@ -25,15 +26,7 @@ export interface ToolDefinition {
   version?: string;
   requiredCredits?: number;
   parameters: any;
-  execute: (parameters: any, context: RunnerContext) => Promise<{
-    success: boolean;
-    message?: string;
-    data?: any;
-    error?: string;
-    usage?: {
-      creditsUsed: number;
-    };
-  }>;
+  execute: (parameters: any, context: RunnerContext) => Promise<ToolExecutionResult>;
   metadata?: ToolMetadata;
 }
 
@@ -47,15 +40,22 @@ export interface ExecutorContext {
   groupId?: string;
 }
 
-// Add missing types referenced in tools
 export interface ToolResult {
   success: boolean;
   message: string;
   data?: any;
+  error?: string;
+  usage?: {
+    creditsUsed: number;
+  };
 }
 
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
   data?: any;
+  error?: string;
+  usage?: {
+    creditsUsed: number;
+  };
 }

@@ -1,58 +1,37 @@
 
 import { ToolDefinition } from "../types";
+import { dataTool } from "./data-tool";
+import { webSearchTool } from "./web-search-tool";
+import { canvasTool } from "./default-tools/canvas-tool";
+import { productShotV1Tool } from "./product-shot-v1-tool";
+import { productShotV2Tool } from "./product-shot-v2-tool";
+import { browserUseTool } from "./browser-use-tool";
+import { imageToVideoTool } from "./image-to-video-tool";
 
-class ToolRegistry {
-  private tools: Map<string, ToolDefinition> = new Map();
-  private static instance: ToolRegistry;
+// Define all available tools
+const allTools: ToolDefinition[] = [
+  dataTool,
+  webSearchTool,
+  canvasTool,
+  productShotV1Tool,
+  productShotV2Tool,
+  browserUseTool,
+  imageToVideoTool
+];
 
-  private constructor() {}
+// Get all available tools
+export const getAvailableTools = (): ToolDefinition[] => {
+  return allTools;
+};
 
-  public static getInstance(): ToolRegistry {
-    if (!ToolRegistry.instance) {
-      ToolRegistry.instance = new ToolRegistry();
-    }
-    return ToolRegistry.instance;
-  }
+// Get tools by category
+export const getToolsByCategory = (category: string): ToolDefinition[] => {
+  return allTools.filter(tool => 
+    tool.metadata && tool.metadata.category === category
+  );
+};
 
-  public registerTool(tool: ToolDefinition): void {
-    if (this.tools.has(tool.name)) {
-      console.warn(`Tool with name ${tool.name} already exists. Overwriting.`);
-    }
-    this.tools.set(tool.name, tool);
-  }
-
-  public registerTools(tools: ToolDefinition[]): void {
-    tools.forEach(tool => this.registerTool(tool));
-  }
-
-  public getTool(name: string): ToolDefinition | undefined {
-    return this.tools.get(name);
-  }
-
-  public getTools(): ToolDefinition[] {
-    return Array.from(this.tools.values());
-  }
-
-  public getToolsByCategory(category: string): ToolDefinition[] {
-    return this.getTools().filter(tool => 
-      tool.metadata && 
-      typeof tool.metadata === 'object' && 
-      'category' in tool.metadata && 
-      tool.metadata.category === category
-    );
-  }
-
-  public unregisterTool(name: string): boolean {
-    return this.tools.delete(name);
-  }
-
-  public clearTools(): void {
-    this.tools.clear();
-  }
-
-  public hasToolWithName(name: string): boolean {
-    return this.tools.has(name);
-  }
-}
-
-export default ToolRegistry;
+// Get tool by name
+export const getToolByName = (name: string): ToolDefinition | undefined => {
+  return allTools.find(tool => tool.name === name);
+};

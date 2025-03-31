@@ -31,13 +31,14 @@ export interface AgentResult {
   handoffReason?: string;
   structured_output?: any;
   additionalContext?: any;
-  // Added properties to fix type errors
+  // Additional properties needed
   response?: string;
   handoff?: {
     targetAgent: AgentType;
     reason: string;
     additionalContext?: any;
   };
+  commandSuggestion?: any;
 }
 
 export interface RunnerCallbacks {
@@ -50,18 +51,58 @@ export interface RunnerCallbacks {
   onComplete?: (result: AgentResult) => void;
 }
 
-export interface SDKRunner {
-  initialize(): Promise<void>;
-  processInput(input: string, context: RunnerContext): Promise<AgentResult>;
-  getCurrentAgent(): AgentType;
-  getTraceId(): string;
-  setCallbacks(callbacks: RunnerCallbacks): void;
-}
-
-// Add BaseAgent interface to fix import errors
+// Interface for the base agent implementation
 export interface BaseAgent {
   processInput(input: string, context: RunnerContext): Promise<AgentResult>;
   getType(): AgentType;
   getName(): string;
   getDescription(): string;
+}
+
+// Abstract class for agent implementations
+export abstract class BaseAgentImpl implements BaseAgent {
+  protected traceId: string;
+  protected context: RunnerContext;
+
+  constructor(options: { context: RunnerContext; traceId?: string }) {
+    this.context = options.context;
+    this.traceId = options.traceId || "";
+  }
+
+  abstract process(input: string, context: RunnerContext): Promise<AgentResult>;
+
+  // Default implementation of getType
+  getType(): AgentType {
+    return "main";
+  }
+
+  // Default implementation of getName
+  getName(): string {
+    return "Base Agent";
+  }
+
+  // Default implementation of getDescription
+  getDescription(): string {
+    return "Base agent implementation";
+  }
+
+  // Method to record trace messages
+  protected logTrace(message: string, type: string = "info"): void {
+    if (this.context.addMessage) {
+      this.context.addMessage(message, type);
+    }
+  }
+
+  // Process input with common logging
+  async processInput(input: string, context: RunnerContext): Promise<AgentResult> {
+    this.logTrace(`Agent ${this.getType()} processing input`, "agent_start");
+    try {
+      const result = await this.process(input, context);
+      this.logTrace(`Agent ${this.getType()} completed processing`, "agent_complete");
+      return result;
+    } catch (error) {
+      this.logTrace(`Agent ${this.getType()} error: ${error}`, "agent_error");
+      throw error;
+    }
+  }
 }

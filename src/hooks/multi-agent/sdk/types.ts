@@ -1,5 +1,5 @@
 
-import { AgentType, RunnerContext } from "../runner/types";
+import { AgentType, RunnerContext, BaseAgent } from "../runner/types";
 
 export interface SDKTool {
   name: string;
@@ -13,6 +13,7 @@ export interface SDKAgentDefinition {
   type: AgentType;
   description: string;
   instructions?: string;
+  model?: string;
 }
 
 export interface SDKAgentOptions {
@@ -32,4 +33,12 @@ export interface AgentConfig {
 export interface AgentStreamEvent {
   type: string;
   data?: any;
+}
+
+export interface SDKRunner {
+  initialize(): Promise<void>;
+  processInput(input: string, context: RunnerContext): Promise<any>;
+  getCurrentAgent(): AgentType;
+  getTraceId(): string;
+  setCallbacks(callbacks: any): void;
 }

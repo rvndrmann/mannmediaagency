@@ -33,6 +33,7 @@ export interface GeneratedImage {
   resultUrl?: string;
   inputUrl?: string;
   settings?: Record<string, any>;
+  content_type?: string;
 }
 
 export interface GenerationResult {
@@ -54,7 +55,7 @@ export interface ProductShotFormData {
   stylePreset: string;
   background: string;
   placement: string;
-  // Fields used in the form implementation but missing in type
+  // Additional fields needed for the form
   sourceFile?: File | null;
   referenceFile?: File | null;
   sceneDescription?: string;

@@ -1,6 +1,6 @@
 
 import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
-import { BaseAgentImpl } from "./BaseAgentImpl";
+import { BaseAgentImpl } from "../types";
 import OpenAI from "openai";
 import { parseJsonToolCall, parseToolCall } from "../../tool-parser";
 import { executeCommand } from "../../tool-executor";
@@ -11,7 +11,7 @@ export class AssistantAgent extends BaseAgentImpl {
   }
   
   getType(): AgentType {
-    return "main";
+    return "assistant";
   }
   
   async process(message: string, context: RunnerContext): Promise<AgentResult> {
@@ -26,9 +26,6 @@ export class AssistantAgent extends BaseAgentImpl {
       
       // Apply input guardrails
       const guardedInput = await this.applyInputGuardrails(message);
-      
-      // Get agent instructions
-      const instructions = this.getInstructions();
       
       // Simulate a response for now to fix the type issues
       const response = `I'm the assistant agent and I processed: ${guardedInput.substring(0, 50)}...`;

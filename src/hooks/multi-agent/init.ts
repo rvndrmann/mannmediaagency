@@ -1,12 +1,12 @@
 
-import { initializeToolSystem } from "./tools/index";
+import { initializeTools } from "./tools";
 
 /**
  * Initializes the Multi-Agent system and its components
  */
 export function initializeMultiAgentSystem(): void {
   // Initialize the tool system
-  initializeToolSystem();
+  initializeTools();
   
   // Future: Initialize other multi-agent components here
   

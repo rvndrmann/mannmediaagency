@@ -1,152 +1,201 @@
 
-import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
-import { MCPContext, MCPServer, CONNECTION_CONFIG, MCPProviderProps } from '@/types/mcp';
-import { MCPService } from '@/services/mcp/MCPService';
+import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { MCPTool, MCPResponse, MCPConnectionStats, MCPContext as MCPContextType } from '@/types/mcp';
 
-const defaultMCPContext: MCPContext = {
-  mcpServers: [],
-  useMcp: true, // Default to true to auto-connect
-  setUseMcp: () => {},
-  isConnecting: false,
-  hasConnectionError: false,
-  reconnectToMcp: async () => false,
-  lastReconnectAttempt: 0,
+// Create the context
+const MCPContext = createContext<MCPContextType>({
+  isConnected: false,
   connectionStatus: 'disconnected',
-  connectionMetrics: {
-    successCount: 0,
-    failureCount: 0,
-    averageConnectTime: 0,
-  },
   connectionStats: {
     totalClients: 0,
     connectedClients: 0,
     lastConnectionAttempt: 0
-  }
-};
+  },
+  availableTools: [],
+  connectToMCP: async () => false,
+  disconnectFromMCP: () => {},
+  listAvailableTools: async () => [],
+  callTool: async () => ({ success: false }),
+});
 
-const MCPContextInstance = createContext<MCPContext>(defaultMCPContext);
-
-export const useMCPContext = () => useContext(MCPContextInstance);
+interface MCPProviderProps {
+  children: ReactNode;
+  projectId?: string;
+}
 
 export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId }) => {
-  const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
-  const [useMcp, setUseMcp] = useState(true); // Default to enabled
-  const [isConnecting, setIsConnecting] = useState(false);
-  const [hasConnectionError, setHasConnectionError] = useState(false);
-  const [lastReconnectAttempt, setLastReconnectAttempt] = useState(0);
-  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected' | 'error'>('disconnected');
-  const [connectionMetrics, setConnectionMetrics] = useState({
-    successCount: 0,
-    failureCount: 0,
-    averageConnectTime: 0,
-  });
-  const [connectionStats, setConnectionStats] = useState({
+  const [isConnected, setIsConnected] = useState(false);
+  const [connectionStatus, setConnectionStatus] = useState<string>('disconnected');
+  const [connectionStats, setConnectionStats] = useState<MCPConnectionStats>({
     totalClients: 0,
     connectedClients: 0,
     lastConnectionAttempt: 0
   });
-  
+  const [availableTools, setAvailableTools] = useState<MCPTool[]>([]);
+  const [currentProjectId, setCurrentProjectId] = useState<string | undefined>(projectId);
+
+  // Initialize connection based on projectId
   useEffect(() => {
-    if (projectId && useMcp && !isConnecting && connectionStatus !== 'connected') {
-      connectToMcp();
+    if (projectId) {
+      setCurrentProjectId(projectId);
+      connectToMCP(projectId);
     }
     
     return () => {
-      MCPService.closeConnections();
+      // Cleanup when unmounting
+      disconnectFromMCP();
     };
-  }, [projectId, useMcp]);
-  
-  useEffect(() => {
-    if (!useMcp) return;
-    
-    const updateConnectionStats = () => {
-      const stats = MCPService.getConnectionStats();
-      setConnectionStats(stats);
-      
-      const isConnected = MCPService.isAnyClientConnected();
-      if (isConnected && connectionStatus !== 'connected') {
-        setConnectionStatus('connected');
-        setHasConnectionError(false);
-      } else if (!isConnected && connectionStatus === 'connected') {
-        setConnectionStatus('disconnected');
-        if (stats.lastConnectionAttempt > 0) {
-          reconnectToMcp();
-        }
-      }
-    };
-    
-    updateConnectionStats();
-    const interval = setInterval(updateConnectionStats, 5000);
-    
-    return () => clearInterval(interval);
-  }, [useMcp, connectionStatus]);
+  }, [projectId]);
 
-  const connectToMcp = async () => {
-    if (!projectId) return false;
-    
-    setIsConnecting(true);
-    setConnectionStatus('connecting');
-    
-    const startTime = Date.now();
-    
+  // Connect to MCP service
+  const connectToMCP = async (projectId: string): Promise<boolean> => {
     try {
-      const success = await MCPService.initConnections(projectId);
-      
-      if (success) {
-        setConnectionStatus('connected');
-        setHasConnectionError(false);
-        setConnectionMetrics(prev => ({
-          ...prev,
-          successCount: prev.successCount + 1,
-          averageConnectTime: (prev.averageConnectTime * prev.successCount + (Date.now() - startTime)) / (prev.successCount + 1)
-        }));
-        const stats = MCPService.getConnectionStats();
-        setConnectionStats(stats);
-        return true;
-      } else {
-        throw new Error("Failed to initialize MCP connections");
-      }
-    } catch (error) {
-      console.error("Failed to connect to MCP:", error);
-      setHasConnectionError(true);
-      setConnectionStatus('error');
-      setConnectionMetrics(prev => ({
+      setConnectionStatus('connecting');
+      setConnectionStats(prev => ({
         ...prev,
-        failureCount: prev.failureCount + 1,
+        lastConnectionAttempt: Date.now()
       }));
+      
+      // Call MCP service to initialize
+      const { data, error } = await supabase.functions.invoke('mcp-server', {
+        body: {
+          operation: 'connect',
+          projectId
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      // Update connection status
+      setIsConnected(true);
+      setConnectionStatus('connected');
+      setConnectionStats({
+        totalClients: data?.totalClients || 1,
+        connectedClients: data?.connectedClients || 1,
+        lastConnectionAttempt: Date.now()
+      });
+      
+      // Get available tools
+      await listAvailableTools();
+      
+      return true;
+    } catch (error) {
+      console.error('Error connecting to MCP:', error);
+      setConnectionStatus('error');
+      setIsConnected(false);
       return false;
-    } finally {
-      setIsConnecting(false);
     }
   };
-
-  const reconnectToMcp = useCallback(async (): Promise<boolean> => {
-    const now = Date.now();
-    if (now - lastReconnectAttempt < CONNECTION_CONFIG.minReconnectInterval) {
-      console.log("Reconnect attempt too soon, skipping");
-      return false;
+  
+  // Disconnect from MCP service
+  const disconnectFromMCP = () => {
+    // If we have a projectId, call the disconnect endpoint
+    if (currentProjectId) {
+      supabase.functions.invoke('mcp-server', {
+        body: {
+          operation: 'disconnect',
+          projectId: currentProjectId
+        }
+      }).catch(error => {
+        console.error('Error disconnecting from MCP:', error);
+      });
     }
-
-    setLastReconnectAttempt(now);
-    return connectToMcp();
-  }, [lastReconnectAttempt, projectId]);
-
+    
+    setIsConnected(false);
+    setConnectionStatus('disconnected');
+    setAvailableTools([]);
+  };
+  
+  // List available tools
+  const listAvailableTools = async (): Promise<MCPTool[]> => {
+    try {
+      if (!currentProjectId) {
+        return [];
+      }
+      
+      const { data, error } = await supabase.functions.invoke('mcp-server', {
+        body: {
+          operation: 'list_tools',
+          projectId: currentProjectId
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      if (data?.tools && Array.isArray(data.tools)) {
+        setAvailableTools(data.tools);
+        return data.tools;
+      }
+      
+      return [];
+    } catch (error) {
+      console.error('Error listing MCP tools:', error);
+      return [];
+    }
+  };
+  
+  // Call a tool
+  const callTool = async (toolName: string, parameters: any): Promise<MCPResponse> => {
+    try {
+      if (!currentProjectId || !isConnected) {
+        return { 
+          success: false, 
+          error: 'MCP not connected' 
+        };
+      }
+      
+      const { data, error } = await supabase.functions.invoke('mcp-server', {
+        body: {
+          operation: 'call_tool',
+          toolName,
+          parameters,
+          projectId: currentProjectId
+        }
+      });
+      
+      if (error) {
+        throw error;
+      }
+      
+      return data || { success: true };
+    } catch (error) {
+      console.error(`Error calling MCP tool ${toolName}:`, error);
+      return { 
+        success: false, 
+        error: error instanceof Error ? error.message : 'Unknown error' 
+      };
+    }
+  };
+  
+  // Create context value
+  const contextValue: MCPContextType = {
+    isConnected,
+    connectionStatus,
+    connectionStats,
+    availableTools,
+    connectToMCP,
+    disconnectFromMCP,
+    listAvailableTools,
+    callTool
+  };
+  
   return (
-    <MCPContextInstance.Provider
-      value={{
-        mcpServers,
-        useMcp,
-        setUseMcp,
-        isConnecting,
-        hasConnectionError,
-        reconnectToMcp,
-        lastReconnectAttempt,
-        connectionStatus,
-        connectionMetrics,
-        connectionStats
-      }}
-    >
+    <MCPContext.Provider value={contextValue}>
       {children}
-    </MCPContextInstance.Provider>
+    </MCPContext.Provider>
   );
+};
+
+// Custom hook for using the MCP context
+export const useMCP = () => {
+  const context = useContext(MCPContext);
+  if (!context) {
+    throw new Error('useMCP must be used within an MCPProvider');
+  }
+  return context;
 };

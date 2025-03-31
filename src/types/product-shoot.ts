@@ -31,6 +31,7 @@ export interface GeneratedImage {
   prompt: string;
   createdAt: string;
   status?: "pending" | "processing" | "completed" | "failed";
+  contentType?: string;
 }
 
 export interface ProductShootSettings {
@@ -55,4 +56,46 @@ export interface GeneratedImagesProps {
 export interface FormSectionProps {
   title: string;
   children: React.ReactNode;
+}
+
+export interface ProductShotResult {
+  id: string;
+  url: string;
+  prompt: string;
+  createdAt: string;
+  status: "pending" | "processing" | "completed" | "failed";
+}
+
+export interface GenerationResult {
+  id: string;
+  url: string;
+  prompt: string;
+  createdAt: string;
+  status: "pending" | "processing" | "completed" | "failed";
+}
+
+export interface InputPanelProps {
+  prompt: string;
+  onPromptChange: (prompt: string) => void;
+  outputFormat: string;
+  onOutputFormatChange: (format: string) => void;
+  imageWidth: number;
+  imageHeight: number;
+  onDimensionsChange: (width: number, height: number) => void;
+  quality: number;
+  onQualityChange: (quality: number) => void;
+  seed?: number;
+  onSeedChange: (seed?: number) => void;
+  scale?: number;
+  onScaleChange: (scale?: number) => void;
+  isGenerating: boolean;
+  onGenerate: () => void;
+}
+
+export interface GalleryPanelProps {
+  generatedImages: GeneratedImage[];
+  savedImages: GeneratedImage[];
+  defaultImages: GeneratedImage[];
+  onSaveImage: (imageId: string) => void;
+  onSetAsDefault: (imageId: string) => void;
 }

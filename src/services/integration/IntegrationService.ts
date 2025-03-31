@@ -1,6 +1,8 @@
 
 import { CanvasService } from "../canvas/CanvasService";
 import { MCPService } from "../mcp/MCPService";
+import { VideoWorkflowService } from "../workflow/VideoWorkflowService";
+import { WorkflowStage, WorkflowState } from "@/types/canvas";
 
 /**
  * Integration service that coordinates between different service layers
@@ -8,9 +10,11 @@ import { MCPService } from "../mcp/MCPService";
 export class IntegrationService {
   private static instance: IntegrationService;
   private canvasService: CanvasService;
+  private videoWorkflowService: VideoWorkflowService;
   
   private constructor() {
     this.canvasService = CanvasService.getInstance();
+    this.videoWorkflowService = VideoWorkflowService.getInstance();
   }
   
   static getInstance(): IntegrationService {
@@ -127,6 +131,43 @@ export class IntegrationService {
       console.error("Error in processScenePipeline:", error);
       return false;
     }
+  }
+  
+  /**
+   * Start the automated multi-agent video workflow
+   */
+  async startVideoWorkflow(projectId: string, userId: string): Promise<WorkflowState | null> {
+    return this.videoWorkflowService.startWorkflow(projectId, userId);
+  }
+  
+  /**
+   * Get the current workflow state for a project
+   */
+  async getWorkflowState(projectId: string): Promise<WorkflowState | null> {
+    try {
+      const { data, error } = await this.canvasService.supabase
+        .from('canvas_workflows')
+        .select('*')
+        .eq('project_id', projectId)
+        .single();
+        
+      if (error) {
+        console.error("Error getting workflow state:", error);
+        return null;
+      }
+      
+      return data;
+    } catch (error) {
+      console.error("Error getting workflow state:", error);
+      return null;
+    }
+  }
+  
+  /**
+   * Retry a workflow from a specific stage
+   */
+  async retryWorkflowFromStage(projectId: string, stage: WorkflowStage, userId: string): Promise<boolean> {
+    return this.videoWorkflowService.retryWorkflowFromStage(projectId, stage, userId);
   }
   
   /**

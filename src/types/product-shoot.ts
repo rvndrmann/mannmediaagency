@@ -42,3 +42,16 @@ export interface GenerationResult {
   images?: ProductShotResult[];
   error?: string;
 }
+
+// Additional types needed for product shot forms
+export type AspectRatio = "1:1" | "4:3" | "16:9" | "9:16";
+
+export interface ProductShotFormData {
+  prompt: string;
+  sourceImage: File | null;
+  sourceImageUrl: string;
+  aspectRatio: AspectRatio;
+  stylePreset: string;
+  background: string;
+  placement: string;
+}

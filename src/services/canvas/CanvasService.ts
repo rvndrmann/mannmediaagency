@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { MCPService } from "@/services/mcp/MCPService";
 import { CanvasProject, CanvasScene, SceneData } from "@/types/canvas";
@@ -25,26 +24,24 @@ export class CanvasService {
    */
   public async getProjects(): Promise<CanvasProject[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_projects')
         .select('*')
-        .order('updated_at', { ascending: false });
+        .order('created_at', { ascending: false });
       
       if (error) throw error;
       
-      // Transform database data to match our CanvasProject type
-      return (data || []).map(item => ({
-        id: item.id,
-        title: item.title,
-        description: item.description || '',
-        userId: item.user_id,
-        fullScript: item.full_script || '',
-        createdAt: item.created_at,
-        updatedAt: item.updated_at,
-        scenes: []
+      // Transform the data to ensure compatibility with both user_id and userId
+      return data.map(project => ({
+        ...project,
+        userId: project.user_id, // Add userId
+        fullScript: project.full_script, // Map full_script to fullScript
+        createdAt: project.created_at, // Map created_at to createdAt
+        updatedAt: project.updated_at, // Map updated_at to updatedAt
+        user_id: project.user_id // Keep user_id for compatibility
       }));
     } catch (error) {
-      console.error("Error fetching canvas projects:", error);
+      console.error("Error fetching projects:", error);
       return [];
     }
   }
@@ -54,7 +51,7 @@ export class CanvasService {
    */
   public async getProject(projectId: string): Promise<CanvasProject | null> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_projects')
         .select('*')
         .eq('id', projectId)
@@ -86,7 +83,7 @@ export class CanvasService {
    */
   public async getScenes(projectId: string): Promise<CanvasScene[]> {
     try {
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_scenes')
         .select('*')
         .eq('project_id', projectId)
@@ -125,7 +122,7 @@ export class CanvasService {
   public async createScene(projectId: string, sceneData: Partial<SceneData> = {}): Promise<CanvasScene | null> {
     try {
       // Get the current highest sequence number for the project
-      const { data: scenes, error: sceneError } = await supabase
+      const { data: scenes, error: sceneError } = await this.supabase
         .from('canvas_scenes')
         .select('scene_order')
         .eq('project_id', projectId)
@@ -138,7 +135,7 @@ export class CanvasService {
       const sceneOrder = scenes && scenes.length > 0 ? (scenes[0].scene_order || 0) + 1 : 0;
       
       // Create the new scene
-      const { data, error } = await supabase
+      const { data, error } = await this.supabase
         .from('canvas_scenes')
         .insert([{ 
           project_id: projectId,
@@ -179,6 +176,47 @@ export class CanvasService {
   }
 
   /**
+   * Create a new project
+   */
+  public async createProject(title: string, description: string = ""): Promise<CanvasProject | null> {
+    try {
+      const { data: userData } = await this.supabase.auth.getUser();
+      
+      if (!userData?.user?.id) {
+        throw new Error("User not authenticated");
+      }
+      
+      const { data, error } = await this.supabase
+        .from('canvas_projects')
+        .insert([
+          { 
+            title, 
+            description, 
+            user_id: userData.user.id 
+          }
+        ])
+        .select()
+        .single();
+      
+      if (error) throw error;
+      
+      // Transform the data to ensure compatibility with both user_id and userId
+      return {
+        ...data,
+        userId: data.user_id, // Add userId
+        fullScript: data.full_script, // Map full_script to fullScript
+        createdAt: data.created_at, // Map created_at to createdAt
+        updatedAt: data.updated_at, // Map updated_at to updatedAt
+        user_id: data.user_id, // Keep user_id for compatibility
+        scenes: []
+      };
+    } catch (error) {
+      console.error("Error creating project:", error);
+      return null;
+    }
+  }
+
+  /**
    * Update a scene
    */
   public async updateScene(sceneId: string, updates: Partial<CanvasScene>): Promise<boolean> {
@@ -195,7 +233,7 @@ export class CanvasService {
       if (updates.voiceOverUrl !== undefined) dbUpdates.voice_over_url = updates.voiceOverUrl;
       if (updates.backgroundMusicUrl !== undefined) dbUpdates.background_music_url = updates.backgroundMusicUrl;
       
-      const { error } = await supabase
+      const { error } = await this.supabase
         .from('canvas_scenes')
         .update(dbUpdates)
         .eq('id', sceneId);

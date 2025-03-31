@@ -408,6 +408,11 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     getAgentInstructions,
     togglePerformanceMode,
     toggleDirectToolExecution,
-    toggleTracing
+    toggleTracing,
+    // Add this function for project context setting
+    setProjectContext: (projectId: string) => {
+      // This is a stub function that will be implemented in Phase 3
+      console.log("Setting project context for", projectId);
+    }
   };
 }

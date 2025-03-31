@@ -51,7 +51,7 @@ export interface MCPContext {
   disconnectFromMCP: () => void;
   listAvailableTools: () => Promise<MCPTool[]>;
   callTool: (toolName: string, parameters: any) => Promise<MCPResponse>;
-  // Add missing properties that are used in components
+  // Additional properties being used in components
   mcpServers?: MCPServer[];
   useMcp?: boolean;
   setUseMcp?: (useMcp: boolean) => void;

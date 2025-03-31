@@ -47,6 +47,7 @@ export interface RunnerContext {
   groupId?: string;
   runId?: string;
   supabase?: any;
+  attachments?: any[];
   addMessage?: (message: string, type: string) => void;
 }
 

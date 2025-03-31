@@ -1,223 +1,111 @@
-
-import { useState, useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { supabase } from "@/integrations/supabase/client";
+import React, { useState, useEffect } from 'react';
 import { CanvasProject } from "@/types/canvas";
-import { ArrowLeft, Video, Calendar, Clock, Trash2, Hash } from "lucide-react";
-import { Skeleton } from "@/components/ui/skeleton";
+import { CanvasService } from "@/services/canvas/CanvasService";
+import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { 
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle 
-} from "@/components/ui/alert-dialog";
+import { useNavigate } from 'react-router-dom';
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card"
+import { Skeleton } from "@/components/ui/skeleton";
 
-interface ProjectHistoryProps {
-  projectId: string;
-  onBack: () => void;
-  onSelectProject: (id: string) => void;
-}
+const canvasService = CanvasService.getInstance();
 
-export function ProjectHistory({ projectId, onBack, onSelectProject }: ProjectHistoryProps) {
+export const ProjectHistory = () => {
   const [projects, setProjects] = useState<CanvasProject[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [projectToDelete, setProjectToDelete] = useState<string | null>(null);
-  
-  const fetchProjects = async () => {
-    try {
-      setLoading(true);
-      const { data: userData, error: userError } = await supabase.auth.getUser();
-      
-      if (userError) throw userError;
-      
-      const { data, error } = await supabase
-        .from("canvas_projects")
-        .select("*")
-        .eq("user_id", userData.user?.id)
-        .order("created_at", { ascending: false });
-        
-      if (error) throw error;
-      
-      const formattedProjects = data.map(project => ({
-        id: project.id,
-        title: project.title,
-        description: project.description,
-        fullScript: project.full_script,
-        createdAt: project.created_at,
-        updatedAt: project.updated_at,
-        userId: project.user_id,
-        scenes: [] // We don't need scenes for the history view
-      }));
-      
-      setProjects(formattedProjects);
-    } catch (error) {
-      console.error("Error fetching projects:", error);
-      toast.error("Failed to load project history");
-    } finally {
-      setLoading(false);
-    }
-  };
-  
+  const [isLoading, setIsLoading] = useState(true);
+  const navigate = useNavigate();
+
   useEffect(() => {
-    fetchProjects();
-  }, [projectId]);
-  
-  const formatDate = (dateString: string) => {
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('en-US', { 
-      year: 'numeric', 
-      month: 'short', 
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    }).format(date);
-  };
-  
-  const handleProjectSelect = (selectedProjectId: string) => {
-    if (selectedProjectId === projectId) return;
-    onSelectProject(selectedProjectId);
-  };
-  
-  const handleDeleteProject = async () => {
-    if (!projectToDelete) return;
-    
-    try {
-      const { error: scenesError } = await supabase
-        .from('canvas_scenes')
-        .delete()
-        .eq('project_id', projectToDelete);
-      
-      if (scenesError) throw scenesError;
-      
-      const { error: projectError } = await supabase
-        .from('canvas_projects')
-        .delete()
-        .eq('id', projectToDelete);
-      
-      if (projectError) throw projectError;
-      
-      toast.success("Project deleted successfully");
-      
-      if (projectToDelete === projectId) {
-        onSelectProject('');
-      } else {
-        fetchProjects();
+    const fetchProjects = async () => {
+      setIsLoading(true);
+      try {
+        const projects = await canvasService.getProjects();
+        // Format projects to ensure they have both user_id and userId for compatibility
+        const formattedProjects = projects.map(project => ({
+          ...project,
+          user_id: project.user_id || project.userId,
+          userId: project.userId || project.user_id,
+          fullScript: project.fullScript || project.full_script,
+          createdAt: project.createdAt || project.created_at,
+          updatedAt: project.updatedAt || project.updated_at
+        }));
+        setProjects(formattedProjects);
+      } catch (error) {
+        console.error("Error fetching projects:", error);
+        toast.error("Failed to load projects");
+      } finally {
+        setIsLoading(false);
       }
-    } catch (error) {
-      console.error("Error deleting project:", error);
-      toast.error("Failed to delete project");
-    } finally {
-      setProjectToDelete(null);
-    }
+    };
+
+    fetchProjects();
+  }, []);
+
+  const handleProjectClick = (projectId: string) => {
+    navigate(`/canvas/${projectId}`);
   };
-  
+
+  const handleNewProjectClick = () => {
+    navigate('/canvas/new');
+  };
+
   return (
-    <div className="flex-1 bg-slate-100 dark:bg-slate-950 overflow-hidden flex flex-col">
-      <div className="p-4 border-b bg-background flex justify-between items-center">
-        <div className="flex items-center">
-          <Button variant="ghost" onClick={onBack} className="mr-2">
-            <ArrowLeft className="h-4 w-4 mr-2" />
-            Back
-          </Button>
-          <h2 className="text-xl font-semibold">Project History</h2>
+    <div className="container mx-auto py-6">
+      <div className="flex justify-between items-center mb-4">
+        <h1 className="text-2xl font-semibold">Canvas Projects</h1>
+        <Button onClick={handleNewProjectClick}>Create New Project</Button>
+      </div>
+      {isLoading ? (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <Card key={i}>
+              <CardHeader>
+                <CardTitle><Skeleton className="h-5 w-3/4" /></CardTitle>
+                <CardDescription><Skeleton className="h-4 w-1/2" /></CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Skeleton className="h-20" />
+              </CardContent>
+              <CardFooter>
+                <Skeleton className="h-8 w-20" />
+              </CardFooter>
+            </Card>
+          ))}
         </div>
-      </div>
-      
-      <div className="flex-1 p-4 overflow-auto">
-        {loading ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {[1, 2, 3, 4, 5, 6].map((i) => (
-              <Card key={i} className="overflow-hidden">
-                <CardHeader className="pb-2">
-                  <Skeleton className="h-5 w-2/3" />
-                </CardHeader>
-                <CardContent>
-                  <Skeleton className="h-4 w-full mb-2" />
-                  <Skeleton className="h-4 w-3/4" />
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {projects.length > 0 ? (
-              projects.map((project) => (
-                <Card 
-                  key={project.id} 
-                  className={`${project.id === projectId ? "border-primary" : ""} transition-all hover:shadow-md cursor-pointer`}
-                  onClick={() => handleProjectSelect(project.id)}
-                >
-                  <CardHeader className="pb-2 relative">
-                    <CardTitle className="text-base flex items-center">
-                      <Video className="h-4 w-4 mr-2 text-primary" />
-                      {project.title} ({project.id.substring(0, 8)})
-                    </CardTitle>
-                    <div className="flex items-center text-xs text-muted-foreground mt-1">
-                      <Hash className="h-3.5 w-3.5 mr-1" />
-                      ID: {project.id}
-                    </div>
-                    {project.id !== projectId && (
-                      <Button 
-                        variant="ghost" 
-                        size="icon" 
-                        className="absolute top-2 right-2 text-red-500 hover:text-red-700 hover:bg-red-100 dark:hover:bg-red-900"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setProjectToDelete(project.id);
-                        }}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete</span>
-                      </Button>
-                    )}
-                  </CardHeader>
-                  <CardContent className="text-sm">
-                    <div className="flex items-center text-muted-foreground mb-1">
-                      <Calendar className="h-3.5 w-3.5 mr-1" />
-                      Created: {formatDate(project.createdAt)}
-                    </div>
-                    <div className="flex items-center text-muted-foreground">
-                      <Clock className="h-3.5 w-3.5 mr-1" />
-                      Last updated: {formatDate(project.updatedAt || project.createdAt)}
-                    </div>
-                    {project.id === projectId && (
-                      <p className="text-xs mt-2 text-primary font-medium">Current project</p>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
-            ) : (
-              <div className="col-span-full flex flex-col items-center justify-center py-12">
-                <p className="text-muted-foreground">No project history found</p>
-                <Button className="mt-4" onClick={onBack}>Create New Project</Button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-      
-      <AlertDialog open={!!projectToDelete} onOpenChange={() => setProjectToDelete(null)}>
-        <AlertDialogContent>
-          <AlertDialogHeader>
-            <AlertDialogTitle>Are you sure?</AlertDialogTitle>
-            <AlertDialogDescription>
-              This will permanently delete the project and all its scenes. This action cannot be undone.
-            </AlertDialogDescription>
-          </AlertDialogHeader>
-          <AlertDialogFooter>
-            <AlertDialogCancel>Cancel</AlertDialogCancel>
-            <AlertDialogAction onClick={handleDeleteProject} className="bg-red-500 hover:bg-red-600">
-              Delete
-            </AlertDialogAction>
-          </AlertDialogFooter>
-        </AlertDialogContent>
-      </AlertDialog>
+      ) : projects.length > 0 ? (
+        <div className="grid gap-4 grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
+          {projects.map((project) => (
+            <Card key={project.id} className="cursor-pointer hover:shadow-md transition-shadow duration-200" onClick={() => handleProjectClick(project.id)}>
+              <CardHeader>
+                <CardTitle>{project.title}</CardTitle>
+                <CardDescription>{project.description}</CardDescription>
+              </CardHeader>
+              <CardContent>
+                {project.cover_image_url ? (
+                  <img src={project.cover_image_url} alt={project.title} className="w-full h-32 object-cover rounded-md" />
+                ) : (
+                  <div className="w-full h-32 bg-gray-100 rounded-md flex items-center justify-center text-gray-500">
+                    No Cover Image
+                  </div>
+                )}
+              </CardContent>
+              <CardFooter className="text-sm text-gray-500">
+                Created: {new Date(project.createdAt || project.created_at).toLocaleDateString()}
+              </CardFooter>
+            </Card>
+          ))}
+        </div>
+      ) : (
+        <div className="text-center py-8">
+          <p className="text-gray-500">No projects found. Create a new project to get started!</p>
+        </div>
+      )}
     </div>
   );
-}
+};

@@ -1,119 +1,127 @@
 
-import { Attachment } from "@/types/message";
-import { ToolContext } from "../../types";
-import { AgentResult, AgentOptions } from "../types";
+import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
+import OpenAI from "openai";
+import { parseJsonToolCall, parseToolCall } from "../../tool-parser";
+import { executeCommand } from "../../tool-executor";
 
 export class AssistantAgent extends BaseAgentImpl {
+  private model: string;
+  private config: any;
+  
   constructor(options: AgentOptions) {
     super(options);
+    this.model = options.model || "gpt-3.5-turbo";
+    this.config = options.config || {};
   }
-
-  getType() {
-    return "assistant";
+  
+  getType(): AgentType {
+    return "main";
   }
-
-  async run(input: string, attachments: Attachment[]): Promise<AgentResult> {
+  
+  async process(message: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      console.log("Running AssistantAgent with input:", input, "attachments:", attachments);
-      
-      // Get the current user
-      const { data: { user } } = await this.context.supabase.auth.getUser();
-      if (!user) {
-        throw new Error("User not authenticated");
-      }
-      
-      // Apply input guardrails if configured
-      await this.applyInputGuardrails(input);
-      
-      // Get dynamic instructions if needed
-      const instructions = await this.getInstructions(this.context);
-      
-      // Get conversation history from context if available
-      const conversationHistory = this.context.metadata?.conversationHistory || [];
-      
-      // Record trace event for assistant agent start
-      this.recordTraceEvent("assistant_agent_start", {
-        input_length: input.length,
-        has_attachments: attachments && attachments.length > 0,
-        history_length: conversationHistory.length
+      // Initial setup and logging
+      this.recordTraceEvent({
+        type: "agent_start",
+        agent: "assistant",
+        timestamp: new Date().toISOString(),
+        message
       });
       
-      // Call the Supabase function for the assistant agent
-      const { data, error } = await this.context.supabase.functions.invoke('multi-agent-chat', {
-        body: {
-          input,
-          attachments,
-          agentType: "main",
-          userId: user.id,
-          usePerformanceModel: this.context.usePerformanceModel,
-          enableDirectToolExecution: this.context.enableDirectToolExecution,
-          tracingDisabled: this.context.tracingDisabled,
-          contextData: {
-            hasAttachments: attachments && attachments.length > 0,
-            attachmentTypes: attachments.map(att => att.type.startsWith('image') ? 'image' : 'file'),
-            isHandoffContinuation: this.context.metadata?.isHandoffContinuation || false,
-            previousAgentType: this.context.metadata?.previousAgentType || '',
-            handoffReason: this.context.metadata?.handoffReason || '',
-            instructions: instructions
-          },
-          conversationHistory: conversationHistory, // Pass conversation history
-          metadata: {
-            ...this.context.metadata,
-            previousAgentType: 'main'
-          },
-          runId: this.context.runId,
-          groupId: this.context.groupId
-        }
+      // Apply input guardrails
+      const guardedInput = await this.applyInputGuardrails(message);
+      
+      // Get agent instructions
+      const instructions = this.getInstructions();
+      
+      // Create a list of messages for the OpenAI API
+      const messages = [
+        { role: "system", content: instructions },
+        ...context.history.map(item => ({
+          role: item.role,
+          content: item.content
+        })),
+        { role: "user", content: guardedInput }
+      ];
+      
+      // Log the messages being sent to the API
+      this.recordTraceEvent({
+        type: "openai_request",
+        messages,
+        timestamp: new Date().toISOString()
       });
       
-      if (error) {
-        console.error("Assistant agent error:", error);
-        this.recordTraceEvent("assistant_agent_error", {
-          error: error.message || "Unknown error"
+      // Call the OpenAI API
+      const openai = new OpenAI({
+        apiKey: process.env.OPENAI_API_KEY || ""
+      });
+      
+      const response = await openai.chat.completions.create({
+        model: this.model,
+        messages: messages as any,
+        temperature: 0.7
+      });
+      
+      // Log the response from the API
+      this.recordTraceEvent({
+        type: "openai_response",
+        response,
+        timestamp: new Date().toISOString()
+      });
+      
+      // Parse the completion content
+      const completion = response.choices[0]?.message?.content || "";
+      
+      // Check if the response contains a tool call
+      const toolCall = parseJsonToolCall(completion) || parseToolCall(completion);
+      
+      if (toolCall) {
+        const result = await executeCommand(toolCall, {
+          ...context,
+          addMessage: context.addMessage || ((msg, type) => console.log(`[${type}] ${msg}`))
         });
-        throw new Error(`Assistant agent error: ${error.message}`);
+        
+        // Apply output guardrails
+        const guardedOutput = await this.applyOutputGuardrails(result);
+        
+        // Log the tool execution
+        this.recordTraceEvent({
+          type: "tool_execution",
+          tool: toolCall.name,
+          params: toolCall.parameters,
+          result: guardedOutput,
+          timestamp: new Date().toISOString()
+        });
+        
+        return {
+          output: result.message,
+          response: result.message,
+          nextAgent: null,
+          commandSuggestion: null,
+          structured_output: result.data
+        };
       }
       
-      console.log("Agent response:", data);
-      
-      // Handle handoff if present
-      let nextAgent = null;
-      if (data?.handoffRequest) {
-        console.log("Handoff requested to:", data.handoffRequest.targetAgent);
-        nextAgent = data.handoffRequest.targetAgent;
-        this.recordTraceEvent("assistant_agent_handoff", {
-          target_agent: nextAgent,
-          reason: data.handoffRequest.reason
-        });
-      }
-      
-      // Extract command suggestion if present
-      const commandSuggestion = data?.commandSuggestion || null;
-      
-      // Apply output guardrails if configured
-      const output = data?.completion || "I processed your request but couldn't generate a response.";
-      await this.applyOutputGuardrails(output);
-      
-      // Record completion event
-      this.recordTraceEvent("assistant_agent_complete", {
-        response_length: output.length,
-        has_handoff: !!nextAgent,
-        has_command_suggestion: !!commandSuggestion
+      // Return the completion as the final output
+      return {
+        output: completion,
+        response: completion,
+        nextAgent: null
+      };
+    } catch (error) {
+      // Log the error and return it
+      this.recordTraceEvent({
+        type: "agent_error",
+        error: error.message,
+        timestamp: new Date().toISOString()
       });
       
       return {
-        response: output,
-        nextAgent: nextAgent,
-        commandSuggestion: commandSuggestion,
-        structured_output: data?.structured_output || null
+        output: `Error in AssistantAgent: ${error.message}`,
+        response: `Error in AssistantAgent: ${error.message}`,
+        nextAgent: null
       };
-    } catch (error) {
-      console.error("AssistantAgent run error:", error);
-      this.recordTraceEvent("assistant_agent_error", {
-        error: error instanceof Error ? error.message : "Unknown error"
-      });
-      throw error;
     }
   }
 }

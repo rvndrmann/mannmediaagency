@@ -1,3 +1,4 @@
+
 import { useState, useEffect } from 'react';
 import { ProductShotGenerator } from "@/components/product-shoot/ProductShotGenerator";
 import { ProductShotResults } from "@/components/product-shoot/ProductShotResults";
@@ -44,6 +45,10 @@ export default function ProductShot() {
     }
   }, [generatedImages]);
 
+  const handleRetry = (id: string) => {
+    handleRetryImageCheck(id);
+  };
+
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8 text-white">Product Shot Generator</h1>
@@ -57,7 +62,7 @@ export default function ProductShot() {
           <ProductShotResults 
             results={productShotResults}
             isGenerating={isGenerating}
-            onRetry={(id) => handleRetryImageCheck(id)}
+            onRetry={handleRetry}
           />
         </div>
       </div>

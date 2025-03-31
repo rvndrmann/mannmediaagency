@@ -38,4 +38,6 @@ export type SceneUpdateType =
   'video' | 
   'voiceOver' | 
   'voiceOverText' | 
-  'backgroundMusic';
+  'backgroundMusic' |
+  'imageUrl' |
+  'videoUrl';

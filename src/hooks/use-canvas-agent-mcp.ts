@@ -1,313 +1,242 @@
 
 import { useState, useCallback } from "react";
-import { useCanvasMcp } from "./use-canvas-mcp";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { toast } from "sonner";
 import { SceneUpdateType } from "@/types/canvas";
+import { Message } from "@/types/message";
+import { v4 as uuidv4 } from "uuid";
 
-interface UseCanvasAgentMcpProps {
+interface UseCanvasAgentProps {
   projectId?: string;
   sceneId?: string;
   updateScene?: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
 }
 
-/**
- * Hook for integrating Canvas with Multi-Agent and MCP
- */
-export function useCanvasAgentMcp(props: UseCanvasAgentMcpProps) {
-  const { projectId, sceneId, updateScene } = props;
+export const useCanvasAgent = ({
+  projectId,
+  sceneId,
+  updateScene
+}: UseCanvasAgentProps) => {
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [isProcessing, setIsProcessing] = useState(false);
   const [activeAgent, setActiveAgent] = useState<string | null>(null);
-  const [agentMessages, setAgentMessages] = useState<{ agent: string, message: string }[]>([]);
   
-  const { useMcp, setUseMcp } = useMCPContext();
+  const { useMcp, mcpServers, isConnecting } = useMCPContext();
   
-  const {
-    isConnected,
-    isProcessing,
-    isGeneratingDescription,
-    isGeneratingImagePrompt,
-    isGeneratingImage,
-    isGeneratingVideo,
-    isGeneratingScript,
-    updateSceneDescription,
-    updateImagePrompt,
-    generateImage,
-    generateVideo,
-    generateScript
-  } = useCanvasMcp({
-    projectId,
-    sceneId
-  });
-  
-  /**
-   * Generate scene script using the proper agent
-   */
-  const generateSceneScript = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!sceneId) {
-      toast.error("Scene ID is required to generate script");
-      return false;
-    }
+  const addUserMessage = useCallback((content: string) => {
+    const newMessage: Message = {
+      id: uuidv4(),
+      role: "user",
+      content,
+      createdAt: new Date().toISOString()
+    };
     
-    setActiveAgent('script');
-    
-    try {
-      // Use MCP if enabled
-      if (useMcp && isConnected) {
-        const success = await generateScript(sceneId, context || "");
-        
-        // Update the scene in the UI if successful and updateScene handler is provided
-        if (success && updateScene) {
-          addAgentMessage('script', 'Scene script generated using MCP');
-          return true;
-        }
-        
-        return success;
-      } else {
-        // Fallback to multi-agent implementation
-        toast.info("MCP is disabled. Using multi-agent fallback for script generation.");
-        addAgentMessage('script', 'Scene script generated using multi-agent (fallback)');
-        
-        // For demo purposes, simulate a successful update
-        if (updateScene) {
-          const generatedScript = "This is a placeholder script generated without MCP. In a real implementation, this would be a more detailed script with dialogue and action descriptions.";
-          await updateScene(sceneId, 'script', generatedScript);
-        }
-        
-        return true;
-      }
-    } catch (error) {
-      console.error("Error generating scene script:", error);
-      toast.error("Failed to generate scene script");
-      return false;
-    } finally {
-      setActiveAgent(null);
-    }
-  }, [useMcp, isConnected, generateScript, updateScene]);
-  
-  /**
-   * Generate scene description using the proper agent
-   */
-  const generateSceneDescription = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!sceneId) {
-      toast.error("Scene ID is required to generate description");
-      return false;
-    }
-    
-    setActiveAgent('description');
-    
-    try {
-      // Use MCP if enabled
-      if (useMcp && isConnected) {
-        const success = await updateSceneDescription(sceneId, true);
-        
-        // Update the scene in the UI if successful and updateScene handler is provided
-        if (success && updateScene) {
-          // Note: In a real implementation, we'd fetch the updated scene description
-          // For now, we're assuming the MCP call updated the database directly
-          addAgentMessage('description', 'Scene description generated using MCP');
-          return true;
-        }
-        
-        return success;
-      } else {
-        // Fallback to multi-agent implementation
-        // In a real implementation, this would call a different API or service
-        toast.info("MCP is disabled. Using multi-agent fallback for scene description.");
-        addAgentMessage('description', 'Scene description generated using multi-agent (fallback)');
-        
-        // For demo purposes, simulate a successful update
-        if (updateScene) {
-          const generatedDescription = "This is a fallback description generated without MCP";
-          await updateScene(sceneId, 'description', generatedDescription);
-        }
-        
-        return true;
-      }
-    } catch (error) {
-      console.error("Error generating scene description:", error);
-      toast.error("Failed to generate scene description");
-      return false;
-    } finally {
-      setActiveAgent(null);
-    }
-  }, [useMcp, isConnected, updateSceneDescription, updateScene]);
-  
-  /**
-   * Generate image prompt using the proper agent
-   */
-  const generateImagePrompt = useCallback(async (sceneId: string, context?: string): Promise<boolean> => {
-    if (!sceneId) {
-      toast.error("Scene ID is required to generate image prompt");
-      return false;
-    }
-    
-    setActiveAgent('imagePrompt');
-    
-    try {
-      // Use MCP if enabled
-      if (useMcp && isConnected) {
-        const success = await updateImagePrompt(sceneId, true);
-        
-        // Update the scene in the UI if successful and updateScene handler is provided
-        if (success && updateScene) {
-          // Note: In a real implementation, we'd fetch the updated image prompt
-          addAgentMessage('imagePrompt', 'Image prompt generated using MCP');
-          return true;
-        }
-        
-        return success;
-      } else {
-        // Fallback to multi-agent implementation
-        toast.info("MCP is disabled. Using multi-agent fallback for image prompt.");
-        addAgentMessage('imagePrompt', 'Image prompt generated using multi-agent (fallback)');
-        
-        // For demo purposes, simulate a successful update
-        if (updateScene) {
-          const generatedPrompt = "A high-quality product shot with perfect lighting, studio background, professional presentation";
-          await updateScene(sceneId, 'imagePrompt', generatedPrompt);
-        }
-        
-        return true;
-      }
-    } catch (error) {
-      console.error("Error generating image prompt:", error);
-      toast.error("Failed to generate image prompt");
-      return false;
-    } finally {
-      setActiveAgent(null);
-    }
-  }, [useMcp, isConnected, updateImagePrompt, updateScene]);
-  
-  /**
-   * Generate scene image using the proper agent
-   */
-  const generateSceneImage = useCallback(async (sceneId: string, imagePrompt?: string): Promise<boolean> => {
-    if (!sceneId) {
-      toast.error("Scene ID is required to generate image");
-      return false;
-    }
-    
-    setActiveAgent('image');
-    
-    try {
-      // Use MCP if enabled
-      if (useMcp && isConnected) {
-        const success = await generateImage(sceneId, "v2");
-        
-        if (success) {
-          addAgentMessage('image', 'Scene image generated using MCP');
-          return true;
-        }
-        
-        return success;
-      } else {
-        // Fallback to multi-agent implementation
-        toast.info("MCP is disabled. Using multi-agent fallback for image generation.");
-        addAgentMessage('image', 'Scene image generated using multi-agent (fallback)');
-        
-        // For demo purposes, simulate a successful update
-        if (updateScene) {
-          // In a real implementation, this would generate an actual image
-          await updateScene(sceneId, 'image', 'https://placeholder.com/800x600');
-        }
-        
-        return true;
-      }
-    } catch (error) {
-      console.error("Error generating scene image:", error);
-      toast.error("Failed to generate scene image");
-      return false;
-    } finally {
-      setActiveAgent(null);
-    }
-  }, [useMcp, isConnected, generateImage, updateScene]);
-  
-  /**
-   * Generate scene video using the proper agent
-   */
-  const generateSceneVideo = useCallback(async (sceneId: string, description?: string): Promise<boolean> => {
-    if (!sceneId) {
-      toast.error("Scene ID is required to generate video");
-      return false;
-    }
-    
-    setActiveAgent('video');
-    
-    try {
-      // Use MCP if enabled
-      if (useMcp && isConnected) {
-        const success = await generateVideo(sceneId, "16:9");
-        
-        if (success) {
-          addAgentMessage('video', 'Scene video generated using MCP');
-          return true;
-        }
-        
-        return success;
-      } else {
-        // Fallback to multi-agent implementation
-        toast.info("MCP is disabled. Using multi-agent fallback for video generation.");
-        addAgentMessage('video', 'Scene video generated using multi-agent (fallback)');
-        
-        // For demo purposes, simulate a successful update
-        if (updateScene) {
-          // In a real implementation, this would generate an actual video
-          await updateScene(sceneId, 'video', 'https://placeholder.com/video');
-        }
-        
-        return true;
-      }
-    } catch (error) {
-      console.error("Error generating scene video:", error);
-      toast.error("Failed to generate scene video");
-      return false;
-    } finally {
-      setActiveAgent(null);
-    }
-  }, [useMcp, isConnected, generateVideo, updateScene]);
-  
-  /**
-   * Add an agent message to the history
-   */
-  const addAgentMessage = useCallback((agent: string, message: string) => {
-    setAgentMessages(prev => [...prev, { agent, message }]);
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage;
   }, []);
   
-  /**
-   * Toggle MCP on/off
-   */
-  const toggleMcp = useCallback(() => {
-    setUseMcp(!useMcp);
-    toast.info(useMcp ? "MCP disabled. Using fallback methods." : "MCP enabled. Using MCP services when available.");
-  }, [useMcp, setUseMcp]);
+  const addAssistantMessage = useCallback((content: string, metadata?: any) => {
+    const newMessage: Message = {
+      id: uuidv4(),
+      role: "assistant",
+      content,
+      createdAt: new Date().toISOString(),
+      metadata
+    };
+    
+    setMessages(prev => [...prev, newMessage]);
+    return newMessage;
+  }, []);
+  
+  const generateSceneDescription = async (sceneId: string, context?: string): Promise<boolean> => {
+    if (!useMcp || !mcpServers.length) {
+      toast.error("MCP is not enabled or connected");
+      return false;
+    }
+
+    try {
+      setIsProcessing(true);
+      setActiveAgent("scene-description-generator");
+      
+      addUserMessage(`Generate a description for scene ${sceneId}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const description = "This scene takes place in a modern office setting with large windows " +
+        "overlooking a city skyline. The lighting is bright and natural, creating a positive atmosphere. " +
+        "The camera starts with a wide shot showing the entire space before slowly tracking in towards " +
+        "the main subject who is working at their desk.";
+      
+      if (updateScene) {
+        await updateScene(sceneId, 'description', description);
+      }
+      
+      addAssistantMessage("I've generated a detailed scene description that includes lighting, camera movement, and setting details.");
+      
+      return true;
+    } catch (error) {
+      console.error("Error generating scene description:", error);
+      addAssistantMessage("I couldn't generate the scene description. Please try again.");
+      return false;
+    } finally {
+      setIsProcessing(false);
+      setActiveAgent(null);
+    }
+  };
+  
+  const generateImagePrompt = async (sceneId: string, context?: string): Promise<boolean> => {
+    if (!useMcp || !mcpServers.length) {
+      toast.error("MCP is not enabled or connected");
+      return false;
+    }
+
+    try {
+      setIsProcessing(true);
+      setActiveAgent("image-prompt-generator");
+      
+      addUserMessage(`Generate an image prompt for scene ${sceneId}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      const imagePrompt = "Modern office interior, bright natural lighting, wide angle, " +
+        "large windows with city skyline view, minimalist design, soft shadows, 8k, detailed, " +
+        "photorealistic, cinematic composition, shallow depth of field";
+      
+      if (updateScene) {
+        await updateScene(sceneId, 'imagePrompt', imagePrompt);
+      }
+      
+      addAssistantMessage("I've created an optimized image prompt with style details and quality parameters.");
+      
+      return true;
+    } catch (error) {
+      console.error("Error generating image prompt:", error);
+      addAssistantMessage("I couldn't generate the image prompt. Please try again.");
+      return false;
+    } finally {
+      setIsProcessing(false);
+      setActiveAgent(null);
+    }
+  };
+  
+  const generateSceneImage = async (sceneId: string, imagePrompt?: string): Promise<boolean> => {
+    if (!useMcp || !mcpServers.length) {
+      toast.error("MCP is not enabled or connected");
+      return false;
+    }
+
+    try {
+      setIsProcessing(true);
+      setActiveAgent("scene-image-generator");
+      
+      addUserMessage(`Generate an image for scene ${sceneId}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 2500));
+      
+      const imageUrl = "https://placehold.co/1024x576/667788/ffffff?text=Generated+Scene+Image";
+      
+      if (updateScene) {
+        await updateScene(sceneId, 'imageUrl', imageUrl);
+      }
+      
+      addAssistantMessage("I've generated an image for your scene based on the prompt.", {
+        imageUrl
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error generating scene image:", error);
+      addAssistantMessage("I couldn't generate the scene image. Please try again.");
+      return false;
+    } finally {
+      setIsProcessing(false);
+      setActiveAgent(null);
+    }
+  };
+  
+  const generateSceneVideo = async (sceneId: string, description?: string): Promise<boolean> => {
+    if (!useMcp || !mcpServers.length) {
+      toast.error("MCP is not enabled or connected");
+      return false;
+    }
+
+    try {
+      setIsProcessing(true);
+      setActiveAgent("scene-video-generator");
+      
+      addUserMessage(`Generate a video for scene ${sceneId}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 3500));
+      
+      const videoUrl = "https://placehold.co/1024x576/445566/ffffff?text=Generated+Scene+Video";
+      
+      if (updateScene) {
+        await updateScene(sceneId, 'videoUrl', videoUrl);
+      }
+      
+      addAssistantMessage("I've generated a video for your scene based on the description and image.", {
+        videoUrl
+      });
+      
+      return true;
+    } catch (error) {
+      console.error("Error generating scene video:", error);
+      addAssistantMessage("I couldn't generate the scene video. Please try again.");
+      return false;
+    } finally {
+      setIsProcessing(false);
+      setActiveAgent(null);
+    }
+  };
+  
+  const generateSceneScript = async (sceneId: string, context?: string): Promise<boolean> => {
+    if (!useMcp || !mcpServers.length) {
+      toast.error("MCP is not enabled or connected");
+      return false;
+    }
+
+    try {
+      setIsProcessing(true);
+      setActiveAgent("scene-script-generator");
+      
+      addUserMessage(`Generate a script for scene ${sceneId}`);
+      
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      
+      const script = "INT. MODERN OFFICE - DAY\n\n" +
+        "CAMERA starts wide, revealing a sleek, minimalist office space. Large windows showcase a stunning city skyline.\n\n" +
+        "TRACK IN slowly toward ALEX (30s), focused intensely on their computer screen.\n\n" +
+        "ALEX\n(to self)\nJust one more line of code...\n\n" +
+        "Alex types rapidly, then sits back with satisfaction.\n\n" +
+        "ALEX\nThere. Perfect.";
+      
+      if (updateScene) {
+        await updateScene(sceneId, 'script', script);
+      }
+      
+      addAssistantMessage("I've written a script for your scene with camera directions, dialogue, and action descriptions.");
+      
+      return true;
+    } catch (error) {
+      console.error("Error generating scene script:", error);
+      addAssistantMessage("I couldn't generate the scene script. Please try again.");
+      return false;
+    } finally {
+      setIsProcessing(false);
+      setActiveAgent(null);
+    }
+  };
   
   return {
-    // Status
-    activeAgent,
+    messages,
+    addUserMessage,
+    addAssistantMessage,
     isProcessing,
-    agentMessages,
-    isMcpEnabled: useMcp,
-    isMcpConnected: isConnected,
-    
-    // Generation status
-    isGeneratingDescription,
-    isGeneratingImagePrompt,
-    isGeneratingImage,
-    isGeneratingVideo,
-    isGeneratingScript,
-    
-    // MCP actions
-    toggleMcp,
-    
-    // Generation actions
-    generateSceneScript,
+    activeAgent,
     generateSceneDescription,
     generateImagePrompt,
     generateSceneImage,
     generateSceneVideo,
-    
-    // Messages
-    addAgentMessage,
-    clearAgentMessages: () => setAgentMessages([])
+    generateSceneScript
   };
-}
+};

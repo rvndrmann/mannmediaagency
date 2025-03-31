@@ -52,7 +52,7 @@ export const getHistory = async (): Promise<GeneratedImage[]> => {
       status: "completed",
       prompt: item.scene_description,
       createdAt: new Date(item.created_at)
-    }));
+    })) as GeneratedImage[];
   } catch (err) {
     console.error("Exception in getHistory:", err);
     return [];

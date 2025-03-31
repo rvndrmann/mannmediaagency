@@ -1,3 +1,4 @@
+
 import React from "react";
 import {
   BrowserRouter as Router,
@@ -5,24 +6,10 @@ import {
   Routes,
 } from "react-router-dom";
 import { Layout } from "@/components/Layout";
-import { 
-  Home, 
-  LayoutDashboard, 
-  Settings, 
-  PanelTopClose, 
-  LogIn, 
-  UserPlus, 
-  KeyRound, 
-  Image, 
-  Video, 
-  Bot, 
-  HelpCircle, 
-  LogOut, 
-  CreditCard 
-} from "lucide-react";
 
 import Index from "./pages/Index";
 import ProductShot from "./pages/ProductShot";
+import Canvas from "./pages/Canvas";
 import Explore from "./pages/Explore";
 import MultiAgentChat from "./pages/MultiAgentChat";
 import { MCPProvider } from "./contexts/MCPContext";
@@ -176,6 +163,14 @@ const App: React.FC = () => {
           <Route
             path="/multi-agent-chat"
             element={<MultiAgentChat />}
+          />
+          <Route
+            path="/canvas"
+            element={
+              <Layout>
+                <Canvas />
+              </Layout>
+            }
           />
         </Routes>
       </Router>

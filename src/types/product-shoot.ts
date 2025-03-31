@@ -6,7 +6,10 @@ export interface GeneratedImage {
   status: 'pending' | 'processing' | 'completed' | 'failed';
   createdAt: Date;
   metadata?: any;
-  content_type?: string; // Added to support existing implementations
+  content_type?: string;
+  result_url?: string;
+  source_image_url?: string;
+  settings?: any;
 }
 
 export interface ProductShotConfig {
@@ -20,10 +23,10 @@ export interface ProductShotConfig {
 export interface ProductShotResult {
   id: string;
   url: string;
-  resultUrl?: string; // Added for backward compatibility
-  inputUrl?: string; // Added for backward compatibility
-  placementType?: string; // Added for backward compatibility
-  description?: string; // Added for backward compatibility
+  resultUrl?: string;
+  inputUrl?: string;
+  placementType?: string;
+  description?: string;
   metadata?: {
     processingTime?: number;
     model?: string;
@@ -34,7 +37,6 @@ export interface ProductShotResult {
   createdAt: Date;
 }
 
-// Add missing types for ProductShotForm
 export type AspectRatio = '1:1' | '16:9' | '9:16' | '4:3' | '3:4';
 
 export interface ProductShotFormData {
@@ -61,7 +63,6 @@ export interface ProductShotFormData {
   visibility?: 'private' | 'public';
 }
 
-// Add missing GenerationResult type
 export interface GenerationResult {
   requestId?: string;
   status: 'PENDING' | 'IN_QUEUE' | 'PROCESSING' | 'COMPLETED' | 'FAILED';

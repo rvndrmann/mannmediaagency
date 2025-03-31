@@ -1,3 +1,4 @@
+
 import { MCPConnection, MCPServerConfig, MCPToolDefinition, MCPToolExecutionParams, MCPToolExecutionResult } from "./mcp/types";
 
 export class MCPServerService implements MCPConnection {
@@ -7,10 +8,13 @@ export class MCPServerService implements MCPConnection {
   private connectionError: Error | null = null;
   private lastActiveTimestamp: number = 0;
   private connectionId: string = "";
+  public name: string = "MCP Server";
+  public baseUrl: string = "";
 
   constructor(serverUrl: string, projectId?: string) {
     this.serverUrl = serverUrl;
     this.projectId = projectId;
+    this.baseUrl = serverUrl;
   }
 
   public async connect(): Promise<void> {
@@ -27,7 +31,6 @@ export class MCPServerService implements MCPConnection {
       this.connectionId = crypto.randomUUID();
       
       console.log(`Connected to MCP server with ID ${this.connectionId}`);
-      return;
     } catch (error) {
       this.connected = false;
       this.connectionError = error instanceof Error ? error : new Error(String(error));
@@ -49,10 +52,8 @@ export class MCPServerService implements MCPConnection {
       
       this.connected = false;
       this.lastActiveTimestamp = 0;
-      return; // Explicitly return void
     } catch (error) {
       console.error("Error disconnecting from MCP server:", error);
-      return; // Explicitly return void even on error
     }
   }
 
@@ -73,7 +74,6 @@ export class MCPServerService implements MCPConnection {
   public async listTools(): Promise<MCPToolDefinition[]> {
     return [
       {
-        id: "generate_image_prompt",
         name: "generate_image_prompt",
         description: "Generate image prompt for the current scene",
         parameters: {
@@ -92,7 +92,6 @@ export class MCPServerService implements MCPConnection {
         },
       },
       {
-        id: "generate_scene_description",
         name: "generate_scene_description",
         description: "Generate a description for the current scene",
         parameters: {
@@ -111,7 +110,6 @@ export class MCPServerService implements MCPConnection {
         },
       },
       {
-        id: "generate_scene_image",
         name: "generate_scene_image",
         description: "Generate an image for the current scene",
         parameters: {
@@ -131,7 +129,6 @@ export class MCPServerService implements MCPConnection {
         },
       },
       {
-        id: "generate_scene_video",
         name: "generate_scene_video",
         description: "Generate a video for the current scene",
         parameters: {
@@ -151,7 +148,6 @@ export class MCPServerService implements MCPConnection {
         },
       },
       {
-        id: "generate_scene_script",
         name: "generate_scene_script",
         description: "Generate a script for the current scene",
         parameters: {
@@ -172,7 +168,7 @@ export class MCPServerService implements MCPConnection {
     ];
   }
 
-  public async callTool(name: string, parameters: MCPToolExecutionParams): Promise<MCPToolExecutionResult> {
+  public async callTool(name: string, parameters: Record<string, any>): Promise<MCPToolExecutionResult> {
     // Update last active timestamp
     this.lastActiveTimestamp = Date.now();
     

@@ -169,6 +169,12 @@ class MCPServiceClass {
     };
   }
   
+  // Get a connection for a specific project
+  getConnectionForProject(projectId: string): MCPClient | null {
+    const client = mcpClients.find(client => client.projectId === projectId);
+    return client || null;
+  }
+  
   // Singleton instance
   private static instance: MCPServiceClass;
   
@@ -190,6 +196,7 @@ export const MCPService = {
   closeConnections: () => mcpServiceInstance.closeConnections(),
   isAnyClientConnected: () => mcpServiceInstance.isAnyClientConnected(),
   getConnectionStats: () => mcpServiceInstance.getConnectionStats(),
+  getConnectionForProject: (projectId: string) => mcpServiceInstance.getConnectionForProject(projectId),
   getInstance: () => mcpServiceInstance
 };
 

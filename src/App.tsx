@@ -19,6 +19,11 @@ import MultiAgentChat from "./pages/MultiAgentChat";
 import AuthCallback from "./components/auth/AuthCallback";
 import LoginForm from "./components/auth/LoginForm";
 import SignupForm from "./components/auth/SignupForm";
+import ImageToVideo from "./pages/ImageToVideo";
+import ProductShootV2 from "./pages/ProductShootV2";
+import PricingPlan from "./pages/PricingPlan";
+import CustomOrder from "./pages/CustomOrder";
+import ProfilePage from "./pages/ProfilePage";
 
 /**
  * Main application component defining the routing structure
@@ -57,10 +62,7 @@ const App: React.FC = () => {
                 path="/plans"
                 element={
                   <Layout>
-                    <div className="p-8">
-                      <h1 className="text-3xl font-bold mb-4">Pricing Plans</h1>
-                      <p>Choose your plan</p>
-                    </div>
+                    <PricingPlan />
                   </Layout>
                 }
               />
@@ -68,10 +70,7 @@ const App: React.FC = () => {
                 path="/image-to-video"
                 element={
                   <Layout>
-                    <div className="p-8">
-                      <h1 className="text-3xl font-bold mb-4">Image to Video</h1>
-                      <p>Convert your images to videos</p>
-                    </div>
+                    <ImageToVideo />
                   </Layout>
                 }
               />
@@ -112,10 +111,18 @@ const App: React.FC = () => {
               <Route path="/auth/signup" element={<SignupForm />} />
               <Route path="/auth/callback" element={<AuthCallback />} />
               <Route
-                path="/product-shot"
+                path="/product-shoot"
                 element={
                   <Layout>
                     <ProductShot />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/product-shoot-v2"
+                element={
+                  <Layout>
+                    <ProductShootV2 />
                   </Layout>
                 }
               />
@@ -136,6 +143,22 @@ const App: React.FC = () => {
                 element={
                   <Layout>
                     <Canvas />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/custom-order"
+                element={
+                  <Layout>
+                    <CustomOrder />
+                  </Layout>
+                }
+              />
+              <Route
+                path="/profile"
+                element={
+                  <Layout>
+                    <ProfilePage />
                   </Layout>
                 }
               />

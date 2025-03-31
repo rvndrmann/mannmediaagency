@@ -1,87 +1,96 @@
-import { RunnerContext, AgentType, AgentResult, AgentOptions } from "../types";
-import { Attachment } from "@/types/message";
 
+import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
+
+/**
+ * Base implementation of an agent with common functionality
+ */
 export abstract class BaseAgentImpl {
   protected context: RunnerContext;
   protected traceId: string;
-
-  constructor(options: { context: RunnerContext, traceId?: string }) {
+  protected model: string;
+  protected config: any;
+  
+  constructor(options: AgentOptions) {
     this.context = options.context;
-    this.traceId = options.traceId || "unknown";
+    this.traceId = options.traceId || `agent-${Date.now()}`;
+    this.model = options.model || "gpt-3.5-turbo";
+    this.config = options.config || {};
   }
-
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    this.context = context;
-    this.recordTraceEvent("agent_start", `Starting ${this.getType()} agent processing`);
-    
-    // Apply input guardrails if they exist
-    if (this.applyInputGuardrails) {
-      const guardrailResult = await this.applyInputGuardrails(input);
-      if (guardrailResult.shouldBlock) {
-        this.recordTraceEvent("guardrail_block", `Input blocked by guardrail: ${guardrailResult.reason}`);
-        return {
-          output: guardrailResult.message || "Your message was blocked by a guardrail."
-        };
-      }
-    }
-    
+  
+  /**
+   * Get the agent type
+   */
+  abstract getType(): AgentType;
+  
+  /**
+   * Process the input and generate a response
+   */
+  abstract process(input: string, context: RunnerContext): Promise<AgentResult>;
+  
+  /**
+   * Run the agent with the given input
+   */
+  async run(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      // Run the agent-specific logic
-      const result = await this.run(input, context.attachments || []);
-      
-      // If the result already has an output property, return it
-      if ('output' in result) {
-        this.recordTraceEvent("agent_complete", `${this.getType()} agent completed with output`);
-        return result;
+      if (context.tracingEnabled && context.addMessage) {
+        context.addMessage(`Running ${this.getType()} agent with input: ${input.substring(0, 100)}...`, "agent_start");
       }
       
-      // Otherwise, construct the expected output format
-      this.recordTraceEvent("agent_complete", `${this.getType()} agent completed with response`);
+      const result = await this.process(input, context);
+      
+      if (context.tracingEnabled && context.addMessage) {
+        context.addMessage(`Completed ${this.getType()} agent run`, "agent_end");
+      }
+      
       return {
-        output: result.response || "Empty response",
+        response: result.response || result.output || "",
         nextAgent: result.nextAgent,
         handoffReason: result.handoffReason,
         structured_output: result.structured_output,
         additionalContext: result.additionalContext
       };
+      
     } catch (error) {
-      this.recordTraceEvent("agent_error", `${this.getType()} agent error: ${error instanceof Error ? error.message : 'Unknown error'}`);
       console.error(`Error in ${this.getType()} agent:`, error);
+      
+      if (context.tracingEnabled && context.addMessage) {
+        context.addMessage(`Error in ${this.getType()} agent: ${error}`, "agent_error");
+      }
+      
       return {
-        output: `The ${this.getType()} agent encountered an error. Please try again.`
+        response: `Error processing request with ${this.getType()} agent: ${error instanceof Error ? error.message : String(error)}`,
+        nextAgent: null
       };
     }
   }
   
-  // Can be overridden by subclasses
-  protected async applyInputGuardrails(input: string): Promise<{ shouldBlock: boolean, reason?: string, message?: string }> {
-    return { shouldBlock: false };
-  }
-  
-  // Can be overridden by subclasses
-  protected async applyOutputGuardrails(output: string): Promise<{ shouldBlock: boolean, reason?: string, message?: string }> {
-    return { shouldBlock: false };
-  }
-  
-  // Get instructions for this agent (can be overridden by subclasses)
-  protected async getInstructions(context: RunnerContext): Promise<string> {
-    return "Default instructions";
-  }
-  
-  // Record trace event if tracing is enabled
-  protected recordTraceEvent(eventType: string, message: string): void {
-    if (this.context.tracingDisabled) return;
-    
-    // Use the context's addMessage function if available
-    if (this.context.addMessage) {
-      this.context.addMessage(message, eventType);
+  /**
+   * Record a trace event for debugging purposes
+   */
+  protected recordTraceEvent(event: Record<string, any>): void {
+    if (this.context.tracingEnabled && this.context.addMessage) {
+      this.context.addMessage(JSON.stringify(event), "trace");
     }
-    
-    // Always log to console for debugging
-    console.log(`[TRACE:${this.traceId}] [${eventType}] ${message}`);
   }
   
-  // Abstract methods to be implemented by subclasses
-  abstract run(input: string, attachments: Attachment[]): Promise<AgentResult | any>;
-  abstract getType(): AgentType;
+  /**
+   * Get the instructions for this agent
+   */
+  protected getInstructions(): string {
+    return `You are an AI assistant specialized in ${this.getType()} tasks.`;
+  }
+  
+  /**
+   * Apply input guardrails - placeholder
+   */
+  protected async applyInputGuardrails(input: string): Promise<string> {
+    return input;
+  }
+  
+  /**
+   * Apply output guardrails - placeholder
+   */
+  protected async applyOutputGuardrails(output: any): Promise<any> {
+    return output;
+  }
 }

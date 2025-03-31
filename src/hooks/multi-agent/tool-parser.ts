@@ -1,63 +1,78 @@
 
 import { Command } from "@/types/message";
 
-export const parseToolCall = (text: string): Command | null => {
-  // Extract commands in the format: {{tool:command(params)}}
-  const commandRegex = /\{\{tool:([^(]+)\(([^)]*)\)\}\}/;
-  const match = text.match(commandRegex);
+// Parse a JSON tool call from a string
+export function parseJsonToolCall(text: string): Command | null {
+  // Look for JSON pattern with command, name, and parameters
+  const jsonRegex = /```(?:json)?\s*({[\s\S]*?})```/;
+  const match = text.match(jsonRegex);
   
-  if (!match) return null;
+  if (match && match[1]) {
+    try {
+      const parsed = JSON.parse(match[1]);
+      
+      // Check if it's a command with a name and optional parameters
+      if (parsed && parsed.command && typeof parsed.command === 'string') {
+        return {
+          name: parsed.command,
+          parameters: parsed.parameters || {}
+        };
+      } else if (parsed && parsed.name && typeof parsed.name === 'string') {
+        return {
+          name: parsed.name,
+          parameters: parsed.parameters || parsed.args || {}
+        };
+      }
+    } catch (e) {
+      console.error("Failed to parse JSON tool call:", e);
+    }
+  }
   
-  const toolName = match[1].trim();
-  const paramsString = match[2].trim();
+  return null;
+}
+
+// Parse a tool call from a text format like "UseCalculator(num1=5, num2=10, operation='add')"
+export function parseToolCall(text: string): Command | null {
+  // Look for function call pattern: FunctionName(param1=value1, param2=value2)
+  const functionRegex = /([a-zA-Z0-9_]+)\s*\(\s*([\s\S]*?)\s*\)/;
+  const match = text.match(functionRegex);
   
-  try {
-    // Parse parameters - handle both JSON format and simple key=value format
-    let parameters: Record<string, any> = {};
+  if (match && match[1] && match[2]) {
+    const functionName = match[1];
+    const paramsString = match[2];
     
-    if (paramsString) {
-      if (paramsString.startsWith('{') && paramsString.endsWith('}')) {
-        // JSON format
-        parameters = JSON.parse(paramsString);
-      } else {
-        // Simple key=value format
-        paramsString.split(',').forEach(pair => {
-          const [key, value] = pair.split('=').map(s => s.trim());
-          parameters[key] = value;
-        });
+    // Parse parameters
+    const params: Record<string, any> = {};
+    
+    // Look for param=value patterns
+    const paramRegex = /([a-zA-Z0-9_]+)\s*=\s*(?:(['"])([^\2]*?)\2|([^,]+))/g;
+    let paramMatch;
+    
+    while ((paramMatch = paramRegex.exec(paramsString)) !== null) {
+      const paramName = paramMatch[1];
+      const paramValue = paramMatch[3] !== undefined ? paramMatch[3] : paramMatch[4];
+      
+      // Try to parse non-string values
+      try {
+        if (paramValue === 'true') {
+          params[paramName] = true;
+        } else if (paramValue === 'false') {
+          params[paramName] = false;
+        } else if (!isNaN(Number(paramValue))) {
+          params[paramName] = Number(paramValue);
+        } else {
+          params[paramName] = paramValue;
+        }
+      } catch (e) {
+        params[paramName] = paramValue;
       }
     }
     
     return {
-      name: toolName,
-      parameters
+      name: functionName,
+      parameters: params
     };
-  } catch (error) {
-    console.error('Error parsing tool parameters:', error);
-    return null;
   }
-};
-
-export const parseJsonToolCall = (text: string): Command | null => {
-  try {
-    // Try to extract JSON object enclosed in triple backticks
-    const jsonRegex = /```(?:json)?\s*(\{[\s\S]*?\})\s*```/;
-    const match = text.match(jsonRegex);
-    
-    if (!match) return null;
-    
-    const jsonString = match[1];
-    const data = JSON.parse(jsonString);
-    
-    // Check if it has the required structure
-    if (!data.name) return null;
-    
-    return {
-      name: data.name,
-      parameters: data.parameters || {}
-    };
-  } catch (error) {
-    console.error('Error parsing JSON tool call:', error);
-    return null;
-  }
-};
+  
+  return null;
+}

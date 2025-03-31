@@ -1,24 +1,48 @@
 
-import { Bot, PenLine, Image, Wrench, FileText, User, Database } from 'lucide-react';
+import { 
+  Bot, 
+  FileText, 
+  Image, 
+  Hammer, 
+  Camera, 
+  BarChart,
+  Sparkles,
+  Headphones,
+  Cpu
+} from "lucide-react";
 import React from 'react';
 
-export function getAgentIcon(agentType: string | undefined, className: string = "w-4 h-4") {
+export type AgentIconType = 
+  | "main" 
+  | "script" 
+  | "image" 
+  | "tool" 
+  | "scene" 
+  | "data" 
+  | "assistant" 
+  | "audio" 
+  | "system";
+
+export function getAgentIcon(agentType: AgentIconType | string, className: string = "h-5 w-5"): React.ReactNode {
   switch (agentType) {
-    case 'main':
+    case "main":
+    case "assistant":
       return <Bot className={className} />;
-    case 'script':
-      return <PenLine className={className} />;
-    case 'image':
-      return <Image className={className} />;
-    case 'tool':
-      return <Wrench className={className} />;
-    case 'scene':
+    case "script":
       return <FileText className={className} />;
-    case 'data':
-      return <Database className={className} />;
-    case 'user':
-      return <User className={className} />;
+    case "image":
+      return <Image className={className} />;
+    case "tool":
+      return <Hammer className={className} />;
+    case "scene":
+      return <Camera className={className} />;
+    case "data":
+      return <BarChart className={className} />;
+    case "audio":
+      return <Headphones className={className} />;
+    case "system":
+      return <Cpu className={className} />;
     default:
-      return <Bot className={className} />;
+      return <Sparkles className={className} />;
   }
 }

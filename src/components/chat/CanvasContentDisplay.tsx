@@ -1,10 +1,8 @@
 
-import React, { useState } from 'react';
-import { Card } from "@/components/ui/card";
-import { Markdown } from "@/components/ui/markdown";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { FileText, Image as ImageIcon, Mic, Edit } from "lucide-react";
+import React from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Edit, FileText, Image, Video, Mic } from "lucide-react";
 
 interface CanvasContentDisplayProps {
   title: string;
@@ -25,142 +23,110 @@ export function CanvasContentDisplay({
   voiceOverText,
   onEditClick
 }: CanvasContentDisplayProps) {
-  const [activeTab, setActiveTab] = useState("script");
-  
-  const hasContent = !!(script || description || imagePrompt || voiceOverText);
-  
-  if (!hasContent) {
-    return null;
-  }
-  
-  const handleEdit = (type: string) => {
-    if (!onEditClick) return;
-    
-    let content = "";
-    switch (type) {
-      case "script":
-        content = script || "";
-        break;
-      case "description":
-        content = description || "";
-        break;
-      case "imagePrompt":
-        content = imagePrompt || "";
-        break;
-      case "voiceOverText":
-        content = voiceOverText || "";
-        break;
-    }
-    
-    onEditClick(type, content, sceneId);
-  };
-  
   return (
-    <Card className="p-3 bg-gray-800/50 border-gray-700">
-      <div className="flex justify-between items-center mb-2">
-        <h3 className="text-sm font-medium text-white/90">{title}</h3>
-      </div>
-      
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
-        <TabsList className="grid grid-cols-4 h-8 mb-2">
-          {script && (
-            <TabsTrigger value="script" className="text-xs">
-              <FileText className="h-3 w-3 mr-1" />
-              Script
-            </TabsTrigger>
-          )}
-          {description && (
-            <TabsTrigger value="description" className="text-xs">
-              <FileText className="h-3 w-3 mr-1" />
-              Description
-            </TabsTrigger>
-          )}
-          {imagePrompt && (
-            <TabsTrigger value="imagePrompt" className="text-xs">
-              <ImageIcon className="h-3 w-3 mr-1" />
-              Image Prompt
-            </TabsTrigger>
-          )}
-          {voiceOverText && (
-            <TabsTrigger value="voiceOverText" className="text-xs">
-              <Mic className="h-3 w-3 mr-1" />
-              Voice Over
-            </TabsTrigger>
-          )}
-        </TabsList>
-        
-        {script && (
-          <TabsContent value="script" className="relative">
-            <div className="max-h-40 overflow-y-auto text-sm bg-gray-900/50 p-2 rounded">
-              <Markdown>{script}</Markdown>
+    <Card className="overflow-hidden border-muted">
+      <CardHeader className="p-3 pb-1 bg-muted/50">
+        <CardTitle className="text-sm flex items-center justify-between">
+          <span>{title}</span>
+        </CardTitle>
+      </CardHeader>
+      <CardContent className="p-3 space-y-3 text-sm">
+        {description && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="font-medium flex items-center">
+                <FileText className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <span>Description</span>
+              </div>
+              {onEditClick && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5" 
+                  onClick={() => onEditClick('description', description, sceneId)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
             </div>
-            {onEditClick && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="absolute top-0 right-0 h-6 w-6 p-0"
-                onClick={() => handleEdit("script")}
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-            )}
-          </TabsContent>
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              {description}
+            </p>
+          </div>
         )}
         
-        {description && (
-          <TabsContent value="description" className="relative">
-            <div className="max-h-40 overflow-y-auto text-sm bg-gray-900/50 p-2 rounded">
-              <Markdown>{description}</Markdown>
+        {script && (
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="font-medium flex items-center">
+                <FileText className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <span>Script</span>
+              </div>
+              {onEditClick && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5" 
+                  onClick={() => onEditClick('script', script, sceneId)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
             </div>
-            {onEditClick && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="absolute top-0 right-0 h-6 w-6 p-0"
-                onClick={() => handleEdit("description")}
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-            )}
-          </TabsContent>
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              {script}
+            </p>
+          </div>
         )}
         
         {imagePrompt && (
-          <TabsContent value="imagePrompt" className="relative">
-            <div className="max-h-40 overflow-y-auto text-sm bg-gray-900/50 p-2 rounded">
-              <Markdown>{imagePrompt}</Markdown>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="font-medium flex items-center">
+                <Image className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <span>Image Prompt</span>
+              </div>
+              {onEditClick && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5" 
+                  onClick={() => onEditClick('imagePrompt', imagePrompt, sceneId)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
             </div>
-            {onEditClick && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="absolute top-0 right-0 h-6 w-6 p-0"
-                onClick={() => handleEdit("imagePrompt")}
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-            )}
-          </TabsContent>
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              {imagePrompt}
+            </p>
+          </div>
         )}
         
         {voiceOverText && (
-          <TabsContent value="voiceOverText" className="relative">
-            <div className="max-h-40 overflow-y-auto text-sm bg-gray-900/50 p-2 rounded">
-              <Markdown>{voiceOverText}</Markdown>
+          <div className="space-y-1">
+            <div className="flex items-center justify-between">
+              <div className="font-medium flex items-center">
+                <Mic className="h-3.5 w-3.5 mr-1 text-muted-foreground" />
+                <span>Voice Over</span>
+              </div>
+              {onEditClick && (
+                <Button 
+                  variant="ghost" 
+                  size="icon" 
+                  className="h-5 w-5" 
+                  onClick={() => onEditClick('voiceOverText', voiceOverText, sceneId)}
+                >
+                  <Edit className="h-3 w-3" />
+                </Button>
+              )}
             </div>
-            {onEditClick && (
-              <Button 
-                variant="ghost" 
-                size="sm" 
-                className="absolute top-0 right-0 h-6 w-6 p-0"
-                onClick={() => handleEdit("voiceOverText")}
-              >
-                <Edit className="h-3 w-3" />
-              </Button>
-            )}
-          </TabsContent>
+            <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+              {voiceOverText}
+            </p>
+          </div>
         )}
-      </Tabs>
+      </CardContent>
     </Card>
   );
 }

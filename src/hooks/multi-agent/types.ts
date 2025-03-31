@@ -6,7 +6,8 @@ export enum CommandExecutionState {
   PENDING = "pending",
   RUNNING = "running",
   COMPLETED = "completed",
-  FAILED = "failed"
+  FAILED = "failed",
+  ERROR = "error" // Add ERROR state
 }
 
 // Tool context interface - provided to all tools during execution
@@ -23,6 +24,7 @@ export interface ToolContext {
   addMessage?: (message: string, type: string) => void;
   toolAvailable: boolean; // Required property to ensure the tool is available
   history?: any[];
+  tracingEnabled?: boolean;
   // Add any other context-specific properties tools might need
 }
 
@@ -48,6 +50,7 @@ export interface ToolDefinition {
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
+  state?: CommandExecutionState; // Add state property
   error?: string;
   data?: any;
   usage?: {

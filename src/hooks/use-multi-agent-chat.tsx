@@ -1,6 +1,6 @@
 
 import { useState, useCallback, useEffect, useRef } from "react";
-import { Message, Attachment, MessageType } from "@/types/message";
+import { Message, MessageType } from "@/types/message";
 import { v4 as uuidv4 } from "uuid";
 import { toast } from "sonner";
 import { AgentType } from "@/hooks/multi-agent/runner/types";
@@ -29,7 +29,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const [input, setInput] = useState<string>("");
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [activeAgent, setActiveAgent] = useState<AgentType>("main");
-  const [pendingAttachments, setPendingAttachments] = useState<Attachment[]>([]);
+  const [pendingAttachments, setPendingAttachments] = useState<any[]>([]);
   const [userCredits, setUserCredits] = useState<{ credits_remaining: number } | null>(null);
   const [usePerformanceModel, setUsePerformanceModel] = useState<boolean>(false);
   const [enableDirectToolExecution, setEnableDirectToolExecution] = useState<boolean>(false);
@@ -61,7 +61,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
       );
       
       if (!hasProjectContextMessage) {
-        // Create a properly typed message with "context" as MessageType
+        // Create a properly typed message
         const contextMessage: Message = {
           id: uuidv4(),
           role: "system",
@@ -152,13 +152,13 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   const clearChat = () => {
     // Preserve any system context messages about the project
     const systemMessages = messages.filter(msg => 
-      msg.role === 'system' && (msg.type === 'context' || msg.content.includes('Project context'))
+      msg.role === 'system' && msg.type === 'context'
     );
     
     setMessages(systemMessages);
   };
   
-  const addAttachments = (newAttachments: Attachment[]) => {
+  const addAttachments = (newAttachments: any[]) => {
     setPendingAttachments(prev => [...prev, ...newAttachments]);
   };
   
@@ -217,7 +217,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
           role: "system",
           content: `Project context: ${projectDetails.title || projectId}\n\n${projectContent}`,
           createdAt: new Date().toISOString(),
-          type: "context" as MessageType
+          type: "context"
         };
         
         setMessages(prev => [...prev, contextMessage]);
@@ -250,7 +250,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
         role: "system",
         content: `Conversation transferred from ${getAgentName(fromAgent)} to ${getAgentName(toAgent)}. Reason: ${reason}`,
         createdAt: new Date().toISOString(),
-        type: "handoff" as MessageType,
+        type: "handoff",
         continuityData
       };
       
@@ -271,7 +271,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
   };
   
   // Completely redesigned message handling to prevent duplicates and race conditions
-  const handleSendMessage = useCallback(async (messageText: string, attachments: Attachment[] = []) => {
+  const handleSendMessage = useCallback(async (messageText: string, attachments: any[] = []) => {
     if (!messageText.trim() && attachments.length === 0) return;
     
     if (isLoading || processingRef.current) {
@@ -314,7 +314,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             role: 'system',
             content: 'The request timed out. Please try again.',
             createdAt: new Date().toISOString(),
-            type: 'error' as MessageType,
+            type: 'error',
             status: 'error'
           }
         ]);
@@ -417,7 +417,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
             ? `Error: ${error.message}` 
             : "An unknown error occurred while processing your request.",
           createdAt: new Date().toISOString(),
-          type: "error" as MessageType,
+          type: "error",
           status: "error"
         };
         
@@ -448,15 +448,14 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     setInput,
     isLoading,
     activeAgent,
+    handoffInProgress,
+    agentInstructions,
     userCredits,
     pendingAttachments,
     setPendingAttachments,
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
-    handoffInProgress,
-    agentInstructions,
-    setProjectContext,
     handleSubmit,
     switchAgent,
     clearChat,
@@ -467,6 +466,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     removeAttachment,
     updateAgentInstructions,
     getAgentInstructions,
+    setProjectContext,
     processHandoff
   };
 }

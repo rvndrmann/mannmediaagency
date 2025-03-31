@@ -17,10 +17,13 @@ interface ChatSessionSelectorProps {
 
 export function ChatSessionSelector({ onSelectSession, currentSessionId }: ChatSessionSelectorProps) {
   const { 
-    chatSessions = [],
+    sessions,
     deleteChatSession,
     createChatSession
   } = useChatSession();
+
+  // Get sessions array from sessions object
+  const chatSessions = Object.values(sessions || {});
 
   const handleNewSession = () => {
     const newSessionId = createChatSession(null);

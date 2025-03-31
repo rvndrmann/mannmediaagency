@@ -54,7 +54,7 @@ export async function executeTool(toolName: string, parameters: any, context: To
     return {
       success: false,
       message: `Tool ${toolName} not found`,
-      state: CommandExecutionState.ERROR
+      state: CommandExecutionState.FAILED
     };
   }
   
@@ -63,7 +63,7 @@ export async function executeTool(toolName: string, parameters: any, context: To
     return {
       success: false,
       message: `Insufficient credits to use ${toolName}. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`,
-      state: CommandExecutionState.ERROR
+      state: CommandExecutionState.FAILED
     };
   }
   
@@ -73,7 +73,7 @@ export async function executeTool(toolName: string, parameters: any, context: To
     
     return {
       ...result,
-      state: result.success ? CommandExecutionState.COMPLETED : CommandExecutionState.ERROR
+      state: result.success ? CommandExecutionState.COMPLETED : CommandExecutionState.FAILED
     };
   } catch (error) {
     console.error(`Error executing tool ${toolName}:`, error);
@@ -81,7 +81,7 @@ export async function executeTool(toolName: string, parameters: any, context: To
       success: false,
       message: error instanceof Error ? error.message : `Error executing tool ${toolName}`,
       error,
-      state: CommandExecutionState.ERROR
+      state: CommandExecutionState.FAILED
     };
   }
 }

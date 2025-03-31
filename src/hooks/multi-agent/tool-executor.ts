@@ -2,7 +2,7 @@
 import { Command } from "@/types/message";
 import { CommandExecutionState, ToolContext } from "./types";
 import { toast } from "sonner";
-import * as ToolsModule from "./tools/index"; // Import the correct function
+import { executeTool } from "./tools/index"; 
 
 export const executeCommand = async (
   commandData: Command,
@@ -14,11 +14,11 @@ export const executeCommand = async (
 }> => {
   try {
     // Use the new tool executor system
-    const result = await ToolsModule.executeTool(commandData.name, commandData.parameters || {}, context);
+    const result = await executeTool(commandData.name, commandData.parameters || {}, context);
     
     // Return the result in the expected format
     return {
-      state: result.state,
+      state: result.state || CommandExecutionState.COMPLETED,
       message: result.message,
       data: result.data
     };

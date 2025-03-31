@@ -1,6 +1,7 @@
 
 import { CommandExecutionState, ToolContext } from "./types";
-import { availableTools, getAvailableTools, initializeToolSystem, executeTool } from "./tools/index";
+import { toast } from "sonner";
+import { availableTools, executeTool, getAvailableTools, initializeToolSystem } from "./tools/index";
 
 export const executeCommand = async (
   commandName: string,
@@ -23,7 +24,7 @@ export const executeCommand = async (
   } catch (error) {
     console.error(`Error executing command ${commandName}:`, error);
     return {
-      state: CommandExecutionState.ERROR,
+      state: CommandExecutionState.FAILED,
       message: error instanceof Error ? error.message : `Unknown error executing ${commandName}`
     };
   }

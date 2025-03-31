@@ -16,16 +16,25 @@ const agentFullNames = {
   script: "Script Writer",
   image: "Image Generator",
   tool: "Tool Assistant",
-  scene: "Scene Creator"
+  scene: "Scene Creator",
+  data: "Data Agent"
 };
 
 interface ChatMessageProps {
   message: Message;
   showAgentName?: boolean;
+  showAvatar?: boolean; // Added this prop
+  agentName?: string; // Added this prop
   onEditContent?: (type: string, content: string, sceneId: string) => void;
 }
 
-export function ChatMessage({ message, showAgentName = true, onEditContent }: ChatMessageProps) {
+export function ChatMessage({ 
+  message, 
+  showAgentName = true,
+  showAvatar = true, // Default to true
+  agentName,
+  onEditContent 
+}: ChatMessageProps) {
   const [showCanvasContent, setShowCanvasContent] = useState(true);
   
   const hasCanvasContent = 
@@ -39,49 +48,52 @@ export function ChatMessage({ message, showAgentName = true, onEditContent }: Ch
         message.role === "user" ? "flex-row-reverse" : "flex-row"
       )}
     >
-      <Avatar className={cn(
-        "rounded-md overflow-hidden mt-1 w-8 h-8 border",
-        message.role === "user" ? "bg-primary" : "bg-secondary",
-        message.agentType === "tool" && "bg-emerald-500",
-        message.agentType === "script" && "bg-blue-500",
-        message.agentType === "image" && "bg-purple-500",
-        message.agentType === "scene" && "bg-amber-500",
-        message.type === "system" && "bg-gray-500",
-        message.type === "error" && "bg-red-500"
-      )}>
-        {message.role === "user" ? (
-          <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-            U
-          </div>
-        ) : message.type === "system" ? (
-          <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-            S
-          </div>
-        ) : message.type === "error" ? (
-          <div className="text-white font-medium flex items-center justify-center h-full text-sm">
-            !
-          </div>
-        ) : (
-          <div className="flex items-center justify-center h-full">
-            {getAgentIcon(message.agentType || "main", "w-4 h-4 text-white")}
-          </div>
-        )}
-      </Avatar>
+      {showAvatar && (
+        <Avatar className={cn(
+          "rounded-md overflow-hidden mt-1 w-8 h-8 border",
+          message.role === "user" ? "bg-primary" : "bg-secondary",
+          message.agentType === "tool" && "bg-emerald-500",
+          message.agentType === "script" && "bg-blue-500",
+          message.agentType === "image" && "bg-purple-500",
+          message.agentType === "scene" && "bg-amber-500",
+          message.type === "system" && "bg-gray-500",
+          message.type === "error" && "bg-red-500"
+        )}>
+          {message.role === "user" ? (
+            <div className="text-white font-medium flex items-center justify-center h-full text-sm">
+              U
+            </div>
+          ) : message.type === "system" ? (
+            <div className="text-white font-medium flex items-center justify-center h-full text-sm">
+              S
+            </div>
+          ) : message.type === "error" ? (
+            <div className="text-white font-medium flex items-center justify-center h-full text-sm">
+              !
+            </div>
+          ) : (
+            <div className="flex items-center justify-center h-full">
+              {getAgentIcon(message.agentType || "main", "w-4 h-4 text-white")}
+            </div>
+          )}
+        </Avatar>
+      )}
       
       <div className={cn(
         "flex flex-col max-w-[90%] sm:max-w-[75%]",
         message.role === "user" ? "items-end" : "items-start"
       )}>
-        {showAgentName && message.role === "assistant" && message.agentType && (
+        {showAgentName && message.role === "assistant" && (agentName || message.agentType) && (
           <span className={cn(
             "text-xs font-medium mb-1",
             message.agentType === "main" && "text-slate-400",
             message.agentType === "tool" && "text-emerald-400",
             message.agentType === "script" && "text-blue-400",
             message.agentType === "image" && "text-purple-400",
-            message.agentType === "scene" && "text-amber-400"
+            message.agentType === "scene" && "text-amber-400",
+            message.agentType === "data" && "text-amber-400"
           )}>
-            {agentFullNames[message.agentType as keyof typeof agentFullNames] || message.agentType}
+            {agentName || (message.agentType && agentFullNames[message.agentType as keyof typeof agentFullNames]) || message.agentType}
           </span>
         )}
         

@@ -1,86 +1,81 @@
 
-import { useState } from "react";
-import { X, FileText, Image as ImageIcon, Eye, Download } from "lucide-react";
-import { Attachment } from "@/types/message";
-import { Button } from "@/components/ui/button";
+import React from 'react';
+import { Attachment } from '@/types/message';
+import { Paperclip, X, FileText, Image, File } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 interface AttachmentPreviewProps {
   attachments: Attachment[];
-  onRemove?: (id: string) => void;
   isRemovable?: boolean;
+  onRemove?: (id: string) => void;
 }
 
-export function AttachmentPreview({ 
-  attachments, 
-  onRemove,
-  isRemovable = false 
+export function AttachmentPreview({
+  attachments,
+  isRemovable = false,
+  onRemove
 }: AttachmentPreviewProps) {
-  const [selectedAttachment, setSelectedAttachment] = useState<Attachment | null>(null);
-
-  const getFileIcon = (attachment: Attachment) => {
-    if (attachment.type === 'image') {
-      return <ImageIcon className="h-4 w-4 text-blue-500" />;
-    }
-    return <FileText className="h-4 w-4 text-gray-500" />;
-  };
-
-  const getFileExtension = (attachment: Attachment) => {
-    if (!attachment.name) return '';
-    const parts = attachment.name.split('.');
-    return parts.length > 1 ? parts[parts.length - 1].toUpperCase() : '';
-  };
-
-  const handlePreview = (attachment: Attachment) => {
-    setSelectedAttachment(attachment);
-    
-    // For files with URLs, open in new tab
-    if (attachment.url) {
-      window.open(attachment.url, '_blank');
+  // Function to get appropriate icon based on file type
+  const getFileIcon = (type: string) => {
+    if (type.startsWith('image/')) {
+      return <Image className="h-4 w-4" />;
+    } else if (type.startsWith('text/')) {
+      return <FileText className="h-4 w-4" />;
+    } else {
+      return <File className="h-4 w-4" />;
     }
   };
 
-  const formatFileSize = (bytes: number) => {
-    if (bytes < 1024) return bytes + ' B';
-    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
-    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+  // Format file size
+  const formatFileSize = (bytes?: number): string => {
+    if (!bytes) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   };
 
   return (
-    <div className="flex flex-wrap gap-2 mb-2">
+    <div className="flex flex-wrap gap-2">
       {attachments.map((attachment) => (
-        <div 
-          key={attachment.id} 
-          className="relative group flex items-center space-x-2 bg-gray-800/40 backdrop-blur-sm p-2 rounded-md border border-white/10"
+        <div
+          key={attachment.id}
+          className="relative flex items-center space-x-2 bg-muted/50 border border-muted p-2 rounded-md"
         >
-          <div className="flex items-center space-x-2">
-            {getFileIcon(attachment)}
-            <div>
-              <p className="text-xs truncate max-w-[150px]">{attachment.name}</p>
-              <p className="text-[10px] text-gray-400">
-                {getFileExtension(attachment)} • {formatFileSize(attachment.size)}
-              </p>
+          {attachment.type.startsWith('image/') ? (
+            <div className="relative w-10 h-10 rounded overflow-hidden">
+              <img
+                src={attachment.url}
+                alt={attachment.name}
+                className="absolute inset-0 h-full w-full object-cover"
+              />
             </div>
+          ) : (
+            <div className="w-8 h-8 flex items-center justify-center bg-muted rounded">
+              {getFileIcon(attachment.type)}
+            </div>
+          )}
+          
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-medium truncate w-24 sm:w-32 md:w-48">
+              {attachment.name}
+            </p>
+            {attachment.size && (
+              <p className="text-xs text-muted-foreground">
+                {formatFileSize(attachment.size)}
+              </p>
+            )}
           </div>
           
-          <div className="flex items-center space-x-1">
-            {attachment.url && (
-              <button 
-                onClick={() => handlePreview(attachment)}
-                className="text-white/60 hover:text-white p-1 rounded"
-              >
-                <Eye className="h-3 w-3" />
-              </button>
-            )}
-            
-            {isRemovable && onRemove && (
-              <button 
-                onClick={() => onRemove(attachment.id)} 
-                className="text-white/60 hover:text-white p-1 rounded"
-              >
-                <X className="h-3 w-3" />
-              </button>
-            )}
-          </div>
+          {isRemovable && onRemove && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-5 w-5 text-muted-foreground hover:text-foreground"
+              onClick={() => onRemove(attachment.id)}
+            >
+              <X className="h-3 w-3" />
+            </Button>
+          )}
         </div>
       ))}
     </div>

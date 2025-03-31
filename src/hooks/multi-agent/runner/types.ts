@@ -1,5 +1,6 @@
 
 import { SupabaseClient } from '@supabase/supabase-js';
+import { Attachment } from "@/types/message";
 
 // Agent types
 export type AgentType = 
@@ -11,7 +12,7 @@ export type AgentType =
   | "scene" 
   | "data";
 
-// Tool execution result states - Added from multi-agent/types.ts
+// Tool execution result states
 export enum CommandExecutionState {
   PENDING = "pending",
   RUNNING = "running",
@@ -30,6 +31,8 @@ export interface RunnerContext {
   userCredits?: number;
   tracingEnabled?: boolean;
   enableDirectToolExecution?: boolean;
+  usePerformanceModel?: boolean;
+  runId?: string;
   addMessage?: (message: string, type: string) => void;
   metadata?: Record<string, any>;
   history?: any[];
@@ -68,23 +71,42 @@ export interface BaseAgent {
   getType(): AgentType;
 }
 
+// Agent options interface
+export interface AgentOptions {
+  name: string;
+  instructions: string;
+  tools?: any[];
+  context?: RunnerContext;
+  traceId?: string;
+  model?: string;
+  config?: any;
+}
+
 // Base abstract agent implementation
 export abstract class BaseAgentImpl implements BaseAgent {
   protected name: string;
   protected instructions: string;
   protected tools?: any[];
+  protected context: RunnerContext;
+  protected traceId?: string;
+  protected model?: string;
+  protected config?: any;
 
   constructor(options: AgentOptions) {
     this.name = options.name;
     this.instructions = options.instructions;
     this.tools = options.tools || [];
+    this.context = options.context || {} as RunnerContext;
+    this.traceId = options.traceId;
+    this.model = options.model;
+    this.config = options.config;
   }
 
   abstract process(input: string, context: RunnerContext): Promise<AgentResult>;
 
   async run(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      return this.process(input, context);
+      return await this.process(input, context);
     } catch (error) {
       console.error(`Error in ${this.name} agent:`, error);
       return {
@@ -98,21 +120,32 @@ export abstract class BaseAgentImpl implements BaseAgent {
     return "main";
   }
 
-  protected recordTraceEvent(event: any): void {
-    console.log(`[TRACE] ${this.name}:`, event);
+  protected recordTraceEvent(eventType: string, details: string | Record<string, any>): void {
+    if (this.context?.tracingEnabled) {
+      const event = typeof details === 'string' 
+        ? { type: eventType, message: details } 
+        : { type: eventType, ...details };
+        
+      console.log(`[TRACE ${this.traceId}] ${this.name}:`, event);
+      
+      if (this.context?.addMessage) {
+        const message = typeof details === 'string' 
+          ? details 
+          : JSON.stringify(details);
+        this.context.addMessage(message, eventType);
+      }
+    }
+  }
+
+  protected async getInstructions(context: RunnerContext): Promise<string> {
+    // Override this method to provide dynamic instructions
+    return this.instructions;
   }
 
   protected async applyInputGuardrails(input: string): Promise<string> {
     // In a real implementation, this would apply input guardrails
     return input;
   }
-}
-
-// Agent options interface
-export interface AgentOptions {
-  name: string;
-  instructions: string;
-  tools?: any[];
 }
 
 // Runner callbacks

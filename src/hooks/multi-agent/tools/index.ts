@@ -1,78 +1,110 @@
-
-import { CommandExecutionState, ToolExecutionResult } from "../runner/types";
-import { ToolContext } from "../types";
+import { ToolContext, ToolDefinition, ToolExecutionResult } from "../types";
+import { CommandExecutionState } from "../runner/types";
 import { canvasTool } from "./canvas-tool";
+import { canvasContentTool } from "./canvas-content-tool";
+import { sdkCanvasDataTool } from "../sdk/tools/SdkCanvasDataTool";
 
-export interface Tool {
-  name: string;
-  description: string;
-  parameters: any;
-  metadata?: any;
-  execute: (params: any, context: ToolContext) => Promise<ToolExecutionResult>;
-}
-
-// Register all available tools here
-export const availableTools: Tool[] = [
-  canvasTool
-  // Add other tools here as needed
+// Keep track of registered tools
+export const availableTools: ToolDefinition[] = [
+  canvasTool,
+  canvasContentTool
 ];
 
-/**
- * Get all available tools
- */
-export const getAvailableTools = (): Tool[] => {
-  return availableTools;
+// Map to quickly look up tools by name
+const toolMap: Map<string, ToolDefinition> = new Map();
+
+// Initialize the tool system
+export const initializeToolSystem = async (): Promise<boolean> => {
+  try {
+    // Reset the tool map
+    toolMap.clear();
+    
+    // Add all tools to the map
+    for (const tool of availableTools) {
+      toolMap.set(tool.name, tool);
+    }
+    
+    // Add SDK tools
+    toolMap.set(sdkCanvasDataTool.name, sdkCanvasDataTool);
+    
+    console.log(`Tool system initialized with ${toolMap.size} tools`);
+    return true;
+  } catch (error) {
+    console.error("Error initializing tool system:", error);
+    return false;
+  }
 };
 
-/**
- * Initialize the tool system
- */
-export const initializeToolSystem = async (): Promise<void> => {
-  // Perform any necessary initialization
-  console.log(`Tool system initialized with ${availableTools.length} tools`);
+// Get all available tools
+export const getAvailableTools = (): ToolDefinition[] => {
+  return [...toolMap.values()];
 };
 
-/**
- * Find a tool by name
- */
-const findTool = (name: string): Tool | undefined => {
-  return availableTools.find(tool => tool.name === name);
-};
-
-/**
- * Execute a tool by name
- */
+// Execute a tool by name
 export const executeTool = async (
-  name: string,
-  parameters: any,
+  toolName: string, 
+  parameters: any, 
   context: ToolContext
 ): Promise<ToolExecutionResult> => {
   try {
-    const tool = findTool(name);
-    
+    // Check if the tool exists
+    const tool = toolMap.get(toolName);
     if (!tool) {
       return {
         success: false,
-        message: `Tool not found: ${name}`,
+        message: `Tool "${toolName}" not found`,
+        state: CommandExecutionState.ERROR
+      };
+    }
+    
+    // Check if user has enough credits (if the tool requires credits)
+    if (tool.requiredCredits && context.userCredits !== undefined && context.userCredits < tool.requiredCredits) {
+      return {
+        success: false,
+        message: `Insufficient credits to use this tool. Required: ${tool.requiredCredits}, Available: ${context.userCredits}`,
         state: CommandExecutionState.ERROR
       };
     }
     
     // Execute the tool
+    console.log(`Executing tool "${toolName}" with parameters:`, parameters);
     const result = await tool.execute(parameters, context);
     
+    // Add state to the result if not present
     if (!result.state) {
-      // Set default state based on success
-      result.state = result.success ? CommandExecutionState.COMPLETED : CommandExecutionState.ERROR;
+      result.state = result.success ? CommandExecutionState.COMPLETED : CommandExecutionState.FAILED;
     }
     
     return result;
   } catch (error) {
-    console.error(`Error executing tool ${name}:`, error);
+    console.error(`Error executing tool "${toolName}":`, error);
     return {
       success: false,
-      message: `Error executing tool ${name}: ${error instanceof Error ? error.message : 'Unknown error'}`,
+      message: error instanceof Error ? error.message : `Unknown error executing tool "${toolName}"`,
       state: CommandExecutionState.ERROR
     };
+  }
+};
+
+// Register a new tool
+export const registerTool = (tool: ToolDefinition): boolean => {
+  try {
+    // Check if the tool already exists
+    if (toolMap.has(tool.name)) {
+      console.warn(`Tool "${tool.name}" is already registered. Overwriting.`);
+    }
+    
+    // Add the tool to the map
+    toolMap.set(tool.name, tool);
+    
+    // Add to available tools array if not already there
+    if (!availableTools.some(t => t.name === tool.name)) {
+      availableTools.push(tool);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error(`Error registering tool "${tool.name}":`, error);
+    return false;
   }
 };

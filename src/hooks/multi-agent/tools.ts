@@ -1,5 +1,5 @@
 
-import { CommandExecutionState, ToolExecutionResult } from "./runner/types";
+import { CommandExecutionState } from "./runner/types";
 import { toast } from "sonner";
 import { availableTools, executeTool, getAvailableTools, initializeToolSystem } from "./tools/index";
 import { ToolContext } from "./types";

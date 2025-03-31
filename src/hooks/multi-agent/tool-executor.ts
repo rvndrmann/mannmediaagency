@@ -1,6 +1,6 @@
 
 import { Command } from "@/types/message";
-import { CommandExecutionState, ToolExecutionResult } from "./runner/types";
+import { CommandExecutionState } from "./runner/types";
 import { ToolContext } from "./types";
 import { toast } from "sonner";
 import { executeTool } from "./tools/index"; 

@@ -47,10 +47,11 @@ export const getHistory = async (): Promise<GeneratedImage[]> => {
 
     return data.map((item) => ({
       id: item.id,
-      url: item.result_url, // Fixed: using result_url instead of result_image_url
+      url: item.result_url,
       content_type: "image/jpeg",
       status: "completed",
-      prompt: item.scene_description // Fixed: using scene_description instead of prompt
+      prompt: item.scene_description,
+      createdAt: new Date(item.created_at)
     }));
   } catch (err) {
     console.error("Exception in getHistory:", err);

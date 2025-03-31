@@ -1,368 +1,273 @@
-
-import { useState, useCallback, useEffect, useRef, useMemo } from "react";
-import { useMcpToolExecutor } from "./use-mcp-tool-executor";
+import { useState, useCallback } from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { toast } from "sonner";
+import { SceneUpdateType } from "@/types/canvas";
+import { useMcpToolExecutor } from "./use-mcp-tool-executor";
 
-interface UseCanvasMcpOptions {
-  projectId?: string;
+interface UseCanvasAgentMcpProps {
+  projectId: string;
   sceneId?: string;
-  autoConnect?: boolean;
-  retryDelay?: number;
-  maxRetries?: number;
+  updateScene?: (sceneId: string, type: SceneUpdateType, value: string) => Promise<void>;
 }
 
-/**
- * Hook for using MCP tools in the Canvas context
- * with improved connection handling and error recovery
- */
-export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
-  const { 
-    projectId, 
-    sceneId, 
-    autoConnect = true,
-    retryDelay = 1500,
-    maxRetries = 3
-  } = options;
-  
+export const useCanvasAgentMcp = ({
+  projectId,
+  sceneId,
+  updateScene
+}: UseCanvasAgentMcpProps) => {
+  const { useMcp, setUseMcp, connectionStatus } = useMCPContext();
+  const [activeAgent, setActiveAgent] = useState<string | null>(null);
   const [isGeneratingDescription, setIsGeneratingDescription] = useState(false);
   const [isGeneratingImagePrompt, setIsGeneratingImagePrompt] = useState(false);
   const [isGeneratingImage, setIsGeneratingImage] = useState(false);
   const [isGeneratingVideo, setIsGeneratingVideo] = useState(false);
   const [isGeneratingScript, setIsGeneratingScript] = useState(false);
-  const [retryCount, setRetryCount] = useState(0);
-  const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
-  const [lastError, setLastError] = useState<Error | null>(null);
-  
-  // Cache operation state in refs to avoid unnecessary re-renders
-  const operationStateRef = useRef({
-    isGeneratingDescription: false,
-    isGeneratingImagePrompt: false,
-    isGeneratingImage: false, 
-    isGeneratingVideo: false,
-    isGeneratingScript: false
-  });
-  
-  // Add reference to previous scene ID to detect changes
-  const prevSceneIdRef = useRef<string | undefined>(sceneId);
-  const prevProjectIdRef = useRef<string | undefined>(projectId);
-  
-  const { mcpServers, useMcp, reconnectToMcp, hasConnectionError, isConnecting } = useMCPContext();
-  const { executeTool, isExecuting, hasConnection, clearCache } = useMcpToolExecutor({
-    projectId,
-    sceneId
-  });
-  
-  // Clear error when connection status changes
-  useEffect(() => {
-    if (hasConnection && lastError) {
-      setLastError(null);
-    }
-  }, [hasConnection, lastError]);
-  
-  // Auto-connect to MCP if enabled - using a more efficient approach
-  useEffect(() => {
-    // Only attempt auto-connection when projectId changes or on initial load
-    if (autoConnect && projectId && useMcp && 
-        (mcpServers.length === 0 || prevProjectIdRef.current !== projectId)) {
-      console.log("Auto-connecting to MCP for project:", projectId);
-      
-      const connectWithBackoff = async () => {
-        // Skip if we're already auto-reconnecting
-        if (isAutoReconnecting) return;
-        
-        setIsAutoReconnecting(true);
-        try {
-          // Use a non-blocking timeout to avoid freezing the UI
-          await new Promise(resolve => setTimeout(resolve, 0));
-          const success = await reconnectToMcp();
-          
-          if (success) {
-            console.log("Auto-connect succeeded");
-            setRetryCount(0);
-          } else if (retryCount < maxRetries) {
-            console.log(`Auto-connect failed, will retry (${retryCount + 1}/${maxRetries})`);
-            // Schedule a retry with exponential backoff
-            const backoffDelay = retryDelay * Math.pow(1.5, retryCount);
-            setTimeout(() => setRetryCount(count => count + 1), backoffDelay);
-          } else {
-            console.log("Auto-connect failed after max retries");
-            setRetryCount(0);
-          }
-        } catch (err) {
-          console.error("Auto-connect failed:", err);
-        } finally {
-          setIsAutoReconnecting(false);
-        }
-      };
-      
-      // Start connection attempt in a non-blocking way
-      setTimeout(connectWithBackoff, 0);
-    }
-    
-    prevProjectIdRef.current = projectId;
-  }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp, retryCount, maxRetries, retryDelay, isAutoReconnecting]);
-  
-  // Reset processing states when recovering from connection errors
-  useEffect(() => {
-    if (hasConnectionError && !isConnecting) {
-      // Reset all generation states when connection is lost
-      setIsGeneratingDescription(false);
-      setIsGeneratingImagePrompt(false);
-      setIsGeneratingImage(false);
-      setIsGeneratingVideo(false);
-      setIsGeneratingScript(false);
-      
-      // Also update the ref
-      operationStateRef.current = {
-        isGeneratingDescription: false,
-        isGeneratingImagePrompt: false,
-        isGeneratingImage: false,
-        isGeneratingVideo: false,
-        isGeneratingScript: false
-      };
-    }
-  }, [hasConnectionError, isConnecting]);
-  
-  // Handle scene changes - clean up any ongoing operations
-  useEffect(() => {
-    if (prevSceneIdRef.current !== sceneId && prevSceneIdRef.current !== undefined) {
-      console.log(`Scene changed from ${prevSceneIdRef.current} to ${sceneId}`);
-      
-      // Reset all generation states when scene changes
-      setIsGeneratingDescription(false);
-      setIsGeneratingImagePrompt(false);
-      setIsGeneratingImage(false);
-      setIsGeneratingVideo(false);
-      setIsGeneratingScript(false);
-      
-      // Also update the ref
-      operationStateRef.current = {
-        isGeneratingDescription: false,
-        isGeneratingImagePrompt: false,
-        isGeneratingImage: false,
-        isGeneratingVideo: false,
-        isGeneratingScript: false
-      };
-      
-      // Clear the execution cache when changing scenes
-      clearCache();
-    }
-    
-    prevSceneIdRef.current = sceneId;
-  }, [sceneId, clearCache]);
-  
-  /**
-   * Update scene description using MCP with improved error handling and retry logic
-   */
-  const updateSceneDescription = useCallback(async (sceneId: string, imageAnalysis: boolean = true): Promise<boolean> => {
-    if (!sceneId) return false;
-    if (operationStateRef.current.isGeneratingDescription) return false;
-    
+
+  const mcpToolExecutor = useMcpToolExecutor({ projectId, sceneId });
+
+  const isMcpEnabled = useMcp;
+  const isMcpConnected = connectionStatus === 'connected';
+  const isProcessing = mcpToolExecutor.isExecuting;
+
+  const toggleMcp = useCallback(() => {
+    setUseMcp(!useMcp);
+  }, [useMcp, setUseMcp]);
+
+  const generateSceneDescription = async (sceneId: string, context?: string): Promise<boolean> => {
+  if (!useMcp) {
+    toast.error("MCP is not enabled");
+    return false;
+  }
+
+  if (!sceneId) {
+    toast.error("Scene ID is required");
+    return false;
+  }
+
+  try {
     setIsGeneratingDescription(true);
-    operationStateRef.current.isGeneratingDescription = true;
-    setLastError(null);
     
-    try {
-      let attempts = 0;
-      const maxAttempts = 2; // Try at most twice
-      
-      while (attempts < maxAttempts) {
-        try {
-          const result = await executeTool("update_scene_description", {
-            sceneId,
-            imageAnalysis
-          });
-          
-          return result.success;
-        } catch (error) {
-          console.error(`Error updating scene description (attempt ${attempts + 1}/${maxAttempts}):`, error);
-          attempts++;
-          
-          if (attempts >= maxAttempts) {
-            const finalError = error instanceof Error ? error : new Error(String(error));
-            setLastError(finalError);
-            toast.error("Failed to update scene description after multiple attempts");
-            return false;
-          }
-          
-          // Wait briefly before retrying
-          await new Promise(resolve => setTimeout(resolve, 1000));
-          toast.info("Retrying scene description update...");
+    const result = await mcpToolExecutor.executeTool(
+      'generate_scene_description',
+      {
+        tool_id: 'generate_scene_description',
+        parameters: {
+          sceneId,
+          useDescription: true // Converting boolean to string for compatibility
         }
       }
-      
+    );
+
+    if (result.success && result.result) {
+      if (updateScene) {
+        await updateScene(sceneId, 'description', result.result);
+      }
+      toast.success("Scene description generated successfully");
+      return true;
+    } else {
+      toast.error(result.error || "Failed to generate scene description");
       return false;
-    } finally {
-      setIsGeneratingDescription(false);
-      operationStateRef.current.isGeneratingDescription = false;
     }
-  }, [executeTool]);
-  
-  /**
-   * Generate and update image prompt using MCP
-   */
-  const updateImagePrompt = useCallback(async (sceneId: string, useDescription: boolean = true): Promise<boolean> => {
-    if (!sceneId) return false;
-    if (operationStateRef.current.isGeneratingImagePrompt) return false;
-    
-    setIsGeneratingImagePrompt(true);
-    operationStateRef.current.isGeneratingImagePrompt = true;
-    setLastError(null);
-    
+  } catch (error) {
+    console.error("Error generating scene description:", error);
+    toast.error("Failed to generate scene description");
+    return false;
+  } finally {
+    setIsGeneratingDescription(false);
+  }
+};
+
+  const generateImagePrompt = async (sceneId: string, context?: string): Promise<boolean> => {
+    if (!useMcp) {
+      toast.error("MCP is not enabled");
+      return false;
+    }
+
+    if (!sceneId) {
+      toast.error("Scene ID is required");
+      return false;
+    }
+
     try {
-      const result = await executeTool("update_image_prompt", {
-        sceneId,
-        useDescription
-      });
-      
-      return result.success;
+      setIsGeneratingImagePrompt(true);
+
+      const result = await mcpToolExecutor.executeTool(
+        'generate_image_prompt',
+        {
+          tool_id: 'generate_image_prompt',
+          parameters: {
+            sceneId,
+            productShotVersion: "2.0"
+          }
+        }
+      );
+
+      if (result.success && result.result) {
+        if (updateScene) {
+          await updateScene(sceneId, 'imagePrompt', result.result);
+        }
+        toast.success("Image prompt generated successfully");
+        return true;
+      } else {
+        toast.error(result.error || "Failed to generate image prompt");
+        return false;
+      }
     } catch (error) {
-      console.error("Error updating image prompt:", error);
-      const finalError = error instanceof Error ? error : new Error(String(error));
-      setLastError(finalError);
-      toast.error("Failed to update image prompt");
+      console.error("Error generating image prompt:", error);
+      toast.error("Failed to generate image prompt");
       return false;
     } finally {
       setIsGeneratingImagePrompt(false);
-      operationStateRef.current.isGeneratingImagePrompt = false;
     }
-  }, [executeTool]);
-  
-  /**
-   * Generate scene image using MCP with improved error handling
-   */
-  const generateImage = useCallback(async (sceneId: string, productShotVersion: string = "v2"): Promise<boolean> => {
-    if (!sceneId) return false;
-    if (operationStateRef.current.isGeneratingImage) return false;
-    
-    setIsGeneratingImage(true);
-    operationStateRef.current.isGeneratingImage = true;
-    setLastError(null);
-    
+  };
+
+  const generateSceneImage = async (sceneId: string, imagePrompt?: string): Promise<boolean> => {
+    if (!useMcp) {
+      toast.error("MCP is not enabled");
+      return false;
+    }
+
+    if (!sceneId) {
+      toast.error("Scene ID is required");
+      return false;
+    }
+
     try {
-      const result = await executeTool("generate_scene_image", {
-        sceneId,
-        productShotVersion
-      });
-      
-      return result.success;
+      setIsGeneratingImage(true);
+
+      const result = await mcpToolExecutor.executeTool(
+        'generate_scene_image',
+        {
+          tool_id: 'generate_scene_image',
+          parameters: {
+            sceneId,
+            aspectRatio: "16:9"
+          }
+        }
+      );
+
+      if (result.success && result.result) {
+        if (updateScene) {
+          await updateScene(sceneId, 'imageUrl', result.result);
+        }
+        toast.success("Scene image generated successfully");
+        return true;
+      } else {
+        toast.error(result.error || "Failed to generate scene image");
+        return false;
+      }
     } catch (error) {
       console.error("Error generating scene image:", error);
-      const finalError = error instanceof Error ? error : new Error(String(error));
-      setLastError(finalError);
       toast.error("Failed to generate scene image");
       return false;
     } finally {
       setIsGeneratingImage(false);
-      operationStateRef.current.isGeneratingImage = false;
     }
-  }, [executeTool]);
-  
-  /**
-   * Generate scene video using MCP
-   */
-  const generateVideo = useCallback(async (sceneId: string, aspectRatio: string = "16:9"): Promise<boolean> => {
-    if (!sceneId) return false;
-    if (operationStateRef.current.isGeneratingVideo) return false;
-    
-    setIsGeneratingVideo(true);
-    operationStateRef.current.isGeneratingVideo = true;
-    setLastError(null);
-    
+  };
+
+  const generateSceneVideo = async (sceneId: string, description?: string): Promise<boolean> => {
+    if (!useMcp) {
+      toast.error("MCP is not enabled");
+      return false;
+    }
+
+    if (!sceneId) {
+      toast.error("Scene ID is required");
+      return false;
+    }
+
     try {
-      const result = await executeTool("create_scene_video", {
-        sceneId,
-        aspectRatio
-      });
-      
-      return result.success;
+      setIsGeneratingVideo(true);
+
+      const result = await mcpToolExecutor.executeTool(
+        'generate_scene_video',
+        {
+          tool_id: 'generate_scene_video',
+          parameters: {
+            sceneId,
+            contextPrompt: description || "A beautiful scene"
+          }
+        }
+      );
+
+      if (result.success && result.result) {
+        if (updateScene) {
+          await updateScene(sceneId, 'videoUrl', result.result);
+        }
+        toast.success("Scene video generated successfully");
+        return true;
+      } else {
+        toast.error(result.error || "Failed to generate scene video");
+        return false;
+      }
     } catch (error) {
       console.error("Error generating scene video:", error);
-      const finalError = error instanceof Error ? error : new Error(String(error));
-      setLastError(finalError);
       toast.error("Failed to generate scene video");
       return false;
     } finally {
       setIsGeneratingVideo(false);
-      operationStateRef.current.isGeneratingVideo = false;
     }
-  }, [executeTool]);
-  
-  /**
-   * Generate scene script using MCP
-   */
-  const generateScript = useCallback(async (sceneId: string, contextPrompt: string = ""): Promise<boolean> => {
-    if (!sceneId) return false;
-    if (operationStateRef.current.isGeneratingScript) return false;
-    
-    setIsGeneratingScript(true);
-    operationStateRef.current.isGeneratingScript = true;
-    setLastError(null);
-    
+  };
+
+  const generateSceneScript = async (sceneId: string, context?: string): Promise<boolean> => {
+    if (!useMcp) {
+      toast.error("MCP is not enabled");
+      return false;
+    }
+
+    if (!sceneId) {
+      toast.error("Scene ID is required");
+      return false;
+    }
+
     try {
-      const result = await executeTool("generate_scene_script", {
-        sceneId,
-        contextPrompt
-      });
-      
-      return result.success;
+      setIsGeneratingScript(true);
+
+      const result = await mcpToolExecutor.executeTool(
+        'generate_scene_script',
+        {
+          tool_id: 'generate_scene_script',
+          parameters: {
+            sceneId,
+            contextPrompt: context || "A general context"
+          }
+        }
+      );
+
+      if (result.success && result.result) {
+        if (updateScene) {
+          await updateScene(sceneId, 'script', result.result);
+        }
+        toast.success("Scene script generated successfully");
+        return true;
+      } else {
+        toast.error(result.error || "Failed to generate scene script");
+        return false;
+      }
     } catch (error) {
       console.error("Error generating scene script:", error);
-      const finalError = error instanceof Error ? error : new Error(String(error));
-      setLastError(finalError);
       toast.error("Failed to generate scene script");
       return false;
     } finally {
       setIsGeneratingScript(false);
-      operationStateRef.current.isGeneratingScript = false;
     }
-  }, [executeTool]);
-  
-  // Use memoization for the final return value to prevent unnecessary re-renders
-  return useMemo(() => ({
-    // Status
-    isConnected: hasConnection,
-    isProcessing: isExecuting || isAutoReconnecting,
+  };
+
+  return {
+    activeAgent,
+    isProcessing,
+    isMcpEnabled,
+    isMcpConnected,
     isGeneratingDescription,
     isGeneratingImagePrompt,
     isGeneratingImage,
     isGeneratingVideo,
     isGeneratingScript,
-    isAutoReconnecting,
-    connectionError: hasConnectionError && !isConnecting,
-    lastError,
-    
-    // Actions
-    updateSceneDescription,
-    updateImagePrompt,
-    generateImage,
-    generateVideo,
-    generateScript,
-    
-    // Direct tool execution
-    executeTool,
-    
-    // Cache management
-    clearToolCache: clearCache
-  }), [
-    hasConnection, 
-    isExecuting, 
-    isAutoReconnecting,
-    isGeneratingDescription,
-    isGeneratingImagePrompt,
-    isGeneratingImage,
-    isGeneratingVideo,
-    isGeneratingScript,
-    hasConnectionError,
-    isConnecting,
-    lastError,
-    updateSceneDescription,
-    updateImagePrompt,
-    generateImage,
-    generateVideo,
-    generateScript,
-    executeTool,
-    clearCache
-  ]);
-}
+    toggleMcp,
+    generateSceneDescription,
+    generateImagePrompt,
+    generateSceneImage,
+    generateSceneVideo,
+    generateSceneScript
+  };
+};

@@ -77,12 +77,31 @@ export class MCPService {
   public async createDefaultServer(projectId: string): Promise<MCPServer | null> {
     try {
       const serverService = new MCPServerService(this.defaultServerUrl, projectId);
-      const connected = await serverService.connect();
+      // Adapt serverService to MCPServer interface
+      const server: MCPServer = {
+        id: crypto.randomUUID(), // Generate an ID
+        name: "Default MCP Server",
+        baseUrl: this.defaultServerUrl,
+        isConnected: serverService.isConnected.bind(serverService),
+        isConnectionActive: serverService.isConnectionActive.bind(serverService),
+        connect: serverService.connect.bind(serverService),
+        disconnect: async () => {
+          await serverService.disconnect();
+          return;
+        },
+        listTools: serverService.listTools.bind(serverService),
+        executeToolById: serverService.executeToolById.bind(serverService),
+        callTool: serverService.callTool.bind(serverService),
+        projectId,
+        cleanup: serverService.cleanup.bind(serverService)
+      };
+      
+      const connected = await server.connect();
       
       if (connected) {
         // Store in connection pool
-        this.connectionPool.set(projectId, serverService);
-        return serverService;
+        this.connectionPool.set(projectId, server);
+        return server;
       } else {
         throw new Error("Failed to establish MCP connection");
       }
@@ -194,6 +213,24 @@ export class MCPService {
    * Create an MCPServer from a connection record
    */
   private createServerFromConnection(connection: MCPConnectionRecord): MCPServer {
-    return new MCPServerService(connection.connectionUrl, connection.projectId);
+    const serverService = new MCPServerService(connection.connectionUrl, connection.projectId);
+    
+    return {
+      id: connection.id || crypto.randomUUID(),
+      name: "MCP Server",
+      baseUrl: connection.connectionUrl,
+      isConnected: serverService.isConnected.bind(serverService),
+      isConnectionActive: serverService.isConnectionActive.bind(serverService),
+      connect: serverService.connect.bind(serverService),
+      disconnect: async () => {
+        await serverService.disconnect();
+        return;
+      },
+      listTools: serverService.listTools.bind(serverService),
+      executeToolById: serverService.executeToolById.bind(serverService),
+      callTool: serverService.callTool.bind(serverService),
+      projectId: connection.projectId,
+      cleanup: serverService.cleanup.bind(serverService)
+    };
   }
 }

@@ -1,5 +1,5 @@
 
-import { GeneratedImage } from "@/types/product-shoot";
+import { GeneratedImage, ProductShotFormData } from "@/types/product-shoot";
 
 export interface ProductShotFormProps {
   onSubmit: (formData: any) => Promise<void>;
@@ -9,4 +9,7 @@ export interface ProductShotFormProps {
   isGenerating?: boolean;
   onRetryImageCheck?: (imageId: string) => Promise<void>;
   messages?: any[];
+  formData?: ProductShotFormData;
+  isLoading?: boolean;
+  onCancel?: () => void;
 }

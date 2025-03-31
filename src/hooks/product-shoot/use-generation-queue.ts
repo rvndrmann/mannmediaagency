@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
@@ -173,9 +172,9 @@ export function useGenerationQueue() {
     const placeholderImage: GeneratedImage = {
       id: `temp-${item.requestId}`,
       url: '',
-      content_type: 'image/png',
       status: 'processing',
-      prompt: item.prompt
+      prompt: item.prompt,
+      createdAt: new Date()
     };
     
     console.log('[Queue] Adding to queue:', item);

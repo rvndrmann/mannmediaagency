@@ -1,5 +1,4 @@
-
-import { useState, useEffect } from "react";
+import { useState, useEffect } from 'react';
 import { ProductShotGenerator } from "@/components/product-shoot/ProductShotGenerator";
 import { ProductShotResults } from "@/components/product-shoot/ProductShotResults";
 import { useProductShoot } from "@/hooks/use-product-shoot";
@@ -24,14 +23,17 @@ export default function ProductShot() {
     },
   });
 
-  // Transform generatedImages to ProductShotResult format
   useEffect(() => {
     if (generatedImages && generatedImages.length > 0) {
       const results: ProductShotResult[] = generatedImages.map(img => ({
-        resultUrl: img.url || '',
+        id: img.id,
+        url: img.url,
+        resultUrl: img.url,
         inputUrl: img.prompt || '',
         placementType: 'automatic',
         description: img.prompt,
+        status: img.status,
+        createdAt: img.createdAt,
         metadata: {
           processingTime: Date.now(),
           model: 'product-shot-v2',
@@ -55,7 +57,7 @@ export default function ProductShot() {
           <ProductShotResults 
             results={productShotResults}
             isGenerating={isGenerating}
-            onRetry={handleRetryImageCheck}
+            onRetry={(id) => handleRetryImageCheck(id)}
           />
         </div>
       </div>

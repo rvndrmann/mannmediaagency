@@ -1,4 +1,3 @@
-
 import React, { ChangeEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
@@ -11,7 +10,24 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { AspectRatio, ProductShotFormData } from '@/types/product-shoot';
 import { ProductShotFormProps } from './types';
 
-export function ProductShotForm({ formData, isLoading, onSubmit, onCancel }: ProductShotFormProps) {
+export function ProductShotForm({ 
+  onSubmit, 
+  isSubmitting, 
+  availableCredits, 
+  isLoading = false, 
+  formData = {
+    sourceFile: null as unknown as File,
+    sceneDescription: '',
+    generationType: 'description' as const,
+    placementType: 'automatic' as const,
+    manualPlacement: '',
+    optimizeDescription: true,
+    fastMode: false,
+    originalQuality: true,
+    aspectRatio: '1:1' as AspectRatio
+  }, 
+  onCancel = () => {} 
+}: ProductShotFormProps) {
   const [form, setForm] = useState<ProductShotFormData>(formData);
   const [sourceFilePreview, setSourceFilePreview] = useState<string | null>(null);
   const [referenceFilePreview, setReferenceFilePreview] = useState<string | null>(null);
@@ -65,7 +81,10 @@ export function ProductShotForm({ formData, isLoading, onSubmit, onCancel }: Pro
   return (
     <Card>
       <CardContent className="p-6">
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={(e) => {
+          e.preventDefault();
+          onSubmit(form);
+        }}>
           <div className="space-y-6">
             <div>
               <Label htmlFor="sourceFile">Product Image</Label>
@@ -235,11 +254,11 @@ export function ProductShotForm({ formData, isLoading, onSubmit, onCancel }: Pro
             </div>
 
             <div className="flex justify-end space-x-2 pt-4">
-              <Button variant="outline" onClick={onCancel} disabled={isLoading}>
+              <Button variant="outline" onClick={onCancel} disabled={isLoading || isSubmitting}>
                 Cancel
               </Button>
-              <Button type="submit" disabled={isLoading || !form.sourceFile}>
-                {isLoading ? 'Generating...' : 'Generate Product Shot'}
+              <Button type="submit" disabled={isLoading || isSubmitting || !form.sourceFile}>
+                {isLoading || isSubmitting ? 'Generating...' : 'Generate Product Shot'}
               </Button>
             </div>
           </div>

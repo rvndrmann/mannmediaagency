@@ -1,14 +1,23 @@
-
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
-import { SUPABASE_URL } from '@/integrations/supabase/client';
+import { GeneratedImage } from '@/types/product-shoot';
 import { saveToHistory } from '@/hooks/product-shoot/history-service';
 
 export function useProductShoot() {
   const [isGenerating, setIsGenerating] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [generatedImages, setGeneratedImages] = useState<any[]>([]);
+  const [generatedImages, setGeneratedImages] = useState<GeneratedImage[]>([]);
+
+  const createGeneratedImage = (data: any): GeneratedImage => {
+    return {
+      id: data.id,
+      url: data.url,
+      prompt: data.prompt,
+      status: data.status,
+      createdAt: new Date(),
+    };
+  };
 
   const handleGenerate = useCallback(async (formData: any) => {
     if (!formData.sourceFile) {

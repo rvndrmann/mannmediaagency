@@ -1,6 +1,15 @@
 
 import { MCPClient } from "./MCPClient";
 
+// Extend Window interface to include custom env
+declare global {
+  interface Window {
+    __env?: {
+      MCP_SERVER_URL?: string;
+    };
+  }
+}
+
 // Use browser-compatible environment variable access
 const MCP_SERVER_URL = import.meta.env.VITE_MCP_SERVER_URL || 
                         (typeof window !== 'undefined' && window.__env?.MCP_SERVER_URL) || 

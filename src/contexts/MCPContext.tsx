@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useCallback, useEffect } from 'react';
 import { MCPContext, MCPServer, CONNECTION_CONFIG, MCPProviderProps } from '@/types/mcp';
 import { MCPService } from '@/services/mcp/MCPService';
@@ -46,20 +45,16 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     lastConnectionAttempt: 0
   });
   
-  // Lazy loading - only connect when needed and projectId is available
   useEffect(() => {
-    // Only initialize if we have a project ID and MCP is enabled
     if (projectId && useMcp && !isConnecting && connectionStatus !== 'connected') {
       connectToMcp();
     }
     
-    // Handle cleanup on unmount or projectId change
     return () => {
       MCPService.closeConnections();
     };
   }, [projectId, useMcp]);
   
-  // Periodically update connection statistics
   useEffect(() => {
     if (!useMcp) return;
     
@@ -73,14 +68,12 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
         setHasConnectionError(false);
       } else if (!isConnected && connectionStatus === 'connected') {
         setConnectionStatus('disconnected');
-        // Only try to reconnect if we were previously connected
         if (stats.lastConnectionAttempt > 0) {
           reconnectToMcp();
         }
       }
     };
     
-    // Update immediately and then set up interval
     updateConnectionStats();
     const interval = setInterval(updateConnectionStats, 5000);
     
@@ -106,6 +99,8 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
           successCount: prev.successCount + 1,
           averageConnectTime: (prev.averageConnectTime * prev.successCount + (Date.now() - startTime)) / (prev.successCount + 1)
         }));
+        const stats = MCPService.getConnectionStats();
+        setConnectionStats(stats);
         return true;
       } else {
         throw new Error("Failed to initialize MCP connections");

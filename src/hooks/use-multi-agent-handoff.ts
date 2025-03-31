@@ -25,12 +25,11 @@ interface UseMultiAgentHandoffOptions {
 
 export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) {
   const { projectId, sessionId, onHandoffComplete, onHandoffFailed } = options;
+  
   const [handoffs, setHandoffs] = useLocalStorage<Record<string, HandoffRequest>>(
     `agent-handoffs-${sessionId || 'global'}`,
     {}
   );
-  const [currentHandoff, setCurrentHandoff] = useState<HandoffRequest | null>(null);
-  const [isProcessingHandoff, setIsProcessingHandoff] = useState(false);
   
   const requestHandoff = useCallback((
     fromAgent: AgentType,
@@ -53,8 +52,6 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       ...prev,
       [handoffId]: handoffRequest
     }));
-    
-    console.log(`Handoff requested: ${fromAgent} -> ${targetAgent}`, handoffRequest);
     
     return handoffRequest;
   }, [setHandoffs]);

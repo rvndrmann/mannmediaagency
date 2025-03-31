@@ -1,25 +1,10 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode, useCallback, useRef } from "react";
 import { MCPContext as MCPContextType } from "@/types/mcp";
+import { MCPServer } from "@/types/mcp";
 import { toast } from "sonner";
 import { MCPService } from "@/services/mcp/MCPService";
-import { MCPServer } from "@/types/mcp";
 
-// Create a more descriptive connection status type
-export type ConnectionStatus = 'disconnected' | 'connecting' | 'connected' | 'error';
-
-// Extended MCPContext type to include new properties
-interface ExtendedMCPContextType extends MCPContextType {
-  lastReconnectAttempt: number;
-  connectionStatus: ConnectionStatus;
-  connectionMetrics: {
-    successCount: number;
-    failureCount: number;
-    averageConnectTime: number;
-  };
-}
-
-const defaultMCPContext: ExtendedMCPContextType = {
+const defaultMCPContext: MCPContextType = {
   mcpServers: [],
   useMcp: true,
   setUseMcp: () => {},
@@ -35,23 +20,12 @@ const defaultMCPContext: ExtendedMCPContextType = {
   }
 };
 
-const MCPContext = createContext<ExtendedMCPContextType>(defaultMCPContext);
-
-// Configuration for connection attempts
-const CONNECTION_CONFIG = {
-  maxRetries: 3,
-  initialBackoff: 1000, // 1 second
-  maxBackoff: 5000, // 5 seconds
-  connectionTimeout: 15000, // 15 seconds
-  minReconnectInterval: 2000, // 2 seconds minimum between reconnect attempts
-  healthCheckInterval: 30000, // 30 seconds
-};
+const MCPContext = createContext<MCPContextType>(defaultMCPContext);
 
 export function MCPProvider({ children, projectId }: { children: ReactNode, projectId?: string }) {
   const [useMcp, setUseMcp] = useState<boolean>(() => {
-    // Try to load from localStorage for persistence
     const savedPref = localStorage.getItem('useMcp');
-    return savedPref !== null ? savedPref === 'true' : true; // Default to true
+    return savedPref !== null ? savedPref === 'true' : true;
   });
   const [mcpServers, setMcpServers] = useState<MCPServer[]>([]);
   const [isConnecting, setIsConnecting] = useState<boolean>(false);
@@ -71,11 +45,9 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
   
   const mcpService = MCPService.getInstance();
   
-  // Save MCP preference to localStorage
   useEffect(() => {
     localStorage.setItem('useMcp', String(useMcp));
     
-    // Clear connection errors when MCP is disabled
     if (!useMcp) {
       setHasConnectionError(false);
       setMcpServers([]);
@@ -83,17 +55,14 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     }
   }, [useMcp]);
   
-  // Handle cleanup on unmount
   useEffect(() => {
     return () => {
-      // Clear any pending timers
       if (healthCheckTimerRef.current !== null) {
         clearInterval(healthCheckTimerRef.current);
       }
     };
   }, []);
   
-  // Function to establish MCP connection with retry logic
   const connectToMcp = useCallback(async (projectIdentifier?: string, retry = 0): Promise<boolean> => {
     if (!projectIdentifier || !useMcp) {
       setMcpServers([]);
@@ -101,7 +70,6 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       return false;
     }
     
-    // Prevent multiple simultaneous connection attempts
     if (reconnectingRef.current) {
       console.log("Connection attempt already in progress, ignoring duplicate request");
       return false;
@@ -112,10 +80,8 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     setHasConnectionError(false);
     setConnectionStatus('connecting');
     
-    // Mark connection start time for metrics
     connectionStartTimeRef.current = performance.now();
     
-    // Calculate backoff time with exponential increase
     const backoffTime = Math.min(
       CONNECTION_CONFIG.initialBackoff * Math.pow(2, retry),
       CONNECTION_CONFIG.maxBackoff
@@ -124,20 +90,15 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     console.log(`Connecting to MCP server for project ${projectIdentifier}, attempt ${retry + 1}`);
     
     try {
-      // Set a timeout for the connection attempt
       const connectionPromise = mcpService.getServerForProject(projectIdentifier);
-      
-      // Create a timeout promise
       const timeoutPromise = new Promise<null>((_, reject) => {
         setTimeout(() => {
           reject(new Error(`Connection timeout after ${CONNECTION_CONFIG.connectionTimeout}ms`));
         }, CONNECTION_CONFIG.connectionTimeout);
       });
       
-      // Race the connection against the timeout
       const server = await Promise.race([connectionPromise, timeoutPromise]) as MCPServer | null;
       
-      // If no connection found, create a default one
       if (!server) {
         console.log("No existing MCP server found, creating default server");
         const newServer = await mcpService.createDefaultServer(projectIdentifier);
@@ -145,11 +106,10 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
         if (newServer && newServer.isConnected()) {
           setMcpServers([newServer]);
           setIsConnecting(false);
-          setConnectionAttempts(0); // Reset connection attempts on success
+          setConnectionAttempts(0);
           setConnectionStatus('connected');
           console.log("MCP connection established successfully");
           
-          // Update connection metrics
           const connectTime = performance.now() - connectionStartTimeRef.current;
           setConnectionMetrics(prev => {
             const newSuccessCount = prev.successCount + 1;
@@ -168,21 +128,18 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
           throw new Error("Failed to establish MCP connection");
         }
       } else if (!server.isConnected()) {
-        // Try to connect if not already connected
         console.log("Found MCP server but not connected, connecting now");
         await server.connect();
       }
       
-      // Verify connection by listing tools
       const tools = await server.listTools();
       console.log("MCP Connected successfully, found tools:", tools.length);
       
       setMcpServers([server]);
       setIsConnecting(false);
-      setConnectionAttempts(0); // Reset connection attempts on success
+      setConnectionAttempts(0);
       setConnectionStatus('connected');
       
-      // Update connection metrics
       const connectTime = performance.now() - connectionStartTimeRef.current;
       setConnectionMetrics(prev => {
         const newSuccessCount = prev.successCount + 1;
@@ -200,27 +157,22 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     } catch (error) {
       console.error(`MCP connection attempt ${retry + 1} failed:`, error);
       
-      // Update failure metrics
       setConnectionMetrics(prev => ({
         ...prev,
         failureCount: prev.failureCount + 1
       }));
       
-      // Check if we should retry
       if (retry < CONNECTION_CONFIG.maxRetries - 1) {
         console.log(`Retrying MCP connection in ${backoffTime}ms...`);
         
-        // Wait for backoff period before retrying
         await new Promise(resolve => setTimeout(resolve, backoffTime));
         
         setIsConnecting(false);
         reconnectingRef.current = false;
         
-        // Recursive retry with incremented retry count
         return connectToMcp(projectIdentifier, retry + 1);
       }
       
-      // All retries exhausted
       setMcpServers([]);
       setIsConnecting(false);
       setHasConnectionError(true);
@@ -228,7 +180,6 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       setConnectionStatus('error');
       reconnectingRef.current = false;
       
-      // Only show toast for first few attempts to avoid spamming
       if (connectionAttempts < 2) {
         toast.error("Failed to connect to MCP services after multiple attempts. Some AI features may be limited.");
       }
@@ -236,10 +187,8 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     }
   }, [useMcp, mcpService, connectionAttempts]);
   
-  // Function to reconnect to MCP (can be called from UI components)
   const reconnectToMcp = useCallback(async (): Promise<boolean> => {
     if (projectId) {
-      // Prevent rapid reconnection attempts
       const now = Date.now();
       const timeSinceLastReconnect = now - lastReconnectTime;
       
@@ -268,9 +217,7 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     return false;
   }, [projectId, connectToMcp, isConnecting, lastReconnectTime]);
   
-  // Set up health check monitoring for servers
   const setupHealthCheck = useCallback((servers: MCPServer[]) => {
-    // Clear any existing health check timer
     if (healthCheckTimerRef.current !== null) {
       clearInterval(healthCheckTimerRef.current);
       healthCheckTimerRef.current = null;
@@ -278,7 +225,6 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     
     if (!servers.length || !projectId) return;
     
-    // Set up a new health check interval using a more efficient approach
     healthCheckTimerRef.current = window.setInterval(() => {
       const server = servers[0];
       
@@ -287,10 +233,8 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
         setHasConnectionError(true);
         setConnectionStatus('error');
         
-        // Use a non-blocking approach for auto-reconnect
         if (!reconnectingRef.current && !isConnecting) {
           console.log("Auto-reconnecting to MCP after detecting inactive connection");
-          // Use setTimeout to avoid blocking the main thread
           setTimeout(() => {
             reconnectToMcp().catch(err => {
               console.error("Auto-reconnect error:", err);
@@ -308,10 +252,8 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     };
   }, [projectId, isConnecting, reconnectToMcp]);
   
-  // Initialize MCP server when enabled and projectId changes
   useEffect(() => {
     if (projectId && useMcp && !reconnectingRef.current) {
-      // Use a non-blocking approach
       setTimeout(() => {
         connectToMcp(projectId)
           .catch(err => console.error("Error in initial MCP connection:", err));
@@ -323,12 +265,11 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
       }
     }
     
-    // Cleanup on unmount or when dependencies change
     return () => {
       if (projectId) {
         mcpService.closeConnection(projectId).catch(console.error);
       }
-      // Clear health check timer
+      
       if (healthCheckTimerRef.current !== null) {
         clearInterval(healthCheckTimerRef.current);
         healthCheckTimerRef.current = null;
@@ -336,8 +277,7 @@ export function MCPProvider({ children, projectId }: { children: ReactNode, proj
     };
   }, [useMcp, projectId, connectToMcp, mcpService, setupHealthCheck]);
   
-  // Include the new properties in the context value
-  const contextValue: ExtendedMCPContextType = {
+  const contextValue: MCPContextType = {
     mcpServers, 
     useMcp, 
     setUseMcp, 

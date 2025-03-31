@@ -1,9 +1,12 @@
 
-import { AspectRatio, ProductShotFormData } from '@/types/product-shoot';
+import { GeneratedImage } from "@/types/product-shoot";
 
 export interface ProductShotFormProps {
-  formData: ProductShotFormData;
-  isLoading: boolean;
-  onSubmit: (data: ProductShotFormData) => Promise<void>;
-  onCancel: () => void;
+  onSubmit: (formData: any) => Promise<void>;
+  isSubmitting: boolean;
+  availableCredits: number;
+  generatedImages?: GeneratedImage[];
+  isGenerating?: boolean;
+  onRetryImageCheck?: (imageId: string) => Promise<void>;
+  messages?: any[];
 }

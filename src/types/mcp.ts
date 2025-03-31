@@ -15,6 +15,11 @@ export interface MCPContext {
   };
 }
 
+export interface MCPProviderProps {
+  children: React.ReactNode;
+  projectId?: string;
+}
+
 export interface MCPToolDefinition {
   id: string;
   name: string;

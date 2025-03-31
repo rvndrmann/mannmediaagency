@@ -1,80 +1,95 @@
-import { ToolContext, ToolExecutionResult } from "../types";
-import { v4 as uuidv4 } from "uuid";
+
+import { RunnerContext } from "../runner/types";
+import { ToolExecutionResult } from "../types";
+import { ToolDefinition } from "../types";
 
 export const imageToVideoTool: ToolDefinition = {
-  name: "image-to-video",
-  description: "Convert an image to a short video with animation effects",
+  name: "image_to_video",
+  description: "Convert a still image into a short video clip with motion effects",
+  requiredCredits: 5,
   parameters: {
     type: "object",
     properties: {
-      prompt: {
+      image_url: {
         type: "string",
-        description: "Description of the desired animation or effect"
+        description: "URL of the image to convert to video"
       },
-      aspectRatio: {
+      motion_type: {
         type: "string",
-        description: "Aspect ratio of the output video (e.g., '16:9', '1:1', '9:16')"
+        enum: ["zoom_in", "zoom_out", "pan_left", "pan_right", "ken_burns"],
+        description: "Type of motion effect to apply to the image"
       },
-      duration: {
+      duration_seconds: {
         type: "number",
-        description: "Duration of the video in seconds"
+        description: "Duration of the video in seconds (1-10)",
+        minimum: 1,
+        maximum: 10
       }
     },
-    required: ["prompt"]
+    required: ["image_url"]
   },
-  requiredCredits: 1.0,
-  
-  execute: async (params: {
-    prompt: string;
-    aspectRatio?: string;
-    duration?: number;
-  }, context: ToolContext): Promise<ToolExecutionResult> => {
+  metadata: {
+    category: "video",
+    displayName: "Image to Video",
+    icon: "Video"
+  },
+  execute: async (params: { 
+    image_url: string;
+    motion_type?: string;
+    duration_seconds?: number;
+  }, context: RunnerContext): Promise<ToolExecutionResult> => {
     try {
-      // Check if we have attachments (we need an image to convert)
-      if (!context.attachments || context.attachments.length === 0) {
-        throw new Error("No image provided. Please upload an image to convert to video.");
+      // Default values
+      const motion = params.motion_type || "ken_burns";
+      const duration = params.duration_seconds || 5;
+      
+      // Validate parameters
+      if (!params.image_url) {
+        return {
+          success: false,
+          message: "Image URL is required",
+          error: "Missing required parameter: image_url"
+        };
       }
       
-      // Find the first image attachment
-      const imageAttachment = context.attachments.find(a => 
-        a.type === 'image' || 
-        (a.contentType && a.contentType.startsWith('image/'))
-      );
+      // Call the edge function to convert image to video
+      const { data, error } = await context.supabase.functions.invoke('image-to-video', {
+        body: {
+          imageUrl: params.image_url,
+          motionType: motion,
+          durationSeconds: duration,
+          userId: context.userId
+        }
+      });
       
-      if (!imageAttachment) {
-        throw new Error("No suitable image found in attachments. Please upload an image.");
+      if (error) {
+        console.error("Image to video conversion error:", error);
+        return {
+          success: false,
+          message: `Failed to convert image to video: ${error.message}`,
+          error: error.message
+        };
       }
-      
-      // Add processing message
-      context.addMessage(`Processing your image-to-video request...`, 'tool');
-      
-      // In a real implementation, this would call an API to convert the image
-      // For now, we'll simulate a successful conversion
-      
-      // Simulate API processing time
-      await new Promise(resolve => setTimeout(resolve, 2000));
-      
-      // Create mock video URL (in reality, this would be returned from the API)
-      const videoId = uuidv4();
-      const mockVideoUrl = `https://example.com/converted-videos/${videoId}.mp4`;
       
       return {
         success: true,
+        message: "Image successfully converted to video",
         data: {
-          videoUrl: mockVideoUrl,
-          thumbnailUrl: imageAttachment.url,
-          duration: params.duration || 5,
-          aspectRatio: params.aspectRatio || "16:9"
+          videoUrl: data.videoUrl,
+          thumbnailUrl: data.thumbnailUrl,
+          duration: data.duration || duration,
+          aspectRatio: data.aspectRatio || "16:9"
         },
         usage: {
-          creditsUsed: 1.0
+          creditsUsed: data.creditsUsed || 5
         }
       };
     } catch (error) {
-      console.error("Error in imageToVideoTool:", error);
+      console.error("Error in image-to-video tool:", error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error in image-to-video conversion"
+        message: `An error occurred during image to video conversion: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error'
       };
     }
   }

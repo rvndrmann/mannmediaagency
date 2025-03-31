@@ -13,6 +13,17 @@ import { productShotV2Tool } from "./product-shot-v2-tool";
 import { browserUseTool } from "./browser-use-tool";
 import { imageToVideoTool } from "./image-to-video-tool";
 
+// Function to initialize the tool system
+export const initializeToolSystem = (): void => {
+  console.log("Tool system initialized");
+  // Initialize any required tool dependencies
+};
+
+// Export tool getter function
+export const getTool = (name: string): ToolDefinition | undefined => {
+  return getToolByName(name);
+};
+
 // Export all tools and utilities
 export {
   // Tools registry and utilities

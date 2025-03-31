@@ -16,6 +16,7 @@ export interface ProductShotResult {
   placementType: string;
   createdAt: string;
   updatedAt?: string;
+  status?: "completed" | "failed" | "processing" | "pending";
   metadata?: {
     model: string;
     size: string;
@@ -36,14 +37,6 @@ export interface GeneratedImage {
   content_type?: string;
 }
 
-export interface GenerationResult {
-  id: string;
-  status: "completed" | "failed" | "processing" | "pending";
-  result_url?: string;
-  images?: ProductShotResult[];
-  error?: string;
-}
-
 // Additional types needed for product shot forms
 export type AspectRatio = "1:1" | "4:3" | "16:9" | "9:16";
 
@@ -55,7 +48,8 @@ export interface ProductShotFormData {
   stylePreset: string;
   background: string;
   placement: string;
-  // Additional fields needed for the form
+  
+  // Additional fields for form functionality
   sourceFile?: File | null;
   referenceFile?: File | null;
   sceneDescription?: string;

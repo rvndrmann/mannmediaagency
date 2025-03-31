@@ -1,4 +1,3 @@
-
 import { Attachment } from "@/types/message";
 import { AgentResult, AgentOptions } from "../types";
 import { BaseAgentImpl } from "./BaseAgentImpl";
@@ -209,6 +208,7 @@ The image prompts should follow these guidelines:
       }
       
       return {
+        output: data?.completion || "I processed your request but couldn't generate an image response.",
         response: data?.completion || "I processed your request but couldn't generate an image response.",
         nextAgent: nextAgent,
         handoffReason: handoffReasonResponse,
@@ -225,7 +225,7 @@ The image prompts should follow these guidelines:
     }
   }
   
-  getType() {
+  getType(): AgentType {
     return "image";
   }
 }

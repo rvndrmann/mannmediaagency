@@ -1,5 +1,5 @@
 
-import { AgentType, RunnerContext, BaseAgent } from "../runner/types";
+import { AgentType, RunnerContext } from "../runner/types";
 
 export interface SDKTool {
   name: string;

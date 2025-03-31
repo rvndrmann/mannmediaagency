@@ -1,4 +1,3 @@
-
 import { v4 as uuidv4 } from "uuid";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -316,6 +315,28 @@ export class BrowserAgentService {
       if (error) throw error;
     } catch (error) {
       console.error("Error updating task in database:", error);
+    }
+  }
+  
+  async batchInsertTasks(tasks: Partial<BrowserAutomationTask>[]): Promise<void> {
+    try {
+      // Make sure each task has the required fields
+      const validTasks = tasks.filter(task => task.input && task.user_id);
+      
+      if (validTasks.length === 0) {
+        console.warn("No valid tasks to insert");
+        return;
+      }
+      
+      // Insert one by one to avoid the type error
+      for (const task of validTasks) {
+        await this.supabase.from('browser_automation_tasks').insert(task);
+      }
+      
+      console.log(`${validTasks.length} tasks inserted successfully`);
+    } catch (error) {
+      console.error("Error batch inserting tasks:", error);
+      throw error;
     }
   }
 }

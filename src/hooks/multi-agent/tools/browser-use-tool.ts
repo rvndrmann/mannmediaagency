@@ -1,103 +1,93 @@
-import { ToolContext, ToolExecutionResult } from "../types";
+
+import { CommandExecutionState } from "../types";
+import { RunnerContext, ToolExecutionResult } from "../types";
+import { ToolDefinition } from "../types";
 
 export const browserUseTool: ToolDefinition = {
-  name: "browser-use",
-  description: "Automate browser tasks including browsing websites, taking screenshots, and filling forms",
-  requiredCredits: 1,
-  version: "1.0.0",
+  name: "browser_automation",
+  description: "Automate browser tasks including form filling, navigation, clicking, and data extraction, to complete tasks on websites",
+  requiredCredits: 10,
   parameters: {
-    task: {
-      type: "string",
-      description: "The task to perform in natural language (e.g., 'go to google.com and search for AI news')",
-      required: true
-    },
-    browserConfig: {
-      type: "object",
-      description: "Optional browser configuration",
-      required: false,
-      properties: {
-        headless: {
-          type: "boolean",
-          description: "Whether to run the browser in headless mode",
-          default: true
-        },
-        proxy: {
-          type: "string",
-          description: "Optional proxy to use (format: 'protocol://host:port')",
-        },
-        timeout: {
-          type: "number",
-          description: "Timeout in milliseconds",
-          default: 60000
-        }
+    type: "object",
+    properties: {
+      task: {
+        type: "string",
+        description: "A detailed description of the task to perform in the browser. Be specific about what websites to visit and what actions to take."
+      },
+      save_browser_data: {
+        type: "boolean",
+        description: "Whether to save browser cookies and session data for later use, useful for maintaining login state across tasks."
       }
     },
-    save_browser_data: {
-      type: "boolean",
-      description: "Whether to save browser cookies and session data for future use",
-      default: true
-    }
+    required: ["task"]
   },
-
-  async execute(params: any, context: ToolContext): Promise<ToolExecutionResult> {
+  metadata: {
+    category: "automation",
+    displayName: "Browser Automation",
+    icon: "Browser"
+  },
+  execute: async (parameters: { task: string, save_browser_data?: boolean }, context: RunnerContext): Promise<ToolExecutionResult> => {
     try {
-      console.log("Executing Browser-Use Tool with params:", params);
+      console.log("Executing Browser Automation tool with task:", parameters.task);
       
-      // Check if API key is available through environment or context
-      const apiKey = context.metadata?.browserUseApiKey || process.env.BROWSER_USE_API_KEY;
-      
-      if (!apiKey) {
-        throw new Error("Browser-Use API key not found");
-      }
-
-      // Check if user has enough credits
-      if (context.creditsRemaining !== undefined && context.creditsRemaining < this.requiredCredits) {
+      // Validate parameters
+      if (!parameters.task || parameters.task.trim() === "") {
         return {
           success: false,
-          error: `Insufficient credits. You need ${this.requiredCredits} credits, but have ${context.creditsRemaining}.`,
+          message: "Task description cannot be empty",
+          error: "Task description cannot be empty",
           data: null
         };
       }
-
-      // Call the Supabase function to execute the browser automation task
-      const { data, error } = await context.supabase.functions.invoke('browser-use-api', {
+      
+      // Check if user has enough credits
+      if (context.credits !== undefined && context.credits < 10) {
+        return {
+          success: false,
+          message: "Insufficient credits. Browser automation requires 10 credits.",
+          error: "Insufficient credits. Browser automation requires 10 credits.",
+          data: null
+        };
+      }
+      
+      // Call the browser automation API
+      const { data, error } = await context.supabase.functions.invoke('browser-automation', {
         body: {
-          task: params.task,
-          browserConfig: params.browserConfig || {},
-          save_browser_data: params.save_browser_data !== false,
-          userId: context.userId,
-          runId: context.runId
+          task: parameters.task,
+          save_browser_data: parameters.save_browser_data || false,
+          userId: context.userId
         }
       });
-
+      
       if (error) {
-        console.error("Browser-Use API error:", error);
+        console.error("Browser automation error:", error);
         return {
           success: false,
-          error: `Browser automation failed: ${error.message}`,
+          message: `Browser automation failed: ${error.message}`,
+          error: error.message,
           data: null
         };
       }
-
-      context.addMessage(`Browser automation task started: "${params.task}"`, "tool");
-
+      
       return {
         success: true,
+        message: `Browser task submitted. ${data.message || ''}`,
         data: {
           taskId: data.taskId,
           liveUrl: data.liveUrl,
-          message: "Browser automation task started. You can check progress in the task monitor.",
-          status: "running"
+          message: data.message || "You can monitor the task execution in real-time.",
+          status: data.status || "running"
         },
         usage: {
-          creditsUsed: this.requiredCredits
+          creditsUsed: data.creditsUsed || 10
         }
       };
-    } catch (error: any) {
-      console.error("Error executing browser-use tool:", error);
+    } catch (error) {
+      console.error("Browser automation execution error:", error);
       return {
         success: false,
-        error: `Failed to execute browser automation: ${error.message}`,
+        message: `An error occurred during browser automation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: error instanceof Error ? error.message : 'Unknown error',
         data: null
       };
     }

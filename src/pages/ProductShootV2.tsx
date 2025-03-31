@@ -13,8 +13,8 @@ export default function ProductShootV2() {
   const { 
     isGenerating, 
     generatedImages, 
-    generateImage,
-    checkImageStatus
+    generateProductShot,
+    checkImageStatus,
   } = useProductShoot();
 
   const { data: userCredits } = useQuery({
@@ -35,10 +35,16 @@ export default function ProductShootV2() {
 
   // Create handleGenerate wrapper to match expected form interface
   const handleGenerate = async (formData: ProductShotFormData) => {
-    if (formData.sourceFile) {
-      await generateImage(formData.prompt, "", formData);
-    } else if (formData.sourceImageUrl) {
-      await generateImage(formData.prompt, formData.sourceImageUrl, formData);
+    try {
+      if (formData.sourceFile) {
+        // Using file upload mode
+        await generateProductShot(formData.prompt || "", formData);
+      } else if (formData.sourceImageUrl) {
+        // Using URL mode
+        await generateProductShot(formData.prompt || "", formData);
+      }
+    } catch (error) {
+      console.error("Error generating product shot:", error);
     }
   };
 
@@ -64,7 +70,7 @@ export default function ProductShootV2() {
 
         <div className="flex-1 space-y-6">
           <GeneratedImagesPanel 
-            images={generatedImages}
+            images={generatedImages as any}
             isGenerating={isGenerating}
             onRetry={handleRetryImageCheck}
           />

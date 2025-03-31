@@ -1,6 +1,7 @@
+
 import React, { ChangeEvent, useState } from 'react';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent, CardFooter } from '@/components/ui/card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -15,20 +16,29 @@ export function ProductShotForm({
   isSubmitting, 
   availableCredits, 
   isLoading = false, 
-  formData = {
-    sourceFile: null as unknown as File,
+  formData: initialFormData,
+  onCancel = () => {} 
+}: ProductShotFormProps) {
+  const [form, setForm] = useState<ProductShotFormData>({
+    prompt: '',
+    sourceImage: null,
+    sourceImageUrl: '',
+    aspectRatio: '1:1',
+    stylePreset: 'product',
+    background: 'default',
+    placement: 'original',
+    // Additional form fields
+    sourceFile: null,
+    referenceFile: null,
     sceneDescription: '',
-    generationType: 'description' as const,
-    placementType: 'automatic' as const,
+    generationType: 'description',
+    placementType: 'automatic',
     manualPlacement: '',
     optimizeDescription: true,
     fastMode: false,
-    originalQuality: true,
-    aspectRatio: '1:1' as AspectRatio
-  }, 
-  onCancel = () => {} 
-}: ProductShotFormProps) {
-  const [form, setForm] = useState<ProductShotFormData>(formData);
+    originalQuality: true
+  });
+  
   const [sourceFilePreview, setSourceFilePreview] = useState<string | null>(null);
   const [referenceFilePreview, setReferenceFilePreview] = useState<string | null>(null);
 
@@ -39,22 +49,19 @@ export function ProductShotForm({
     }));
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    await onSubmit(form);
-  };
-
   const handleSourceFileChange = (e: ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
       const file = files[0];
       handleChange('sourceFile', file);
+      handleChange('sourceImage', file);
       
       // Create preview
       const reader = new FileReader();
       reader.onload = (e) => {
         if (e.target?.result) {
           setSourceFilePreview(e.target.result as string);
+          handleChange('sourceImageUrl', e.target.result as string);
         }
       };
       reader.readAsDataURL(file);
@@ -83,6 +90,12 @@ export function ProductShotForm({
       <CardContent className="p-6">
         <form onSubmit={(e) => {
           e.preventDefault();
+          
+          // Update the prompt from sceneDescription if using description mode
+          if (form.generationType === 'description' && form.sceneDescription) {
+            form.prompt = form.sceneDescription;
+          }
+          
           onSubmit(form);
         }}>
           <div className="space-y-6">

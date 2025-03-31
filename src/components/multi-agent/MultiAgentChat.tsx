@@ -1,3 +1,4 @@
+
 import { useMultiAgentChat } from "@/hooks/use-multi-agent-chat";
 import { useProjectContext } from "@/hooks/multi-agent/project-context";
 import { ChatInput } from "@/components/chat/ChatInput";
@@ -22,7 +23,6 @@ import { AgentInstructionsTable } from "./AgentInstructionsTable";
 import { EditAgentInstructionsDialog } from "./EditAgentInstructionsDialog";
 import { HandoffIndicator } from "./HandoffIndicator";
 import { ChatSessionSelector } from "./ChatSessionSelector";
-import { useChatSession } from "@/contexts/ChatSessionContext";
 import type { AgentType } from "@/hooks/use-multi-agent-chat";
 import { Message } from "@/types/message";
 import { CompactAgentSelector } from "@/components/canvas/CompactAgentSelector";
@@ -87,6 +87,7 @@ export const MultiAgentChat = ({
     tracingEnabled,
     handoffInProgress,
     agentInstructions,
+    setProjectContext,
     handleSubmit, 
     switchAgent, 
     clearChat,
@@ -97,7 +98,6 @@ export const MultiAgentChat = ({
     togglePerformanceMode,
     toggleDirectToolExecution,
     toggleTracing,
-    setProjectContext
   } = useMultiAgentChat({
     projectId: activeProjectId || undefined,
     sessionId: localSessionId || undefined
@@ -161,6 +161,10 @@ export const MultiAgentChat = ({
     if (projectId) {
       setActiveProject(projectId);
       toast.success("Switched to project");
+      
+      if (setProjectContext) {
+        setProjectContext(projectId);
+      }
       
       const systemMessage: Message = {
         id: crypto.randomUUID(),

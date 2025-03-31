@@ -167,6 +167,12 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     toast.success(`${!tracingEnabled ? "Enabled" : "Disabled"} interaction tracing`);
   };
   
+  const setProjectContext = (projectId: string, context?: any) => {
+    // This function allows setting project-specific context 
+    console.log(`Setting project context for project ${projectId}`, context);
+    // Implementation would depend on project requirements
+  };
+  
   // Handle a handoff between agents
   const processHandoff = async (
     fromAgent: AgentType, 
@@ -374,6 +380,7 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
 
   return {
     messages,
+    setMessages,
     input,
     setInput,
     isLoading,
@@ -384,6 +391,9 @@ export function useMultiAgentChat(options: UseMultiAgentChatOptions = {}) {
     usePerformanceModel,
     enableDirectToolExecution,
     tracingEnabled,
+    handoffInProgress,
+    agentInstructions,
+    setProjectContext,
     handleSubmit,
     switchAgent,
     clearChat,

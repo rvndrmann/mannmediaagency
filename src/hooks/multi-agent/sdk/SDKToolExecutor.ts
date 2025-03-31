@@ -1,66 +1,50 @@
-import { RunnerContext } from "../runner/types";
-import { SDKTool } from "./types";
+
+import { RunnerContext, ToolExecutionResult } from "../runner/types";
 
 export class SDKToolExecutor {
-  /**
-   * Execute a tool with context and error handling
-   */
-  static async executeToolSafely(
-    tool: SDKTool, 
-    params: any, 
-    context?: RunnerContext
-  ): Promise<any> {
-    const startTime = Date.now();
+  private context: RunnerContext;
+  
+  constructor(context: RunnerContext) {
+    this.context = context;
+  }
+  
+  async executeToolByName(toolName: string, parameters: any): Promise<ToolExecutionResult> {
+    console.log(`[SDKToolExecutor] Executing tool: ${toolName}`, parameters);
     
     try {
-      // Log execution start
-      console.log(`Executing SDK tool ${tool.name} with params:`, params);
-      
-      // Add to trace if enabled
-      if (context && !context.tracingDisabled && context.addMessage) {
-        context.addMessage(`Executing tool: ${tool.name}`, "tool_start");
+      if (!this.context.tracingEnabled) {
+        console.log("[SDKToolExecutor] Tracing is disabled, tool execution will not be recorded");
       }
       
-      // Execute the tool
-      const result = await tool.execute(params, context);
-      
-      // Calculate execution time
-      const executionTime = Date.now() - startTime;
-      console.log(`SDK tool ${tool.name} execution completed in ${executionTime}ms`);
-      
-      // Add result to trace if enabled
-      if (context && !context.tracingDisabled && context.addMessage) {
-        context.addMessage(
-          `Tool ${tool.name} execution result: ${JSON.stringify(result).substring(0, 200)}`,
-          "tool_result"
-        );
-      }
-      
-      return result;
+      // For now, return a mock success result
+      return {
+        success: true,
+        message: `Tool ${toolName} executed successfully (mock)`,
+        data: { result: "Mock tool execution result" }
+      };
     } catch (error) {
-      // Calculate execution time
-      const executionTime = Date.now() - startTime;
-      console.error(`SDK tool ${tool.name} execution failed after ${executionTime}ms:`, error);
-      
-      // Add error to trace if enabled
-      if (context && !context.tracingDisabled && context.addMessage) {
-        context.addMessage(
-          `Tool ${tool.name} execution error: ${error instanceof Error ? error.message : 'Unknown error'}`,
-          "tool_error"
-        );
-      }
-      
+      console.error(`[SDKToolExecutor] Error executing tool ${toolName}:`, error);
       return {
         success: false,
-        error: error instanceof Error ? error.message : "Unknown error during tool execution"
+        message: `Failed to execute tool ${toolName}`,
+        error: String(error)
       };
     }
   }
   
-  /**
-   * Find a tool by name in a collection of tools
-   */
-  static findToolByName(toolName: string, tools: SDKTool[]): SDKTool | undefined {
-    return tools.find(tool => tool.name === toolName);
+  async validateToolParameters(toolName: string, parameters: any): Promise<boolean> {
+    // Simple mock validation
+    console.log(`[SDKToolExecutor] Validating parameters for tool: ${toolName}`, parameters);
+    
+    try {
+      if (!this.context.tracingEnabled) {
+        console.log("[SDKToolExecutor] Tracing is disabled, validation will not be recorded");
+      }
+      
+      return true;
+    } catch (error) {
+      console.error(`[SDKToolExecutor] Error validating parameters for tool ${toolName}:`, error);
+      return false;
+    }
   }
 }

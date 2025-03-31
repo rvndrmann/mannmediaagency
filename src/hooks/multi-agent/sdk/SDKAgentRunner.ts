@@ -1,150 +1,104 @@
-import { AgentType, RunnerContext, AgentOptions, AgentResult, RunnerCallbacks } from "../runner/types";
-import { AgentConfig, AgentStreamEvent, SDKAgentDefinition, SDKAgentOptions, SDKTool } from "./types";
-import { v4 as uuidv4 } from "uuid";
-import { initializeTrace, finalizeTrace } from "@/utils/openai-traces";
 
-export class SDKAgentRunner implements SDKRunner {
-  private agentDefinitions: SDKAgentDefinition[];
-  private agentOptions: SDKAgentOptions;
-  private currentAgent: BaseAgentImpl | null = null;
+import { AgentType, RunnerContext, AgentResult } from "../runner/types";
+
+// Define interfaces that we need
+interface RunnerCallbacks {
+  onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffEnd?: (fromAgent: AgentType, toAgent: AgentType, result: AgentResult) => void;
+  onError?: (error: Error) => void;
+}
+
+/**
+ * SDKAgentRunner - A compatibility layer for integrating with OpenAI Agents SDK
+ * This implementation will gradually evolve to support the full SDK features
+ */
+export class SDKAgentRunner {
   private context: RunnerContext;
-  private callbacks: RunnerCallbacks | null = null;
+  private callbacks: RunnerCallbacks;
+  private agentTurnCount: number = 0;
+  private maxTurns: number = 10;
+  private handoffHistory: { from: AgentType, to: AgentType, reason: string }[] = [];
+  private isProcessing: boolean = false;
+  private traceStartTime: number = 0;
+  private processedMessageIds: Set<string> = new Set();
   private traceId: string;
-  
-  constructor(agentDefinitions: SDKAgentDefinition[], options: SDKAgentOptions = {}) {
-    this.agentDefinitions = agentDefinitions;
-    this.agentOptions = options;
-    this.traceId = this.generateTraceId();
+  private currentAgentType: AgentType;
+
+  constructor(
+    initialAgentType: AgentType,
+    context: RunnerContext,
+    callbacks: RunnerCallbacks
+  ) {
+    this.context = {
+      ...context,
+      metadata: {
+        ...context.metadata,
+        isHandoffContinuation: false,
+        previousAgentType: null,
+        handoffReason: "",
+        handoffHistory: []
+      }
+    };
+    this.callbacks = callbacks;
+    this.traceId = "sdk-trace-" + Date.now();
+    this.traceStartTime = Date.now();
+    this.currentAgentType = initialAgentType;
   }
-  
+
   async initialize(): Promise<void> {
-    // Initialization logic here
+    // Placeholder for SDK initialization
+    console.log("SDK Agent Runner initialized");
+    return Promise.resolve();
   }
-  
+
   setCallbacks(callbacks: RunnerCallbacks): void {
     this.callbacks = callbacks;
   }
-  
+
+  getCurrentAgent(): AgentType {
+    return this.currentAgentType;
+  }
+
   getTraceId(): string {
     return this.traceId;
   }
-  
-  getCurrentAgent(): AgentType {
-    return this.currentAgent?.getType() || "main";
-  }
-  
-  private generateTraceId(): string {
-    return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
-  }
-  
-  private createAgent(agentDefinition: SDKAgentDefinition, context: RunnerContext): BaseAgentImpl {
-    const agentType = agentDefinition.name.toLowerCase();
-    const agentOptions: AgentOptions = {
-      config: {
-        name: agentDefinition.name,
-        instructions: agentDefinition.instructions,
-        model: agentDefinition.model || this.agentOptions.model || "gpt-3.5-turbo"
-      },
-      model: agentDefinition.model || this.agentOptions.model || "gpt-3.5-turbo",
-      context: context,
-      traceId: this.traceId
-    };
-    
-    switch (agentType) {
-      case "assistant":
-        return new AssistantAgent(agentOptions);
-      case "data":
-        return new DataAgent(agentOptions);
-      case "imagegenerator":
-        return new ImageGeneratorAgent(agentOptions);
-      case "main":
-        return new MainAgent(agentOptions);
-      case "scenecreator":
-        return new SceneCreatorAgent(agentOptions);
-      case "scenegenerator":
-        return new SceneGeneratorAgent(agentOptions);
-      case "scriptwriter":
-        return new ScriptWriterAgent(agentOptions);
-      case "tool":
-        return new ToolAgent(agentOptions);
-      default:
-        return new MainAgent(agentOptions);
-    }
-  }
-  
-  async processInput(input: string, context?: RunnerContext): Promise<AgentResult> {
-    if (!context) {
-      throw new Error("Context is required to process input");
-    }
-    
-    this.context = context;
-    
-    // Find the main agent definition
-    const mainAgentDefinition = this.agentDefinitions.find(agent => agent.name.toLowerCase() === "main");
-    if (!mainAgentDefinition) {
-      throw new Error("Main agent definition not found");
-    }
-    
-    // Create main agent
-    this.currentAgent = this.createAgent(mainAgentDefinition, context);
-    
-    // Process input
-    return this.processWithAgent(this.currentAgent, input, context);
-  }
-  
-  private async processWithAgent(agent: BaseAgentImpl, input: string, context: RunnerContext): Promise<AgentResult> {
-    const agentType = agent.getType();
-    
-    // Add message to trace
-    if (context.addMessage) {
-      context.addMessage(`Processing with ${agentType} agent`, "agent_start");
-    }
-    
-    // Process with agent
-    let result: AgentResult;
-    try {
-      result = await agent.process(input, context);
-      
-      // Add message to trace
-      if (context.addMessage) {
-        context.addMessage(`Agent ${agentType} completed with output: ${result.output}`, "agent_complete");
-      }
-    } catch (error: any) {
-      console.error(`Error processing with agent ${agentType}:`, error);
-      
-      // Add message to trace
-      if (context.addMessage) {
-        context.addMessage(`Error processing with agent ${agentType}: ${error.message}`, "agent_error");
-      }
-      
+
+  /**
+   * Process a user input with the current agent
+   * @param input The user input to process
+   * @returns The agent result
+   */
+  async processInput(input: string): Promise<AgentResult> {
+    if (this.isProcessing) {
+      console.warn("Already processing a request, ignoring new input");
       return {
-        output: `Error processing with agent ${agentType}: ${error.message}`
+        response: "I'm still processing your previous request, please wait a moment.",
+        nextAgent: null
       };
     }
-    
-    // Handle handoff
-    if (result.handoff) {
-      if (this.callbacks?.onHandoffStart) {
-        this.callbacks.onHandoffStart(agentType, result.handoff.targetAgent, result.handoff.reason);
-      }
+
+    this.isProcessing = true;
+    this.agentTurnCount++;
+
+    try {
+      console.log(`[SDK Agent Runner] Processing input with ${this.currentAgentType} agent: ${input.substring(0, 50)}...`);
+
+      // Simple mock response for now
+      const response: AgentResult = {
+        response: `Response from ${this.currentAgentType} agent: ${input.length > 10 ? input.substring(0, 10) + '...' : input}`,
+        nextAgent: null
+      };
       
-      // Find the target agent definition
-      const targetAgentDefinition = this.agentDefinitions.find(agent => agent.name.toLowerCase() === result.handoff?.targetAgent);
-      if (!targetAgentDefinition) {
-        throw new Error(`Target agent definition ${result.handoff.targetAgent} not found`);
-      }
-      
-      // Create target agent
-      this.currentAgent = this.createAgent(targetAgentDefinition, context);
-      
-      if (this.callbacks?.onHandoffEnd) {
-        this.callbacks.onHandoffEnd(agentType, result.handoff.targetAgent, result);
-      }
-      
-      // Process with target agent
-      return this.processWithAgent(this.currentAgent, input, context);
+      this.isProcessing = false;
+      return response;
+    } catch (error) {
+      console.error("Error in SDKAgentRunner.processInput:", error);
+      this.isProcessing = false;
+      return {
+        response: "I encountered an error while processing your request. Please try again.",
+        nextAgent: null
+      };
     }
-    
-    return result;
   }
 }

@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import type { BrowserAutomationTask, BrowserConfig, BrowserTaskOptions, BrowserTaskResult, BrowserTaskStatus } from "@/types/browser-automation";
@@ -350,4 +349,53 @@ export class BrowserAgentService {
       return [];
     }
   }
+  
+  async getTaskDetails(taskId: string) {
+    try {
+      const { data, error: fetchError } = await supabase
+        .from('browser_automation_tasks')
+        .select('*')
+        .eq('id', taskId)
+        .single();
+        
+      if (fetchError) {
+        console.error("Error fetching task details:", fetchError);
+        return null;
+      }
+      
+      return data;
+    } catch (err) {
+      console.error("Error in getTaskDetails:", err);
+      return null;
+    }
+  }
+  
+  async getTaskStatus(taskId: string) {
+    try {
+      const task = await this.getTaskDetails(taskId);
+      if (!task) {
+        return {
+          status: 'unknown',
+          message: 'Task not found'
+        };
+      }
+      
+      return {
+        status: task.status,
+        message: task.status === 'failed' || task.status === 'error' 
+          ? (task.output || 'Task failed') 
+          : `Task is ${task.status}`,
+        output: task.output,
+        progress: task.progress || 0
+      };
+    } catch (err) {
+      console.error("Error getting task status:", err);
+      return {
+        status: 'error',
+        message: 'Error checking task status'
+      };
+    }
+  }
 }
+
+export const browserAgentService = new BrowserAgentService();

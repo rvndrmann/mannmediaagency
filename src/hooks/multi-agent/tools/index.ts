@@ -1,56 +1,45 @@
 
-// Export all tools and related utilities
-import { getAvailableTools, getToolsByCategory, getToolByName } from "./tool-registry";
-import { executeTool, ToolExecutorService } from "./tool-executor-service";
-// Use 'export type' for types to avoid 'isolatedModules' TypeScript errors
-export type { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+import { ToolContext, ToolExecutionResult } from "../runner/types";
 
-// Import tools
-import { dataTool } from "./data-tool";
-import { webSearchTool } from "./web-search-tool";
-import { canvasTool } from "./default-tools/canvas-tool";
-import { productShotV1Tool } from "./product-shot-v1-tool";
-import { productShotV2Tool } from "./product-shot-v2-tool";
-import { browserUseTool } from "./browser-use-tool";
-import { imageToVideoTool } from "./image-to-video-tool";
+// Define the ToolDefinition interface
+export interface ToolDefinition {
+  name: string;
+  description: string;
+  parameters: {
+    type: string;
+    properties: Record<string, any>;
+    required?: string[];
+  };
+  requiredCredits?: number;
+  metadata?: {
+    category?: string;
+    displayName?: string;
+    icon?: string;
+  };
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
+}
 
-// Function to initialize the tool system
-export const initializeToolSystem = (): void => {
-  console.log("Tool system initialized");
-  // Initialize any required tool dependencies
+// Define some common tool utilities or exports here
+export const createBasicTool = (
+  name: string,
+  description: string,
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>
+): ToolDefinition => {
+  return {
+    name,
+    description,
+    parameters: {
+      type: "object",
+      properties: {}
+    },
+    execute
+  };
 };
 
-// Export tool getter function
-export const getTool = (name: string): ToolDefinition | undefined => {
-  return getToolByName(name);
-};
+// Export a registry of available tools
+export const availableTools: Record<string, ToolDefinition> = {};
 
-// Export all tools and utilities
-export {
-  // Tools registry and utilities
-  getAvailableTools,
-  getToolsByCategory,
-  getToolByName,
-  executeTool,
-  ToolExecutorService,
-  
-  // Individual tools
-  dataTool,
-  webSearchTool,
-  canvasTool,
-  productShotV1Tool,
-  productShotV2Tool,
-  browserUseTool,
-  imageToVideoTool
+// Function to register a new tool in the system
+export const registerTool = (tool: ToolDefinition): void => {
+  availableTools[tool.name] = tool;
 };
-
-// Export default tools collection
-export const availableTools = [
-  dataTool,
-  webSearchTool,
-  canvasTool,
-  productShotV1Tool,
-  productShotV2Tool,
-  browserUseTool,
-  imageToVideoTool
-];

@@ -1,6 +1,13 @@
+
 import { v4 as uuidv4 } from "uuid";
-import { AgentType, RunnerCallbacks, RunnerContext, AgentResult, BaseAgent, BaseAgentImpl } from "./types";
-import { SDKRunner } from "../sdk/types";
+import { AgentType, RunnerContext, AgentResult, BaseAgent } from "./types";
+
+interface RunnerCallbacks {
+  onHandoff?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffStart?: (fromAgent: AgentType, toAgent: AgentType, reason: string) => void;
+  onHandoffEnd?: (fromAgent: AgentType, toAgent: AgentType, result: AgentResult) => void;
+  onError?: (error: Error) => void;
+}
 
 interface AgentRunnerOptions {
   callbacks?: RunnerCallbacks;
@@ -15,7 +22,7 @@ export class AgentRunner {
   private currentInput: string = "";
   private callbacks: RunnerCallbacks = {};
   private useSDK: boolean = false;
-  private sdkRunner: SDKRunner | null = null;
+  private sdkRunner: any | null = null;
   private enableTracing: boolean = false;
 
   constructor(options: AgentRunnerOptions = {}) {
@@ -35,7 +42,7 @@ export class AgentRunner {
     try {
       // Dynamically import to avoid circular dependencies
       const { SDKAgentRunner } = await import("../sdk/SDKAgentRunner");
-      this.sdkRunner = new SDKAgentRunner([], {});
+      this.sdkRunner = new SDKAgentRunner("main", {}, {});
       
       if (this.callbacks) {
         this.sdkRunner.setCallbacks(this.callbacks);
@@ -54,7 +61,7 @@ export class AgentRunner {
     if (this.useSDK && this.sdkRunner) {
       // Use SDK runner if enabled
       try {
-        return await this.sdkRunner.processInput(input, context);
+        return await this.sdkRunner.processInput(input);
       } catch (error) {
         console.error("Error in SDK runner, falling back to standard agents:", error);
         // Fall back to standard agents if SDK fails
@@ -65,18 +72,18 @@ export class AgentRunner {
     return this.processWithAgent(this.currentAgentType, input, context);
   }
 
-  private getAgent(agentType: AgentType, context: RunnerContext): BaseAgentImpl {
+  private getAgent(agentType: AgentType, context: RunnerContext): BaseAgent {
     // Implement a factory method that creates the appropriate agent
     // This is a placeholder - in a real implementation, you would create
     // actual instances of your agent classes
-    return new MockAgent({ context, traceId: this.traceId });
+    return new MockAgent(context);
   }
 
   private async processWithAgent(agentType: AgentType, input: string, context: RunnerContext): Promise<AgentResult> {
     const agent = this.getAgent(agentType, context);
     const enrichedContext: RunnerContext = {
       ...context,
-      tracingDisabled: !this.enableTracing,
+      tracingEnabled: this.enableTracing,
       addMessage: this.enableTracing ? 
         (message: string, type: string) => this.addTraceMessage(message, type) : 
         undefined
@@ -89,7 +96,7 @@ export class AgentRunner {
       }
 
       // Process with the selected agent
-      const result = await agent.process(input, enrichedContext);
+      const result = await agent.run(input, enrichedContext);
 
       // Handle potential handoff
       if (result.nextAgent) {
@@ -140,7 +147,8 @@ export class AgentRunner {
       }
       
       return {
-        output: `The ${this.getAgentName(agentType)} encountered an error. Please try again or ask a different question.`
+        response: `The ${this.getAgentName(agentType)} encountered an error. Please try again or ask a different question.`,
+        nextAgent: null
       };
     }
   }
@@ -201,15 +209,22 @@ export class AgentRunner {
 }
 
 // Temporary mock agent for compilation
-class MockAgent extends BaseAgentImpl {
-  async process(input: string, context: RunnerContext): Promise<AgentResult> {
-    return {
-      output: "This is a mock response while all agents are being implemented."
-    };
+class MockAgent implements BaseAgent {
+  private context: RunnerContext;
+  
+  constructor(context: RunnerContext) {
+    this.context = context;
   }
   
-  run(input: string, context: RunnerContext): Promise<AgentResult> {
+  async run(input: string, context: RunnerContext): Promise<AgentResult> {
     return this.process(input, context);
+  }
+  
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
+    return {
+      response: "This is a mock response while all agents are being implemented.",
+      nextAgent: null
+    };
   }
   
   getType(): AgentType {

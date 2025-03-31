@@ -7,6 +7,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/toaster'
 import { ChatSessionProvider } from '@/contexts/ChatSessionContext'
 import { BrowserRouter } from 'react-router-dom'
+import { ProjectProvider } from '@/hooks/multi-agent/project-context'
 
 // Create a client for React Query with proper error handling and retry configuration
 const queryClient = new QueryClient({
@@ -32,7 +33,9 @@ createRoot(rootElement).render(
     <BrowserRouter>
       <QueryClientProvider client={queryClient}>
         <ChatSessionProvider>
-          <App />
+          <ProjectProvider>
+            <App />
+          </ProjectProvider>
           <Toaster />
         </ChatSessionProvider>
       </QueryClientProvider>

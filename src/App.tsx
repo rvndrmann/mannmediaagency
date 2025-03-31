@@ -12,6 +12,7 @@ import BrowserUse from "./pages/BrowserUse";
 import TraceAnalytics from "./pages/TraceAnalytics";
 import CustomOrders from "./pages/CustomOrders";
 import NotFound from "./pages/NotFound";
+import { ProjectProvider } from "./hooks/multi-agent/project-context";
 
 function App() {
   return (
@@ -21,7 +22,14 @@ function App() {
         <Route path="/" element={<Index />} />
         <Route path="/dashboard" element={<Index />} />
         <Route path="/multi-agent-chat" element={<MultiAgentChat />} />
-        <Route path="/canvas" element={<Canvas />} />
+        <Route 
+          path="/canvas" 
+          element={
+            <ProjectProvider>
+              <Canvas />
+            </ProjectProvider>
+          } 
+        />
         <Route path="/product-shoot" element={<ProductShot />} />
         <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
         <Route path="/image-to-video" element={<ImageToVideo />} />

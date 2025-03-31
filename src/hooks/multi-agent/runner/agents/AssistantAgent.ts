@@ -14,18 +14,18 @@ export class AssistantAgent extends BaseAgentImpl {
     return "assistant";
   }
   
-  async process(message: string, context: RunnerContext): Promise<AgentResult> {
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
       // Record trace event
       this.recordTraceEvent({
         type: "agent_start",
         agent: "assistant",
         timestamp: new Date().toISOString(),
-        message
+        message: input
       });
       
       // Apply input guardrails
-      const guardedInput = await this.applyInputGuardrails(message);
+      const guardedInput = await this.applyInputGuardrails(input);
       
       // Simulate a response for now to fix the type issues
       const response = `I'm the assistant agent and I processed: ${guardedInput.substring(0, 50)}...`;

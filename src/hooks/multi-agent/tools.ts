@@ -1,7 +1,8 @@
 
-import { CommandExecutionState, ToolContext } from "./types";
+import { CommandExecutionState, ToolExecutionResult } from "./runner/types";
 import { toast } from "sonner";
-import { availableTools, executeTool, getAvailableTools, initializeTools as initializeToolSystem } from "./tools/index";
+import { availableTools, executeTool, getAvailableTools, initializeToolSystem } from "./tools/index";
+import { ToolContext } from "./types";
 
 export const executeCommand = async (
   commandName: string,

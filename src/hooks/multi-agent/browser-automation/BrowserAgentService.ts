@@ -2,20 +2,21 @@ import { supabase } from "@/integrations/supabase/client";
 import { v4 as uuidv4 } from "uuid";
 import type { BrowserAutomationTask, BrowserConfig, BrowserTaskOptions, BrowserTaskResult, BrowserTaskStatus } from "@/types/browser-automation";
 
-export { BrowserAutomationTask };
-
 export class BrowserAgentService {
   private static instance: BrowserAgentService;
+  private apiKey: string | null = null;
   
-  private constructor() {
-    // Private constructor for singleton
-  }
+  private constructor() {}
   
   public static getInstance(): BrowserAgentService {
     if (!BrowserAgentService.instance) {
       BrowserAgentService.instance = new BrowserAgentService();
     }
     return BrowserAgentService.instance;
+  }
+  
+  public setApiKey(apiKey: string): void {
+    this.apiKey = apiKey;
   }
   
   public async startBrowserTask(
@@ -27,13 +28,13 @@ export class BrowserAgentService {
       const taskId = uuidv4();
       const { environment = 'browser', applicationConfig, saveSessionData = true } = options;
       
-      // Create task record in the database
-      const { data, error } = await supabase
+      // Create a record in our database first
+      const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
         .insert({
           id: taskId,
-          input: taskInput,
           user_id: userId,
+          input: taskInput,
           status: 'pending',
           environment,
           applications_config: applicationConfig || null,
@@ -42,54 +43,60 @@ export class BrowserAgentService {
         .select()
         .single();
       
-      if (error) {
-        console.error('Error creating browser task:', error);
+      if (taskError) {
+        console.error('Error creating browser automation task:', taskError);
         return null;
       }
       
-      // Call the browser-use API
-      const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
-        body: {
-          operation: 'run-task',
+      // Now call the browser automation API
+      const response = await fetch('https://api.browser-use.com/api/v1/run-task', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey || process.env.BROWSER_USE_API_KEY}`,
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ 
           task: taskInput,
-          save_browser_data: saveSessionData,
-          userId,
-          taskId
-        }
+          save_browser_data: saveSessionData
+        })
       });
       
-      if (apiError) {
-        console.error('Error starting browser task:', apiError);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error from browser automation API:', errorText);
         
-        // Update task status to failed
+        // Update the task status to failed
         await supabase
           .from('browser_automation_tasks')
-          .update({
+          .update({ 
             status: 'failed',
-            error_message: apiError.message,
-            completed_at: new Date().toISOString()
+            error_message: errorText,
+            updated_at: new Date().toISOString()
           })
           .eq('id', taskId);
-          
+        
         return null;
       }
       
-      // Update task with browser task ID and live URL
+      const responseData = await response.json();
+      
+      // Update our database record with the browser task ID
       await supabase
         .from('browser_automation_tasks')
-        .update({
-          browser_task_id: apiResponse.taskId,
+        .update({ 
           status: 'running',
-          live_url: apiResponse.liveUrl
+          browser_task_id: responseData.id,
+          live_url: responseData.live_url || null,
+          updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
       
       return {
         taskId,
-        liveUrl: apiResponse.liveUrl
+        liveUrl: responseData.live_url
       };
     } catch (error) {
-      console.error('Error in startBrowserTask:', error);
+      console.error('Error starting browser task:', error);
       return null;
     }
   }
@@ -102,204 +109,202 @@ export class BrowserAgentService {
         .select('*')
         .eq('id', taskId)
         .single();
-        
+      
       if (taskError) {
         console.error('Error fetching task:', taskError);
         return { status: 'error', error: taskError.message };
       }
       
-      // If the task is already completed or failed, return the stored status
+      // If the task is already completed or failed, return the status
       if (taskData.status === 'completed' || taskData.status === 'failed') {
-        return {
+        return { 
           status: taskData.status,
-          output: taskData.output,
-          error: taskData.error_message
+          output: taskData.output || null,
+          error: taskData.error_message || null
         };
       }
       
-      // If the task is still running, check the API for updates
-      const { data: apiResponse, error: apiError } = await supabase.functions.invoke('browser-use-api', {
-        body: {
-          operation: 'get-task',
-          taskId: taskData.browser_task_id
+      // Otherwise, get the status from the browser API
+      const response = await fetch(`https://api.browser-use.com/api/v1/task/${taskData.browser_task_id}`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey || process.env.BROWSER_USE_API_KEY}`
         }
       });
       
-      if (apiError) {
-        console.error('Error checking task status:', apiError);
-        return { status: 'error', error: apiError.message };
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error fetching task status:', errorText);
+        return { status: 'error', error: errorText };
       }
       
-      // Map API status to our status
-      let status = taskData.status;
-      if (apiResponse.status === 'finished') {
+      const responseData = await response.json();
+      
+      // Map the API status to our status
+      let status = 'running';
+      if (responseData.status === 'finished') {
         status = 'completed';
-      } else if (apiResponse.status === 'failed') {
+      } else if (responseData.status === 'failed') {
         status = 'failed';
+      } else if (responseData.status === 'stopped') {
+        status = 'stopped';
+      } else if (responseData.status === 'paused') {
+        status = 'paused';
       }
       
-      // Update our database with the latest status
-      if (status !== taskData.status) {
-        const updateData: Partial<BrowserAutomationTask> = {
-          status: status as 'pending' | 'running' | 'completed' | 'failed' | 'stopped' | 'paused' | 'expired',
-          current_url: apiResponse.currentUrl,
-          updated_at: new Date().toISOString()
-        };
-        
-        // If the task is completed or failed, add completion data
-        if (status === 'completed' || status === 'failed') {
-          updateData.completed_at = new Date().toISOString();
-          updateData.output = apiResponse.output;
-          updateData.browser_data = apiResponse.browserData;
-          updateData.error_message = apiResponse.error;
-        }
-        
-        // Update the task record
-        await supabase
-          .from('browser_automation_tasks')
-          .update(updateData)
-          .eq('id', taskId);
-      }
+      // Update our database record
+      await supabase
+        .from('browser_automation_tasks')
+        .update({ 
+          status: status,
+          output: responseData.output || null,
+          error_message: responseData.error || null,
+          current_url: responseData.current_url || null,
+          browser_data: responseData.browser_data || null,
+          updated_at: new Date().toISOString(),
+          completed_at: status === 'completed' || status === 'failed' ? new Date().toISOString() : null
+        })
+        .eq('id', taskId);
       
       return {
         status,
-        output: apiResponse.output,
-        error: apiResponse.error
+        output: responseData.output || null,
+        error: responseData.error || null
       };
     } catch (error) {
-      console.error('Error in checkTaskStatus:', error);
-      return { status: 'error', error: error instanceof Error ? error.message : 'Unknown error' };
+      console.error('Error checking task status:', error);
+      return { status: 'error', error: error instanceof Error ? error.message : String(error) };
     }
   }
   
   public async stopTask(taskId: string): Promise<boolean> {
     try {
-      // Get the task to check if it exists and get the browser task ID
+      // First get the task from our database
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
-        .select('browser_task_id, status')
+        .select('browser_task_id')
         .eq('id', taskId)
         .single();
-        
+      
       if (taskError) {
-        console.error('Error fetching task:', taskError);
+        console.error('Error fetching task for stopping:', taskError);
         return false;
       }
       
-      // If the task is already completed or failed, no need to stop it
-      if (taskData.status === 'completed' || taskData.status === 'failed') {
-        return true;
-      }
-      
-      // Call the API to stop the task
-      const { error: apiError } = await supabase.functions.invoke('browser-use-api', {
-        body: {
-          operation: 'stop-task',
-          taskId: taskData.browser_task_id
+      // Call the browser API to stop the task
+      const response = await fetch(`https://api.browser-use.com/api/v1/stop-task?task_id=${taskData.browser_task_id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey || process.env.BROWSER_USE_API_KEY}`
         }
       });
       
-      if (apiError) {
-        console.error('Error stopping task:', apiError);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error stopping task:', errorText);
         return false;
       }
       
-      // Update the task status
+      // Update our database record
       await supabase
         .from('browser_automation_tasks')
-        .update({
+        .update({ 
           status: 'stopped',
-          completed_at: new Date().toISOString()
+          updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
       
       return true;
     } catch (error) {
-      console.error('Error in stopTask:', error);
+      console.error('Error stopping task:', error);
       return false;
     }
   }
   
   public async pauseTask(taskId: string): Promise<boolean> {
     try {
-      // Get the task to check if it exists and get the browser task ID
+      // First get the task from our database
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
-        .select('browser_task_id, status')
+        .select('browser_task_id')
         .eq('id', taskId)
         .single();
-        
+      
       if (taskError) {
-        console.error('Error fetching task:', taskError);
+        console.error('Error fetching task for pausing:', taskError);
         return false;
       }
       
-      // Call the API to pause the task
-      const { error: apiError } = await supabase.functions.invoke('browser-use-api', {
-        body: {
-          operation: 'pause-task',
-          taskId: taskData.browser_task_id
+      // Call the browser API to pause the task
+      const response = await fetch(`https://api.browser-use.com/api/v1/pause-task?task_id=${taskData.browser_task_id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey || process.env.BROWSER_USE_API_KEY}`
         }
       });
       
-      if (apiError) {
-        console.error('Error pausing task:', apiError);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error pausing task:', errorText);
         return false;
       }
       
-      // Update the task status
+      // Update our database record
       await supabase
         .from('browser_automation_tasks')
-        .update({
-          status: 'paused'
+        .update({ 
+          status: 'paused',
+          updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
       
       return true;
     } catch (error) {
-      console.error('Error in pauseTask:', error);
+      console.error('Error pausing task:', error);
       return false;
     }
   }
   
   public async resumeTask(taskId: string): Promise<boolean> {
     try {
-      // Get the task to check if it exists and get the browser task ID
+      // First get the task from our database
       const { data: taskData, error: taskError } = await supabase
         .from('browser_automation_tasks')
-        .select('browser_task_id, status')
+        .select('browser_task_id')
         .eq('id', taskId)
         .single();
-        
+      
       if (taskError) {
-        console.error('Error fetching task:', taskError);
+        console.error('Error fetching task for resuming:', taskError);
         return false;
       }
       
-      // Call the API to resume the task
-      const { error: apiError } = await supabase.functions.invoke('browser-use-api', {
-        body: {
-          operation: 'resume-task',
-          taskId: taskData.browser_task_id
+      // Call the browser API to resume the task
+      const response = await fetch(`https://api.browser-use.com/api/v1/resume-task?task_id=${taskData.browser_task_id}`, {
+        method: 'PUT',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey || process.env.BROWSER_USE_API_KEY}`
         }
       });
       
-      if (apiError) {
-        console.error('Error resuming task:', apiError);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error resuming task:', errorText);
         return false;
       }
       
-      // Update the task status
+      // Update our database record
       await supabase
         .from('browser_automation_tasks')
-        .update({
-          status: 'running'
+        .update({ 
+          status: 'running',
+          updated_at: new Date().toISOString()
         })
         .eq('id', taskId);
       
       return true;
     } catch (error) {
-      console.error('Error in resumeTask:', error);
+      console.error('Error resuming task:', error);
       return false;
     }
   }
@@ -311,85 +316,36 @@ export class BrowserAgentService {
         .select('*')
         .eq('id', taskId)
         .single();
-        
+      
       if (error) {
-        console.error('Error fetching task:', error);
+        console.error('Error getting task:', error);
         return null;
       }
       
       return data as BrowserAutomationTask;
     } catch (error) {
-      console.error('Error in getTask:', error);
+      console.error('Error getting task:', error);
       return null;
     }
   }
   
-  public async getTaskHistory(userId: string, limit: number = 10, offset: number = 0): Promise<BrowserAutomationTask[]> {
+  public async getTaskHistory(userId: string): Promise<BrowserAutomationTask[]> {
     try {
       const { data, error } = await supabase
         .from('browser_automation_tasks')
         .select('*')
         .eq('user_id', userId)
         .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-        
+        .limit(10);
+      
       if (error) {
-        console.error('Error fetching task history:', error);
+        console.error('Error getting task history:', error);
         return [];
       }
       
       return data as BrowserAutomationTask[];
     } catch (error) {
-      console.error('Error in getTaskHistory:', error);
-      return [];
-    }
-  }
-  
-  public async saveTaskTemplate(
-    userId: string,
-    templateName: string,
-    taskInput: string,
-    browserConfig: any
-  ): Promise<boolean> {
-    try {
-      const { error } = await supabase
-        .from('browser_task_templates')
-        .insert({
-          user_id: userId,
-          name: templateName,
-          task_input: taskInput,
-          browser_config: browserConfig,
-          created_at: new Date().toISOString()
-        });
-        
-      if (error) {
-        console.error('Error saving task template:', error);
-        return false;
-      }
-      
-      return true;
-    } catch (error) {
-      console.error('Error in saveTaskTemplate:', error);
-      return false;
-    }
-  }
-  
-  public async getTaskTemplates(userId: string): Promise<any[]> {
-    try {
-      const { data, error } = await supabase
-        .from('browser_task_templates')
-        .select('*')
-        .eq('user_id', userId)
-        .order('created_at', { ascending: false });
-        
-      if (error) {
-        console.error('Error fetching task templates:', error);
-        return [];
-      }
-      
-      return data;
-    } catch (error) {
-      console.error('Error in getTaskTemplates:', error);
+      console.error('Error getting task history:', error);
       return [];
     }
   }

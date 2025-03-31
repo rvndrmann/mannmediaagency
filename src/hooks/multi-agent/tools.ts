@@ -7,5 +7,9 @@ export function getAvailableTools(): ToolDefinition[] {
 }
 
 export function getTool(name: string): ToolDefinition | undefined {
-  return ToolsModule.getTool(name);
+  const allTools = getAvailableTools();
+  return allTools.find(tool => tool.name === name);
 }
+
+// Export initializeToolSystem from the tools/index.ts module
+export const initializeToolSystem = ToolsModule.initializeToolSystem;

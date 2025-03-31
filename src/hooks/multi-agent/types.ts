@@ -1,61 +1,57 @@
 
-import { Message } from "@/types/message";
-import { RunnerContext } from "./runner/types";
+import { SupabaseClient } from '@supabase/supabase-js';
 
+// Tool execution result states
 export enum CommandExecutionState {
-  COMPLETED = "COMPLETED",
-  FAILED = "FAILED",
-  IN_PROGRESS = "IN_PROGRESS"
+  PENDING = "pending",
+  RUNNING = "running",
+  COMPLETED = "completed",
+  FAILED = "failed"
 }
 
-export interface ToolContext extends RunnerContext {
-  toolAvailable: boolean;
+// Tool context interface - provided to all tools during execution
+export interface ToolContext {
+  supabase: SupabaseClient<any, "public", any>;
+  userId?: string;
+  sessionId?: string;
+  projectId?: string;
+  groupId?: string;
   userCredits?: number;
-  creditsRemaining?: number;
+  metadata?: Record<string, any>;
+  usePerformanceModel?: boolean;
+  enableDirectToolExecution?: boolean;
+  addMessage?: (message: string, type: string) => void;
+  toolAvailable: boolean; // Required property to ensure the tool is available
+  history?: any[];
+  // Add any other context-specific properties tools might need
 }
 
-export interface ToolMetadata {
-  category: string;
-  displayName?: string;
-  icon?: string;
-}
-
+// Tool definition interface
 export interface ToolDefinition {
   name: string;
   description: string;
-  version?: string;
-  requiredCredits?: number;
-  parameters: any;
-  execute: (parameters: any, context: RunnerContext) => Promise<ToolExecutionResult>;
-  metadata?: ToolMetadata;
-}
-
-export interface ExecutorContext {
-  messages: Message[];
-  addMessage?: (content: string, role: string) => void;
-  userCredits?: number;
-  projectId?: string;
-  sessionId?: string;
-  runId?: string;
-  groupId?: string;
-}
-
-export interface ToolResult {
-  success: boolean;
-  message: string;
-  data?: any;
-  error?: string;
-  usage?: {
-    creditsUsed: number;
+  parameters: {
+    type: string;
+    properties: Record<string, any>;
+    required?: string[];
   };
+  requiredCredits?: number;
+  metadata?: {
+    category?: string;
+    displayName?: string;
+    icon?: string;
+  };
+  execute: (parameters: any, context: ToolContext) => Promise<ToolExecutionResult>;
 }
 
+// Tool execution result interface
 export interface ToolExecutionResult {
   success: boolean;
   message: string;
-  data?: any;
   error?: string;
+  data?: any;
   usage?: {
-    creditsUsed: number;
+    creditsUsed?: number;
+    // Add other usage metrics as needed
   };
 }

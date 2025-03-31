@@ -2,9 +2,10 @@
 // Export all tools and related utilities
 import { getAvailableTools, getToolsByCategory, getToolByName } from "./tool-registry";
 import { executeTool, ToolExecutorService } from "./tool-executor-service";
-import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
+// Use 'export type' for types to avoid 'isolatedModules' TypeScript errors
+export type { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 
-// Export the dataTool
+// Import tools
 import { dataTool } from "./data-tool";
 import { webSearchTool } from "./web-search-tool";
 import { canvasTool } from "./default-tools/canvas-tool";
@@ -42,9 +43,6 @@ export {
   browserUseTool,
   imageToVideoTool
 };
-
-// Re-export types
-export type { ToolDefinition, ToolContext, ToolExecutionResult };
 
 // Export default tools collection
 export const availableTools = [

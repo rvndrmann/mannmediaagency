@@ -15,6 +15,8 @@ export interface BaseAgent {
 export interface AgentOptions {
   config?: AgentConfig;
   model?: string;
+  context?: RunnerContext;
+  traceId?: string;
 }
 
 export interface AgentResult {
@@ -24,6 +26,11 @@ export interface AgentResult {
     reason: string;
     additionalContext?: Record<string, any>;
   };
+  response?: string;
+  nextAgent?: AgentType;
+  handoffReason?: string;
+  additionalContext?: Record<string, any>;
+  structured_output?: any;
 }
 
 export interface RunnerContext {
@@ -31,9 +38,21 @@ export interface RunnerContext {
   history: any[];
   usePerformanceModel?: boolean;
   directToolExecution?: boolean;
+  enableDirectToolExecution?: boolean;
+  metadata?: Record<string, any>;
+  tracingDisabled?: boolean;
+  userId?: string;
+  groupId?: string;
+  runId?: string;
+  supabase?: any;
 }
 
 export interface RunnerCallbacks {
   onHandoff?: (from: AgentType, to: AgentType, reason: string) => void;
   onToolUse?: (tool: string, params: any) => void;
+  onMessage?: (message: any) => void;
+  onError?: (error: any) => void;
+  onHandoffStart?: (from: AgentType, to: AgentType, reason: string) => void;
+  onHandoffEnd?: (from: AgentType, to: AgentType, result: any) => void;
+  onToolExecution?: (toolName: string, params: any, result: any) => void;
 }

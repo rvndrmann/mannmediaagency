@@ -1,4 +1,3 @@
-
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { 
@@ -10,7 +9,6 @@ import {
   MCPServer
 } from '@/types/mcp';
 
-// Create the context
 const MCPContext = createContext<MCPContextType>({
   isConnected: false,
   connectionStatus: 'disconnected',
@@ -64,7 +62,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     averageConnectTime: 0
   });
 
-  // Initialize connection based on projectId
   useEffect(() => {
     if (projectId) {
       setCurrentProjectId(projectId);
@@ -72,12 +69,10 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     }
     
     return () => {
-      // Cleanup when unmounting
       disconnectFromMCP();
     };
   }, [projectId]);
 
-  // Connect to MCP service
   const connectToMCP = async (projectId: string): Promise<boolean> => {
     try {
       setConnectionStatus('connecting');
@@ -90,7 +85,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
         lastConnectionAttempt: startTime
       }));
       
-      // Call MCP service to initialize
       const { data, error } = await supabase.functions.invoke('mcp-server', {
         body: {
           operation: 'connect',
@@ -102,7 +96,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
         throw error;
       }
       
-      // Update connection status
       setIsConnected(true);
       setConnectionStatus('connected');
       setConnectionStats({
@@ -111,7 +104,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
         lastConnectionAttempt: startTime
       });
       
-      // Update metrics for successful connection
       const endTime = Date.now();
       const connectTime = endTime - startTime;
       
@@ -124,7 +116,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
         lastAttemptTime: endTime
       }));
       
-      // Initialize mock server
       const mockServer: MCPServer = {
         id: "server-1",
         url: "mcp://localhost:8080",
@@ -134,7 +125,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
       
       setMcpServers([mockServer]);
       
-      // Get available tools
       await listAvailableTools();
       
       setIsConnecting(false);
@@ -145,7 +135,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
       setIsConnected(false);
       setHasConnectionError(true);
       
-      // Update metrics for failure
       setConnectionMetrics(prev => ({
         ...prev,
         failureCount: prev.failureCount + 1,
@@ -157,9 +146,7 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     }
   };
   
-  // Disconnect from MCP service
   const disconnectFromMCP = () => {
-    // If we have a projectId, call the disconnect endpoint
     if (currentProjectId) {
       supabase.functions.invoke('mcp-server', {
         body: {
@@ -176,7 +163,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     setAvailableTools([]);
   };
   
-  // List available tools
   const listAvailableTools = async (): Promise<MCPTool[]> => {
     try {
       if (!currentProjectId) {
@@ -206,7 +192,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     }
   };
   
-  // Call a tool
   const callTool = async (toolName: string, parameters: any): Promise<MCPResponse> => {
     try {
       if (!currentProjectId || !isConnected) {
@@ -239,7 +224,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     }
   };
   
-  // Reconnect to MCP
   const reconnectToMcp = async (): Promise<boolean> => {
     setLastReconnectAttempt(Date.now());
     
@@ -250,7 +234,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
     return connectToMCP(currentProjectId);
   };
   
-  // Create context value
   const contextValue: MCPContextType = {
     isConnected,
     connectionStatus,
@@ -277,7 +260,6 @@ export const MCPProvider: React.FC<MCPProviderProps> = ({ children, projectId })
   );
 };
 
-// Custom hook for using the MCP context
 export const useMCP = () => {
   const context = useContext(MCPContext);
   if (!context) {
@@ -286,11 +268,12 @@ export const useMCP = () => {
   return context;
 };
 
-// Add an alias export for useMCPContext that points to useMCP
 export const useMCPContext = useMCP;
 
-// Export the reconnect function directly
-export const reconnectToMcp = () => {
+export const reconnectToMcp = async () => {
   const context = useMCP();
-  return context.reconnectToMcp;
+  if (context.reconnectToMcp) {
+    return context.reconnectToMcp();
+  }
+  return false;
 };

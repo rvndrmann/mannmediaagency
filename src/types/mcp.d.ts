@@ -5,6 +5,8 @@ export interface MCPServer {
   url: string;
   updateInterval: number;
   isConnected: () => boolean;
+  listTools?: () => Promise<MCPToolDefinition[]>;
+  executeTool?: (toolName: string, parameters: any) => Promise<MCPToolExecutionResult>;
 }
 
 export interface MCPConnectionMetrics {
@@ -21,22 +23,22 @@ export interface MCPConnectionStats {
 }
 
 export interface MCPContext {
-  mcpServers: MCPServer[];
-  useMcp: boolean;
-  setUseMcp: (useMcp: boolean) => void;
-  isConnecting: boolean;
-  hasConnectionError: boolean;
-  reconnectToMcp: () => Promise<boolean>;
-  lastReconnectAttempt: number;
-  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
-  connectionMetrics: MCPConnectionMetrics;
-  connectionStats: MCPConnectionStats;
   isConnected: boolean;
+  connectionStatus: 'disconnected' | 'connecting' | 'connected' | 'error';
+  connectionStats: MCPConnectionStats;
   availableTools: MCPTool[];
   connectToMCP: (projectId: string) => Promise<boolean>;
   disconnectFromMCP: () => void;
   listAvailableTools: () => Promise<MCPTool[]>;
   callTool: (toolName: string, parameters: any) => Promise<MCPResponse>;
+  mcpServers?: MCPServer[]; // Add missing properties
+  useMcp?: boolean;
+  setUseMcp?: (useMcp: boolean) => void;
+  isConnecting?: boolean;
+  hasConnectionError?: boolean;
+  reconnectToMcp?: () => Promise<boolean>;
+  lastReconnectAttempt?: number;
+  connectionMetrics?: MCPConnectionMetrics;
 }
 
 export interface MCPProviderProps {

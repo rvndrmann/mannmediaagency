@@ -9,6 +9,7 @@ interface ChatSession {
   title: string;
   createdAt: string;
   lastUpdatedAt: string;
+  lastUpdated?: string; // Added for compatibility
   messages: Message[];
 }
 

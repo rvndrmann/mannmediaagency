@@ -1,4 +1,5 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useMcpToolExecutor } from "./use-mcp-tool-executor";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { toast } from "sonner";
@@ -33,6 +34,15 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
   const [isAutoReconnecting, setIsAutoReconnecting] = useState(false);
   const [lastError, setLastError] = useState<Error | null>(null);
   
+  // Cache operation state in refs to avoid unnecessary re-renders
+  const operationStateRef = useRef({
+    isGeneratingDescription: false,
+    isGeneratingImagePrompt: false,
+    isGeneratingImage: false, 
+    isGeneratingVideo: false,
+    isGeneratingScript: false
+  });
+  
   // Add reference to previous scene ID to detect changes
   const prevSceneIdRef = useRef<string | undefined>(sceneId);
   const prevProjectIdRef = useRef<string | undefined>(projectId);
@@ -50,7 +60,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     }
   }, [hasConnection, lastError]);
   
-  // Auto-connect to MCP if enabled
+  // Auto-connect to MCP if enabled - using a more efficient approach
   useEffect(() => {
     // Only attempt auto-connection when projectId changes or on initial load
     if (autoConnect && projectId && useMcp && 
@@ -58,8 +68,13 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       console.log("Auto-connecting to MCP for project:", projectId);
       
       const connectWithBackoff = async () => {
+        // Skip if we're already auto-reconnecting
+        if (isAutoReconnecting) return;
+        
         setIsAutoReconnecting(true);
         try {
+          // Use a non-blocking timeout to avoid freezing the UI
+          await new Promise(resolve => setTimeout(resolve, 0));
           const success = await reconnectToMcp();
           
           if (success) {
@@ -81,11 +96,12 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
         }
       };
       
-      connectWithBackoff();
+      // Start connection attempt in a non-blocking way
+      setTimeout(connectWithBackoff, 0);
     }
     
     prevProjectIdRef.current = projectId;
-  }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp, retryCount, maxRetries, retryDelay]);
+  }, [autoConnect, projectId, useMcp, mcpServers.length, reconnectToMcp, retryCount, maxRetries, retryDelay, isAutoReconnecting]);
   
   // Reset processing states when recovering from connection errors
   useEffect(() => {
@@ -96,6 +112,15 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       setIsGeneratingImage(false);
       setIsGeneratingVideo(false);
       setIsGeneratingScript(false);
+      
+      // Also update the ref
+      operationStateRef.current = {
+        isGeneratingDescription: false,
+        isGeneratingImagePrompt: false,
+        isGeneratingImage: false,
+        isGeneratingVideo: false,
+        isGeneratingScript: false
+      };
     }
   }, [hasConnectionError, isConnecting]);
   
@@ -111,6 +136,15 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       setIsGeneratingVideo(false);
       setIsGeneratingScript(false);
       
+      // Also update the ref
+      operationStateRef.current = {
+        isGeneratingDescription: false,
+        isGeneratingImagePrompt: false,
+        isGeneratingImage: false,
+        isGeneratingVideo: false,
+        isGeneratingScript: false
+      };
+      
       // Clear the execution cache when changing scenes
       clearCache();
     }
@@ -123,8 +157,10 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
    */
   const updateSceneDescription = useCallback(async (sceneId: string, imageAnalysis: boolean = true): Promise<boolean> => {
     if (!sceneId) return false;
+    if (operationStateRef.current.isGeneratingDescription) return false;
     
     setIsGeneratingDescription(true);
+    operationStateRef.current.isGeneratingDescription = true;
     setLastError(null);
     
     try {
@@ -159,6 +195,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return false;
     } finally {
       setIsGeneratingDescription(false);
+      operationStateRef.current.isGeneratingDescription = false;
     }
   }, [executeTool]);
   
@@ -167,8 +204,10 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
    */
   const updateImagePrompt = useCallback(async (sceneId: string, useDescription: boolean = true): Promise<boolean> => {
     if (!sceneId) return false;
+    if (operationStateRef.current.isGeneratingImagePrompt) return false;
     
     setIsGeneratingImagePrompt(true);
+    operationStateRef.current.isGeneratingImagePrompt = true;
     setLastError(null);
     
     try {
@@ -186,6 +225,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return false;
     } finally {
       setIsGeneratingImagePrompt(false);
+      operationStateRef.current.isGeneratingImagePrompt = false;
     }
   }, [executeTool]);
   
@@ -194,8 +234,10 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
    */
   const generateImage = useCallback(async (sceneId: string, productShotVersion: string = "v2"): Promise<boolean> => {
     if (!sceneId) return false;
+    if (operationStateRef.current.isGeneratingImage) return false;
     
     setIsGeneratingImage(true);
+    operationStateRef.current.isGeneratingImage = true;
     setLastError(null);
     
     try {
@@ -213,6 +255,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return false;
     } finally {
       setIsGeneratingImage(false);
+      operationStateRef.current.isGeneratingImage = false;
     }
   }, [executeTool]);
   
@@ -221,8 +264,10 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
    */
   const generateVideo = useCallback(async (sceneId: string, aspectRatio: string = "16:9"): Promise<boolean> => {
     if (!sceneId) return false;
+    if (operationStateRef.current.isGeneratingVideo) return false;
     
     setIsGeneratingVideo(true);
+    operationStateRef.current.isGeneratingVideo = true;
     setLastError(null);
     
     try {
@@ -240,6 +285,7 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return false;
     } finally {
       setIsGeneratingVideo(false);
+      operationStateRef.current.isGeneratingVideo = false;
     }
   }, [executeTool]);
   
@@ -248,8 +294,10 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
    */
   const generateScript = useCallback(async (sceneId: string, contextPrompt: string = ""): Promise<boolean> => {
     if (!sceneId) return false;
+    if (operationStateRef.current.isGeneratingScript) return false;
     
     setIsGeneratingScript(true);
+    operationStateRef.current.isGeneratingScript = true;
     setLastError(null);
     
     try {
@@ -267,10 +315,12 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
       return false;
     } finally {
       setIsGeneratingScript(false);
+      operationStateRef.current.isGeneratingScript = false;
     }
   }, [executeTool]);
   
-  return {
+  // Use memoization for the final return value to prevent unnecessary re-renders
+  return useMemo(() => ({
     // Status
     isConnected: hasConnection,
     isProcessing: isExecuting || isAutoReconnecting,
@@ -295,5 +345,24 @@ export function useCanvasMcp(options: UseCanvasMcpOptions = {}) {
     
     // Cache management
     clearToolCache: clearCache
-  };
+  }), [
+    hasConnection, 
+    isExecuting, 
+    isAutoReconnecting,
+    isGeneratingDescription,
+    isGeneratingImagePrompt,
+    isGeneratingImage,
+    isGeneratingVideo,
+    isGeneratingScript,
+    hasConnectionError,
+    isConnecting,
+    lastError,
+    updateSceneDescription,
+    updateImagePrompt,
+    generateImage,
+    generateVideo,
+    generateScript,
+    executeTool,
+    clearCache
+  ]);
 }

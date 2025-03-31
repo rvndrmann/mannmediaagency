@@ -337,7 +337,7 @@ export class AgentRunner {
         // Add assistant message to conversation history
         this.context.metadata.conversationHistory.push(assistantMessage);
         
-        // Notify of new message
+        // Notify of new message - ensure this happens synchronously
         this.callbacks.onMessage(assistantMessage);
         
         // Save trace data for this turn
@@ -370,6 +370,8 @@ export class AgentRunner {
           const handoffReason = agentResult.handoffReason || `The ${fromAgent} agent is handing off to the ${toAgent} agent.`;
           
           console.log(`Handoff requested from ${fromAgent} to ${toAgent}: ${handoffReason}`);
+          
+          // Critical fix: Make sure onHandoffStart is called BEFORE continuing
           this.callbacks.onHandoffStart(fromAgent, toAgent, handoffReason);
           
           // Track handoff history
@@ -403,16 +405,16 @@ export class AgentRunner {
           
           console.log("Handoff continuity data:", continuityData);
           
-          // Switch to new agent
+          // Switch to new agent - ENSURE THIS COMPLETES BEFORE PROCEEDING
           this.currentAgent = this.createAgent(toAgent);
           
           // Wait a moment before continuing with the next agent to allow UI updates
-          await new Promise(resolve => setTimeout(resolve, 500));
+          await new Promise(resolve => setTimeout(resolve, 800));
           
-          // Notify that handoff is complete
-          this.callbacks.onHandoffEnd(toAgent);
+          // Notify that handoff is complete and WAIT for this to complete
+          await Promise.resolve(this.callbacks.onHandoffEnd(toAgent));
           
-          // Use enhanced input for the new agent
+          // Use enhanced input for the new agent based on target agent type
           if (toAgent === 'script') {
             // Add explicit instruction for script agent
             input = `${input}\n\n[IMPORTANT: You are the script writer. The user is expecting you to write a complete script. Don't just talk about it - WRITE THE SCRIPT NOW.]`;
@@ -422,6 +424,9 @@ export class AgentRunner {
           } else if (toAgent === 'scene') {
             // Add explicit instruction for scene agent
             input = `${input}\n\n[IMPORTANT: You are the scene creator. The user is expecting detailed scene descriptions. Write detailed and visual scene descriptions that can be used to generate images.]`;
+          } else if (toAgent === 'tool') {
+            // Add explicit instruction for tool agent
+            input = `${input}\n\n[IMPORTANT: You are the tool agent. Execute the appropriate tool based on the user's request.]`;
           }
           
           // Continue with the loop, using the same input but with the new agent
@@ -436,7 +441,7 @@ export class AgentRunner {
             : assistantMessage.tool_arguments;
           
           console.log(`Tool execution requested: ${toolName}`);
-          this.callbacks.onToolExecution(toolName, toolParams);
+          await Promise.resolve(this.callbacks.onToolExecution(toolName, toolParams));
           
           // Record trace event for tool execution
           this.recordTraceEvent('tool_execution', {
@@ -476,14 +481,18 @@ export class AgentRunner {
         // Add to processed messages to avoid duplicates
         this.processedMessageIds.add(errorMessage.id);
         
+        // Add error message to conversation history
         this.context.metadata.conversationHistory.push(errorMessage);
+        
+        // Notify of error message
         this.callbacks.onMessage(errorMessage);
         
-        // Stop after error
-        throw error;
+        // Try to continue with the next turn
+        continue;
       }
     }
     
+    // If we get here, we've exceeded the maximum number of turns
     throw new Error(`Maximum number of agent turns (${this.maxTurns}) exceeded`);
   }
 }

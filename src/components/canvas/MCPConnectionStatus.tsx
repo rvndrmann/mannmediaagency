@@ -1,5 +1,5 @@
 
-import React from "react";
+import React, { memo, useCallback } from "react";
 import { useMCPContext } from "@/contexts/MCPContext";
 import { Button } from "@/components/ui/button";
 import { RefreshCw, Server, ServerCrash, ServerOff, Shield, AlertCircle, ChevronDown, BanIcon } from "lucide-react";
@@ -19,7 +19,7 @@ interface MCPConnectionStatusProps {
   showAlert?: boolean;
 }
 
-export function MCPConnectionStatus({ 
+export const MCPConnectionStatus = memo(function MCPConnectionStatus({ 
   compact = false, 
   showConnectionDetails = false,
   showAlert = false
@@ -30,33 +30,37 @@ export function MCPConnectionStatus({
     isConnecting, 
     hasConnectionError, 
     reconnectToMcp,
-    setUseMcp
+    setUseMcp,
+    lastReconnectAttempt,
+    connectionStatus
   } = useMCPContext();
   
-  const handleReconnect = (e: React.MouseEvent<HTMLButtonElement>) => {
+  // Memoize event handlers to prevent unnecessary re-renders
+  const handleReconnect = useCallback((e: React.MouseEvent<HTMLButtonElement>) => {
     e.preventDefault();
     e.stopPropagation();
     reconnectToMcp();
-  };
+  }, [reconnectToMcp]);
   
-  // Fix the type issue by properly typing the event parameter
-  const handleDisableMcp = (e: React.MouseEvent<Element>) => {
+  const handleDisableMcp = useCallback((e: React.MouseEvent<Element>) => {
     e.preventDefault();
     e.stopPropagation();
     setUseMcp(false);
-  };
+  }, [setUseMcp]);
   
+  // Extracted status rendering to improve readability
   const renderStatus = () => {
     if (!useMcp) {
       return (
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <ServerOff className="h-3.5 w-3.5" />
+        <div className="flex items-center gap-2 text-xs text-muted-foreground" role="status" aria-live="polite">
+          <ServerOff className="h-3.5 w-3.5" aria-hidden="true" />
           <span>MCP Disabled</span>
           <Button 
             variant="ghost" 
             size="sm" 
             className="h-7 ml-1 text-xs p-0"
             onClick={handleReconnect}
+            aria-label="Enable MCP"
           >
             <RefreshCw className="h-3 w-3" />
           </Button>
@@ -66,8 +70,8 @@ export function MCPConnectionStatus({
     
     if (isConnecting) {
       return (
-        <div className="flex items-center gap-2 text-xs text-yellow-500">
-          <RefreshCw className="h-3.5 w-3.5 animate-spin" />
+        <div className="flex items-center gap-2 text-xs text-yellow-500" role="status" aria-live="polite">
+          <RefreshCw className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
           <span>{compact ? "Connecting..." : "Connecting to MCP..."}</span>
           {!compact && (
             <Button 
@@ -75,6 +79,7 @@ export function MCPConnectionStatus({
               size="sm" 
               className="h-7 ml-1 text-xs p-0"
               onClick={handleDisableMcp}
+              aria-label="Cancel connection and disable MCP"
             >
               <BanIcon className="h-3 w-3" />
             </Button>
@@ -85,7 +90,7 @@ export function MCPConnectionStatus({
     
     if (hasConnectionError || mcpServers.length === 0) {
       return (
-        <div className="flex items-center">
+        <div className="flex items-center" role="alert" aria-live="assertive">
           <TooltipProvider>
             <Tooltip>
               <TooltipTrigger asChild>
@@ -94,8 +99,9 @@ export function MCPConnectionStatus({
                   size="sm" 
                   className="h-7 text-xs text-red-500 hover:text-red-600 p-0 gap-1.5"
                   onClick={handleReconnect}
+                  aria-label="MCP connection error, click to reconnect"
                 >
-                  <ServerCrash className="h-3.5 w-3.5" />
+                  <ServerCrash className="h-3.5 w-3.5" aria-hidden="true" />
                   <span>{compact ? "Error" : "Connection Error"}</span>
                   <RefreshCw className="h-3 w-3 ml-1" />
                 </Button>
@@ -109,7 +115,7 @@ export function MCPConnectionStatus({
           {!compact && (
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" size="sm" className="h-7 p-0 ml-1">
+                <Button variant="ghost" size="sm" className="h-7 p-0 ml-1" aria-label="MCP connection options">
                   <ChevronDown className="h-3.5 w-3.5" />
                 </Button>
               </DropdownMenuTrigger>
@@ -128,15 +134,15 @@ export function MCPConnectionStatus({
     }
     
     return (
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2" role="status">
         <div className="flex items-center gap-2 text-xs text-green-500">
-          <Server className="h-3.5 w-3.5" />
+          <Server className="h-3.5 w-3.5" aria-hidden="true" />
           <span>{compact ? "Connected" : "MCP Connected"}</span>
         </div>
         
         {showConnectionDetails && mcpServers.length > 0 && (
           <Badge variant="outline" className="ml-2 text-xs gap-1">
-            <Shield className="h-3 w-3" />
+            <Shield className="h-3 w-3" aria-hidden="true" />
             <span>Secure</span>
           </Badge>
         )}
@@ -149,8 +155,8 @@ export function MCPConnectionStatus({
       {renderStatus()}
       
       {showAlert && hasConnectionError && (
-        <Alert variant="destructive" className="mt-2">
-          <AlertCircle className="h-4 w-4" />
+        <Alert variant="destructive" className="mt-2" role="alert" aria-live="assertive">
+          <AlertCircle className="h-4 w-4" aria-hidden="true" />
           <AlertDescription>
             MCP connection error. Some AI features may be limited. 
             <div className="flex space-x-2 mt-1">
@@ -159,6 +165,7 @@ export function MCPConnectionStatus({
                 size="sm"
                 className="h-7 text-xs"
                 onClick={handleReconnect}
+                aria-label="Try reconnecting to MCP services"
               >
                 Try reconnecting
               </Button>
@@ -168,6 +175,7 @@ export function MCPConnectionStatus({
                 size="sm"
                 className="h-7 text-xs"
                 onClick={handleDisableMcp}
+                aria-label="Use fallback mode without MCP"
               >
                 Use fallback mode
               </Button>
@@ -177,4 +185,4 @@ export function MCPConnectionStatus({
       )}
     </>
   );
-}
+});

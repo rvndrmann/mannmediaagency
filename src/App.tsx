@@ -8,7 +8,7 @@ import Canvas from "./pages/Canvas";
 import ProductShot from "./pages/ProductShot";
 import ProductShootV2 from "./pages/ProductShootV2";
 import ImageToVideo from "./pages/ImageToVideo";
-import BrowserAI from "./pages/BrowserAI";
+import BrowserUse from "./pages/BrowserUse";
 import TraceAnalytics from "./pages/TraceAnalytics";
 import CustomOrders from "./pages/CustomOrders";
 import NotFound from "./pages/NotFound";
@@ -25,7 +25,7 @@ function App() {
         <Route path="/product-shoot" element={<ProductShot />} />
         <Route path="/product-shoot-v2" element={<ProductShootV2 />} />
         <Route path="/image-to-video" element={<ImageToVideo />} />
-        <Route path="/browser-use" element={<BrowserAI />} />
+        <Route path="/browser-use" element={<BrowserUse />} />
         <Route path="/trace-analytics" element={<TraceAnalytics />} />
         <Route path="/custom-orders" element={<CustomOrders />} />
         

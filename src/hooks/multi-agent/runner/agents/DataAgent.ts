@@ -17,15 +17,8 @@ export class DataAgent extends BaseAgentImpl {
       console.log(`Processing request with Data Agent: ${input.substring(0, 50)}...`);
       
       // Track processing in trace if enabled
-      if (!context.tracingDisabled) {
-        this.addTraceEvent({
-          type: 'agent_start',
-          data: {
-            agentType: this.getType(),
-            input: input.substring(0, 100) + (input.length > 100 ? '...' : ''),
-            timestamp: new Date().toISOString()
-          }
-        });
+      if (!context.tracingDisabled && context.addMessage) {
+        context.addMessage(`Processing with Data Agent: ${input.substring(0, 100)}`, "agent_start");
       }
 
       // Default response if direct API call fails
@@ -109,16 +102,8 @@ export class DataAgent extends BaseAgentImpl {
       }
 
       // Track completion in trace if enabled
-      if (!context.tracingDisabled) {
-        this.addTraceEvent({
-          type: 'agent_end',
-          data: {
-            agentType: this.getType(),
-            output: response.output.substring(0, 100) + (response.output.length > 100 ? '...' : ''),
-            hasHandoff: !!response.handoff,
-            timestamp: new Date().toISOString()
-          }
-        });
+      if (!context.tracingDisabled && context.addMessage) {
+        context.addMessage(`Completed Data Agent processing: ${response.output.substring(0, 100)}`, "agent_end");
       }
 
       return response;

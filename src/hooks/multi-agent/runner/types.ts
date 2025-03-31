@@ -47,6 +47,7 @@ export interface RunnerContext {
   groupId?: string;
   runId?: string;
   supabase?: any;
+  addMessage?: (message: string, type: string) => void;
 }
 
 export interface RunnerCallbacks {
@@ -59,19 +60,20 @@ export interface RunnerCallbacks {
   onToolExecution?: (toolName: string, params: any, result: any) => void;
 }
 
-// New SDK related types
+// OpenAI Agents SDK types
 export interface SDKAgentDefinition {
   name: string;
   instructions: string;
   tools?: SDKTool[];
   model?: string;
+  handoffs?: SDKHandoffDefinition[];
 }
 
 export interface SDKTool {
   name: string;
   description: string;
   parameters: Record<string, any>;
-  execute: (params: any) => Promise<any>;
+  execute: (params: any, context?: any) => Promise<any>;
 }
 
 export interface SDKHandoffDefinition {
@@ -85,10 +87,33 @@ export interface SDKAgentOptions {
   temperature?: number;
   streaming?: boolean;
   maxTokens?: number;
+  toolChoice?: 'auto' | 'required' | 'none' | string;
 }
 
 export interface SDKRunner {
-  processInput: (input: string) => Promise<AgentResult>;
+  processInput: (input: string, context?: RunnerContext) => Promise<AgentResult>;
   getCurrentAgent: () => AgentType;
   getTraceId: () => string;
+  initialize: () => Promise<void>;
+  setCallbacks: (callbacks: RunnerCallbacks) => void;
 }
+
+export interface AgentStreamEvent {
+  type: 'thinking' | 'message' | 'error' | 'tool_call' | 'tool_result' | 'handoff' | 'complete';
+  content?: string;
+  agentType?: AgentType;
+  toolName?: string;
+  toolParams?: any;
+  toolResult?: any;
+  handoffTarget?: AgentType;
+  handoffReason?: string;
+  timestamp: number;
+}
+
+export type ToolDefinition = {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  requiredCredits?: number;
+  execute: (params: any, context: RunnerContext) => Promise<any>;
+};

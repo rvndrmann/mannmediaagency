@@ -10,17 +10,21 @@ interface HandoffIndicatorProps {
   fromAgent: AgentType;
   toAgent: AgentType;
   handoffReason?: string;
-  isInProgress: boolean;
+  isInProgress?: boolean;
   handoffId?: string;
+  visible?: boolean;
 }
 
 export const HandoffIndicator = memo(function HandoffIndicator({
   fromAgent,
   toAgent,
   handoffReason,
-  isInProgress,
-  handoffId
+  isInProgress = false,
+  handoffId,
+  visible = true
 }: HandoffIndicatorProps) {
+  if (!visible) return null;
+  
   // Format agent name for display
   const formatAgentName = (agent: AgentType) => {
     return agent.charAt(0).toUpperCase() + agent.slice(1) + ' Agent';

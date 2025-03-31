@@ -1,5 +1,4 @@
 
-// This is a placeholder for the actual image-to-video tool implementation
 import { ToolDefinition, ToolContext, ToolExecutionResult } from "../types";
 import { v4 as uuidv4 } from "uuid";
 

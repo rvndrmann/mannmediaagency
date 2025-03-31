@@ -1,128 +1,88 @@
 
 import { useState } from "react";
-import { ProductShotFormData, AspectRatio } from "@/types/product-shoot";
 import { toast } from "sonner";
+import { AspectRatio } from "@/types/product-shoot";
 
-export const useProductShotForm = (
-  onSubmit: (data: ProductShotFormData) => void,
-  isGenerating: boolean,
+export function useProductShotForm(
+  onSubmit: (formData: any) => Promise<void>, 
+  isGenerating: boolean, 
   isSubmitting: boolean,
   availableCredits: number = 0
-) => {
-  const [sourceFile, setSourceFile] = useState<File | null>(null);
+) {
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
-  const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
-  const [sceneDescription, setSceneDescription] = useState("");
+  const [sourceFile, setSourceFile] = useState<File | null>(null);
+  const [referenceFile, setReferenceFile] = useState<File | null>(null);
+  const [sceneDescription, setSceneDescription] = useState<string>("");
   const [generationType, setGenerationType] = useState<"description" | "reference">("description");
   const [placementType, setPlacementType] = useState<"original" | "automatic" | "manual_placement" | "manual_padding">("original");
-  const [manualPlacement, setManualPlacement] = useState("");
-  const [optimizeDescription, setOptimizeDescription] = useState(true);
-  const [fastMode, setFastMode] = useState(false);
-  const [originalQuality, setOriginalQuality] = useState(true);
+  const [manualPlacement, setManualPlacement] = useState<string>("");
+  const [optimizeDescription, setOptimizeDescription] = useState<boolean>(true);
+  const [fastMode, setFastMode] = useState<boolean>(false);
+  const [originalQuality, setOriginalQuality] = useState<boolean>(true);
   const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
-  const [shotWidth, setShotWidth] = useState(1920);
-  const [shotHeight, setShotHeight] = useState(1080);
-  const [padding, setPadding] = useState({
-    left: 0,
-    right: 0,
-    top: 0,
-    bottom: 0
-  });
 
-  const calculateCreditCost = () => {
-    return 0.2; // Fixed cost for 1 result
+  const handleSourceFileSelect = (file: File) => {
+    setSourceFile(file);
+    const url = URL.createObjectURL(file);
+    setSourcePreview(url);
   };
 
-  const hasEnoughCredits = () => {
-    const requiredCredits = calculateCreditCost();
-    return availableCredits >= requiredCredits;
-  };
-
-  const updateDimensions = (newAspectRatio: AspectRatio) => {
-    switch (newAspectRatio) {
-      case "16:9":
-        setShotWidth(1920);
-        setShotHeight(1080);
-        break;
-      case "9:16":
-        setShotWidth(1080);
-        setShotHeight(1920);
-        break;
-      case "1:1":
-        setShotWidth(1024);
-        setShotHeight(1024);
-        break;
-    }
-  };
-
-  const handleAspectRatioChange = (value: AspectRatio) => {
-    setAspectRatio(value);
-    updateDimensions(value);
-  };
-
-  const handleSourceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setSourceFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setSourcePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleReferenceFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setReferenceFile(file);
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setReferencePreview(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
+  const handleReferenceFileSelect = (file: File) => {
+    setReferenceFile(file);
+    const url = URL.createObjectURL(file);
+    setReferencePreview(url);
   };
 
   const handleClearSource = () => {
+    if (sourcePreview) {
+      URL.revokeObjectURL(sourcePreview);
+    }
     setSourceFile(null);
     setSourcePreview(null);
   };
 
   const handleClearReference = () => {
+    if (referencePreview) {
+      URL.revokeObjectURL(referencePreview);
+    }
     setReferenceFile(null);
     setReferencePreview(null);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleAspectRatioChange = (value: AspectRatio) => {
+    setAspectRatio(value);
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (isGenerating || isSubmitting) {
-      return;
-    }
-    
-    if (!sourceFile) {
-      toast.error("Please select a source image");
+      toast.warning("A generation is already in progress.");
       return;
     }
 
-    if (!hasEnoughCredits()) {
-      toast.error(`Insufficient credits. You need ${calculateCreditCost()} credits for this generation.`);
+    if (!sourceFile && !sourcePreview) {
+      toast.error("Please upload a source image.");
       return;
     }
 
-    if (generationType === "description" && !sceneDescription) {
-      toast.error("Please provide a scene description");
+    if (generationType === "reference" && !referenceFile && !referencePreview) {
+      toast.error("Please upload a reference image.");
       return;
     }
 
-    if (generationType === "reference" && !referenceFile) {
-      toast.error("Please select a reference image");
+    if (generationType === "description" && !sceneDescription.trim()) {
+      toast.error("Please provide a scene description.");
       return;
     }
 
-    const formData: ProductShotFormData = {
+    if (availableCredits < 1) {
+      toast.error("Insufficient credits for product shot generation.");
+      return;
+    }
+
+    const formData = {
       sourceFile,
       referenceFile,
       sceneDescription,
@@ -130,17 +90,17 @@ export const useProductShotForm = (
       placementType,
       manualPlacement,
       optimizeDescription,
-      numResults: 1,
       fastMode,
       originalQuality,
-      shotWidth,
-      shotHeight,
-      syncMode: false,
-      aspectRatio,
-      padding
+      aspectRatio
     };
 
-    onSubmit(formData);
+    try {
+      await onSubmit(formData);
+    } catch (error) {
+      console.error("Error submitting form:", error);
+      toast.error("Failed to generate product shot.");
+    }
   };
 
   return {
@@ -153,10 +113,7 @@ export const useProductShotForm = (
     optimizeDescription,
     fastMode,
     originalQuality,
-    shotWidth,
-    shotHeight,
     aspectRatio,
-    padding,
     handleSourceFileSelect,
     handleReferenceFileSelect,
     handleClearSource,
@@ -169,8 +126,6 @@ export const useProductShotForm = (
     setOptimizeDescription,
     setFastMode,
     setOriginalQuality,
-    handleAspectRatioChange,
-    calculateCreditCost,
-    hasEnoughCredits
+    handleAspectRatioChange
   };
-};
+}

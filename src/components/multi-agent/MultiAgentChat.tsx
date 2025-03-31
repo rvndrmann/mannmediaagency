@@ -325,20 +325,30 @@ export const MultiAgentChat = ({
         </header>
       )}
       
-      <div className={`flex-1 ${compactMode ? '' : 'container mx-auto max-w-4xl px-4 pb-2 pt-2'} flex flex-col h-full overflow-hidden`}>
+      <div className={`flex-1 ${compactMode ? '' : 'container mx-auto max-w-5xl px-4 pb-2 pt-2'} flex flex-col h-full overflow-hidden`}>
         {!compactMode && (
-          <div className="mb-2 space-y-2">
+          <div className="mb-2 flex items-center gap-2">
             {!isEmbedded && (
-              <ChatSessionSelector />
+              <div className="flex-shrink-0 w-full max-w-[200px]">
+                <ChatSessionSelector />
+              </div>
             )}
             
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-              <AgentSelector selectedAgentId={activeAgent} onSelect={switchAgent} />
-              <ProjectSelector 
-                selectedProjectId={activeProjectId || undefined} 
-                onProjectSelect={handleProjectSelect}
-                allowCreateNew={true}
-              />
+            <div className="flex flex-1 gap-2 items-center">
+              <div className="flex-1">
+                <CompactAgentSelector 
+                  selectedAgent={activeAgent} 
+                  onSelect={switchAgent} 
+                />
+              </div>
+              <div className="flex-1">
+                <ProjectSelector 
+                  selectedProjectId={activeProjectId || undefined} 
+                  onProjectSelect={handleProjectSelect}
+                  allowCreateNew={true}
+                  isCompact={true}
+                />
+              </div>
             </div>
           </div>
         )}
@@ -359,7 +369,7 @@ export const MultiAgentChat = ({
         
         <div className={`flex-1 flex flex-col overflow-hidden bg-[#21283B]/60 backdrop-blur-sm rounded-${compactMode ? 'none' : 'xl'} border ${compactMode ? 'border-t border-b' : 'border'} border-white/10 shadow-lg`}>
           {messages && messages.length > 0 ? (
-            <ScrollArea ref={scrollAreaRef} className="flex-1">
+            <ScrollArea ref={scrollAreaRef} className="flex-1 h-full">
               <div className="p-4 space-y-6">
                 {messages.map((message, index) => (
                   <ChatMessage 

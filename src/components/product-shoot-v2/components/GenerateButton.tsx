@@ -1,29 +1,40 @@
 
 import { Button } from "@/components/ui/button";
-import { CreditInfoProps } from "../types";
+import { Sparkles, Loader2 } from "lucide-react";
 
-export const GenerateButton = ({ availableCredits, isGenerating, isSubmitting }: CreditInfoProps) => {
-  const calculateCreditCost = () => 0.2;
-  const hasEnoughCredits = () => availableCredits >= calculateCreditCost();
+interface GenerateButtonProps {
+  isGenerating: boolean;
+  isSubmitting: boolean;
+  availableCredits: number;
+  numResults?: number;
+}
 
+export function GenerateButton({ 
+  isGenerating, 
+  isSubmitting, 
+  availableCredits, 
+  numResults = 1 
+}: GenerateButtonProps) {
+  const isDisabled = isGenerating || isSubmitting || (availableCredits < numResults);
+  const requiredCredits = numResults;
+  
   return (
-    <Button 
-      type="submit" 
-      className="w-full" 
-      disabled={isGenerating || isSubmitting || !hasEnoughCredits()}
+    <Button
+      type="submit"
+      className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+      disabled={isDisabled}
     >
       {isGenerating || isSubmitting ? (
-        "Generating..."
+        <>
+          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          Generating...
+        </>
       ) : (
         <>
-          Generate (0.2 credits)
-          {availableCredits < calculateCreditCost() && (
-            <span className="ml-2 text-xs text-red-400">
-              (Insufficient credits)
-            </span>
-          )}
+          <Sparkles className="mr-2 h-4 w-4" />
+          Generate Product Shot ({requiredCredits} credit{requiredCredits !== 1 ? 's' : ''})
         </>
       )}
     </Button>
   );
-};
+}

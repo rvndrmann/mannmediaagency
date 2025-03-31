@@ -51,10 +51,11 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       status: 'pending'
     };
     
-    setHandoffs((prev) => ({
-      ...prev,
-      [handoffId]: handoffRequest
-    }));
+    setHandoffs((prev) => {
+      const updated = { ...prev };
+      updated[handoffId] = handoffRequest;
+      return updated;
+    });
     
     return handoffRequest;
   }, [setHandoffs]);
@@ -70,13 +71,16 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
       return null;
     }
     
-    setHandoffs((prev) => ({
-      ...prev,
-      [handoffId]: {
-        ...prev[handoffId],
-        status: 'processing'
+    setHandoffs((prev) => {
+      const updated = { ...prev };
+      if (updated[handoffId]) {
+        updated[handoffId] = {
+          ...updated[handoffId],
+          status: 'processing'
+        };
       }
-    }));
+      return updated;
+    });
     
     setCurrentHandoff(handoff);
     setIsProcessingHandoff(true);
@@ -104,13 +108,16 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
         }
       }
       
-      setHandoffs((prev) => ({
-        ...prev,
-        [handoffId]: {
-          ...prev[handoffId],
-          status: 'complete'
+      setHandoffs((prev) => {
+        const updated = { ...prev };
+        if (updated[handoffId]) {
+          updated[handoffId] = {
+            ...updated[handoffId],
+            status: 'complete'
+          };
         }
-      }));
+        return updated;
+      });
       
       if (onHandoffComplete) {
         onHandoffComplete(handoffId, handoff.fromAgent, handoff.targetAgent);
@@ -127,13 +134,16 @@ export function useMultiAgentHandoff(options: UseMultiAgentHandoffOptions = {}) 
     } catch (error) {
       console.error(`Handoff processing error:`, error);
       
-      setHandoffs((prev) => ({
-        ...prev,
-        [handoffId]: {
-          ...prev[handoffId],
-          status: 'failed'
+      setHandoffs((prev) => {
+        const updated = { ...prev };
+        if (updated[handoffId]) {
+          updated[handoffId] = {
+            ...updated[handoffId],
+            status: 'failed'
+          };
         }
-      }));
+        return updated;
+      });
       
       if (onHandoffFailed && error instanceof Error) {
         onHandoffFailed(handoffId, error);

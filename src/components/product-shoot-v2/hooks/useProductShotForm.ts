@@ -1,103 +1,110 @@
 
-import { useState, ChangeEvent, FormEvent } from "react";
-import { ProductShotFormData, AspectRatio } from "@/types/product-shoot";
-import { toast } from "sonner";
+import { useState, useCallback } from 'react';
+import { toast } from 'sonner';
+import { AspectRatio, ProductShotFormData } from '@/types/product-shoot';
 
-export function useProductShotForm(
-  onSubmit: (data: ProductShotFormData) => Promise<void>,
+export const useProductShotForm = (
+  onSubmit: (formData: any) => Promise<void>,
   isGenerating: boolean,
   isSubmitting: boolean,
   availableCredits: number = 0
-) {
+) => {
   const [sourceFile, setSourceFile] = useState<File | null>(null);
   const [referenceFile, setReferenceFile] = useState<File | null>(null);
   const [sourcePreview, setSourcePreview] = useState<string | null>(null);
   const [referencePreview, setReferencePreview] = useState<string | null>(null);
-  const [sceneDescription, setSceneDescription] = useState("");
-  const [generationType, setGenerationType] = useState<"description" | "reference">("description");
-  const [placementType, setPlacementType] = useState<"original" | "automatic" | "manual_placement" | "manual_padding">("original");
-  const [manualPlacement, setManualPlacement] = useState("");
-  const [optimizeDescription, setOptimizeDescription] = useState(true);
-  const [fastMode, setFastMode] = useState(false);
-  const [originalQuality, setOriginalQuality] = useState(true);
-  const [aspectRatio, setAspectRatio] = useState<AspectRatio>("16:9");
+  const [sceneDescription, setSceneDescription] = useState<string>('');
+  const [generationType, setGenerationType] = useState<'description' | 'reference'>('description');
+  const [placementType, setPlacementType] = useState<'original' | 'automatic' | 'manual_placement' | 'manual_padding'>('original');
+  const [manualPlacement, setManualPlacement] = useState<string>('');
+  const [optimizeDescription, setOptimizeDescription] = useState<boolean>(true);
+  const [fastMode, setFastMode] = useState<boolean>(false);
+  const [originalQuality, setOriginalQuality] = useState<boolean>(true);
+  const [aspectRatio, setAspectRatio] = useState<AspectRatio>('16:9');
 
-  const handleSourceFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
+  const handleSourceFileSelect = useCallback((file: File) => {
     setSourceFile(file);
-    const imageUrl = URL.createObjectURL(file);
-    setSourcePreview(imageUrl);
-  };
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setSourcePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
 
-  const handleReferenceFileSelect = (event: ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-    
+  const handleReferenceFileSelect = useCallback((file: File) => {
     setReferenceFile(file);
-    const imageUrl = URL.createObjectURL(file);
-    setReferencePreview(imageUrl);
-  };
+    const reader = new FileReader();
+    reader.onloadend = () => {
+      setReferencePreview(reader.result as string);
+    };
+    reader.readAsDataURL(file);
+  }, []);
 
-  const handleClearSource = () => {
+  const handleClearSource = useCallback(() => {
     setSourceFile(null);
-    if (sourcePreview) {
-      URL.revokeObjectURL(sourcePreview);
-    }
     setSourcePreview(null);
-  };
+  }, []);
 
-  const handleClearReference = () => {
+  const handleClearReference = useCallback(() => {
     setReferenceFile(null);
-    if (referencePreview) {
-      URL.revokeObjectURL(referencePreview);
-    }
     setReferencePreview(null);
-  };
+  }, []);
 
-  const handleAspectRatioChange = (value: AspectRatio) => {
-    setAspectRatio(value);
-  };
+  const handleAspectRatioChange = useCallback((newRatio: AspectRatio) => {
+    setAspectRatio(newRatio);
+  }, []);
 
-  const handleSubmit = async (e: FormEvent) => {
+  const handleSubmit = useCallback((e: React.FormEvent) => {
     e.preventDefault();
-
+    
     if (!sourceFile) {
-      toast.error("Please upload a source image");
+      toast.error('Please select a source image');
       return;
     }
 
-    if (generationType === "reference" && !referenceFile) {
-      toast.error("Please upload a reference image");
+    if (generationType === 'description' && !sceneDescription.trim()) {
+      toast.error('Please provide a scene description');
       return;
     }
 
-    if (generationType === "description" && !sceneDescription.trim()) {
-      toast.error("Please enter a scene description");
+    if (generationType === 'reference' && !referenceFile) {
+      toast.error('Please select a reference image');
       return;
     }
 
-    if (availableCredits < 1) {
-      toast.error("You don't have enough credits");
+    if (availableCredits <= 0) {
+      toast.error('Insufficient credits. Please purchase more credits to continue.');
       return;
     }
 
     const formData: ProductShotFormData = {
       sourceFile,
-      referenceFile: generationType === "reference" ? referenceFile : null,
-      sceneDescription: generationType === "description" ? sceneDescription : undefined,
+      referenceFile: referenceFile || undefined,
+      sceneDescription,
       generationType,
       placementType,
-      manualPlacement: placementType === "manual_placement" || placementType === "manual_padding" ? manualPlacement : undefined,
+      manualPlacement,
       optimizeDescription,
       fastMode,
       originalQuality,
       aspectRatio
     };
 
-    await onSubmit(formData);
-  };
+    onSubmit(formData);
+  }, [
+    sourceFile,
+    referenceFile,
+    sceneDescription,
+    generationType,
+    placementType,
+    manualPlacement,
+    optimizeDescription,
+    fastMode,
+    originalQuality,
+    aspectRatio,
+    onSubmit,
+    availableCredits
+  ]);
 
   return {
     sourceFile,
@@ -126,4 +133,4 @@ export function useProductShotForm(
     setOriginalQuality,
     handleAspectRatioChange
   };
-}
+};

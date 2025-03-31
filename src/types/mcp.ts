@@ -36,6 +36,7 @@ export interface MCPToolExecutionParams {
   aspectRatio?: string;
   contextPrompt?: string;
   data?: any;
+  metadata?: any;
 }
 
 export interface MCPToolExecutionResult {
@@ -43,6 +44,7 @@ export interface MCPToolExecutionResult {
   result?: any;
   error?: string;
   data?: any; // Added to support existing implementations
+  metadata?: any; // Added to support existing implementations
 }
 
 export interface MCPConnectionRecord {
@@ -51,6 +53,7 @@ export interface MCPConnectionRecord {
   lastActive: number;
   id?: string; // Added to support existing implementations
   connectionUrl?: string; // Added to support existing implementations
+  userId?: string; // Added to support existing implementations
 }
 
 export interface MCPServer {

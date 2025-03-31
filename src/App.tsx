@@ -23,6 +23,8 @@ import {
 } from "lucide-react";
 
 import ProductShot from "./pages/ProductShot";
+import Explore from "./pages/Explore";
+import MultiAgentChat from "./pages/MultiAgentChat";
 
 const App = () => {
   return (
@@ -165,6 +167,22 @@ const App = () => {
           element={
             <Layout>
               <ProductShot />
+            </Layout>
+          }
+        />
+        <Route
+          path="/explore"
+          element={
+            <Layout>
+              <Explore />
+            </Layout>
+          }
+        />
+        <Route
+          path="/multi-agent-chat"
+          element={
+            <Layout>
+              <MultiAgentChat />
             </Layout>
           }
         />

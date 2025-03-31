@@ -24,3 +24,18 @@ export interface GenerationResult {
   status: 'IN_QUEUE' | 'COMPLETED' | 'FAILED';
   error?: string;
 }
+
+export type AspectRatio = '16:9' | '9:16' | '1:1';
+
+export interface ProductShotFormData {
+  sourceFile?: File;
+  referenceFile?: File;
+  sceneDescription: string;
+  generationType: 'description' | 'reference';
+  placementType: 'original' | 'automatic' | 'manual_placement' | 'manual_padding';
+  manualPlacement: string;
+  optimizeDescription: boolean;
+  fastMode: boolean;
+  originalQuality: boolean;
+  aspectRatio: AspectRatio;
+}

@@ -1,11 +1,10 @@
 
 import { BaseAgentImpl } from "./BaseAgentImpl";
-import { AgentResult, AgentType, RunnerContext } from "../types";
-import { Attachment } from "@/types/message";
-import { getTool } from "../../tools";
+import { AgentOptions, AgentResult, AgentType, RunnerContext } from "../types";
+import { v4 as uuidv4 } from "uuid";
 
 export class DataAgent extends BaseAgentImpl {
-  constructor(options: { context: RunnerContext, traceId?: string }) {
+  constructor(options: AgentOptions) {
     super(options);
   }
 
@@ -13,162 +12,238 @@ export class DataAgent extends BaseAgentImpl {
     return "data";
   }
 
-  async run(input: string, attachments: Attachment[] = []): Promise<AgentResult> {
+  async process(input: string, context: RunnerContext): Promise<AgentResult> {
     try {
-      // Record trace event for agent start
-      this.recordTraceEvent("agent_start", {
-        input_length: input.length,
-        has_attachments: attachments.length > 0,
-        agent_type: this.getType()
-      });
-
-      // Check if this is a handoff continuation
-      const isHandoff = this.context.metadata?.isHandoffContinuation;
-      const previousAgent = this.context.metadata?.previousAgentType;
-      const handoffReason = this.context.metadata?.handoffReason;
-
-      // Get dynamic instructions based on context
-      const instructions = await this.getInstructions(this.context);
-
-      // Configure data extraction specific prompts
-      let enhancedInput = input;
-      if (isHandoff && previousAgent) {
-        enhancedInput = `[Handoff from ${previousAgent} agent reason: ${handoffReason || 'Data extraction/input needed'}]\n\n${input}`;
+      console.log(`Processing request with Data Agent: ${input.substring(0, 50)}...`);
+      
+      // Track processing in trace if enabled
+      if (!context.tracingDisabled) {
+        this.addTraceEvent({
+          type: 'agent_start',
+          data: {
+            agentType: this.getType(),
+            input: input.substring(0, 100) + (input.length > 100 ? '...' : ''),
+            timestamp: new Date().toISOString()
+          }
+        });
       }
 
-      // Get access to canvas content tool for data operations
-      const canvasContentTool = getTool("canvas_content");
-      const canvasTool = getTool("canvas");
+      // Default response if direct API call fails
+      let response: AgentResult = {
+        output: "I'm the Data Agent, specialized in data analysis and processing. How can I help you today?",
+        response: "I'm the Data Agent, specialized in data analysis and processing. How can I help you today?"
+      };
 
-      // Check if project context is available
-      const projectId = this.context.projectId;
-      if (!projectId) {
-        // If no project context, determine if we need to hand back to main
-        this.recordTraceEvent("agent_end", {
-          result: "handoff to main - no project context",
-          agent_type: this.getType()
-        });
+      try {
+        // Call the Multi-Agent Chat API
+        const requestId = uuidv4();
+        
+        const apiResponse = await fetch(
+          "https://api.openai.com/v1/chat/completions",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              "Authorization": `Bearer ${process.env.OPENAI_API_KEY || ""}`
+            },
+            body: JSON.stringify({
+              model: context.usePerformanceModel ? "gpt-4o-mini" : "gpt-4o",
+              messages: [
+                {
+                  role: "system",
+                  content: "You are a Data Agent specialized in data analysis and processing. You excel at understanding, transforming, and visualizing data. You can help with data cleaning, statistical analysis, chart creation, and data interpretation."
+                },
+                { role: "user", content: input }
+              ],
+              tools: this.getTools(context.directToolExecution || context.enableDirectToolExecution || false),
+              tool_choice: "auto"
+            })
+          }
+        );
 
-        return {
-          response: "I need to extract or manipulate data, but there's no project selected. Let me hand this over to the main assistant who can help with general queries.",
-          nextAgent: "main",
-          handoffReason: "No project context available for data operations"
+        if (!apiResponse.ok) {
+          const errorText = await apiResponse.text();
+          throw new Error(`API call failed: ${apiResponse.status} - ${errorText}`);
+        }
+
+        const data = await apiResponse.json();
+        
+        // Check for tool calls
+        if (data.choices[0]?.message?.tool_calls?.length > 0) {
+          const toolCall = data.choices[0].message.tool_calls[0];
+          
+          // Check if it's a handoff
+          if (toolCall.function.name.startsWith("transfer_to_")) {
+            const targetAgent = toolCall.function.name.replace("transfer_to_", "").replace("_agent", "") as AgentType;
+            const args = JSON.parse(toolCall.function.arguments || "{}");
+            
+            response = {
+              output: `I'll transfer you to our ${this.getAgentName(targetAgent)} who can better assist with this. ${args.reason || ""}`,
+              handoff: {
+                targetAgent,
+                reason: args.reason || `Transferring to ${targetAgent} agent for specialized assistance`,
+                additionalContext: args.additionalContext || {}
+              },
+              // Add compatibility fields
+              handoffReason: args.reason,
+              nextAgent: targetAgent,
+              additionalContext: args.additionalContext || {}
+            };
+          } else {
+            // Handle other tool calls in the future
+            response = {
+              output: data.choices[0].message.content || "I need to use a tool to help with your request."
+            };
+          }
+        } else {
+          // Regular text response
+          response = {
+            output: data.choices[0].message.content || "I'm not sure how to respond to that."
+          };
+        }
+      } catch (error) {
+        console.error("Error processing with Data Agent:", error);
+        response = {
+          output: "I'm having trouble processing your request right now. Could you try again or rephrase your question?"
         };
       }
 
-      // Construct the prompt for the OpenAI assistant
-      const prompt = `
-You are a specialized Data Agent focused on working with data in the Canvas project system. Your main capabilities are:
-
-1. EXTRACTING data from Canvas scenes (images, videos, scripts, etc.)
-2. INPUTTING data into Canvas scenes (uploading/importing media)
-3. MANAGING media assets across the Canvas system
-
-You have the following tools available:
-- canvas_content: For accessing and modifying scene content
-- canvas: For generating new content and updating scenes
-
-Instructions:
-${instructions}
-
-You are currently working with Project ID: ${projectId}
-
-After extracting or inputting data, hand off to the main agent once your specialized task is complete.
-
-${enhancedInput}
-`;
-
-      // Use context to determine model to use
-      const usePerformanceModel = this.context.usePerformanceModel;
-      const modelToUse = usePerformanceModel ? 'gpt-3.5-turbo' : 'gpt-4o';
-
-      // Create a list of available tools for this agent
-      const availableTools = [];
-      if (canvasContentTool) availableTools.push(canvasContentTool);
-      if (canvasTool) availableTools.push(canvasTool);
-
-      // Call OpenAI API via supabase function
-      const { data, error } = await this.context.supabase.functions.invoke('ai-agent', {
-        body: {
-          messages: [{ role: 'user', content: prompt }],
-          model: modelToUse,
-          tools: availableTools.map(tool => ({
-            type: 'function',
-            function: {
-              name: tool.name,
-              description: tool.description,
-              parameters: tool.parameters
-            }
-          })),
-          context: {
-            projectId: this.context.projectId,
-            userId: this.context.userId,
-            runId: this.context.runId,
-            groupId: this.context.groupId,
-            agentType: this.getType()
+      // Track completion in trace if enabled
+      if (!context.tracingDisabled) {
+        this.addTraceEvent({
+          type: 'agent_end',
+          data: {
+            agentType: this.getType(),
+            output: response.output.substring(0, 100) + (response.output.length > 100 ? '...' : ''),
+            hasHandoff: !!response.handoff,
+            timestamp: new Date().toISOString()
           }
-        }
-      });
-
-      if (error) {
-        throw new Error(`API error: ${error.message}`);
+        });
       }
 
-      // Check if we need to execute tools or hand off
-      const response = data?.response || "";
-      let handoffToMain = false;
-      
-      // Check for patterns suggesting data work is complete
-      const dataWorkCompletePatterns = [
-        /data (extraction|import|upload) (is )?complete/i,
-        /successfully (extracted|imported|uploaded|updated)/i,
-        /(all done|task complete|finished)/i,
-        /handed back to (the )?(main|assistant)/i
-      ];
-      
-      handoffToMain = dataWorkCompletePatterns.some(pattern => pattern.test(response));
-
-      // Process the response and return results
-      this.recordTraceEvent("agent_end", {
-        response_length: response.length,
-        handoff_to_main: handoffToMain,
-        agent_type: this.getType()
-      });
-
-      const result: AgentResult = {
-        response,
-        nextAgent: handoffToMain ? "main" : null,
-        handoffReason: handoffToMain ? "Data operations completed, returning to main assistant" : undefined
-      };
-
-      return result;
+      return response;
     } catch (error) {
-      console.error(`Data Agent error:`, error);
-      this.recordTraceEvent("agent_error", {
-        error_message: error instanceof Error ? error.message : "Unknown error",
-        agent_type: this.getType()
-      });
-
-      // On error, hand back to main agent
+      console.error("Unexpected error in Data Agent:", error);
       return {
-        response: `I encountered an error while handling data operations: ${error instanceof Error ? error.message : "Unknown error"}. Let me hand this back to the main assistant.`,
-        nextAgent: "main",
-        handoffReason: "Error in data operations"
+        output: "An unexpected error occurred. Please try again later."
       };
     }
   }
 
-  protected getDefaultInstructions(): string {
-    return `You are a specialized Data Agent focused on extracting and inputting data in the Canvas system.
-    
-Your responsibilities:
-1. Extract media (images, videos) from scenes
-2. Update scene content and attributes 
-3. Input new data into the Canvas system
-4. Help users find and manipulate their content
+  private getTools(enableDirectTools: boolean): any[] {
+    // Common handoff tools
+    return [
+      {
+        type: "function",
+        function: {
+          name: "transfer_to_main_agent",
+          description: "Transfer the conversation to the main assistant agent for general help",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason for transferring to the main assistant"
+              }
+            },
+            required: ["reason"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "transfer_to_script_agent",
+          description: "Transfer to the script writer agent for creating or editing scripts",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason for transferring to the script writer"
+              },
+              additionalContext: {
+                type: "object",
+                description: "Additional context to provide to the script writer",
+                properties: {
+                  scriptType: {
+                    type: "string",
+                    description: "The type of script to create (e.g., video, advertisement, etc.)"
+                  }
+                }
+              }
+            },
+            required: ["reason"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "transfer_to_image_agent",
+          description: "Transfer to the image generator agent for creating visual content",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason for transferring to the image generator"
+              }
+            },
+            required: ["reason"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "transfer_to_tool_agent",
+          description: "Transfer to the tool agent for using specialized tools",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason for transferring to the tool agent"
+              },
+              toolName: {
+                type: "string",
+                description: "The specific tool to use"
+              }
+            },
+            required: ["reason"]
+          }
+        }
+      },
+      {
+        type: "function",
+        function: {
+          name: "transfer_to_scene_agent",
+          description: "Transfer to the scene creator agent for planning and creating visual scenes",
+          parameters: {
+            type: "object",
+            properties: {
+              reason: {
+                type: "string",
+                description: "The reason for transferring to the scene creator agent"
+              }
+            },
+            required: ["reason"]
+          }
+        }
+      }
+    ];
+  }
 
-Always use the canvas_content tool to view and modify content, and the canvas tool for operations like generating new images or videos.
-
-When your specialized data task is complete, hand off to the main agent.`;
+  private getAgentName(agentType: AgentType): string {
+    switch (agentType) {
+      case "main": return "Assistant";
+      case "script": return "Script Writer";
+      case "image": return "Image Generator";
+      case "tool": return "Tool Specialist";
+      case "scene": return "Scene Creator";
+      case "data": return "Data Agent";
+      default: return "Specialist";
+    }
   }
 }

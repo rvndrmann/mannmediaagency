@@ -4,6 +4,7 @@ import { ScriptWriterAgent } from "./agents/ScriptWriterAgent";
 import { ImageGeneratorAgent } from "./agents/ImageGeneratorAgent";
 import { ToolAgent } from "./agents/ToolAgent";
 import { SceneCreatorAgent } from "./agents/SceneCreatorAgent";
+import { DataAgent } from "./agents/DataAgent";
 import { BaseAgentImpl } from "./agents/BaseAgentImpl";
 import { AgentResult, AgentType, RunnerContext, RunnerCallbacks } from "./types";
 import { Attachment, Message, MessageType, ContinuityData } from "@/types/message";
@@ -83,28 +84,139 @@ export class AgentRunner {
     }
   }
 
+  /**
+   * Create an agent based on the agent type
+   */
   private createAgent(agentType: AgentType): BaseAgentImpl {
-    console.log(`Creating agent of type: ${agentType}`);
-    
-    const options = { 
-      context: this.context,
-      traceId: this.traceId // Pass the traceId to agents
-    };
-    
     switch (agentType) {
       case "main":
-        return new MainAgent(options);
+        return new MainAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
       case "script":
-        return new ScriptWriterAgent(options);
+        return new ScriptWriterAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
       case "image":
-        return new ImageGeneratorAgent(options);
+        return new ImageGeneratorAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
       case "tool":
-        return new ToolAgent(options);
+        return new ToolAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
       case "scene":
-        return new SceneCreatorAgent(options);
+        return new SceneCreatorAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
+      case "data":
+        return new DataAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
       default:
-        console.warn(`Unknown agent type: ${agentType}, falling back to main agent`);
-        return new MainAgent(options);
+        return new MainAgent({
+          context: this.context,
+          traceId: this.traceId
+        });
+    }
+  }
+
+  /**
+   * Process a user input with the current agent
+   */
+  async processInput(
+    userInput: string, 
+    attachments: Attachment[] = []
+  ): Promise<AgentResult> {
+    // Check for duplicate requests
+    if (this.isProcessing) {
+      console.log("Already processing a request - ignoring");
+      return {
+        output: "I'm still processing your previous request. Please wait a moment.",
+      };
+    }
+    
+    // Set processing flag
+    this.isProcessing = true;
+    this.agentTurnCount++;
+    
+    try {
+      // Limit maximum turns to prevent infinite loops
+      if (this.agentTurnCount > this.maxTurns) {
+        return {
+          output: "I've reached my maximum number of turns for this conversation. Let's start a new one.",
+        };
+      }
+      
+      // Add attachments to context if provided
+      const contextWithAttachments = {
+        ...this.context,
+        attachments
+      };
+      
+      // Process with the current agent
+      console.log(`Processing input with ${this.currentAgent.getType()} agent: ${userInput.substring(0, 50)}...`);
+      const result = await this.currentAgent.process(userInput, contextWithAttachments);
+      
+      // Check for handoff
+      if (result.handoff || result.nextAgent) {
+        const targetAgent = result.handoff?.targetAgent || result.nextAgent;
+        const reason = result.handoff?.reason || result.handoffReason || "Specialized assistance needed";
+        
+        if (targetAgent) {
+          console.log(`Handoff from ${this.currentAgent.getType()} to ${targetAgent}. Reason: ${reason}`);
+          
+          // Add to handoff history
+          this.handoffHistory.push({
+            from: this.currentAgent.getType(),
+            to: targetAgent,
+            reason: reason
+          });
+          
+          // Call handoff start callback if exists
+          if (this.callbacks.onHandoffStart) {
+            this.callbacks.onHandoffStart(this.currentAgent.getType(), targetAgent, reason);
+          }
+          
+          // Call handoff callback if exists
+          if (this.callbacks.onHandoff) {
+            this.callbacks.onHandoff(this.currentAgent.getType(), targetAgent, reason);
+          }
+          
+          // Update context with handoff information
+          this.context.metadata = {
+            ...this.context.metadata,
+            isHandoffContinuation: true,
+            previousAgentType: this.currentAgent.getType(),
+            handoffReason: reason,
+            handoffHistory: [...this.handoffHistory]
+          };
+          
+          // Switch to the new agent
+          this.currentAgent = this.createAgent(targetAgent);
+          
+          // Call handoff end callback if exists
+          if (this.callbacks.onHandoffEnd) {
+            this.callbacks.onHandoffEnd(this.currentAgent.getType(), targetAgent, result);
+          }
+        }
+      }
+      
+      return result;
+    } catch (error) {
+      console.error("Error in AgentRunner.processInput:", error);
+      return {
+        output: "I encountered an error while processing your request. Please try again."
+      };
+    } finally {
+      // Reset processing flag
+      this.isProcessing = false;
     }
   }
 

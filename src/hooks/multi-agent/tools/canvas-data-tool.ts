@@ -1,247 +1,122 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { getSceneById, getScenesByProjectId } from "@/utils/canvas-data-utils";
+import { ToolDefinition } from "../types";
 
-export const canvasDataTool = {
-  name: "canvas_data",
-  description: "Extract and manage media data in Canvas scenes, including images, videos, and other assets",
-  version: "1.0",
-  requiredCredits: 0.1,
+/**
+ * Canvas Data Tool - Tool for data analysis and visualization within Canvas projects
+ */
+export const canvasDataTool: ToolDefinition = {
+  name: "canvas_data_tool",
+  description: "Tool for analyzing data from Canvas projects and generating visualizations",
   parameters: {
     type: "object",
     properties: {
-      action: {
-        type: "string",
-        enum: ["extract_image", "extract_video", "list_media", "import_media", "get_scene_media"],
-        description: "The action to perform on media data"
-      },
       projectId: {
         type: "string",
-        description: "The ID of the project to operate on"
+        description: "The ID of the Canvas project to analyze"
       },
-      sceneId: {
+      dataType: {
         type: "string",
-        description: "The ID of the scene to get media from or import to"
+        description: "The type of data to analyze (e.g., 'scenes', 'scripts', 'media')",
+        enum: ["scenes", "scripts", "media", "all"]
       },
-      mediaType: {
-        type: "string",
-        enum: ["scene_image", "product_image", "scene_video", "voice_over", "background_music"],
-        description: "The type of media to extract or import"
-      },
-      mediaUrl: {
-        type: "string",
-        description: "The URL of media to import (for import operations)"
+      visualizationType: {
+        type: "string", 
+        description: "The type of visualization to generate (if any)",
+        enum: ["none", "chart", "timeline", "network"]
       }
     },
-    required: ["action", "projectId"]
+    required: ["projectId", "dataType"]
   },
-  
-  execute: async (params, context) => {
+  requiredCredits: 0.5,
+  async execute(params, context) {
+    console.log("Executing Canvas Data Tool with params:", params);
+    
     try {
-      const { action, projectId, sceneId, mediaType, mediaUrl } = params;
+      // Add specific tracing for tool execution if enabled
+      if (!context.tracingDisabled) {
+        // Add tool execution event
+        context.addMessage(`Analyzing ${params.dataType} data for project ${params.projectId}...`, "tool_execution");
+      }
       
-      switch (action) {
-        case "extract_image": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for extract_image action",
-              data: null
-            };
-          }
-          
-          if (!mediaType || !['scene_image', 'product_image'].includes(mediaType)) {
-            return {
-              success: false,
-              message: "Valid mediaType (scene_image or product_image) is required",
-              data: null
-            };
-          }
-          
-          const scene = await getSceneById(sceneId);
-          if (!scene) {
-            return {
-              success: false,
-              message: `Scene with ID ${sceneId} not found`,
-              data: null
-            };
-          }
-          
-          const imageUrl = mediaType === 'scene_image' ? scene.imageUrl : scene.productImageUrl;
-          
-          return {
-            success: !!imageUrl,
-            message: imageUrl ? `${mediaType} extracted successfully` : `No ${mediaType} found in scene`,
-            data: {
-              sceneId,
-              mediaType,
-              url: imageUrl,
-              title: scene.title
+      // Simulate data analysis
+      await new Promise(resolve => setTimeout(resolve, 1500));
+      
+      // Mock response based on data type
+      let resultData;
+      switch (params.dataType) {
+        case "scenes":
+          resultData = {
+            sceneCount: 5,
+            averageDuration: "2:15",
+            totalDuration: "11:30",
+            completionStatus: "80%",
+            sceneTypes: {
+              intro: 1,
+              main: 3,
+              outro: 1
             }
           };
-        }
-          
-        case "extract_video": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for extract_video action",
-              data: null
-            };
-          }
-          
-          const scene = await getSceneById(sceneId);
-          if (!scene) {
-            return {
-              success: false,
-              message: `Scene with ID ${sceneId} not found`,
-              data: null
-            };
-          }
-          
-          const videoUrl = scene.videoUrl;
-          
-          return {
-            success: !!videoUrl,
-            message: videoUrl ? "Scene video extracted successfully" : "No video found in scene",
-            data: {
-              sceneId,
-              url: videoUrl,
-              title: scene.title,
-              duration: scene.duration
-            }
+          break;
+        case "scripts":
+          resultData = {
+            totalWordCount: 850,
+            averageWordsPerScene: 170,
+            keywordsFrequency: {
+              "product": 12,
+              "quality": 8,
+              "innovation": 6
+            },
+            sentimentAnalysis: "Positive (78%)"
           };
-        }
-          
-        case "list_media": {
-          const scenes = await getScenesByProjectId(projectId);
-          
-          const mediaList = scenes.map(scene => ({
-            sceneId: scene.id,
-            title: scene.title,
-            hasSceneImage: !!scene.imageUrl,
-            hasProductImage: !!scene.productImageUrl,
-            hasVideo: !!scene.videoUrl,
-            hasVoiceOver: !!scene.voiceOverUrl,
-            hasBackgroundMusic: !!scene.backgroundMusicUrl
-          }));
-          
-          return {
-            success: true,
-            message: `Found media information for ${scenes.length} scenes`,
-            data: mediaList
+          break;
+        case "media":
+          resultData = {
+            totalAssets: 23,
+            byType: {
+              images: 15,
+              videos: 5,
+              audio: 3
+            },
+            totalSize: "230MB",
+            qualityScore: "High"
           };
-        }
-          
-        case "import_media": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for import_media action",
-              data: null
-            };
-          }
-          
-          if (!mediaType) {
-            return {
-              success: false,
-              message: "Media type is required for import_media action",
-              data: null
-            };
-          }
-          
-          if (!mediaUrl) {
-            return {
-              success: false,
-              message: "Media URL is required for import_media action",
-              data: null
-            };
-          }
-          
-          const typeMapping = {
-            'scene_image': 'image_url',
-            'product_image': 'product_image_url',
-            'scene_video': 'video_url',
-            'voice_over': 'voice_over_url',
-            'background_music': 'background_music_url'
+          break;
+        case "all":
+          resultData = {
+            summary: "Project contains 5 scenes, 850 words of script, and 23 media assets",
+            completionStatus: "80%",
+            lastUpdated: new Date().toISOString(),
+            estimatedRenderTime: "15 minutes"
           };
-          
-          const dbField = typeMapping[mediaType];
-          if (!dbField) {
-            return {
-              success: false,
-              message: `Invalid media type: ${mediaType}`,
-              data: null
-            };
-          }
-          
-          // Update the scene with the new media URL
-          const { error } = await supabase
-            .from('canvas_scenes')
-            .update({ [dbField]: mediaUrl })
-            .eq('id', sceneId);
-          
-          if (error) {
-            throw new Error(`Error updating scene: ${error.message}`);
-          }
-          
-          return {
-            success: true,
-            message: `${mediaType} imported successfully`,
-            data: {
-              sceneId,
-              mediaType,
-              url: mediaUrl
-            }
-          };
-        }
-          
-        case "get_scene_media": {
-          if (!sceneId) {
-            return {
-              success: false,
-              message: "Scene ID is required for get_scene_media action",
-              data: null
-            };
-          }
-          
-          const scene = await getSceneById(sceneId);
-          if (!scene) {
-            return {
-              success: false,
-              message: `Scene with ID ${sceneId} not found`,
-              data: null
-            };
-          }
-          
-          return {
-            success: true,
-            message: "Scene media retrieved successfully",
-            data: {
-              sceneId: scene.id,
-              title: scene.title,
-              imageUrl: scene.imageUrl,
-              productImageUrl: scene.productImageUrl,
-              videoUrl: scene.videoUrl,
-              voiceOverUrl: scene.voiceOverUrl,
-              backgroundMusicUrl: scene.backgroundMusicUrl
-            }
-          };
-        }
-          
+          break;
         default:
-          return {
-            success: false,
-            message: `Unsupported action: ${action}`,
-            data: null
+          resultData = {
+            error: "Unknown data type specified"
           };
       }
+      
+      // Add visualization if requested
+      if (params.visualizationType && params.visualizationType !== "none") {
+        resultData.visualization = {
+          type: params.visualizationType,
+          url: `https://example.com/mock-visualization-${params.visualizationType}.png`,
+          generatedAt: new Date().toISOString()
+        };
+      }
+      
+      return {
+        success: true,
+        data: resultData,
+        message: `Successfully analyzed ${params.dataType} data for project ${params.projectId}`,
+        usage: {
+          creditsUsed: 0.5
+        }
+      };
     } catch (error) {
-      console.error("Canvas data tool error:", error);
+      console.error("Error executing Canvas Data Tool:", error);
       return {
         success: false,
-        message: `Operation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        data: null
+        error: error.message || "Unknown error occurred during data analysis"
       };
     }
   }

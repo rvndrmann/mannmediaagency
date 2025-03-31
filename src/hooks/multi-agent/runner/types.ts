@@ -58,3 +58,37 @@ export interface RunnerCallbacks {
   onHandoffEnd?: (from: AgentType, to: AgentType, result: any) => void;
   onToolExecution?: (toolName: string, params: any, result: any) => void;
 }
+
+// New SDK related types
+export interface SDKAgentDefinition {
+  name: string;
+  instructions: string;
+  tools?: SDKTool[];
+  model?: string;
+}
+
+export interface SDKTool {
+  name: string;
+  description: string;
+  parameters: Record<string, any>;
+  execute: (params: any) => Promise<any>;
+}
+
+export interface SDKHandoffDefinition {
+  targetAgent: string;
+  description: string;
+  when: string[];
+}
+
+export interface SDKAgentOptions {
+  model?: string;
+  temperature?: number;
+  streaming?: boolean;
+  maxTokens?: number;
+}
+
+export interface SDKRunner {
+  processInput: (input: string) => Promise<AgentResult>;
+  getCurrentAgent: () => AgentType;
+  getTraceId: () => string;
+}
